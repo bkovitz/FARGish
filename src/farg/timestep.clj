@@ -10,8 +10,25 @@
             [farg.util :as util :refer [dd dde]]
             [farg.with-state :refer [with-state]]))
 
+;TODO
+; Draw the graph on-screen
+; Bind only to the most bindable-looking elems
+;   "bindable-looking" = active, similar, maybe tagged/bound relevantly
+; Let the trivial bindings decay away
+; Positive feedback for good bindings
+; Negative feedback for bad bindings
+; Auto-tagging
+
+;MAYBE
+; :wants #{:bdx}
+; distribute-weight: Like weighted-choice, but don't roll the dice yet
+
 (def blank-state
   {:ws (pgraph), :timestep 0})
+
+(defn print-state [state]
+  (println "timestep:" (:timestep state))
+  (g/pprint (:ws state)))
 
 (defn make-node-attrs [nodename]
   (cond
@@ -20,7 +37,7 @@
     (= :succ nodename)
       {:class :tag, :a 0.2, :needs-bdx? false}
     (symbol? nodename)
-      {:class :letter, :a 0.2, :needs-bdx? true}))
+      {:class :letter, :letter nodename, :a 0.2, :needs-bdx? true}))
 
 (defn make-node [{:keys [ws] :as state} nodename]
   (let [[ws id] (g/next-id ws nodename)
@@ -69,13 +86,15 @@
 (defn run [initial-state]
   (with-state [state initial-state]
     (do-timestep)
-    -- (g/pprint (:ws state))
+    -- (print-state state)
     ))
 
 (def model1
   (-> (make-model 'a 'b 'c)
-      (add-tag :succ :a :b)
-      (add-tag :succ :b :c)))
+      (add-tag :succ 'a 'b)
+      (add-tag :succ 'b 'c)))
+
+#_(print-state model1)
 
 (run model1)
 
