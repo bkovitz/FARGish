@@ -1,6 +1,6 @@
-(defproject farg/v21 "0.21.0-SNAPSHOT"
+(defproject farg/ish "0.21.0-SNAPSHOT"
   :description "v21 of FARGish/Numbo"
-  :url "http://example.com/FIXME"
+  :url "https://github.com/bkovitz/FARGish"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[better-cond "2.0.1-SNAPSHOT"]

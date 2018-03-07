@@ -1,6 +1,6 @@
-# v21
+# FARGish
 
-FIXME: description
+Generic tools for making FARG models
 
 ## Installation
 
