@@ -82,8 +82,7 @@
     [rectangle
      rect-style
      (string-shape textx texty s)
-     text-style
-     ]))
+     text-style]))
 
 (defn farg-shape->seesaw
   "Returns a seq containing one or more seesaw shapes each followed by a

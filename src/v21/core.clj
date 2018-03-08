@@ -1,3 +1,4 @@
+;TODO Put the -main somewhere else and rm this file.
 (ns v21.core
   (:gen-class))
 

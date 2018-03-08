@@ -9,6 +9,7 @@
                  [farg/util "0.1.0-SNAPSHOT"]
                  [farg/with-state "0.0.1-SNAPSHOT"]
                  [org.clojure/clojure "1.9.0"]
+                 [potemkin "0.4.4"]
                  [seesaw/seesaw "1.4.5"]]
   :main ^:skip-aot v21.core
   :target-path "target/%s"

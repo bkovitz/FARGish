@@ -14,9 +14,7 @@
                       border-panel scrollable canvas listen select dispose!
                       menu menubar label table xyz-panel top-bottom-split
                       to-root repaint!]]
-            [seesaw.graphics
-              :refer [draw rotate rect ellipse style stroke string-shape
-                      anti-alias]]
+            [seesaw.graphics :refer [draw rotate anti-alias]]
             [seesaw.action :refer [action]]
             [seesaw.keymap :refer [map-key]]
             [seesaw.color :refer [color]]
@@ -55,7 +53,11 @@
                                  ;:size [2000 :by 1200]
                                  :background :white))))
 
-(defn run []
+(defn run
+  "Run this to start the GUI. Put FARG shapes (see farg.shapes) into
+  (:shapes @gui-state) to queue them up for drawing. Call update! to
+  repaint the window."
+  []
   (swap! gui-state update :frame (fn [old-frame]
     (when (some? old-frame)
       (dispose! old-frame))
