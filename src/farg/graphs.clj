@@ -22,6 +22,71 @@
     transitive-closure-of-edges-to-edges remove-edge remove-node
     as-seq pgraph->edn])
 
+;;; placing nodes (for purposes of graph layout)
+
+(def TAU (* 2 Math/PI))
+
+(defn quadrant [θ]
+  (let [frac (rem (/ θ TAU) 1.0)]
+    (if (>= frac 0.0)
+      (cond
+        (<= frac 0.25) 1
+        (<= frac 0.50) 2
+        (<= frac 0.75) 3
+        4)
+      (cond
+        (>= frac -0.25) 4
+        (>= frac -0.50) 3
+        (>= frac -0.75) 2
+        1))))
+
+(defn pt-on-ellipse
+  [[cx cy] a b θ]
+  (let [tanθ (Math/abs (Math/tan θ))
+        denom (Math/sqrt (+ (* b b)
+                            (* a a tanθ tanθ)))
+        x (/ (* a b)
+             denom)
+        y (/ (* a b tanθ)
+             denom)]
+    (case (quadrant θ)
+      1 [(+ cx x) (+ cy y)]
+      2 [(- cx x) (+ cy y)]
+      3 [(- cx x) (- cy y)]
+      4 [(+ cx x) (- cy y)])))
+
+(defn get-max-xy
+  "Returns [g [maxx maxy]], the value of the :max-xy gattr of g. Sticks
+  [0.0 0.0] into :max-xy as a side-effect if :max-xy is not defined in g."
+  [g]
+  (cond
+    :let [max-xy (pg/gattr g :max-xy)]
+    (some? max-xy)
+      [g max-xy]
+    [(pg/set-gattr g :max-xy [0.0 0.0]) [0.0 0.0]]))
+
+(defn place-primary-node
+  "Returns updated g. Assigns a hopefully reasonable value to node's :xy
+  attr. Updates gattrs of g to track nodes already placed."
+  [g node]
+  (with-state [g g]
+    (setq [maxx maxy] (get-max-xy))
+    (pg/set-attr node :xy [maxx maxy])
+    (pg/set-gattr :max-xy [(+ maxx 1.0) maxy])))
+
+(def angle-range [(/ (* 7.0 Math/PI) 8.0), (/ 1.0 Math/PI)])
+
+(defn place-tag
+  [g tag taggee1 taggee2]
+  (let [c1 (pg/attr g taggee1 :xy)
+        c2 (pg/attr g taggee2 :xy)
+        c (util/midpoint c1 c2)
+        a (+ (util/distance c c1) 0.1)
+        b 1.0
+        θ (util/choose-expr (apply util/rand angle-range)
+                            (- (apply util/rand angle-range)))]
+    (pg/set-attr g tag :xy (pt-on-ellipse c a b θ))))
+
 ;;; making nodes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn make-node-attrs [nodename]
@@ -33,7 +98,6 @@
     (symbol? nodename)
       {:class :letter, :letter nodename, :a 0.2, :needs-bdx? true}))
 
-;TODO NEXT Give the node an :xy attr.
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to
   the new node."
@@ -48,7 +112,8 @@
   (with-state [g g]
     (setq t (make-node tag))
     (pg/add-edge [t :from] [from :tags])
-    (pg/add-edge [t :to] [to :tags])))
+    (pg/add-edge [t :to] [to :tags])
+    (place-tag t from to)))
 
 (defn tag? [g elem]
   (= :tag (pg/attr g elem :class)))
@@ -90,6 +155,8 @@
     (empty? nodes) g
     (= 1 (count nodes)) g
     (with-state [g g]
+      (doseq [node nodes]
+        (place-primary-node node))
       (doseq [[left-node right-node] (partition 2 1 nodes)]
         (bind left-id (get m-nodes left-node))
         (bind right-id  (get m-nodes right-node))
