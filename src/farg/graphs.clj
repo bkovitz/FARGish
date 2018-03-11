@@ -28,7 +28,7 @@
     has-edge? add-edge-return-id add-edge ports-of incident-edges
     incident-ports other-id neighbors-of neighboring-edges-of pprint
     transitive-closure-of-edges-to-edges remove-edge remove-node
-    as-seq pgraph->edn])
+    as-seq pgraph->edn incident-elems])
 
 ;;; placing nodes (for purposes of graph layout)
 
@@ -82,7 +82,7 @@
     (pg/set-attr node :xy [maxx maxy])
     (pg/set-gattr :max-xy [(+ maxx 1.0) maxy])))
 
-(def angle-range [(/ (* 7.0 Math/PI) 8.0), (/ Math/PI 8.0)])
+(def angle-range [(/ (* 6.0 Math/PI) 6.0), (/ Math/PI 6.0)])
 
 (defn place-tag
   [g tag taggee1 taggee2]

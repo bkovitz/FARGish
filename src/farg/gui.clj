@@ -28,7 +28,7 @@
 
 (native!)
 
-(def a (atom nil))
+(def a (atom nil))  ;TODO rm; this was for debugging
 
 (defn render
   "Renders the canvas that shows the graph of the FARG model. All :shapes
@@ -49,12 +49,12 @@
         (->> fm shapes/g->farg-shapes (map shapes/add-seesaw))))))
 
 (defn update!
-  "Call this to force the GUI to redraw."
+  "Call this to force the GUI to redraw to match the FARG model."
   [& _]
   (update-shapes!)
   (repaint! (:frame @gui-state)))
 
-(defn stub-shapes!
+#_(defn stub-shapes!
   "Sticks some hard-coded shapes into the GUI window. Useful for testing to see
   how things look."
   []
@@ -72,35 +72,42 @@
   (swap! gui-state assoc :fm stub-model))
 
 
-(defn point-in-shape? [point seesaw-shape]
+(defn point-in-seesaw-shape? [point seesaw-shape]
   (let [x (.x point), y (.y point)]
     (and (isa? (type seesaw-shape) java.awt.Shape)
          (.contains seesaw-shape x y))))
 
-(defn find-seesaw-shape [point]
+(defn point-in-shape? [point farg-shape]
+  (some #(point-in-seesaw-shape? point %) (:seesaw farg-shape)))
+
+(defn find-shape-that-encloses-point [point]
   (find-first #(point-in-shape? point %) (:shapes @gui-state)))
 
-(defn start [event & args]
-  )
-;  (dd "start" event (.getPoint event) args
-;      (find-seesaw-shape (.getPoint event))))
+(defn drag-in-progress [id point]
+  {:action :dragging, :id id, :point point})
+
+(defn start-drag [event & args]
+  (let [point (.getPoint event)]
+    (when-let [farg-shape (find-shape-that-encloses-point point)]
+      (swap! gui-state assoc :drag-in-progress
+             (drag-in-progress (:id farg-shape) point)))))
 
 (defn drag [event & args]
-  )
-;  (dd "drag" event (.getPoint event) args
-;      (find-seesaw-shape (.getPoint event))))
+  (let [point (.getPoint event)]
+    (when-let [d (get @gui-state :drag-in-progress)]
+      (swap! gui-state update :fm shapes/move-shape (:id d) point)
+      (update!)
+      (swap! gui-state assoc-in [:drag-in-progress :point] point))))
 
-(defn finish [event & args]
-  )
-;  (dd "finish" event (.getPoint event) args
-;      (find-seesaw-shape (.getPoint event))))
+(defn finish-drag [event & args]
+  (swap! gui-state assoc :drag-in-progress nil))
 
 (defn add-behaviors [root]
   (let [canvas (select root [:#canvas])]
     (when-mouse-dragged canvas
-      :start start
+      :start start-drag
       :drag drag
-      :finish finish))
+      :finish finish-drag))
   root)
 
 (defn make-gui-frame

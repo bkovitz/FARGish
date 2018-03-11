@@ -17,7 +17,7 @@
                       to-root repaint!]]
             [seesaw.graphics
               :refer [draw rotate rect ellipse style stroke string-shape
-                      anti-alias]]
+                      anti-alias line]]
             [seesaw.action :refer [action]]
             [seesaw.keymap :refer [map-key]]
             [seesaw.color :refer [color]]
@@ -31,6 +31,7 @@
 (def rect-style (style :foreground :black
                        :background :white
                        :stroke (stroke :width 1)))
+(def line-style rect-style)
 
 (let [bi (java.awt.image.BufferedImage. 200 100
            (. java.awt.image.BufferedImage TYPE_INT_ARGB))
@@ -75,8 +76,7 @@
   (let [relative-box (calc-string-bounds text-font s)
         w (max (+ 10 (. relative-box getWidth)) min-text-rect-width-height)
         h (max (. relative-box getHeight) min-text-rect-width-height)
-        rel-y (. relative-box getCenterY)
-        rectangle (rect (- x (/ w 2.0)) (- y rel-y) w h)
+        rectangle (rect (- x (/ w 2.0)) (- y (/ h 2.0)) w h)
         [textx texty] (position-within-parent :centered :centered
                                               rectangle relative-box)]
     [rectangle
@@ -84,37 +84,48 @@
      (string-shape textx texty s)
      text-style]))
 
-(defn farg-xy->seesaw [[x y]]
-  [(+ (* 3 min-text-rect-width-height)
-      (* x 3 min-text-rect-width-height))
-   (- 400 (* y 3 min-text-rect-width-height))])
+(defn farg-xy->seesaw [xy]
+  (when-let [[x y] xy]
+    [(+ (* 3 min-text-rect-width-height)
+        (* x 3 min-text-rect-width-height))
+     (- 400 (* y 3 min-text-rect-width-height))]))
+
+(defn seesaw-xy->farg [point]
+  (let [x (.x point), y (.y point)]
+    [(/ (- x (* 3.0 min-text-rect-width-height))
+        (* 3.0 min-text-rect-width-height))
+     (/ (- y 400.0)
+        (* -3.0 min-text-rect-width-height))]))
+  
+(defn move-shape [g elemid point]
+  (g/set-attr g elemid :xy (seesaw-xy->farg point)))
 
 (defn farg-shape->seesaw
   "Returns a seq containing one or more seesaw shapes each followed by a
   seesaw style, suitable for passing as consecutive arguments to
   seesaw.graphics/draw, as happens in 'render'."
   [{:keys [shape-type] :as shape}]
-  (let [[x y] (farg-xy->seesaw (:xy shape))]
+  (let [[x y] (farg-xy->seesaw (:xy shape))
+        xys (map farg-xy->seesaw (:xys shape))]
     (case shape-type
       ::text
         [(string-shape x y (:text shape)) text-style]
       ::node
         (text-centered-in-rect (:text shape) [x y])
+      ::edge
+        (let [[[x1 y1] [x2 y2]] xys]
+          [(line x1 y1 x2 y2) line-style])
       (throw (IllegalArgumentException.
-        (str "Unknown shape: " shape)))
-    )))
+        (str "Unknown shape: " shape))))))
 
 (defn add-seesaw [farg-shape]
   (assoc farg-shape :seesaw (farg-shape->seesaw farg-shape)))
 
 (def empty-farg-shape ^{:type :farg-shape}
-  {:type :farg-shape})
+  {})
 
 (defn text [s xy]
   (merge empty-farg-shape {:shape-type ::text, :text s, :xy xy}))
-
-(defn node [s xy]
-  (merge empty-farg-shape {:shape-type ::node, :text s, :xy xy}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -131,9 +142,20 @@
       (str node)
     (strf g node)))
 
-(defn g->farg-shapes [g]
-  (map #(node (node->str g %) (g/attr g % :xy))
-       (g/nodes g)))
+(defn make-node-shape [g node]
+  (merge empty-farg-shape
+    {:shape-type ::node
+     :id node
+     :text (node->str g node)
+     :xy (g/attr g node :xy)}))
 
-#_(defn g->seesaw-shapes [g]
-  (->> g g->farg-shapes (mapcat farg-shape->seesaw)))
+(defn make-edge-shape [g edgeid]
+  (let [endpoints (g/incident-elems g edgeid)]
+    (merge empty-farg-shape
+      {:shape-type ::edge
+       :id edgeid
+       :xys (->> endpoints (map #(g/attr g % :xy)))})))
+
+(defn g->farg-shapes [g]
+  (concat (map #(make-edge-shape g %) (g/edges g))
+          (map #(make-node-shape g %) (g/nodes g))))

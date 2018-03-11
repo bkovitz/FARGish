@@ -3,13 +3,13 @@
 
 (clojure.tools.namespace.repl/disable-reload! *ns*)
 
-(def empty-gui-state
-  {:frame nil    ;The JFrame that holds the whole GUI
-   :fm nil       ;The current FARG model
-   :shapes #{}})
+(def empty-gui-state ^{:type ::gui-state}
+  {:frame nil             ;The JFrame that holds the whole GUI
+   :fm nil                ;The current FARG model
+   :shapes #{}}           ;Set of farg-shapes corresponding to :fm
+   :drag-in-progress nil) ;A drag-in-progress, if any
 
 (def gui-state (atom empty-gui-state))
 
-;gui/render passes each elem through farg-shape->seesaw and
-                  ;then to seesaw.graphics/draw.
-
+(defmethod print-method ::gui-state [v ^java.io.Writer w]
+  (.write w "#gui-state"))
