@@ -6,9 +6,9 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.trace :refer [deftrace] :as trace]
             [com.rpl.specter :as S]
-            [farg.pgraph :as g :refer [pgraph]]
+            [farg.graphs :as g]
             [farg.no-reload :refer [gui-state]]
-            [farg.util :as util :refer [dd dde]]
+            [farg.util :as util :refer [dd find-first]]
             [farg.with-state :refer [with-state]]
             [seesaw.core :as seesaw
               :refer [native! frame pack! show! config config! label alert
@@ -84,21 +84,56 @@
      (string-shape textx texty s)
      text-style]))
 
+(defn farg-xy->seesaw [[x y]]
+  [(+ (* 3 min-text-rect-width-height)
+      (* x 3 min-text-rect-width-height))
+   (- 400 (* y 3 min-text-rect-width-height))])
+
 (defn farg-shape->seesaw
   "Returns a seq containing one or more seesaw shapes each followed by a
   seesaw style, suitable for passing as consecutive arguments to
   seesaw.graphics/draw, as happens in 'render'."
-  [{:keys [type] :as shape}]
-  (case type
-    ::text
-      (let [[x y] (:xy shape)]
-        [(string-shape x y (:text shape)) text-style])
-    ::node
-      (text-centered-in-rect (:text shape) (:xy shape))
-  ))
+  [{:keys [shape-type] :as shape}]
+  (let [[x y] (farg-xy->seesaw (:xy shape))]
+    (case shape-type
+      ::text
+        [(string-shape x y (:text shape)) text-style]
+      ::node
+        (text-centered-in-rect (:text shape) [x y])
+      (throw (IllegalArgumentException.
+        (str "Unknown shape: " shape)))
+    )))
+
+(defn add-seesaw [farg-shape]
+  (assoc farg-shape :seesaw (farg-shape->seesaw farg-shape)))
+
+(def empty-farg-shape ^{:type :farg-shape}
+  {:type :farg-shape})
 
 (defn text [s xy]
-  {:type ::text, :text s, :xy xy})
+  (merge empty-farg-shape {:shape-type ::text, :text s, :xy xy}))
 
 (defn node [s xy]
-  {:type ::node, :text s, :xy xy})
+  (merge empty-farg-shape {:shape-type ::node, :text s, :xy xy}))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def m-nodeclass->strf
+  "Map from node :class attr to function to make the string that displays
+  on-screen."
+  {:letter (fn [g node] (str (g/attr g node :letter)))
+   :bind (constantly "bind")})
+
+(defn node->str [g node]
+  (cond
+    :let [strf (get m-nodeclass->strf (g/attr g node :class))]
+    (nil? strf)
+      (str node)
+    (strf g node)))
+
+(defn g->farg-shapes [g]
+  (map #(node (node->str g %) (g/attr g % :xy))
+       (g/nodes g)))
+
+#_(defn g->seesaw-shapes [g]
+  (->> g g->farg-shapes (mapcat farg-shape->seesaw)))

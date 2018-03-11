@@ -9,8 +9,16 @@
             [farg.pgraph :as pg]
             [farg.util :as util :refer [dd dde]]
             [farg.with-state :refer [with-state]]
-            [potemkin :refer [import-vars]]
-            ))
+            [potemkin :refer [import-vars]]))
+
+; Naming convention:
+;
+; (make-* g args...)  Makes an item, puts it in the graph, and returns
+;                     [g item].
+; (add-* g args...)   Same as make-* but only returns g.
+
+;TODO
+; Make the functions implement the above naming convention.
 
 ;;; export relevant functions from pgraph ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -74,7 +82,7 @@
     (pg/set-attr node :xy [maxx maxy])
     (pg/set-gattr :max-xy [(+ maxx 1.0) maxy])))
 
-(def angle-range [(/ (* 7.0 Math/PI) 8.0), (/ 1.0 Math/PI)])
+(def angle-range [(/ (* 7.0 Math/PI) 8.0), (/ Math/PI 8.0)])
 
 (defn place-tag
   [g tag taggee1 taggee2]
@@ -118,7 +126,7 @@
 (defn tag? [g elem]
   (= :tag (pg/attr g elem :class)))
 
-(defn make-binding [g from to]
+(defn add-binding [g from to]
   (with-state [g g]
     (setq b (make-node :bind))
     (pg/add-edge [b :from] [from :bdx])

@@ -32,5 +32,5 @@
   (with-state [g (graph (left-to-right-seq 'a 'b))]
     (g/add-tag :succ 'a 'b)
     ;Smoke test only
-    -- (g/pprint g)
+    ;-- (g/pprint g)
   ))
