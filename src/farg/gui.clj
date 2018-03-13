@@ -22,10 +22,6 @@
             [seesaw.font :refer [font]]
             [seesaw.table :as table]))
 
-;NEXT
-; Scale/invert coordinates from FARGish to Seesaw.  DONE
-; Draw edges.
-
 (native!)
 
 (def a (atom nil))  ;TODO rm; this was for debugging
@@ -44,15 +40,20 @@
   giving each shape its :seesaw element so that 'render' can draw them all."
   []
   (swap! gui-state
-    (fn [{:keys [fm] :as gui-state}]
-      (assoc gui-state :shapes
-        (->> fm shapes/g->farg-shapes (map shapes/add-seesaw))))))
+    (fn [gui-state]
+      (with-state [gui-state gui-state]
+        (update :fm g/place-nodes)
+        (assoc :shapes
+          (->> gui-state :fm shapes/g->farg-shapes (map shapes/add-seesaw)))))))
 
 (defn update!
   "Call this to force the GUI to redraw to match the FARG model."
-  [& _]
+ ([]
   (update-shapes!)
   (repaint! (:frame @gui-state)))
+ ([fm]
+  (swap! gui-state assoc :fm fm)
+  (update!)))
 
 #_(defn stub-shapes!
   "Sticks some hard-coded shapes into the GUI window. Useful for testing to see

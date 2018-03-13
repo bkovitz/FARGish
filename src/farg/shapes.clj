@@ -114,6 +114,8 @@
         (text-centered-in-rect (:text shape) [x y])
       ::edge
         (let [[[x1 y1] [x2 y2]] xys]
+          (assert (and (some? x1) (some? y1) (some? x2) (some? y2))
+                  (str "Expected no null in " xys " for " shape))
           [(line x1 y1 x2 y2) line-style])
       (throw (IllegalArgumentException.
         (str "Unknown shape: " shape))))))
@@ -128,6 +130,9 @@
   (merge empty-farg-shape {:shape-type ::text, :text s, :xy xy}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;NEXT Allow the spec to override the text, Seesaw shape, and style of
+; nodes.
 
 (def m-nodeclass->strf
   "Map from node :class attr to function to make the string that displays

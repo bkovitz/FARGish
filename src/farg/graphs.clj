@@ -7,7 +7,7 @@
             [com.rpl.specter :as S]
             [farg.pmatch :as pmatch :refer [pmatch]]
             [farg.pgraph :as pg]
-            [farg.util :as util :refer [dd dde]]
+            [farg.util :as util :refer [dd find-first]]
             [farg.with-state :refer [with-state]]
             [potemkin :refer [import-vars]]))
 
@@ -28,7 +28,14 @@
     has-edge? add-edge-return-id add-edge ports-of incident-edges
     incident-ports other-id neighbors-of neighboring-edges-of pprint
     transitive-closure-of-edges-to-edges remove-edge remove-node
-    as-seq pgraph->edn incident-elems])
+    as-seq pgraph->edn incident-elems gattr gattrs set-gattr set-gattrs])
+
+(defn tag? [g elem]
+  (#{:tag :bind} (pg/attr g elem :class)))
+
+(defn primary-node? [g elem]
+  (and (pg/has-node? g elem)
+       (not (tag? g elem))))
 
 ;;; placing nodes (for purposes of graph layout)
 
@@ -95,6 +102,62 @@
                             (- (apply util/rand angle-range)))]
     (pg/set-attr g tag :xy (pt-on-ellipse c a b θ))))
 
+(defn unplaced? [g node]
+  (nil? (pg/attr g node :xy)))
+
+(defn placement-depends-on
+  "Returns a set of nodes that must be placed before node can be placed, or
+  nil if node's placement doesn't depend on other nodes' placement."
+  [g node]
+  (cond
+    (tag? g node) ;TODO Handle unary tags, ternary tags, etc.
+      (set (filter some? [(pg/neighbor-via g [node :from])
+                          (pg/neighbor-via g [node :to])]))
+    nil))
+
+(defn place-node
+  "Assigns an :xy attr to node. Assumes that all nodes whose placement
+  node depends on have already been placed. Returns updated g."
+  [g node]
+  (cond
+    (tag? g node) ;TODO Handle unary tags, ternary tags, etc.
+      (place-tag g node (pg/neighbor-via g [node :from])
+                        (pg/neighbor-via g [node :to]))
+    (place-primary-node g node)))
+
+(defn place-one-node-arbitrarily
+  "Places one node in nodes arbitrarily, even if the nodes whose placement
+  it depends on haven't been placed. Returns [g node] where g is the updated
+  graph and node is the node chosen for placement."
+  [g nodes]
+  (cond
+    :let [primary-node (find-first #(primary-node? g %) nodes)]
+    (some? primary-node)
+      [(place-primary-node g primary-node) primary-node]
+    ;TODO Arbitrarily place tags some other way, or simplify this code.
+    [(place-primary-node g primary-node) primary-node]))
+
+;TODO UT
+(defn place-nodes
+  "Places all unplaced nodes. Returns updated g."
+  [g]
+  (loop [g g
+         unplaced (filter #(unplaced? g %) (pg/nodes g))
+         in-progress #{}]
+    (cond
+      (empty? unplaced)
+        (if (empty? in-progress)
+          g
+          (let [[g node] (place-one-node-arbitrarily g in-progress)
+                unplaced (seq (disj in-progress node))]
+            (recur g unplaced #{})))
+      :let [node (first unplaced)
+            unplaced (rest unplaced)
+            depends-on (placement-depends-on g node)]
+      (some depends-on unplaced)
+        (recur g unplaced (conj in-progress node))
+      (recur (place-node g node) unplaced in-progress))))
+
 ;;; making nodes ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn make-node-attrs [nodename]
@@ -106,6 +169,9 @@
     (symbol? nodename)
       {:class :letter, :letter nodename, :a 0.2, :needs-bdx? true}))
 
+;TODO NEXT Place the node right in this function.
+; Better would be to wait until the GUI is bring updated, topologically sort
+; all the elems without shapes, and then place them.
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to
   the new node."
@@ -120,11 +186,7 @@
   (with-state [g g]
     (setq t (make-node tag))
     (pg/add-edge [t :from] [from :tags])
-    (pg/add-edge [t :to] [to :tags])
-    (place-tag t from to)))
-
-(defn tag? [g elem]
-  (= :tag (pg/attr g elem :class)))
+    (pg/add-edge [t :to] [to :tags])))
 
 (defn add-binding [g from to]
   (with-state [g g]
