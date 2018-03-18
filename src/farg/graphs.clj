@@ -25,10 +25,11 @@
 (import-vars
   [farg.pgraph next-id pgraph has-elem? elem-type find-edgeid add-node
     add-nodes nodes edges elems has-node? attr attrs set-attr set-attrs
-    has-edge? add-edge-return-id add-edge ports-of incident-edges
-    incident-ports other-id neighbors-of neighboring-edges-of pprint
-    transitive-closure-of-edges-to-edges remove-edge remove-node
-    as-seq pgraph->edn incident-elems gattr gattrs set-gattr set-gattrs])
+    has-edge? add-edge-return-id add-edge ports-of elem->incident-edges
+    port->incident-edges incident-ports other-id neighbors-of
+    neighboring-edges-of pprint transitive-closure-of-edges-to-edges
+    remove-edge remove-node as-seq pgraph->edn incident-elems gattr gattrs
+    set-gattr set-gattrs])
 
 (defn tag? [g elem]
   (#{:tag :bind} (pg/attr g elem :class)))
@@ -89,14 +90,16 @@
     (pg/set-attr node :xy [maxx maxy])
     (pg/set-gattr :max-xy [(+ maxx 1.0) maxy])))
 
-(def angle-range [(/ (* 6.0 Math/PI) 6.0), (/ Math/PI 6.0)])
+(def angle-range
+  (let [d (/ Math/PI 3.0)]
+    [d, (- Math/PI d)]))
 
 (defn place-tag
   [g tag taggee1 taggee2]
   (let [c1 (pg/attr g taggee1 :xy)
         c2 (pg/attr g taggee2 :xy)
         c (util/midpoint c1 c2)
-        a (+ (util/distance c c1) 0.1)
+        a (+ (util/distance c c1) 0.5)
         b 1.0
         θ (util/choose-expr (apply util/rand angle-range)
                             (- (apply util/rand angle-range)))]
@@ -113,7 +116,7 @@
     (tag? g node) ;TODO Handle unary tags, ternary tags, etc.
       (set (filter some? [(pg/neighbor-via g [node :from])
                           (pg/neighbor-via g [node :to])]))
-    nil))
+    #{}))
 
 (defn place-node
   "Assigns an :xy attr to node. Assumes that all nodes whose placement
@@ -169,9 +172,6 @@
     (symbol? nodename)
       {:class :letter, :letter nodename, :a 0.2, :needs-bdx? true}))
 
-;TODO NEXT Place the node right in this function.
-; Better would be to wait until the GUI is bring updated, topologically sort
-; all the elems without shapes, and then place them.
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to
   the new node."

@@ -7,6 +7,7 @@
             [com.rpl.specter :as S]
             [farg.gui :as gui]
             [farg.graphs :as g :refer [graph make-graph]]
+            [farg.no-reload :refer [gui-state]]
             [farg.util :as util :refer [dd find-first with-rng-seed]]
             [farg.with-state :refer [with-state]]))
 
@@ -30,20 +31,53 @@
 ;  (->> state :ws g/nodes (remove #(or (tag? state elem)
 ;                                      (= elem %)))))
 
+(defn fm [] (:fm @gui-state))
+
+(defn needs-bdx? [g elem]
+  (g/attr g elem :needs-bdx?))
+
+(defn all-needing-bdx [g]
+  (filter #(needs-bdx? g %) (g/elems g)))
+
+(defn all-other-primary-nodes [g elem]
+  (filter #(and (g/primary-node? g %)
+                (not= elem %))
+          (g/nodes g)))
+
+(defn start-bdx [g0]
+  (with-state [g g0]
+    (doseq [elem (all-needing-bdx g0)]
+      (doseq [other-elem (all-other-primary-nodes g0 elem)]
+        (g/add-binding elem other-elem))
+      (g/set-attr elem :needs-bdx? false)
+      )))
+
+(defn do-timestep [g]
+  (with-state [g g]
+    (g/set-gattr :timestep (inc (g/gattr g :timestep)))
+    (start-bdx)))
 
 (defn start-model [g]
-  (g/set-gattr g :timestep 1))
+  (g/set-gattr g :timestep 0))
 
-(def simple-model (graph (left-to-right-seq 'a 'b 'c)))
+(def simple-model
+  (with-state [g (graph (left-to-right-seq 'a 'b 'c))]
+    (doseq [node (g/nodes g)]
+      (g/set-attr node :needs-bdx? true))))
 
-;(defn step! [g]
+(defn step! []
+  (swap! gui-state update :fm do-timestep)
+  (gui/update!))
 
+(defn one! []
+  (swap! gui-state update :fm (fn [g]
+    (g/add-binding g 'a 'b)))
+  (gui/update!))
+
+;NEXT (run) and (step!) should run the model and show what's happening in the
+; GUI.
 (defn run
  ([]
   (run simple-model))
  ([g]
-  (with-state [g (start-model g)]
-    (g/add-binding 'a 'c)
-    -- (gui/update! g)
-    -- (g/pprint g)
-  )))
+  (gui/run (start-model g))))

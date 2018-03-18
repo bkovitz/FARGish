@@ -41,10 +41,12 @@
   []
   (swap! gui-state
     (fn [gui-state]
-      (with-state [gui-state gui-state]
-        (update :fm g/place-nodes)
-        (assoc :shapes
-          (->> gui-state :fm shapes/g->farg-shapes (map shapes/add-seesaw)))))))
+      (if (:fm gui-state)
+        (with-state [gui-state gui-state]
+          (update :fm g/place-nodes)
+          (assoc :shapes
+            (->> gui-state :fm shapes/g->farg-shapes (map shapes/add-seesaw))))
+        gui-state))))
 
 (defn update!
   "Call this to force the GUI to redraw to match the FARG model."
@@ -82,7 +84,10 @@
   (some #(point-in-seesaw-shape? point %) (:seesaw farg-shape)))
 
 (defn find-shape-that-encloses-point [point]
-  (find-first #(point-in-shape? point %) (:shapes @gui-state)))
+  (->> @gui-state
+       :shapes
+       (filter #(point-in-shape? point %))
+       last))
 
 (defn drag-in-progress [id point]
   {:action :dragging, :id id, :point point})
@@ -98,9 +103,17 @@
     (when-let [d (get @gui-state :drag-in-progress)]
       (swap! gui-state update :fm shapes/move-shape (:id d) point)
       (update!)
-      (swap! gui-state assoc-in [:drag-in-progress :point] point))))
+      (swap! gui-state update :drag-in-progress
+        (fn [dip]
+          (assoc dip :point point
+                     :dragged? true))))))
 
 (defn finish-drag [event & args]
+  (when (and (get-in @gui-state [:drag-in-progress :id])
+             (not (get-in @gui-state [:drag-in-progress :dragged?])))
+    ;TODO Put this into the REPL's input buffer, or show it in a pane on
+    ;screen--anything but this.
+    (println (get-in @gui-state [:drag-in-progress :id])))
   (swap! gui-state assoc :drag-in-progress nil))
 
 (defn add-behaviors [root]
@@ -131,11 +144,15 @@
   "Run this to start the GUI. Put FARG shapes (see farg.shapes) into
   (:shapes @gui-state) to queue them up for drawing. Call update! to
   repaint the window."
-  []
+ ([g]
+  (swap! gui-state assoc :fm g)
+  (run))
+ ([]
   (swap! gui-state update :frame (fn [old-frame]
     (when (some? old-frame)
       (dispose! old-frame))
-    (-> (make-gui) show!))))
+    (-> (make-gui) show!)))
+  (update!)))
 
 (defn restart!
   "For debugging the GUI code."
