@@ -11,6 +11,6 @@
                  [org.clojure/clojure "1.9.0"]
                  [potemkin "0.4.4"]
                  [seesaw/seesaw "1.4.5"]]
-  :main ^:skip-aot v21.core
+  ;:main ^:skip-aot v21.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

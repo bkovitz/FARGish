@@ -29,7 +29,7 @@
     port->incident-edges incident-ports other-id neighbors-of
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattr gattrs
-    set-gattr set-gattrs])
+    set-gattr set-gattrs update-attr update-edge-attr])
 
 (defn tag? [g elem]
   (#{:tag :bind} (pg/attr g elem :class)))
@@ -193,6 +193,15 @@
     (setq b (make-node :bind))
     (pg/add-edge [b :from] [from :bdx])
     (pg/add-edge [b :to] [to :bdx])))
+
+;;; querying ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn elems-such-that
+  "Returns lazy seq of elems for which (pred g elemid) returns truthy."
+  [g pred]
+  (for [elemid (elems g)
+        :when (pred g elemid)]
+    elemid))
 
 ;;; shorthand ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
