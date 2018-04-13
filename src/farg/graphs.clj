@@ -29,7 +29,7 @@
     port->incident-edges incident-ports other-id neighbors-of
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattr gattrs
-    set-gattr set-gattrs update-attr update-edge-attr])
+    set-gattr set-gattrs update-attr update-edge-attr merge-default-attrs])
 
 (defn tag? [g elem]
   (#{:tag :bind} (pg/attr g elem :class)))

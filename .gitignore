@@ -12,6 +12,7 @@ pom.xml.asc
 tags
 .nrepl-history
 .nrepl-port
+.rebel_readline_history
 
 .*.sw?
 .nfs*

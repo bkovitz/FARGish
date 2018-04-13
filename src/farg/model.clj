@@ -78,8 +78,6 @@
     (g/add-binding g 'a 'b)))
   (gui/update!))
 
-;NEXT (run) and (step!) should run the model and show what's happening in the
-; GUI.
 (defn run
  ([]
   (run simple-model))
@@ -88,16 +86,38 @@
 
 ;;; The new way ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn start-model [fm]
-  (assoc fm :timestep 0))
+;NEXT
+; make-node  Set up initial activation and support
+; normalize-support
+; :self-support
+
+(def default-initial-activation
+  {:a 1.0, :min-activation 0.0})
+
+(defn set-initial-activation [fm elem]
+  (g/merge-default-attrs fm elem default-initial-activation))
+  ;(g/set-attrs fm elem (merge default-initial-activation (g/attrs fm elem))))
+
+(def default-initial-support
+  {:total-support 0.2, :self-support '(decaying 0.2)})
 
 (defn set-initial-support [fm elem]
-  (g/set-attr fm elem :total-support 0.2))
+  (g/merge-default-attrs fm elem default-initial-support))
+  ;(g/set-attrs fm elem (merge default-initial-support (g/attrs fm elem))))
+
+(defn make-node
+ ([fm nodename]
+  (make-node fm nodename {}))
+ ([fm nodename attrs]
+  (with-state [fm fm]
+    (setq id (g/make-node nodename attrs))
+    (set-initial-activation id)
+    (set-initial-support id)
+    (return [fm id]))))
 
 (defn add-binding [fm from to]
   (with-state [fm fm]
-    (setq b (g/make-node :bind))
-    (set-initial-support b)
+    (setq b (make-node :bind))
     (g/add-edge [b :from] [from :bdx])
     (g/add-edge [b :to] [to :bdx])))
 
@@ -135,6 +155,9 @@
   (g/update-edge-attr fm [agent :support-to] [recipient :support-from] :weight
                          (fnil + 0.0) amount))
 
+;NEXT
+;(defn step-activation
+
 (defn- refresh-total-support-for
   [fm elem]
   (let [total-support (->> (g/port->incident-edges fm [elem :support-from])
@@ -146,3 +169,15 @@
   (with-state [fm fm]
     (doseq [elem (g/elems fm)]
       (refresh-total-support-for elem))))
+
+(def default-attrs-for-original-nodes
+  {:total-support 1.0, :self-support '(permanent 1.0),
+   :a 1.0, :min-activation 0.1})
+
+(defn start-model [fm]
+  (with-state [fm fm]
+    (assoc :timestep 0)
+    (doseq [node (g/nodes fm)]
+      (g/merge-default-attrs node default-attrs-for-original-nodes))
+    ))
+
