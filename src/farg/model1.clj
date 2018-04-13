@@ -8,6 +8,7 @@
             [farg.gui :as gui]
             [farg.graphs2 :as g :refer [graph make-graph]]
             [farg.no-reload :refer [gui-state]]
+            [farg.pmatch :refer [pmatch]]
             [farg.util :as util :refer [dd remove= find-first with-rng-seed]]
             [farg.with-state :refer [with-state]]))
 
@@ -37,30 +38,36 @@
 
 (def abc
   (-> (graph (left-to-right-seq 'a 'b 'c))
-      (g/merge-default-attrs 'a {:class :letter, :letter 'a})
-      (g/merge-default-attrs 'b {:class :letter, :letter 'b})
-      (g/merge-default-attrs 'c {:class :letter, :letter 'c})
+      (g/merge-default-attrs 'a
+        {:class :letter, :letter 'a, :self-support `(:permanent 1.0)})
+      (g/merge-default-attrs 'b
+        {:class :letter, :letter 'b, :self-support `(:permanent 1.0)})
+      (g/merge-default-attrs 'c
+        {:class :letter, :letter 'c, :self-support `(:permanent 1.0)})
       ))
 
 (defn start-model [fm]
   (with-state [fm fm]
-    (assoc :timestep 0)
+    (assoc :timestep 0
+           :actions #{})
     ; TODO: give each node appropriate desiderata--or do this when making abc
     ; TODO: give each node appropriate support
     ))
 
-(defn all-elems-other-than [fm id]
-  (->> (g/elems fm) (remove= id)))
+(defn all-nodes-other-than [fm id]
+  (->> (g/nodes fm) (remove= id)))
 
 (defn add-bdx [fm from to]
-  (g/add-edge fm [from :bdx-from] [to :bdx-to] {:class :bind}))
+  (g/add-edge fm [from :bdx-from] [to :bdx-to]
+              {:class :bind
+               :self-support `(:decaying 0.2)}))
 
 (defn start-bdx-for
   "Creates bindings to id from all other nodes, and from id to all other
   nodes."
   [fm0 id]
   (with-state [fm fm0]
-    (doseq [that-elem (all-elems-other-than fm0 id)]
+    (doseq [that-elem (all-nodes-other-than fm0 id)]
       (add-bdx id that-elem)
       (add-bdx that-elem id))))
 
@@ -71,20 +78,48 @@
   (or (seq (g/port->incident-edges fm [id :bdx-from]))
       (seq (g/port->incident-edges fm [id :bdx-to]))))
 
-(defn seek-desiderata-for [fm id]
+(defn seek-desiderata-for
+  "Returns lazy seq of actions, or nil if none."
+  [fm id]
   (condp = (g/attr fm id :class)
-    :letter (if (has-bdx? fm id)
-              fm
-              (start-bdx-for fm id))
-    fm))
+    :letter (when (not (has-bdx? fm id))
+              [`(:start-bdx-for ~id)])
+    nil))
 
-(defn seek-desiderata [fm]
-  (reduce seek-desiderata-for fm (g/nodes fm)))
+(defn do-action [fm action]
+  (pmatch action
+    (:start-bdx-for ~id)
+      (start-bdx-for fm id)))
+
+(defn post-actions-for-desiderata [fm]
+  (with-state [fm fm]
+    (doseq [node (g/nodes fm)]
+      (update :actions into (seek-desiderata-for fm node)))))
+
+(defn update-total-support-for [fm elem]
+  ;TODO Add in support via :support edges
+  (pmatch (g/attr fm elem :self-support)
+    (:permanent ~n)
+      (g/set-attr fm elem :total-support n)
+    (:decaying ~n)
+      (-> fm
+          (g/set-attr elem :total-support n)
+          (g/set-attr elem :self-support `(:decaying ~(* 0.9 n))))))
+
+(defn update-total-support [fm]
+  (with-state [fm fm]
+    (doseq [elem (g/elems fm)]
+      (update-total-support-for elem))))
 
 (defn do-timestep [fm]
-  (-> (update fm :timestep inc)
-      seek-desiderata 
-      ; TODO
+  (with-state [fm fm]
+    (update :timestep inc)
+    (assoc :actions #{})
+    post-actions-for-desiderata
+    (doseq [action (:actions fm)]
+      (do-action action))
+    update-total-support
+    ; TODO
   ))
 
 (defn print-model-state [fm]
