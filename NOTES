@@ -1,0 +1,4 @@
+"Support" keeps a graph element existing.
+
+"Activation" attracts attention to a graph element. Activation can also keep
+an element existing even if it lacks support.
