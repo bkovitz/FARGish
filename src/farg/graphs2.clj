@@ -24,7 +24,8 @@
     port->incident-edges incident-ports other-id neighbors-of
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattrs
-    update-attr update-edge-attr merge-default-attrs edge-as-map])
+    update-attr update-edge-attr merge-default-attrs edge-as-map
+    pprint-nodes weight attrstr])
 
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to

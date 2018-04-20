@@ -5,6 +5,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.trace :refer [deftrace] :as trace]
             [com.rpl.specter :as S]
+            [farg.logging :as log :refer [with-logging log logdd]]
             [farg.gui :as gui]
             [farg.graphs2 :as g :refer [graph make-graph]]
             [farg.no-reload :refer [gui-state]]
@@ -19,9 +20,9 @@
 ; pprint
 ; seek-desiderata  DONE
 ; start-bdx  DONE
-; support-desiderata  
-; oppose-inconsistencies
-; post-support
+; support-desiderata  DONE
+; oppose-inconsistencies  NEXT
+; post-support  DONE
 ; post-antipathy
 ; normalize-support
 ; update-total-support
@@ -47,7 +48,9 @@
 ;;; Initialization
 
 (def letter-attrs
-  {:class :letter, :self-support `(:permanent 1.0), :desiderata #{:want-bdx}})
+  {:class :letter
+   :self-support `(:permanent 1.0)
+   :desiderata #{:want-bdx :want-adj-bdx}})
 
 (def abc
   (-> (graph (left-to-right-seq 'a 'b 'c))
@@ -61,15 +64,16 @@
     (update :stems assoc :bind 0)
     (assoc :timestep 0
            :actions #{}
-           :support-targets #{})
-    ; TODO: give each node appropriate desiderata--or do this when making abc
-    ; TODO: give each node appropriate support
+           :support-actions [])
     ))
 
 ;;; Bindings
 
 (defn bdx? [fm id]
   (= :bind (class-of fm id)))
+
+(defn all-bdx [fm]
+  (->> fm g/edges (filter #(bdx? fm %))))
 
 (defn add-bdx [fm from to]
   (g/add-edge fm [from :bdx-from] [to :bdx-to]
@@ -98,6 +102,11 @@
     (g/port->incident-edges fm [id :bdx-from])
     (g/port->incident-edges fm [id :bdx-to])))
 
+(defn edge-to-adjacent? [fm id edgeid]
+  (let [mate (g/other-id fm id edgeid)]
+    (or (= mate (g/attr fm id :adj-right))
+        (= mate (g/attr fm id :adj-left)))))
+
 ;;; Support for desiderata
 
 ;(defn boost-support [fm from to]
@@ -117,6 +126,10 @@
         `(:boost-support ~id ~elem))
     :want-bdx
       (for [elem (incident-bdx fm id)]
+        `(:boost-support ~id ~elem))
+    :want-adj-bdx
+      (for [elem (->> (incident-bdx fm id)
+                      (filter #(edge-to-adjacent? fm id %)))]
         `(:boost-support ~id ~elem))))
 
 ;(defn do-support-target [fm support-target]
@@ -133,7 +146,7 @@
   (with-state [fm fm]
     (doseq [id (g/elems fm)
             desideratum (g/attr fm id :desiderata)]
-      (update :support-targets into (desideratum->support fm id desideratum)))))
+      (update :support-actions into (desideratum->support fm id desideratum)))))
 
 ;;; Updating support weights
 
@@ -167,7 +180,6 @@
   (letfn [(upd [m1 [toid target-amt]]
             (assoc m1 toid (+ target-amt (total-support-for fm toid))))]
     [fromid (reduce upd {} m0)]))
-  ;[fromid (zipmap (keys m) (->> (vals m) (map 
   
 (defn normalize-support-targets
   "Scales target-amts (the vals of m) so they don't sum to > 1.0."
@@ -204,19 +216,17 @@
           (util/safe-min weight
                          (+ 0.2 (get m-old-support [fromid toid] 0.0))))))))
 
-;NEXT
 (defn update-support-weights [fm]
   (cond
     :let [m-old-support (support-map fm)
-          m-support-targets (->> (:support-targets fm)
-                                ;remember to rm abandoned :support edges
-                                (reduce add-support-target {})
-                                (map #(pos-feedback-for-support fm %))
-                                (map normalize-support-targets)
-                                #_(into {}))
-          _ (do (dd "HERE") (pprint m-old-support) (pprint m-support-targets))]
+          m-support-targets (->> (:support-actions fm)
+                                 ;remember to rm abandoned :support edges
+                                 (reduce add-support-target {})
+                                 (map #(pos-feedback-for-support fm %))
+                                 (map normalize-support-targets)
+                                 #_(into {}))
+          _ (logdd :support m-old-support m-support-targets)]
     (with-state [fm fm]
-      (assoc :support-targets m-support-targets)
       (doseq [[fromid toid] (keys m-old-support)]
         (remove-support-edge fromid toid))
       (doseq [sd m-support-targets]
@@ -225,8 +235,7 @@
 ;;; Total support
 
 (defn set-total-support-to-self-support [fm elem]
-  ;TODO Add in support via :support edges
-  (pmatch (dd (g/attr fm elem :self-support))
+  (pmatch (g/attr fm elem :self-support)
     (:permanent ~n)
       (g/set-attr fm elem :total-support n)
     (:decaying ~n)
@@ -273,27 +282,71 @@
 (defn do-timestep [fm]
   (with-state [fm fm]
     (update :timestep inc)
-    (assoc :actions #{}, :support-targets #{})
+    (assoc :actions #{}, :support-actions [])
     post-actions-for-desiderata
     (doseq [action (:actions fm)]
       (do-action action))
     post-support-for-desiderata
+    -- (logdd :support (:support-actions fm))
     update-support-weights
     update-total-support
-    ; TODO
+    ; TODO: rm unsupported elems
   ))
 
+(defn bdxstr [fm bdxid]
+  (let [[fromid toid] (->> bdxid
+                           (g/incident-ports fm)
+                           (sort-by second)
+                           (map first))]
+    (str bdxid \space fromid " -> " toid (g/attrstr fm bdxid))))
+
+(defn pprint-bdx [fm]
+  (cond
+    :let [ids (all-bdx fm)]
+    (empty? ids)
+      (println "Bindings: None")
+    (do
+      (println "Bindings:")
+      (doseq [s (->> ids (map #(bdxstr fm %)) sort)]
+        (println \space s)))))
+
+(defn supportstr [fm suppid]
+  (let [[fromid toid] (->> suppid
+                           (g/incident-ports fm)
+                           (sort-by second)
+                           (map first))]
+    (str suppid "  " fromid " -> " toid "  " (g/weight fm suppid))))
+
+(defn pprint-support [fm]
+  (cond
+    :let [ids (all-support-edges fm)]
+    (empty? ids)
+      (println "Support: None")
+    (do
+      (println "Support:")
+      (doseq [s (->> ids (map #(supportstr fm %)) sort)]
+        (println \space s)))))
+
+(defn pprint-model [fm]
+  (println "Gattrs:" (g/gattrs fm))
+  (g/pprint-nodes fm)
+  ;TODO pprint-edges
+  (pprint-bdx fm)
+  (pprint-support fm))
+
 (defn print-model-state [fm]
-  (g/pprint fm)
+  #_(g/pprint fm)
+  (pprint-model fm)
   fm)
 
 (defn demo
   "Run this to see what farg.model1 does."
-  []
-  (with-state [fm (start-model abc)]
-    print-model-state
-    (dotimes [t 3]
-      do-timestep
-      -- (println)
+  [& logk]
+  (with-logging logk
+    (with-state [fm (start-model abc)]
       print-model-state
-    )))
+      (dotimes [t 3]
+        do-timestep
+        -- (println)
+        print-model-state
+      ))))
