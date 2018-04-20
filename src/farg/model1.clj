@@ -39,6 +39,9 @@
 
 ;;; Utility functions
 
+(defn close-to-zero? [x]
+  (< (Math/abs x) 0.001))
+
 (defn all-nodes-other-than [fm id]
   (->> (g/nodes fm) (remove= id)))
 
@@ -61,7 +64,7 @@
 
 (defn start-model [fm]
   (with-state [fm fm]
-    (update :stems assoc :bind 0)
+    (update :stems assoc :bind 0 :support 0)
     (assoc :timestep 0
            :actions #{}
            :support-actions [])
@@ -191,46 +194,55 @@
     [fromid (zipmap (keys m) (->> (vals m) (map #(/ % total))))]))
 
 (defn support-map
-  "Returns map {[from-elem to-elem] weight}."
+  "Returns map {fromid {toid weight}} of existing support in fm."
   [fm]
   (with-state [m {}]
     (doseq [edgeid (all-support-edges fm)]
       (bind emap (g/edge-as-map fm edgeid))
-      (assoc [(:support-from emap) (:support-to emap)] (:weight emap)))))
-
-(defn add-support-edge [fm fromid toid weight]
-  (if (> (Math/abs weight) 0.001)
-    (g/add-edge fm [fromid :support-from] [toid :support-to]
-                   {:class :support, :weight weight})
-    fm))
+      (assoc-in [(:support-from emap) (:support-to emap)] (:weight emap)))))
 
 (defn remove-support-edge [fm fromid toid]
   (g/remove-edge fm [fromid :support-from] [toid :support-to]))
 
-(defn set-support-from-target [fm m-old-support [fromid m-to]]
-  (with-state [fm fm]
-    (doseq [[toid weight] m-to]
-      (if (< weight 0.0)
-        (add-support-edge fromid toid)
-        (add-support-edge fromid toid
-          (util/safe-min weight
-                         (+ 0.2 (get m-old-support [fromid toid] 0.0))))))))
+(defn add-support-edge [fm fromid toid weight]
+  (if (close-to-zero? weight)
+    (remove-support-edge fm fromid toid)
+    (g/add-edge fm [fromid :support-from] [toid :support-to]
+                   {:class :support, :weight weight})))
 
+(defn make-support-targets
+  "Returns seq of pairs [support-fromid {support-toid target-amt}] where
+  target-amt is the amount of support that support-fromid would like to give
+  support-toid based on the accumulated :support-actions in fm."
+  [fm]
+  (->> (:support-actions fm)
+       (reduce add-support-target {})
+       (map #(pos-feedback-for-support fm %))
+       (map normalize-support-targets)))
+
+(defn zero-support-for-abandoned-mates [target-map m-old]
+  (with-state [target-map target-map]
+    (doseq [old-mate (keys m-old)]
+      (when (not (contains? target-map old-mate))
+        (assoc old-mate 0.0)))))
+
+(defn update-support-weight [fm fromid toid new-weight old-weight]
+  (add-support-edge fm fromid toid
+    (if (> new-weight 0.0)
+      (min new-weight (max 0.2 (+ old-weight 0.2)))
+      (max new-weight (min -0.2 (- old-weight 0.2))))))
+      
 (defn update-support-weights [fm]
-  (cond
-    :let [m-old-support (support-map fm)
-          m-support-targets (->> (:support-actions fm)
-                                 ;remember to rm abandoned :support edges
-                                 (reduce add-support-target {})
-                                 (map #(pos-feedback-for-support fm %))
-                                 (map normalize-support-targets)
-                                 #_(into {}))
-          _ (logdd :support m-old-support m-support-targets)]
+  (let [m-old-support (support-map fm)
+        m-support-targets (make-support-targets fm)
+        _ (logdd :support m-old-support m-support-targets)]
     (with-state [fm fm]
-      (doseq [[fromid toid] (keys m-old-support)]
-        (remove-support-edge fromid toid))
-      (doseq [sd m-support-targets]
-        (set-support-from-target m-old-support sd)))))
+      (doseq [[fromid target-map] m-support-targets]
+        (bind m-old (get m-old-support fromid))
+        (bind target-map (zero-support-for-abandoned-mates target-map m-old))
+        (doseq [[toid new-weight] target-map]
+          (update-support-weight
+            fromid toid new-weight (get m-old toid 0.0)))))))
 
 ;;; Total support
 
@@ -251,10 +263,11 @@
     (doseq [elem (g/elems fm0)]
       (when (not (support? fm0 elem))
         (set-total-support-to-self-support elem)))
-    ;support received through support edges
-    (doseq [[[fromid toid] weight] (support-map fm0)]
+    ;support received through :support edges
+    (doseq [[fromid m] (support-map fm0)
+            [toid weight] m]
       (bind from-support (total-support-for fm0 fromid))
-      (g/update-attr toid :total-support + (* weight from-support)))))
+      (g/update-attr toid :total-support + (* weight (min 1.0 from-support))))))
 
 ;;; Actions
 
@@ -322,8 +335,8 @@
     :let [ids (all-support-edges fm)]
     (empty? ids)
       (println "Support: None")
-    (do
-      (println "Support:")
+    (let [total (->> ids (map #(g/weight fm %)) (reduce +))]
+      (println (str "Support:     (total " total ")"))
       (doseq [s (->> ids (map #(supportstr fm %)) sort)]
         (println \space s)))))
 
@@ -345,7 +358,7 @@
   (with-logging logk
     (with-state [fm (start-model abc)]
       print-model-state
-      (dotimes [t 3]
+      (dotimes [t 4]
         do-timestep
         -- (println)
         print-model-state
