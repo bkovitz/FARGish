@@ -65,6 +65,15 @@
       (swap! logging #(apply disj % logk))
     (bad-logk "stop-logging" logk)))
 
+(defmacro logdo
+  "Inside a logdo, *out* is bound to the log file, so logdo is useful to
+  include a sequence of one or more print or pprint statements that output
+  log data."
+  [logk & body]
+  `(when (log-this? ~logk)
+     (util/with-*out* @log-writer
+       ~@body)))
+
 (defmacro log [logk & exprs]
   `(when (log-this? ~logk)
      (println-to-log ~@exprs)))
@@ -76,7 +85,8 @@
 (defn logdd- [exprs]
   (cons 'do
         (for [expr exprs]
-          `(let [v# ~expr]
+          `(let [v# ~expr
+                 v# (if (seq? v#) (doall v#) v#)]
              (print-to-log '~expr " => ")
              (pprint-to-log v#)
              v#))))

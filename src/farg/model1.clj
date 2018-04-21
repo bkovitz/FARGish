@@ -5,7 +5,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.tools.trace :refer [deftrace] :as trace]
             [com.rpl.specter :as S]
-            [farg.logging :as log :refer [with-logging log logdd]]
+            [farg.logging :as log :refer [with-logging log logdd logdo]]
             [farg.gui :as gui]
             [farg.graphs2 :as g :refer [graph make-graph]]
             [farg.no-reload :refer [gui-state]]
@@ -21,7 +21,7 @@
 ; seek-desiderata  DONE
 ; start-bdx  DONE
 ; support-desiderata  DONE
-; oppose-inconsistencies  NEXT
+; oppose-inconsistencies  
 ; post-support  DONE
 ; post-antipathy
 ; normalize-support
@@ -37,6 +37,11 @@
 ;      (when (= :letter (attr fm node :class))
 ;        (set-attr node :desiderata 
 
+;;; Global parameters (these belong in the FARG model itself)
+
+(def desideratum-delta-per-timestep 0.1)
+(def positive-feedback-rate 0.1)
+
 ;;; Utility functions
 
 (defn close-to-zero? [x]
@@ -48,12 +53,84 @@
 (defn class-of [fm id]
   (g/attr fm id :class))
 
+;;; Utility functions for support
+
+(defn support? [fm id]
+  (= :support (class-of fm id)))
+
+(defn all-support-edges [fm]
+  (filter #(support? fm %) (g/edges fm)))
+
+(defn elems-that-can-give-support [fm]
+  (filter #(not (support? fm %)) (g/elems fm)))
+
+(def elems-that-can-receive-support elems-that-can-give-support)
+
+(defn find-support-edge [fm fromid toid]
+  (g/find-edgeid fm [fromid :support-from] [toid :support-to]))
+
+(defn remove-support-edge [fm fromid toid]
+  (g/remove-edge fm [fromid :support-from] [toid :support-to]))
+
+(defn add-support-edge [fm fromid toid weight]
+  (if (close-to-zero? weight)
+    (remove-support-edge fm fromid toid)
+    (g/add-edge fm [fromid :support-from] [toid :support-to]
+                   {:class :support, :weight weight})))
+
+(defn outgoing-support-edges [fm fromid]
+  (g/port->incident-edges fm [fromid :support-from]))
+
+(defn supportees-of
+  "Elements (both nodes and edges) to which there is a support edge from
+  fromid. Note that a supportee might be getting negative support."
+  [fm fromid]
+  (->> (outgoing-support-edges fm fromid)
+       (map #(g/other-id fm fromid %))))
+
+(defn total-support-for [fm id]
+  (cond
+    :let [s (g/attr fm id :total-support)]
+    (nil? s) 0.0
+    s))
+
+(defn support-map
+  "Returns map {fromid {toid weight}} of all existing support in fm."
+  [fm]
+  (with-state [m {}]
+    (doseq [edgeid (all-support-edges fm)]
+      (bind emap (g/edge-as-map fm edgeid))
+      (assoc-in [(:support-from emap) (:support-to emap)] (:weight emap)))))
+
+(defn total-of-all-support-weights [fm]
+  (->> (all-support-edges fm)
+       (map #(g/weight fm %))
+       (reduce +)))
+
+(defn permanent-support-for [fm id]
+  (pmatch (g/attr fm id :self-support)
+    (:permanent ~n)
+      n
+    ~any
+      0.0))
+
+(defn total-permanent-support [fm]
+  (->> (elems-that-can-receive-support fm)
+       (map #(permanent-support-for fm %))
+       (reduce +)))
+
+(defn total-total-support [fm]
+  (->> (elems-that-can-receive-support fm)
+       (map #(total-support-for fm %))
+       (reduce +)))
+
 ;;; Initialization
 
 (def letter-attrs
   {:class :letter
    :self-support `(:permanent 1.0)
    :desiderata #{:want-bdx :want-adj-bdx}})
+;TODO :want-bdx-from, not :want-bdx
 
 (def abc
   (-> (graph (left-to-right-seq 'a 'b 'c))
@@ -67,7 +144,7 @@
     (update :stems assoc :bind 0 :support 0)
     (assoc :timestep 0
            :actions #{}
-           :support-actions [])
+           :support-deltas [])
     ))
 
 ;;; Bindings
@@ -110,201 +187,7 @@
     (or (= mate (g/attr fm id :adj-right))
         (= mate (g/attr fm id :adj-left)))))
 
-;;; Support for desiderata
-
-;(defn boost-support [fm from to]
-;  (with-state [fm fm]
-;    (when (not (g/has-edge? fm [from :support-to] [to :support-from]
-;    ;Create edge if it doesn't exist
-;    ;Boost its weight
-;    ;Maybe rethink this
-;    ;Where do we do positive feedback?
-
-(defn desideratum->support
-  "Returns a seq of support actions, or nil if none."
-  [fm id desideratum]
-  (case desideratum
-    :want-mates-to-exist  ; assumes that id is an edge
-      (for [elem (g/incident-elems fm id)]
-        `(:boost-support ~id ~elem))
-    :want-bdx
-      (for [elem (incident-bdx fm id)]
-        `(:boost-support ~id ~elem))
-    :want-adj-bdx
-      (for [elem (->> (incident-bdx fm id)
-                      (filter #(edge-to-adjacent? fm id %)))]
-        `(:boost-support ~id ~elem))))
-
-;(defn do-support-target [fm support-target]
-;  (pmatch support-target
-;    (:support-incident-elems ~id)
-;      (with-state [fm]
-;        (doseq [elem (g/incident-elems fm id)]
-;          (boost-support id elem)))
-;    (:support-incident-bdx ~id)
-;      fm ;TODO
-;    ))
-
-(defn post-support-for-desiderata [fm]
-  (with-state [fm fm]
-    (doseq [id (g/elems fm)
-            desideratum (g/attr fm id :desiderata)]
-      (update :support-actions into (desideratum->support fm id desideratum)))))
-
-;;; Updating support weights
-
-(defn support? [fm id]
-  (= :support (class-of fm id)))
-
-(defn all-support-edges [fm]
-  (filter #(support? fm %) (g/edges fm)))
-
-(defn add-support-target
-  "Returns updated nested map {support-src-id {support-dst-id target-amt}}."
-  [m target]
-  (pmatch target
-    (:boost-support ~fromid ~toid)
-      (cond
-        :let [subm (get m fromid)]
-        (nil? subm)
-          (assoc m fromid {toid 1.0})
-        :let [old-amt (get subm toid)]
-        (nil? old-amt)
-          (assoc-in m [fromid toid] 1.0)
-        (update-in m [fromid toid] + 1.0))))
-
-(defn total-support-for [fm id]
-  (cond
-    :let [s (g/attr fm id :total-support)]
-    (nil? s) 0.0
-    s))
-
-(defn pos-feedback-for-support [fm [fromid m0]]
-  (letfn [(upd [m1 [toid target-amt]]
-            (assoc m1 toid (+ target-amt (total-support-for fm toid))))]
-    [fromid (reduce upd {} m0)]))
-  
-(defn normalize-support-targets
-  "Scales target-amts (the vals of m) so they don't sum to > 1.0."
-  [[fromid m]]
-  (cond
-    :let [total (reduce + (vals m))]
-    (< total 1.0)
-      [fromid m]
-    [fromid (zipmap (keys m) (->> (vals m) (map #(/ % total))))]))
-
-(defn support-map
-  "Returns map {fromid {toid weight}} of existing support in fm."
-  [fm]
-  (with-state [m {}]
-    (doseq [edgeid (all-support-edges fm)]
-      (bind emap (g/edge-as-map fm edgeid))
-      (assoc-in [(:support-from emap) (:support-to emap)] (:weight emap)))))
-
-(defn remove-support-edge [fm fromid toid]
-  (g/remove-edge fm [fromid :support-from] [toid :support-to]))
-
-(defn add-support-edge [fm fromid toid weight]
-  (if (close-to-zero? weight)
-    (remove-support-edge fm fromid toid)
-    (g/add-edge fm [fromid :support-from] [toid :support-to]
-                   {:class :support, :weight weight})))
-
-(defn make-support-targets
-  "Returns seq of pairs [support-fromid {support-toid target-amt}] where
-  target-amt is the amount of support that support-fromid would like to give
-  support-toid based on the accumulated :support-actions in fm."
-  [fm]
-  (->> (:support-actions fm)
-       (reduce add-support-target {})
-       (map #(pos-feedback-for-support fm %))
-       (map normalize-support-targets)))
-
-(defn zero-support-for-abandoned-mates [target-map m-old]
-  (with-state [target-map target-map]
-    (doseq [old-mate (keys m-old)]
-      (when (not (contains? target-map old-mate))
-        (assoc old-mate 0.0)))))
-
-(defn update-support-weight [fm fromid toid new-weight old-weight]
-  (add-support-edge fm fromid toid
-    (if (> new-weight 0.0)
-      (min new-weight (max 0.2 (+ old-weight 0.2)))
-      (max new-weight (min -0.2 (- old-weight 0.2))))))
-      
-(defn update-support-weights [fm]
-  (let [m-old-support (support-map fm)
-        m-support-targets (make-support-targets fm)
-        _ (logdd :support m-old-support m-support-targets)]
-    (with-state [fm fm]
-      (doseq [[fromid target-map] m-support-targets]
-        (bind m-old (get m-old-support fromid))
-        (bind target-map (zero-support-for-abandoned-mates target-map m-old))
-        (doseq [[toid new-weight] target-map]
-          (update-support-weight
-            fromid toid new-weight (get m-old toid 0.0)))))))
-
-;;; Total support
-
-(defn set-total-support-to-self-support [fm elem]
-  (pmatch (g/attr fm elem :self-support)
-    (:permanent ~n)
-      (g/set-attr fm elem :total-support n)
-    (:decaying ~n)
-      (-> fm
-          (g/set-attr elem :total-support n)
-          (g/set-attr elem :self-support `(:decaying ~(* 0.9 n))))
-    nil
-      (g/set-attr fm elem :total-support 0.0)))
-
-(defn update-total-support [fm0]
-  (with-state [fm fm0]
-    ;self-support
-    (doseq [elem (g/elems fm0)]
-      (when (not (support? fm0 elem))
-        (set-total-support-to-self-support elem)))
-    ;support received through :support edges
-    (doseq [[fromid m] (support-map fm0)
-            [toid weight] m]
-      (bind from-support (total-support-for fm0 fromid))
-      (g/update-attr toid :total-support + (* weight (min 1.0 from-support))))))
-
-;;; Actions
-
-(defn desideratum->actions
-  "Returns seq of actions, or nil if none."
-  [fm id desideratum]
-  (case desideratum
-    :want-bdx (when (not (has-bdx? fm id))
-                [`(:start-bdx-for ~id)])
-    nil))
-
-(defn do-action [fm action]
-  (pmatch action
-    (:start-bdx-for ~id)
-      (start-bdx-for fm id)))
-
-(defn post-actions-for-desiderata [fm]
-  (with-state [fm fm]
-    (doseq [node (g/nodes fm)
-            desideratum (g/attr fm node :desiderata)]
-      (update :actions into (desideratum->actions fm node desideratum)))))
-
-;;; Running
-
-(defn do-timestep [fm]
-  (with-state [fm fm]
-    (update :timestep inc)
-    (assoc :actions #{}, :support-actions [])
-    post-actions-for-desiderata
-    (doseq [action (:actions fm)]
-      (do-action action))
-    post-support-for-desiderata
-    -- (logdd :support (:support-actions fm))
-    update-support-weights
-    update-total-support
-    ; TODO: rm unsupported elems
-  ))
+;;; Printing
 
 (defn bdxstr [fm bdxid]
   (let [[fromid toid] (->> bdxid
@@ -332,11 +215,15 @@
 
 (defn pprint-support [fm]
   (cond
-    :let [ids (all-support-edges fm)]
+    :let [ids (all-support-edges fm)
+          totaltotal (total-total-support fm)]
     (empty? ids)
-      (println "Support: None")
-    (let [total (->> ids (map #(g/weight fm %)) (reduce +))]
-      (println (str "Support:     (total " total ")"))
+      (println (str "Support: None  (totaltotal of :total-supports "
+                    totaltotal ")"))
+    (let [total (total-of-all-support-weights fm)]
+      (println (str
+        "Support:     (total " total ") (total of :total-supports "
+        totaltotal ")"))
       (doseq [s (->> ids (map #(supportstr fm %)) sort)]
         (println \space s)))))
 
@@ -352,13 +239,159 @@
   (pprint-model fm)
   fm)
 
+;;; Actions
+
+(defn desideratum->actions
+  "Returns seq of actions, or nil if none."
+  [fm id desideratum]
+  (case desideratum
+    :want-bdx (when (not (has-bdx? fm id))
+                [`(:start-bdx-for ~id)])
+    nil))
+
+(defn do-action [fm action]
+  (pmatch action
+    (:start-bdx-for ~id)
+      (start-bdx-for fm id)))
+
+(defn do-actions [fm]
+  (reduce #(do-action %1 %2) fm (:actions fm)))
+
+(defn post-actions-for-desiderata [fm]
+  (with-state [fm fm]
+    (doseq [node (g/nodes fm)
+            desideratum (g/attr fm node :desiderata)]
+      (update :actions into (desideratum->actions fm node desideratum)))))
+
+;;; Support for desiderata, second attempt
+
+(defn desideratum->support-deltas
+  "Returns a seq of deltas for :support, or nil if none."
+  [fm fromid desideratum]
+  (case desideratum
+    :want-mates-to-exist  ; assumes that if is an edge
+      (for [toid (g/incident-elems fm fromid)]
+        `(:add-support ~fromid ~toid ~desideratum-delta-per-timestep))
+    :want-bdx
+      (for [toid (incident-bdx fm fromid)]
+        `(:add-support ~fromid ~toid ~desideratum-delta-per-timestep))
+    :want-adj-bdx
+      (for [toid (->> (incident-bdx fm fromid)
+                      (filter #(edge-to-adjacent? fm fromid %)))]
+        `(:add-support ~fromid ~toid ~desideratum-delta-per-timestep))))
+
+(defn post-support-deltas-for-desiderata [fm]
+  (with-state [fm fm]
+    (doseq [id (elems-that-can-give-support fm)
+            desideratum (g/attr fm id :desiderata)]
+      (update :support-deltas
+        into (desideratum->support-deltas fm id desideratum)))))
+
+(defn post-positive-feedback-for-support [fm]
+  (with-state [fm fm]
+    (doseq [fromid (elems-that-can-give-support fm)
+            supportee (supportees-of fm fromid)]
+      (bind amt (* positive-feedback-rate (total-support-for fm supportee)))
+      (when (not (close-to-zero? amt))
+        (update :support-deltas
+          conj `(:add-support ~fromid ~supportee ~amt))))))
+
+;;; Updating support weights, second attempt
+
+(defn normalize-outgoing-support [fm fromid]
+  (let [support-edges (outgoing-support-edges fm fromid)
+        old-weights (into {} (map #(vector % (g/weight fm %)) support-edges))
+        target-sum (util/clamp [0.2 1.0] (reduce + (vals old-weights)))
+        new-weights (util/normalize-vals target-sum old-weights)]
+    (with-state [fm fm]
+      (doseq [[edgeid new-weight] new-weights]
+        (g/set-attr edgeid :weight new-weight)))))
+
+(defn apply-support-delta [fm delta]
+  (pmatch delta
+    (:add-support ~fromid ~toid ~amt)
+      (cond
+        :let [edgeid (find-support-edge fm fromid toid)]
+        (nil? edgeid)
+          (add-support-edge fm fromid toid amt)
+        (g/add-weight fm edgeid amt))))
+
+(defn apply-support-deltas [fm]
+  (with-state [fm fm]
+    (doseq [delta (:support-deltas fm)]
+      (apply-support-delta delta))
+    -- (logdo :support
+         (println "\nunnormalized support:\n")
+         (pprint-support fm))
+    (doseq [fromid (elems-that-can-give-support fm)]
+      (normalize-outgoing-support fromid))))
+
+;;; Total support
+
+(defn set-total-support-to-self-support [fm elem]
+  (pmatch (g/attr fm elem :self-support)
+    (:permanent ~n)
+      (g/set-attr fm elem :total-support n)
+    (:decaying ~n)
+      (-> fm
+          (g/set-attr elem :total-support n)
+          (g/set-attr elem :self-support `(:decaying ~(* 0.9 n))))
+    nil
+      (g/set-attr fm elem :total-support 0.0)))
+
+(defn normalize-total-support [fm]
+  (let [ptotal (total-permanent-support fm)
+        m (->> (elems-that-can-receive-support fm)
+               (map #(vector % (total-support-for fm %)))
+               (into {}))
+        target-sum (util/clamp
+                     [ptotal (+ ptotal (total-of-all-support-weights fm))]
+                     (total-total-support fm))
+        new-m (util/normalize-vals target-sum m)]
+    (dd ptotal m target-sum new-m)
+    (with-state [fm fm]
+      (doseq [[id new-total-support] new-m]
+        (g/set-attr id :total-support new-total-support)))))
+
+(defn update-total-support [fm0]
+  (with-state [fm fm0]
+    ;self-support
+    (doseq [elem (elems-that-can-receive-support fm0)]
+      (set-total-support-to-self-support elem))
+    ;support received through :support edges
+    (doseq [[fromid m] (support-map fm0)
+            [toid weight] m]
+      (bind from-support (total-support-for fm0 fromid))
+      (g/update-attr toid :total-support
+        + (* weight from-support #_(min 1.0 from-support))))
+    normalize-total-support
+    ))
+
+;;; Running
+
+(defn do-timestep [fm]
+  (with-state [fm fm]
+    (update :timestep inc)
+    (assoc :actions #{}, :support-deltas [])
+
+    post-actions-for-desiderata
+    do-actions
+    post-support-deltas-for-desiderata
+    post-positive-feedback-for-support
+    apply-support-deltas
+    update-total-support
+    ; TODO: rm unsupported elems
+  ))
+
 (defn demo
   "Run this to see what farg.model1 does."
-  [& logk]
+  [& {:keys [logk timesteps] :or {timesteps 3}}]
+  ;[& logk]
   (with-logging logk
     (with-state [fm (start-model abc)]
+      update-total-support
       print-model-state
-      (dotimes [t 4]
+      (dotimes [t timesteps]
         do-timestep
         -- (println)
         print-model-state
