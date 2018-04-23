@@ -14,8 +14,13 @@
             [clojure.tools.trace :refer [deftrace] :as trace]
             [farg.util :as util :refer [dd remove= find-first with-rng-seed]]))
 
+(def default-logging #{:error})
+
 (def logging "Atom containing set of keywords indicating which actions to log."
-  (atom #{:error}))
+  (atom default-logging))
+
+(defn reset []
+  (reset! logging default-logging))
 
 (def log-writer "Atom containing java.io.Writer to write log messages to."
   (atom *err*))
