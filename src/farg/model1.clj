@@ -267,7 +267,7 @@
         weight (g/weight fm suppid)
         ts (total-support-for fm fromid)]
     (str suppid "  " fromid " -> " toid "  " weight
-         "  (actual: " (* weight ts) ")")))
+         "  (actual: " (* weight (max ts 0.0)) ")")))
 
 (defn pprint-support [fm]
   (cond
@@ -457,9 +457,9 @@
     (doseq [[fromid m] (support-map fm0)
             [toid weight] m]
       (bind from-support (total-support-for fm0 fromid))
-      (when (and (> from-support 0.0) (> weight 0.0) )
+      (when (and (> from-support 0.0))
         (g/update-attr toid :total-support
-          + (* weight from-support #_(min 1.0 from-support)))))
+          + (* weight from-support))))
     normalize-total-support
     ))
 
