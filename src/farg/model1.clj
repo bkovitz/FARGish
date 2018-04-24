@@ -176,7 +176,8 @@
   (g/add-edge fm [from :bdx-from] [to :bdx-to]
               {:class :bind
                :desiderata #{:want-mates-to-exist
-                             :oppose-other-bdx-from-same-mate}
+                             :oppose-other-bdx-from-same-mate
+                             :oppose-bindbacks}
                :self-support `(:decaying 0.2)}))
 
 (defn start-bdx-for
@@ -195,13 +196,15 @@
     (doseq [toid (all-nodes-other-than fm0 fromid)]
       (add-bdx fromid toid))))
 
-(defn incident-bdx [fm id]
-  (concat
-    (g/port->incident-edges fm [id :bdx-from])
-    (g/port->incident-edges fm [id :bdx-to])))
-
 (defn incident-bdx-from [fm id]
   (g/port->incident-edges fm [id :bdx-from]))
+
+(defn incident-bdx-to [fm id]
+  (g/port->incident-edges fm [id :bdx-to]))
+
+(defn incident-bdx [fm id]
+  (concat (incident-bdx-from fm id)
+          (incident-bdx-to fm id)))
 
 (defn has-bdx?
   "Are any bindings, even if unofficial, linked to [id :bdx-from] or
@@ -220,6 +223,13 @@
   [fm bdxid]
   (->> (g/incident-ports fm bdxid)
        (filter #(= :bdx-from (second %)))
+       ffirst))
+
+(defn bound-to
+  "Returns id of element that bdxis is bound to."
+  [fm bdxid]
+  (->> (g/incident-ports fm bdxid)
+       (filter #(= :bdx-to (second %)))
        ffirst))
 
 (defn edge-to-adjacent? [fm id edgeid]
@@ -351,6 +361,16 @@
         ;add to existing antipathy
         (- old-delta desideratum-delta-per-timestep)))))
 
+(defn bindbacks
+  "Returns seq of ids of bindings that are the reverse of bdxid: they bind
+  from what bdxid binds to, and to what bdxid binds from."
+  [fm bdxid]
+  (let [fromid (bound-from fm bdxid)
+        toid (bound-to fm bdxid)]
+    (for [edgeid (incident-bdx-to fm fromid)
+          :when (= toid (bound-from fm edgeid))]
+      edgeid)))
+
 (defn post-support-for-desideratum
   "Adds/subtracts to :support-deltas for one desideratum."
   [fm fromid desideratum]
@@ -374,7 +394,9 @@
                           (incident-bdx-from fm)
                           (remove= fromid))]
           (add-antipathy fromid toid))
-      ;NEXT: :oppose-tight-bdx-cycle
+      :oppose-bindbacks  ; This is a model hack.
+        (doseq [other-bdxid (bindbacks fm fromid)]
+          (add-antipathy fromid other-bdxid))
         )))
 
 (defn post-support-deltas-for-desiderata [fm]
