@@ -109,6 +109,12 @@
     (nil? s) 0.0
     s))
 
+(defn prev-total-support-for [fm id]
+  (cond
+    :let [s (g/attr fm id :prev-total-support)]
+    (nil? s) 0.0
+    s))
+
 (defn support-map
   "Returns map {fromid {toid weight}} of all existing support in fm."
   [fm]
@@ -146,7 +152,9 @@
 (def letter-attrs
   {:class :letter
    :self-support `(:permanent 1.0)
-   :desiderata #{:want-bdx-from :want-adj-bdx}})
+   :desiderata #{:want-bdx-from :want-adj-bdx}
+   ;:desiderata #{:want-bdx-from}
+   })
 
 (def abc
   (-> (graph (left-to-right-seq 'a 'b 'c))
@@ -276,9 +284,11 @@
                            (sort-by second)
                            (map first))
         weight (g/weight fm suppid)
-        ts (total-support-for fm fromid)]
+        ts (prev-total-support-for fm fromid)]
     (str suppid "  " fromid " -> " toid "  " weight
          "  (actual: " (* weight (max ts 0.0)) ")")))
+            ;BUG The actual support weight must be based on total-support
+            ;in the previous timestep.
 
 (defn pprint-support [fm]
   (cond
@@ -444,11 +454,18 @@
       (bind edgeid (find-support-edge fm fromid toid))
       (if (nil? edgeid)
         (add-support-edge fromid toid amt)
-        (g/add-weight edgeid amt)))
+        (if (> amt 0.0)
+          (g/add-weight edgeid amt)
+          (g/set-attr edgeid :weight amt))))
     (doseq [fromid (elems-that-can-give-support fm)]
       (normalize-outgoing-support fromid))))
 
 ;;; Total support
+
+(defn save-prev-total-supports [fm]
+  (with-state [fm fm]
+    (doseq [elem (elems-that-can-receive-support fm)]
+      (g/set-attr elem :prev-total-support (g/attr fm elem :total-support)))))
 
 (defn set-total-support-to-self-support [fm elem]
   (pmatch (g/attr fm elem :self-support)
@@ -500,6 +517,7 @@
     -- (println "\n---------- timestep" (:timestep fm) "-----------\n")
     (assoc :actions #{}, :support-deltas {})
 
+    save-prev-total-supports
     post-actions-for-desiderata
     do-actions
     post-support-deltas-for-desiderata
