@@ -120,7 +120,7 @@
 (defn total-of-all-pos-support-weights [fm]
   (->> (all-support-edges fm)
        (map #(g/weight fm %))
-       (filter #(> % 0.0))
+       (filter pos?)
        (reduce +)))
 
 (defn permanent-support-for [fm id]
@@ -138,6 +138,7 @@
 (defn total-total-support [fm]
   (->> (elems-that-can-receive-support fm)
        (map #(total-support-for fm %))
+       (filter pos?)
        (reduce +)))
 
 ;;; Initialization
@@ -386,9 +387,11 @@
   (with-state [fm fm]
     (doseq [fromid (elems-that-can-give-support fm)
             supportee (supportees-of fm fromid)]
-      (bind amt (* positive-feedback-rate (total-support-for fm supportee)))
-      (when (not (close-to-zero? amt))
-        (add-support fromid supportee amt)))))
+      (bind supportee-support (total-support-for fm supportee))
+      (when (pos? supportee-support)
+        (bind amt (* positive-feedback-rate supportee-support))
+        (when (not (close-to-zero? amt))
+          (add-support fromid supportee amt))))))
 
 ;;; Updating support weights
 
@@ -440,12 +443,16 @@
   (let [support-limit (+ (total-permanent-support fm)
                          (total-of-all-pos-support-weights fm))
         actual-total-support (total-total-support fm)]
+    (dd support-limit actual-total-support)
     (with-state [fm fm]
       (when (> actual-total-support support-limit)
         (bind m (->> (elems-that-can-receive-support fm)
                   (map #(vector % (total-support-for fm %)))
+                  (filter #(-> % second pos?))
                   (into {})))
-        (doseq [[id new-total-support] (normalize-vals support-limit m)]
+        (bind new-m (normalize-vals support-limit m))
+        -- (dd m new-m)
+        (doseq [[id new-total-support] new-m]
           (g/set-attr id :total-support new-total-support))))))
 
 (defn update-total-support [fm0]
