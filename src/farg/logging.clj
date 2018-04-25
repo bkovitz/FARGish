@@ -97,6 +97,7 @@
              v#))))
 
 ;TODO Throw error if exprs is empty
+;TODO UT that this really returns the value of the last expr
 (defmacro logdd [logk & exprs]
   `(when (log-this? ~logk)
      ~(logdd- exprs)))
