@@ -1,0 +1,6 @@
+library(ggplot2)
+library(readr)
+s <- read_csv("support.csv")
+w <- read_csv("weight.csv")
+ggplot(data=s, mapping=aes(t, support, colour=id)) + geom_line()
+ggplot(data=w, mapping=aes(t, weight, colour=suppid)) + geom_line()

@@ -38,6 +38,30 @@
 ;      (when (= :letter (attr fm node :class))
 ;        (set-attr node :desiderata 
 
+(def data (atom {})) ;{series-name [{column-name value}]}
+
+(defn obs
+  "Adds one observation to @data. series is the name of the series.
+  datum is a map of the form {column-name value}."
+  [series-name datum]
+  (swap! data update series-name (fnil conj []) datum))
+
+(defn clear-data! []
+  (reset! data {}))
+
+(defn write-data-series [series-name]
+  (let [series (get @data series-name)]
+    (util/with-*out* (clojure.java.io/writer (str (name series-name) ".csv"))
+      (let [column-names (->> series first keys (map str) sort)]
+        (println (clojure.string/join \, column-names)))
+      (doseq [row series]
+        (println (clojure.string/join \,
+          (->> row (sort-by #(-> % first str)) (map second))))))))
+
+(defn write-data []
+  (doseq [series-name (keys @data)]
+    (write-data-series series-name)))
+
 ;;; Global parameters (these belong in the FARG model itself)
 
 (def desideratum-delta-per-timestep 0.1)
@@ -315,6 +339,16 @@
     (doseq [[fromid toid amt] (parsed-support-deltas fm)]
       (update-in [fromid toid] (fnil + 0.0) amt))))
 
+(defn suppinfo
+  "Returns a map {:fromid fromid, :toid toid, :weight weight}."
+  [fm suppid]
+  (let [[fromid toid] (->> suppid
+                           (g/incident-ports fm)
+                           (sort-by second)
+                           (map first))
+        weight (g/weight fm suppid)]
+    {:fromid fromid, :toid toid, :weight weight}))
+
 (defn supportstr [fm suppid]
   (let [[fromid toid] (->> suppid
                            (g/incident-ports fm)
@@ -572,6 +606,17 @@
 
 ;;; Running
 
+(defn save-obs [fm]
+  (let [t (:timestep fm)]
+    (doseq [id (elems-that-can-receive-support fm)]
+      (obs :support {"t" t, "id" id, "support" (total-support-for fm id)}))
+    (doseq [suppid (all-support-edges fm)]
+      (let [{:keys [fromid toid weight]} (suppinfo fm suppid)]
+        (obs :weight {"t" t
+                      "suppid" (str suppid \space fromid " -> " toid)
+                      "weight" (g/weight fm suppid)}))))
+  fm)
+
 (defn do-timestep [fm]
   (with-state [fm fm]
     (update :timestep inc)
@@ -587,18 +632,23 @@
     apply-support-deltas
     update-total-support
     ; TODO: rm unsupported elems
+    save-obs
   ))
 
 (defn demo
   "Run this to see what farg.model1 does."
   [& {:keys [log timesteps] :or {timesteps 3}}]
   (log/reset)
+  (clear-data!)
   (with-logging log
     (with-state [fm (start-model abc)]
       update-total-support
+      save-obs
       print-model-state
       (dotimes [t timesteps]
         do-timestep
         -- (println)
         print-model-state
-      ))))
+      )
+      -- (write-data)))
+  )
