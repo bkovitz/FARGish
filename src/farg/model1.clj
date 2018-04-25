@@ -182,6 +182,11 @@
       (bind emap (g/edge-as-map fm edgeid))
       (assoc-in [(:support-from emap) (:support-to emap)] (:weight emap)))))
 
+(defn total-of-all-support-weights [fm]
+  (->> (all-support-edges fm)
+       (map #(g/weight fm %))
+       (reduce +)))
+
 (defn total-of-all-pos-support-weights [fm]
   (->> (all-support-edges fm)
        (map #(g/weight fm %))
@@ -501,7 +506,7 @@
 
 ;;; Updating support weights
 
-;not calling this
+;not calling this anymore
 (defn normalize-outgoing-support [fm fromid]
   (let [support-edges (outgoing-support-edges fm fromid)
         old-pos-weights (->> support-edges
@@ -527,10 +532,17 @@
   adjusted by the supporter's :total-support."
   [fm]
   (logdd :support (total-of-all-pos-support-weights fm))
+  (logdd :support (total-of-all-support-weights fm))
+  (obs :totals {"t" (:timestep fm)
+                "total" "prenorm-pos-support"
+                "y" (total-of-all-pos-support-weights fm)})
+  (obs :totals {"t" (:timestep fm)
+                "total" "prenorm-support"
+                "y" (total-of-all-support-weights fm)})
   (let [edge-weights (logdd :support
                             (->> fm
                                  support-edges-and-weights
-                                 ;(filter #(-> % second pos?))
+                                 (filter #(-> % second pos?))
                                  (into {})))
         _ (logdd :support (->> edge-weights (map second) (reduce +)))
         m (logdd :support (expt-scale-down-vals (logdd :support (total-self-support fm)) edge-weights))]
@@ -614,7 +626,16 @@
       (let [{:keys [fromid toid weight]} (suppinfo fm suppid)]
         (obs :weight {"t" t
                       "suppid" (str suppid \space fromid " -> " toid)
-                      "weight" (g/weight fm suppid)}))))
+                      "weight" (g/weight fm suppid)})))
+    (obs :totals {"t" t
+                  "total" "pos-weight"
+                  "y" (total-of-all-pos-support-weights fm)})
+    (obs :totals {"t" t
+                  "total" "self-support"
+                  "y" (total-self-support fm)})
+    (obs :totals {"t" t
+                  "total" "total-support"
+                  "y" (total-total-support fm)}))
   fm)
 
 (defn do-timestep [fm]
