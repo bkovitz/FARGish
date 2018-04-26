@@ -65,6 +65,7 @@
 ;;; Global parameters (these belong in the FARG model itself)
 
 (def desideratum-delta-per-timestep 0.1)
+(def antipathy-per-timestep -1.0)
 (def positive-feedback-rate 0.1)
 (def normalization-expt 1.2)
   ; Applied when normalizing a set of values whose sum exceeds some limit.
@@ -446,9 +447,9 @@
       (cond
         (or (nil? old-delta)
             (>= old-delta 0.0))
-          (- desideratum-delta-per-timestep) ;replace support with antipathy
+          antipathy-per-timestep ;replace support with antipathy
         ;add to existing antipathy
-        (- old-delta desideratum-delta-per-timestep)))))
+        (+ old-delta antipathy-per-timestep)))))
 
 (defn bindbacks
   "Returns seq of ids of bindings that are the reverse of bdxid: they bind
