@@ -569,10 +569,12 @@
 
 ;;; Total support
 
-(defn save-prev-total-supports [fm]
+(defn save-prevs [fm]
   (with-state [fm fm]
     (doseq [elem (elems-that-can-receive-support fm)]
-      (g/set-attr elem :prev-total-support (g/attr fm elem :total-support)))))
+      (g/set-attr elem :prev-total-support (g/attr fm elem :total-support)))
+    (doseq [suppid (all-support-edges fm)]
+      (g/set-attr suppid :prev-weight (g/attr fm suppid :weight)))))
 
 ;TODO Refactor to call self-support-for
 (defn set-total-support-to-self-support [fm elem]
@@ -645,7 +647,7 @@
     -- (println "\n---------- timestep" (:timestep fm) "-----------\n")
     (assoc :actions #{}, :support-deltas {})
 
-    save-prev-total-supports
+    save-prevs
     post-actions-for-desiderata
     do-actions
     post-support-deltas-for-desiderata

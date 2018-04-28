@@ -14,5 +14,7 @@
                  [seesaw/seesaw "1.4.5"]]
   ;:main ^:skip-aot v21.core
   :aliases {"rebl" ["trampoline" "run" "-m" "rebel-readline.main"]}
+  :repl-options {:init (do (use 'farg.model1)
+                           (require '[farg.graphs2 :as g]))}
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
