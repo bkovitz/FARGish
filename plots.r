@@ -1,7 +1,11 @@
 library(ggplot2)
 library(readr)
 
-th = theme(legend.key.width = unit(1, "cm"))
+th = theme(legend.key.width = unit(1, "cm"),
+           legend.margin=margin(2,2,2,2),
+           legend.key.height=unit(3, "mm"),
+           legend.text=element_text(size=6),
+           legend.spacing.y = unit(1, "mm"))
 # th = theme(axis.line.x = unit(30, "cm"))
 
 plots <- function() {

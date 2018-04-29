@@ -65,8 +65,11 @@
 ;;; Global parameters (these belong in the FARG model itself)
 
 (def desideratum-delta-per-timestep 0.1)
+(def preference-delta 0.1)
 (def antipathy-per-timestep -0.5)
 (def positive-feedback-rate 0.1)
+(def minimum-total-support 0.05)
+(def minimum-self-support 0.05)
 (def normalization-expt 1.2)
   ; Applied when normalizing a set of values whose sum exceeds some limit.
   ; Must be > 1.0 for higher values to drive down lower values.
@@ -219,7 +222,8 @@
 (def letter-attrs
   {:class :letter
    :self-support `(:permanent 1.0)
-   :desiderata #{:want-bdx-from :want-adj-bdx}
+   :desiderata #{`(:need :bdx (:prefer :bdx-from :adj-bdx))}
+   ;:desiderata #{:want-bdx :want-adj-bdx}
    ;:desiderata #{:want-bdx-from}
    ;:desiderata #{:want-bdx}
    })
@@ -252,9 +256,12 @@
 (defn add-bdx [fm from to]
   (g/add-edge fm [from :bdx-from] [to :bdx-to]
               {:class :bind
-               :desiderata #{:want-mates-to-exist
-                             :oppose-other-bdx-from-same-mate
-                             :oppose-bindbacks}
+               :desiderata #{`(:need :mates-to-exist)
+                             `(:oppose :other-bdx-from-same-mate)
+                             `(:oppose :bindbacks)}
+;               :desiderata #{:want-mates-to-exist
+;                             :oppose-other-bdx-from-same-mate
+;                             :oppose-bindbacks}
                :self-support `(:decaying 0.2)}))
 
 (defn start-bdx-for
@@ -303,16 +310,36 @@
        ffirst))
 
 (defn bound-to
-  "Returns id of element that bdxis is bound to."
+  "Returns id of element that bdxid is bound to."
   [fm bdxid]
   (->> (g/incident-ports fm bdxid)
        (filter #(= :bdx-to (second %)))
        ffirst))
 
+(defn bound-from? [fm fromid bdxid]
+  (= fromid (bound-from fm bdxid)))
+
+(defn bound-to? [fm toid bdxid]
+  (= toid (bound-to fm bdxid)))
+
+(defn bound-from-or-to? [fm id bdxid]
+  (or (bound-from? fm id bdxid)
+      (bound-to? fm id bdxid)))
+
 (defn edge-to-adjacent? [fm id edgeid]
   (let [mate (g/other-id fm id edgeid)]
     (or (= mate (g/attr fm id :adj-right))
         (= mate (g/attr fm id :adj-left)))))
+
+(defn bindbacks
+  "Returns seq of ids of bindings that are the reverse of bdxid: they bind
+  from what bdxid binds to, and to what bdxid binds from."
+  [fm bdxid]
+  (let [fromid (bound-from fm bdxid)
+        toid (bound-to fm bdxid)]
+    (for [edgeid (incident-bdx-to fm fromid)
+          :when (= toid (bound-from fm edgeid))]
+      edgeid)))
 
 ;;; Printing
 
@@ -364,11 +391,7 @@
                            (map first))
         weight (g/weight fm suppid)
         ts (prev-total-support-for fm fromid)]
-    (str suppid "  " fromid " -> " toid "  " weight
-         "  (actual: " (* weight (max ts 0.0)) ")")))
-            ;BUG The actual support weight must be based on total-support
-            ;in the previous timestep.
-            ;BUG Update "actual" to reflect however it's now being calulated
+    (str suppid "  " fromid " -> " toid "  " weight)))
 
 (defn support-totals-str [fm]
   (str 
@@ -400,17 +423,82 @@
 
 ;;; Actions
 
-(defn desideratum->actions
+#_(defn desideratum->actions
   "Returns seq of actions, or nil if none."
   [fm id desideratum]
   (case desideratum
     :want-bdx
       (when (not (has-bdx? fm id))
         [`(:start-bdx-for ~id)])
-    :want-bdx-from
+    :prefer-bdx-from
       (when (not (has-bdx-from? fm id))
         [`(:start-bdx-from-for ~id)])
     nil))
+
+(defn unimplemented [& ignored]
+  (throw (IllegalArgumentException. "Unimplemented function.")))
+
+(def m-desideratum-objects
+  {:bdx
+    {:start-fn (fn [id] `(:start-bdx-for ~id))
+     :find-all-fn incident-bdx
+     :match?-fn bound-from-or-to?}
+   :bdx-from
+    {:start-fn (fn [id] `(:start-bdx-from-for ~id))
+     :find-all-fn incident-bdx-from
+     :match?-fn bound-from?}
+   :adj-bdx
+    {:start-fn unimplemented
+     :find-all-fn (fn [fm id] (filter #(edge-to-adjacent? fm id %)
+                                      (incident-bdx fm id)))
+     :match?-fn (fn [fm id bdxid]
+                  (and (bound-from-or-to? fm id bdxid)
+                       (edge-to-adjacent? fm id bdxid)))}
+   :mates-to-exist
+    {:start-fn identity
+     :find-all-fn (fn [fm bdxid] (g/incident-elems fm bdxid))
+     :match?-fn unimplemented}
+   :other-bdx-from-same-mate
+    {:start-fn unimplemented
+     :find-all-fn (fn [fm fromid] (->> (bound-from fm fromid)
+                                       (incident-bdx-from fm)
+                                       (remove= fromid)))
+     :match?-fn unimplemented}
+   :bindbacks
+    {:start-fn unimplemented
+     :find-all-fn bindbacks
+     :match?-fn unimplemented}})
+
+#_(defn desideratum->actions
+  "Returns seq of actions, or nil if none."
+  [fm id desideratum]
+  (pmatch desideratum
+    (:need ~need ~@more)
+      (case need
+        :bdx
+          (when (not (has-bdx? fm id))
+            [`(:start-bdx-for ~id)])
+        :bdx-from
+          (when (not (has-bdx-from? fm id))
+            [`(:start-bdx-from-for ~id)]))
+    nil
+      nil))
+
+(defn ospec-unsatisfied? [fm id ospec]
+  (if (keyword? ospec)
+    (empty? ((get-in m-desideratum-objects [ospec :find-all-fn]) fm id))
+    false))
+
+(defn desideratum->actions
+  "Returns seq of actions, or nil if none."
+  [fm id desideratum]
+  (pmatch desideratum
+    (:need ~@ospecs)
+      (for [ospec ospecs
+            :when (ospec-unsatisfied? fm id ospec)]
+        ((get-in m-desideratum-objects [ospec :start-fn]) id))
+    ~any
+      nil))
 
 (defn do-action [fm action]
   (pmatch action
@@ -459,17 +547,7 @@
         ;add to existing antipathy
         (+ old-delta antipathy-per-timestep)))))
 
-(defn bindbacks
-  "Returns seq of ids of bindings that are the reverse of bdxid: they bind
-  from what bdxid binds to, and to what bdxid binds from."
-  [fm bdxid]
-  (let [fromid (bound-from fm bdxid)
-        toid (bound-to fm bdxid)]
-    (for [edgeid (incident-bdx-to fm fromid)
-          :when (= toid (bound-from fm edgeid))]
-      edgeid)))
-
-(defn post-support-for-desideratum
+#_(defn post-support-for-desideratum
   "Adds/subtracts to :support-deltas for one desideratum."
   [fm fromid desideratum]
   (with-state [fm fm]
@@ -496,6 +574,59 @@
         (doseq [other-bdxid (bindbacks fm fromid)]
           (add-antipathy fromid other-bdxid))
         )))
+
+(defn find-objects
+  "ospecs is the part of a desideratum after the verb, which lists
+  types of objects to support or oppose. The inside of a (:prefer ...)
+  clause is also an objects-spec. Returns seq of all matching objects."
+  [fm fromid ospecs]
+  (apply concat
+    (for [ospec ospecs]
+      (pmatch ospec
+        ~kw (guard (keyword? kw))
+          (let [find-all (get-in m-desideratum-objects [kw :find-all-fn])]
+            (dd fromid (find-all fm fromid)))
+        ~ls (guard (seq? ls))
+          nil  ; ignore preferences
+        ))))
+
+(defn matching-objects
+  [fm fromid subset object-spec]
+  (let [match? (get-in m-desideratum-objects [object-spec :match?-fn])]
+    (filter #(match? fm fromid %) subset)))
+
+(defn preferred-objects
+  "Same as find-objects but only returns seq of objects within subset that
+  match the object-specs within (:prefer ...) clauses. The objects-spec
+  argument should be the whole list of desiderata, not an individual
+  preference clause."
+  [fm fromid subset ospecs]
+  (apply concat
+    (for [ospec ospecs]
+      (pmatch ospec
+        (:prefer ~@preferred-object-specs)
+          (apply concat
+            (for [ospec preferred-object-specs]
+              (dd fromid subset ospec (matching-objects fm fromid subset ospec))))
+        ~any
+          nil))))
+
+(defn post-support-for-desideratum
+  "Adds/subtracts to :support-deltas for one desideratum."
+  [fm fromid desideratum]
+  (pmatch desideratum
+    (:need ~@ospecs)
+      (let [needed (find-objects fm fromid ospecs)
+            preferred (preferred-objects fm fromid needed ospecs)]
+        (with-state [fm fm]
+          (doseq [toid needed]
+            (add-support fromid toid))
+          (doseq [toid preferred]
+            (add-support fromid toid preference-delta))))
+    (:oppose ~@ospecs)
+      (with-state [fm fm]
+        (doseq [toid (find-objects fm fromid ospecs)]
+          (add-antipathy fromid toid)))))
 
 (defn post-support-deltas-for-desiderata [fm]
   (with-state [fm fm]
@@ -571,22 +702,7 @@
           (if (> amt 0.0)
             (g/add-weight edgeid amt)
             (g/set-attr edgeid :weight amt))) ))
-    normalize-outgoing-support-across-network
-    ))
-
-
-;            [toid amt] m-deltas]
-;      (bind edgeid (find-support-edge fm fromid toid))
-;      (bind amt (* amt (prev-total-support-for fm fromid))) ;???
-;      (if (nil? edgeid)
-;        (add-support-edge fromid toid amt)
-;        (if (> amt 0.0)
-;          (g/add-weight edgeid amt)
-;          (g/set-attr edgeid :weight amt))))
-;    normalize-outgoing-support-across-network
-;    #_(doseq [fromid (elems-that-can-give-support fm)]
-;      (normalize-outgoing-support fromid)
-;      )))
+    normalize-outgoing-support-across-network))
 
 ;;; Total support
 
@@ -635,17 +751,32 @@
             [toid weight] m]
       (bind from-support (total-support-for fm0 fromid))
       (when (and (> from-support 0.0))
-        (g/update-attr toid :total-support
-          + (* weight #_from-support)))) ;TODO Don't consider from-support
-    normalize-total-support
-    ))
+        (g/update-attr toid :total-support (fnil + 0.0) weight)))
+    normalize-total-support))
+
+;;; Removing graph elements
+
+(defn remove-unsupported-elems [fm]
+  (with-state [fm fm]
+    (doseq [elem (elems-that-can-receive-support fm)]
+      (when (and (< (self-support-for fm elem) minimum-self-support)
+                 (< (total-support-for fm elem) minimum-total-support))
+        (g/remove-elem elem)))))
 
 ;;; Running
+
+(defn nice-id [fm id]
+  (cond
+    (bdx? fm id)
+      (str id \space \[ (bound-from fm id) " -> " (bound-to fm id) \])
+    (str id)))
 
 (defn save-obs [fm]
   (let [t (:timestep fm)]
     (doseq [id (elems-that-can-receive-support fm)]
-      (obs :support {"t" t, "id" id, "support" (total-support-for fm id)}))
+      (obs :support {"t" t
+                     "id" (nice-id fm id)
+                     "support" (total-support-for fm id)}))
     (doseq [suppid (all-support-edges fm)]
       (let [{:keys [fromid toid weight]} (suppinfo fm suppid)]
         (obs :weight {"t" t
@@ -677,7 +808,7 @@
     -- (logdd :support (:support-deltas fm))
     apply-support-deltas
     update-total-support
-    ; TODO: rm unsupported elems
+    remove-unsupported-elems
     save-obs
   ))
 

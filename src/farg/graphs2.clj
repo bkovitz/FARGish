@@ -25,7 +25,7 @@
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattrs
     update-attr update-edge-attr merge-default-attrs edge-as-map
-    pprint-nodes weight add-weight attrstr])
+    pprint-nodes weight add-weight attrstr remove-elem])
 
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to
