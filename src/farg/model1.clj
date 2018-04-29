@@ -65,7 +65,7 @@
 ;;; Global parameters (these belong in the FARG model itself)
 
 (def desideratum-delta-per-timestep 0.1)
-(def antipathy-per-timestep -1.0)
+(def antipathy-per-timestep -0.5)
 (def positive-feedback-rate 0.1)
 (def normalization-expt 1.2)
   ; Applied when normalizing a set of values whose sum exceeds some limit.
@@ -126,7 +126,9 @@
 
 (def elems-that-can-receive-support elems-that-can-give-support)
 
-(defn find-support-edge [fm fromid toid]
+(defn find-support-edge
+  "Returns nil if :support edge does not exist."
+  [fm fromid toid]
   (g/find-edgeid fm [fromid :support-from] [toid :support-to]))
 
 (defn remove-support-edge [fm fromid toid]
@@ -428,6 +430,11 @@
 
 ;;; Support for desiderata
 
+(defn clear-deltas [fm]
+  (with-state [fm fm]
+    (doseq [suppid (all-support-edges fm)]
+      (g/set-attr suppid :delta 0.0))))
+
 (defn add-support
  ([fm fromid toid]
   (add-support fm fromid toid desideratum-delta-per-timestep))
@@ -439,7 +446,8 @@
           amt
         (< old-delta 0.0)
           old-delta  ; don't add support if fromid has antipathy to toid
-        (+ old-delta amt))))))
+        (+ old-delta amt))))
+  ))
 
 (defn add-antipathy [fm fromid toid]
   (update-in fm [:support-deltas fromid toid]
@@ -553,19 +561,32 @@
 
 (defn apply-support-deltas [fm]
   (with-state [fm fm]
-    (doseq [[fromid m-deltas] (:support-deltas fm)
-            [toid amt] m-deltas]
-      (bind amt (* amt (total-support-for fm fromid))) ;???
-      (bind edgeid (find-support-edge fm fromid toid))
-      (if (nil? edgeid)
-        (add-support-edge fromid toid amt)
-        (if (> amt 0.0)
-          (g/add-weight edgeid amt)
-          (g/set-attr edgeid :weight amt))))
+    (doseq [[fromid m-deltas] (:support-deltas fm)]
+      (bind prevts (prev-total-support-for fm fromid))
+      (doseq [[toid amt] m-deltas]
+        (bind amt (if (<= prevts 0.0) 0.0 (* amt prevts)))
+        (bind edgeid (find-support-edge fm fromid toid))
+        (if (nil? edgeid)
+          (add-support-edge fromid toid amt)
+          (if (> amt 0.0)
+            (g/add-weight edgeid amt)
+            (g/set-attr edgeid :weight amt))) ))
     normalize-outgoing-support-across-network
-    #_(doseq [fromid (elems-that-can-give-support fm)]
-      (normalize-outgoing-support fromid)
-      )))
+    ))
+
+
+;            [toid amt] m-deltas]
+;      (bind edgeid (find-support-edge fm fromid toid))
+;      (bind amt (* amt (prev-total-support-for fm fromid))) ;???
+;      (if (nil? edgeid)
+;        (add-support-edge fromid toid amt)
+;        (if (> amt 0.0)
+;          (g/add-weight edgeid amt)
+;          (g/set-attr edgeid :weight amt))))
+;    normalize-outgoing-support-across-network
+;    #_(doseq [fromid (elems-that-can-give-support fm)]
+;      (normalize-outgoing-support fromid)
+;      )))
 
 ;;; Total support
 
@@ -648,6 +669,7 @@
     (assoc :actions #{}, :support-deltas {})
 
     save-prevs
+    clear-deltas
     post-actions-for-desiderata
     do-actions
     post-support-deltas-for-desiderata
