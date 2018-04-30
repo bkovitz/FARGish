@@ -49,14 +49,19 @@
 (defn clear-data! []
   (reset! data {}))
 
+(defn rm-unicode
+  "R doesn't seem to be able to handle Unicode characters in data."
+  [s]
+  (clojure.string/replace s #"↦" "->"))
+
 (defn write-data-series [series-name]
   (let [series (get @data series-name)]
     (util/with-*out* (clojure.java.io/writer (str (name series-name) ".csv"))
       (let [column-names (->> series first keys (map str) sort)]
         (println (clojure.string/join \, column-names)))
       (doseq [row series]
-        (println (clojure.string/join \,
-          (->> row (sort-by #(-> % first str)) (map second))))))))
+        (println (rm-unicode (clojure.string/join \,
+          (->> row (sort-by #(-> % first str)) (map second)))))))))
 
 (defn write-data []
   (doseq [series-name (keys @data)]
@@ -132,19 +137,19 @@
 (defn find-support-edge
   "Returns nil if :support edge does not exist."
   [fm fromid toid]
-  (g/find-edgeid fm [fromid :support-from] [toid :support-to]))
+  (g/find-edgeid fm [fromid :support-to] [toid :support-from]))
 
 (defn remove-support-edge [fm fromid toid]
-  (g/remove-edge fm [fromid :support-from] [toid :support-to]))
+  (g/remove-edge fm [fromid :support-to] [toid :support-from]))
 
 (defn add-support-edge [fm fromid toid weight]
   (if (close-to-zero? weight)
     (remove-support-edge fm fromid toid)
-    (g/add-edge fm [fromid :support-from] [toid :support-to]
+    (g/add-edge fm [fromid :support-to] [toid :support-from]
                    {:class :support, :weight weight})))
 
 (defn outgoing-support-edges [fm fromid]
-  (g/port->incident-edges fm [fromid :support-from]))
+  (g/port->incident-edges fm [fromid :support-to]))
 
 (defn supportees-of
   "Elements (both nodes and edges) to which there is a support edge from
@@ -180,13 +185,14 @@
     (nil? s) 0.0
     s))
 
+;TODO UT
 (defn support-map
   "Returns map {fromid {toid weight}} of all existing support in fm."
   [fm]
   (with-state [m {}]
     (doseq [edgeid (all-support-edges fm)]
       (bind emap (g/edge-as-map fm edgeid))
-      (assoc-in [(:support-from emap) (:support-to emap)] (:weight emap)))))
+      (assoc-in [(:support-to emap) (:support-from emap)] (:weight emap)))))
 
 (defn total-of-all-support-weights [fm]
   (->> (all-support-edges fm)
@@ -341,14 +347,64 @@
           :when (= toid (bound-from fm edgeid))]
       edgeid)))
 
+;;; Support edges
+
+(defn support-from
+  "Returns id of supporting element."
+  [fm suppid]
+  (->> (g/incident-ports fm suppid)
+       (filter #(= :support-to (second %)))
+       ffirst))
+
+(defn support-to
+  "Returns id of supported element, i.e. the supportee."
+  [fm suppid]
+  (->> (g/incident-ports fm suppid)
+       (filter #(= :support-from (second %)))
+       ffirst))
+
 ;;; Printing
 
+(defn ffmt [n]
+  (format "%4.3f" n))
+
+(declare eid)
+
+(defn expanded-id
+ ([fm id]
+  (expanded-id fm id false))
+ ([fm id force-brackets?]
+  (let [bk1 (if force-brackets? \[ "")
+        bk2 (if force-brackets? \] "")]
+    (cond
+      (bdx? fm id)
+        (str bk1 (eid fm (bound-from fm id) :force-brackets)
+             " ↦ "
+             (eid fm (bound-to fm id) :force-brackets) bk2)
+      (support? fm id)
+        (str bk1 (eid fm (support-from fm id) :force-brackets)
+             " s-> "
+             (eid fm (support-to fm id) :force-brackets) bk2)
+      nil))))
+
+(defn eid
+ ([fm id]
+  (eid fm id false))
+ ([fm id force-brackets?]
+  (if-let [ei (expanded-id fm id force-brackets?)]
+    ei
+    (str id))))
+      
+(defn nice-id [fm id]
+  (if-let [ei (expanded-id fm id)]
+    (str id \space ei)
+    (str id)))
+
 (defn bdxstr [fm bdxid]
-  (let [[fromid toid] (->> bdxid
-                           (g/incident-ports fm)
-                           (sort-by second)
-                           (map first))]
-    (str bdxid \space fromid " -> " toid (g/attrstr fm bdxid))))
+  (str (nice-id fm bdxid) \space
+       (util/map-str
+         (select-keys (g/attrs fm bdxid)
+                      [:prev-total-support :self-support :total-support]))))
 
 (defn pprint-bdx [fm]
   (cond
@@ -377,26 +433,23 @@
 (defn suppinfo
   "Returns a map {:fromid fromid, :toid toid, :weight weight}."
   [fm suppid]
-  (let [[fromid toid] (->> suppid
-                           (g/incident-ports fm)
-                           (sort-by second)
-                           (map first))
-        weight (g/weight fm suppid)]
-    {:fromid fromid, :toid toid, :weight weight}))
+  {:fromid (support-from fm suppid)
+   :toid (support-to fm suppid)
+   :weight (g/weight fm suppid)})
 
+;(defn nice-support-edge [fm suppid]
+;  (let [{:keys [fromid toid weight]} (suppinfo fm suppid)]
+;    (str 
+  
 (defn supportstr [fm suppid]
-  (let [[fromid toid] (->> suppid
-                           (g/incident-ports fm)
-                           (sort-by second)
-                           (map first))
-        weight (g/weight fm suppid)
-        ts (prev-total-support-for fm fromid)]
-    (str suppid "  " fromid " -> " toid "  " weight)))
+  (let [{:keys [fromid toid weight]} (suppinfo fm suppid)]
+    (str suppid "  " (eid fm suppid) "  " (ffmt weight))
+    #_(str suppid "  " fromid " -> " toid "  " weight)))
 
 (defn support-totals-str [fm]
   (str 
-    "(total :self-support " (total-self-support fm) ") "
-    "(total :total-support " (total-total-support fm) ")"))
+    "(total :self-support " (ffmt (total-self-support fm)) ") "
+    "(total :total-support " (ffmt (total-total-support fm)) ")"))
 
 (defn pprint-support [fm]
   (cond
@@ -410,7 +463,7 @@
         (println \space s)))))
 
 (defn pprint-model [fm]
-  (println "Gattrs:" (g/gattrs fm))
+  (println "Gattrs:" (util/map-str (g/gattrs fm)))
   (g/pprint-nodes fm)
   ;TODO pprint-edges
   (pprint-bdx fm)
@@ -585,7 +638,7 @@
       (pmatch ospec
         ~kw (guard (keyword? kw))
           (let [find-all (get-in m-desideratum-objects [kw :find-all-fn])]
-            (dd fromid (find-all fm fromid)))
+            (find-all fm fromid))
         ~ls (guard (seq? ls))
           nil  ; ignore preferences
         ))))
@@ -607,7 +660,7 @@
         (:prefer ~@preferred-object-specs)
           (apply concat
             (for [ospec preferred-object-specs]
-              (dd fromid subset ospec (matching-objects fm fromid subset ospec))))
+              (matching-objects fm fromid subset ospec)))
         ~any
           nil))))
 
@@ -729,7 +782,6 @@
   (let [support-limit (+ (total-permanent-support fm)
                          (total-of-all-pos-support-weights fm))
         actual-total-support (total-total-support fm)]
-    (dd support-limit actual-total-support)
     (with-state [fm fm]
       (when (> actual-total-support support-limit)
         (bind m (->> (elems-that-can-receive-support fm)
@@ -737,7 +789,6 @@
                   (filter #(-> % second pos?))
                   (into {})))
         (bind new-m (expt-scale-down-vals support-limit m))
-        -- (dd m new-m)
         (doseq [[id new-total-support] new-m]
           (g/set-attr id :total-support new-total-support))))))
 
@@ -763,13 +814,7 @@
                  (< (total-support-for fm elem) minimum-total-support))
         (g/remove-elem elem)))))
 
-;;; Running
-
-(defn nice-id [fm id]
-  (cond
-    (bdx? fm id)
-      (str id \space \[ (bound-from fm id) " -> " (bound-to fm id) \])
-    (str id)))
+;;; Saving observations
 
 (defn save-obs [fm]
   (let [t (:timestep fm)]
@@ -792,6 +837,8 @@
                   "total" "total-support"
                   "y" (total-total-support fm)}))
   fm)
+
+;;; Running
 
 (defn do-timestep [fm]
   (with-state [fm fm]
@@ -824,7 +871,7 @@
       print-model-state
       (dotimes [t timesteps]
         do-timestep
-        -- (println)
+        ;-- (println)
         print-model-state
       )
       -- (write-data)))
