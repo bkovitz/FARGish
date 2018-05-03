@@ -1,5 +1,7 @@
 (ns farg.model1
-  "Very simple FARG model: just make internal bindings in 'abc'."
+  "Second abandoned version of farg.model1.
+
+  Very simple FARG model: just make internal bindings in 'abc'."
   (:refer-clojure :exclude [rand rand-int cond])
   (:require [better-cond.core :refer [cond]]
             [clojure.pprint :refer [pprint]]
@@ -30,26 +32,15 @@
 
 ; parameterize demo
 
-;;; Utility functions
+;(def default-node-attrs
+;  {:total-support 1.0
+;   :self-support '(permanent 1.0)
 
-(defn close-to-zero? [x]
-  (< (Math/abs x) 0.001))
-
-(defn +abs
- ([]
-  0.0)
- ([x1]
-  (Math/abs x1))
- ([x1 x2]
-  (+ (Math/abs x1) (Math/abs x2))))
-
-(defn all-nodes-other-than [fm id]
-  (->> (g/nodes fm) (remove= id)))
-
-(defn class-of [fm id]
-  (g/attr fm id :class))
-
-;;; Saving data
+;(defn add-desiderata [fm]
+;  (with-state [fm fm]
+;    (doseq [node (g/nodes fm)]
+;      (when (= :letter (attr fm node :class))
+;        (set-attr node :desiderata 
 
 (def data (atom {})) ;{series-name [{column-name value}]}
 
@@ -83,14 +74,14 @@
 ;;; Global parameters (these belong in the FARG model itself)
 
 ;DONE Copy the :weight back to :attempted-weight at the start of a timestep.
-;DONE Make a list of all the global parameters.
-(def need-delta 0.1)
+;NEXT Make a list of all the global parameters.
+(def desideratum-delta-per-timestep 0.1)
 (def preference-delta 0.1)
-(def antipathy-per-timestep -0.5)
+(def antipathy-per-timestep -0.1)
 (def positive-feedback-rate 0.1)
 (def minimum-total-support 0.02)
 (def minimum-self-support 0.02)
-(def normalization-expt 1.5)
+(def normalization-expt 1.2)
   ; Applied when normalizing a set of values whose sum exceeds some limit.
   ; Must be > 1.0 for higher values to drive down lower values.
 
@@ -99,13 +90,11 @@
     (> n 0.0)
       (Math/pow n normalization-expt)
     (< n 0.0)
+      ;n
       (- (Math/pow (- n) normalization-expt))
     0.0))
 
-(defn expt-scale-down-vals
- ([target-sum m]
-  (expt-scale-down-vals target-sum +abs m))
- ([target-sum sumf m]
+(defn expt-scale-down-vals [target-sum m]
   (cond
     (empty? m)
       m
@@ -113,11 +102,22 @@
           sum (reduce + vs)]
     (or (<= sum target-sum) (zero? sum))
       m
-    :let [new-vs (map raise-to-norm-expt vs)
-          sum (reduce sumf new-vs)
+    :let [vs (map raise-to-norm-expt vs)
+          sum (reduce + vs)
           scaling-factor (/ target-sum sum)]
     (zipmap (keys m)
-            (map #(* scaling-factor %) new-vs)))))
+            (map #(* scaling-factor %) vs))))
+
+;;; Utility functions
+
+(defn close-to-zero? [x]
+  (< (Math/abs x) 0.001))
+
+(defn all-nodes-other-than [fm id]
+  (->> (g/nodes fm) (remove= id)))
+
+(defn class-of [fm id]
+  (g/attr fm id :class))
 
 ;;; Utility functions for support
 
@@ -133,20 +133,6 @@
   (for [edgeid (all-support-edges fm)]
     [edgeid (g/weight fm edgeid)]))
 
-(defn support-edges-and-attempted-weights
-  "Returns seq of [edgeid attempted-weight], one element for each :support
-  edge in fm."
-  [fm]
-  (for [edgeid (all-support-edges fm)]
-    [edgeid (g/attr fm edgeid :attempted-weight)]))
-
-#_(defn support-edges-and-abs-weights
-  "Returns seq of [edgeid (Math/abs weight)], one element for each :support
-  edge in fm."
-  [fm]
-  (for [edgeid (all-support-edges fm)]
-    [edgeid (Math/abs (g/weight fm edgeid))]))
-
 (defn elems-that-can-give-support [fm]
   (filter #(not (support? fm %)) (g/elems fm)))
 
@@ -161,34 +147,13 @@
   (g/remove-edge fm [fromid :support-to] [toid :support-from]))
 
 (defn add-support-edge [fm fromid toid weight]
-  (g/add-edge fm [fromid :support-to] [toid :support-from]
-                 {:class :support
-                  :prev-weight 0.0
-                  :weight weight
-                  :attempted-weight weight}))
-
-(defn find|make-support-edge
-  "Returns [fm edgeid] where edgeid is specified :support edge. Creates the
-  edge with :prev-weight, :attempted-weight, and :weight all 0.0 if it doesn't
-  exist."
-  [fm fromid toid]
-  (cond
-    :let [edgeid (find-support-edge fm fromid toid)]
-    (some? edgeid)
-      [fm edgeid]
-    :let [fm (add-support-edge fm fromid toid 0.0)
-          edgeid (find-support-edge fm fromid toid) ;TODO optimize
-          _ (assert (some? edgeid))]
-    [fm edgeid]))
+  (if (close-to-zero? weight)
+    (remove-support-edge fm fromid toid)
+    (g/add-edge fm [fromid :support-to] [toid :support-from]
+                   {:class :support, :attempted-weight weight})))
 
 (defn outgoing-support-edges [fm fromid]
   (g/port->incident-edges fm [fromid :support-to]))
-
-(defn incoming-support-edges [fm toid]
-  (g/port->incident-edges fm [toid :support-from]))
-
-(defn incoming-support-weights [fm toid]
-  (map #(g/weight fm %) (incoming-support-edges fm toid)))
 
 (defn supportees-of
   "Elements (both nodes and edges) to which there is a support edge from
@@ -212,7 +177,7 @@
        (map #(self-support-for fm %))
        (reduce +)))
 
-(defn self-support-available-from [fm fromid]
+(defn support-available-from [fm fromid]
   (cond
     :let [prev (g/attr fm fromid :prev-self-support)]
     (some? prev)
@@ -222,7 +187,7 @@
 (defn total-support-available [fm]
   (->> fm
        elems-that-can-give-support
-       (map #(self-support-available-from fm %))
+       (map #(support-available-from fm %))
        (reduce +)))
 
 (defn total-support-for [fm id]
@@ -234,10 +199,8 @@
 (defn prev-total-support-for [fm id]
   (cond
     :let [s (g/attr fm id :prev-total-support)]
-    (some? s) s
-    :let [s (self-support-for fm id)]
-    (some? s) s
-    0.0))
+    (nil? s) 0.0
+    s))
 
 ;TODO UT
 (defn support-map
@@ -580,6 +543,21 @@
      :find-all-fn bindbacks
      :match?-fn unimplemented}})
 
+#_(defn desideratum->actions
+  "Returns seq of actions, or nil if none."
+  [fm id desideratum]
+  (pmatch desideratum
+    (:need ~need ~@more)
+      (case need
+        :bdx
+          (when (not (has-bdx? fm id))
+            [`(:start-bdx-for ~id)])
+        :bdx-from
+          (when (not (has-bdx-from? fm id))
+            [`(:start-bdx-from-for ~id)]))
+    nil
+      nil))
+
 (defn ospec-unsatisfied? [fm id ospec]
   (if (keyword? ospec)
     (empty? ((get-in m-desideratum-objects [ospec :find-all-fn]) fm id))
@@ -614,11 +592,15 @@
 
 ;;; Support for desiderata
 
+(defn clear-deltas [fm]
+  (with-state [fm fm]
+    (doseq [suppid (all-support-edges fm)]
+      (g/set-attr suppid :delta 0.0))))
+
 (defn add-support
  ([fm fromid toid]
-  (add-support fm fromid toid need-delta))
+  (add-support fm fromid toid desideratum-delta-per-timestep))
  ([fm fromid toid amt]
-  (assert (>= amt 0.0))
   (update-in fm [:support-deltas fromid toid]
     (fn [old-delta]
       (cond
@@ -633,7 +615,6 @@
  ([fm fromid toid]
   (add-antipathy fm fromid toid antipathy-per-timestep))
  ([fm fromid toid amt]
-  (assert (<= amt 0.0))
   (update-in fm [:support-deltas fromid toid]
     (fn [old-delta]
       (cond
@@ -643,6 +624,33 @@
         ;add to existing antipathy
         (+ old-delta amt))))))
 
+#_(defn post-support-for-desideratum
+  "Adds/subtracts to :support-deltas for one desideratum."
+  [fm fromid desideratum]
+  (with-state [fm fm]
+    (case desideratum
+      :want-mates-to-exist  ; assumes that fromid is an edge
+        (doseq [toid (g/incident-elems fm fromid)]
+          (add-support fromid toid))
+      :want-bdx
+        (doseq [toid (incident-bdx fm fromid)]
+          (add-support fromid toid))
+      :want-bdx-from
+        (doseq [toid (incident-bdx-from fm fromid)]
+          (add-support fromid toid))
+      :want-adj-bdx
+        (doseq [toid (->> (incident-bdx fm fromid)
+                        (filter #(edge-to-adjacent? fm fromid %)))]
+          (add-support fromid toid))
+      :oppose-other-bdx-from-same-mate
+        (doseq [toid (->> (bound-from fm fromid)
+                          (incident-bdx-from fm)
+                          (remove= fromid))]
+          (add-antipathy fromid toid))
+      :oppose-bindbacks  ; This is a model hack.
+        (doseq [other-bdxid (bindbacks fm fromid)]
+          (add-antipathy fromid other-bdxid))
+        )))
 
 (defn find-objects
   "ospecs is the part of a desideratum after the verb, which lists
@@ -680,6 +688,15 @@
         ~any
           nil))))
 
+(defn antipathy-amt [from-support to-support]
+  antipathy-per-timestep
+  #_(if (>= from-support (- to-support 0.1))
+    antipathy-per-timestep
+    (/ antipathy-per-timestep 2.0))
+  #_(* antipathy-per-timestep
+     (Math/exp (* -4.0 (Math/pow (- from-support to-support)
+                                 2.0)))))
+
 (defn post-support-for-desideratum
   "Adds/subtracts to :support-deltas for one desideratum."
   [fm fromid desideratum]
@@ -696,7 +713,8 @@
       (let [fromid-prev (prev-total-support-for fm fromid)]
         (with-state [fm fm]
           (doseq [toid (find-objects fm fromid ospecs)]
-            (add-antipathy fromid toid))))))
+            (add-antipathy fromid toid
+              (antipathy-amt fromid-prev (prev-total-support-for fm toid))))))))
 
 (defn post-support-deltas-for-desiderata [fm]
   (with-state [fm fm]
@@ -774,10 +792,12 @@
           (* scaling-factor
              old-attempted-weight #_(Math/pow old-attempted-weight normalization-expt)))))))
           
-#_(defn normalize-outgoing-support-across-network
+(defn normalize-outgoing-support-across-network
   "Normalizes the raw :weight of each :support edge, not the :weight as
   adjusted by the supporter's :total-support."
   [fm]
+  (dd "normalize-outgoing-support-across-network" (total-of-all-pos-support-weights fm))
+  (dd (total-support-available fm))
   (obs :totals {"t" (:timestep fm)
                 "total" "prenorm-pos-support"
                 "y" (total-of-all-pos-support-weights fm)})
@@ -785,70 +805,31 @@
                 "total" "prenorm-support"
                 "y" (total-of-all-support-weights fm)})
   (let [edge-weights (logdd :support
-                            (->> (support-edges-and-weights fm)
+                            (->> fm
+                                 support-edges-and-weights
+                                 (filter #(-> % second pos?))
                                  (into {})))
-        target-sum (logdd :support (total-support-available fm))
-        m (logdd :support (expt-scale-down-vals target-sum edge-weights))]
+        _ (logdd :support (->> edge-weights (map second) (reduce +)))
+        m (logdd :support (expt-scale-down-vals (logdd :support (total-support-available fm)) edge-weights))]
     (with-state [fm fm]
       (doseq [[edgeid weight] m]
         (g/set-attr edgeid :weight weight)))))
 
-#_(defn apply-support-deltas [fm]
+(defn apply-support-deltas [fm]
   (with-state [fm fm]
     (doseq [[fromid m-deltas] (:support-deltas fm)]
       (bind prevts (prev-total-support-for fm fromid))
       (doseq [[toid amt] m-deltas]
-        (bind amt (if (<= prevts 0.0) 0.0 (* amt prevts)))
+        ;(bind amt (if (<= prevts 0.0) 0.0 amt #_(* amt prevts))) ;TODO simplify
         (bind edgeid (find-support-edge fm fromid toid))
         (if (nil? edgeid)
           (add-support-edge fromid toid amt)
           (if (> amt 0.0)
+            ;(g/add-weight edgeid amt)
             (g/update-attr edgeid :attempted-weight (fnil + 0.0) amt)
             (g/set-attr edgeid :attempted-weight amt))) ))
     (doseq [fromid (elems-that-can-give-support fm)]
       (normalize-attempted-support fromid))))
-
-(defn delta [fm fromid toid]
-  (get-in fm [:support-deltas fromid toid] 0.0))
-
-(defn prev-weight [fm elemid]
-  (cond
-    :let [pw (g/attr fm elemid :prev-weight)]
-    (nil? pw)
-      0.0
-    pw))
-
-(defn calculate-attempted-weight
-  "Sets :attempted-weight of :support edge from fromid to toid. Makes edge
-  if needed."
-  [fm fromid toid]
-  (with-state [fm fm]
-    (setq edgeid (find|make-support-edge fromid toid))
-    (bind prevts (prev-total-support-for fm fromid))
-    (g/set-attr edgeid :attempted-weight 
-      (if (pos? prevts)
-        (min prevts
-             (+ (prev-weight fm edgeid)
-                (* (delta fm fromid toid)
-                   prevts)))
-        0.0))))
-
-(defn calculate-attempted-weights [fm]
-  (with-state [fm fm]
-    (doseq [[fromid m] (:support-deltas fm)
-            toid (keys m)]
-      (calculate-attempted-weight fromid toid))))
-
-(defn all-attempted-weights [fm]
-  (for [edgeid (all-support-edges fm)]
-    (g/attr fm edgeid :attempted-weight)))
-
-(defn calculate-weights [fm]
-  (let [target-sum (total-support-available fm)
-        m (into {} (support-edges-and-attempted-weights fm))]
-    (with-state [fm fm]
-      (doseq [[suppid weight] (expt-scale-down-vals target-sum m)]
-        (g/set-attr suppid :weight weight)))))
 
 ;;; Total support
 
@@ -862,7 +843,7 @@
       (g/set-attr suppid :attempted-weight (g/attr fm suppid :weight)))))
 
 ;TODO Refactor to call self-support-for
-#_(defn set-total-support-to-self-support [fm elem]
+(defn set-total-support-to-self-support [fm elem]
   (pmatch (g/attr fm elem :self-support)
     (:permanent ~n)
       (g/set-attr fm elem :total-support n)
@@ -871,7 +852,7 @@
     nil
       (g/set-attr fm elem :total-support 0.0)))
 
-#_(defn normalize-total-support [fm]
+(defn normalize-total-support [fm]
   (let [support-limit (+ (dd "normalize-total-support" (total-support-available fm))
                          (dd (total-of-all-pos-support-weights fm)))
         actual-total-support (total-total-support fm)]
@@ -887,14 +868,7 @@
         (doseq [[id new-total-support] new-m]
           (g/set-attr id :total-support new-total-support))))))
 
-(defn normalize-total-supports [fm]
-  (let [support-limit (total-support-available fm)
-        m (into {} (support-edges-and-weights fm))]
-    (with-state [fm fm]
-      (doseq [[suppid weight] (expt-scale-down-vals support-limit m)]
-        (g/set-attr suppid :weight weight)))))
-
-#_(defn calculate-total-supports [fm0]
+(defn update-total-support [fm0]
   (with-state [fm fm0]
     ;self-support
     (doseq [elem (elems-that-can-receive-support fm0)]
@@ -906,17 +880,6 @@
       (when (and (> from-support 0.0))
         (g/update-attr toid :total-support (fnil + 0.0) weight)))
     normalize-total-support))
-
-(defn calculate-total-support [fm toid]
-  (g/set-attr fm toid :total-support
-    (+ (self-support-for fm toid)
-       (reduce + (incoming-support-weights fm toid)))))
-
-(defn calculate-total-supports [fm]
-  (with-state [fm fm]
-    (doseq [toid (elems-that-can-receive-support fm)]
-      (calculate-total-support toid))
-    normalize-total-supports))
 
 ;;; Removing graph elements
 
@@ -960,6 +923,7 @@
     (assoc :actions #{}, :support-deltas {})
 
     save-prevs
+    clear-deltas
     (doseq [elem (elems-that-can-receive-support fm)]
       (decay-self-support elem))
     remove-unsupported-elems
@@ -967,12 +931,16 @@
     do-actions
     post-support-deltas-for-desiderata
     post-positive-feedback-for-support
+    apply-support-deltas
     -- (logdd :support (:support-deltas fm))
-    ;apply-support-deltas
-    calculate-attempted-weights
-    calculate-weights
-    ;normalize-outgoing-support-across-network
-    calculate-total-supports
+    (doseq [suppid (all-support-edges fm)]
+      (bind prevts (prev-total-support-for fm (support-from fm suppid)))
+      (g/set-attr suppid :weight
+        (if (<= prevts 0.0)
+          0.0
+          (* prevts (g/attr fm suppid :attempted-weight)))))
+    normalize-outgoing-support-across-network
+    update-total-support
     save-obs))
 
 (defn demo
@@ -982,7 +950,7 @@
   (clear-data!)
   (with-logging log
     (with-state [fm (start-model abc)]
-      calculate-total-supports
+      update-total-support
       save-obs
       print-model-state
       (dotimes [t timesteps]
