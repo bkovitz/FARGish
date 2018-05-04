@@ -69,17 +69,29 @@
 
 ;;; Global parameters (these belong in the FARG model itself)
 
-(def need-delta 0.1)
-(def preference-delta 0.1)
-(def antipathy-per-timestep -0.5)
-(def positive-feedback-rate 0.1)
-(def minimum-total-support 0.02)
-(def minimum-self-support 0.02)
-(def normalization-expt 1.5)
-  ; Applied when normalizing a set of values whose sum exceeds some limit.
-  ; Must be > 1.0 for higher values to drive down lower values.
+(def default-globals
+  {:need-delta 0.1
+   :preference-delta 0.1
+   :antipathy-per-timestep -0.5
+   :positive-feedback-rate 0.1
+   :minimum-total-support 0.02
+   :minimum-self-support 0.02
+   :normalization-expt 1.5
+    ; Applied when normalizing a set of values whose sum exceeds some limit.
+    ; Must be > 1.0 for higher values to drive down lower values.
+   :normalize-total-supports? true
+   :quiet? false
+  })
 
-(defn raise-to-norm-expt [n]
+(defn need-delta [fm] (get fm :need-delta))
+(defn preference-delta [fm] (get fm :preference-delta))
+(defn antipathy-per-timestep [fm] (get fm :antipathy-per-timestep))
+(defn positive-feedback-rate [fm] (get fm :positive-feedback-rate))
+(defn minimum-total-support [fm] (get fm :minimum-total-support))
+(defn minimum-self-support [fm] (get fm :minimum-self-support))
+(defn normalization-expt [fm] (get fm :normalization-expt))
+
+#_(defn raise-to-norm-expt [n]
   (cond
     (> n 0.0)
       (Math/pow n normalization-expt)
@@ -87,10 +99,23 @@
       (- (Math/pow (- n) normalization-expt))
     0.0))
 
+(defn pow-pos
+  "Returns x^y if x is non-negative, -(-x)^y if if is negative. This lets you
+  exponentiate negative numbers so that they fall as x decreases the same
+  way that exponentiated positive numbers grow as x increases."
+  [x y]
+  (cond
+    (pos? x)
+      (Math/pow x y)
+    (neg? x)
+      (- (Math/pow (- x) y))
+    0.0))
+
+;NEXT Pass fm or the exponent to this.
 (defn expt-scale-down-vals
- ([target-sum m]
-  (expt-scale-down-vals target-sum +abs m))
- ([target-sum sumf m]
+ ([expt target-sum m]
+  (expt-scale-down-vals expt target-sum +abs m))
+ ([expt target-sum sumf m]
   (cond
     (empty? m)
       m
@@ -98,7 +123,7 @@
           sum (reduce + vs)]
     (or (<= sum target-sum) (zero? sum))
       m
-    :let [new-vs (map raise-to-norm-expt vs)
+    :let [new-vs (map #(pow-pos % expt) vs)
           sum (reduce sumf new-vs)
           scaling-factor (/ target-sum sum)]
     (zipmap (keys m)
@@ -283,13 +308,17 @@
       ;(g/set-attr 'c :self-support `(:permanent 1.1))
       ))
 
-(defn start-model [fm]
-  (with-state [fm fm]
+(defn start-model
+  "override-params is a map that gets merged onto default-globals."
+ ([fm]
+  (start-model fm {}))
+ ([fm override-params]
+  (with-state [fm (merge fm default-globals override-params)]
     (update :stems assoc :bind 0 :support 0)
     (assoc :timestep 0
            :actions #{}
            :support-deltas {})  ; map {fromid {toid amt}}
-    ))
+    )))
 
 ;;; Bindings
 
@@ -585,7 +614,7 @@
 
 (defn add-support
  ([fm fromid toid]
-  (add-support fm fromid toid need-delta))
+  (add-support fm fromid toid (need-delta fm)))
  ([fm fromid toid amt]
   (assert (>= amt 0.0))
   (update-in fm [:support-deltas fromid toid]
@@ -600,7 +629,7 @@
 
 (defn add-antipathy
  ([fm fromid toid]
-  (add-antipathy fm fromid toid antipathy-per-timestep))
+  (add-antipathy fm fromid toid (antipathy-per-timestep fm)))
  ([fm fromid toid amt]
   (assert (<= amt 0.0))
   (update-in fm [:support-deltas fromid toid]
@@ -660,7 +689,7 @@
           (doseq [toid needed]
             (add-support fromid toid))
           (doseq [toid preferred]
-            (add-support fromid toid preference-delta))))
+            (add-support fromid toid (preference-delta fm)))))
     (:oppose ~@ospecs)
       (let [fromid-prev (prev-total-support-for fm fromid)]
         (with-state [fm fm]
@@ -679,7 +708,7 @@
             supportee (supportees-of fm fromid)]
       (bind supportee-support (prev-total-support-for fm supportee))
       (when (pos? supportee-support)
-        (bind amt (* positive-feedback-rate supportee-support))
+        (bind amt (* (positive-feedback-rate fm) supportee-support))
         (when (not (close-to-zero? amt))
           (add-support fromid supportee amt))))))
 
@@ -729,9 +758,10 @@
 
 (defn calculate-weights [fm]
   (let [target-sum (total-support-available fm)
-        m (into {} (support-edges-and-attempted-weights fm))]
+        m (into {} (support-edges-and-attempted-weights fm))
+        expt (normalization-expt fm)]
     (with-state [fm fm]
-      (doseq [[suppid weight] (expt-scale-down-vals target-sum m)]
+      (doseq [[suppid weight] (expt-scale-down-vals expt target-sum m)]
         (g/set-attr suppid :weight weight)))))
 
 ;;; Total support
@@ -748,9 +778,10 @@
 (defn normalize-total-supports [fm]
   (let [support-limit (total-support-available fm)
                    ;Is this right? Neg weights count negatively.
-        m (into {} (support-edges-and-weights fm))]
+        m (into {} (support-edges-and-weights fm))
+        expt (normalization-expt fm)]
     (with-state [fm fm]
-      (doseq [[suppid weight] (expt-scale-down-vals support-limit m)]
+      (doseq [[suppid weight] (expt-scale-down-vals expt support-limit m)]
         (g/set-attr suppid :weight weight)))))
 
 (defn calculate-total-support [fm toid]
@@ -762,15 +793,16 @@
   (with-state [fm fm]
     (doseq [toid (elems-that-can-receive-support fm)]
       (calculate-total-support toid))
-    normalize-total-supports))
+    (when (:normalize-total-supports? fm)
+      normalize-total-supports)))
 
 ;;; Removing graph elements
 
 (defn remove-unsupported-elems [fm]
   (with-state [fm fm]
     (doseq [elem (elems-that-can-receive-support fm)]
-      (when (and (< (self-support-for fm elem) minimum-self-support)
-                 (< (total-support-for fm elem) minimum-total-support))
+      (when (and (< (self-support-for fm elem) (minimum-self-support fm))
+                 (< (total-support-for fm elem) (minimum-total-support fm)))
         (g/remove-elem elem)))))
 
 ;;; Saving observations
@@ -802,7 +834,8 @@
 (defn do-timestep [fm]
   (with-state [fm fm]
     (update :timestep inc)
-    -- (println "\n---------- timestep" (:timestep fm) "-----------\n")
+    (when (not (:quiet? fm))
+      -- (println "\n---------- timestep" (:timestep fm) "-----------\n"))
     (assoc :actions #{}, :support-deltas {})
 
     save-prevs
@@ -818,20 +851,56 @@
     calculate-total-supports
     save-obs))
 
+(defn run
+  [& {:keys [] :as params}]
+  (let [model (get params :model abc)
+        params (merge {:timesteps 100} (dissoc params :model))]
+    (log/reset)
+    (clear-data!)
+    (with-logging (:log params)
+      (with-state [fm (start-model model params)]
+        calculate-total-supports
+        save-obs
+        (when (not (:quiet? fm))
+          print-model-state)
+        (dotimes [t (:timesteps params)]
+          do-timestep
+          ;-- (println)
+          (when (not (:quiet? fm))
+            print-model-state))
+        -- (write-data)
+        (when (:quiet? fm)
+          print-model-state)))
+    ))
+
+(defn results [fm]
+  (->> (elems-that-can-give-support fm)
+       (map (fn [id] [id (total-support-for fm id)]))
+       (into {})))
+
+(defn symbolically [fm elem]
+  (cond
+    :let [nm (name elem)]
+    (clojure.string/starts-with? nm "bind")
+      [:bind (bound-from fm elem) (bound-to fm elem)]))
+
+(defn top-bindings [fm]
+  (->> (all-bdx fm)
+       (sort-by #(- (total-support-for fm %)))))
+
+(defn test1
+  "Should end with a->b and b->c dominant, maybe a little bit for c->a, and
+  no other bindings."
+  []
+  (let [fm (run :quiet? true)]
+    (assert (= #{[:bind 'a 'b] [:bind 'b 'c]}
+               (->> fm
+                    top-bindings
+                    (take 2)
+                    (map #(symbolically fm %))
+                    set)))))
+
 (defn demo
   "Run this to see what farg.model1 does."
-  [& {:keys [log timesteps] :or {timesteps 3}}]
-  (log/reset)
-  (clear-data!)
-  (with-logging log
-    (with-state [fm (start-model abc)]
-      calculate-total-supports
-      save-obs
-      print-model-state
-      (dotimes [t timesteps]
-        do-timestep
-        ;-- (println)
-        print-model-state
-      )
-      -- (write-data)))
-  )
+  []
+  (run :timesteps 3 :model abc))
