@@ -998,8 +998,8 @@
   (let [params {:need-delta 0.01
                 :preference-delta 0.05
                 :antipathy-per-timestep -0.2
-                :normalization-expt 0.7
-                :positive-feedback-rate 0.5
+                :normalization-expt 0.8
+                :positive-feedback-rate 0.1
                 :cnormalize-method :by-sigmoid
                 :support-limit 3.0
                 :init mkdecaying
