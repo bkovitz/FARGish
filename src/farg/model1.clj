@@ -111,7 +111,6 @@
       (- (Math/pow (- x) y))
     0.0))
 
-;NEXT Pass fm or the exponent to this.
 (defn expt-scale-down-vals
  ([expt target-sum m]
   (expt-scale-down-vals expt target-sum +abs m))
@@ -120,7 +119,7 @@
     (empty? m)
       m
     :let [vs (vals m)
-          sum (reduce + vs)]
+          sum (reduce sumf vs)]
     (or (<= sum target-sum) (zero? sum))
       m
     :let [new-vs (map #(pow-pos % expt) vs)
@@ -230,10 +229,12 @@
     (self-support-for fm fromid)))
 
 (defn total-support-available [fm]
-  (->> fm
-       elems-that-can-give-support
-       (map #(self-support-available-from fm %))
-       (reduce +)))
+  (if-let [sl (:support-limit fm)]
+    sl
+    (->> fm
+         elems-that-can-give-support
+         (map #(self-support-available-from fm %))
+         (reduce +))))
 
 (defn total-support-for [fm id]
   (cond
@@ -308,6 +309,11 @@
       ;(g/set-attr 'c :self-support `(:permanent 1.1))
       ))
 
+(defn init [fm]
+  (if-let [init-fn (:init fm)]
+    (init-fn fm)
+    fm))
+
 (defn start-model
   "override-params is a map that gets merged onto default-globals."
  ([fm]
@@ -318,7 +324,7 @@
     (assoc :timestep 0
            :actions #{}
            :support-deltas {})  ; map {fromid {toid amt}}
-    )))
+    init)))
 
 ;;; Bindings
 
@@ -501,17 +507,18 @@
 
 (defn suppinfo
   "Returns a map {:fromid fromid, :toid toid, :attempted-weight
-  attempted-weight, :weight weight}."
+  attempted-weight, :prev-weight prev-weight, :weight weight}."
   [fm suppid]
   {:fromid (support-from fm suppid)
    :toid (support-to fm suppid)
+   :prev-weight (g/attr fm suppid :prev-weight)
    :attempted-weight (g/attr fm suppid :attempted-weight)
    :weight (g/weight fm suppid)})
 
 (defn supportstr [fm suppid]
   (let [{:keys [fromid toid] :as m} (suppinfo fm suppid)]
     (format "%s  %-20s %s" suppid (eid fm suppid)
-      (util/map-str (select-keys m [:attempted-weight :weight])))))
+      (util/map-str (select-keys m [:prev-weight :attempted-weight :weight])))))
 
 (defn support-totals-str [fm]
   (str 
@@ -759,9 +766,10 @@
 (defn calculate-weights [fm]
   (let [target-sum (total-support-available fm)
         m (into {} (support-edges-and-attempted-weights fm))
-        expt (normalization-expt fm)]
+        expt (normalization-expt fm)
+        new-m (expt-scale-down-vals expt target-sum m)]
     (with-state [fm fm]
-      (doseq [[suppid weight] (expt-scale-down-vals expt target-sum m)]
+      (doseq [[suppid weight] new-m]
         (g/set-attr suppid :weight weight)))))
 
 ;;; Total support
@@ -777,8 +785,8 @@
 
 (defn normalize-total-supports [fm]
   (let [support-limit (total-support-available fm)
-                   ;Is this right? Neg weights count negatively.
         m (into {} (support-edges-and-weights fm))
+                     ;Is this right? Neg weights count negatively.
         expt (normalization-expt fm)]
     (with-state [fm fm]
       (doseq [[suppid weight] (expt-scale-down-vals expt support-limit m)]
@@ -851,8 +859,13 @@
     calculate-total-supports
     save-obs))
 
-(defn run
-  [& {:keys [] :as params}]
+(defn run-
+  "params is an optional map with overrides to default-globals. Runs (:map
+  params), or the abc model if not specified. Returns the state of the model
+  (a pgraph) after :timesteps timesteps."
+ ([]
+  (run- {}))
+ ([params]
   (let [model (get params :model abc)
         params (merge {:timesteps 100} (dissoc params :model))]
     (log/reset)
@@ -870,8 +883,10 @@
             print-model-state))
         -- (write-data)
         (when (:quiet? fm)
-          print-model-state)))
-    ))
+          print-model-state))))))
+
+(defn run [& {:keys [] :as params}]
+  (run- params))
 
 (defn results [fm]
   (->> (elems-that-can-give-support fm)
@@ -899,6 +914,33 @@
                     (take 2)
                     (map #(symbolically fm %))
                     set)))))
+
+;WANT All :total-support to level out.
+(defn test2 [& {:keys [] :as overrides}]
+  (let [params {:model abc
+                :support-limit 3.0
+                :need-delta 0.05
+                :preference-delta 0.05
+                :positive-feedback-rate 0.2
+                :antipathy-per-timestep -0.5
+                :normalization-expt 0.5
+                :init (fn [fm]
+                        (with-state [fm fm]
+                          (g/set-attr 'a :self-support `(:decaying 1.1))
+                          (g/set-attr 'b :self-support `(:decaying 1.0))
+                          (g/set-attr 'c :self-support `(:decaying 1.0))))}
+        params (merge params overrides)]
+    (run- params)))
+
+;NEXT Try a sigmoid instead of a concave func.
+(defn test1a [& {:keys [] :as overrides}]
+  (let [params {:need-delta 0.05
+                :preference-delta 0.05
+                :antipathy-per-timestep -1.0
+                :normalization-expt 0.8
+                :positive-feedback-rate 0.05}
+        params (merge params overrides)]
+    (run- params)))
 
 (defn demo
   "Run this to see what farg.model1 does."
