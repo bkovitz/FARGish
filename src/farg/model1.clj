@@ -80,6 +80,7 @@
     ; Applied when normalizing a set of values whose sum exceeds some limit.
     ; Must be > 1.0 for higher values to drive down lower values.
    :normalize-total-supports? true
+   :cnormalize-method :by-exponent
    :quiet? false
   })
 
@@ -98,6 +99,54 @@
     (< n 0.0)
       (- (Math/pow (- n) normalization-expt))
     0.0))
+
+(defn diag-sigmoid
+  "p is exponent. p=2.0 for the classic S shape winding around y=x. Values
+  close to 0 are made closer to 0; values close to 1 are made closer to 1.
+  A smaller p reduces the amount by which x is modified."
+  [p x]
+  (assert (<= 0.0 x 1.0))
+  (/ (* 1.0 (Math/pow x p))
+     (+ (* 1.0 (Math/pow x p))
+        (Math/pow (- 1 x) p))))
+
+(defn oddf [f]
+  (fn [x]
+    (cond
+      (pos? x)
+        (f x)
+      (neg? x)
+        (- (f (- x)))
+      0.0)))
+
+(defn unit-scaled
+  "Scales the elements of coll, assumed to be numbers, so the largest
+  absolute value is 1.0."
+  [coll]
+  (cond
+    (empty? coll)
+      coll
+    :let [scaling-factor (/ (->> (map #(Math/abs %) coll) (apply max)))
+          _ (dd scaling-factor)]
+    (map #(* scaling-factor %) coll)))
+
+(defn cnormalize-vals-
+  "Competitively normalize the vals of m. cnorm-f must be a function that
+  takes an argument in [-1.0, +1.0], where +1.0 represents the greatest
+  val to be normalized."
+  [sum-f cnorm-f target-sum m]
+  (cond
+    (empty? m)
+      m
+    :let [vs (vals m)
+          sum (reduce sum-f vs)]
+    (or (<= sum target-sum) (zero? sum))
+      m
+    :let [new-vs (map cnorm-f (unit-scaled vs))
+          sum (reduce sum-f new-vs)
+          scaling-factor (/ target-sum sum)]
+    (zipmap (keys m)
+            (map #(* scaling-factor %) new-vs))))
 
 (defn pow-pos
   "Returns x^y if x is non-negative, -(-x)^y if if is negative. This lets you
@@ -127,6 +176,14 @@
           scaling-factor (/ target-sum sum)]
     (zipmap (keys m)
             (map #(* scaling-factor %) new-vs)))))
+
+(defn cnormalize-vals [fm target-sum m]
+  (let [p (normalization-expt fm)]
+    (case (:cnormalize-method fm)
+      :by-exponent
+        (expt-scale-down-vals p target-sum m)
+      :by-sigmoid
+        (cnormalize-vals- +abs (oddf (partial diag-sigmoid p)) target-sum m))))
 
 ;;; Utility functions for support
 
@@ -262,7 +319,7 @@
 (defn total-of-all-support-weights [fm]
   (->> (all-support-edges fm)
        (map #(g/weight fm %))
-       (reduce +)))
+       (reduce +abs)))
 
 (defn total-of-all-pos-support-weights [fm]
   (->> (all-support-edges fm)
@@ -441,7 +498,7 @@
 ;;; Printing
 
 (defn ffmt [n]
-  (format "%4.3f" n))
+  (format "%4.3f" (float n)))
 
 (declare eid)
 
@@ -530,9 +587,11 @@
     :let [ids (all-support-edges fm)]
     (empty? ids)
       (println (str "Support: None  " (support-totals-str fm)))
-    (let [total (total-of-all-pos-support-weights fm)]
+    (let [total (total-of-all-support-weights fm)
+          postotal (total-of-all-pos-support-weights fm)]
       (println (str
-        "Support:     (total pos :weight " (ffmt total) ") "
+        "Support:     (total :weight " (ffmt total)
+        ") (total pos :weight " (ffmt postotal) ") "
         (support-totals-str fm)))
       (doseq [s (->> ids (map #(supportstr fm %)) sort)]
         (println \space s)))))
@@ -746,12 +805,15 @@
     (setq edgeid (find|make-support-edge fromid toid))
     (bind prevts (prev-total-support-for fm fromid))
     (g/set-attr edgeid :attempted-weight 
-      (if (pos? prevts)
+      (cond
+        (<= prevts 0.0)
+          0.0
+        :let [d (delta fm fromid toid)]
+        (neg? d)
+          (max (- prevts) d)
         (min prevts
              (+ (prev-weight fm edgeid)
-                (* (delta fm fromid toid)
-                   prevts)))
-        0.0))))
+                (* prevts d)))))))
 
 (defn calculate-attempted-weights [fm]
   (with-state [fm fm]
@@ -766,8 +828,10 @@
 (defn calculate-weights [fm]
   (let [target-sum (total-support-available fm)
         m (into {} (support-edges-and-attempted-weights fm))
-        expt (normalization-expt fm)
-        new-m (expt-scale-down-vals expt target-sum m)]
+        new-m (cnormalize-vals fm target-sum m)
+        ;expt (normalization-expt fm)
+        ;new-m (expt-scale-down-vals expt target-sum m)
+        ]
     (with-state [fm fm]
       (doseq [[suppid weight] new-m]
         (g/set-attr suppid :weight weight)))))
@@ -789,7 +853,7 @@
                      ;Is this right? Neg weights count negatively.
         expt (normalization-expt fm)]
     (with-state [fm fm]
-      (doseq [[suppid weight] (expt-scale-down-vals expt support-limit m)]
+      (doseq [[suppid weight] (cnormalize-vals fm support-limit m) #_(expt-scale-down-vals expt support-limit m)]
         (g/set-attr suppid :weight weight)))))
 
 (defn calculate-total-support [fm toid]
@@ -915,30 +979,31 @@
                     (map #(symbolically fm %))
                     set)))))
 
-;WANT All :total-support to level out.
-(defn test2 [& {:keys [] :as overrides}]
-  (let [params {:model abc
-                :support-limit 3.0
-                :need-delta 0.05
-                :preference-delta 0.05
-                :positive-feedback-rate 0.2
-                :antipathy-per-timestep -0.5
-                :normalization-expt 0.5
-                :init (fn [fm]
-                        (with-state [fm fm]
-                          (g/set-attr 'a :self-support `(:decaying 1.1))
-                          (g/set-attr 'b :self-support `(:decaying 1.0))
-                          (g/set-attr 'c :self-support `(:decaying 1.0))))}
-        params (merge params overrides)]
-    (run- params)))
+(defn mkdecaying [fm]
+  (with-state [fm fm]
+    (g/set-attr 'a :self-support `(:decaying 1.1))
+    (g/set-attr 'b :self-support `(:decaying 1.0))
+    (g/set-attr 'c :self-support `(:decaying 1.0))))
 
-;NEXT Try a sigmoid instead of a concave func.
-(defn test1a [& {:keys [] :as overrides}]
-  (let [params {:need-delta 0.05
+(defn test2
+  "Without permanent support for anything, this arrangement behaves remarkably
+  well. The bindings get one spike of support at the beginning and then sort
+  themselves out, with a->b and b->c the strongest, and c->a also there; the
+  others disappear. :positive-feedback-rate seems to have little effect.
+  Nearly all the work is done by diag-sigmoid with an exponent set to even
+  out support :weights, driving them all toward the mean. At the end,
+  support is fairly equally distributed among all the surviving elems,
+  with somewhat more in b than a or c, and the most in the top two bindings."
+  [& {:keys [] :as overrides}]
+  (let [params {:need-delta 0.01
                 :preference-delta 0.05
-                :antipathy-per-timestep -1.0
-                :normalization-expt 0.8
-                :positive-feedback-rate 0.05}
+                :antipathy-per-timestep -0.2
+                :normalization-expt 0.7
+                :positive-feedback-rate 0.5
+                :cnormalize-method :by-sigmoid
+                :support-limit 3.0
+                :init mkdecaying
+               }
         params (merge params overrides)]
     (run- params)))
 
