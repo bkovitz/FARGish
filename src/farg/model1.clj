@@ -973,8 +973,7 @@
   []
   (let [fm (run :quiet? true)]
     (assert (= #{[:bind 'a 'b] [:bind 'b 'c]}
-               (->> fm
-                    top-bindings
+               (->> (top-bindings fm)
                     (take 2)
                     (map #(symbolically fm %))
                     set)))))
@@ -998,8 +997,8 @@
   (let [params {:need-delta 0.01
                 :preference-delta 0.05
                 :antipathy-per-timestep -0.2
-                :normalization-expt 0.8
-                :positive-feedback-rate 0.1
+                :normalization-expt 0.5
+                :positive-feedback-rate 0.2
                 :cnormalize-method :by-sigmoid
                 :support-limit 3.0
                 :init mkdecaying
