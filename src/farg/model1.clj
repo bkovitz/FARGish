@@ -423,20 +423,35 @@
     (bind bdxid (g/find-edgeid fm [from :bdx-from] [to :bdx-to]))
     (add-basis-from-bdx bdxid)))
 
+;TODO Hard-coded; data for this decision belongs in spec.
+;TODO Eventually, the criteria for "reasonable" need to be dynamic and
+;subject to pressures.
+(defn could-reasonably-bind? [fm fromid toid]
+  (case (class-of fm fromid)
+    :letter
+      (= :letter (class-of fm toid))
+    :bdx
+      (= :bdx (class-of fm toid))
+    :tag
+      (= :tag (class-of fm toid))))
+  
 (defn start-bdx-for
   "Creates bindings to id from all other nodes, and from id to all other
   nodes."
   [fm0 id]
   (with-state [fm fm0]
     (doseq [that-elem (all-nodes-other-than fm0 id)]
-      (add-bdx id that-elem)
-      (add-bdx that-elem id))))
+      (when (could-reasonably-bind? fm0 id that-elem)
+        (add-bdx id that-elem))
+      (when (could-reasonably-bind? fm0 that-elem id)
+        (add-bdx that-elem id)))))
 
 (defn start-bdx-from-for
   "Creats bindings from id to all other nodes."
   [fm0 fromid]
   (with-state [fm fm0]
-    (doseq [toid (all-nodes-other-than fm0 fromid)]
+    (doseq [toid (->> (all-nodes-other-than fm0 fromid)
+                      (filter #(could-reasonably-bind? fm0 fromid %)))]
       (add-bdx fromid toid))))
 
 (defn incident-bdx-from [fm id]
