@@ -2,6 +2,7 @@
   "Very simple FARG model: just make internal bindings in 'abc'."
   (:refer-clojure :exclude [rand rand-int cond])
   (:require [better-cond.core :refer [cond]]
+            [clojure.core.strint :refer [<<]]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.trace :refer [deftrace] :as trace]
             [com.rpl.specter :as S]
@@ -698,7 +699,12 @@
    :bindbacks
     {:start-fn unimplemented
      :find-all-fn bindbacks
-     :match?-fn unimplemented}})
+     :match?-fn unimplemented}
+   :has-basis
+    {:start-fn unimplemented
+     :find-all-fn unimplemented
+     :match?-fn (fn [fm _ id]
+                  (not (empty? (g/port->incident-edges fm [id :basis]))))}})
 
 (defn ospec-unsatisfied? [fm id ospec]
   (if (keyword? ospec)
@@ -781,6 +787,9 @@
 (defn matching-objects
   [fm fromid subset object-spec]
   (let [match? (get-in m-desideratum-objects [object-spec :match?-fn])]
+    (assert match?
+      (<< "matching-objects: ~{fromid}'s object-spec ~{object-spec} has "
+          "no :match?-fn."))
     (filter #(match? fm fromid %) subset)))
 
 (defn preferred-objects
@@ -1216,7 +1225,7 @@
 (def test4-letter-attrs
   {:class :letter
    :self-support [:permanent 1.0]
-   :desiderata #{[:need :bdx]}
+   :desiderata #{[:need :bdx [:prefer :has-basis]]}
    :total-support nil})
 
 (def test4-model
