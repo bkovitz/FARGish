@@ -1037,6 +1037,54 @@
   (run-model-test test2-params overrides
     (expect-top-bindings [[:bind 'a 'b] [:bind 'b 'c]])))
 
+(def abcd
+  (-> (graph (left-to-right-seq 'a 'b 'c 'd))
+      (g/merge-default-attrs 'a letter-attrs {:letter 'a})
+      (g/merge-default-attrs 'b letter-attrs {:letter 'b})
+      (g/merge-default-attrs 'c letter-attrs {:letter 'c})
+      (g/merge-default-attrs 'd letter-attrs {:letter 'd})))
+
+(def test3-params (merge test2-params
+  {:model abcd
+   :init nil}))
+
+(defn test3
+  "abcd should end with bindings going left to right."
+  [& {:keys [] :as overrides}]
+  (run-model-test test3-params overrides
+    (expect-top-bindings [[:bind 'a 'b]
+                          [:bind 'b 'c]
+                          [:bind 'c 'd]])))
+
+(def test4-letter-attrs
+  {:class :letter
+   :self-support [:permanent 1.0]
+   :desiderata #{[:need :bdx]}})
+
+(defn update-nodes [fm idmatchf? updatef]
+  (with-state [fm fm]
+    (doseq [id (g/nodes fm)]
+      (when (idmatchf? id)
+        (updatef id)))))
+
+(defn set-letter-attrs [fm id attrs]
+  (g/merge-default-attrs fm id attrs {:letter id}))
+
+(def test4-model
+  (-> (graph (left-to-right-seq 'a 'b 'c))
+      (update-nodes symbol? #(set-letter-attrs %1 %2 test4-letter-attrs))))
+
+(def test4-params (merge test2-params
+  {:model test4-model
+   :init nil}))
+
+;NEXT This is completely symmetric and gets nowhere. Add a tag to resolve
+;the confusion.
+;Make every binding want a basis.
+(defn test4
+  [& {:keys [] :as overrides}]
+  (run-model-test test4-params overrides (constantly true)))
+
 (defn demo
   "Run this to see what farg.model1 does."
   []
