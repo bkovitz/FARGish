@@ -8,7 +8,7 @@
             [farg.model1 :as m :refer [set-letter-attrs update-nodes
               start-model all-bdx add-bdx start-bdx-from-for symbolically
               add-tag tags-of tagports-of tags-of-via-port-label has-tag?
-              try-to-tag print-model-state]]
+              try-to-tag print-model-state bdx-from-to]]
             [farg.util :as util :refer [dd dde]]
             [farg.with-state :refer [with-state]]))
 
@@ -51,3 +51,22 @@
     (try-to-tag 'a 'b)
     (is (= [tagid] (tags-of fm 'a)))))
 
+(deftest test-tag-makes-basis-edge
+  (with-state [fm (start-model m/abc)]
+    (add-bdx 'a 'b)
+    (try-to-tag 'a 'b)
+    (bind tagid (first (tags-of fm 'a)))
+    (bind bdxids (bdx-from-to fm 'a 'b))
+    (is (= 1 (count bdxids)))
+    (bind bdxid (first bdxids))
+    (is (g/has-edge? fm [tagid :basis-of] [bdxid :basis]))))
+
+(deftest test-bdx-makes-tag
+  (with-state [fm (start-model m/abc)]
+    (try-to-tag 'a 'b)
+    (add-bdx 'a 'b)
+    (bind tagid (first (tags-of fm 'a)))
+    (bind bdxids (bdx-from-to fm 'a 'b))
+    (is (= 1 (count bdxids)))
+    (bind bdxid (first bdxids))
+    (is (g/has-edge? fm [tagid :basis-of] [bdxid :basis]))))

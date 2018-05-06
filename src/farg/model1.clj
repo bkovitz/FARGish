@@ -401,22 +401,26 @@
   (->> fm g/edges (filter #(bdx? fm %))))
 
 (declare symbolically)
+(declare add-basis-from-bdx)
 
 (defn all-bdx-symbolically [fm]
   (->> (all-bdx fm) (map #(symbolically fm %))))
 
 (defn add-bdx [fm from to]
-  (g/add-edge fm [from :bdx-from] [to :bdx-to]
-              {:class :bind
-               :desiderata #{[:need :mates-to-exist]
-                             [:oppose :other-bdx-from-same-mate]
-                             [:oppose :bindbacks]}
-;               :desiderata #{:want-mates-to-exist
-;                             :oppose-other-bdx-from-same-mate
-;                             :oppose-bindbacks}
-               :self-support [:decaying 0.2]
-               :total-support nil
-               }))
+  (with-state [fm fm]
+    (g/add-edge [from :bdx-from] [to :bdx-to]
+                {:class :bind
+                 :desiderata #{[:need :mates-to-exist]
+                               [:want :basis]
+                               [:oppose :other-bdx-from-same-mate]
+                               [:oppose :bindbacks]}
+  ;               :desiderata #{:want-mates-to-exist
+  ;                             :oppose-other-bdx-from-same-mate
+  ;                             :oppose-bindbacks}
+                 :self-support [:decaying 0.2]
+                 :total-support nil})
+    (bind bdxid (g/find-edgeid fm [from :bdx-from] [to :bdx-to]))
+    (add-basis-from-bdx bdxid)))
 
 (defn start-bdx-for
   "Creates bindings to id from all other nodes, and from id to all other
@@ -673,6 +677,10 @@
      :match?-fn (fn [fm id bdxid]
                   (and (bound-from-or-to? fm id bdxid)
                        (edge-to-adjacent? fm id bdxid)))}
+   :basis
+    {:start-fn unimplemented
+     :find-all-fn (fn [fm id] (g/port->neighbors fm [id :basis]))
+     :match?-fn unimplemented}
    :basis-of
     {:start-fn unimplemented
      :find-all-fn (fn [fm id] (g/port->neighbors fm [id :basis-of]))
@@ -847,33 +855,51 @@
                  (= tagclass (tagclass-of fm tagid)))))))
 
 (defn tags-of-via-port-label
-  "Returns set of all tags of elem, with :class tagclass, connected to
+  "Returns set of all tags on elem, with :class tagclass, connected to
   elem from [tag port-label]."
   [fm tagclass port-label elem]
-  (set
-    (for [[tagid tag-port-label] (tagports-of fm tagclass elem)
-          :when (= port-label tag-port-label)]
-      tagid)))
+  (let [tports (if (= :any tagclass)
+                 (tagports-of fm elem)
+                 (tagports-of fm tagclass elem))]
+    (set
+      (for [[tagid tag-port-label] tports
+            :when (= port-label tag-port-label)]
+        tagid))))
 
-(defn has-tag?
-  "Returns tag of given tagclass on taggees. taggees has same format same as
-  in add-tag."
+(defn tags-of2
+  "Returns set of tags with given taggees and given tagclass."
   [fm tagclass & taggees]
   (assert (even? (count taggees)))
   (let [tagss (map (fn [[port-label elem]]
                      (tags-of-via-port-label fm tagclass port-label elem))
-                   (partition 2 taggees))
-        tags (apply clojure.set/intersection tagss)]
+                   (partition 2 taggees))]
+    (apply clojure.set/intersection tagss)))
+
+(defn has-tag?
+  "Returns set of tags of given tagclass between given taggees, or nil if
+  none. taggees has same format same as in add-tag."
+  [fm tagclass & taggees]
+  (let [tags (apply tags-of2 fm tagclass taggees)]
     (if (empty? tags)
       nil
-      (first tags))))
+      tags)))
+
+(defn add-basis-edge [fm basis basis-of]
+  (g/add-edge fm [basis :basis-of] [basis-of :basis]))
 
 (defn add-basis-from-tag [fm tagid]
   (with-state [fm fm]
     (bind tagfrom (g/port->neighbor fm [tagid :from]))
     (bind tagto (g/port->neighbor fm [tagid :to]))
     (doseq [bdxid (bdx-from-to fm tagfrom tagto)]
-      (g/add-edge [tagid :basis-of] [bdxid :basis]))))
+      (g/add-edge [tagid :basis-of] [bdxid :basis])))) ;TODO add-basis-edge
+
+(defn add-basis-from-bdx [fm bdxid]
+  (with-state [fm fm]
+    (bind bdxfrom (bound-from fm bdxid))
+    (bind bdxto (bound-to fm bdxid))
+    (doseq [tagid (tags-of2 fm :any :from bdxfrom :to bdxto)]
+      (add-basis-edge tagid bdxid))))
 
 (defn add-tag
   "taggees is any number of: port-label node. An edge will be created for
@@ -891,8 +917,7 @@
       (doseq [[port-label taggee] (partition 2 taggees)]
         -- (assert (g/has-node? fm taggee))
         (g/add-edge [tagid port-label] [taggee :tags]))
-      (add-basis-from-tag tagid)
-      )
+      (add-basis-from-tag tagid))
     fm))
 
 (defn try-to-tag [fm id1 id2]
@@ -1209,11 +1234,8 @@
 (defn test4
   "We tag a,b and then b,c with :adj-right, and the symmetry is broken.
   The tags decay out of existence, and a->b, b->c, and c->a are the only
-  bindings that remain at the end. a->b has the most support, and b->c and
-  c->a are tied for support. The tie is not desirable. b->c leads for a
-  while, but then the leveling induced by diag-sigmoid equalizes them.
-  a->b doesn't get leveled, because diag-sigmoid doesn't reduce the leader.
-  Maybe that should change."
+  bindings that remain at the end. a->b has the most support, followed by
+  b->c and then c->a."
   [& {:keys [] :as overrides}]
   (run-model-test test4-params overrides
     (expect-only-bindings [[:bind 'a 'b]
