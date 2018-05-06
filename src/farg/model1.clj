@@ -14,9 +14,6 @@
               mapvals]]
             [farg.with-state :refer [with-state]]))
 
-; TODO
-; parameterize demo
-
 ;;; Utility functions
 
 (defn close-to-zero? [x]
@@ -35,6 +32,9 @@
 
 (defn class-of [fm id]
   (g/attr fm id :class))
+
+(defn tagclass-of [fm id]
+  (g/attr fm id :tagclass))
 
 ;;; Saving data
 
@@ -264,9 +264,9 @@
 
 (defn self-support-for [fm elem]
   (pmatch (g/attr fm elem :self-support)
-    (:permanent ~n)
+    [:permanent ~n]
       n
-    (:decaying ~n)
+    [:decaying ~n]
       n
     nil
       0.0))
@@ -328,7 +328,7 @@
 
 (defn permanent-support-for [fm id]
   (pmatch (g/attr fm id :self-support)
-    (:permanent ~n)
+    [:permanent ~n]
       n
     ~any
       0.0))
@@ -348,22 +348,25 @@
 
 (def letter-attrs
   {:class :letter
-   :self-support `(:permanent 1.0)
-   :desiderata #{`(:need :bdx (:prefer :bdx-from :adj-bdx))}
+   :self-support [:permanent 1.0]
+   :desiderata #{[:need :bdx [:prefer :bdx-from :adj-bdx]]}
    ;:desiderata #{:want-bdx :want-adj-bdx}
    ;:desiderata #{:want-bdx-from}
    ;:desiderata #{:want-bdx}
    })
 
+(defn update-nodes [fm idmatchf? updatef]
+  (with-state [fm fm]
+    (doseq [id (g/nodes fm)]
+      (when (idmatchf? id)
+        (updatef id)))))
+
+(defn set-letter-attrs [fm id attrs]
+  (g/merge-default-attrs fm id attrs {:letter id}))
+
 (def abc
   (-> (graph (left-to-right-seq 'a 'b 'c))
-      (g/merge-default-attrs 'a letter-attrs {:letter 'a})
-      (g/merge-default-attrs 'b letter-attrs {:letter 'b})
-      (g/merge-default-attrs 'c letter-attrs {:letter 'c})
-      (g/set-attr 'a :self-support `(:permanent 1.1))
-      ;(g/set-attr 'b :self-support `(:permanent 1.1))
-      ;(g/set-attr 'c :self-support `(:permanent 1.1))
-      ))
+      (update-nodes symbol? #(set-letter-attrs %1 %2 letter-attrs))))
 
 (defn init [fm]
   (if-let [init-fn (:init fm)]
@@ -376,7 +379,7 @@
   (start-model fm {}))
  ([fm override-params]
   (with-state [fm (merge fm default-globals override-params)]
-    (update :stems assoc :bind 0 :support 0)
+    (update :stems assoc :bind 0 :support 0 :tag 0)
     (assoc :timestep 0
            :actions #{}
            :support-deltas {})  ; map {fromid {toid amt}}
@@ -393,13 +396,13 @@
 (defn add-bdx [fm from to]
   (g/add-edge fm [from :bdx-from] [to :bdx-to]
               {:class :bind
-               :desiderata #{`(:need :mates-to-exist)
-                             `(:oppose :other-bdx-from-same-mate)
-                             `(:oppose :bindbacks)}
+               :desiderata #{[:need :mates-to-exist]
+                             [:oppose :other-bdx-from-same-mate]
+                             [:oppose :bindbacks]}
 ;               :desiderata #{:want-mates-to-exist
 ;                             :oppose-other-bdx-from-same-mate
 ;                             :oppose-bindbacks}
-               :self-support `(:decaying 0.2)}))
+               :self-support [:decaying 0.2]}))
 
 (defn start-bdx-for
   "Creates bindings to id from all other nodes, and from id to all other
@@ -462,6 +465,21 @@
 (defn bound-from-or-to? [fm id bdxid]
   (or (bound-from? fm id bdxid)
       (bound-to? fm id bdxid)))
+
+(defn symbolically [fm elem]
+  (case (class-of fm elem)
+    :bind
+      [:bind (bound-from fm elem) (bound-to fm elem)]
+    :tag
+      [:tag (tagclass-of fm elem) :from (g/port->neighbor fm [elem :from])
+                                  :to (g/port->neighbor fm [elem :to])]
+    :letter
+      [:letter (g/attr fm elem :letter)]))
+
+;  (cond
+;    :let [nm (name elem)]
+;    (clojure.string/starts-with? nm "bind")
+;      [:bind (bound-from fm elem) (bound-to fm elem)]))
 
 (defn edge-to-adjacent? [fm id edgeid]
   (let [mate (g/other-id fm id edgeid)]
@@ -531,6 +549,16 @@
     (str id \space ei)
     (str id)))
 
+(defn pprint-edges [fm]
+  (cond
+    :let [edgeids (remove #(support? fm %) (g/edges fm))]
+    (empty? edgeids)
+      (println "Edges: None")
+    :do (do
+          (println "Edges:")
+          (doseq [s (->> edgeids (map #(g/edgestr fm %)) sort)]
+            (println \space s)))))
+
 (defn bdxstr [fm bdxid]
   (str (nice-id fm bdxid) \space
        (util/map-str
@@ -598,7 +626,7 @@
 (defn pprint-model [fm]
   (println "Gattrs:" (util/map-str (g/gattrs fm)))
   (g/pprint-nodes fm)
-  ;TODO pprint-edges
+  (pprint-edges fm)
   (pprint-bdx fm)
   (pprint-support fm))
 
@@ -614,11 +642,11 @@
 
 (def m-desideratum-objects
   {:bdx
-    {:start-fn (fn [id] `(:start-bdx-for ~id))
+    {:start-fn (fn [id] [:start-bdx-for id])
      :find-all-fn incident-bdx
      :match?-fn bound-from-or-to?}
    :bdx-from
-    {:start-fn (fn [id] `(:start-bdx-from-for ~id))
+    {:start-fn (fn [id] [:start-bdx-from-for id])
      :find-all-fn incident-bdx-from
      :match?-fn bound-from?}
    :adj-bdx
@@ -718,7 +746,7 @@
         ~kw (guard (keyword? kw))
           (let [find-all (get-in m-desideratum-objects [kw :find-all-fn])]
             (find-all fm fromid))
-        ~ls (guard (seq? ls))
+        ~ls (guard (or (sequential? ls) (nil? ls)))
           nil  ; ignore preferences
         ))))
 
@@ -747,7 +775,7 @@
   "Adds/subtracts to :support-deltas for one desideratum."
   [fm fromid desideratum]
   (pmatch desideratum
-    (:need ~@ospecs)
+    [:need ~@ospecs]
       (let [needed (find-objects fm fromid ospecs)
             preferred (preferred-objects fm fromid needed ospecs)]
         (with-state [fm fm]
@@ -755,7 +783,7 @@
             (add-support fromid toid))
           (doseq [toid preferred]
             (add-support fromid toid (preference-delta fm)))))
-    (:oppose ~@ospecs)
+    [:oppose ~@ospecs]
       (let [fromid-prev (prev-total-support-for fm fromid)]
         (with-state [fm fm]
           (doseq [toid (find-objects fm fromid ospecs)]
@@ -777,12 +805,71 @@
         (when (not (close-to-zero? amt))
           (add-support fromid supportee amt))))))
 
+;;; Tagging
+
+(defn tags-of
+ ([fm elem]
+  (g/neighbors-via fm [elem :tags]))
+ ([fm tagclass elem]
+  (->> (g/neighbors-via fm [elem :tags])
+       (filter #(= tagclass (tagclass-of fm %))))))
+
+(defn tagports-of
+ ([fm elem]
+  (g/port->neighboring-ports fm [elem :tags]))
+ ([fm tagclass elem]
+  (->> (g/port->neighboring-ports fm [elem :tags])
+       (filter (fn [[tagid port-label]]
+                 (= tagclass (tagclass-of fm tagid)))))))
+
+(defn tags-of-via-port-label
+  "Returns set of all tags of elem, with :class tagclass, connected to
+  elem from [tag port-label]."
+  [fm tagclass port-label elem]
+  (set
+    (for [[tagid tag-port-label] (tagports-of fm tagclass elem)
+          :when (= port-label tag-port-label)]
+      tagid)))
+
+(defn has-tag?
+  "Returns tag of given tagclass on taggees: same as add-tag."
+  [fm tagclass & taggees]
+  (assert (even? (count taggees)))
+  (let [tagss (map (fn [[port-label elem]]
+                     (tags-of-via-port-label fm tagclass port-label elem))
+                   (partition 2 taggees))
+        tags (apply clojure.set/intersection tagss)]
+    (if (empty? tags)
+      nil
+      (first tags))))
+
+(defn add-tag
+  "taggees is any number of: port-label node. An edge will be created for
+  each taggee, from [tag port-label] to [node :tags]."
+  [fm tagclass & taggees]
+  (assert even? (count taggees))
+  (if (not (apply has-tag? fm tagclass taggees))
+    (with-state [fm fm]
+      (setq tagid (g/make-node :tag {:class :tag, :tagclass tagclass}))
+      (doseq [[port-label taggee] (partition 2 taggees)]
+        -- (assert (g/has-node? fm taggee))
+        (g/add-edge [tagid port-label] [taggee :tags])))
+    fm))
+
+(defn try-to-tag [fm id1 id2]
+  (cond
+    (= (g/attr fm id1 :adj-right) id2)
+      (add-tag fm :adj-right :from id1 :to id2)
+    (= id1 (g/attr fm id2 :adj-right))
+      (add-tag fm :adj-right :from id2 :to id1)
+    fm))
+
 ;;; Updating support weights
 
 (defn decay-self-support [fm elem]
   (pmatch (g/attr fm elem :self-support)
-    (:decaying ~n)
-      (g/set-attr fm elem :self-support `(:decaying ~(* 0.9 n)))
+    [:decaying ~n]
+      (g/set-attr fm elem :self-support [:decaying (* 0.9 n)])
     ~any
       fm))
 
@@ -966,12 +1053,6 @@
        (map (fn [id] [id (total-support-for fm id)]))
        (into {})))
 
-(defn symbolically [fm elem]
-  (cond
-    :let [nm (name elem)]
-    (clojure.string/starts-with? nm "bind")
-      [:bind (bound-from fm elem) (bound-to fm elem)]))
-
 (defn top-bindings [fm]
   (->> (all-bdx fm)
        (sort-by #(- (total-support-for fm %)))))
@@ -999,7 +1080,8 @@
    :minimum-self-support 0.02
    :normalization-expt 1.5
    :normalize-total-supports? true
-   :cnormalize-method :by-exponent})
+   :cnormalize-method :by-exponent
+   :init #(g/set-attr % 'a :self-support [:permanent 1.1])})
 
 (defn test1
   "Should end with a->b and b->c dominant, maybe a little bit for c->a, and
@@ -1010,9 +1092,9 @@
 
 (defn mkdecaying [fm]
   (with-state [fm fm]
-    (g/set-attr 'a :self-support `(:decaying 1.1))
-    (g/set-attr 'b :self-support `(:decaying 1.0))
-    (g/set-attr 'c :self-support `(:decaying 1.0))))
+    (g/set-attr 'a :self-support [:decaying 1.1])
+    (g/set-attr 'b :self-support [:decaying 1.0])
+    (g/set-attr 'c :self-support [:decaying 1.0])))
 
 (def test2-params
   {:need-delta 0.01
@@ -1060,15 +1142,6 @@
   {:class :letter
    :self-support [:permanent 1.0]
    :desiderata #{[:need :bdx]}})
-
-(defn update-nodes [fm idmatchf? updatef]
-  (with-state [fm fm]
-    (doseq [id (g/nodes fm)]
-      (when (idmatchf? id)
-        (updatef id)))))
-
-(defn set-letter-attrs [fm id attrs]
-  (g/merge-default-attrs fm id attrs {:letter id}))
 
 (def test4-model
   (-> (graph (left-to-right-seq 'a 'b 'c))
