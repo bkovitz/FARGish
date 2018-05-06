@@ -126,8 +126,7 @@
   (cond
     (empty? coll)
       coll
-    :let [scaling-factor (/ (->> (map #(Math/abs %) coll) (apply max)))
-          _ (dd scaling-factor)]
+    :let [scaling-factor (/ (->> (map #(Math/abs %) coll) (apply max)))]
     (map #(* scaling-factor %) coll)))
 
 (defn cnormalize-vals-
@@ -952,6 +951,16 @@
 (defn run [& {:keys [] :as params}]
   (run- params))
 
+;;; Tests of the model
+
+(defn run-model-test [base-params overrides expectf]
+  (let [[overrides expectf] (if (nil? overrides)
+                              [{:quiet? true} expectf]
+                              [overrides (constantly true)])
+        fm (run- (merge base-params overrides))]
+    (assert (expectf fm))
+    fm))
+
 (defn results [fm]
   (->> (elems-that-can-give-support fm)
        (map (fn [id] [id (total-support-for fm id)]))
@@ -967,22 +976,53 @@
   (->> (all-bdx fm)
        (sort-by #(- (total-support-for fm %)))))
 
+(defn expect-top-bindings
+  "Returns a Boolean function suitable for passing as the expectf argument
+  to run-model-test. That function returns logical true iff the most-supported
+  n bindings are those listed symbolically in bdxs, where n is the length of
+  bdxs. Each element of bdxs should look like this: [:bind a b]."
+  [bdxs]
+  (let [bdxs (set bdxs)]
+    (fn [fm]
+      (= bdxs
+         (->> (top-bindings fm)
+              (take (count bdxs))
+              (map #(symbolically fm %))
+              set)))))
+
+(def test1-params
+  {:need-delta 0.1
+   :preference-delta 0.1
+   :antipathy-per-timestep -0.5
+   :positive-feedback-rate 0.1
+   :minimum-total-support 0.02
+   :minimum-self-support 0.02
+   :normalization-expt 1.5
+   :normalize-total-supports? true
+   :cnormalize-method :by-exponent})
+
 (defn test1
   "Should end with a->b and b->c dominant, maybe a little bit for c->a, and
   no other bindings."
-  []
-  (let [fm (run :quiet? true)]
-    (assert (= #{[:bind 'a 'b] [:bind 'b 'c]}
-               (->> (top-bindings fm)
-                    (take 2)
-                    (map #(symbolically fm %))
-                    set)))))
+  [& {:keys [] :as overrides}]
+  (run-model-test test1-params overrides
+    (expect-top-bindings [[:bind 'a 'b] [:bind 'b 'c]])))
 
 (defn mkdecaying [fm]
   (with-state [fm fm]
     (g/set-attr 'a :self-support `(:decaying 1.1))
     (g/set-attr 'b :self-support `(:decaying 1.0))
     (g/set-attr 'c :self-support `(:decaying 1.0))))
+
+(def test2-params
+  {:need-delta 0.01
+   :preference-delta 0.05
+   :antipathy-per-timestep -0.2
+   :normalization-expt 0.5
+   :positive-feedback-rate 0.2
+   :cnormalize-method :by-sigmoid
+   :support-limit 3.0
+   :init mkdecaying})
 
 (defn test2
   "Without permanent support for anything, this arrangement behaves remarkably
@@ -994,17 +1034,8 @@
   support is fairly equally distributed among all the surviving elems,
   with somewhat more in b than a or c, and the most in the top two bindings."
   [& {:keys [] :as overrides}]
-  (let [params {:need-delta 0.01
-                :preference-delta 0.05
-                :antipathy-per-timestep -0.2
-                :normalization-expt 0.5
-                :positive-feedback-rate 0.2
-                :cnormalize-method :by-sigmoid
-                :support-limit 3.0
-                :init mkdecaying
-               }
-        params (merge params overrides)]
-    (run- params)))
+  (run-model-test test2-params overrides
+    (expect-top-bindings [[:bind 'a 'b] [:bind 'b 'c]])))
 
 (defn demo
   "Run this to see what farg.model1 does."

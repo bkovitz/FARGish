@@ -1,4 +1,4 @@
-(defproject farg/ish "0.21.0-SNAPSHOT"
+(defproject farg/ish "0.21.2-SNAPSHOT"
   :description "v21 of FARGish/Numbo"
   :url "https://github.com/bkovitz/FARGish"
   :license {:name "Eclipse Public License"
