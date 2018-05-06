@@ -11,7 +11,7 @@
             [farg.no-reload :refer [gui-state]]
             [farg.pmatch :refer [pmatch]]
             [farg.util :as util :refer [dd remove= find-first with-rng-seed
-              mapvals]]
+              mapvals =sets]]
             [farg.with-state :refer [with-state]]))
 
 ;;; Utility functions
@@ -399,6 +399,11 @@
 
 (defn all-bdx [fm]
   (->> fm g/edges (filter #(bdx? fm %))))
+
+(declare symbolically)
+
+(defn all-bdx-symbolically [fm]
+  (->> (all-bdx fm) (map #(symbolically fm %))))
 
 (defn add-bdx [fm from to]
   (g/add-edge fm [from :bdx-from] [to :bdx-to]
@@ -1103,13 +1108,18 @@
   n bindings are those listed symbolically in bdxs, where n is the length of
   bdxs. Each element of bdxs should look like this: [:bind a b]."
   [bdxs]
-  (let [bdxs (set bdxs)]
-    (fn [fm]
-      (= bdxs
-         (->> (top-bindings fm)
-              (take (count bdxs))
-              (map #(symbolically fm %))
-              set)))))
+  (fn [fm]
+    (=sets bdxs (->> (top-bindings fm)
+                     (take (count bdxs))
+                     (map #(symbolically fm %))))))
+
+(defn expect-only-bindings
+  "Returns a Boolean function like expect-top-bindings, but it checks that
+  that the bindings in the model are the same as those passed to the
+  function."
+  [bdxs]
+  (fn [fm]
+    (=sets bdxs (all-bdx-symbolically fm))))
 
 (def test1-params
   {:need-delta 0.1
@@ -1205,7 +1215,10 @@
   a->b doesn't get leveled, because diag-sigmoid doesn't reduce the leader.
   Maybe that should change."
   [& {:keys [] :as overrides}]
-  (run-model-test test4-params overrides (constantly true)))
+  (run-model-test test4-params overrides
+    (expect-only-bindings [[:bind 'a 'b]
+                           [:bind 'b 'c]
+                           [:bind 'c 'a]])))
 
 (defn demo
   "Run this to see what farg.model1 does."
