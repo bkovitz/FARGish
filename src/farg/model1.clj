@@ -82,6 +82,9 @@
    :normalize-total-supports? true
    :cnormalize-method :by-exponent
    :quiet? false
+   :init nil  ;function to call at start of run
+   :scheduled nil  ;map {timestep func} of funcs to call at start of
+                   ;specified timesteps
   })
 
 (defn need-delta [fm] (get fm :need-delta))
@@ -91,6 +94,8 @@
 (defn minimum-total-support [fm] (get fm :minimum-total-support))
 (defn minimum-self-support [fm] (get fm :minimum-self-support))
 (defn normalization-expt [fm] (get fm :normalization-expt))
+
+(defn get-timestep [fm] (get fm :timestep))
 
 #_(defn raise-to-norm-expt [n]
   (cond
@@ -213,7 +218,8 @@
     [edgeid (Math/abs (g/weight fm edgeid))]))
 
 (defn elems-that-can-give-support [fm]
-  (filter #(not (support? fm %)) (g/elems fm)))
+  (filter #(contains? (g/attrs fm %) :total-support) (g/elems fm))
+  #_(filter #(not (support? fm %)) (g/elems fm)))
 
 (def elems-that-can-receive-support elems-that-can-give-support)
 
@@ -350,6 +356,7 @@
   {:class :letter
    :self-support [:permanent 1.0]
    :desiderata #{[:need :bdx [:prefer :bdx-from :adj-bdx]]}
+   :total-support nil
    ;:desiderata #{:want-bdx :want-adj-bdx}
    ;:desiderata #{:want-bdx-from}
    ;:desiderata #{:want-bdx}
@@ -402,7 +409,9 @@
 ;               :desiderata #{:want-mates-to-exist
 ;                             :oppose-other-bdx-from-same-mate
 ;                             :oppose-bindbacks}
-               :self-support [:decaying 0.2]}))
+               :self-support [:decaying 0.2]
+               :total-support nil
+               }))
 
 (defn start-bdx-for
   "Creates bindings to id from all other nodes, and from id to all other
@@ -436,6 +445,10 @@
   [fm id]
   (or (seq (g/port->incident-edges fm [id :bdx-from]))
       (seq (g/port->incident-edges fm [id :bdx-to]))))
+
+(defn bdx-from-to [fm fromid toid]
+  (clojure.set/intersection (set (incident-bdx-from fm fromid))
+                            (set (incident-bdx-to fm toid))))
 
 (defn has-bdx-from?
   "Are any bindings, even if unofficial, linked to [id :bdx-from]?"
@@ -475,11 +488,6 @@
                                   :to (g/port->neighbor fm [elem :to])]
     :letter
       [:letter (g/attr fm elem :letter)]))
-
-;  (cond
-;    :let [nm (name elem)]
-;    (clojure.string/starts-with? nm "bind")
-;      [:bind (bound-from fm elem) (bound-to fm elem)]))
 
 (defn edge-to-adjacent? [fm id edgeid]
   (let [mate (g/other-id fm id edgeid)]
@@ -549,9 +557,13 @@
     (str id \space ei)
     (str id)))
 
+(defn pprint-edge? [fm edgeid]
+  (and (not (support? fm edgeid))
+       (not (bdx? fm edgeid))))
+
 (defn pprint-edges [fm]
   (cond
-    :let [edgeids (remove #(support? fm %) (g/edges fm))]
+    :let [edgeids (filter #(pprint-edge? fm %) (g/edges fm))]
     (empty? edgeids)
       (println "Edges: None")
     :do (do
@@ -656,6 +668,10 @@
      :match?-fn (fn [fm id bdxid]
                   (and (bound-from-or-to? fm id bdxid)
                        (edge-to-adjacent? fm id bdxid)))}
+   :basis-of
+    {:start-fn unimplemented
+     :find-all-fn (fn [fm id] (g/port->neighbors fm [id :basis-of]))
+     :match?-fn unimplemented}
    :mates-to-exist
     {:start-fn identity
      :find-all-fn (fn [fm bdxid] (g/incident-elems fm bdxid))
@@ -734,7 +750,6 @@
         ;add to existing antipathy
         (+ old-delta amt))))))
 
-
 (defn find-objects
   "ospecs is the part of a desideratum after the verb, which lists
   types of objects to support or oppose. The inside of a (:prefer ...)
@@ -783,6 +798,10 @@
             (add-support fromid toid))
           (doseq [toid preferred]
             (add-support fromid toid (preference-delta fm)))))
+    [:want ~@ospecs]
+      (with-state [fm fm]
+        (doseq [toid (find-objects fm fromid ospecs)]
+          (add-support fromid toid)))
     [:oppose ~@ospecs]
       (let [fromid-prev (prev-total-support-for fm fromid)]
         (with-state [fm fm]
@@ -832,7 +851,8 @@
       tagid)))
 
 (defn has-tag?
-  "Returns tag of given tagclass on taggees: same as add-tag."
+  "Returns tag of given tagclass on taggees. taggees has same format same as
+  in add-tag."
   [fm tagclass & taggees]
   (assert (even? (count taggees)))
   (let [tagss (map (fn [[port-label elem]]
@@ -843,17 +863,31 @@
       nil
       (first tags))))
 
+(defn add-basis-from-tag [fm tagid]
+  (with-state [fm fm]
+    (bind tagfrom (g/port->neighbor fm [tagid :from]))
+    (bind tagto (g/port->neighbor fm [tagid :to]))
+    (doseq [bdxid (bdx-from-to fm tagfrom tagto)]
+      (g/add-edge [tagid :basis-of] [bdxid :basis]))))
+
 (defn add-tag
   "taggees is any number of: port-label node. An edge will be created for
-  each taggee, from [tag port-label] to [node :tags]."
+  each taggee, from [tag port-label] to [node :tags]. If the tag already
+  exists, a new one will not be created."
   [fm tagclass & taggees]
   (assert even? (count taggees))
   (if (not (apply has-tag? fm tagclass taggees))
     (with-state [fm fm]
-      (setq tagid (g/make-node :tag {:class :tag, :tagclass tagclass}))
+      (setq tagid (g/make-node :tag {:class :tag
+                                     :tagclass tagclass
+                                     :desiderata #{[:want :basis-of]}
+                                     :self-support [:decaying 0.2]
+                                     :total-support nil}))
       (doseq [[port-label taggee] (partition 2 taggees)]
         -- (assert (g/has-node? fm taggee))
-        (g/add-edge [tagid port-label] [taggee :tags])))
+        (g/add-edge [tagid port-label] [taggee :tags]))
+      (add-basis-from-tag tagid)
+      )
     fm))
 
 (defn try-to-tag [fm id1 id2]
@@ -989,6 +1023,11 @@
 
 ;;; Running
 
+(defn do-scheduled [fm]
+  (if-let [f (get-in fm [:scheduled (get-timestep fm)])]
+    (f fm)
+    fm))
+
 (defn do-timestep [fm]
   (with-state [fm fm]
     (update :timestep inc)
@@ -1000,6 +1039,7 @@
     (doseq [elem (elems-that-can-receive-support fm)]
       (decay-self-support elem))
     remove-unsupported-elems
+    do-scheduled
     post-actions-for-desiderata
     do-actions
     post-support-deltas-for-desiderata
@@ -1141,7 +1181,8 @@
 (def test4-letter-attrs
   {:class :letter
    :self-support [:permanent 1.0]
-   :desiderata #{[:need :bdx]}})
+   :desiderata #{[:need :bdx]}
+   :total-support nil})
 
 (def test4-model
   (-> (graph (left-to-right-seq 'a 'b 'c))
@@ -1149,12 +1190,20 @@
 
 (def test4-params (merge test2-params
   {:model test4-model
-   :init nil}))
+   ;:antipathy-per-timestep -0.1
+   ;:positive-feedback-rate 0.05
+   :init nil
+   :scheduled {2 (fn [fm] (try-to-tag fm 'a 'b))
+               10 (fn [fm] (try-to-tag fm 'b 'c))}}))
 
-;NEXT This is completely symmetric and gets nowhere. Add a tag to resolve
-;the confusion.
-;Make every binding want a basis.
 (defn test4
+  "We tag a,b and then b,c with :adj-right, and the symmetry is broken.
+  The tags decay out of existence, and a->b, b->c, and c->a are the only
+  bindings that remain at the end. a->b has the most support, and b->c and
+  c->a are tied for support. The tie is not desirable. b->c leads for a
+  while, but then the leveling induced by diag-sigmoid equalizes them.
+  a->b doesn't get leveled, because diag-sigmoid doesn't reduce the leader.
+  Maybe that should change."
   [& {:keys [] :as overrides}]
   (run-model-test test4-params overrides (constantly true)))
 
