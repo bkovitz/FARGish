@@ -28,6 +28,20 @@
  ([x1 x2]
   (+ (Math/abs x1) (Math/abs x2))))
 
+(defn max2 [coll]
+  (loop [coll coll, x1 nil, x2 nil]
+    (cond
+      (empty? coll)
+        (filter some? [x1 x2])
+      :let [x (first coll)]
+      (nil? x1)
+        (recur (rest coll) x nil)
+      (> x x1)
+        (recur (rest coll) x x1)
+      (> x x2)
+        (recur (rest coll) x1 x)
+      (recur (rest coll) x1 x2))))
+
 (defn all-nodes-other-than [fm id]
   (->> (g/nodes fm) (remove= id)))
 
@@ -269,6 +283,9 @@
   (->> (outgoing-support-edges fm fromid)
        (map #(g/other-id fm fromid %))))
 
+(defn attempted-weight-of [fm suppid]
+  (or (g/attr fm suppid :attempted-weight) 0.0))
+
 (defn self-support-for [fm elem]
   (pmatch (g/attr fm elem :self-support)
     [:permanent ~n]
@@ -390,6 +407,7 @@
     (update :stems assoc :bind 0 :support 0 :tag 0)
     (assoc :timestep 0
            :actions #{}
+           :queued-actions #{}
            :support-deltas {})  ; map {fromid {toid amt}}
     init)))
 
@@ -737,21 +755,73 @@
     ~any
       nil))
 
+(declare try-to-tag-for)
+
+(defn add-orientation-for [fm id & other-ids]
+  (with-state [fm fm]
+    (doseq [other-id other-ids]
+      (try-to-tag-for other-id))))
+
 (defn do-action [fm action]
   (pmatch action
     (:start-bdx-for ~id)
       (start-bdx-for fm id)
     (:start-bdx-from-for ~id)
-      (start-bdx-from-for fm id)))
+      (start-bdx-from-for fm id)
+    (:request-orientation-for ~id ~toids)
+      (apply add-orientation-for fm id toids)))
 
 (defn do-actions [fm]
   (reduce #(do-action %1 %2) fm (:actions fm)))
+
+(defn do-queued-actions [fm]
+  (reduce #(do-action %1 %2) fm (:queued-actions fm)))
 
 (defn post-actions-for-desiderata [fm]
   (with-state [fm fm]
     (doseq [node (g/nodes fm)
             desideratum (g/attr fm node :desiderata)]
       (update :actions into (desideratum->actions fm node desideratum)))))
+
+;(defn attempted-weights-from [fm fromid]
+;  (map #(g/attr fm % :attempted-weight)
+;       (support-edges-from fm fromid)))
+;
+;(defn something-is-salient?
+;  "Something is salient if the max element of coll is at least 10% greater
+;  than the second-to-max element."
+;  [coll]
+;  (cond
+;    :let [top2 (vec (max2 coll))]
+;    (= 1 (count top2))
+;      true
+;    (empty? top2)
+;      false
+;    :let [x1 (top2 0), x2 (top2 1)]
+;    (>= x1 (+ x2 (* 0.1 x2)))))
+
+(defn nonsalient-supportees-of [fm fromid]
+  (cond
+    :let [pairs (->> (outgoing-support-edges fm fromid)
+                     (map (fn [suppid]
+                            [suppid (attempted-weight-of fm suppid)]))
+                     (sort-by (comp - second)))]
+    (or (empty? pairs) (= 1 (count pairs)))
+      nil
+    :let [max-attempted-weight (-> pairs first second)
+          threshold (- max-attempted-weight (* 0.1 max-attempted-weight))]
+    (->> pairs
+         (take-while #(> (second %) threshold))
+         (map #(support-to fm (first %))))))
+
+(defn queue-actions [fm]
+  (with-state [fm fm]
+    (doseq [[fromid _] (->> (:support-deltas fm)
+                            (filter #(not (bdx? fm (first %)))))]
+      (bind toids (nonsalient-supportees-of fm fromid))
+      (when (not (empty? toids))
+        (update :queued-actions conj
+                [:request-orientation-for fromid toids])))))
 
 ;;; Support for desiderata
 
@@ -952,6 +1022,13 @@
       (add-tag fm :adj-right :from id2 :to id1)
     fm))
 
+;TODO Data for the logic here needs to go into the spec.
+(defn try-to-tag-for [fm id]
+  (case (class-of fm id)
+    :bind
+      (try-to-tag fm (bound-from fm id) (bound-to fm id))
+    fm))
+
 ;;; Updating support weights
 
 (defn decay-self-support [fm elem]
@@ -1093,6 +1170,8 @@
     (doseq [elem (elems-that-can-receive-support fm)]
       (decay-self-support elem))
     remove-unsupported-elems
+    do-queued-actions
+    (assoc :queued-actions #{})
     do-scheduled
     post-actions-for-desiderata
     do-actions
@@ -1101,6 +1180,7 @@
     calculate-attempted-weights
     calculate-weights
     calculate-total-supports
+    queue-actions
     save-obs))
 
 (defn run-
@@ -1262,6 +1342,18 @@
   b->c and then c->a."
   [& {:keys [] :as overrides}]
   (run-model-test test4-params overrides
+    (expect-only-bindings [[:bind 'a 'b]
+                           [:bind 'b 'c]
+                           [:bind 'c 'a]])))
+
+(def test5-params
+  (assoc test4-params :scheduled nil))
+
+(defn test5
+  "Like test4, except in test5, no tagging is scheduled. The letters
+  themselves request tags to resolve lack of salience."
+  [& {:keys [] :as overrides}]
+  (run-model-test test5-params overrides
     (expect-only-bindings [[:bind 'a 'b]
                            [:bind 'b 'c]
                            [:bind 'c 'a]])))
