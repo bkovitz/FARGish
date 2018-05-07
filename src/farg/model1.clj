@@ -1251,7 +1251,7 @@
 (defn expect-only-bindings
   "Returns a Boolean function like expect-top-bindings, but it checks that
   that the bindings in the model are the same as those passed to the
-  function."
+  function (i.e. the model has all of 'bdxs' and no other bindings)."
   [bdxs]
   (fn [fm]
     (=sets bdxs (all-bdx-symbolically fm))))
@@ -1291,7 +1291,7 @@
    :normalization-expt 0.5
    :positive-feedback-rate 0.2
    :cnormalize-method :by-sigmoid
-   :request-orientation? false
+   :request-orientation? true
    :support-limit 3.0
    :init mkdecaying})
 
@@ -1361,7 +1361,7 @@
                       :request-orientation? true))
 
 (defn test5
-  "Like test4, except in test5, no tagging is scheduled. The letters
+  "Like test4, except that in test5, no tagging is scheduled. The letters
   themselves request tags to resolve lack of salience."
   [& {:keys [] :as overrides}]
   (run-model-test test5-params overrides
