@@ -32,16 +32,18 @@
 
 (defn match-by-name? [m name]
   (let [match?f (:name-match? m)]
-    (and (some? match?f) (match?f name))))
+    (or (= (:name m) name)
+        (and (some? match?f) (match?f name)))))
 
-(defn default-node-attrs [g nodename]
-  (cond
-    :let [spec (:spec g)
-          nodeclass (find-first #(match-by-name? % nodename)
-                                (-> spec :nodeclasses vals))]
-    (some? nodeclass)
-      (assoc (get nodeclass :attrs {})
-             :class (:name nodeclass))
+(defn find-class-by-elem-name [g classes-key nm]
+  (or (find-first #(match-by-name? % nm)
+                  (-> g :spec classes-key vals))
+      {}))
+
+(defn default-attrs [g classes-key nm]
+  (if-let [cl (find-class-by-elem-name g classes-key nm)]
+    (assoc (get cl :attrs {})
+           :class (:name cl))
     {}))
 
 (defn make-node
@@ -50,14 +52,28 @@
  ([g nodename]
   (make-node g nodename {}))
  ([g nodename attrs]
-  (let [default-attrs (default-node-attrs g nodename)
+  (let [default-attrs (default-attrs g :nodeclasses nodename)
         [g id] (pg/next-id g nodename)
         g (pg/add-node g id (merge default-attrs attrs))]
     [g id])))
 
-(defn add-node
-  [& args]
+(defn add-node [& args]
   (let [[g _] (apply make-node args)]
+    g))
+
+(defn make-edge
+  "Returns [g id] where g is updated graph and id is the name assigned to
+  the new node."
+ ([g edgename [id1 p1] [id2 p2]]
+  (make-edge g edgename [id1 p1] [id2 p2] {}))
+ ([g edgename [id1 p1] [id2 p2] attrs]
+  (let [default-attrs (default-attrs g :edgeclasses edgename)
+        g (pg/add-edge g [id1 p1] [id2 p2] (merge default-attrs attrs))
+        edgeid (pg/find-edgeid g [id1 p1] [id2 p2])]
+    [g edgeid])))
+
+(defn add-edge [& args]
+  (let [[g _] (apply make-edge args)]
     g))
 
 ;;; Shorthand
@@ -107,13 +123,20 @@
 
 (def empty-farg-spec
   {:type ::farg-spec
-   :nodeclasses {}})
+   :nodeclasses {}
+   :edgeclass {}
+   :stems {}})
 
 (def empty-nodeclass
   {:name nil
    :name-match? nil ;Boolean function: if a node's name matches, make it
                     ;this class
    :attrs {}})      ;Initial attrs of any instance
+
+(def empty-edgeclass
+  {:name nil
+   :name-match? nil
+   :attrs {}})
 
 (defn start-named-elem [empty-m name]
   (assoc empty-m :name name))
@@ -133,6 +156,16 @@
     (fnil merge (start-named-elem empty-nodeclass name))
     (args->map args)))
 
+(defmethod add-spec-elem :edgeclass
+  [spec {:keys [name args]}]
+  (update-in spec [:edgeclasses name]
+    (fnil merge (start-named-elem empty-edgeclass name))
+    (args->map args)))
+
+(defmethod add-spec-elem :stems
+  [spec {:keys [arg]}]
+  (update spec :stems merge arg))
+
 (defn make-farg-spec [elems]
   (with-state [spec empty-farg-spec]
     (doseq [elem elems]
@@ -141,10 +174,14 @@
 (defmacro farg-spec [& elems]
   `(macrolet [(~'nodeclass [name# & args#]
                 {::elem-type :nodeclass, :name name#, :args (vec args#)})
+              (~'edgeclass [name# & args#]
+                {::elem-type :edgeclass, :name name#, :args (vec args#)})
               (~'name-match? [arg#]
                 {::elem-type :name-match?, :arg arg#})
               (~'attrs [arg#]
-                {::elem-type :attrs, :arg arg#})]
+                {::elem-type :attrs, :arg arg#})
+              (~'stems [arg#]
+                {::elem-type :stems, :arg arg#})]
      (make-farg-spec ~(vec elems))))
 
 ;TODO Write this more thoughtfully
@@ -162,7 +199,9 @@
 (defn add-graph-elem [g elem]
   (cond
     (= ::farg-spec (:type elem))
-      (update g :spec #(merge-spec % elem))
+      (with-state [g g]
+        (update :spec #(merge-spec % elem))
+        (update :stems merge (:stems (:spec g))))
     (add-node g elem)))
 
 (defn graph [& elems]
