@@ -89,7 +89,19 @@
     (is (g/has-edge? g [:problem :ctx-members] [:brick002 :ctx]))
     (is (g/has-edge? g [:problem :ctx-members] [:brick003 :ctx]))))
 
-(deftest test-v20
+(deftest test-with-node-attrs
+  (let [g (graph
+            (with-node-attrs {:self-support [:permanent 1.0]}
+              :a :b
+              (with-node-attrs {:nested true}
+                :c))
+            :d)]
+    (is (= {:self-support [:permanent 1.0]} (g/user-attrs g :a)))
+    (is (= {:self-support [:permanent 1.0]} (g/user-attrs g :b)))
+    (is (= {:self-support [:permanent 1.0], :nested true} (g/user-attrs g :c)))
+    (is (= {} (g/user-attrs g :d)))))
+
+(deftest test-v20-graph
   (let [g (graph little-numbo-spec
             (ctx :eqn
               [:number :n 11]

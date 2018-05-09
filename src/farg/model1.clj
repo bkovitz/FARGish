@@ -8,7 +8,7 @@
             [com.rpl.specter :as S]
             [farg.logging :as log :refer [with-logging log logdd logdo]]
             [farg.gui :as gui]
-            [farg.graphs2 :as g :refer [graph make-graph]]
+            [farg.graphs3 :as g :refer [graph make-graph farg-spec]]
             [farg.no-reload :refer [gui-state]]
             [farg.pmatch :refer [pmatch]]
             [farg.util :as util :refer [dd remove= find-first with-rng-seed
@@ -248,7 +248,7 @@
   (g/remove-edge fm [fromid :support-to] [toid :support-from]))
 
 (defn add-support-edge [fm fromid toid weight]
-  (g/add-edge fm [fromid :support-to] [toid :support-from]
+  (g/add-edge fm nil [fromid :support-to] [toid :support-from]
                  {:class :support
                   :prev-weight 0.0
                   :weight weight
@@ -428,7 +428,7 @@
 
 (defn add-bdx [fm from to]
   (with-state [fm fm]
-    (g/add-edge [from :bdx-from] [to :bdx-to]
+    (g/add-edge :bind [from :bdx-from] [to :bdx-to]
                 {:class :bind
                  :desiderata #{[:need :mates-to-exist]
                                [:want :basis]
@@ -985,14 +985,14 @@
       tags)))
 
 (defn add-basis-edge [fm basis basis-of]
-  (g/add-edge fm [basis :basis-of] [basis-of :basis]))
+  (g/add-edge fm nil [basis :basis-of] [basis-of :basis]))
 
 (defn add-basis-from-tag [fm tagid]
   (with-state [fm fm]
     (bind tagfrom (g/port->neighbor fm [tagid :from]))
     (bind tagto (g/port->neighbor fm [tagid :to]))
     (doseq [bdxid (bdx-from-to fm tagfrom tagto)]
-      (g/add-edge [tagid :basis-of] [bdxid :basis])))) ;TODO add-basis-edge
+      (add-basis-edge tagid bdxid))))
 
 (defn add-basis-from-bdx [fm bdxid]
   (with-state [fm fm]
@@ -1016,7 +1016,7 @@
                                      :total-support nil}))
       (doseq [[port-label taggee] (partition 2 taggees)]
         -- (assert (g/has-node? fm taggee))
-        (g/add-edge [tagid port-label] [taggee :tags]))
+        (g/add-edge nil [tagid port-label] [taggee :tags]))
       (add-basis-from-tag tagid))
     fm))
 
@@ -1368,6 +1368,55 @@
     (expect-only-bindings [[:bind 'a 'b]
                            [:bind 'b 'c]
                            [:bind 'c 'a]])))
+
+(def little-numbo-spec (farg-spec
+  (nodeclass :number
+    (name-match? number?)
+    (port-labels :source :result :not-this))
+  (nodeclass :brick
+    (port-labels :source :result :not-this))  ;TODO inherit from :number
+  (nodeclass :block
+    (port-labels :source :result :not-this))
+  (nodeclass :target
+    (port-labels :source :result :not-this))
+  (nodeclass :operator
+    (name-match? #{:plus})
+    (port-labels :operands :result))
+  (portclass :source (extends :in))
+  (portclass :result (extends :out))
+  (portclass :operands (extends :in))
+  (can-link :source :result)
+  (can-link :result :operands)))
+
+(def v20-model
+  (graph little-numbo-spec
+    (ctx :eqn
+      [:number :n 11]
+      [:number :n 5]
+      [:number :n 6]
+      :plus
+      [5 -> :plus]
+      [6 -> :plus]
+      [:plus -> 11])
+    (ctx :problem
+      [:target :n 15]
+      [:block :n 9]
+      [:brick :n 4]
+      [:brick :n 5]
+      :plus
+      [4 -> :plus]
+      [5 -> :plus]
+      [:plus -> 9])))
+
+;(def test6-params
+
+(defn test6
+  "Repeats the main test of v20: Can we avoid getting confused by the two
+  5's when binding from the slipnet structure 5+6=11 to the workspace
+  4+5=9,6,15?"
+  [& {:keys [] :as overrides}]
+  ;TODO
+  )
 
 (defn demo
   "Run this to see what farg.model1 does."

@@ -24,7 +24,7 @@
 (import-vars
   [farg.pgraph next-id pgraph has-elem? elem-type find-edgeid add-node
     add-nodes nodes edges elems has-node? attr attrs set-attr set-attrs
-    has-edge? add-edge-return-id elem->incident-edges
+    has-edge? add-edge-return-id elem->incident-edges user-attrs
     port->incident-edges incident-ports other-id neighbors-of
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattrs
@@ -92,6 +92,17 @@
 (defn pop-ctx [g]
   (update g ::current-ctx rest))
 
+;;; Auto node attrs (for shorthand)
+
+(defn push-auto-node-attrs [g attrs]
+  (S/transform ::auto-node-attrs #(conj % (merge (first %) attrs)) g))
+
+(defn auto-node-attrs [g]
+  (S/select-one [::auto-node-attrs S/FIRST] g))
+
+(defn pop-auto-node-attrs [g]
+  (S/transform ::auto-node-attrs rest g))
+
 ;;; Convenient names (for shorthand)
 
 (defn save-convenient-name [g name id]
@@ -132,8 +143,9 @@
   (make-node g nodename {}))
  ([g nodename attrs]
   (let [default-attrs (default-attrs g :nodeclasses nodename)
+        auto-attrs (auto-node-attrs g)
         [g id] (pg/next-id g nodename)
-        g (pg/add-node g id (merge default-attrs attrs))
+        g (pg/add-node g id (merge default-attrs auto-attrs attrs))
         g (add-member-to-current-ctx g id)]
     [g id])))
 
@@ -413,6 +425,14 @@
       (add-edge nil [ctxid :ctx-members] [memberid :ctx]))
     (pop-ctx)))
 
+(defmethod add-graph-elem ::with-node-attrs
+  [g {:keys [attrs args]}]
+  (with-state [g g]
+    (push-auto-node-attrs attrs)
+    (doseq [elem args]
+      (add-graph-elem elem))
+    (pop-auto-node-attrs)))
+
 (defmethod add-graph-elem :default
   [g elem]
   (if (and (map? elem) (contains? elem ::elem-type))
@@ -424,7 +444,8 @@
 
 (defn make-graph [elems]
   (with-state [g (pgraph)]
-    (assoc :spec empty-farg-spec)
+    (assoc :spec empty-farg-spec
+           ::auto-node-attrs (list {}))
     (push-ctx :graph)
     (doseq [elem elems]
       (add-graph-elem elem))
@@ -439,6 +460,9 @@
   `(macrolet [(~'left-to-right-seq [& args#]
                 {::elem-type ::left-to-right-seq, :args (vec args#)})
               (~'ctx [name# & args#]
-                {::elem-type ::ctx, :name name#, :args (vec args#)})]
+                {::elem-type ::ctx, :name name#, :args (vec args#)})
+              (~'with-node-attrs [attrs# & args#]
+                {::elem-type ::with-node-attrs, :attrs attrs#,
+                 :args (vec args#)})]
      (symbol-macrolet [~'-> '~'->]
        (make-graph ~(vec elems)))))
