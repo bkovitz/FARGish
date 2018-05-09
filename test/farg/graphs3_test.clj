@@ -70,3 +70,15 @@
     (is (g/port-label-isa? g :source :in))
     (is (not (g/port-label-isa? g :source :out)))
     (is (g/has-edge? g [4 :result] [:plus :operands]))))
+
+(deftest test-ctx
+  (let [g (graph little-numbo-spec
+            (ctx :problem
+              [:target :n 15]
+              [:brick :n 4]
+              [:brick :n 5]
+              [:brick :n 6]))]
+    (is (g/has-node? g :problem))
+    (is (g/has-edge? g [:problem :ctx-members] [:brick :ctx]))
+    (is (g/has-edge? g [:problem :ctx-members] [:brick002 :ctx]))
+    (is (g/has-edge? g [:problem :ctx-members] [:brick003 :ctx]))))

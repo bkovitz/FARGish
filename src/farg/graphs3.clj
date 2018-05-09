@@ -6,6 +6,7 @@
             [clojure.math.combinatorics :as combo]
             [clojure.tools.macro :refer [macrolet symbol-macrolet]]
             [clojure.tools.trace :refer [deftrace] :as trace]
+            [com.rpl.specter :as S]
             [farg.pmatch :as pmatch :refer [pmatch]]
             [farg.pgraph :as pg]
             [farg.util :as util :refer [dd find-first]]
@@ -63,6 +64,26 @@
  ([g id k]
   (get (classdef-of g id) k)))
 
+(defn mk-current-ctx [ctxid]
+  {:type ::current-ctx, ::ctx ctxid, ::members #{}})
+
+(defn push-ctx [g ctxid]
+  (update g ::current-ctx conj (mk-current-ctx ctxid)))
+
+(defn has-current-ctx? [g]
+  (not (empty? (S/select-one ::current-ctx g))))
+
+(defn add-member-to-current-ctx [g memberid]
+  (if (has-current-ctx? g)
+    (S/transform [::current-ctx S/FIRST ::members] #(conj % memberid) g)
+    g))
+
+(defn members-of-current-ctx [g]
+  (S/select-one [::current-ctx S/FIRST ::members] g))
+
+(defn pop-ctx [g]
+  (update g ::current-ctx rest))
+
 ;;; Access to spec
 
 (defn can-link? [g [id1 pl1] [id2 pl2]]
@@ -87,7 +108,8 @@
  ([g nodename attrs]
   (let [default-attrs (default-attrs g :nodeclasses nodename)
         [g id] (pg/next-id g nodename)
-        g (pg/add-node g id (merge default-attrs attrs))]
+        g (pg/add-node g id (merge default-attrs attrs))
+        g (add-member-to-current-ctx g id)]
     [g id])))
 
 (defn add-node [& args]
@@ -102,7 +124,8 @@
  ([g edgename [id1 p1] [id2 p2] attrs]
   (let [default-attrs (default-attrs g :edgeclasses edgename)
         g (pg/add-edge g [id1 p1] [id2 p2] (merge default-attrs attrs))
-        edgeid (pg/find-edgeid g [id1 p1] [id2 p2])]
+        edgeid (pg/find-edgeid g [id1 p1] [id2 p2])
+        g (add-member-to-current-ctx g edgeid)]
     [g edgeid])))
 
 (defn add-edge [& args]
@@ -268,7 +291,7 @@
         (pg/set-attr left-id :adj-right right-id)
         (pg/set-attr right-id :adj-left left-id)))))
 
-(defmethod add-graph-elem clojure.lang.PersistentVector
+#_(defmethod add-graph-elem clojure.lang.PersistentVector
   [g v]
   (cond
     :let [[nm & kvs] v]
@@ -333,10 +356,23 @@
           "must have an even number of arguments (key-value pairs) after "
           "the name of the node: ~{v}."))))))
 
+(defmethod add-graph-elem ::ctx
+  [g {:keys [name args]}]
+  (with-state [g g]
+    (setq ctxid (make-node name))
+    (push-ctx ctxid)
+    (doseq [elem args]
+      (add-graph-elem elem))
+    (doseq [memberid (members-of-current-ctx g)]
+      (add-edge nil [ctxid :ctx-members] [memberid :ctx]))
+    (pop-ctx)))
 
 (defmethod add-graph-elem :default
   [g elem]
-  (add-node g elem))
+  (if (and (map? elem) (contains? elem ::elem-type))
+    (throw (IllegalArgumentException.
+             (<< "Unknown graph element type ~(pr-str (::elem-type elem))")))
+    (add-node g elem)))
 
 ;;; Graph constructors
 
@@ -353,6 +389,8 @@
   which defines different macros and then calls make-graph."
   [& elems]
   `(macrolet [(~'left-to-right-seq [& args#]
-                {::elem-type ::left-to-right-seq, :args (vec args#)})]
+                {::elem-type ::left-to-right-seq, :args (vec args#)})
+              (~'ctx [name# & args#]
+                {::elem-type ::ctx, :name name#, :args (vec args#)})]
      (symbol-macrolet [~'-> '~'->]
        (make-graph ~(vec elems)))))
