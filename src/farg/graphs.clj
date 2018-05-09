@@ -25,7 +25,7 @@
 (import-vars
   [farg.pgraph next-id pgraph has-elem? elem-type find-edgeid add-node
     add-nodes nodes edges elems has-node? attr attrs set-attr set-attrs
-    has-edge? add-edge-return-id add-edge ports-of elem->incident-edges
+    has-edge? add-edge-return-id add-edge port-labels-of elem->incident-edges
     port->incident-edges incident-ports other-id neighbors-of
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattr gattrs

@@ -2,7 +2,9 @@
   "Functions for making, querying, and modifying graphs in FARG models."
   (:refer-clojure :exclude [rand rand-int cond])
   (:require [better-cond.core :refer [cond]]
-            [clojure.tools.macro :refer [macrolet]]
+            [clojure.core.strint :refer [<<]]
+            [clojure.math.combinatorics :as combo]
+            [clojure.tools.macro :refer [macrolet symbol-macrolet]]
             [clojure.tools.trace :refer [deftrace] :as trace]
             [farg.pmatch :as pmatch :refer [pmatch]]
             [farg.pgraph :as pg]
@@ -21,7 +23,7 @@
 (import-vars
   [farg.pgraph next-id pgraph has-elem? elem-type find-edgeid add-node
     add-nodes nodes edges elems has-node? attr attrs set-attr set-attrs
-    has-edge? add-edge-return-id add-edge ports-of elem->incident-edges
+    has-edge? add-edge-return-id elem->incident-edges
     port->incident-edges incident-ports other-id neighbors-of
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattrs
@@ -46,6 +48,36 @@
     (assoc (get cl :attrs {})
            :class (:name cl))
     {}))
+
+(defn class-of [g id]
+  (pg/attr g id :class))
+
+(defn classdef-of
+ ([g id]
+  (case (pg/elem-type g id)
+    ::pg/node
+      (get-in g [:spec :nodeclasses (class-of g id)])
+    ::pg/edge
+      (get-in g [:spec :edgeclasses (class-of g id)])
+    nil))
+ ([g id k]
+  (get (classdef-of g id) k)))
+
+;;; Access to spec
+
+(defn can-link? [g [id1 pl1] [id2 pl2]]
+  (contains? (-> g :spec :can-link) (hash-set pl1 pl2)))
+
+(defn port-label-isa? [g child ancestor]
+  (isa? (get-in g [:spec :portclass-hierarchy]) child ancestor))
+
+;;; pgraph overrides
+
+(defn ports-of [g id]
+  (->> (clojure.set/union
+         (set (pg/port-labels-of g id))
+         (classdef-of g id :port-labels))
+       (map (fn [port-label] [id port-label]))))
 
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to
@@ -83,68 +115,121 @@
   {:type ::farg-spec
    :nodeclasses {}
    :edgeclass {}
+   :can-link #{} ;Each elem is a set of two port labels (or one to indicate
+                 ;that a port label can link to itself)
+   :portclass-hierarchy (make-hierarchy)
    :stems {}})
 
 (def empty-nodeclass
   {:name nil
    :name-match? nil ;Boolean function: if a node's name matches, make it
                     ;this class
-   :attrs {}})      ;Initial attrs of any instance
+   :attrs {}        ;Initial attrs of any instance
+   :port-labels #{}})
 
 (def empty-edgeclass
   {:name nil
    :name-match? nil
    :attrs {}})
 
+(def empty-portclass
+  {:name nil
+   :extends []})
+
 (defn start-named-elem [empty-m name]
   (assoc empty-m :name name))
 
 (defn args->map
-  "args is vec of maps."
+  "args is vec of maps, each of which has an ::elem-type."
   [args]
   (with-state [m {}]
     (doseq [arg args]
-      (assoc (::elem-type arg) (:arg arg)))))
+      (assoc (::elem-type arg) (cond
+                                 (contains? arg :arg)
+                                   (:arg arg)
+                                 (contains? arg :args)
+                                   (:args arg))))))
+
+(defn merge-spec-arg [old new]
+  (if (coll? old)
+    (into old new)
+    new))
+
+(defn merge-args [m-class m-args]
+  (merge-with merge-spec-arg m-class m-args))
 
 (defmulti add-spec-elem (fn [spec elem] (::elem-type elem)))
 
 (defmethod add-spec-elem :nodeclass
   [spec {:keys [name args]}]
   (update-in spec [:nodeclasses name]
-    (fnil merge (start-named-elem empty-nodeclass name))
+    (fnil merge-args (start-named-elem empty-nodeclass name))
     (args->map args)))
 
 (defmethod add-spec-elem :edgeclass
   [spec {:keys [name args]}]
   (update-in spec [:edgeclasses name]
-    (fnil merge (start-named-elem empty-edgeclass name))
+    (fnil merge-args (start-named-elem empty-edgeclass name))
     (args->map args)))
+
+(defmethod add-spec-elem :portclass
+  [spec {:keys [name args]}]
+  (update-in spec [:portclasses name]
+    (fnil merge-args (start-named-elem empty-portclass name))
+    (args->map args)))
+
+(defmethod add-spec-elem :can-link
+  [spec {:keys [portclasses]}]
+  (update spec :can-link conj portclasses))
 
 (defmethod add-spec-elem :stems
   [spec {:keys [arg]}]
   (update spec :stems merge arg))
 
+(defn safe-derive [h child parent]
+  (if (isa? h child parent)
+    h
+    (derive h child parent)))
+
+(defn mk-hierarchy [classes]
+  (reduce (fn [h {:keys [name extends]}]
+            (reduce #(safe-derive %1 name %2) h extends))
+          (make-hierarchy)
+          classes))
+
 (defn make-farg-spec [elems]
   (with-state [spec empty-farg-spec]
     (doseq [elem elems]
-      (add-spec-elem elem))))
+      (add-spec-elem elem))
+    (assoc :portclass-hierarchy (mk-hierarchy (vals (:portclasses spec))))))
+      ;TODO More inheritance
 
 (defmacro farg-spec [& elems]
   `(macrolet [(~'nodeclass [name# & args#]
                 {::elem-type :nodeclass, :name name#, :args (vec args#)})
               (~'edgeclass [name# & args#]
                 {::elem-type :edgeclass, :name name#, :args (vec args#)})
+              (~'portclass [name# & args#]
+                {::elem-type :portclass, :name name#, :args (vec args#)})
               (~'name-match? [arg#]
                 {::elem-type :name-match?, :arg arg#})
               (~'attrs [arg#]
                 {::elem-type :attrs, :arg arg#})
+              (~'port-labels [& args#]
+                {::elem-type :port-labels, :args (apply hash-set args#)})
+              (~'can-link [port-label1# port-label2#]
+                {::elem-type :can-link
+                 :portclasses #{port-label1# port-label2#}})
+              (~'extends [& args#]
+                {::elem-type :extends, :args (vec args#)})
               (~'stems [arg#]
                 {::elem-type :stems, :arg arg#})]
      (make-farg-spec ~(vec elems))))
 
 ;TODO Write this more thoughtfully
 (defn merge-spec [old-spec new-spec]
-  (merge-with merge old-spec (dissoc new-spec :type)))
+  (-> (merge-with merge old-spec (dissoc new-spec :type :can-link))
+      (update :can-link clojure.set/union (:can-link new-spec))))
 
 ;;; Shorthand
 
@@ -171,7 +256,6 @@
 
 (defmethod add-graph-elem ::left-to-right-seq
   [g {:keys [args]}]
-  (dd args)
   (cond
     :let [nodes args
           [g m-nodes] (make-nodes-and-save-ids g nodes)]
@@ -183,6 +267,72 @@
         (bind right-id  (get m-nodes right-node))
         (pg/set-attr left-id :adj-right right-id)
         (pg/set-attr right-id :adj-left left-id)))))
+
+(defmethod add-graph-elem clojure.lang.PersistentVector
+  [g v]
+  (cond
+    :let [[nm & kvs] v]
+    (nil? nm)
+      (add-node g v)
+    (not (even? (count kvs)))
+      (throw (IllegalArgumentException. (<< "Vector for specifying a node "
+        "must have an even number of arguments (key-value pairs) after "
+        "the name of the node: ~{v}.")))
+    (add-node g nm (apply hash-map kvs))))
+
+(defn ensure-endpoint
+  "Returns [g id] where id is id of elem referred to by nm. Creates a node
+  named after nm if one doesn't exist."
+  [g nm]
+  (if (has-elem? g nm)
+    [g nm]
+    (make-node g nm)))
+
+(defn linkable-ports
+  "Returns seq of [[fromid port-label1] [toid port-label2]] ..."
+  [g fromid toid]
+  (->> (combo/cartesian-product
+         (->> (ports-of g fromid)
+              (filter #(port-label-isa? g (second %) :out)))
+         (->> (ports-of g toid)
+              (filter #(port-label-isa? g (second %) :in))))
+       (filter #(apply can-link? g %))))
+
+(defn unique-linkable-ports
+  "Returns [[fromid port-label1] [toid port-label2]]. Throws exception if
+  there are no ports available to link between fromid and toid, or if
+  there is not a single, unique pair."
+  [g fromid toid]
+  (cond
+    :let [pairs (linkable-ports g fromid toid)]
+    (= 1 (count pairs))
+      (first pairs)
+    (empty? pairs)
+      (throw (IllegalArgumentException. (<< "No ports of ~{fromid} and ~{toid} "
+        "can link to each other.")))
+    (throw (IllegalArgumentException. (<< "Multiple pairs of ports of "
+      " ~{fromid} can link to each other: ~{pairs}.")))))
+
+(defmethod add-graph-elem clojure.lang.PersistentVector
+  [g v]
+  (pmatch v
+    []
+      (add-node g [])
+    [~from ->]
+      (throw (IllegalArgumentException. (<< v ": need endpoint for edge.")))
+    [~from -> ~to] ;TODO attrs
+      (with-state [g g]
+        (setq fromid (ensure-endpoint from))
+        (setq toid (ensure-endpoint to))
+        (bind [from-port to-port] (unique-linkable-ports g fromid toid))
+        (add-edge g from-port to-port))
+    [~nm ~@kvs]
+      (if (even? (count kvs))
+        (add-node g nm (apply hash-map kvs))
+        (throw (IllegalArgumentException. (<< "Vector for specifying a node "
+          "must have an even number of arguments (key-value pairs) after "
+          "the name of the node: ~{v}."))))))
+
 
 (defmethod add-graph-elem :default
   [g elem]
@@ -196,7 +346,13 @@
     (doseq [elem elems]
       (add-graph-elem elem))))
 
-(defmacro graph [& elems]
+(defmacro graph
+  "We redefine -> inside the scope of graph. If you want the normal ->,
+  you'll need to refer to it qualified by a namespace or by some other
+  name that you define. You could always write another graph constructor,
+  which defines different macros and then calls make-graph."
+  [& elems]
   `(macrolet [(~'left-to-right-seq [& args#]
                 {::elem-type ::left-to-right-seq, :args (vec args#)})]
-     (make-graph ~(vec elems))))
+     (symbol-macrolet [~'-> '~'->]
+       (make-graph ~(vec elems)))))
