@@ -35,10 +35,11 @@
     (or (= (:name m) name)
         (and (some? match?f) (match?f name)))))
 
-(defn find-class-by-elem-name [g classes-key nm]
-  (or (find-first #(match-by-name? % nm)
-                  (-> g :spec classes-key vals))
-      {}))
+(defn find-class-by-elem-name
+  "Returns nil if can't find it."
+  [g classes-key nm]
+  (find-first #(match-by-name? % nm)
+              (-> g :spec classes-key vals)))
 
 (defn default-attrs [g classes-key nm]
   (if-let [cl (find-class-by-elem-name g classes-key nm)]
@@ -75,49 +76,6 @@
 (defn add-edge [& args]
   (let [[g _] (apply make-edge args)]
     g))
-
-;;; Shorthand
-
-(defn evals-to-self? [x]
-  (or (keyword? x) (number? x) (= () x)))
-
-(defn- quote-special [shorthand-elem]
-  (pmatch shorthand-elem
-    ~x (guard (evals-to-self? x))
-      x
-    (quote ~x)
-      shorthand-elem
-    (left-to-right-seq ~@elems)
-      `(list '~'left-to-right-seq ~@(map quote-special elems))))
-
-(defn make-nodes-and-save-ids
-  "Returns [g' m-nodes], where g' is the graph g updated with newly created
-  nodes, and m-nodes is a map {node node-id} containing the ids that the
-  new nodes were assigned."
-  [g nodes]
-  (reduce (fn [[g m] node]
-            (let [[g nodeid] (make-node g node)]
-              [g (assoc m node nodeid)]))
-            [g {}]
-          nodes))
-
-(defn add-left-to-right-seq [g nodes]
-  (cond
-    :let [[g m-nodes] (make-nodes-and-save-ids g nodes)]
-    (empty? nodes) g
-    (= 1 (count nodes)) g
-    (with-state [g g]
-      (doseq [[left-node right-node] (partition 2 1 nodes)]
-        (bind left-id (get m-nodes left-node))
-        (bind right-id  (get m-nodes right-node))
-        (pg/set-attr left-id :adj-right right-id)
-        (pg/set-attr right-id :adj-left left-id)))))
-
-(defn- add-shorthand-elem [g shorthand-elem]
-  (pmatch shorthand-elem
-    (left-to-right-seq ~@nodes)
-      (add-left-to-right-seq g nodes)
-      ))
 
 ;;; Spec
 
@@ -188,24 +146,57 @@
 (defn merge-spec [old-spec new-spec]
   (merge-with merge old-spec (dissoc new-spec :type)))
 
+;;; Shorthand
+
+(defn make-nodes-and-save-ids
+  "Returns [g' m-nodes], where g' is the graph g updated with newly created
+  nodes, and m-nodes is a map {node node-id} containing the ids that the
+  new nodes were assigned."
+  [g nodes]
+  (reduce (fn [[g m] node]
+            (let [[g nodeid] (make-node g node)]
+              [g (assoc m node nodeid)]))
+            [g {}]
+          nodes))
+
+(defmulti add-graph-elem (fn [g elem] (or (::elem-type elem)
+                                          (:type elem)
+                                          (class elem))))
+
+(defmethod add-graph-elem ::farg-spec
+  [g spec]
+  (with-state [g g]
+    (update :spec #(merge-spec % spec))
+    (update :stems merge (:stems (:spec g)))))
+
+(defmethod add-graph-elem ::left-to-right-seq
+  [g {:keys [args]}]
+  (dd args)
+  (cond
+    :let [nodes args
+          [g m-nodes] (make-nodes-and-save-ids g nodes)]
+    (empty? nodes) g
+    (= 1 (count nodes)) g
+    (with-state [g g]
+      (doseq [[left-node right-node] (partition 2 1 nodes)]
+        (bind left-id (get m-nodes left-node))
+        (bind right-id  (get m-nodes right-node))
+        (pg/set-attr left-id :adj-right right-id)
+        (pg/set-attr right-id :adj-left left-id)))))
+
+(defmethod add-graph-elem :default
+  [g elem]
+  (add-node g elem))
+
 ;;; Graph constructors
 
-;(defn make-graph [elems]
-;  (reduce add-shorthand-elem (pgraph) elems))
-;
-;(defmacro graph [& elems]
-;  `(make-graph ~(vec (map quote-special elems))))
-
-(defn add-graph-elem [g elem]
-  (cond
-    (= ::farg-spec (:type elem))
-      (with-state [g g]
-        (update :spec #(merge-spec % elem))
-        (update :stems merge (:stems (:spec g))))
-    (add-node g elem)))
-
-(defn graph [& elems]
+(defn make-graph [elems]
   (with-state [g (pgraph)]
     (assoc :spec empty-farg-spec)
     (doseq [elem elems]
       (add-graph-elem elem))))
+
+(defmacro graph [& elems]
+  `(macrolet [(~'left-to-right-seq [& args#]
+                {::elem-type ::left-to-right-seq, :args (vec args#)})]
+     (make-graph ~(vec elems))))

@@ -35,8 +35,9 @@
       (is (= [:decaying 0.2] (g/attr g bdxid :self-support)))
       )))
 
-#_(deftest test-left-to-right-seq
+(deftest test-left-to-right-seq
   (let [g (graph (left-to-right-seq 'a 'b))]
+    (g/pprint g)
     (is (= 'b (g/attr g 'a :adj-right)))
     (is (nil? (g/attr g 'a :adj-left)))
     (is (nil? (g/attr g 'b :adj-right)))
