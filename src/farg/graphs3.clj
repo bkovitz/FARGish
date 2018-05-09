@@ -64,11 +64,19 @@
  ([g id k]
   (get (classdef-of g id) k)))
 
-(defn mk-current-ctx [ctxid]
-  {:type ::current-ctx, ::ctx ctxid, ::members #{}})
+;;; Current context (for shorthand)
+
+(def empty-current-ctx
+  {:type ::current-ctx, ::ctx nil, ::members #{}, ::convenient-names #{}})
+
+(defn current-convenient-names [g]
+  (S/select-one [::current-ctx S/FIRST ::convenient-names] g))
 
 (defn push-ctx [g ctxid]
-  (update g ::current-ctx conj (mk-current-ctx ctxid)))
+  (update g ::current-ctx conj
+            (assoc empty-current-ctx
+                   ::ctx ctxid
+                   ::convenient-names (current-convenient-names g))))
 
 (defn has-current-ctx? [g]
   (not (empty? (S/select-one ::current-ctx g))))
@@ -83,6 +91,23 @@
 
 (defn pop-ctx [g]
   (update g ::current-ctx rest))
+
+;;; Convenient names (for shorthand)
+
+(defn save-convenient-name [g name id]
+  (if (has-current-ctx? g)
+    (S/setval [::current-ctx S/FIRST ::convenient-names name] id g)
+    g))
+
+(defn look-up-name [g name]
+  (cond
+    :let [foundid (S/select-one
+                    [::current-ctx S/FIRST ::convenient-names name] g)]
+    (some? foundid)
+      foundid
+    (has-elem? g name)
+      name
+    nil))
 
 ;;; Access to spec
 
@@ -336,6 +361,15 @@
     (throw (IllegalArgumentException. (<< "Multiple pairs of ports of "
       " ~{fromid} can link to each other: ~{pairs}.")))))
 
+(defn throw-odd-kvs [v]
+  (throw (IllegalArgumentException. (<< "Vector for specifying a node "
+    "must have an even number of arguments (key-value pairs) after "
+    "the name of the node: ~{v}."))))
+
+(defn throw-no-such-elem [name v]
+  (throw (IllegalArgumentException.
+    (<< "No node or edge named ~{name}: ~{v}."))))
+
 (defmethod add-graph-elem clojure.lang.PersistentVector
   [g v]
   (pmatch v
@@ -344,17 +378,29 @@
     [~from ->]
       (throw (IllegalArgumentException. (<< v ": need endpoint for edge.")))
     [~from -> ~to] ;TODO attrs
-      (with-state [g g]
-        (setq fromid (ensure-endpoint from))
-        (setq toid (ensure-endpoint to))
-        (bind [from-port to-port] (unique-linkable-ports g fromid toid))
-        (add-edge g from-port to-port))
-    [~nm ~@kvs]
+      (cond
+        :let [fromid (look-up-name g from)]
+        (nil? fromid)
+          (throw-no-such-elem from v)
+        :let [toid (look-up-name g to)]
+        (nil? toid)
+          (throw-no-such-elem to v)
+        (with-state [g g]
+          (bind [from-port to-port] (unique-linkable-ports g fromid toid))
+          (add-edge g from-port to-port)))
+    [~nodeclass ~k ~va ~@kvs]
       (if (even? (count kvs))
-        (add-node g nm (apply hash-map kvs))
-        (throw (IllegalArgumentException. (<< "Vector for specifying a node "
-          "must have an even number of arguments (key-value pairs) after "
-          "the name of the node: ~{v}."))))))
+        (with-state [g g]
+          (setq id (make-node nodeclass (apply hash-map k va kvs)))
+          (save-convenient-name va id)
+          (save-convenient-name nodeclass id))
+        (throw-odd-kvs v))
+    [~nodeclass]
+      (let [[g id] (make-node g nodeclass)]
+        (save-convenient-name g nodeclass id))
+    ~nodeclass
+      (let [[g id] (make-node g nodeclass)]
+        (save-convenient-name g nodeclass id))))
 
 (defmethod add-graph-elem ::ctx
   [g {:keys [name args]}]
@@ -379,8 +425,10 @@
 (defn make-graph [elems]
   (with-state [g (pgraph)]
     (assoc :spec empty-farg-spec)
+    (push-ctx :graph)
     (doseq [elem elems]
-      (add-graph-elem elem))))
+      (add-graph-elem elem))
+    (pop-ctx)))
 
 (defmacro graph
   "We redefine -> inside the scope of graph. If you want the normal ->,

@@ -52,6 +52,12 @@
   (nodeclass :number
     (name-match? number?)
     (port-labels :source :result :not-this))
+  (nodeclass :brick
+    (port-labels :source :result :not-this))  ;TODO inherit from :number
+  (nodeclass :block
+    (port-labels :source :result :not-this))
+  (nodeclass :target
+    (port-labels :source :result :not-this))
   (nodeclass :operator
     (name-match? #{:plus})
     (port-labels :operands :result))
@@ -66,7 +72,7 @@
 #_(pprint (macroexpand '(graph little-numbo-spec [4 -> :plus])))
 
 (deftest test-edge-shorthand
-  (let [g (graph little-numbo-spec [4 -> :plus])]
+  (let [g (graph little-numbo-spec 4 :plus [4 -> :plus])]
     (is (g/port-label-isa? g :source :in))
     (is (not (g/port-label-isa? g :source :out)))
     (is (g/has-edge? g [4 :result] [:plus :operands]))))
@@ -82,3 +88,24 @@
     (is (g/has-edge? g [:problem :ctx-members] [:brick :ctx]))
     (is (g/has-edge? g [:problem :ctx-members] [:brick002 :ctx]))
     (is (g/has-edge? g [:problem :ctx-members] [:brick003 :ctx]))))
+
+(deftest test-v20
+  (let [g (graph little-numbo-spec
+            (ctx :eqn
+              [:number :n 11]
+              [:number :n 5]
+              [:number :n 6]
+              :plus
+              [5 -> :plus]
+              [6 -> :plus]
+              [:plus -> 11])
+            (ctx :problem
+              [:target :n 15]
+              [:block :n 9]
+              [:brick :n 4]
+              [:brick :n 5]
+              :plus
+              [4 -> :plus]
+              [5 -> :plus]
+              [:plus -> 9]))]
+    #_(g/pprint g)))
