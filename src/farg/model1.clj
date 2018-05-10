@@ -120,16 +120,18 @@
   (get ospec ::preference?))
 
 (defn bdx-across-ctxs [from-ctx to-ctx]
-  (assoc empty-ospec ::ospec-type ::bdx-across-ctxs
-                     ::from-ctx from-ctx
-                     ::to-ctx to-ctx))
+  (with-meta
+    (assoc empty-ospec ::ospec-type ::bdx-across-ctxs
+                       ::from-ctx from-ctx
+                       ::to-ctx to-ctx)
+    {:type ::bdx-across-ctxs}))
 
 (defn prefer [ospec & ospecs]
   (with-meta 
     (assoc empty-ospec ::ospec-type ::preference
                        ::preference? true
                        ::ospecs (apply hash-set ospec ospecs))
-   {:type ::preference}))
+    {:type ::preference}))
 
 ; This is how it should look:
 ;  (need :bdx (prefer :has-basis))
@@ -138,6 +140,11 @@
   [o ^java.io.Writer w]
   (.write w
     (<< "(prefer ~(clojure.string/join \\space (::ospecs o)))")))
+
+(defmethod print-method ::bdx-across-ctxs
+  [{::keys [from-ctx to-ctx]} ^java.io.Writer w]
+  (.write w
+    (<< "(bdx-across-ctxs ~{from-ctx} ~{to-ctx})")))
 
 ;;; Global parameters (these belong in the FARG model itself)
 
@@ -504,11 +511,22 @@
     (bind bdxid (g/find-edgeid fm [from :bdx-from] [to :bdx-to]))
     (add-basis-from-bdx bdxid)))
 
+;TODO Rm this hack. It should be implemented by (extends) in the spec.
+(def hack-h
+  (-> (make-hierarchy)
+      (derive :brick :number)
+      (derive :block :number)
+      (derive :target :number)))
+
 ;TODO Hard-coded; data for this decision belongs in spec.
 ;TODO Eventually, the criteria for "reasonable" need to be dynamic and
 ;subject to pressures.
 (defn could-reasonably-bind? [fm fromid toid]
-  (case (class-of fm fromid)
+  (let [from-class (class-of fm fromid)
+        to-class (class-of fm toid)]
+    (or (isa? hack-h from-class to-class)
+        (isa? hack-h to-class from-class)))
+  #_(case (class-of fm fromid)
     :letter
       (= :letter (class-of fm toid))
     :bdx
@@ -516,25 +534,6 @@
     :tag
       (= :tag (class-of fm toid))))
   
-(defn start-bdx-for
-  "Creates bindings to id from all other nodes, and from id to all other
-  nodes."
-  [fm0 id]
-  (with-state [fm fm0]
-    (doseq [that-elem (all-nodes-other-than fm0 id)]
-      (when (could-reasonably-bind? fm0 id that-elem)
-        (add-bdx id that-elem))
-      (when (could-reasonably-bind? fm0 that-elem id)
-        (add-bdx that-elem id)))))
-
-(defn start-bdx-from-for
-  "Creats bindings from id to all other nodes."
-  [fm0 fromid]
-  (with-state [fm fm0]
-    (doseq [toid (->> (all-nodes-other-than fm0 fromid)
-                      (filter #(could-reasonably-bind? fm0 fromid %)))]
-      (add-bdx fromid toid))))
-
 (defn incident-bdx-from [fm id]
   (g/port->incident-edges fm [id :bdx-from]))
 
@@ -618,6 +617,32 @@
     (for [edgeid (incident-bdx-to fm fromid)
           :when (= toid (bound-from fm edgeid))]
       edgeid)))
+
+(defn start-bdx-for
+  "Creates bindings to id from all other nodes, and from id to all other
+  nodes."
+  [fm0 id]
+  (with-state [fm fm0]
+    (doseq [that-elem (all-nodes-other-than fm0 id)]
+      (when (could-reasonably-bind? fm0 id that-elem)
+        (add-bdx id that-elem))
+      (when (could-reasonably-bind? fm0 that-elem id)
+        (add-bdx that-elem id)))))
+
+(defn start-bdx-from-for
+  "Creates bindings from id to all other nodes."
+  [fm0 fromid]
+  (with-state [fm fm0]
+    (doseq [toid (->> (all-nodes-other-than fm0 fromid)
+                      (filter #(could-reasonably-bind? fm0 fromid %)))]
+      (add-bdx fromid toid))))
+
+(defn start-bdx-into-ctx-for
+  [fm0 fromid to-ctx]
+  (with-state [fm fm0]
+    (doseq [toid (->> (members-of fm0 to-ctx)
+                      (filter #(could-reasonably-bind? fm0 fromid %)))]
+      (add-bdx fromid toid))))
 
 ;; ospec multimethods
 
@@ -759,6 +784,10 @@
   (->> ospecs
        (remove preference?)
        (mapcat #(ospec-start-actions fm % id))))
+
+(defmethod ospec-start-actions ::bdx-across-ctxs
+  [fm {::keys [from-ctx to-ctx]} id]
+  [[:start-bdx-into-ctx-for id to-ctx]])
 
 ;;; Support edges
 
@@ -984,6 +1013,8 @@
       (start-bdx-for fm id)
     (:start-bdx-from-for ~id)
       (start-bdx-from-for fm id)
+    (:start-bdx-into-ctx-for ~id ~to-ctx)
+      (start-bdx-into-ctx-for fm id to-ctx)
     (:request-orientation-for ~id ~toids)
       (apply add-orientation-for fm id toids)))
 
@@ -1248,12 +1279,30 @@
       (add-basis-from-tag tagid))
     fm))
 
+(defn same-number? [fm id1 id2]
+  (cond
+    :let [cl1 (class-of fm id1)
+          cl2 (class-of fm id2)]
+    (not (and (isa? hack-h cl1 :number)
+              (isa? hack-h cl2 :number)))
+      false
+    :let [n1 (g/attr fm id1 :n)]
+    (nil? n1)
+      false
+    :let [n2 (g/attr fm id2 :n)]
+    (nil? n2)
+      false
+    (= n1 n2)))
+
+;TODO Data for the logic here needs to go into the spec.
 (defn try-to-tag [fm id1 id2]
   (cond
     (= (g/attr fm id1 :adj-right) id2)
       (add-tag fm :adj-right :from id1 :to id2)
     (= id1 (g/attr fm id2 :adj-right))
       (add-tag fm :adj-right :from id2 :to id1)
+    (dd id1 id2 (same-number? fm id1 id2))
+      (add-tag fm :same-number :from id1 :to id2)
     fm))
 
 ;TODO Data for the logic here needs to go into the spec.
@@ -1624,7 +1673,7 @@
   (can-link :result :operands)))
 
 (def v20-model
-  #_(graph little-numbo-spec
+  (graph little-numbo-spec
     (with-node-attrs {:self-support [:permanent 1.0], :total-support nil}
       (ctx :eqn
         [:number :n 11]
@@ -1639,13 +1688,27 @@
         [:block :n 9]
         [:brick :n 4]
         [:brick :n 5]
+        [:brick :n 6]
         :plus
         [4 -> :plus]
         [5 -> :plus]
         [:plus -> 9]))))
 
+;NEXT
+; Support for edges
+; Competition for :source, :operands, and :result ports
+; Build a node to link to if you can't find one
+; Build an edge to link to if you can't find one and your "from" nodes
+;   have mates
+; Edge-to-edge bindings oppose neighboring edge-to-edge bindings that
+;   don't allow paths to map to paths
+
+;IDEA
+; Max antipathy at 1/2 the object's :prev-total-support
+
 (def test6-params (assoc test2-params
   :model v20-model
+  :support-limit nil
   :scheduled {1 (fn [fm] (start-bind-across-ctxs fm :eqn :problem))}
   ))
 
