@@ -51,6 +51,9 @@
 (defn tagclass-of [fm id]
   (g/attr fm id :tagclass))
 
+(defn unimplemented [& ignored]
+  (throw (IllegalArgumentException. "Unimplemented function.")))
+
 ;;; Saving data
 
 (def data (atom {})) ;{series-name [{column-name value}]}
@@ -81,6 +84,60 @@
 (defn write-data []
   (doseq [series-name (keys @data)]
     (write-data-series series-name)))
+
+;;; Map objects
+
+(def empty-desideratum ^{:type ::desideratum}
+  {:type ::desideratum
+   ::desideratum-type nil
+   ::ospec-type ::desideratum
+   ::ospecs #{}})
+
+(defn need [ospec & ospecs]
+  (assoc empty-desideratum ::desideratum-type ::need
+                           ::ospecs (apply hash-set ospec ospecs)))
+
+(defn want [ospec & ospecs]
+  (assoc empty-desideratum ::desideratum-type ::want
+                           ::ospecs (apply hash-set ospec ospecs)))
+
+(defn oppose [ospec & ospecs]
+  (assoc empty-desideratum ::desideratum-type ::oppose
+                           ::ospecs (apply hash-set ospec ospecs)))
+
+(defmethod print-method ::desideratum
+  [d ^java.io.Writer w]
+  (.write w
+    (<< "(~(name (::desideratum-type d)) "
+        "~(clojure.string/join \\space (::ospecs d)))")))
+
+(def empty-ospec  ;prototype for an "object specification": objects
+  {:type ::ospec  ;  needed by a desideratum
+   ::ospec-type nil
+   ::preference? false})
+
+(defn preference? [ospec]
+  (get ospec ::preference?))
+
+(defn bdx-across-ctxs [from-ctx to-ctx]
+  (assoc empty-ospec ::ospec-type ::bdx-across-ctxs
+                     ::from-ctx from-ctx
+                     ::to-ctx to-ctx))
+
+(defn prefer [ospec & ospecs]
+  (with-meta 
+    (assoc empty-ospec ::ospec-type ::preference
+                       ::preference? true
+                       ::ospecs (apply hash-set ospec ospecs))
+   {:type ::preference}))
+
+; This is how it should look:
+;  (need :bdx (prefer :has-basis))
+
+(defmethod print-method ::preference
+  [o ^java.io.Writer w]
+  (.write w
+    (<< "(prefer ~(clojure.string/join \\space (::ospecs o)))")))
 
 ;;; Global parameters (these belong in the FARG model itself)
 
@@ -374,7 +431,8 @@
 (def letter-attrs
   {:class :letter
    :self-support [:permanent 1.0]
-   :desiderata #{[:need :bdx [:prefer :bdx-from :adj-bdx]]}
+   ;:desiderata #{[:need :bdx [:prefer :bdx-from :adj-bdx]]}
+   :desiderata #{(need :bdx (prefer :bdx-from :adj-bdx))} ;the NEW WAY
    :total-support nil
    ;:desiderata #{:want-bdx :want-adj-bdx}
    ;:desiderata #{:want-bdx-from}
@@ -430,10 +488,14 @@
   (with-state [fm fm]
     (g/add-edge :bind [from :bdx-from] [to :bdx-to]
                 {:class :bind
-                 :desiderata #{[:need :mates-to-exist]
-                               [:want :basis]
-                               [:oppose :other-bdx-from-same-mate]
-                               [:oppose :bindbacks]}
+;                 :desiderata #{[:need :mates-to-exist]
+;                               [:want :basis]
+;                               [:oppose :other-bdx-from-same-mate]
+;                               [:oppose :bindbacks]}
+                 :desiderata #{(need :mates-to-exist) ;the NEW WAY
+                               (want :basis)
+                               (oppose :other-bdx-from-same-mate)
+                               (oppose :bindbacks)}
   ;               :desiderata #{:want-mates-to-exist
   ;                             :oppose-other-bdx-from-same-mate
   ;                             :oppose-bindbacks}
@@ -523,6 +585,15 @@
   (or (bound-from? fm id bdxid)
       (bound-to? fm id bdxid)))
 
+(defn members-of [fm ctxid]
+  (g/port->neighbors fm [ctxid :ctx-members]))
+
+(defn member-of? [fm id ctxid]
+  (some #{id} (members-of fm ctxid)))
+
+(defn bound-to-elem-in? [fm bdxid ctxid]
+  (member-of? fm (bound-to fm bdxid) ctxid))
+
 (defn symbolically [fm elem]
   (case (class-of fm elem)
     :bind
@@ -547,6 +618,147 @@
     (for [edgeid (incident-bdx-to fm fromid)
           :when (= toid (bound-from fm edgeid))]
       edgeid)))
+
+;; ospec multimethods
+
+(declare ospec-find-objects)
+
+(defmulti ospec-find-objects-
+  (fn [fm ospec id]
+    (or (and (keyword? ospec) ::keyword)
+        (::ospec-type ospec)
+        ospec)))
+
+(defmethod ospec-find-objects- ::bdx-across-ctxs
+  [fm {::keys [from-ctx to-ctx]} id]
+  (for [bdxid (incident-bdx-from fm id)
+        :when (bound-to-elem-in? fm bdxid to-ctx)]
+    bdxid))
+
+(defmethod ospec-find-objects- ::desideratum
+  [fm {::keys [ospecs]} id]
+  (apply concat
+    (for [ospec ospecs
+          :when (not (preference? ospec))]
+      (ospec-find-objects fm ospec id))))
+
+(defmethod ospec-find-objects- ::preference
+  [fm _ id]
+  nil)
+
+(declare m-desideratum-objects)
+
+(defmethod ospec-find-objects- ::keyword
+  [fm ospec id]
+  (cond
+    :let [f (get-in m-desideratum-objects [ospec :find-all-fn])]
+    (or (nil? f) (= unimplemented f))
+      (throw (IllegalArgumentException. (<< "No :find-all-fn is defined in "
+        "m-desideratum-objects for ~{ospec}.")))
+    (f fm id)))
+
+(defn ospec-find-objects
+  "Returns lazy seq of all elemids in fm that match ospec (an \"object
+  specification\") with respect to id. You can pass a desideratum in
+  place of ospec. Ignores preferences."
+  [fm ospec id]
+  (if (preference? ospec)
+    nil
+    (ospec-find-objects- fm ospec id)))
+
+(defmulti ospec-match?
+  (fn [fm ospec thisid thatid]
+    (or (and (keyword? ospec) ::keyword)
+        (and (contains? ospec ::ospecs) ::contains-ospecs)
+        (::ospec-type ospec)
+        ospec)))
+
+(defmethod ospec-match? ::keyword
+  [fm ospec thisid thatid]
+  (cond
+    :let [f? (get-in m-desideratum-objects [ospec :match?-fn])]
+    (or (nil? f?) (= unimplemented f?))
+      (throw (IllegalArgumentException. (<< "No :match?-fn is defined in "
+        "m-desideratum-objects for ~{ospec}.")))
+    (f? fm thisid thatid)))
+
+(defmethod ospec-match? ::contains-ospecs
+  [fm {::keys [ospecs]} thisid thatid]
+  (some #(ospec-match? fm % thisid thatid) ospecs))
+
+(defn leaf-node-ospecs [ospec]
+  (if (and (map? ospec) (contains? ospec ::ospecs))
+    (mapcat leaf-node-ospecs (::ospecs ospec))
+    [ospec]))
+
+(defn preference-ospecs
+  "Returns lazy seq of leaf-node ospecs that are preferences."
+  [ospec]
+  (cond
+    (preference? ospec)
+      (leaf-node-ospecs ospec)
+    (and (map? ospec) (contains? ospec ::ospecs))
+      (mapcat preference-ospecs (::ospecs ospec))
+    nil))
+
+(defn nonpreference-ospecs
+  "Returns lazy seq of leaf-node ospecs that are not preferences."
+  [ospec]
+  (cond
+    (preference? ospec)
+      nil
+    (and (map? ospec) (contains? ospec ::ospecs))
+      (mapcat nonpreference-ospecs (::ospecs ospec))
+    [ospec]))
+
+(defn preferences [ospec]
+  (cond
+    (preference? ospec)
+      [ospec]
+    (keyword? ospec)
+      nil
+    (contains? ospec ::ospecs)
+      (mapcat preferences (get ospec ::ospecs))
+    nil))
+
+#_(defn ospec-preferred-objects
+  "Same as find-objects but only returns seq of objects within subset that
+  match the object-specs within (prefer ...) clauses."
+  [fm ospec subset thisid]
+  (cond
+    (preference? ospec)
+      (filter #(ospec-match? fm ospec thisid %) subset)
+    (keyword? ospec)
+      nil
+    (contains? ospec ::ospecs)
+      (let [preference-ospecs (dd ospec (preferences ospec))]
+        (filter (fn [thatid]
+                  (some (fn [osp] (dd (::ospec-type osp) thisid thatid (ospec-match? fm osp thisid thatid)))
+                        preference-ospecs))
+                subset))
+    nil))
+
+(defmulti ospec-start-actions
+  (fn [fm ospec id]
+    (or (and (keyword? ospec) ::keyword)
+        (and (contains? ospec ::ospecs) ::contains-ospecs)
+        (::ospec-type ospec)
+        ospec)))
+
+(defmethod ospec-start-actions ::keyword
+  [fm ospec id]
+  (cond
+    :let [start-f (get-in m-desideratum-objects [ospec :start-fn])]
+    (or (nil? start-f) (= unimplemented start-f))
+      (throw (IllegalArgumentException. (<< "No :start-fn is defined in "
+        "m-desideratum-objects for ~{ospec}.")))
+    (start-f id)))
+
+(defmethod ospec-start-actions ::contains-ospecs
+  [fm {::keys [ospecs]} id]
+  (->> ospecs
+       (remove preference?)
+       (mapcat #(ospec-start-actions fm % id))))
 
 ;;; Support edges
 
@@ -693,16 +905,13 @@
 
 ;;; Actions
 
-(defn unimplemented [& ignored]
-  (throw (IllegalArgumentException. "Unimplemented function.")))
-
 (def m-desideratum-objects
   {:bdx
-    {:start-fn (fn [id] [:start-bdx-for id])
+    {:start-fn (fn [id] [[:start-bdx-for id]])
      :find-all-fn incident-bdx
      :match?-fn bound-from-or-to?}
    :bdx-from
-    {:start-fn (fn [id] [:start-bdx-from-for id])
+    {:start-fn (fn [id] [[:start-bdx-from-for id]])
      :find-all-fn incident-bdx-from
      :match?-fn bound-from?}
    :adj-bdx
@@ -721,7 +930,7 @@
      :find-all-fn (fn [fm id] (g/port->neighbors fm [id :basis-of]))
      :match?-fn unimplemented}
    :mates-to-exist
-    {:start-fn identity
+    {:start-fn (constantly nil)
      :find-all-fn (fn [fm bdxid] (g/incident-elems fm bdxid))
      :match?-fn unimplemented}
    :other-bdx-from-same-mate
@@ -740,18 +949,24 @@
      :match?-fn (fn [fm _ id]
                   (not (empty? (g/port->incident-edges fm [id :basis]))))}})
 
-(defn ospec-unsatisfied? [fm id ospec]
+(defn ospec-unsatisfied? [fm ospec id]
   (if (keyword? ospec)
-    (empty? ((get-in m-desideratum-objects [ospec :find-all-fn]) fm id))
+    ;(empty? ((get-in m-desideratum-objects [ospec :find-all-fn]) fm id))
+    (empty? (ospec-find-objects fm ospec id))
     false))
 
 (defn desideratum->actions
   "Returns seq of actions, or nil if none."
   [fm id desideratum]
-  (pmatch desideratum
+  (case (get desideratum ::desideratum-type)
+    ::need
+      (when (empty? (ospec-find-objects fm desideratum id))
+        (ospec-start-actions fm desideratum id))
+    nil)
+  #_(pmatch desideratum
     (:need ~@ospecs)
       (for [ospec ospecs
-            :when (ospec-unsatisfied? fm id ospec)]
+            :when (ospec-unsatisfied? fm ospec id)]
         ((get-in m-desideratum-objects [ospec :start-fn]) id))
     ~any
       nil))
@@ -860,7 +1075,7 @@
         ;add to existing antipathy
         (+ old-delta amt))))))
 
-(defn find-objects
+#_(defn find-objects
   "ospecs is the part of a desideratum after the verb, which lists
   types of objects to support or oppose. The inside of a (:prefer ...)
   clause is also an objects-spec. Returns seq of all matching objects."
@@ -875,7 +1090,7 @@
           nil  ; ignore preferences
         ))))
 
-(defn matching-objects
+#_(defn matching-objects
   [fm fromid subset object-spec]
   (let [match? (get-in m-desideratum-objects [object-spec :match?-fn])]
     (assert match?
@@ -883,7 +1098,7 @@
           "no :match?-fn."))
     (filter #(match? fm fromid %) subset)))
 
-(defn preferred-objects
+#_(defn preferred-objects
   "Same as find-objects but only returns seq of objects within subset that
   match the object-specs within (:prefer ...) clauses. The objects-spec
   argument should be the whole list of desiderata, not an individual
@@ -899,26 +1114,38 @@
         ~any
           nil))))
 
+(defn matching-objects
+  [fm ospec subset thisid]
+  (filter #(ospec-match? fm ospec thisid %) subset))
+
+(defn preferred-objects
+  "Returns the same object as many times as the number of preferences
+  that it meets."
+  [fm ospec subset thisid]
+  (apply concat
+    (for [po (preference-ospecs ospec)]
+      (matching-objects fm po subset thisid))))
+
 (defn post-support-for-desideratum
   "Adds/subtracts to :support-deltas for one desideratum."
   [fm fromid desideratum]
-  (pmatch desideratum
-    [:need ~@ospecs]
-      (let [needed (find-objects fm fromid ospecs)
-            preferred (preferred-objects fm fromid needed ospecs)]
+  (case (get desideratum ::desideratum-type)
+    ::need
+      (let [needed (ospec-find-objects fm desideratum fromid) #_(find-objects fm fromid ospecs)
+            preferred (preferred-objects fm desideratum needed fromid) #_(preferred-objects fm fromid needed ospecs)]
         (with-state [fm fm]
           (doseq [toid needed]
             (add-support fromid toid))
           (doseq [toid preferred]
             (add-support fromid toid (preference-delta fm)))))
-    [:want ~@ospecs]
+    ::want
       (with-state [fm fm]
-        (doseq [toid (find-objects fm fromid ospecs)]
+        (doseq [toid (ospec-find-objects fm desideratum fromid) #_(find-objects fm fromid ospecs)]
           (add-support fromid toid)))
-    [:oppose ~@ospecs]
+    ::oppose
       (let [fromid-prev (prev-total-support-for fm fromid)]
         (with-state [fm fm]
-          (doseq [toid (find-objects fm fromid ospecs)]
+          (doseq [toid (ospec-find-objects fm desideratum fromid) #_(find-objects fm fromid ospecs)]
             (add-antipathy fromid toid))))))
 
 (defn post-support-deltas-for-desiderata [fm]
@@ -1011,7 +1238,8 @@
     (with-state [fm fm]
       (setq tagid (g/make-node :tag {:class :tag
                                      :tagclass tagclass
-                                     :desiderata #{[:want :basis-of]}
+                                     ;:desiderata #{[:want :basis-of]}
+                                     :desiderata #{(want :basis-of)} ;NEW WAY
                                      :self-support [:decaying 0.2]
                                      :total-support nil}))
       (doseq [[port-label taggee] (partition 2 taggees)]
@@ -1110,7 +1338,7 @@
                      ;Is this right? Neg weights count negatively.
         expt (normalization-expt fm)]
     (with-state [fm fm]
-      (doseq [[suppid weight] (cnormalize-vals fm support-limit m) #_(expt-scale-down-vals expt support-limit m)]
+      (doseq [[suppid weight] (cnormalize-vals fm support-limit m)]
         (g/set-attr suppid :weight weight)))))
 
 (defn calculate-total-support [fm toid]
@@ -1330,7 +1558,8 @@
 (def test4-letter-attrs
   {:class :letter
    :self-support [:permanent 1.0]
-   :desiderata #{[:need :bdx [:prefer :has-basis]]}
+   ;:desiderata #{[:need :bdx [:prefer :has-basis]]}
+   :desiderata #{(need :bdx (prefer :has-basis))} ;NEW WAY
    :total-support nil})
 
 (def test4-model
@@ -1369,6 +1598,12 @@
                            [:bind 'b 'c]
                            [:bind 'c 'a]])))
 
+(defn start-bind-across-ctxs [fm from-ctx to-ctx]
+  (with-state [fm fm]
+    (doseq [memberid (members-of fm from-ctx)]
+      (g/update-attr memberid :desiderata conj
+        (need (bdx-across-ctxs from-ctx to-ctx))))))
+
 (def little-numbo-spec (farg-spec
   (nodeclass :number
     (name-match? number?)
@@ -1389,33 +1624,38 @@
   (can-link :result :operands)))
 
 (def v20-model
-  (graph little-numbo-spec
-    (ctx :eqn
-      [:number :n 11]
-      [:number :n 5]
-      [:number :n 6]
-      :plus
-      [5 -> :plus]
-      [6 -> :plus]
-      [:plus -> 11])
-    (ctx :problem
-      [:target :n 15]
-      [:block :n 9]
-      [:brick :n 4]
-      [:brick :n 5]
-      :plus
-      [4 -> :plus]
-      [5 -> :plus]
-      [:plus -> 9])))
+  #_(graph little-numbo-spec
+    (with-node-attrs {:self-support [:permanent 1.0], :total-support nil}
+      (ctx :eqn
+        [:number :n 11]
+        [:number :n 5]
+        [:number :n 6]
+        :plus
+        [5 -> :plus]
+        [6 -> :plus]
+        [:plus -> 11])
+      (ctx :problem
+        [:target :n 15]
+        [:block :n 9]
+        [:brick :n 4]
+        [:brick :n 5]
+        :plus
+        [4 -> :plus]
+        [5 -> :plus]
+        [:plus -> 9]))))
 
-;(def test6-params
+(def test6-params (assoc test2-params
+  :model v20-model
+  :scheduled {1 (fn [fm] (start-bind-across-ctxs fm :eqn :problem))}
+  ))
 
 (defn test6
   "Repeats the main test of v20: Can we avoid getting confused by the two
   5's when binding from the slipnet structure 5+6=11 to the workspace
   4+5=9,6,15?"
   [& {:keys [] :as overrides}]
-  ;TODO
+  (run-model-test test6-params overrides
+    (constantly true))
   )
 
 (defn demo
