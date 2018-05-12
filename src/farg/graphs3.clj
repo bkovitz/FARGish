@@ -25,7 +25,7 @@
   [farg.pgraph next-id pgraph has-elem? elem-type find-edgeid add-node
     add-nodes nodes edges elems has-node? attr attrs set-attr set-attrs
     has-edge? add-edge-return-id elem->incident-edges user-attrs
-    port->incident-edges incident-ports other-id neighbors-of
+    port->incident-edges incident-ports other-id neighbors-of neighbor-of?
     neighboring-edges-of pprint transitive-closure-of-edges-to-edges
     remove-edge remove-node as-seq pgraph->edn incident-elems gattrs
     update-attr update-edge-attr merge-default-attrs edge-as-map
@@ -106,7 +106,6 @@
 ;;; Convenient names (for shorthand)
 
 (defn save-convenient-name [g name id]
-  (dd "save-convenient-name" name id)
   (if (has-current-ctx? g)
     (S/setval [::current-ctx S/FIRST ::convenient-names name] id g)
     g))
@@ -395,9 +394,7 @@
         :let [fromid (look-up-name g from)]
         (nil? fromid)
           (throw-no-such-elem from v)
-        :let [toid (look-up-name g to)
-              _ (dd (S/select-one
-                    [::current-ctx S/FIRST ::convenient-names] g) from fromid to toid)]
+        :let [toid (look-up-name g to)]
         (nil? toid)
           (throw-no-such-elem to v)
         (with-state [g g]

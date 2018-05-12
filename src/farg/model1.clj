@@ -519,6 +519,35 @@
       (derive :block :number)
       (derive :target :number)))
 
+(defn isa-number? [fm id]
+  (isa? hack-h (class-of fm id) :number))
+
+(defn same-number? [fm id1 id2]
+  (cond
+    (not (and (isa-number? fm id1)
+              (isa-number? fm id2)))
+      false
+    :let [n1 (g/attr fm id1 :n)]
+    (nil? n1)
+      false
+    :let [n2 (g/attr fm id2 :n)]
+    (nil? n2)
+      false
+    (= n1 n2)))
+
+(defn different-number? [fm id1 id2]
+  (cond
+    (not (and (isa-number? fm id1)
+              (isa-number? fm id2)))
+      false
+    :let [n1 (g/attr fm id1 :n)]
+    (nil? n1)
+      false
+    :let [n2 (g/attr fm id2 :n)]
+    (nil? n2)
+      false
+    (not= n1 n2)))
+
 ;TODO Hard-coded; data for this decision belongs in spec.
 ;TODO Eventually, the criteria for "reasonable" need to be dynamic and
 ;subject to pressures.
@@ -618,6 +647,46 @@
     (for [edgeid (incident-bdx-to fm fromid)
           :when (= toid (bound-from fm edgeid))]
       edgeid)))
+
+;TODO UT
+(defn bad-nbr-bdx [fm elemid]
+  "Returns seq of bdxids that bind incident nodes to nodes that don't link
+  to the image of elemid at the same port-label."
+  (for [my-bdxid (incident-bdx-from fm elemid)
+        :let [elemid' (bound-to fm my-bdxid)]
+        port-label [:source :result :operands]  ;HACK
+        [nbrid nbrpl] (g/port->neighboring-ports fm [elemid port-label])
+        nbr-bdxid (incident-bdx-from fm nbrid)
+        :let [nbr' (bound-to fm nbr-bdxid)]
+        :when (and (g/neighbor-of? fm elemid' nbr')
+                   (not (g/has-edge? fm [elemid' port-label] [nbr' nbrpl])))]
+    nbr-bdxid))
+
+;TODO UT
+#_(defn bdx-to-different-number [fm elemid]
+  "Returns seq of bdxids that go to a different number than elemid, or nil
+  if elemid is not itself a number."
+  (when (isa-number? fm elemid)
+    (let [n (g/attr fm elemid :n)]
+      (for [bdxid (incident-bdx-from fm elemid)
+            :let [elemid' (bound-to fm bdxid)]
+            :when (and (isa-number? fm elemid')
+                       (not= n (g/attr fm elemid' :n)))]
+        bdxid))))
+
+(declare has-tag?)
+
+(defn bdx-to-different-number [fm elemid]
+  "Returns seq of bdxids that go to a different number than elemid, or nil
+  if elemid is not itself a number."
+  (when (isa-number? fm elemid)
+    (let [n (g/attr fm elemid :n)]
+      ;TODO Just see if the bdxid itself is tagged :different-number
+      (for [bdxid (incident-bdx-from fm elemid)
+            :when (has-tag? fm :different-number
+                            :from (bound-from fm bdxid)
+                            :to (bound-to fm bdxid))]
+        bdxid))))
 
 (defn start-bdx-for
   "Creates bindings to id from all other nodes, and from id to all other
@@ -937,24 +1006,42 @@
 
 (def dot-preamble
 "digraph g {
+  graph [layout=\"fdp\"]
+  nodesep=1.5
   node [penwidth=0 fontname=\"Friz Quadrata\"];\n")
 
 (def bdxcolor "olivedrab")
 (def pos-suppcolor "cadetblue2")
 (def neg-suppcolor "tomato")
+(def tagcolor "maroon4")
 
 ;HACK
 (def ok-port-labels [:result])
+
+;HACK
+(def hard-coded
+  {:brick "pos=\"0,0!\""     ;4
+   :brick002 "pos=\"3,0!\""  ;5
+   :brick003 "pos=\"6,0!\""  ;6
+   :block "pos=\"1.5,6!\""     ;9
+   :target "pos=\"3,9!~\""   ;15
+   :plus002 "pos=\"1.5,3!\""
+
+   :number002 "pos=\"12,0!\"" ;5
+   :number003 "pos=\"15,0!\"" ;6
+   :number "pos=\"13.5,6!\"" ;11
+   :plus "pos=\"13.5,3!\""
+  })
 
 (defn tag-edges->dot [fm tagid]
   (with-out-str
     (let [i (name tagid)]
       (doseq [id (g/port->neighbors fm [tagid :from])]
-        (println (<< "  ~{i} -> ~(name id);")))
+        (println (<< "  ~{i} -> ~(name id) [color=~{tagcolor}];")))
       (doseq [id (g/port->neighbors fm [tagid :to])]
-        (println (<< "  ~{i} -> ~(name id);"))))))
+        (println (<< "  ~{i} -> ~(name id) [color=~{tagcolor}];"))))))
 
-(defn normal-edges [fm elemid]
+(defn normal-edges->dot [fm elemid]
   (with-out-str
     (let [i (name elemid)]
       (doseq [pl ok-port-labels
@@ -968,21 +1055,21 @@
           i (name nodeid)
           n (:n as)]
     (some? n)
-      (<< "  ~{i} [label=\"~{n}\"];\n"
-          "~(normal-edges fm nodeid)")
+      (<< "  ~{i} [label=\"~{n}\" ~(hard-coded nodeid)];\n"
+          "~(normal-edges->dot fm nodeid)")
     :let [letter (:letter as)]
     (some? letter)
-      (<< "  ~{i} [label=\"~{letter}\"];\n")
+      (<< "  ~{i} [label=\"~{letter}\" ~(hard-coded nodeid)];\n")
     :let [cl (:class as)]
     (= :operator cl)
-      (<< "  ~{i} [label=\"+\"];\n"  ;HACK
-          "~(normal-edges fm nodeid)")
+      (<< "  ~{i} [label=\"+\" ~(hard-coded nodeid)];\n"  ;HACK
+          "~(normal-edges->dot fm nodeid)")
     (= :tag cl)
-      (<< "  ~{i} [label=\"~(:tagclass as)\"];\n"
+      (<< "  ~{i} [label=\"~(:tagclass as)\" fontcolor=~{tagcolor} ~(hard-coded nodeid)];\n"
           "~(tag-edges->dot fm nodeid)")
     (some? cl)
-      (<< "  ~{i} [label=\"~{cl}\"];\n"
-          "~(normal-edges fm nodeid)")
+      (<< "  ~{i} [label=\"~{cl}\" ~(hard-coded nodeid)];\n"
+          "~(normal-edges->dot fm nodeid)")
     (<< "  ~{i}\n")))
 
 (defn bdx->dot [fm bdxid]
@@ -1055,6 +1142,14 @@
    :bindbacks
     {:start-fn unimplemented
      :find-all-fn bindbacks
+     :match?-fn unimplemented}
+   :bad-nbr-bdx
+    {:start-fn unimplemented
+     :find-all-fn bad-nbr-bdx
+     :match?-fn unimplemented}
+   :bdx-to-different-number
+    {:start-fn unimplemented
+     :find-all-fn bdx-to-different-number
      :match?-fn unimplemented}
    :has-basis
     {:start-fn unimplemented
@@ -1363,21 +1458,6 @@
       (add-basis-from-tag tagid))
     fm))
 
-(defn same-number? [fm id1 id2]
-  (cond
-    :let [cl1 (class-of fm id1)
-          cl2 (class-of fm id2)]
-    (not (and (isa? hack-h cl1 :number)
-              (isa? hack-h cl2 :number)))
-      false
-    :let [n1 (g/attr fm id1 :n)]
-    (nil? n1)
-      false
-    :let [n2 (g/attr fm id2 :n)]
-    (nil? n2)
-      false
-    (= n1 n2)))
-
 ;TODO Data for the logic here needs to go into the spec.
 (defn try-to-tag [fm id1 id2]
   (cond
@@ -1385,8 +1465,10 @@
       (add-tag fm :adj-right :from id1 :to id2)
     (= id1 (g/attr fm id2 :adj-right))
       (add-tag fm :adj-right :from id2 :to id1)
-    (dd id1 id2 (same-number? fm id1 id2))
+    (same-number? fm id1 id2)
       (add-tag fm :same-number :from id1 :to id2)
+    (different-number? fm id1 id2)
+      (add-tag fm :different-number :from id1 :to id2)
     fm))
 
 ;TODO Data for the logic here needs to go into the spec.
@@ -1735,7 +1817,11 @@
   (with-state [fm fm]
     (doseq [memberid (members-of fm from-ctx)]
       (g/update-attr memberid :desiderata conj
-        (need (bdx-across-ctxs from-ctx to-ctx))))))
+        (need (bdx-across-ctxs from-ctx to-ctx))
+        (oppose :bad-nbr-bdx))
+      (when (isa-number? fm memberid)
+        (g/update-attr memberid :desiderata conj
+          (oppose :bdx-to-different-number))))))
 
 (def little-numbo-spec (farg-spec
   (nodeclass :number
@@ -1794,6 +1880,7 @@
 (def test6-params (assoc test2-params
   :model v20-model
   :init nil
+  :antipathy-per-timestep -0.1
   :support-limit nil
   :scheduled {1 (fn [fm] (start-bind-across-ctxs fm :eqn :problem))}
   ))

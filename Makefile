@@ -1,11 +1,13 @@
-see: test.pdf
-	open test.pdf
+SCALE= #-s72
 
-%.pdf: %.dot
-	dot -Tpdf < $< > $@
+see: test.pdf test100.pdf
+	open test.pdf test100.pdf
+
+%.pdf: %.dot Makefile
+	dot $(SCALE) -Tpdf < $< > $@
 
 %.eps: %.dot
-	dot -Teps < $< > $@
+	dot $(SCALE) -Teps < $< > $@
 
 tags:
 	ctags -R src/ checkouts/
