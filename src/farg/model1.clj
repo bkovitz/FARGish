@@ -119,12 +119,19 @@
 (defn preference? [ospec]
   (get ospec ::preference?))
 
-(defn bdx-across-ctxs [from-ctx to-ctx]
+(defn bdx-to-ctx [from-ctx to-ctx]
   (with-meta
-    (assoc empty-ospec ::ospec-type ::bdx-across-ctxs
+    (assoc empty-ospec ::ospec-type ::bdx-to-ctx
                        ::from-ctx from-ctx
                        ::to-ctx to-ctx)
-    {:type ::bdx-across-ctxs}))
+    {:type ::bdx-to-ctx}))
+
+(defn bdx-from-ctx [from-ctx to-ctx]
+  (with-meta
+    (assoc empty-ospec ::ospec-type ::bdx-from-ctx
+                       ::from-ctx from-ctx
+                       ::to-ctx to-ctx)
+    {:type ::bdx-from-ctx}))
 
 (defn prefer [ospec & ospecs]
   (with-meta 
@@ -141,10 +148,15 @@
   (.write w
     (<< "(prefer ~(clojure.string/join \\space (::ospecs o)))")))
 
-(defmethod print-method ::bdx-across-ctxs
+(defmethod print-method ::bdx-to-ctx
   [{::keys [from-ctx to-ctx]} ^java.io.Writer w]
   (.write w
-    (<< "(bdx-across-ctxs ~{from-ctx} ~{to-ctx})")))
+    (<< "(bdx-to-ctx ~{from-ctx} ~{to-ctx})")))
+
+(defmethod print-method ::bdx-from-ctx
+  [{::keys [from-ctx to-ctx]} ^java.io.Writer w]
+  (.write w
+    (<< "(bdx-from-ctx ~{from-ctx} ~{to-ctx})")))
 
 ;;; Global parameters (these belong in the FARG model itself)
 
@@ -623,6 +635,9 @@
 (defn bound-to-elem-in? [fm bdxid ctxid]
   (member-of? fm (bound-to fm bdxid) ctxid))
 
+(defn bound-from-elem-in? [fm bdxid ctxid]
+  (member-of? fm (bound-from fm bdxid) ctxid))
+
 (defn symbolically [fm elem]
   (case (class-of fm elem)
     :bind
@@ -714,6 +729,13 @@
                       (filter #(could-reasonably-bind? fm0 fromid %)))]
       (add-bdx fromid toid))))
 
+(defn start-bdx-from-ctx-for
+  [fm0 toid from-ctx]
+  (with-state [fm fm0]
+    (doseq [fromid (->> (members-of fm0 from-ctx)
+                        (filter #(could-reasonably-bind? fm0 % toid)))]
+      (add-bdx fromid toid))))
+
 ;; ospec multimethods
 
 (declare ospec-find-objects)
@@ -724,10 +746,16 @@
         (::ospec-type ospec)
         ospec)))
 
-(defmethod ospec-find-objects- ::bdx-across-ctxs
+(defmethod ospec-find-objects- ::bdx-to-ctx
   [fm {::keys [from-ctx to-ctx]} id]
   (for [bdxid (incident-bdx-from fm id)
         :when (bound-to-elem-in? fm bdxid to-ctx)]
+    bdxid))
+
+(defmethod ospec-find-objects- ::bdx-from-ctx
+  [fm {:keys [from-ctx to-ctx]} id]
+  (for [bdxid (incident-bdx-to fm id)
+        :when (bound-from-elem-in? fm bdxid from-ctx)]
     bdxid))
 
 (defmethod ospec-find-objects- ::desideratum
@@ -855,9 +883,13 @@
        (remove preference?)
        (mapcat #(ospec-start-actions fm % id))))
 
-(defmethod ospec-start-actions ::bdx-across-ctxs
+(defmethod ospec-start-actions ::bdx-to-ctx
   [fm {::keys [from-ctx to-ctx]} id]
   [[:start-bdx-into-ctx-for id to-ctx]])
+
+(defmethod ospec-start-actions ::bdx-from-ctx
+  [fm {::keys [from-ctx to-ctx]} id]
+  [[:start-bdx-from-ctx-for id from-ctx]])
 
 ;;; Support edges
 
@@ -1026,12 +1058,16 @@
    :block "pos=\"1.5,6!\""     ;9
    :target "pos=\"3,9!~\""   ;15
    :plus002 "pos=\"1.5,3!\""
+   :plus003 "pos=\"4.5,7.5!\""
 
    :number002 "pos=\"12,0!\"" ;5
    :number003 "pos=\"15,0!\"" ;6
    :number "pos=\"13.5,6!\"" ;11
    :plus "pos=\"13.5,3!\""
   })
+
+;HACK
+(def skip #{:problem :eqn})
 
 (defn tag-edges->dot [fm tagid]
   (with-out-str
@@ -1079,7 +1115,7 @@
         weight (max 0.1 (* 8.0 (total-support-for fm bdxid)))]
   (<< "  ~{i} [label=\"bind\" fontcolor=~{bdxcolor}];\n"
       "  ~{ifrom} -> ~{i} [penwidth=~{weight} color=~{bdxcolor} "
-         "arrowhead=none];\n"
+         \] ;"arrowhead=none];\n"
       "  ~{i} -> ~{ito} [penwidth=~{weight} color=~{bdxcolor}];\n")))
 
 (defn supp->dot [fm suppid]
@@ -1094,7 +1130,7 @@
 (defn fm->dot [fm]
   (with-out-str
     (print dot-preamble)
-    (doseq [nodeid (g/nodes fm)]
+    (doseq [nodeid (->> (g/nodes fm) (remove skip))]
       (print (node->dot fm nodeid)))
     (doseq [bdxid (all-bdx fm)]
       (print (bdx->dot fm bdxid)))
@@ -1194,6 +1230,8 @@
       (start-bdx-from-for fm id)
     (:start-bdx-into-ctx-for ~id ~to-ctx)
       (start-bdx-into-ctx-for fm id to-ctx)
+    (:start-bdx-from-ctx-for ~id ~from-ctx)
+      (start-bdx-from-ctx-for fm id from-ctx)
     (:request-orientation-for ~id ~toids)
       (apply add-orientation-for fm id toids)))
 
@@ -1817,11 +1855,21 @@
   (with-state [fm fm]
     (doseq [memberid (members-of fm from-ctx)]
       (g/update-attr memberid :desiderata conj
-        (need (bdx-across-ctxs from-ctx to-ctx))
+        (need (bdx-to-ctx from-ctx to-ctx))
         (oppose :bad-nbr-bdx))
       (when (isa-number? fm memberid)
         (g/update-attr memberid :desiderata conj
           (oppose :bdx-to-different-number))))))
+
+(defn start-numbo-builds [fm from-ctx to-ctx]  ;HACK
+  (with-state [fm fm]
+    (setq new+ (g/make-node :plus
+                 {:desiderata #{(need (bdx-from-ctx from-ctx to-ctx))}
+                  :self-support [:decaying 0.2]
+                  :total-support nil}))
+    (g/add-edge nil [new+ :result] [:target :source])
+    (g/add-edge nil [:block :result] [new+ :operands])
+    (g/add-edge nil [:brick003 :result] [new+ :operands])))
 
 (def little-numbo-spec (farg-spec
   (nodeclass :number
@@ -1846,13 +1894,13 @@
   (graph little-numbo-spec
     (with-node-attrs {:self-support [:permanent 1.0], :total-support nil}
       (ctx :eqn
-        [:number :n 11]
-        [:number :n 5]
+        [:number :n 15]
+        [:number :n 9]
         [:number :n 6]
         :plus
-        [5 -> :plus]
+        [9 -> :plus]
         [6 -> :plus]
-        [:plus -> 11])
+        [:plus -> 15])
       (ctx :problem
         [:target :n 15]
         [:block :n 9]
@@ -1882,7 +1930,8 @@
   :init nil
   :antipathy-per-timestep -0.1
   :support-limit nil
-  :scheduled {1 (fn [fm] (start-bind-across-ctxs fm :eqn :problem))}
+  :scheduled {1 (fn [fm] (start-bind-across-ctxs fm :eqn :problem))
+              11 (fn [fm] (start-numbo-builds fm :eqn :problem))}
   ))
 
 (defn test6
