@@ -937,36 +937,59 @@
 
 (def dot-preamble
 "digraph g {
-  node [penwidth=0 fontname=\"Friz Quadrata\"];")
+  node [penwidth=0 fontname=\"Friz Quadrata\"];\n")
 
 (def bdxcolor "olivedrab")
 (def pos-suppcolor "cadetblue2")
 (def neg-suppcolor "tomato")
 
+;HACK
+(def ok-port-labels [:result])
+
+(defn tag-edges->dot [fm tagid]
+  (with-out-str
+    (let [i (name tagid)]
+      (doseq [id (g/port->neighbors fm [tagid :from])]
+        (println (<< "  ~{i} -> ~(name id);")))
+      (doseq [id (g/port->neighbors fm [tagid :to])]
+        (println (<< "  ~{i} -> ~(name id);"))))))
+
+(defn normal-edges [fm elemid]
+  (with-out-str
+    (let [i (name elemid)]
+      (doseq [pl ok-port-labels
+              thatid (g/port->neighbors fm [elemid pl])]
+        (let [ti (name thatid)]
+          (println (<< "  ~{i} -> ~{ti};")))))))
+
 (defn node->dot [fm nodeid]
   (cond
     :let [as (g/attrs fm nodeid)
-          nodeid (name nodeid)
+          i (name nodeid)
           n (:n as)]
     (some? n)
-      (<< "~{nodeid} [label=\"~{n}\"];")
+      (<< "  ~{i} [label=\"~{n}\"];\n"
+          "~(normal-edges fm nodeid)")
     :let [letter (:letter as)]
     (some? letter)
-      (<< "~{nodeid} [label=\"~{letter}\"];")
+      (<< "  ~{i} [label=\"~{letter}\"];\n")
     :let [cl (:class as)]
     (= :operator cl)
-      (<< "~{nodeid} [label=\"+\"];") ;HACK
+      (<< "  ~{i} [label=\"+\"];\n"  ;HACK
+          "~(normal-edges fm nodeid)")
     (= :tag cl)
-      (<< "~{nodeid} [label=\"~(:tagclass as)\"];")
+      (<< "  ~{i} [label=\"~(:tagclass as)\"];\n"
+          "~(tag-edges->dot fm nodeid)")
     (some? cl)
-      (<< "~{nodeid} [label=\"~{cl}\"];")
-    (str nodeid)))
+      (<< "  ~{i} [label=\"~{cl}\"];\n"
+          "~(normal-edges fm nodeid)")
+    (<< "  ~{i}\n")))
 
 (defn bdx->dot [fm bdxid]
   (let [i (name bdxid)
         ifrom (name (bound-from fm bdxid))
         ito (name (bound-to fm bdxid))
-        weight (max 0.1 (* 5.0 (total-support-for fm bdxid)))]
+        weight (max 0.1 (* 8.0 (total-support-for fm bdxid)))]
   (<< "  ~{i} [label=\"bind\" fontcolor=~{bdxcolor}];\n"
       "  ~{ifrom} -> ~{i} [penwidth=~{weight} color=~{bdxcolor} "
          "arrowhead=none];\n"
@@ -978,14 +1001,14 @@
           ito (name (support-to fm suppid))
           w (g/weight fm suppid)
           color (if (>= w 0.0) pos-suppcolor neg-suppcolor)
-          weight (max 0.1 (* 5.0 (Math/abs w)))]
+          weight (max 0.1 (* 8.0 (Math/abs w)))]
     (<< "  ~{ifrom} -> ~{ito} [penwidth=~{weight} color=~{color}];\n")))
 
 (defn fm->dot [fm]
   (with-out-str
-    (println dot-preamble)
+    (print dot-preamble)
     (doseq [nodeid (g/nodes fm)]
-      (println (<< "  ~(node->dot fm nodeid)")))
+      (print (node->dot fm nodeid)))
     (doseq [bdxid (all-bdx fm)]
       (print (bdx->dot fm bdxid)))
     (doseq [suppid (all-support-edges fm)]

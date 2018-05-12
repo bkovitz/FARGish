@@ -106,6 +106,7 @@
 ;;; Convenient names (for shorthand)
 
 (defn save-convenient-name [g name id]
+  (dd "save-convenient-name" name id)
   (if (has-current-ctx? g)
     (S/setval [::current-ctx S/FIRST ::convenient-names name] id g)
     g))
@@ -394,7 +395,9 @@
         :let [fromid (look-up-name g from)]
         (nil? fromid)
           (throw-no-such-elem from v)
-        :let [toid (look-up-name g to)]
+        :let [toid (look-up-name g to)
+              _ (dd (S/select-one
+                    [::current-ctx S/FIRST ::convenient-names] g) from fromid to toid)]
         (nil? toid)
           (throw-no-such-elem to v)
         (with-state [g g]
@@ -438,7 +441,9 @@
   (if (and (map? elem) (contains? elem ::elem-type))
     (throw (IllegalArgumentException.
              (<< "Unknown graph element type ~(pr-str (::elem-type elem))")))
-    (add-node g elem)))
+    (let [[g id] (make-node g elem)]
+      (save-convenient-name g elem id))
+    #_(add-node g elem)))
 
 ;;; Graph constructors
 
