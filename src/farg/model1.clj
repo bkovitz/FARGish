@@ -469,6 +469,7 @@
  ([fm]
   (start-model fm {}))
  ([fm override-params]
+  (g/nodes fm)
   (with-state [fm (merge fm default-globals override-params)]
     (update :stems assoc :bind 0 :support 0 :tag 0)
     (assoc :timestep 0
@@ -931,6 +932,66 @@
   #_(g/pprint fm)
   (pprint-model fm)
   fm)
+
+;;; dot
+
+(def dot-preamble
+"digraph g {
+  node [penwidth=0 fontname=\"Friz Quadrata\"];")
+
+(def bdxcolor "olivedrab")
+(def pos-suppcolor "cadetblue2")
+(def neg-suppcolor "tomato")
+
+(defn node->dot [fm nodeid]
+  (cond
+    :let [as (g/attrs fm nodeid)
+          nodeid (name nodeid)
+          n (:n as)]
+    (some? n)
+      (<< "~{nodeid} [label=\"~{n}\"];")
+    :let [letter (:letter as)]
+    (some? letter)
+      (<< "~{nodeid} [label=\"~{letter}\"];")
+    :let [cl (:class as)]
+    (= :operator cl)
+      (<< "~{nodeid} [label=\"+\"];") ;HACK
+    (= :tag cl)
+      (<< "~{nodeid} [label=\"~(:tagclass as)\"];")
+    (some? cl)
+      (<< "~{nodeid} [label=\"~{cl}\"];")
+    (str nodeid)))
+
+(defn bdx->dot [fm bdxid]
+  (let [i (name bdxid)
+        ifrom (name (bound-from fm bdxid))
+        ito (name (bound-to fm bdxid))
+        weight (max 0.1 (* 5.0 (total-support-for fm bdxid)))]
+  (<< "  ~{i} [label=\"bind\" fontcolor=~{bdxcolor}];\n"
+      "  ~{ifrom} -> ~{i} [penwidth=~{weight} color=~{bdxcolor} "
+         "arrowhead=none];\n"
+      "  ~{i} -> ~{ito} [penwidth=~{weight} color=~{bdxcolor}];\n")))
+
+(defn supp->dot [fm suppid]
+  (let [i (name suppid)
+          ifrom (name (support-from fm suppid))
+          ito (name (support-to fm suppid))
+          w (g/weight fm suppid)
+          color (if (>= w 0.0) pos-suppcolor neg-suppcolor)
+          weight (max 0.1 (* 5.0 (Math/abs w)))]
+    (<< "  ~{ifrom} -> ~{ito} [penwidth=~{weight} color=~{color}];\n")))
+
+(defn fm->dot [fm]
+  (with-out-str
+    (println dot-preamble)
+    (doseq [nodeid (g/nodes fm)]
+      (println (<< "  ~(node->dot fm nodeid)")))
+    (doseq [bdxid (all-bdx fm)]
+      (print (bdx->dot fm bdxid)))
+    (doseq [suppid (all-support-edges fm)]
+      (print (supp->dot fm suppid)))
+    (println "}")
+  ))
 
 ;;; Actions
 
@@ -1695,6 +1756,7 @@
         [:plus -> 9]))))
 
 ;NEXT
+; with-attrs
 ; Support for edges
 ; Competition for :source, :operands, and :result ports
 ; Build a node to link to if you can't find one
@@ -1708,6 +1770,7 @@
 
 (def test6-params (assoc test2-params
   :model v20-model
+  :init nil
   :support-limit nil
   :scheduled {1 (fn [fm] (start-bind-across-ctxs fm :eqn :problem))}
   ))
