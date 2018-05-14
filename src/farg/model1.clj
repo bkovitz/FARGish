@@ -476,13 +476,19 @@
     (init-fn fm)
     fm))
 
+(defmethod print-method ::farg-model [fm ^java.io.Writer w]
+  (.write w (<< "#farg-model[timestep ~(:timestep fm), "
+                "nodes ~(count (g/nodes fm)), "
+                "edges ~(count (g/edges fm))]")))
+
 (defn start-model
   "override-params is a map that gets merged onto default-globals."
  ([fm]
   (start-model fm {}))
  ([fm override-params]
-  (g/nodes fm)
-  (with-state [fm (merge fm default-globals override-params)]
+  (with-state [fm (with-meta
+                    (merge fm default-globals override-params)
+                    {:type ::farg-model})]
     (update :stems assoc :bind 0 :support 0 :tag 0)
     (assoc :timestep 0
            :actions #{}

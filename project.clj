@@ -1,4 +1,4 @@
-(defproject farg/ish "0.21.2-SNAPSHOT"
+(defproject farg/ish "0.21.4-SNAPSHOT"
   :description "v21 of FARGish/Numbo"
   :url "https://github.com/bkovitz/FARGish"
   :license {:name "Eclipse Public License"
@@ -15,6 +15,11 @@
   ;:main ^:skip-aot v21.core
   :aliases {"rebl" ["trampoline" "run" "-m" "rebel-readline.main"]}
   :repl-options {:init (do (use 'farg.model1)
-                           (require '[farg.graphs2 :as g]))}
+                           (require '[farg.graphs3 :as g]
+                                    '[farg.logging :as log]
+                                    '[farg.with-state :refer [with-state]]
+                                    '[farg.pgraph :as pg]
+                                    '[farg.util :as u]
+                                    '[com.rpl.specter :as S]))}
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})
