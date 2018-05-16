@@ -15,10 +15,10 @@
   ;:main ^:skip-aot v21.core
   :aliases {"rebl" ["trampoline" "run" "-m" "rebel-readline.main"]}
   :repl-options {:init (do (use 'farg.model1)
-                           (require '[farg.graphs3 :as g]
+                           (require '[farg.graphs4 :as g :refer [graph]]
                                     '[farg.logging :as log]
                                     '[farg.with-state :refer [with-state]]
-                                    '[farg.pgraph :as pg]
+                                    '[farg.pgraph2 :as pg :refer [pgraph]]
                                     '[farg.util :as u]
                                     '[com.rpl.specter :as S]))}
   :target-path "target/%s"
