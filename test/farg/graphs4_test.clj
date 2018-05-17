@@ -46,8 +46,8 @@
 
 (deftest test-node-shorthand
   (let [g (graph abc-spec ['a :uncle :bob])]
-    (is (= :bob (g/attr g 'a :uncle)))
-    (is (= :letter (g/attr g 'a :class)))))
+    (is (= :bob (g/attr g 'a:bob :uncle)))
+    (is (= :letter (g/attr g 'a:bob :class)))))
 
 (def little-numbo-spec (farg-spec
   (nodeclass :number
@@ -86,9 +86,9 @@
               [:brick :n 5]
               [:brick :n 6]))]
     (is (g/has-node? g :problem))
-    (is (g/has-edge? g [:problem :ctx-members] [:brick :ctx]))
-    (is (g/has-edge? g [:problem :ctx-members] [:brick002 :ctx]))
-    (is (g/has-edge? g [:problem :ctx-members] [:brick003 :ctx]))))
+    (is (g/has-edge? g [:problem :ctx-members] [:brick4 :ctx]))
+    (is (g/has-edge? g [:problem :ctx-members] [:brick5 :ctx]))
+    (is (g/has-edge? g [:problem :ctx-members] [:brick6 :ctx]))))
 
 (deftest test-with-node-attrs
   (let [g (graph

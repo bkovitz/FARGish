@@ -22,7 +22,7 @@
 ;;; export relevant functions from pgraph ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (import-vars
-  [farg.pgraph2 next-id pgraph has-elem? elem->type find-edgeid add-node
+  [farg.pgraph2 next-id pgraph has-elem? elem->type find-edgeid
     nodes edges elems has-node? attr attrs set-attr set-attrs
     has-edge? elem->incident-edges elem->neighbor? user-attrs
     port->incident-edges edge->incident-ports other-id elem->neighbors
@@ -147,28 +147,37 @@
 (defn port-label-isa? [g child ancestor]
   (isa? (get-in g [:spec :portclass-hierarchy]) child ancestor))
 
+(defn ports-from-classdef 
+  "Returns lazy seq of ports [id port-label] derived from id's class definition
+  in (:spec g)."
+  [g id]
+  (->> (S/select-one [:spec :nodeclasses (class-of g id) :port-labels] g)
+       (map (fn [port-label] [id port-label]))))
+
 ;;; pgraph overrides
 
-;TODO rename to elem->ports
-(defn ports-of [g id]
-  (->> (clojure.set/union
-         (set (pg/elem->port-labels g id))
-         (classdef-of g id :port-labels))
-       (map (fn [port-label] [id port-label]))))
+(defn elem->ports [g id]
+  (clojure.set/union
+    (set (pg/elem->ports g id))
+    (set (ports-from-classdef g id))))
 ;TODO Also override elem->port-labels
 
-#_(defn make-node
-  "Returns [g id] where g is updated graph and id is the name assigned to
-  the new node."
- ([g nodename]
-  (make-node g nodename {}))
- ([g nodename attrs]
-  (let [default-attrs (default-attrs g :nodeclasses nodename)
-        auto-attrs (auto-node-attrs g)
-        [g id] (pg/next-id g nodename)
-        g (pg/add-node g id (merge default-attrs auto-attrs attrs))
-        g (add-member-to-current-ctx g id)]
-    [g id])))
+;(defn elem->port-labels [g id]
+
+(defn +suffix [nm as]
+  (cond
+    :let [suffix (get as ::suffix)]
+    (nil? suffix)
+      nm
+    (keyword? nm)
+      (keyword (str (name nm) suffix))
+    (symbol? nm)
+      (symbol (str (name nm) suffix))
+    (string? nm)
+      (str nm suffix)
+    (fn? suffix)
+      (suffix nm)
+    nm))
 
 (defn make-node
   "Returns [g id] where g is updated graph and id is the name assigned to
@@ -178,25 +187,14 @@
  ([g nodename attrs]
   (let [default-attrs (default-attrs g :nodeclasses nodename)
         auto-attrs (auto-node-attrs g)
-        [g id] (pg/make-node g nodename (merge default-attrs auto-attrs attrs))
+        as (merge default-attrs auto-attrs attrs)
+        [g id] (pg/make-node g (+suffix nodename as) as)
         g (add-member-to-current-ctx g id)]
     [g id])))
 
 (defn add-node [& args]
   (let [[g _] (apply make-node args)]
     g))
-
-#_(defn make-edge
-  "Returns [g id] where g is updated graph and id is the name assigned to
-  the new node."
- ([g edgename [id1 p1] [id2 p2]]
-  (make-edge g edgename [id1 p1] [id2 p2] {}))
- ([g edgename [id1 p1] [id2 p2] attrs]
-  (let [default-attrs (default-attrs g :edgeclasses edgename)
-        g (pg/add-edge g [id1 p1] [id2 p2] (merge default-attrs attrs))
-        edgeid (pg/find-edgeid g [id1 p1] [id2 p2])
-        g (add-member-to-current-ctx g edgeid)]
-    [g edgeid])))
 
 (defn make-edge
   "Returns [g id] where g is updated graph and id is the name assigned to
@@ -373,18 +371,6 @@
         (pg/set-attr left-id :adj-right right-id)
         (pg/set-attr right-id :adj-left left-id)))))
 
-#_(defmethod add-graph-elem clojure.lang.PersistentVector
-  [g v]
-  (cond
-    :let [[nm & kvs] v]
-    (nil? nm)
-      (add-node g v)
-    (not (even? (count kvs)))
-      (throw (IllegalArgumentException. (<< "Vector for specifying a node "
-        "must have an even number of arguments (key-value pairs) after "
-        "the name of the node: ~{v}.")))
-    (add-node g nm (apply hash-map kvs))))
-
 (defn ensure-endpoint
   "Returns [g id] where id is id of elem referred to by nm. Creates a node
   named after nm if one doesn't exist."
@@ -397,9 +383,9 @@
   "Returns seq of [[fromid port-label1] [toid port-label2]] ..."
   [g fromid toid]
   (->> (combo/cartesian-product
-         (->> (ports-of g fromid)
+         (->> (elem->ports g fromid)
               (filter #(port-label-isa? g (second %) :out)))
-         (->> (ports-of g toid)
+         (->> (elem->ports g toid)
               (filter #(port-label-isa? g (second %) :in))))
        (filter #(apply can-link? g %))))
 
@@ -416,7 +402,8 @@
       (throw (IllegalArgumentException. (<< "No ports of ~{fromid} and ~{toid} "
         "can link to each other.")))
     (throw (IllegalArgumentException. (<< "Multiple pairs of ports of "
-      " ~{fromid} can link to each other: ~{pairs}.")))))
+      "~(pr-str fromid) and ~(pr-str toid) can link to each other: "
+      "~(pr-str pairs).")))))
 
 (defn throw-odd-kvs [v]
   (throw (IllegalArgumentException. (<< "Vector for specifying a node "
@@ -444,11 +431,12 @@
           (throw-no-such-elem to v)
         (with-state [g g]
           (bind [from-port to-port] (unique-linkable-ports g fromid toid))
-          (add-edge g from-port to-port)))
+          (add-edge nil from-port to-port)))
     [~nodeclass ~k ~va ~@kvs]
       (if (even? (count kvs))
         (with-state [g g]
-          (setq id (make-node nodeclass (apply hash-map k va kvs)))
+          (setq id (make-node nodeclass (-> (apply hash-map k va kvs)
+                                            (assoc ::suffix va))))
           (save-convenient-name va id)
           (save-convenient-name nodeclass id))
         (throw-odd-kvs v))
