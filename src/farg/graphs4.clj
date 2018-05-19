@@ -9,7 +9,7 @@
             [com.rpl.specter :as S]
             [farg.pmatch :as pmatch :refer [pmatch]]
             [farg.pgraph2 :as pg]
-            [farg.util :as util :refer [dd find-first]]
+            [farg.util :as util :refer [dd find-first safe-derive]]
             [farg.with-state :refer [with-state]]
             [potemkin :refer [import-vars]]))
 
@@ -217,9 +217,10 @@
 (def empty-farg-spec
   {:type ::farg-spec
    :nodeclasses {}
-   :edgeclass {}
+   :edgeclasses {}
    :can-link #{} ;Each elem is a set of two port labels (or one to indicate
                  ;that a port label can link to itself)
+   :nodeclass-hierarchy (make-hierarchy)
    :portclass-hierarchy (make-hierarchy)
    :stems {}})
 
@@ -228,7 +229,8 @@
    :name-match? nil ;Boolean function: if a node's name matches, make it
                     ;this class
    :attrs {}        ;Initial attrs of any instance
-   :port-labels #{}})
+   :port-labels #{}
+   :extends []})
 
 (def empty-edgeclass
   {:name nil
@@ -238,6 +240,9 @@
 (def empty-portclass
   {:name nil
    :extends []})
+
+(defn nodeclass-attrs [spec nc-name]
+  (S/select [:nodeclasses nc-name :attrs S/MAP-KEYS] spec))
 
 (defn start-named-elem [empty-m name]
   (assoc empty-m :name name))
@@ -260,6 +265,43 @@
 
 (defn merge-args [m-class m-args]
   (merge-with merge-spec-arg m-class m-args))
+
+;(defn add-inheritance [m-nodeclasses
+
+(defn merge-attr
+  "Attribute-value a1 overrides a0."
+  [a0 a1]
+  (cond
+    (map? a0)
+      (if (map? a1) (merge a0 a1) a0)
+    (set? a0)
+      (if (set? a1) (clojure.set/union a0 a1) a0)
+    (coll? a0)
+      (if (coll? a1) (into a0 a1) (conj a0 a1))
+    a1))
+
+(defn merge-nodeclasses
+  "Nodeclasses appearing in args to the right override those appearing in
+  args to the left."
+  [nc0 & ncs]
+  (cond
+    (empty? ncs)
+      nc0
+    :let [nc1 (first ncs)]
+    (recur (with-state [nc0 nc0]
+             (when (some? (:name-match? nc1))
+               (assoc :name-match? (:name-match? nc1)))
+             (update :attrs #(merge-with merge-attr % (:attrs nc1)))
+             (update :port-labels into (:port-labels nc1))
+             (assoc :extends (:extends nc1)))
+      (rest ncs))))
+
+(defn do-nodeclass-inheritance [m-nodeclasses nodeclass-hierarchy]
+  (with-state [result {}]
+    (doseq [nc-name (keys m-nodeclasses)]
+      (assoc nc-name (apply merge-nodeclasses
+                       (->> (util/inheritance-seq nodeclass-hierarchy nc-name)
+                            (map #(get m-nodeclasses %))))))))
 
 (defmulti add-spec-elem (fn [spec elem] (::elem-type elem)))
 
@@ -289,11 +331,6 @@
   [spec {:keys [arg]}]
   (update spec :stems merge arg))
 
-(defn safe-derive [h child parent]
-  (if (isa? h child parent)
-    h
-    (derive h child parent)))
-
 (defn mk-hierarchy [classes]
   (reduce (fn [h {:keys [name extends]}]
             (reduce #(safe-derive %1 name %2) h extends))
@@ -304,8 +341,13 @@
   (with-state [spec empty-farg-spec]
     (doseq [elem elems]
       (add-spec-elem elem))
-    (assoc :portclass-hierarchy (mk-hierarchy (vals (:portclasses spec))))))
+    (assoc :portclass-hierarchy (mk-hierarchy (vals (:portclasses spec))))
+    (doseq [nc (S/select [:nodeclasses S/MAP-VALS] spec)
+            parent (get nc :extends)]
+      (update :nodeclass-hierarchy safe-derive (:name nc) parent))
+    (update :nodeclasses do-nodeclass-inheritance (:nodeclass-hierarchy spec))
       ;TODO More inheritance
+  ))
 
 (defmacro farg-spec [& elems]
   `(macrolet [(~'nodeclass [name# & args#]

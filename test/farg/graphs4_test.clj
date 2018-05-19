@@ -6,7 +6,7 @@
             [clojure.test :refer :all]
             [com.rpl.specter :as S]
             [farg.graphs4 :as g :refer [graph farg-spec]]
-            [farg.util :as util :refer [dd dde]]
+            [farg.util :as util :refer [dd =msets]]
             [farg.with-state :refer [with-state]]))
 
 #_(pprint (macroexpand '(farg-spec
@@ -36,6 +36,16 @@
     (is (= :bind001 bdxid))
     (is (= :bind (g/attr g bdxid :class)))
     (is (= [:decaying 0.2] (g/attr g bdxid :self-support)))))
+
+(deftest test-nodeclass-inheritance
+  (let [spec (farg-spec
+               (nodeclass :node
+                 (attrs {:a nil})
+                 (port-labels :p))
+               (nodeclass :number (extends :node)
+                 (attrs {:n nil})))]
+    (is (=msets [:a]    (g/nodeclass-attrs spec :node)))
+    (is (=msets [:a :n] (g/nodeclass-attrs spec :number)))))
 
 (deftest test-left-to-right-seq
   (let [g (graph (left-to-right-seq 'a 'b))]
