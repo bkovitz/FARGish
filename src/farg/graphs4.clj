@@ -221,6 +221,7 @@
    :can-link #{} ;Each elem is a set of two port labels (or one to indicate
                  ;that a port label can link to itself)
    :nodeclass-hierarchy (make-hierarchy)
+   :edgeclass-hierarchy (make-hierarchy)
    :portclass-hierarchy (make-hierarchy)
    :stems {}})
 
@@ -235,14 +236,19 @@
 (def empty-edgeclass
   {:name nil
    :name-match? nil
-   :attrs {}})
+   :attrs {}
+   :port-labels #{}
+   :extends []})
 
 (def empty-portclass
   {:name nil
    :extends []})
 
 (defn nodeclass-attrs [spec nc-name]
-  (S/select [:nodeclasses nc-name :attrs S/MAP-KEYS] spec))
+  (S/select-one [:nodeclasses nc-name :attrs] spec))
+
+(defn edgeclass-attrs [spec ec-name]
+  (S/select-one [:edgeclasses ec-name :attrs] spec))
 
 (defn start-named-elem [empty-m name]
   (assoc empty-m :name name))
@@ -289,6 +295,7 @@
       nc0
     :let [nc1 (first ncs)]
     (recur (with-state [nc0 nc0]
+             (assoc :name (:name nc1))
              (when (some? (:name-match? nc1))
                (assoc :name-match? (:name-match? nc1)))
              (update :attrs #(merge-with merge-attr % (:attrs nc1)))
@@ -296,12 +303,36 @@
              (assoc :extends (:extends nc1)))
       (rest ncs))))
 
+(defn merge-edgeclasses
+  "Edgeclasses appearing in args to the right override those appearing in
+  args to the left."
+  [ec0 & ecs]
+  (cond
+    (empty? ecs)
+      ec0
+    :let [ec1 (first ecs)]
+    (recur (with-state [ec0 ec0]
+             (assoc :name (:name ec1))
+             (when (some? (:name-match? ec1))
+               (assoc :name-match? (:name-match? ec1)))
+             (update :attrs #(merge-with merge-attr % (:attrs ec1)))
+             (update :port-labels into (:port-labels ec1))
+             (assoc :extends (:extends ec1)))
+           (rest ecs))))
+
 (defn do-nodeclass-inheritance [m-nodeclasses nodeclass-hierarchy]
   (with-state [result {}]
     (doseq [nc-name (keys m-nodeclasses)]
       (assoc nc-name (apply merge-nodeclasses
                        (->> (util/inheritance-seq nodeclass-hierarchy nc-name)
                             (map #(get m-nodeclasses %))))))))
+
+(defn do-edgeclass-inheritance [m-edgeclasses edgeclass-hierarchy]
+  (with-state [result {}]
+    (doseq [ec-name (keys m-edgeclasses)]
+      (assoc ec-name (apply merge-edgeclasses
+                       (->> (util/inheritance-seq edgeclass-hierarchy ec-name)
+                            (map #(get m-edgeclasses %))))))))
 
 (defmulti add-spec-elem (fn [spec elem] (::elem-type elem)))
 
@@ -346,7 +377,10 @@
             parent (get nc :extends)]
       (update :nodeclass-hierarchy safe-derive (:name nc) parent))
     (update :nodeclasses do-nodeclass-inheritance (:nodeclass-hierarchy spec))
-      ;TODO More inheritance
+    (doseq [ec (S/select [:edgeclasses S/MAP-VALS] spec)
+            parent (get ec :extends)]
+      (update :edgeclass-hierarchy safe-derive (:name ec) parent))
+    (update :edgeclasses do-edgeclass-inheritance (:edgeclass-hierarchy spec))
   ))
 
 (defmacro farg-spec [& elems]

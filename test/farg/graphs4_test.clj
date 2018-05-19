@@ -43,9 +43,35 @@
                  (attrs {:a nil})
                  (port-labels :p))
                (nodeclass :number (extends :node)
-                 (attrs {:n nil})))]
-    (is (=msets [:a]    (g/nodeclass-attrs spec :node)))
-    (is (=msets [:a :n] (g/nodeclass-attrs spec :number)))))
+                 (attrs {:n nil}))
+               (nodeclass :two (extends :number)
+                 (attrs {:n 2})))
+        g (graph spec :node :number :two)]
+    (is (= {:a nil}         (g/nodeclass-attrs spec :node)))
+    (is (= {:a nil, :n nil} (g/nodeclass-attrs spec :number)))
+    (is (= {:a nil, :n 2}   (g/nodeclass-attrs spec :two)))
+    (is (= {:a nil, :class :node}           (g/user-attrs g :node)))
+    (is (= {:a nil, :n nil, :class :number} (g/user-attrs g :number)))
+    (is (= {:a nil, :n 2, :class :two}      (g/user-attrs g :two)))))
+
+(deftest test-edgeclass-inheritance
+  (let [spec (farg-spec
+               (edgeclass :edge
+                 (attrs {:a nil}))
+               (edgeclass :e2 (extends :edge)
+                 (attrs {:weight 0.0}))
+               (edgeclass :etwo (extends :e2)
+                 (attrs {:weight 2.0})))
+        g (-> (graph spec :n1 :n2)
+              (g/add-edge :edge [:n1 :out1] [:n2 :in1])
+              (g/add-edge :e2 [:n1 :out2] [:n2 :in2])
+              (g/add-edge :etwo [:n1 :outtwo] [:n2 :intwo]))]
+    (is (= {:a nil}              (g/edgeclass-attrs spec :edge)))
+    (is (= {:a nil, :weight 0.0} (g/edgeclass-attrs spec :e2)))
+    (is (= {:a nil, :weight 2.0} (g/edgeclass-attrs spec :etwo)))
+    (is (= {:a nil, :class :edge}              (g/user-attrs g :edge)))
+    (is (= {:a nil, :weight 0.0, :class :e2}   (g/user-attrs g :e2)))
+    (is (= {:a nil, :weight 2.0, :class :etwo} (g/user-attrs g :etwo)))))
 
 (deftest test-left-to-right-seq
   (let [g (graph (left-to-right-seq 'a 'b))]
