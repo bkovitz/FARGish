@@ -147,11 +147,19 @@
 (defn port-label-isa? [g child ancestor]
   (isa? (get-in g [:spec :portclass-hierarchy]) child ancestor))
 
+;TODO edges, too
+(defn port-labels-from-classdef
+  "Returns lazy seq of port labels derived from id's class definition in
+  (:spec g)."
+  [g id]
+  (S/select-one [:spec :nodeclasses (class-of g id) :port-labels] g))
+
+;TODO edges, too
 (defn ports-from-classdef 
   "Returns lazy seq of ports [id port-label] derived from id's class definition
   in (:spec g)."
   [g id]
-  (->> (S/select-one [:spec :nodeclasses (class-of g id) :port-labels] g)
+  (->> (port-labels-from-classdef g id)
        (map (fn [port-label] [id port-label]))))
 
 ;;; pgraph overrides
@@ -160,7 +168,11 @@
   (clojure.set/union
     (set (pg/elem->ports g id))
     (set (ports-from-classdef g id))))
-;TODO Also override elem->port-labels
+
+(defn elem->port-labels [g id]
+  (clojure.set/union
+    (set (pg/elem->port-labels g id))
+    (set (port-labels-from-classdef g id))))
 
 ;(defn elem->port-labels [g id]
 
@@ -231,6 +243,7 @@
                     ;this class
    :attrs {}        ;Initial attrs of any instance
    :port-labels #{}
+   :without-port-labels #{}
    :extends []})
 
 (def empty-edgeclass
@@ -294,12 +307,15 @@
     (empty? ncs)
       nc0
     :let [nc1 (first ncs)]
-    (recur (with-state [nc0 nc0]
+    (recur (with-state [nc nc0]
              (assoc :name (:name nc1))
-             (when (some? (:name-match? nc1))
-               (assoc :name-match? (:name-match? nc1)))
+             (assoc :name-match? (:name-match? nc1))
              (update :attrs #(merge-with merge-attr % (:attrs nc1)))
-             (update :port-labels into (:port-labels nc1))
+             (assoc :without-port-labels (:without-port-labels nc1))
+             (update :port-labels #(-> %
+                                       (clojure.set/union (:port-labels nc1))
+                                       (clojure.set/difference
+                                         (:without-port-labels nc))))
              (assoc :extends (:extends nc1)))
       (rest ncs))))
 
@@ -313,8 +329,7 @@
     :let [ec1 (first ecs)]
     (recur (with-state [ec0 ec0]
              (assoc :name (:name ec1))
-             (when (some? (:name-match? ec1))
-               (assoc :name-match? (:name-match? ec1)))
+             (assoc :name-match? (:name-match? ec1))
              (update :attrs #(merge-with merge-attr % (:attrs ec1)))
              (update :port-labels into (:port-labels ec1))
              (assoc :extends (:extends ec1)))
@@ -396,6 +411,9 @@
                 {::elem-type :attrs, :arg arg#})
               (~'port-labels [& args#]
                 {::elem-type :port-labels, :args (apply hash-set args#)})
+              (~'without-port-labels [& args#]
+                {::elem-type :without-port-labels
+                 :args (apply hash-set args#)})
               (~'can-link [port-label1# port-label2#]
                 {::elem-type :can-link
                  :portclasses #{port-label1# port-label2#}})

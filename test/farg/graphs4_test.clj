@@ -88,13 +88,12 @@
 (def little-numbo-spec (farg-spec
   (nodeclass :number
     (name-match? number?)
-    (port-labels :source :result :not-this))
-  (nodeclass :brick
-    (port-labels :source :result :not-this))  ;TODO inherit from :number
-  (nodeclass :block
-    (port-labels :source :result :not-this))
-  (nodeclass :target
-    (port-labels :source :result :not-this))
+    (port-labels :source :result))
+  (nodeclass :brick (extends :number)
+    (without-port-labels :source))
+  (nodeclass :block (extends :number))
+  (nodeclass :target (extends :number)
+    (without-port-labels :result))
   (nodeclass :operator
     (name-match? #{:plus})
     (port-labels :operands :result))
@@ -107,6 +106,8 @@
 #_(pprint little-numbo-spec)
 
 #_(pprint (macroexpand '(graph little-numbo-spec [4 -> :plus])))
+
+#_(pprint (S/select-one [:nodeclasses :brick] little-numbo-spec))
 
 (deftest test-edge-shorthand
   (let [g (graph little-numbo-spec 4 :plus [4 -> :plus])]
@@ -157,4 +158,12 @@
               [4 -> :plus]
               [5 -> :plus]
               [:plus -> 9]))]
-    #_(g/pprint g)))
+    #_(g/pprint g)
+    (is (=msets [:ctx :result :source] (g/elem->port-labels g :number11)))
+    (is (=msets [[:number11 :ctx] [:number11 :result] [:number11 :source]]
+                (g/elem->ports g :number11)))
+    (is (=msets [:ctx :result :source] (g/elem->port-labels g :block9)))
+    (is (=msets [[:block9 :ctx] [:block9 :result] [:block9 :source]]
+                (g/elem->ports g :block9)))
+    (is (=msets [:ctx :result] (g/elem->port-labels g :brick4)))
+    (is (=msets [:ctx :source] (g/elem->port-labels g :target15)))))
