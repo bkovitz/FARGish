@@ -1873,9 +1873,9 @@
                  {:desiderata #{(need (bdx-from-ctx from-ctx to-ctx))}
                   :self-support [:decaying 0.2]
                   :total-support nil}))
-    (g/add-edge nil [new+ :result] [:target :source])
-    (g/add-edge nil [:block :result] [new+ :operands])
-    (g/add-edge nil [:brick003 :result] [new+ :operands])))
+    (g/add-edge nil [new+ :result] [:target15 :source])
+    (g/add-edge nil [:block9 :result] [new+ :operands])
+    (g/add-edge nil [:brick6 :result] [new+ :operands])))
 
 (def little-numbo-spec (farg-spec
   (nodeclass :number
