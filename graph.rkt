@@ -4,7 +4,7 @@
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt")
 
-(provide has-node? make-node add-node get-node-attr get-node-attrs)
+(provide has-node? make-node add-node get-node-attr get-node-attrs make-graph)
 
 ;; A port graph
 (struct graph (elems edges id-set spec) #:transparent)
@@ -18,7 +18,7 @@
 (module+ test
   (check-false (has-node? empty-graph 'plus)))
 
-;; A hack for now. This should fill in the attrs with defaults from the
+;; A HACK for now. This should fill in the attrs with defaults from the
 ;; class definition in the spec. If attrs is just a symbol or number,
 ;; we should find an appropriate class definition. For now, though, we
 ;; just hard-code a couple things.
@@ -120,3 +120,13 @@
       (check-false (has-edge? g '((source9 output) (plus operand)))))
     ))
 
+(define (make-graph . items)
+  (for/fold ([g empty-graph])
+            ([item items])
+    (match item
+      [(? symbol?) (add-node g item)]
+      [`(tag next ,from ,to)
+        (let*-values ([(g nextid) (make-node g '((class . next)))]
+                      [(g) (add-edge g `((,nextid prev) (,from seq)))]
+                      [(g) (add-edge g `((,nextid next) (,to seq)))])
+          g)])))
