@@ -17,4 +17,14 @@ The clojure/ directory contains v21.4, the last Clojure version.
 ;   Prune nodes with low support.
         
     
+;; A spec
+
+(define model1
+  (spec
+    (nodeclass 'letter
+      (name required))
+    (edgeclass 'bind)
+    (edgeclass 'support)
+    (nodeclass internal-bdx-builder
+      (desideratum (every 'bind) (tag-on-port? 'basis))))
 
