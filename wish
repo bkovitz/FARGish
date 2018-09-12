@@ -5,3 +5,9 @@ there, or maybe some are very easy to add.
 make-hash should create an immutable hash.
 
 DrRacket shows number of successfully completed tests even when no tests fail.
+
+let-values should allow a dot:
+  (let-values ([(a . d)] (values 1 2 3 4))
+    a) => 1
+
+

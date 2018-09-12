@@ -48,15 +48,11 @@
 (define (make-node g attrs) ;returns g* id  (two values)
   (let*-values ([(attrs) (normalize-attrs attrs)]
                 [(name) (hash-ref attrs 'name)]
-                [(g id) (make-id g name)]
+                [(id-set id) (gen-id (graph-id-set g) name)]
                 [(attrs) (hash-set attrs 'id id)]
                 [(g) (struct-copy graph g
-                       [elems (hash-set (graph-elems g) id attrs)])])
-    (values g id)))
-
-(define (make-id g name)
-  (let*-values ([(id-set id) (gen-id (graph-id-set g) name)]
-                [(g) (struct-copy graph g [id-set id-set])])
+                       [elems (hash-set (graph-elems g) id attrs)]
+                       [id-set id-set])])
     (values g id)))
 
 (define (get-node-attr g id k) ;returns void if either node or key not found
@@ -97,11 +93,3 @@
          [g (add-node g 'plus)])
     (check-true (has-node? g 'plus))
     (check-true (has-node? g 'plus2))))
-
-
-
-;(define (make-node g attrs) ;returns g* id  (two values)
-;  (let*-values ([(g id) (make-id g attrs)]
-;                [(g) (struct-copy graph g
-;                       [elems (hash-set (graph-elems g) id
-;                                        (
