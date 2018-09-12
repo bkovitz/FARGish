@@ -5,10 +5,9 @@
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt")
 (require racket/pretty)
 
-(provide has-node?
-         ;make-node add-node get-node-attr get-node-attrs
-         ;make-graph add-tag
-         )
+(provide has-node? make-node add-node get-node-attr get-node-attrs
+         make-graph add-tag port->neighbors all-nodes find-nodes-of-class
+         check-desiderata)
 
 ;; A port graph
 ;(struct graph (elems edges id-set spec) #:transparent)
@@ -111,7 +110,7 @@
 
 ;;; Making edges
 
-(define (add-edge g edge)
+(define (add-edge g edge) ; edge is '((node1 port-label1) (node2 port-label2))
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
   (let* ([p->nps (graph-hm-port->neighboring-ports g)]
@@ -227,13 +226,16 @@
 
 ; Eventually this should get a third argument: the node with the desiderata,
 ; or the group in which to search.
-;(define (check-desiderata g)
-;  (define nodes-of-interest (find-nodes-of-class g 'bind))
-;  (for/hash ([node nodes-of-interest])
-;    (values node (port->neighbors g `(,node basis)))))
-;
-;(module+ test
-;  (let* ([g (make-graph 'a 'b '(tag bind a b))]
-;         [desiderata-status (check-desiderata g)])
-;    (check-equal? desiderata-status #(hash (bind . ())))
-;    ))
+(define (check-desiderata g)
+  (define nodes-of-interest (find-nodes-of-class g 'bind))
+  (for/hash ([node nodes-of-interest])
+    (values node (port->neighbors g `(,node basis)))))
+
+(module+ test
+  (let* ([g (make-graph 'a 'b 'x '(tag bind a b))]
+         [desiderata-status (check-desiderata g)])
+    (check-equal? desiderata-status #hash((bind . ())))
+    (let* ([g (add-edge g '((bind basis) (x basis-of)))]
+         [desiderata-status (check-desiderata g)])
+      (check-equal? desiderata-status #hash((bind . (x)))))
+    ))
