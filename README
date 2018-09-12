@@ -27,4 +27,6 @@ The clojure/ directory contains v21.4, the last Clojure version.
     (edgeclass 'support)
     (nodeclass internal-bdx-builder
       (desideratum (every 'bind) (tag-on-port? 'basis))))
+    (tagclass 'bind `((from bound-to) (self bind-from))
+                    `((...)))
 

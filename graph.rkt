@@ -3,18 +3,31 @@
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt")
+(require racket/pretty)
 
-(provide has-node? make-node add-node get-node-attr get-node-attrs
-         make-graph add-tag)
+(provide has-node?
+         ;make-node add-node get-node-attr get-node-attrs
+         ;make-graph add-tag
+         )
 
 ;; A port graph
-(struct graph (elems edges id-set spec) #:transparent)
+;(struct graph (elems edges id-set spec) #:transparent)
+
+(struct graph (hm-node->attrs
+               hm-port->neighboring-ports
+               edges
+               id-set
+               spec) #:transparent)
 
 (define empty-spec '())
-(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
+;(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
+(define empty-graph (graph #hash() #hash() (set) empty-id-set empty-spec))
+
+#;(define (has-node? g id)
+  (hash-has-key? (graph-elems g) id))
 
 (define (has-node? g id)
-  (hash-has-key? (graph-elems g) id))
+  (hash-has-key? (graph-hm-node->attrs g) id))
 
 (module+ test
   (check-false (has-node? empty-graph 'plus)))
@@ -52,19 +65,20 @@
                 [(id-set id) (gen-id (graph-id-set g) name)]
                 [(attrs) (hash-set attrs 'id id)]
                 [(g) (struct-copy graph g
-                       [elems (hash-set (graph-elems g) id attrs)]
+                       [hm-node->attrs
+                         (hash-set (graph-hm-node->attrs g) id attrs)]
                        [id-set id-set])])
     (values g id)))
 
 (define (get-node-attr g id k) ;returns void if either node or key not found
-  (match (graph-elems g)
+  (match (graph-hm-node->attrs g)
     [(hash-table ((== id) attrs) _ ...)
      (hash-ref attrs k (void))]
     [_ (void)]))
 
-;TODO UT
+;;TODO UT
 (define (get-node-attrs g id) ;returns void if node not found
-  (match (graph-elems g)
+  (match (graph-hm-node->attrs g)
     [(hash-table ((== id) attrs) _ ...)
      attrs]
     [_ (void)]))
@@ -95,12 +109,18 @@
     (check-true (has-node? g 'plus))
     (check-true (has-node? g 'plus2))))
 
-;; Making edges
+;;; Making edges
 
 (define (add-edge g edge)
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
-  (struct-copy graph g [edges (set-add edges (set port1 port2))]))
+  (let* ([p->nps (graph-hm-port->neighboring-ports g)]
+         [p->nps (hash-update p->nps port1 (λ (st) (set-add st port2)) (set))]
+         [p->nps (hash-update p->nps port2 (λ (st) (set-add st port1)) (set))])
+    (struct-copy graph g
+      [edges (set-add edges (set port1 port2))]
+      [hm-port->neighboring-ports p->nps]
+      )))
 
 (define (has-edge? g edge)
   (match-define `(,port1 ,port2) edge)
@@ -108,8 +128,20 @@
   (set-member? (graph-edges g) edge*))
 
 (define (remove-edge g edge)
+  (match-define `(,port1 ,port2) edge)
   (define edge* (apply set edge))
-  (struct-copy graph g [edges (set-remove (graph-edges g) edge*)]))
+  (let* ([p->nps (graph-hm-port->neighboring-ports g)]
+         [p->nps (hash-update p->nps
+                              port1
+                              (λ (st) (set-remove st port2))
+                              (set))]
+         [p->nps (hash-update p->nps
+                              port2
+                              (λ (st) (set-remove st port1))
+                              (set))])
+    (struct-copy graph g
+      [edges (set-remove (graph-edges g) edge*)]
+      [hm-port->neighboring-ports p->nps])))
 
 (module+ test
   (let* ([g (add-node empty-graph '((class . number) (name . source9)))]
@@ -121,6 +153,8 @@
       (check-false (has-edge? g '((source9 output) (plus operand)))))
     ))
 
+;;; Making a whole graph
+
 (define (make-graph . items)
   (for/fold ([g empty-graph])
             ([item items])
@@ -130,7 +164,33 @@
         (let*-values ([(g nextid) (make-node g '((class . next)))]
                       [(g) (add-edge g `((,nextid prev) (,from seq)))]
                       [(g) (add-edge g `((,nextid next) (,to seq)))])
+          g)]
+      [`(tag bind ,from ,to)
+        (let*-values ([(g bindid) (make-node g '((class . bind)))]
+                      [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
+                      [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
           g)])))
+
+;;; Neighbors
+
+(define (port->neighbors g port)
+  (define p->nps (graph-hm-port->neighboring-ports g))
+  (for/list ([neighboring-port (in-set (hash-ref p->nps port '()))])
+    (match-define (list neighbor _) neighboring-port)
+    neighbor))
+
+(module+ test
+  (let* ([g (make-graph 'a 'b 'c)]
+         [g (add-edge g '((a out) (b in)))]
+         [g (add-edge g '((a out) (c in)))])
+    (check-equal? (list->set (port->neighbors g '(a out)))
+                  (set 'b 'c))
+    (let* ([g (remove-edge g '((b in) (a out)))])
+      (check-equal? (port->neighbors g '(a out)) '(c)))
+    ))
+
+
+;; Tags
 
 (define (add-tag g tag from to)
   (let*-values ([(g bindid) (make-node g '((class . bind)))]
@@ -143,3 +203,37 @@
          [g (add-tag g 'bind 'a 'b)])
     (check-true (has-edge? g '((a bound-to) (bind bind-from))))
     (check-true (has-edge? g '((b bound-from) (bind bind-to))))))
+
+;; Querying the graph
+
+(define (all-nodes g)
+  (hash-keys (graph-hm-node->attrs g)))
+
+(define (find-nodes-of-class g class)
+  (for/list ([node (all-nodes g)]
+             #:when (equal? class (get-node-attr g node 'class)))
+    node))
+
+(module+ test
+  (let* ([g (make-graph 'a 'b)]
+         [g (add-node g '((class . source) (name . source15)))])
+    (check-equal? (find-nodes-of-class g 'source)
+                  '(source15))
+    (check-equal? (list->set (find-nodes-of-class g 'letter))
+                  (set 'a 'b))
+    ))
+
+;; Desiderata
+
+; Eventually this should get a third argument: the node with the desiderata,
+; or the group in which to search.
+;(define (check-desiderata g)
+;  (define nodes-of-interest (find-nodes-of-class g 'bind))
+;  (for/hash ([node nodes-of-interest])
+;    (values node (port->neighbors g `(,node basis)))))
+;
+;(module+ test
+;  (let* ([g (make-graph 'a 'b '(tag bind a b))]
+;         [desiderata-status (check-desiderata g)])
+;    (check-equal? desiderata-status #(hash (bind . ())))
+;    ))
