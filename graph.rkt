@@ -4,7 +4,8 @@
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt")
 
-(provide has-node? make-node add-node get-node-attr get-node-attrs make-graph)
+(provide has-node? make-node add-node get-node-attr get-node-attrs
+         make-graph add-tag)
 
 ;; A port graph
 (struct graph (elems edges id-set spec) #:transparent)
@@ -130,3 +131,15 @@
                       [(g) (add-edge g `((,nextid prev) (,from seq)))]
                       [(g) (add-edge g `((,nextid next) (,to seq)))])
           g)])))
+
+(define (add-tag g tag from to)
+  (let*-values ([(g bindid) (make-node g '((class . bind)))]
+                [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
+                [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
+    g))
+
+(module+ test
+  (let* ([g (make-graph 'a 'b)]
+         [g (add-tag g 'bind 'a 'b)])
+    (check-true (has-edge? g '((a bound-to) (bind bind-from))))
+    (check-true (has-edge? g '((b bound-from) (bind bind-to))))))

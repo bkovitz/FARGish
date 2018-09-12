@@ -5,8 +5,8 @@ The clojure/ directory contains v21.4, the last Clojure version.
 
 ; NEXT
 ; Code it all "one-off".
-;   One-off graph data structure (no generic interface).
-;   Make a, b, c, nexts, bindings.
+;   One-off graph data structure (no generic interface). SORT OF DONE
+;   Make a, b, c, nexts, bindings. DONE
 ;   Check for desiderata.
 ;   Start tag-scouts for bindings that lack desiderata.
 ;   Tag-scout code.
