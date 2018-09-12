@@ -1,3 +1,6 @@
+/compiled
+.autosave.rkt
+
 /target
 /classes
 /checkouts

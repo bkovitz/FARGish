@@ -1,0 +1,20 @@
+This directory contains v22 of FARGish, written in Racket.
+
+The clojure/ directory contains v21.4, the last Clojure version.
+
+
+; NEXT
+; Code it all "one-off".
+;   One-off graph data structure (no generic interface).
+;   Make a, b, c, nexts, bindings.
+;   Check for desiderata.
+;   Start tag-scouts for bindings that lack desiderata.
+;   Tag-scout code.
+;   Assign strength of basis depending on tag(s).
+;   Boost support.
+;   Decay self-support.
+;   Normalize support.
+;   Prune nodes with low support.
+        
+    
+
