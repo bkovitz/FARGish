@@ -7,10 +7,10 @@
 (provide has-node? make-node add-node get-node-attr get-node-attrs)
 
 ;; A port graph
-(struct graph (elems id-set spec) #:transparent)
+(struct graph (elems edges id-set spec) #:transparent)
 
 (define empty-spec '())
-(define empty-graph (graph #hash() empty-id-set empty-spec))
+(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
 
 (define (has-node? g id)
   (hash-has-key? (graph-elems g) id))
@@ -93,3 +93,30 @@
          [g (add-node g 'plus)])
     (check-true (has-node? g 'plus))
     (check-true (has-node? g 'plus2))))
+
+;; Making edges
+
+(define (add-edge g edge)
+  (match-define `(,port1 ,port2) edge)
+  (define edges (graph-edges g))
+  (struct-copy graph g [edges (set-add edges (set port1 port2))]))
+
+(define (has-edge? g edge)
+  (match-define `(,port1 ,port2) edge)
+  (define edge* (set port1 port2))
+  (set-member? (graph-edges g) edge*))
+
+(define (remove-edge g edge)
+  (define edge* (apply set edge))
+  (struct-copy graph g [edges (set-remove (graph-edges g) edge*)]))
+
+(module+ test
+  (let* ([g (add-node empty-graph '((class . number) (name . source9)))]
+         [g (add-node g '((class . plus)))]
+         [g (add-edge g '((source9 output) (plus operand)))])
+    (check-true (has-edge? g '((source9 output) (plus operand))))
+    (check-true (has-edge? g '((plus operand) (source9 output))))
+    (let* ([g (remove-edge g '((plus operand) (source9 output)))])
+      (check-false (has-edge? g '((source9 output) (plus operand)))))
+    ))
+
