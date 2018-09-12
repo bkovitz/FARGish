@@ -1,4 +1,6 @@
+SRCFILES = id-set.rkt graph.rkt
+
 ut:
-	raco test id-set.rkt
+	raco test $(SRCFILES)
 
 .PHONY: ut
