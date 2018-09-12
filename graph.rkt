@@ -4,7 +4,7 @@
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt")
 
-(provide has-node?)
+(provide has-node? make-node add-node get-node-attr get-node-attrs)
 
 ;; A port graph
 (struct graph (elems id-set spec) #:transparent)
@@ -42,6 +42,63 @@
                 #hash((class . plus) (name . plus)))
   (check-equal? (normalize-attrs '((class . plus) (name . xyz)))
                 #hash((class . plus) (name . xyz))))
+
+;; Making nodes
+
+(define (make-node g attrs) ;returns g* id  (two values)
+  (let*-values ([(attrs) (normalize-attrs attrs)]
+                [(name) (hash-ref attrs 'name)]
+                [(g id) (make-id g name)]
+                [(attrs) (hash-set attrs 'id id)]
+                [(g) (struct-copy graph g
+                       [elems (hash-set (graph-elems g) id attrs)])])
+    (values g id)))
+
+(define (make-id g name)
+  (let*-values ([(id-set id) (gen-id (graph-id-set g) name)]
+                [(g) (struct-copy graph g [id-set id-set])])
+    (values g id)))
+
+(define (get-node-attr g id k) ;returns void if either node or key not found
+  (match (graph-elems g)
+    [(hash-table ((== id) attrs) _ ...)
+     (hash-ref attrs k (void))]
+    [_ (void)]))
+
+;TODO UT
+(define (get-node-attrs g id) ;returns void if node not found
+  (match (graph-elems g)
+    [(hash-table ((== id) attrs) _ ...)
+     attrs]
+    [_ (void)]))
+
+(module+ test
+  (let*-values ([(g target15) (make-node empty-graph '((class . target15)))]
+                [(g target15a) (make-node g '((class . target15)))])
+    (check-equal? target15 'target15)
+    (check-true (has-node? g 'target15))
+    (check-equal? target15a 'target15a)
+    (check-true (has-node? g 'target15a))
+    (check-equal? (get-node-attr g 'target15 'name) 'target15)
+    (check-equal? (get-node-attr g 'target15 'class) 'target15)
+    (check-equal? (get-node-attr g 'target15 'id) 'target15)
+    (check-equal? (get-node-attr g 'target15a 'name) 'target15)
+    (check-equal? (get-node-attr g 'target15a 'class) 'target15)
+    (check-equal? (get-node-attr g 'target15a 'id) 'target15a)
+    (check-pred void? (get-node-attr g 'no-such-node 'id))
+    (check-pred void? (get-node-attr g 'target15 'no-such-attr))))
+
+(define (add-node g attrs) ;returns g*  (doesn't tell caller assigned id)
+  (let-values ([(g id) (make-node g attrs)])
+    g))
+
+(module+ test
+  (let* ([g (add-node empty-graph 'plus)]
+         [g (add-node g 'plus)])
+    (check-true (has-node? g 'plus))
+    (check-true (has-node? g 'plus2))))
+
+
 
 ;(define (make-node g attrs) ;returns g* id  (two values)
 ;  (let*-values ([(g id) (make-id g attrs)]
