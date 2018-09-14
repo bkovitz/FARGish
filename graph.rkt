@@ -5,9 +5,10 @@
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty)
 
-(provide has-node? make-node add-node get-node-attr get-node-attrs
+(provide has-node? make-node add-node add-edge get-node-attr get-node-attrs
          make-graph add-tag port->neighbors all-nodes find-nodes-of-class
-         check-desiderata pr-graph)
+         check-desiderata pr-graph members-of do-graph-deltas
+         nodes-of-class-in class-of bind)
 
 ;; A port graph
 ;(struct graph (elems edges id-set spec) #:transparent)
@@ -158,15 +159,23 @@
   (let ()
      (struct placeholder [])
      (placeholder)))
+
 (define (placeholder? x) (eq? x placeholder))
 
-(define (name-of g id)
-  (get-node-attr g id 'name))
+;TODO OAOO
+(define (bind g from-node to-node)
+  (let*-values ([(g bindid) (make-node g '((class . bind)))]
+                [(g) (add-edge g `((,bindid bind-from)
+                                   (,from-node bound-to)))]
+                [(g) (add-edge g `((,bindid bind-to)
+                                   (,to-node bound-from)))])
+    g))
 
 (define (add-to-graph g group-in-progress d-name->id items)
     ;returns g d-name->id
   (for/fold ([g g] [d-name->id d-name->id])
             ([item items])
+    (printf "~a ~a\n" d-name->id item)
     (define (make-node^ g attrs) ;returns g d-name->id id
       (let*-values ([(g id) (make-node g attrs)]
                     [(d-name->id) (cons `(,(name-of g id) . ,id) d-name->id)]
@@ -196,6 +205,15 @@
                       [(g) (add-edge g `((,bindid bind-to)
                                          (,to bound-from)))])
           (values g d-name->id))]
+      [`(succ ,from ,to)
+        (let*-values ([(g d-name->id succid) (make-node^ g '((class . succ)))]
+                      [(from) (dict-ref d-name->id from)]
+                      [(to) (dict-ref d-name->id to)]
+                      [(g) (add-edge g `((,succid succ-from)
+                                         (,from succ-to)))]
+                      [(g) (add-edge g `((,succid succ-to)
+                                         (,to succ-from)))])
+          (values g d-name->id))]
       [`(placeholder ,name ,class)
         (add-node^ g `((class . ,class)
                        (name .  ,name)
@@ -204,6 +222,12 @@
         (let-values ([(g d-name->id groupid) (make-node^ g `((class . group)
                                                              (name .  ,name)))])
           (add-to-graph g groupid d-name->id body))])))
+
+(define (do-graph-deltas g deltas)
+  (define d-name->id (for/list ([nodeid (all-nodes g)])
+                       `(,(name-of g nodeid) ,nodeid)))
+  (let-values ([(g _) (add-to-graph g #f d-name->id deltas)])
+    g))
 
 (define (make-graph . items)
   (let-values ([(g _) (add-to-graph empty-graph #f '() items)])
@@ -266,10 +290,29 @@
 
 (define all-edges graph-edges)
 
+(define (name-of g id)
+  (get-node-attr g id 'name))
+
+;TODO UT
+(define (class-of g node)
+  (get-node-attr g node 'class) )
+
+;TODO UT
 (define (find-nodes-of-class g class)
   (for/list ([node (all-nodes g)]
              #:when (equal? class (get-node-attr g node 'class)))
     node))
+
+;TODO UT
+(define (members-of g groupid)
+  (port->neighbors g `(,groupid members)))
+
+;TODO UT
+(define (nodes-of-class-in g class groupid)
+  (for/list ([node (members-of g groupid)]
+             #:when (equal? class (get-node-attr g node 'class)))
+    node))
+
 
 (module+ test
   (let* ([g (make-graph 'a 'b)]
@@ -286,12 +329,12 @@
   (displayln "Nodes:")
   (for ([nodeid (sort (set->list (all-nodes g))
                       (λ (id1 id2) (string<? (~a id1) (~a id2))))])
-    (printf "  ~a\t~a\n" nodeid (hash-remove (get-node-attrs g nodeid) 'id)))
+    (printf " ~a\t~a\n" nodeid (hash-remove (get-node-attrs g nodeid) 'id)))
   (displayln "Edges:")
   (define edges (for/list ([e (all-edges g)])
                   (string-join (sort (stream->list (map ~a e)) string<?))))
   (for ([edge (sort edges string<?)])
-    (printf "  ~a\n" edge))
+    (printf " ~a\n" edge))
   )
 
 ;; Desiderata
