@@ -7,7 +7,7 @@
 
 (provide has-node? make-node add-node get-node-attr get-node-attrs
          make-graph add-tag port->neighbors all-nodes find-nodes-of-class
-         check-desiderata)
+         check-desiderata pr-graph)
 
 ;; A port graph
 ;(struct graph (elems edges id-set spec) #:transparent)
@@ -154,6 +154,12 @@
 
 ;;; Making a whole graph
 
+(define placeholder
+  (let ()
+     (struct placeholder [])
+     (placeholder)))
+(define (placeholder? x) (eq? x placeholder))
+
 (define (make-graph . items)
   (for/fold ([g empty-graph])
             ([item items])
@@ -164,11 +170,14 @@
                       [(g) (add-edge g `((,nextid prev) (,from seq)))]
                       [(g) (add-edge g `((,nextid next) (,to seq)))])
           g)]
-      [`(tag bind ,from ,to)
+      [`(bind ,from ,to)
         (let*-values ([(g bindid) (make-node g '((class . bind)))]
                       [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
                       [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
-          g)])))
+          g)]
+      [`(placeholder ,name ,class)
+        (add-node g `((class . ,class) (name .  ,name) (value . ,placeholder)))]
+        )))
 
 ;;; Neighbors
 
@@ -186,7 +195,10 @@
                   (set 'b 'c))
     (let* ([g (remove-edge g '((b in) (a out)))])
       (check-equal? (port->neighbors g '(a out)) '(c)))
-    ))
+    )
+  (let ([g (make-graph '(placeholder x letter))])
+    (check-equal? (get-node-attr g 'x 'class) 'letter)
+    (check-pred placeholder? (get-node-attr g 'x 'value))))
 
 
 ;; Tags
@@ -208,6 +220,8 @@
 (define (all-nodes g)
   (hash-keys (graph-hm-node->attrs g)))
 
+(define all-edges graph-edges)
+
 (define (find-nodes-of-class g class)
   (for/list ([node (all-nodes g)]
              #:when (equal? class (get-node-attr g node 'class)))
@@ -222,6 +236,20 @@
                   (set 'a 'b))
     ))
 
+;; Printing a graph
+
+(define (pr-graph g)
+  (displayln "Nodes:")
+  (for ([nodeid (sort (set->list (all-nodes g))
+                      (λ (id1 id2) (string<? (~a id1) (~a id2))))])
+    (printf "  ~a\t~a\n" nodeid (hash-remove (get-node-attrs g nodeid) 'id)))
+  (displayln "Edges:")
+  (define edges (for/list ([e (all-edges g)])
+                  (string-join (sort (stream->list (map ~a e)) string<?))))
+  (for ([edge (sort edges string<?)])
+    (printf "  ~a\n" edge))
+  )
+
 ;; Desiderata
 
 ; Eventually this should get a third argument: the node with the desiderata,
@@ -232,7 +260,7 @@
     (values node (port->neighbors g `(,node basis)))))
 
 (module+ test
-  (let* ([g (make-graph 'a 'b 'x '(tag bind a b))]
+  (let* ([g (make-graph 'a 'b 'x '(bind a b))]
          [desiderata-status (check-desiderata g)])
     (check-equal? desiderata-status #hash((bind . ())))
     (let* ([g (add-edge g '((bind basis) (x basis-of)))]

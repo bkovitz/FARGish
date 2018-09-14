@@ -1,6 +1,6 @@
 #lang racket
 
-(require "graph.rkt")
+(require racket/pretty "graph.rkt")
 
 (define (bind-all-letters g)
   (for/fold ([g g])
@@ -8,9 +8,14 @@
     (match-define `(,from ,to) letter-pair)
     (add-tag g 'bind from to)))
 
-(define model
+#;(define model
   (let* ([g (make-graph 'a 'b 'c '(tag next a b) '(tag next b c))]
          [g (bind-all-letters g)])
     g))
 
+(define model
+  (let* ([g (make-graph 'a '(placeholder x letter) 'c
+                        '(bind a x) '(bind x c))])
+    g))
 
+(pr-graph model)
