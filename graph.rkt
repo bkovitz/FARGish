@@ -2,8 +2,8 @@
 
 ;; Data structure for port graphs
 
-(require rackunit data/collection racket/generic racket/struct "id-set.rkt")
-(require racket/pretty)
+(require rackunit data/collection racket/generic racket/struct "id-set.rkt"
+         racket/dict racket/pretty)
 
 (provide has-node? make-node add-node get-node-attr get-node-attrs
          make-graph add-tag port->neighbors all-nodes find-nodes-of-class
@@ -160,27 +160,71 @@
      (placeholder)))
 (define (placeholder? x) (eq? x placeholder))
 
-(define (make-graph . items)
-  (for/fold ([g empty-graph])
+(define (name-of g id)
+  (get-node-attr g id 'name))
+
+(define (add-to-graph g group-in-progress d-name->id items)
+    ;returns g d-name->id
+  (for/fold ([g g] [d-name->id d-name->id])
             ([item items])
+    (define (make-node^ g attrs) ;returns g d-name->id id
+      (let*-values ([(g id) (make-node g attrs)]
+                    [(d-name->id) (cons `(,(name-of g id) . ,id) d-name->id)]
+                    [(g) (if group-in-progress
+                             (add-edge g `((,group-in-progress members)
+                                           (,id member-of)))
+                             g)])
+        (values g d-name->id id)))
+    (define (add-node^ g attrs) ;returns g d-name->id
+      (let-values ([(g d-name->id id) (make-node^ g attrs)])
+        (values g d-name->id)))
     (match item
-      [(? symbol?) (add-node g item)]
+      [(? symbol?) (add-node^ g item)]
       [`(tag next ,from ,to)
-        (let*-values ([(g nextid) (make-node g '((class . next)))]
+        (let*-values ([(g d-name->id nextid) (make-node^ g '((class . next)))]
+                      [(from) (dict-ref d-name->id from)]
+                      [(to) (dict-ref d-name->id to)]
                       [(g) (add-edge g `((,nextid prev) (,from seq)))]
                       [(g) (add-edge g `((,nextid next) (,to seq)))])
-          g)]
+          (values g d-name->id))]
       [`(bind ,from ,to)
-        (let*-values ([(g bindid) (make-node g '((class . bind)))]
-                      [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
-                      [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
-          g)]
+        (let*-values ([(g d-name->id bindid) (make-node^ g '((class . bind)))]
+                      [(from) (dict-ref d-name->id from)]
+                      [(to) (dict-ref d-name->id to)]
+                      [(g) (add-edge g `((,bindid bind-from)
+                                         (,from bound-to)))]
+                      [(g) (add-edge g `((,bindid bind-to)
+                                         (,to bound-from)))])
+          (values g d-name->id))]
       [`(placeholder ,name ,class)
-        (add-node g `((class . ,class) (name .  ,name) (value . ,placeholder)))]
-        )))
+        (add-node^ g `((class . ,class)
+                       (name .  ,name)
+                       (value . ,placeholder)))]
+      [`(group ,name ,body ...)
+        (let-values ([(g d-name->id groupid) (make-node^ g `((class . group)
+                                                             (name .  ,name)))])
+          (add-to-graph g groupid d-name->id body))])))
+
+(define (make-graph . items)
+  (let-values ([(g _) (add-to-graph empty-graph #f '() items)])
+    g))
+
+(module+ test
+  (let ([g (make-graph 'a 'b '(group G a b (tag next a b)))])
+    (check-equal? (port->neighboring-ports g '(G members))
+                  (set '(a2 member-of) '(b2 member-of) '(next member-of)))
+    (check-true (has-edge? g '((a2 seq) (next prev))))
+    (check-true (has-edge? g '((b2 seq) (next next))))
+    (check-false (has-edge? g '((a seq) (next prev))))
+    (check-false (has-edge? g '((b seq) (next next))))))
 
 ;;; Neighbors
 
+(define (port->neighboring-ports g port)
+  (define p->nps (graph-hm-port->neighboring-ports g))
+  (hash-ref p->nps port '()))
+
+;TODO refactor
 (define (port->neighbors g port)
   (define p->nps (graph-hm-port->neighboring-ports g))
   (for/list ([neighboring-port (in-set (hash-ref p->nps port '()))])
