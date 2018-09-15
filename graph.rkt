@@ -69,7 +69,8 @@
   (displayln "Nodes:")
   (for ([nodeid (sort (set->list (all-nodes g))
                       (λ (id1 id2) (string<? (~a id1) (~a id2))))])
-    (printf " ~a\t~a\n" nodeid (hash-remove (get-node-attrs g nodeid) 'id)))
+    (printf " ~a ~a\n" (~a nodeid #:min-width 12)
+                        (hash-remove (get-node-attrs g nodeid) 'id)))
   (displayln "Edges:")
   (define edges (for/list ([e (all-edges g)])
                   (string-join (sort (stream->list (map ~a e)) string<?))))
@@ -302,6 +303,13 @@
 (define (rewrite-item item)
   (match item
     [(? symbol?) `(:node letter ,item)]
+    [(? number?) `(:node number ,item)]
+    [`(placeholder) (rewrite-item `(placeholder ,placeholder placeholder))]
+    [`(placeholder ,class) (rewrite-item
+                             `(placeholder ,placeholder placeholder))]
+    [`(placeholder ,class ,name) `(:node (:attrs ((name . ,name)
+                                                  (class . ,class)
+                                                  (value . ,placeholder))))]
     [_ (error "bad")]))
 
 ;(define (do-graph-edits g . items)
@@ -341,7 +349,7 @@
 
 (define (node-args->attrs args)
   (match args
-    [`(:attrs ,attrs)
+    [`((:attrs ,attrs))
       attrs]
     [`(,class)
       `((class . ,class))]
@@ -354,21 +362,29 @@
                 [(d-name->id) (dict-set d-name->id (name-of g id) id)])
     (values g d-name->id id)))
 
+(define (look-up-node g d-name->id name)
+  (dict-ref d-name->id name (λ () (if (has-node? g name) name (void)))))
+
 (define (get-port g d-name->id port-spec)
   (match port-spec
     [`((:node . ,args) ,port-label)
       (let*-values ([(g d-name->id id)
                        (graph-edit-make-node g d-name->id args)])
         (values g d-name->id `(,id ,port-label)))]
+    [`(,name ,port-label)
+      (let ([id (look-up-node g d-name->id name)])
+        (if (void? id)
+          (error "no such node")
+          (values g d-name->id `(,id ,port-label))))]
     [_ (error "bad port-spec")]))
 
 (define (do-graph-edits g . items)
   (define (recur g d-name->id items)
-    #R d-name->id
     (cond
       [(null? items) g]
       [else
         (match-let ([`(,item . ,items) items])
+          #R(list item d-name->id)
           (match item
             [`(:node . ,args)
               (let-values ([(g d-name->id _)
@@ -386,6 +402,12 @@
 (newline)
 (pr-graph (do-graph-edits empty-graph '(:edge ((:node letter a) out)
                                               ((:node letter b) in))))
+(newline)
+(pr-graph (do-graph-edits empty-graph 'a 'b '(:edge (a out) (b in))))
+(newline)
+(define g (do-graph-edits empty-graph 'a '(placeholder letter) 'c
+                          '(placeholder letter) '(placeholder letter X)))
+(pr-graph g)
 
 ;;; Neighbors
 
