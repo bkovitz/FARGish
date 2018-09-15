@@ -1,4 +1,4 @@
-#lang racket
+#lang debug racket
 
 ;; Data structure for port graphs
 
@@ -23,6 +23,60 @@
 ;(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
 (define empty-graph (graph #hash() #hash() (set) empty-id-set empty-spec))
 
+;; Querying a graph
+
+(define (all-nodes g)
+  (hash-keys (graph-hm-node->attrs g)))
+
+(define all-edges graph-edges)
+
+(define (name-of g id)
+  (get-node-attr g id 'name))
+
+;TODO UT
+(define (class-of g node)
+  (get-node-attr g node 'class) )
+
+;TODO UT
+(define (find-nodes-of-class g class)
+  (for/list ([node (all-nodes g)]
+             #:when (equal? class (get-node-attr g node 'class)))
+    node))
+
+;TODO UT
+(define (members-of g groupid)
+  (port->neighbors g `(,groupid members)))
+
+;TODO UT
+(define (nodes-of-class-in g class groupid)
+  (for/list ([node (members-of g groupid)]
+             #:when (equal? class (get-node-attr g node 'class)))
+    node))
+
+
+(module+ test
+  (let* ([g (make-graph 'a 'b)]
+         [g (add-node g '((class . source) (name . source15)))])
+    (check-equal? (find-nodes-of-class g 'source)
+                  '(source15))
+    (check-equal? (list->set (find-nodes-of-class g 'letter))
+                  (set 'a 'b))
+    ))
+
+;; Printing a graph
+
+(define (pr-graph g)
+  (displayln "Nodes:")
+  (for ([nodeid (sort (set->list (all-nodes g))
+                      (λ (id1 id2) (string<? (~a id1) (~a id2))))])
+    (printf " ~a\t~a\n" nodeid (hash-remove (get-node-attrs g nodeid) 'id)))
+  (displayln "Edges:")
+  (define edges (for/list ([e (all-edges g)])
+                  (string-join (sort (stream->list (map ~a e)) string<?))))
+  (for ([edge (sort edges string<?)])
+    (printf " ~a\n" edge))
+  )
+
 #;(define (has-node? g id)
   (hash-has-key? (graph-elems g) id))
 
@@ -42,6 +96,8 @@
      (make-immutable-hash `((name . ,letter) (class . letter)))]
     [(hash-table ('name _) _ ...)
      attrs]
+    [(hash-table ('class cl) ('value v) _ ...)
+     (hash-set attrs 'name (~a v))]
     [(hash-table ('class cl) _ ...)
      (hash-set attrs 'name cl)]
     [(? list?)
@@ -175,7 +231,6 @@
     ;returns g d-name->id
   (for/fold ([g g] [d-name->id d-name->id])
             ([item items])
-    (printf "~a ~a\n" d-name->id item)
     (define (make-node^ g attrs) ;returns g d-name->id id
       (let*-values ([(g id) (make-node g attrs)]
                     [(d-name->id) (cons `(,(name-of g id) . ,id) d-name->id)]
@@ -242,6 +297,34 @@
     (check-false (has-edge? g '((a seq) (next prev))))
     (check-false (has-edge? g '((b seq) (next next))))))
 
+;; Another way to build/edit a graph
+
+(define (rewrite-item item)
+  (match item
+    [(? symbol?) `(:node letter ,item)]
+    [_ (error "bad")]))
+
+(define (do-graph-edits g . items)
+  (define (mknode g d-name->id attrs items)
+    (let*-values ([(g id) (make-node g attrs)]
+                  [(d-name->id) (dict-set d-name->id (name-of g id) id)])
+      (recur g d-name->id items)))
+  (define (recur g d-name->id items)
+    #R d-name->id
+    (cond
+      [(null? items) g]
+      [else
+        (match-let ([`(,item . ,items) items])
+          (match item
+            [`(:node ,class)
+              (mknode g d-name->id `((class . ,class)) items)]
+            [`(:node ,class ,value)
+              (mknode g d-name->id `((class . ,class) (value . ,value)) items)]
+            [_ (recur g d-name->id (cons (rewrite-item item) items))]))]))
+  (recur g '() items))
+
+(pr-graph (do-graph-edits empty-graph 'a '(:node letter a) '(:node letter a)))
+
 ;;; Neighbors
 
 (define (port->neighboring-ports g port)
@@ -282,60 +365,6 @@
          [g (add-tag g 'bind 'a 'b)])
     (check-true (has-edge? g '((a bound-to) (bind bind-from))))
     (check-true (has-edge? g '((b bound-from) (bind bind-to))))))
-
-;; Querying the graph
-
-(define (all-nodes g)
-  (hash-keys (graph-hm-node->attrs g)))
-
-(define all-edges graph-edges)
-
-(define (name-of g id)
-  (get-node-attr g id 'name))
-
-;TODO UT
-(define (class-of g node)
-  (get-node-attr g node 'class) )
-
-;TODO UT
-(define (find-nodes-of-class g class)
-  (for/list ([node (all-nodes g)]
-             #:when (equal? class (get-node-attr g node 'class)))
-    node))
-
-;TODO UT
-(define (members-of g groupid)
-  (port->neighbors g `(,groupid members)))
-
-;TODO UT
-(define (nodes-of-class-in g class groupid)
-  (for/list ([node (members-of g groupid)]
-             #:when (equal? class (get-node-attr g node 'class)))
-    node))
-
-
-(module+ test
-  (let* ([g (make-graph 'a 'b)]
-         [g (add-node g '((class . source) (name . source15)))])
-    (check-equal? (find-nodes-of-class g 'source)
-                  '(source15))
-    (check-equal? (list->set (find-nodes-of-class g 'letter))
-                  (set 'a 'b))
-    ))
-
-;; Printing a graph
-
-(define (pr-graph g)
-  (displayln "Nodes:")
-  (for ([nodeid (sort (set->list (all-nodes g))
-                      (λ (id1 id2) (string<? (~a id1) (~a id2))))])
-    (printf " ~a\t~a\n" nodeid (hash-remove (get-node-attrs g nodeid) 'id)))
-  (displayln "Edges:")
-  (define edges (for/list ([e (all-edges g)])
-                  (string-join (sort (stream->list (map ~a e)) string<?))))
-  (for ([edge (sort edges string<?)])
-    (printf " ~a\n" edge))
-  )
 
 ;; Desiderata
 
