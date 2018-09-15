@@ -304,11 +304,65 @@
     [(? symbol?) `(:node letter ,item)]
     [_ (error "bad")]))
 
+;(define (do-graph-edits g . items)
+;  (define (mknode g d-name->id attrs items)
+;    (let*-values ([(g id) (make-node g attrs)]
+;                  [(d-name->id) (dict-set d-name->id (name-of g id) id)])
+;      (recur g d-name->id items)))
+;  (define (get-node g d-name->id node k) ;calls (k g d-name->id nodeid)
+;    (match node
+;      [`(:node . ,args)
+;        (
+;  (define (recur g d-name->id items)
+;    #R d-name->id
+;    (cond
+;      [(null? items) g]
+;      [else
+;        (match-let ([`(,item . ,items) items])
+;          (match item
+;            [`(:node ,class)
+;              (mknode g d-name->id `((class . ,class)) items)]
+;            [`(:node ,class ,value)
+;              (mknode g d-name->id `((class . ,class) (value . ,value)) items)]
+;            [`(:edge ((:node ,cl1 ,v1) ,pl1)
+;                     ((:node ,cl2 ,v2) ,pl2))
+;              ???]
+;            [`(:edge (,node1 ,port-label1) (,node2 ,port-label2))
+;              (get-node g d-name->id node1
+;                (λ (g d nodeid1)
+;                   (get-node g d node2
+;                     (λ (g d nodeid2)
+;                        (recur (add-edge g
+;                                         `((,nodeid1 ,port-label1)
+;                                           (,nodeid2 ,port-label2))
+;                                         items))))))]
+;            [_ (recur g d-name->id (cons (rewrite-item item) items))]))]))
+;  (recur g '() items))
+
+(define (node-args->attrs args)
+  (match args
+    [`(:attrs ,attrs)
+      attrs]
+    [`(,class)
+      `((class . ,class))]
+    [`(,class ,value)
+      `((class . ,class) (value . ,value))]
+    [_ (error "bad node-args->attrs")]))
+
+(define (graph-edit-make-node g d-name->id args)
+  (let*-values ([(g id) (make-node g (node-args->attrs args))]
+                [(d-name->id) (dict-set d-name->id (name-of g id) id)])
+    (values g d-name->id id)))
+
+(define (get-port g d-name->id port-spec)
+  (match port-spec
+    [`((:node . ,args) ,port-label)
+      (let*-values ([(g d-name->id id)
+                       (graph-edit-make-node g d-name->id args)])
+        (values g d-name->id `(,id ,port-label)))]
+    [_ (error "bad port-spec")]))
+
 (define (do-graph-edits g . items)
-  (define (mknode g d-name->id attrs items)
-    (let*-values ([(g id) (make-node g attrs)]
-                  [(d-name->id) (dict-set d-name->id (name-of g id) id)])
-      (recur g d-name->id items)))
   (define (recur g d-name->id items)
     #R d-name->id
     (cond
@@ -316,14 +370,22 @@
       [else
         (match-let ([`(,item . ,items) items])
           (match item
-            [`(:node ,class)
-              (mknode g d-name->id `((class . ,class)) items)]
-            [`(:node ,class ,value)
-              (mknode g d-name->id `((class . ,class) (value . ,value)) items)]
+            [`(:node . ,args)
+              (let-values ([(g d-name->id _)
+                              (graph-edit-make-node g d-name->id args)])
+                (recur g d-name->id items))]
+            [`(:edge ,port1 ,port2)
+              (let*-values ([(g d-name->id port1) (get-port g d-name->id port1)]
+                            [(g d-name->id port2) (get-port g d-name->id port2)]
+                            [(g) (add-edge g `(,port1 ,port2))])
+                (recur g d-name->id items))]
             [_ (recur g d-name->id (cons (rewrite-item item) items))]))]))
   (recur g '() items))
 
 (pr-graph (do-graph-edits empty-graph 'a '(:node letter a) '(:node letter a)))
+(newline)
+(pr-graph (do-graph-edits empty-graph '(:edge ((:node letter a) out)
+                                              ((:node letter b) in))))
 
 ;;; Neighbors
 
