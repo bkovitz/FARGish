@@ -1,4 +1,4 @@
-#lang racket
+#lang debug at-exp racket
 
 (require data/collection racket/pretty "graph.rkt")
 

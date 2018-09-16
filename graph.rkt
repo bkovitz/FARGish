@@ -1,4 +1,4 @@
-#lang debug racket
+#lang debug at-exp racket
 
 ;; Data structure for port graphs
 
@@ -87,6 +87,13 @@
 (module+ test
   (check-false (has-node? empty-graph 'plus)))
 
+(define (make-name x)
+  (cond
+    [(symbol? x) x]
+    [(number? x) x]
+    [(string? x) x]
+    [else (string->symbol (~a x))]))
+
 ;; A HACK for now. This should fill in the attrs with defaults from the
 ;; class definition in the spec. If attrs is just a symbol or number,
 ;; we should find an appropriate class definition. For now, though, we
@@ -98,7 +105,7 @@
     [(hash-table ('name _) _ ...)
      attrs]
     [(hash-table ('class cl) ('value v) _ ...)
-     (hash-set attrs 'name (~a v))]
+     (hash-set attrs 'name (make-name v))]
     [(hash-table ('class cl) _ ...)
      (hash-set attrs 'name cl)]
     [(? list?)
@@ -304,13 +311,15 @@
   (match item
     [(? symbol?) `(:node letter ,item)]
     [(? number?) `(:node number ,item)]
-    [`(placeholder) (rewrite-item `(placeholder ,placeholder placeholder))]
-    [`(placeholder ,class) (rewrite-item
-                             `(placeholder ,placeholder placeholder))]
-    [`(placeholder ,class ,name) `(:node (:attrs ((name . ,name)
-                                                  (class . ,class)
-                                                  (value . ,placeholder))))]
-    [_ (error "bad")]))
+    [`(placeholder)
+      (rewrite-item `(placeholder ,placeholder placeholder))]
+    [`(placeholder ,class)
+      (rewrite-item `(placeholder ,class placeholder))]
+    [`(placeholder ,class ,name)
+      `(:node (:attrs ((name . ,name)
+                       (class . ,class)
+                       (value . ,placeholder))))]
+    [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
 
 ;(define (do-graph-edits g . items)
 ;  (define (mknode g d-name->id attrs items)
@@ -355,7 +364,9 @@
       `((class . ,class))]
     [`(,class ,value)
       `((class . ,class) (value . ,value))]
-    [_ (error "bad node-args->attrs")]))
+    [_ (raise-argument-error 'node-args->attrs
+                             "(:attrs <alist>), (class), or (class value)"
+                             args)]))
 
 (define (graph-edit-make-node g d-name->id args)
   (let*-values ([(g id) (make-node g (node-args->attrs args))]
@@ -374,11 +385,11 @@
     [`(,name ,port-label)
       (let ([id (look-up-node g d-name->id name)])
         (if (void? id)
-          (error "no such node")
+          (error 'get-port @~a{no such node: @name})
           (values g d-name->id `(,id ,port-label))))]
-    [_ (error "bad port-spec")]))
+    [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
 
-(define (do-graph-edits g . items)
+#;(define (do-graph-edits g . items)
   (define (recur g d-name->id items)
     (cond
       [(null? items) g]
@@ -398,6 +409,36 @@
             [_ (recur g d-name->id (cons (rewrite-item item) items))]))]))
   (recur g '() items))
 
+(define (atom? x)
+  (and (not (null? x))
+       (not (pair? x))))
+
+(define (do-graph-edits g . items)
+  (define (recur g d-name->id last-id items)
+    #R d-name->id
+          #R last-id #R items
+    (match items
+      ['() (values g d-name->id last-id)]
+      [`((:node . ,args) . ,more)
+        (let-values ([(g d-name->id id)
+                        (graph-edit-make-node g d-name->id args)])
+          (recur g d-name->id id more))]
+      [`((:edge ,port1 ,port2) . ,more)
+        (let*-values ([(g d-name->id port1) (get-port g d-name->id port1)]
+                      [(g d-name->id port2) (get-port g d-name->id port2)]
+                      [(edge) `(,port1 ,port2)]
+                      [(g) (add-edge g edge)])
+          (recur g d-name->id edge more))]
+      [`((:def ,name ,item) . ,more)
+        (let*-values ([(g d-name->id itemid)
+                         (recur g d-name->id last-id (list item))]
+                      [(d-name->id) (dict-set d-name->id name itemid)])
+          (recur g d-name->id itemid more))]
+      [`(,item . ,more)
+        (recur g d-name->id last-id (cons (rewrite-item item) more))]))
+  (let-values ([(g d id) (recur g '() (void) items)])
+    g))
+      
 (pr-graph (do-graph-edits empty-graph 'a '(:node letter a) '(:node letter a)))
 (newline)
 (pr-graph (do-graph-edits empty-graph '(:edge ((:node letter a) out)
@@ -408,6 +449,9 @@
 (define g (do-graph-edits empty-graph 'a '(placeholder letter) 'c
                           '(placeholder letter) '(placeholder letter X)))
 (pr-graph g)
+(define h (do-graph-edits empty-graph '(:def :a (:node letter b))
+  '(:node letter a) '(:edge (:a out) (a in))))
+(pr-graph h)
 
 ;;; Neighbors
 
