@@ -33,9 +33,11 @@
 (define (name-of g id)
   (get-node-attr g id 'name))
 
-;TODO UT
 (define (class-of g node)
   (get-node-attr g node 'class) )
+
+(define (value-of g node)
+  (get-node-attr g node 'value))
 
 ;TODO UT
 (define (find-nodes-of-class g class)
@@ -43,9 +45,19 @@
              #:when (equal? class (get-node-attr g node 'class)))
     node))
 
-;TODO UT
 (define (members-of g groupid)
   (port->neighbors g `(,groupid members)))
+
+(define (next-to? g . nodes)
+  (match nodes
+    [`(,a ,b . ,more)
+     (for*/or ([seq (port->neighbors g `(,a seq))]
+               [seq-next (port->neighbors g `(,seq next))])
+       (if (equal? b seq-next)
+         (if (null? more) #t (apply next-to? g b more))
+         #f))]
+    [_ (raise-arguments-error 'next-to? "need at least two nodes"
+                              "nodes" nodes)]))
 
 ;TODO UT
 (define (nodes-of-class-in g class groupid)
@@ -103,7 +115,6 @@
     [(? symbol? letter)
      (make-immutable-hash `((name . ,letter) (class . letter)))]
     [(hash-table ('name _) _ ...)
-     #Rattrs
      attrs]
     [(hash-table ('class cl) ('value v) _ ...)
      (hash-set attrs 'name (make-name v))]
@@ -236,7 +247,7 @@
                                    (,to-node bound-from)))])
     g))
 
-(define (add-to-graph g group-in-progress d-name->id items)
+#;(define (add-to-graph g group-in-progress d-name->id items)
     ;returns g d-name->id
   (for/fold ([g g] [d-name->id d-name->id])
             ([item items])
@@ -287,17 +298,17 @@
                                                              (name .  ,name)))])
           (add-to-graph g groupid d-name->id body))])))
 
-(define (do-graph-deltas g deltas)
+#;(define (do-graph-deltas g deltas)
   (define d-name->id (for/list ([nodeid (all-nodes g)])
                        `(,(name-of g nodeid) ,nodeid)))
   (let-values ([(g _) (add-to-graph g #f d-name->id deltas)])
     g))
 
-(define (make-graph . items)
+#;(define (make-graph . items)
   (let-values ([(g _) (add-to-graph empty-graph #f '() items)])
     g))
 
-(module+ test
+#;(module+ test
   (let ([g (make-graph 'a 'b '(group G a b (tag next a b)))])
     (check-equal? (port->neighboring-ports g '(G members))
                   (set '(a2 member-of) '(b2 member-of) '(next member-of)))
@@ -328,42 +339,13 @@
            (:edge (,a seq) (,n prev))
            (:edge (,n next) (,b seq))
            ,@(if (null? more) '() (list (loop b (car more) (cdr more))))))]
+    [`(bind ,a ,b)
+      (define sym (gensym 'bind))
+      `(:make
+         (:define ,sym (:node bind))
+         (:edge (,a bound-to) (,sym bind-from))
+         (:edge (,sym bind-to) (,b bound-from)))]
     [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
-
-;(define (do-graph-edits g . items)
-;  (define (mknode g d-name->id attrs items)
-;    (let*-values ([(g id) (make-node g attrs)]
-;                  [(d-name->id) (dict-set d-name->id (name-of g id) id)])
-;      (recur g d-name->id items)))
-;  (define (get-node g d-name->id node k) ;calls (k g d-name->id nodeid)
-;    (match node
-;      [`(:node . ,args)
-;        (
-;  (define (recur g d-name->id items)
-;    #R d-name->id
-;    (cond
-;      [(null? items) g]
-;      [else
-;        (match-let ([`(,item . ,items) items])
-;          (match item
-;            [`(:node ,class)
-;              (mknode g d-name->id `((class . ,class)) items)]
-;            [`(:node ,class ,value)
-;              (mknode g d-name->id `((class . ,class) (value . ,value)) items)]
-;            [`(:edge ((:node ,cl1 ,v1) ,pl1)
-;                     ((:node ,cl2 ,v2) ,pl2))
-;              ???]
-;            [`(:edge (,node1 ,port-label1) (,node2 ,port-label2))
-;              (get-node g d-name->id node1
-;                (λ (g d nodeid1)
-;                   (get-node g d node2
-;                     (λ (g d nodeid2)
-;                        (recur (add-edge g
-;                                         `((,nodeid1 ,port-label1)
-;                                           (,nodeid2 ,port-label2))
-;                                         items))))))]
-;            [_ (recur g d-name->id (cons (rewrite-item item) items))]))]))
-;  (recur g '() items))
 
 (define (node-args->attrs args)
   (match args
@@ -386,10 +368,7 @@
 
 (define (do-graph-edits g . items)
   (define (recur g d-name->id groupid last-id items)
-    #R d-name->id
-          #R last-id #R items
     (define (graph-edit-make-node args)
-      #R args
       (let*-values ([(g id) (make-node g (node-args->attrs args))]
                     [(d-name->id) (dict-set d-name->id (name-of g id) id)]
                     [(g) (if (void? groupid)
@@ -432,39 +411,96 @@
                         (recur g d-name->id groupid last-id makes)])
           (recur g d-name->id groupid itemid more))]
       [`((:group ,name . ,members) . ,more)
-        #Rname
         (let*-values ([(g d-name->id new-groupid)
                          (graph-edit-make-node `((:attrs ((class . group)
                                                           (name . ,name)))))]
                       [(g d-name->id last-id)
                          (recur g d-name->id new-groupid new-groupid members)])
           (recur g d-name->id groupid new-groupid more))]
-      [`(,item . ,more)
+      [`(,item . ,more) ;didn't recognize it, rewrite it
         (recur g d-name->id groupid last-id (cons (rewrite-item item) more))]))
   (let-values ([(g d id) (recur g '() (void) (void) items)])
     g))
+
+(define (make-graph . items)
+  (apply do-graph-edits empty-graph items))
+
+(define do-graph-deltas (void))
       
-(pr-graph (do-graph-edits empty-graph 'a '(:node letter a) '(:node letter a)))
-(newline)
-(pr-graph (do-graph-edits empty-graph '(:edge ((:node letter a) out)
-                                              ((:node letter b) in))))
-(newline)
-(pr-graph (do-graph-edits empty-graph 'a 'b '(:edge (a out) (b in))))
-(newline)
-(define g (do-graph-edits empty-graph 'a '(placeholder letter) 'c
-                          '(placeholder letter) '(placeholder letter X)))
-(pr-graph g)
-(newline)
-(define h (do-graph-edits empty-graph '(:define :a (:node letter b))
-  '(:node letter a) '(:edge (:a out) (a in))))
-(pr-graph h)
-(newline)
-(define i (do-graph-edits empty-graph '(:make a b c (next a b c))))
-(pr-graph i)
-(newline)
-(define j (do-graph-edits empty-graph 'a '(placeholder letter X) 'c
-  '(next a X c) '(:group archetype a b c (next a b c))))
-(pr-graph j)
+;(pr-graph (do-graph-edits empty-graph 'a '(:node letter a) '(:node letter a)))
+;(newline)
+;(pr-graph (do-graph-edits empty-graph '(:edge ((:node letter a) out)
+;                                              ((:node letter b) in))))
+;(newline)
+;(pr-graph (do-graph-edits empty-graph 'a 'b '(:edge (a out) (b in))))
+;(newline)
+;(define g (do-graph-edits empty-graph 'a '(placeholder letter) 'c
+;                          '(placeholder letter) '(placeholder letter X)))
+;(pr-graph g)
+;(newline)
+;(define h (do-graph-edits empty-graph '(:define :a (:node letter b))
+;  '(:node letter a) '(:edge (:a out) (a in))))
+;(pr-graph h)
+;(newline)
+;(define i (do-graph-edits empty-graph '(:make a b c (next a b c))))
+;(pr-graph i)
+;(newline)
+;(define j (do-graph-edits empty-graph 'a '(placeholder letter X) 'c
+;  '(next a X c) '(:group archetype a b c (next a b c))))
+;(pr-graph j)
+
+(module+ test
+  (test-case ":node"
+    (let ([g (make-graph '(:node letter a) '(:node letter b))])
+      (check-equal? (list->set (all-nodes g)) (set 'a 'b))
+      (check-equal? (class-of g 'a) 'letter)
+      (check-equal? (class-of g 'b) 'letter)))
+  (test-case "a b"
+    (let ([g (make-graph 'a 'b)])
+      (check-equal? (list->set (all-nodes g)) (set 'a 'b))
+      (check-equal? (class-of g 'a) 'letter)
+      (check-equal? (class-of g 'b) 'letter)))
+  (test-case ":edge"
+    (let ([g (make-graph '(:edge ((:node letter a) out)
+                                  ((:node letter b) in)))])
+      (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+  (test-case ":edge betw refs"
+    (let ([g (make-graph 'a 'b '(:edge (a out) (b in)))])
+      (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+  (test-case "make-graph with placeholders"
+    (let ([g (make-graph 'a '(placeholder letter) 'c '(placeholder letter)
+                         '(placeholder letter X) '(placeholder))])
+      (check-equal? (class-of g 'placeholder) 'letter)
+      (check-equal? (value-of g 'placeholder) placeholder)
+      (check-equal? (class-of g 'placeholder2) 'letter)
+      (check-equal? (value-of g 'placeholder2) placeholder)
+      (check-equal? (class-of g 'X) 'letter)
+      (check-equal? (value-of g 'X) placeholder)
+      (check-equal? (class-of g 'placeholder3) placeholder)
+      (check-equal? (value-of g 'placeholder3) placeholder)))
+  (test-case ":define"
+    (let ([g (make-graph '(:define :a (:node letter b))  ; :a is b
+                         '(:node letter a)
+                         '(:edge (:a out) (a in)))])
+      (check-equal? (list->set (all-nodes g)) (set 'a 'b))
+      (check-equal? (all-edges g) (set (set '(a in) '(b out))))))
+  (test-case "make-graph next"
+    (let ([g (make-graph '(:make a b c (next a b c)))])
+      (check-equal? (all-edges g) (set
+                                    (set '(next next) '(b seq))
+                                    (set '(next2 prev) '(b seq))
+                                    (set '(c seq) '(next2 next))
+                                    (set '(a seq) '(next prev))))))
+  (test-case ":group"
+    (let ([g (make-graph 'a '(placeholder letter X) 'c '(next a X c)
+                         '(:group archetype a b c (next a b c)))])
+      (check-equal? (list->set (members-of g 'archetype))
+                    (set 'a2 'b 'c2 'next3 'next4))
+      (check-true (next-to? g 'a 'X 'c))
+      (check-true (next-to? g 'a2 'b 'c2))
+      ))
+  )
+
 
 ;;; Neighbors
 
@@ -479,6 +515,10 @@
     (match-define (list neighbor _) neighboring-port)
     neighbor))
 
+(define (port-neighbor? g port node)
+  (for/or ([neighbor (port->neighbors g port)])
+    (equal? neighbor node)))
+
 (module+ test
   (let* ([g (make-graph 'a 'b 'c)]
          [g (add-edge g '((a out) (b in)))]
@@ -488,7 +528,7 @@
     (let* ([g (remove-edge g '((b in) (a out)))])
       (check-equal? (port->neighbors g '(a out)) '(c)))
     )
-  (let ([g (make-graph '(placeholder x letter))])
+  (let ([g (make-graph '(placeholder letter x))])
     (check-equal? (get-node-attr g 'x 'class) 'letter)
     (check-pred placeholder? (get-node-attr g 'x 'value))))
 
