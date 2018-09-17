@@ -33,7 +33,7 @@
       (if (null? to-nodes) ;if nothing to bind to, then build
         (let ([new (gensym class)])
           `(:make
-             (:define ,new (:node ,class))
+             (:define ,new (:node ,class)) ;BUG? :node redefines succ
              (:edge (,to-group members) (,new member-of))
              (bind ,from-node ,new)))
         `(:make  ;bind to all of same class
@@ -59,7 +59,7 @@
 
 (newline)
 
-(pr-graph (try-to-bind-all model 'slipnet-structure 'workspace))
+;(pr-graph (try-to-bind-all model 'slipnet-structure 'workspace))
 
 (module+ test
   (test-case "try-to-bind-all"
@@ -82,4 +82,11 @@
       (check-true (bound-to? g 'c2 'c))
       #;(check-true (bound-to? g #R(tag-of 'succ g 'a2 'b)
                                #R(tag-of 'succ g 'a 'x)))
+      (check-true (bound-to? g 'succ2 'succ3))
+      (check-true (bound-to? g 'succ 'succ4))
     )))
+
+
+(define g (make-graph '(:group workspace a b)
+                      '(:group slipnet-structure a b (succ a b))))
+

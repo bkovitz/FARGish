@@ -6,10 +6,12 @@
          racket/dict racket/pretty describe) 
 
 (provide make-graph make-node add-node add-edge get-node-attr get-node-attrs
-         add-tag port->neighbors all-nodes find-nodes-of-class
+         add-tag port->neighbors port->neighboring-ports all-nodes
+         find-nodes-of-class
          check-desiderata pr-graph members-of do-graph-edits
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
-         bound-from? succ? has-node? tag-of)
+         bound-from? succ? has-node? tag-of node->neighbors node->ports
+         (struct-out graph))
 
 ;; A port graph
 ;(struct graph (elems edges id-set spec) #:transparent)
@@ -100,12 +102,15 @@
   (for ([nodeid (sort (set->list (all-nodes g))
                       (λ (id1 id2) (string<? (~a id1) (~a id2))))])
     (printf " ~a ~a\n" (~a nodeid #:min-width 12)
-                        (hash-remove (get-node-attrs g nodeid) 'id)))
-  (displayln "Edges:")
-  (define edges (for/list ([e (all-edges g)])
-                  (string-join (sort (stream->list (map ~a e)) string<?))))
-  (for ([edge (sort edges string<?)])
-    (printf " ~a\n" edge))
+                        (hash-remove (get-node-attrs g nodeid) 'id))
+    (for* ([port (node->ports g nodeid)]
+           [neighboring-port (port->neighboring-ports g port)])
+      (printf "  ~a -- ~a\n" port neighboring-port)))
+;  (displayln "Edges:")
+;  (define edges (for/list ([e (all-edges g)])
+;                  (string-join (sort (stream->list (map ~a e)) string<?))))
+;  (for ([edge (sort edges string<?)])
+;    (printf " ~a\n" edge))
   )
 
 #;(define (has-node? g id)
@@ -322,38 +327,44 @@
   (and (not (null? x))
        (not (pair? x))))
 
+(define (graph-edit-make-node g d-name->id groupid args)
+  (let*-values ([(g id) (make-node g (node-args->attrs args))]
+                [(d-name->id) (let ([v (value-of g id)])
+                                (if (void? v)
+                                  d-name->id
+                                  (dict-set d-name->id (name-of g id) id)))]
+                [(g) (if (void? groupid)
+                       g
+                       (add-edge g `((,groupid members) (,id member-of))))])
+    (values g d-name->id id)))
+
+(define (get-port g d-name->id groupid port-spec)
+  (match port-spec
+    [`((:node . ,args) ,port-label)
+      (let*-values ([(g d-name->id id)
+                       (graph-edit-make-node g d-name->id groupid args)])
+        (values g d-name->id `(,id ,port-label)))]
+    [`(,name ,port-label)
+      (let ([id (look-up-node g d-name->id name)])
+        (if (void? id)
+          (error 'get-port @~a{no such node: @name})
+          (values g d-name->id `(,id ,port-label))))]
+    [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
+
+
 (define (do-graph-edits g items)
   (define (recur g d-name->id groupid last-id items)
-    (define (graph-edit-make-node args)
-      (let*-values ([(g id) (make-node g (node-args->attrs args))]
-                    [(d-name->id) (dict-set d-name->id (name-of g id) id)]
-                    [(g) (if (void? groupid)
-                           g
-                           (add-edge g `((,groupid members) (,id member-of))))])
-        (values g d-name->id id)))
-
-    (define (get-port port-spec)
-      (match port-spec
-        [`((:node . ,args) ,port-label)
-          (let*-values ([(g d-name->id id)
-                           (graph-edit-make-node args)])
-            (values g d-name->id `(,id ,port-label)))]
-        [`(,name ,port-label)
-          (let ([id (look-up-node g d-name->id name)])
-            (if (void? id)
-              (error 'get-port @~a{no such node: @name})
-              (values g d-name->id `(,id ,port-label))))]
-        [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
-
     (match items
       ['() (values g d-name->id last-id)]
       [`((:node . ,args) . ,more)
         (let-values ([(g d-name->id id)
-                        (graph-edit-make-node args)])
+                        (graph-edit-make-node g d-name->id groupid args)])
           (recur g d-name->id groupid id more))]
       [`((:edge ,port1 ,port2) . ,more)
-        (let*-values ([(g d-name->id port1) (get-port port1)]
-                      [(g d-name->id port2) (get-port port2)]
+        (let*-values ([(g d-name->id port1)
+                         (get-port g d-name->id groupid port1)]
+                      [(g d-name->id port2)
+                         (get-port g d-name->id groupid port2)]
                       [(edge) `(,port1 ,port2)]
                       [(g) (add-edge g edge)])
           (recur g d-name->id groupid edge more))]
@@ -368,7 +379,8 @@
           (recur g d-name->id groupid itemid more))]
       [`((:group ,name . ,members) . ,more)
         (let*-values ([(g d-name->id new-groupid)
-                         (graph-edit-make-node `((:attrs ((class . group)
+                         (graph-edit-make-node g d-name->id groupid
+                                               `((:attrs ((class . group)
                                                           (name . ,name)))))]
                       [(g d-name->id last-id)
                          (recur g d-name->id new-groupid new-groupid members)])
@@ -456,6 +468,16 @@
 (define (port-neighbor? g port node)
   (for/or ([neighbor (port->neighbors g port)])
     (equal? neighbor node)))
+
+(define (node->ports g node)
+  (for/list ([port (hash-keys (graph-hm-port->neighboring-ports g))]
+             #:when (equal? node (car port)))
+    port))
+
+(define (node->neighbors g node)
+  (for*/set ([port (node->ports g node)]
+             [neighbor (port->neighbors g port)])
+    neighbor))
 
 (module+ test
   (let* ([g (make-graph 'a 'b 'c)]
