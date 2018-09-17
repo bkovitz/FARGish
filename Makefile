@@ -6,4 +6,4 @@ ut:
 tags:
 	ctags --language-force=Scheme *.rkt
 
-.PHONY: ut
+.PHONY: ut tags
