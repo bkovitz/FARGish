@@ -1,6 +1,7 @@
 #lang debug at-exp racket
 
-(require data/collection racket/pretty "graph.rkt")
+(require rackunit data/collection racket/dict racket/generic racket/pretty
+         describe "graph.rkt")
 
 (define (bind-all-letters g)
   (for/fold ([g g])
@@ -21,7 +22,7 @@
                                  a b c (succ a b) (succ b c)))])
     g))
 
-(pr-graph model)
+#;(pr-graph model)
 
 ;TODO UT
 (define (try-to-bind-all g from-group to-group)
@@ -33,7 +34,7 @@
         (let ([new (gensym class)])
           `(:make
              (:define ,new (:node ,class))
-             (:edge (,to-group :members) (,new :member-of))
+             (:edge (,to-group members) (,new member-of))
              (bind ,from-node ,new)))
         `(:make  ;bind to all of same class
            ,@(for/list ([to-node to-nodes])
@@ -59,3 +60,26 @@
 (newline)
 
 (pr-graph (try-to-bind-all model 'slipnet-structure 'workspace))
+
+(module+ test
+  (test-case "try-to-bind-all"
+    (let* ([g (make-graph '(:group workspace
+                                   a (placeholder letter x) c
+                                   (bind a x) (bind x c))
+                          '(:group slipnet-structure
+                                   a b c (succ a b) (succ b c)))]
+           [g (try-to-bind-all g 'slipnet-structure 'workspace)])
+      (check-equal? (list->set (member-of g 'succ3)) (set 'workspace))
+      (check-equal? (list->set (member-of g 'succ4)) (set 'workspace))
+      (check-true (bound-to? g 'a2 'a))
+      (check-true (bound-to? g 'a2 'x))
+      (check-true (bound-to? g 'a2 'c))
+      (check-true (bound-to? g 'b 'a))
+      (check-true (bound-to? g 'b 'x))
+      (check-true (bound-to? g 'b 'c))
+      (check-true (bound-to? g 'c2 'a))
+      (check-true (bound-to? g 'c2 'x))
+      (check-true (bound-to? g 'c2 'c))
+      #;(check-true (bound-to? g #R(tag-of 'succ g 'a2 'b)
+                               #R(tag-of 'succ g 'a 'x)))
+    )))

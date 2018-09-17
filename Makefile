@@ -1,4 +1,4 @@
-SRCFILES = id-set.rkt graph.rkt
+SRCFILES = id-set.rkt graph.rkt model1.rkt
 
 ut:
 	raco test $(SRCFILES)

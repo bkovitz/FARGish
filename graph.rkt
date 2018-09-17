@@ -3,12 +3,13 @@
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt"
-         racket/dict racket/pretty describe)
+         racket/dict racket/pretty describe) 
 
-(provide has-node? make-node add-node add-edge get-node-attr get-node-attrs
-         make-graph add-tag port->neighbors all-nodes find-nodes-of-class
+(provide make-graph make-node add-node add-edge get-node-attr get-node-attrs
+         add-tag port->neighbors all-nodes find-nodes-of-class
          check-desiderata pr-graph members-of do-graph-edits
-         nodes-of-class-in class-of bind)
+         nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
+         bound-from? succ? has-node? tag-of)
 
 ;; A port graph
 ;(struct graph (elems edges id-set spec) #:transparent)
@@ -48,6 +49,9 @@
 (define (members-of g groupid)
   (port->neighbors g `(,groupid members)))
 
+(define (member-of g node)
+  (port->neighbors g `(,node member-of)))
+
 (define (next-to? g . nodes)
   (match nodes
     [`(,a ,b . ,more)
@@ -79,7 +83,6 @@
   (for/list ([node (members-of g groupid)]
              #:when (equal? class (get-node-attr g node 'class)))
     node))
-
 
 (module+ test
   (let* ([g (make-graph 'a 'b)]
@@ -437,7 +440,6 @@
       (check-true (succ? g 'b 'c))))
   )
 
-
 ;;; Neighbors
 
 (define (port->neighboring-ports g port)
@@ -477,11 +479,25 @@
                 [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
     g))
 
+(define (tag-of tag g node1 node2)
+  (match tag
+    ['succ (for*/first ([tag1 (port->neighbors g `(,node1 succ-to))]
+                        [tag2 (port->neighbors g `(,node2 succ-from))]
+                        #:when (equal? tag1 tag2))
+             tag)]
+    [_ (raise-arguments-error 'tag-of "unknown tag" "tag" tag)]))
+
 (module+ test
   (let* ([g (make-graph 'a 'b)]
          [g (add-tag g 'bind 'a 'b)])
     (check-true (has-edge? g '((a bound-to) (bind bind-from))))
     (check-true (has-edge? g '((b bound-from) (bind bind-to))))))
+
+(module+ test
+  (test-case "tag-of"
+    (let ([g (make-graph 'a 'b 'c '(succ a b))])
+      (check-equal? (tag-of 'succ g 'a 'b) 'succ)
+      )))
 
 ;; Desiderata
 
