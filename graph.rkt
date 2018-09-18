@@ -360,6 +360,11 @@
         (let-values ([(g d-name->id id)
                         (graph-edit-make-node g d-name->id groupid args)])
           (recur g d-name->id groupid id more))]
+      [`((:find-node ,name) . ,more)
+        (let ([id (look-up-node g d-name->id name)])
+          (if (void? id)
+            (error @~a{no such node: @id})
+            (recur g d-name->id groupid id more)))]
       [`((:edge ,port1 ,port2) . ,more)
         (let*-values ([(g d-name->id port1)
                          (get-port g d-name->id groupid port1)]
