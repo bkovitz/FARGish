@@ -7,7 +7,7 @@
 
 (provide make-graph make-node add-node add-edge get-node-attr get-node-attrs
          add-tag port->neighbors port->neighboring-ports all-nodes
-         find-nodes-of-class
+         find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
          check-desiderata pr-graph members-of do-graph-edits
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
@@ -61,6 +61,9 @@
 (define (member-of g node)
   (port->neighbors g `(,node member-of)))
 
+(define (member-of? g ctx node)
+  (member ctx (member-of g node)))
+
 (define (next-to? g . nodes)
   (match nodes
     [`(,a ,b . ,more)
@@ -81,6 +84,16 @@
   (for*/or ([bind (port->neighbors g `(,to-node bound-from))]
             [b-from (port->neighbors g `(,bind bind-from))])
     (equal? b-from from-node)))
+
+(define (bound-to g node)
+  (for*/list ([bind (port->neighbors g `(,node bound-to))]
+              [b-to (port->neighbors g `(,bind bind-to))])
+    b-to))
+
+(define (bound-from-ctx-to-ctx? g from-ctx to-ctx from-node)
+  (and (member-of? g from-ctx from-node)
+       (for/or ([to-node (bound-to g from-node)])
+         (member-of? g to-ctx to-node))))
 
 (define (succ? g node1 node2)
   (for*/or ([succ (port->neighbors g `(,node1 succ-to))]
@@ -330,6 +343,10 @@
          (:define ,sym (:node bind))
          (:edge (,a bound-to) (,sym bind-from))
          (:edge (,sym bind-to) (,b bound-from)))]
+    [`(copy-node ,node ,ctx)
+      (define class (class-of node))
+      (define sym (gensym class))
+      `(:define ,sym (:node ,class))]
     [`(succ ,a ,b . ,more)
       (let loop ([a a] [b b] [more more])
         (define sym (gensym 'succ))
@@ -501,6 +518,11 @@
   (for/list ([neighboring-port (in-set (hash-ref p->nps port '()))])
     (match-define (list neighbor _) neighboring-port)
     neighbor))
+
+(define (port->neighbor g port)
+  (match (port->neighbors g port)
+    ['() (void)]
+    [`(,neighbor _ ...) neighbor]))
 
 (define (port-neighbor? g port node)
   (for/or ([neighbor (port->neighbors g port)])
