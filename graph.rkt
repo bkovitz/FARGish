@@ -33,8 +33,15 @@
 
 (define all-edges graph-edges)
 
+(define (hm->name hm)
+  (if (void? hm)
+    'noname
+    (hash-ref hm 'name
+              (λ () (hash-ref hm 'value
+                              (λ () (hash-ref hm 'class 'noname)))))))
+
 (define (name-of g id)
-  (get-node-attr g id 'name))
+  (hm->name (get-node-attrs g id)))
 
 (define (class-of g node)
   (get-node-attr g node 'class) )
@@ -122,12 +129,27 @@
 (module+ test
   (check-false (has-node? empty-graph 'plus)))
 
-(define (make-name x)
+(define (make-name class v)
   (cond
-    [(symbol? x) x]
-    [(number? x) x]
-    [(string? x) x]
-    [else (string->symbol (~a x))]))
+    [(eq? 'letter class)
+     v]
+    [(eq? 'number class)
+     v]
+    [(and (void? v) (void? class))
+     'no-name]
+    [(void? class)
+     v]
+    [(void? v)
+     class]
+    [else
+      (string->symbol (format "~a~a" class v))]))
+
+(define letter-symbols
+  (set 'a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k 'l 'm 'n 'o 'p 'q 'r 's 't 'u 'v
+       'w 'x 'y 'z))
+
+(define (letter-symbol? x)
+  (set-member? letter-symbols x))
 
 ;; A HACK for now. This should fill in the attrs with defaults from the
 ;; class definition in the spec. If attrs is just a symbol or number,
@@ -135,14 +157,18 @@
 ;; just hard-code a couple things.
 (define (normalize-attrs attrs)
   (match attrs
-    [(? symbol? letter)
-     (make-immutable-hash `((name . ,letter) (class . letter)))]
+    [(? letter-symbol? letter)
+     (normalize-attrs `((class . letter) (value . ,letter)))]
+    [(? symbol? sym)
+     (normalize-attrs `((class . ,sym)))]
+    [(? number? n)
+     (normalize-attrs `((class . number) (value . ,n) (name . ,n)))]
     [(hash-table ('name _) _ ...)
      attrs]
     [(hash-table ('class cl) ('value v) _ ...)
-     (hash-set attrs 'name (make-name v))]
+     (hash-set attrs 'name (make-name cl v))]
     [(hash-table ('class cl) _ ...)
-     (hash-set attrs 'name cl)]
+     (hash-set attrs 'name (make-name cl (void)))]
     [(? list?)
      (normalize-attrs (make-immutable-hash attrs))]
     [_ (raise-arguments-error 'normalize-attrs "invalid node attributes"
@@ -150,17 +176,17 @@
 
 (module+ test
   (check-equal? (normalize-attrs 'a)
-                #hash((class . letter) (name . a)))
+                #hash((class . letter) (value . a) (name . a)))
   (check-equal? (normalize-attrs '((class . plus)))
                 #hash((class . plus) (name . plus)))
-  (check-equal? (normalize-attrs '((class . plus) (name . xyz)))
-                #hash((class . plus) (name . xyz))))
+  (check-equal? (normalize-attrs '((class . plus) (value . xyz)))
+                #hash((class . plus) (value . xyz) (name . plusxyz))))
 
 ;; Making nodes
 
 (define (make-node g attrs) ;returns g* id  (two values)
   (let*-values ([(attrs) (normalize-attrs attrs)]
-                [(name) (hash-ref attrs 'name)]
+                [(name) (hm->name attrs)]
                 [(id-set id) (gen-id (graph-id-set g) name)]
                 [(attrs) (hash-set attrs 'id id)]
                 [(g) (struct-copy graph g
@@ -170,10 +196,16 @@
     (values g id)))
 
 (define (get-node-attr g id k) ;returns void if either node or key not found
-  (match (graph-hm-node->attrs g)
-    [(hash-table ((== id) attrs) _ ...)
-     (hash-ref attrs k (void))]
-    [_ (void)]))
+  (if (eq? 'name k)
+    (name-of g id)
+    (let ([hm (get-node-attrs g id)])
+      (if (void? hm)
+        (void)
+        (hash-ref (get-node-attrs g id) k (void))))))
+;  (match (graph-hm-node->attrs g)
+;    [(hash-table ((== id) attrs) _ ...)
+;     (hash-ref attrs k (void))]
+;    [_ (void)]))
 
 ;;TODO UT
 (define (get-node-attrs g id) ;returns void if node not found

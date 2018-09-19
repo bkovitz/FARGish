@@ -109,7 +109,7 @@
 
 (define h (make-graph 'x 'y))
 (define h* (do-graph-edits h (mktag succ h 'x 'y)))
-(pr-graph h*)
+#;(pr-graph h*)
 
 ;NEXT
 ; d-name->id -> d-alias->id
