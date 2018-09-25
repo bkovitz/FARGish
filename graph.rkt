@@ -11,7 +11,7 @@
          check-desiderata pr-graph members-of do-graph-edits
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
-         node->incident-edges has-edge?
+         node->incident-edges has-edge? all-edges
          (struct-out graph))
 
 ;; A port graph
@@ -256,6 +256,7 @@
 
 ;;; Making edges
 
+;TODO Don't put in a new edge if it's already there
 (define (add-edge g edge) ; edge is '((node1 port-label1) (node2 port-label2))
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
