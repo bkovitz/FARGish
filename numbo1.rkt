@@ -1,11 +1,31 @@
 #lang debug at-exp racket
 
+;TODO
+; bdx-scout?
+; slipnet search
+; support for desiderata
+; self-support
+; decaying self-support
+; rm unsupported nodes
+
+;HACK TODO
+; bind/complete archetype in one step
+; tag scout
+; slipnet search
+; large number or diff attracts mult
+; smaller target attracts subtraction
+
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          describe "graph.rkt")
 
 (define (could-bind? g from-node to-node)
   (or (equal? (value-of g from-node) (value-of g to-node))
       (equal? (class-of g from-node) (class-of g to-node))))
+
+(define (bdx-scout? g from-ctx from-node to-ctx)
+  ;search intersection of port-neighborss
+  'STUB ;NEXT
+  )
 
 (define (start-bdx-scout g from-ctx from-node to-ctx)
   `(:make
@@ -29,10 +49,26 @@
 
 (define (finish-archetype-instantiation g from-ctx to-ctx)
   (define deltas (for/list ([from-node (members-of g from-ctx)]
-                             #:when (not (bound-from-ctx-to-ctx? g
-                                           from-ctx to-ctx from-node)))
+                             #:when (and (not (bound-from-ctx-to-ctx? g
+                                                from-ctx to-ctx from-node))
+                                         (not (bdx-scout? g
+                                                from-ctx to-ctx from-node))))
                    (start-bdx-scout g from-ctx from-node to-ctx)))
   `(:make ,@deltas))
+
+(define (hacked-finish-archetype g from-ctx to-ctx)
+  ;list of candidate mates for each from-node
+  ;if it's doable, build
+  'STUB)
+
+(define (make-slipnet items)
+  ;sa-link all archetypes and structures
+  ;give nodes a new id as needed
+  'STUB)
+
+(define (search-slipnet g ws-ctx)
+  ;temporary wave-fronts
+  'STUB)
 
 (define (node->graph-delta g node)
   (match (class-of g node)
