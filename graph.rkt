@@ -11,6 +11,7 @@
          check-desiderata pr-graph members-of do-graph-edits
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
+         node->incident-edges has-edge?
          (struct-out graph))
 
 ;; A port graph
@@ -529,10 +530,16 @@
   (for/or ([neighbor (port->neighbors g port)])
     (equal? neighbor node)))
 
+;TODO Inefficient
 (define (node->ports g node)
   (for/list ([port (hash-keys (graph-hm-port->neighboring-ports g))]
              #:when (equal? node (car port)))
     port))
+
+(define (node->incident-edges g node)
+  (for*/list ([port (node->ports g node)]
+              [nport (port->neighboring-ports g port)])
+    `(,port ,nport)))
 
 (define (node->neighbors g node)
   (for*/set ([port (node->ports g node)]
