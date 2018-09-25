@@ -153,6 +153,8 @@
               alist))))
   (best-completion actions->g))
 
+;; Making a slipnet
+
 (define (map-edge node-map edge)
   (match-define `((,node1 ,port-label1) (,node2 ,port-label2)) edge)
   (define new-node1 (dict-ref node-map node1))
@@ -188,26 +190,6 @@
       hm
       (hash-update hm v (λ (old) (cons node old)) '()))))
 
-#;(define (make-slipnet . graphs)
-  (let-values ([(sl hm-value->instances)
-        (for/fold ([sl (make-graph)] [hm-value->instances (hash)])
-                  ([g graphs])
-          (let*-values ([(sl new-nodes) (copy-graph-into-graph sl g)]
-                        [(sl) (add-activation-links-to-ctx sl new-nodes)]
-                        [(hm) (make-map-of-value-instances sl new-nodes)])
-            (values sl (hash-union hm-value->instances hm #:combine
-                                   (let () (local-require racket/base)
-                                     append)))))])
-    (for/fold ([sl sl])
-              ([hm-item (hash->list hm-value->instances)])
-      (match-define `(,archetype-value . ,instances) hm-item)
-      (let-values ([(sl archetype-node)
-                        (make-node sl `((class . archetype)
-                                        (value . ,archetype-value)))])
-        (for/fold ([sl sl])
-                  ([instance instances])
-          (add-activation-link sl archetype-node instance))))))
-
 (define (merge-slipnet-graphs graphs)
   (for/fold ([sl (make-graph)] [hm-value->instances (hash)])
             ([g graphs])
@@ -221,13 +203,13 @@
 (define (add-and-link-archetype-nodes sl hm-value->instances)
   (for/fold ([sl sl])
               ([hm-item (hash->list hm-value->instances)])
-      (match-define `(,archetype-value . ,instances) hm-item)
-      (let-values ([(sl archetype-node)
-                        (make-node sl `((class . archetype)
-                                        (value . ,archetype-value)))])
-        (for/fold ([sl sl])
-                  ([instance instances])
-          (add-activation-link sl archetype-node instance)))))
+    (match-define `(,archetype-value . ,instances) hm-item)
+    (let-values ([(sl archetype-node)
+                      (make-node sl `((class . archetype)
+                                      (value . ,archetype-value)))])
+      (for/fold ([sl sl])
+                ([instance instances])
+        (add-activation-link sl archetype-node instance)))))
 
 (define (has-top-level-slipnet-class? g node)
   (case (class-of g node)
@@ -247,8 +229,51 @@
                 [(sl) (link-all-into-slipnet sl)])
     sl))
 
-(define (search-slipnet g ws-ctx)
-  ;temporary wave-fronts
+;; Running the slipnet
+
+(define slipnet-spreading-rate 0.1)
+(define slipnet-decay 0.9)
+(define slipnet-timesteps 10)
+
+(define (activation-edges-starting-from g nodes)
+  (for*/set ([node nodes]
+             [edge (port->incident-edges g `(,node activation))])
+    edge))
+
+(define (add-activation activations node amount)
+  (hash-update activations node (λ (old) (+ old amount)) 0.0))
+
+(define (get-activation activations node)
+  (dict-ref activations node 0.0))
+
+(define (spread-activation-across-edge g initial-activations activations edge)
+  (define (spread-1way as e)
+    (match-define `((,from-node activation) (,to-node activation)) e)
+    (add-activation as to-node
+      (* slipnet-spreading-rate
+         (get-activation initial-activations from-node))))
+  (let* ([edge (set->list edge)]
+         [activations (spread-1way activations edge)]
+         [activations (spread-1way activations (reverse edge))])
+    activations))
+
+(define (decay-activations activations)
+  (make-immutable-hash (for/list ([kv (hash->list activations)])
+                         (match-define `(,node . ,a) kv)
+                         `(,node . ,(* slipnet-decay a)))))
+
+(define (do-slipnet-timestep g initial-activations)
+  (for/fold ([activations (decay-activations initial-activations)])
+            ([edge (activation-edges-starting-from g
+                     (dict-keys initial-activations))])
+    (spread-activation-across-edge g initial-activations activations edge)))
+
+(define (run-slipnet g initial-activations)
+  (for/fold ([activations initial-activations])
+            ([timestep slipnet-timesteps])
+    (do-slipnet-timestep g activations)))
+
+(define (search-slipnet g initial-activations)
   'STUB)
 
 (define (node->graph-delta g node)
@@ -324,3 +349,7 @@
   ))
                  
 (pr-graph slipnet)
+
+(define is #hash((archetype4 . 1.0)))
+(define as (run-slipnet slipnet is))
+as

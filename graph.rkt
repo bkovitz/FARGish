@@ -11,7 +11,7 @@
          check-desiderata pr-graph members-of do-graph-edits
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
-         node->incident-edges has-edge? all-edges
+         node->incident-edges port->incident-edges has-edge? all-edges
          (struct-out graph))
 
 ;; A port graph
@@ -537,6 +537,13 @@
              #:when (equal? node (car port)))
     port))
 
+;Returns sets
+(define (port->incident-edges g port)
+  (for/list ([nport (port->neighboring-ports g port)])
+    (set port nport)))
+  
+;Returns lists; first port of edge is the node's port
+;TODO OAOO
 (define (node->incident-edges g node)
   (for*/list ([port (node->ports g node)]
               [nport (port->neighboring-ports g port)])
