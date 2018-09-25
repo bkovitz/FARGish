@@ -188,9 +188,7 @@
       hm
       (hash-update hm v (λ (old) (cons node old)) '()))))
 
-(define (make-slipnet . graphs)
-  ;sa-link all archetypes and structures
-  ;give nodes a new id as needed
+#;(define (make-slipnet . graphs)
   (let-values ([(sl hm-value->instances)
         (for/fold ([sl (make-graph)] [hm-value->instances (hash)])
                   ([g graphs])
@@ -209,6 +207,45 @@
         (for/fold ([sl sl])
                   ([instance instances])
           (add-activation-link sl archetype-node instance))))))
+
+(define (merge-slipnet-graphs graphs)
+  (for/fold ([sl (make-graph)] [hm-value->instances (hash)])
+            ([g graphs])
+    (let*-values ([(sl new-nodes) (copy-graph-into-graph sl g)]
+                  [(sl) (add-activation-links-to-ctx sl new-nodes)]
+                  [(hm) (make-map-of-value-instances sl new-nodes)])
+      (values sl (hash-union hm-value->instances hm #:combine
+                             (let () (local-require racket/base)
+                               append))))))
+
+(define (add-and-link-archetype-nodes sl hm-value->instances)
+  (for/fold ([sl sl])
+              ([hm-item (hash->list hm-value->instances)])
+      (match-define `(,archetype-value . ,instances) hm-item)
+      (let-values ([(sl archetype-node)
+                        (make-node sl `((class . archetype)
+                                        (value . ,archetype-value)))])
+        (for/fold ([sl sl])
+                  ([instance instances])
+          (add-activation-link sl archetype-node instance)))))
+
+(define (has-top-level-slipnet-class? g node)
+  (case (class-of g node)
+    [(group archetype) #t]
+    [else #f]))
+
+(define (link-all-into-slipnet sl0)
+  (let-values ([(sl topnode) (make-node sl0 '((class . slipnet)))])
+    (for/fold ([sl sl])
+              ([node (all-nodes sl0)]
+               #:when (has-top-level-slipnet-class? sl0 node))
+      (add-edge sl `((,topnode members) (,node member-of))))))
+
+(define (make-slipnet . graphs)
+  (let*-values ([(sl hm-value->instances) (merge-slipnet-graphs graphs)]
+                [(sl) (add-and-link-archetype-nodes sl hm-value->instances)]
+                [(sl) (link-all-into-slipnet sl)])
+    sl))
 
 (define (search-slipnet g ws-ctx)
   ;temporary wave-fronts
@@ -279,6 +316,11 @@
   (make-graph '(:group 4+2=6 4 2 + 6
                  (:edge (4 result) (+ operands))
                  (:edge (2 result) (+ operands))
-                 (:edge (+ result) (6 source))))))
+                 (:edge (+ result) (6 source))))
+  (make-graph '(:group 6+9=15 6 9 + 15
+                 (:edge (9 result) (+ operands))
+                 (:edge (9 result) (+ operands))
+                 (:edge (+ result) (15 source))))
+  ))
                  
 (pr-graph slipnet)
