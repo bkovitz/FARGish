@@ -15,8 +15,8 @@
      (:edge (scout to-ctx) (,to-ctx general-port))))
 
 (define (run-bdx-scout g scout)
-  (define from-node (port->neighbor g scout 'from-node))
-  (define to-ctx (port->neighbor g scout 'to-ctx))
+  (define from-node (port->neighbor g `(,scout from-node)))
+  (define to-ctx (port->neighbor g `(,scout to-ctx)))
   (define to-node (for/first ([to-node (members-of g to-ctx)]
                               #:when (could-bind? g from-node to-node)
                               #:when (not (bound-to? g from-node to-node)))
@@ -28,29 +28,29 @@
        (bind ,from-node new-node))))
 
 (define (finish-archetype-instantiation g from-ctx to-ctx)
-  (define deltas (for/list ([from-node (members-of from-ctx)]
-                             #:when (not (bound-from-ctx-to-ctx?
+  (define deltas (for/list ([from-node (members-of g from-ctx)]
+                             #:when (not (bound-from-ctx-to-ctx? g
                                            from-ctx to-ctx from-node)))
                    (start-bdx-scout g from-ctx from-node to-ctx)))
-  `(:make ,deltas))
+  `(:make ,@deltas))
 
 (define (node->graph-delta g node)
-  (match (class-of node)
+  (match (class-of g node)
     ['bdx-scout
      (run-bdx-scout g node)]
     ['finish-archetype-instantiation
-     (finish-archetype-instantiation g (port->neighbor g node 'from-ctx)
-                                       (port->neighbor g node 'to-ctx))]
+     (finish-archetype-instantiation g (port->neighbor g `(,node from-ctx))
+                                       (port->neighbor g `(,node to-ctx)))]
     [_ #f]))
 
 ;NEXT Call this func and see if it works.
 (define (do-timestep g)
-  (define deltas (for*/list ([node (all-nodes g)]
-                             [delta (node->graph-delta g node)]
-                             #:when delta)
-                   delta))
+  (define deltas (for/fold ([deltas '()])
+                           ([node (all-nodes g)])
+                   (let ([delta (node->graph-delta g node)])
+                     (if delta (cons delta deltas) deltas))))
   #R deltas
-  (do-graph-edits g ))
+  (do-graph-edits g deltas))
 
 ;(define g (make-graph 4))
 

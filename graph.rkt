@@ -317,14 +317,14 @@
 
 ;; Another way to build/edit a graph
 
-(define (rewrite-item item)
+(define (rewrite-item g item)
   (match item
     [(? symbol?) `(:node letter ,item)]
     [(? number?) `(:node number ,item)]
     [`(placeholder)
-      (rewrite-item `(placeholder ,placeholder placeholder))]
+      (rewrite-item g `(placeholder ,placeholder placeholder))]
     [`(placeholder ,class)
-      (rewrite-item `(placeholder ,class placeholder))]
+      (rewrite-item g `(placeholder ,class placeholder))]
     [`(placeholder ,class ,name)
       `(:node (:attrs ((name . ,name)
                        (class . ,class)
@@ -344,7 +344,7 @@
          (:edge (,a bound-to) (,sym bind-from))
          (:edge (,sym bind-to) (,b bound-from)))]
     [`(copy-node ,node ,ctx)
-      (define class (class-of node))
+      (define class (class-of g node))
       (define sym (gensym class))
       `(:define ,sym (:node ,class))]
     [`(succ ,a ,b . ,more)
@@ -440,7 +440,8 @@
                          (recur g d-name->id new-groupid new-groupid members)])
           (recur g d-name->id groupid new-groupid more))]
       [`(,item . ,more) ;didn't recognize it, rewrite it
-        (recur g d-name->id groupid last-id (cons (rewrite-item item) more))]))
+        (recur g d-name->id groupid last-id
+               (cons (rewrite-item g item) more))]))
   (let-values ([(g d id) (recur g '() (void) (void) items)])
     g))
 
