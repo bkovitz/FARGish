@@ -3,7 +3,7 @@
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct
-         racket/dict racket/pretty describe rackjure/conditionals
+         racket/dict racket/pretty describe
          (except-in "graph.rkt" make-graph))
 
 (define (node-args->attrs args)
@@ -19,7 +19,14 @@
                              args)]))
 
 (define (current-groupid g)
-  (dict-ref (graph-stacks g) 'groupid #f))
+  (graph-get-stacked-variable g 'groupid (void)))
+  ;(dict-ref (graph-stacks g) 'groupid #f))
+
+(define (push-groupid g groupid)
+  (graph-push-stacked-variable g 'groupid groupid))
+
+(define (pop-groupid g)
+  (graph-pop-stacked-variable g 'groupid))
 
 (define (rewrite-item g item)
   (match item
@@ -80,9 +87,10 @@
 (define (make-node/mg g args)
   (let*-values ([(g id) (make-node g (node-args->attrs args))]
                 [(g) (set-lastid g id)]
-                [(g) (if-let [groupid (current-groupid g)]
-                       (add-edge g `((,groupid members) (,id member-of)))
-                       g)])
+                [(g) (let ([groupid (current-groupid g)])
+                       (if (void? groupid)
+                         g
+                         (add-edge g `((,groupid members) (,id member-of)))))])
     (values g id)))
 
 (define (add-node/mg g args)
@@ -108,6 +116,17 @@
                   ([n nm] [t thing])
           (let ([g (do-graph-edits g (list t))])
             (set-alias g n)))]
+      [`((:begin . ,xs) . ,more)
+        (recur (recur g xs) more)]
+      [`((:group ,name . ,xs) . ,more)
+         (let*-values ([(g groupid) (make-node/mg g
+                                      `((:attrs ((class . group)
+                                                 (name . ,name)))))]
+                       [(g) (push-groupid g groupid)]
+                       [(g) (recur g xs)]
+                       [(g) (pop-groupid g)]
+                       [(g) (set-lastid g groupid)])
+           (recur g more))]
       [`(,item . ,more) ;didn't recognize it, rewrite it
         (recur g (cons (rewrite-item g item) more))]
       ))
@@ -155,6 +174,19 @@
                              (:edge (:a out) (a in))))])
       (check-equal? (list->set (all-nodes g)) (set 'a 'b))
       (check-equal? (all-edges g) (set (set '(a in) '(b out))))))
+  (test-case ":begin"
+    (let ([g (make-graph '(:begin a b))])
+      (check-equal? (list->set (all-nodes g)) (set 'a 'b))
+      (check-equal? (class-of g 'a) 'letter)
+      (check-equal? (class-of g 'b) 'letter)))
+  (test-case ":group"
+    (let ([g (make-graph '(:group outer a b (:group inner c d) e) 'f)])
+      (check-equal? (set 'a 'b 'c 'd 'e 'f 'inner 'outer)
+                    (list->set (all-nodes g)))
+      (check-equal? (set 'inner 'a 'b 'e)
+                    (list->set (members-of g 'outer)))
+      (check-equal? (set 'c 'd)
+                    (list->set (members-of g 'inner)))))
 
   (let ([g (make-graph '(:node letter a))])
     (pr-graph g)))
