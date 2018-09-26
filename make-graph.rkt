@@ -28,23 +28,6 @@
 (define (pop-groupid g)
   (graph-pop-stacked-variable g 'groupid))
 
-(define (rewrite-item g item)
-  (match item
-    [(? symbol?) `(:node letter ,item)]
-    [(? number?) `(:node number ,item)]
-    [`(placeholder)
-      (rewrite-item g `(placeholder ,placeholder placeholder))]
-    [`(placeholder ,class)
-      (rewrite-item g `(placeholder ,class placeholder))]
-    [`(placeholder ,class ,name)
-      `(:node (:attrs ((name . ,name)
-                       (class . ,class)
-                       (value . ,placeholder))))]
-    [`(bind ,a ,b)
-      `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
-         
-    [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
-
 #;(define (set-alias g alias)
   (let ([hm-alias->id (dict-ref (graph-stacks g) 'hm-alias->id #hash())])
     (graph-set-stacked-variable g 'hm-alias->id hm-alias->id)))
@@ -99,6 +82,29 @@
 (define (add-node/mg g args)
   (let-values ([(g _) (make-node/mg g args)])
     g))
+
+(define (rewrite-item g item)
+  (match item
+    [(? symbol?) `(:node letter ,item)]
+    [(? number?) `(:node number ,item)]
+    [`(placeholder)
+      (rewrite-item g `(placeholder ,placeholder placeholder))]
+    [`(placeholder ,class)
+      (rewrite-item g `(placeholder ,class placeholder))]
+    [`(placeholder ,class ,name)
+      `(:node (:attrs ((name . ,name)
+                       (class . ,class)
+                       (value . ,placeholder))))]
+    [`(copy-node ,node ,ctx)
+      `(:node ,(class-of g node))]
+    [`(bind ,a ,b)
+      `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
+    [`(succ ,a ,b . ,more)
+      (let loop ([a a] [b b] [more more])
+        `(:begin
+           (:edgenode succ ,a ,b (succ-to succ-from) (succ-to succ-from))
+           ,@(if (null? more) '() (list (loop b (car more) (cdr more))))))]
+    [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
 
 (define (do-graph-edits g items)
   (define (recur g items)
@@ -204,6 +210,10 @@
     (let ([g (make-graph 'a 'b '(bind a b))])
       (check-true (bound-to? g 'a 'b))
       (check-true (bound-from? g 'b 'a))))
+  (test-case "succ"
+    (let ([g (make-graph 'a 'b 'c '(succ a b c))])
+      (check-true (succ? g 'a 'b))
+      (check-true (succ? g 'b 'c))))
 
   (let ([g (make-graph '(:node letter a))])
     (pr-graph g)))
