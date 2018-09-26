@@ -1,4 +1,4 @@
-#lang racket
+#lang debug racket
 
 ;; id-set: a data structure to assign unique ids to named objects
 ;;
@@ -66,7 +66,9 @@
 (define (init-base id-hash base)
   (define-values (suffix next-suffix) (init-suffix base))
   (define id-hash* (hash-set id-hash base next-suffix))
-  (values id-hash* (string->symbol (~a base suffix))))
+  (values id-hash* (if (and (not (non-empty-string? suffix)) (number? base))
+                     base
+                     (string->symbol (~a base suffix)))))
 
 (define (bump-base id-hash base)
   (define suffix (hash-ref id-hash base))
@@ -84,5 +86,6 @@
     (check-equal? target15 'target15)
     (check-equal? plus2 'plus2)
     (check-equal? target15a 'target15a)
-    (check-equal? (id-set-all-ids h) (set 'plus 'target15 'plus2 'target15a))))
-
+    (check-equal? (id-set-all-ids h) (set 'plus 'target15 'plus2 'target15a)))
+  (let-values ([(h four) (gen-id empty-id-set 4)])
+    (check-equal? four 4)))

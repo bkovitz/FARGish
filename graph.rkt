@@ -1,18 +1,20 @@
 #lang debug at-exp racket
 
+;TODO Remove make-graph and associated functions from this file.
+
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe) 
 
-(provide make-graph make-node add-node add-edge get-node-attr get-node-attrs
+(provide make-node add-node add-edge get-node-attr get-node-attrs
          add-tag port->neighbors port->neighboring-ports all-nodes
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
-         check-desiderata pr-graph members-of do-graph-edits
+         check-desiderata pr-graph members-of 
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
-         empty-graph placeholder placeholder?
+         empty-graph placeholder placeholder? group?
          graph-set-stacked-variable graph-get-stacked-variable
          graph-push-stacked-variable graph-pop-stacked-variable
          graph-update-stacked-variable
@@ -164,6 +166,9 @@
   (and (member-of? g from-ctx from-node)
        (for/or ([to-node (bound-to g from-node)])
          (member-of? g to-ctx to-node))))
+
+(define (group? g node)
+  (eq? 'group (class-of g node)))
 
 (define (succ? g node1 node2)
   (for*/or ([succ (port->neighbors g `(,node1 succ-to))]

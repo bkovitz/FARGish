@@ -1,7 +1,7 @@
 #lang debug at-exp racket
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
-         describe "graph.rkt")
+         describe "graph.rkt" "make-graph.rkt")
 
 (define (bind-all-letters g)
   (for/fold ([g g])

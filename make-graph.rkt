@@ -3,8 +3,9 @@
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct
-         racket/dict racket/pretty describe
-         (except-in "graph.rkt" make-graph))
+         racket/dict racket/pretty describe "graph.rkt")
+
+(provide make-graph do-graph-edits)
 
 (define (node-args->attrs args)
   (match args
@@ -14,6 +15,8 @@
       `((class . ,class))]
     [`(,class ,value)
       `((class . ,class) (value . ,value))]
+    [`(,class ,value ,name)
+      `((class . ,class) (value . ,value) (name . ,name))]
     [_ (raise-argument-error 'node-args->attrs
                              "(:attrs <alist>), (class), or (class value)"
                              args)]))
@@ -27,15 +30,6 @@
 
 (define (pop-groupid g)
   (graph-pop-stacked-variable g 'groupid))
-
-#;(define (set-alias g alias)
-  (let ([hm-alias->id (dict-ref (graph-stacks g) 'hm-alias->id #hash())])
-    (graph-set-stacked-variable g 'hm-alias->id hm-alias->id)))
-
-#;(define (set-lastid g id)
-  (struct-copy graph g
-               [stacks (let ([st (graph-stacks g)])
-                         (dict-set st 'lastid id))]))
 
 (define (set-lastid g id)
   (graph-set-stacked-variable g 'lastid id))
@@ -83,8 +77,16 @@
   (let-values ([(g _) (make-node/mg g args)])
     g))
 
+(define operators (set '+ '- '* '/))
+
+(define (operator? x)
+  (set-member? operators x))
+
 (define (rewrite-item g item)
   (match item
+    [(? operator?) `(:node (:attrs ((class . operator)
+                                    (name . ,item)
+                                    (value . ,item))))]
     [(? symbol?) `(:node letter ,item)]
     [(? number?) `(:node number ,item)]
     [`(placeholder)
@@ -173,9 +175,12 @@
     (let ([g (make-graph '(:edge ((:node letter a) out)
                                   ((:node letter b) in)))])
       (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
-  (test-case ":edge betw refs"
+  (test-case ":edge between refs"
     (let ([g (make-graph 'a 'b '(:edge (a out) (b in)))])
       (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+  (test-case ":edge between numbers"
+    (let ([g (make-graph 4 '+ '(:edge (4 result) (+ operands)))])
+      (check-equal? (all-edges g) (set (set '(4 result) '(+ operands))))))
   (test-case "make-graph with placeholders"
     (let ([g (make-graph 'a '(placeholder letter) 'c '(placeholder letter)
                          '(placeholder letter X) '(placeholder))])

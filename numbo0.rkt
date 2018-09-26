@@ -10,10 +10,66 @@
 ; printing the result
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
-         racket/hash describe "graph.rkt")
+         racket/hash describe "graph.rkt" "make-graph.rkt")
 
-(require rackunit data/collection racket/dict racket/generic racket/pretty
-         racket/hash describe "graph.rkt")
+;; Making a workspace
+
+(define (make-numbo-ws g bricks target)
+  (let*-values ([(g ws) (make-node g '((class . numbo-ws)))]
+                [(g) (for/fold ([g g])
+                               ([brick bricks])
+                       (let-values ([(g brickid) (make-node g brick)])
+                         (add-edge g `((,ws bricks) (,brickid source)))))]
+                [(g targetid) (make-node g target)]
+                [(g) (add-edge g `((,ws target) (,targetid result)))])
+    g))
+
+#;(module+ test
+  (test-case "numbo-ws"
+    (let ([g (make-numbo-ws (make-graph) '(4 5 6) 15)])
+      #f
+      ;TODO
+      )))
+
+;; Searching the numbo-ws
+
+(define (done? g)
+  (define (has-source? node)
+    (case (class-of g node)
+      [(number)
+       (define sources (port->neighbors g `(,node source)))
+       (if (empty? sources)
+         #f
+         (for/and ([source sources])
+           (has-source? source)))]
+      [(operator)
+       (define operands (port->neighbors g `(,node operands)))
+       (if (empty? operands)
+         #f
+         (for/and ([operand operands])
+           (has-source? operand)))]
+      [(numbo-ws)
+       #t]))
+  ;TODO? throw error if no match?
+
+  (has-source? (port->neighbor g '(numbo-ws target))))
+
+(module+ test
+  (let ([g (make-numbo-ws (make-graph) '(4 5 6) 15)])
+    (check-false (done? g))
+    (let ([g (do-graph-edits g '((:begin (:node number 9) (:node operator + +)
+                                   (:edge (4 result) (+ operands))
+                                   (:edge (5 result) (+ operands))
+                                   (:edge (+ result) (9 source)))))])
+      (check-false (done? g))
+      (let ([g (do-graph-edits g '((:let ([+ (:node operator + +)])
+                                     (:edge (9 result) (+ operands))
+                                     (:edge (6 result) (+ operands))
+                                     (:edge (+ result) (15 source)))))])
+        (check-true (done? g)) ))))
+
+
+;; Completing an archetype
 
 (define (superficial-matches g from-ctx from-node to-ctx)
   (for/list ([to-node (members-of g to-ctx)]
@@ -238,6 +294,31 @@
             ([timestep slipnet-timesteps])
     (do-slipnet-timestep g activations)))
 
+(module+ test
+  (test-case "spreading activation"
+    (define slipnet (make-slipnet
+      (make-graph '(:group 4+5=9 4 5 + 9
+                     (:edge (4 result) (+ operands))
+                     (:edge (5 result) (+ operands))
+                     (:edge (+ result) (9 source))))
+      (make-graph '(:group 4+2=6 4 2 + 6
+                     (:edge (4 result) (+ operands))
+                     (:edge (2 result) (+ operands))
+                     (:edge (+ result) (6 source))))
+      (make-graph '(:group 6+9=15 6 9 + 15
+                     (:edge (9 result) (+ operands))
+                     (:edge (9 result) (+ operands))
+                     (:edge (+ result) (15 source))))))
+    (define initial-activations #hash((archetype4 . 1.0) (archetype5 . 1.0)))
+    (define activations (run-slipnet slipnet initial-activations))
+    (check-equal?
+      (sequence->list
+        (filter (λ (node) (group? slipnet node))
+                (map car (sort (hash->list activations)
+                               (λ (a1 a2) (> (cdr a1) (cdr a2)))))))
+      '(4+5=9 4+2=6 6+9=15)
+      "group with 4 and 5 in it didn't get strongest activation")))
+
 (define (search-slipnet g initial-activations)
   'STUB)
 
@@ -289,26 +370,6 @@
 
 ;(pr-graph g)
 
-(define slipnet (make-slipnet
-  (make-graph '(:group 4+5=9 4 5 + 9
-                 (:edge (4 result) (+ operands))
-                 (:edge (5 result) (+ operands))
-                 (:edge (+ result) (9 source))))
-  (make-graph '(:group 4+2=6 4 2 + 6
-                 (:edge (4 result) (+ operands))
-                 (:edge (2 result) (+ operands))
-                 (:edge (+ result) (6 source))))
-  (make-graph '(:group 6+9=15 6 9 + 15
-                 (:edge (9 result) (+ operands))
-                 (:edge (9 result) (+ operands))
-                 (:edge (+ result) (15 source))))
-  ))
-                 
-;(pr-graph slipnet)
-
-;(define is #hash((archetype4 . 1.0)))
-;(define as (run-slipnet slipnet is))
-;as
 
 ;(define g (make-graph
 ;  '(numbo-ws (bricks 4 5 6) (target 15))))
