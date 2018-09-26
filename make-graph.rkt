@@ -18,11 +18,6 @@
                              "(:attrs <alist>), (class), or (class value)"
                              args)]))
 
-(define (set-lastid g id)
-  (struct-copy graph g
-               [stacks (let ([st (graph-stacks g)])
-                         (dict-set st 'lastid id))]))
-
 (define (current-groupid g)
   (dict-ref (graph-stacks g) 'groupid #f))
 
@@ -40,6 +35,30 @@
                        (value . ,placeholder))))]
     [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
 
+#;(define (set-alias g alias)
+  (let ([hm-alias->id (dict-ref (graph-stacks g) 'hm-alias->id #hash())])
+    (graph-set-stacked-variable g 'hm-alias->id hm-alias->id)))
+
+#;(define (set-lastid g id)
+  (struct-copy graph g
+               [stacks (let ([st (graph-stacks g)])
+                         (dict-set st 'lastid id))]))
+
+(define (set-lastid g id)
+  (graph-set-stacked-variable g 'lastid id))
+
+(define (get-lastid g)
+  (graph-get-stacked-variable g 'lastid))
+
+(define (set-alias g alias)
+  (graph-update-stacked-variable g 'hm-alias->id
+    (λ (hm) (hash-set hm alias (get-lastid g)))
+    #hash()))
+
+(define (look-up-node g name)
+  (let ([hm-alias->id (dict-ref (graph-stacks g) 'hm-alias->id #hash())])
+    (hash-ref hm-alias->id name (thunk (if (has-node? g name) name (void))))))
+
 (define (get-port g port-spec)
   (match port-spec
     [`((:node . ,args) ,port-label)
@@ -49,19 +68,27 @@
       (let ([id (look-up-node g name)])
         (if (void? id)
           (error 'get-port @~a{no such node: @name})
-          NEXT
+          (values g `(,id ,port-label))))]
+    [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
+
+(define (make-node/mg g args)
+  (let*-values ([(g id) (make-node g (node-args->attrs args))]
+                [(g) (set-lastid g id)]
+                [(g) (if-let [groupid (current-groupid g)]
+                       (add-edge g `((,groupid members) (,id member-of)))
+                       g)])
+    (values g id)))
+
+(define (add-node/mg g args)
+  (let-values ([(g _) (make-node/mg g args)])
+    g))
 
 (define (do-graph-edits g items)
   (define (recur g items)
     (match items
       ['() g]
       [`((:node . ,args) . ,more)
-        (let*-values ([(g id) (make-node g (node-args->attrs args))]
-                      [(g) (set-lastid g id)]
-                      [(g) (if-let [groupid (current-groupid g)]
-                             (add-edge g `((,groupid members) (,id member-of)))
-                             g)])
-          (recur g more))]
+        (recur (add-node/mg g args) more)]
       [`((:edge ,port1 ,port2) . ,more)
         (let*-values ([(g p1) (get-port g port1)]
                       [(g p2) (get-port g port2)]
@@ -69,6 +96,12 @@
                       [(g) (add-edge g edge)]
                       [(g) (set-lastid g edge)])
           (recur g more))]
+      [`((:let ([,nm ,thing] ...) ,body ...) . ,more)
+        #R(list nm thing body)
+        (for/fold ([g g] #:result (recur (do-graph-edits g body) more))
+                  ([n nm] [t thing])
+          (let ([g (do-graph-edits g (list t))])
+            (set-alias g n)))]
       [`(,item . ,more) ;didn't recognize it, rewrite it
         (recur g (cons (rewrite-item g item) more))]
       ))
@@ -96,5 +129,26 @@
     (let ([g (make-graph '(:edge ((:node letter a) out)
                                   ((:node letter b) in)))])
       (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+  (test-case ":edge betw refs"
+    (let ([g (make-graph 'a 'b '(:edge (a out) (b in)))])
+      (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+  (test-case "make-graph with placeholders"
+    (let ([g (make-graph 'a '(placeholder letter) 'c '(placeholder letter)
+                         '(placeholder letter X) '(placeholder))])
+      (check-equal? (class-of g 'placeholder) 'letter)
+      (check-equal? (value-of g 'placeholder) placeholder)
+      (check-equal? (class-of g 'placeholder2) 'letter)
+      (check-equal? (value-of g 'placeholder2) placeholder)
+      (check-equal? (class-of g 'X) 'letter)
+      (check-equal? (value-of g 'X) placeholder)
+      (check-equal? (class-of g 'placeholder3) placeholder)
+      (check-equal? (value-of g 'placeholder3) placeholder)))
+  (test-case ":let"
+    (let ([g (make-graph '(:let ([:a (:node letter b)] [:c x])  ; :a is b
+                             (:node letter a)
+                             (:edge (:a out) (a in))))])
+      (check-equal? (list->set (all-nodes g)) (set 'a 'b))
+      (check-equal? (all-edges g) (set (set '(a in) '(b out))))))
+
   (let ([g (make-graph '(:node letter a))])
     (pr-graph g)))

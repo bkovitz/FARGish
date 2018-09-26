@@ -13,6 +13,9 @@
          bound-from? succ? has-node? tag-of node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
          empty-graph placeholder placeholder?
+         graph-set-stacked-variable graph-get-stacked-variable
+         graph-push-stacked-variable graph-pop-stacked-variable
+         graph-update-stacked-variable
          (struct-out graph))
 
 ;; A port graph
@@ -28,6 +31,55 @@
 (define empty-spec '())
 ;(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
 (define empty-graph (graph #hash() #hash() (set) empty-id-set '() empty-spec))
+
+;; Stacked variables
+
+(define (graph-get-stacked-variable g name default-value)
+  (let ([stack (dict-ref (graph-stacks g) name '())])
+    (if (null? stack)
+      default-value
+      (car stack))))
+
+(define (graph-set-stacked-variable g name value)
+  (let* ([stacks (graph-stacks g)]
+         [stack (dict-ref stacks name '())]
+         [stack (if (null? stack)
+                  (list value)
+                  (cons value (cdr stack)))])
+    (struct-copy graph g
+      [stacks (dict-set stacks name stack)])))
+
+(define (graph-update-stacked-variable g name f default-value)
+  (define v0 (graph-get-stacked-variable g name default-value))
+  (graph-set-stacked-variable g name (f v0)))
+
+(define (graph-push-stacked-variable g name value)
+  (let* ([stacks (graph-stacks g)]
+         [stack (dict-ref stacks name '())]
+         [stack (cons value stack)])
+    (struct-copy graph g
+      [stacks (dict-set stacks name stack)])))
+
+(define (graph-pop-stacked-variable g name)
+  (let* ([stacks (graph-stacks g)]
+         [stack (dict-ref stacks name)]
+         [stack (cdr stack)])
+    (struct-copy graph g
+      [stacks (dict-set stacks name stack)])))
+
+(module+ test
+  (test-case "stacked variable"
+    (define g0 empty-graph)
+    (define g1 (graph-set-stacked-variable g0 'abc 5))
+    (check-equal? (graph-get-stacked-variable g1 'abc (void)) 5)
+    (define g2 (graph-set-stacked-variable g1 'abc 6))
+    (check-equal? (graph-get-stacked-variable g2 'abc (void)) 6)
+    (define g3 (graph-push-stacked-variable g2 'abc 7))
+    (check-equal? (graph-get-stacked-variable g3 'abc (void)) 7)
+    (define g4 (graph-update-stacked-variable g3 'abc add1 (void)))
+    (check-equal? (graph-get-stacked-variable g4 'abc (void)) 8)
+    (define g5 (graph-pop-stacked-variable g4 'abc))
+    (check-equal? (graph-get-stacked-variable g5 'abc (void)) 6)))
 
 ;; Querying a graph
 
