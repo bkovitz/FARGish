@@ -1,0 +1,27 @@
+Want edge-mate in to-ctx that is bound from from-ctx to a node that links
+analogously from from-ctx. Want homomorphism-preserving edge-mate.
+
+
+Want edge-mate with some intrinsic properties and linking properties.
+Can't find node with intrinsic properties? Build one and start continuation
+for linking properties. Can find one with intrinsic properties? See if it
+violates linking properties. If so, build and k as before. Does it have
+all linking properties? Then link to it and we're done. Otherwise link
+to it and start continuation for other linking properties.
+
+Not sure what value or class to give a node when building it? Give it a
+placeholder.
+
+Incompatible linking properties: already being bound from another node in the
+ctx that we are trying to bind from.
+
+Need to monitor nodes with continuations, and keep searching for alternative
+mates for desiderata.
+
+
+When starting an agent, just boost or support an existing agent that matches.
+
+
+A node has a my-builder port. If the node gets tagged 'failed, it gives
+antipathy to its builder. It should give antipathy to any nodes that depend on
+its success.

@@ -12,6 +12,7 @@
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
+         empty-graph placeholder placeholder?
          (struct-out graph))
 
 ;; A port graph
@@ -21,11 +22,12 @@
                hm-port->neighboring-ports
                edges
                id-set
+               stacks  ; dict of temp vars for do-graph-edits
                spec) #:transparent)
 
 (define empty-spec '())
 ;(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
-(define empty-graph (graph #hash() #hash() (set) empty-id-set empty-spec))
+(define empty-graph (graph #hash() #hash() (set) empty-id-set '() empty-spec))
 
 ;; Querying a graph
 
@@ -357,6 +359,14 @@
            (:edge (,a succ-to) (,sym succ-from))
            (:edge (,sym succ-to) (,b succ-from))
            ,@(if (null? more) '() (list (loop b (car more) (cdr more))))))]
+;    [`(numbo-ws (bricks . ,bricks) (target ,target))
+;      (define ws (gensym 'ws))
+;      (define target (gensym 'target))
+;      `(:make
+;         (:define ,ws (:node ws))
+;         ,(let loop ([brick bricks])
+;            (define b (gensym 'brick))
+;            (
     [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
 
 (define (node-args->attrs args)
