@@ -40,6 +40,9 @@
       `(:node (:attrs ((name . ,name)
                        (class . ,class)
                        (value . ,placeholder))))]
+    [`(bind ,a ,b)
+      `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
+         
     [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
 
 #;(define (set-alias g alias)
@@ -109,6 +112,16 @@
                       [(edge) `(,p1 ,p2)]
                       [(g) (add-edge g edge)]
                       [(g) (set-lastid g edge)])
+          (recur g more))]
+      [`((:edgenode ,class ,from-node ,to-node
+                    (,from-port-label ,edge-port-label1)
+                    (,edge-port-label2 ,to-port-label)) . ,more)
+        (let*-values ([(g id) (make-node/mg g `((:attrs ((class . ,class)))))]
+                      [(g) (add-edge g `((,from-node ,from-port-label)
+                                         (,id ,edge-port-label1)))]
+                      [(g) (add-edge g `((,id ,edge-port-label2)
+                                         (,to-node ,to-port-label)))]
+                      [(g) (set-lastid g id)])
           (recur g more))]
       [`((:let ([,nm ,thing] ...) ,body ...) . ,more)
         (for/fold ([g (push-aliases g)]
@@ -187,6 +200,10 @@
                     (list->set (members-of g 'outer)))
       (check-equal? (set 'c 'd)
                     (list->set (members-of g 'inner)))))
+  (test-case "bind"
+    (let ([g (make-graph 'a 'b '(bind a b))])
+      (check-true (bound-to? g 'a 'b))
+      (check-true (bound-from? g 'b 'a))))
 
   (let ([g (make-graph '(:node letter a))])
     (pr-graph g)))
