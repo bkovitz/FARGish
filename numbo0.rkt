@@ -150,15 +150,21 @@
     [else (raise 'cant-make-edge)]))
 
 ; assumes that edge is a list in a certain order
-(define (edge-leads-to-node? g edge ctx)
+(define (edge-leads-to-node? g edge node)
   (match edge
     [`((,_ ,_) (,to-node ,port-label))
-      (equal? to-node ctx)]
+      (equal? to-node node)]
     ))
+
+; assumes that edge is a list in a certain order
+(define (edge-from-irrelevant-port? g edge)
+  (match-let ([`((,_ ,port-label) (,_ ,_)) edge])
+    (eq? 'activation port-label)))
 
 (define (required-edges-in-ctx g node ctx)
   (for/list ([edge (node->incident-edges g node)]
-             #:when (not (edge-leads-to-node? g edge ctx)))
+             #:when (and (not (edge-from-irrelevant-port? g edge))
+                         (not (edge-leads-to-node? g edge ctx))))
     edge))
          
 ; throws 'cant-make-edge
@@ -170,7 +176,7 @@
       (match-define `((,ignored ,port-label1) (,from-neighbor ,port-label2))
                     from-edge)
       (define bindee1 (hash-ref hm-bdx from-node))
-      (define bindee2 (hash-ref hm-bdx from-neighbor))
+      (define bindee2 (hash-ref #R hm-bdx from-neighbor))
       (try-to-make-edge g `((,bindee1 ,port-label1) (,bindee2 ,port-label2)))
       )))
 
@@ -361,13 +367,23 @@
       (define archetype (archetype-of g node))
       `(,archetype . 1.0))))
 
+(define (most-active-group g activations)
+  (define group-activations (for/list ([a (hash->list activations)]
+                                       #:when (match-let ([`(,node . ,x) a])
+                                                (group? g node)))
+                              a))
+  (car (argmax cdr group-activations)))
+
 (define (search-slipnet g initial-activations)
-  'STUB)
-
-
+  (define activations (run-slipnet g initial-activations))
+  (most-active-group g activations))
 
 (define (do-timestep g)
-  run-slipnet)
+  (define archetypal-group (search-slipnet g (make-initial-activations g)))
+  (hacked-finish-archetype g #R archetypal-group 'numbo-ws))
+
+;(define (run g)
+;  (let* ([g (initialize-ws-activations g)])
 
 ;; Output for debugging/experimentation
 

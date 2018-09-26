@@ -10,7 +10,7 @@
 (provide make-node add-node add-edge get-node-attr get-node-attrs
          add-tag port->neighbors port->neighboring-ports all-nodes
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
-         check-desiderata pr-graph members-of 
+         check-desiderata pr-graph pr-group members-of 
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
@@ -207,6 +207,17 @@
 ;  (for ([edge (sort edges string<?)])
 ;    (printf " ~a\n" edge))
   )
+
+(define (pr-group g groupid)
+  (displayln "Nodes:")
+  (for ([nodeid (cons groupid
+                      (sort (members-of g groupid)
+                            (λ (id1 id2) (string<? (~a id1) (~a id2)))))])
+    (printf " ~a ~a\n" (~a nodeid #:min-width 12)
+                        (hash-remove (get-node-attrs g nodeid) 'id))
+    (for* ([port (node->ports g nodeid)]
+           [neighboring-port (port->neighboring-ports g port)])
+      (printf "  ~a -- ~a\n" port neighboring-port))))
 
 #;(define (has-node? g id)
   (hash-has-key? (graph-elems g) id))
