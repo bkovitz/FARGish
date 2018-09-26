@@ -55,8 +55,14 @@
     (λ (hm) (hash-set hm alias (get-lastid g)))
     #hash()))
 
+(define (push-aliases g)
+  (graph-push-stacked-variable g 'hm-alias->id))
+
+(define (pop-aliases g)
+  (graph-pop-stacked-variable g 'hm-alias->id))
+
 (define (look-up-node g name)
-  (let ([hm-alias->id (dict-ref (graph-stacks g) 'hm-alias->id #hash())])
+  (let ([hm-alias->id (graph-get-stacked-variable g 'hm-alias->id #hash())])
     (hash-ref hm-alias->id name (thunk (if (has-node? g name) name (void))))))
 
 (define (get-port g port-spec)
@@ -97,8 +103,8 @@
                       [(g) (set-lastid g edge)])
           (recur g more))]
       [`((:let ([,nm ,thing] ...) ,body ...) . ,more)
-        #R(list nm thing body)
-        (for/fold ([g g] #:result (recur (do-graph-edits g body) more))
+        (for/fold ([g (push-aliases g)]
+                   #:result (recur (pop-aliases (do-graph-edits g body)) more))
                   ([n nm] [t thing])
           (let ([g (do-graph-edits g (list t))])
             (set-alias g n)))]
@@ -144,7 +150,7 @@
       (check-equal? (class-of g 'placeholder3) placeholder)
       (check-equal? (value-of g 'placeholder3) placeholder)))
   (test-case ":let"
-    (let ([g (make-graph '(:let ([:a (:node letter b)] [:c x])  ; :a is b
+    (let ([g (make-graph '(:let ([:a (:node letter b)])  ; :a is b
                              (:node letter a)
                              (:edge (:a out) (a in))))])
       (check-equal? (list->set (all-nodes g)) (set 'a 'b))

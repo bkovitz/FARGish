@@ -34,11 +34,16 @@
 
 ;; Stacked variables
 
-(define (graph-get-stacked-variable g name default-value)
-  (let ([stack (dict-ref (graph-stacks g) name '())])
-    (if (null? stack)
-      default-value
-      (car stack))))
+(define graph-get-stacked-variable
+  (case-lambda
+    [(g name default-value)
+     (let ([stack (dict-ref (graph-stacks g) name '())])
+       (if (null? stack)
+         default-value
+         (car stack)))]
+    [(g name)
+     (let ([stack (dict-ref (graph-stacks g) name)])
+       (car stack))]))
 
 (define (graph-set-stacked-variable g name value)
   (let* ([stacks (graph-stacks g)]
@@ -53,17 +58,27 @@
   (define v0 (graph-get-stacked-variable g name default-value))
   (graph-set-stacked-variable g name (f v0)))
 
-(define (graph-push-stacked-variable g name value)
-  (let* ([stacks (graph-stacks g)]
-         [stack (dict-ref stacks name '())]
-         [stack (cons value stack)])
-    (struct-copy graph g
-      [stacks (dict-set stacks name stack)])))
+(define graph-push-stacked-variable
+  (case-lambda
+    [(g name value)
+     (let* ([stacks (graph-stacks g)]
+            [stack (dict-ref stacks name '())]
+            [stack (cons value stack)])
+       (struct-copy graph g
+         [stacks (dict-set stacks name stack)]))]
+    [(g name)
+     (let* ([stacks (graph-stacks g)]
+            [stack (dict-ref stacks name '())]
+            [stack (if (null? stack)
+                     stack
+                     (cons (car stack) stack))])
+       (struct-copy graph g
+         [stacks (dict-set stacks name stack)]))]))
 
 (define (graph-pop-stacked-variable g name)
   (let* ([stacks (graph-stacks g)]
          [stack (dict-ref stacks name)]
-         [stack (cdr stack)])
+         [stack (if (null? stack) stack (cdr stack))])
     (struct-copy graph g
       [stacks (dict-set stacks name stack)])))
 
