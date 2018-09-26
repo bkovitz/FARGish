@@ -18,10 +18,16 @@
   (let*-values ([(g ws) (make-node g '((class . numbo-ws)))]
                 [(g) (for/fold ([g g])
                                ([brick bricks])
-                       (let-values ([(g brickid) (make-node g brick)])
-                         (add-edge g `((,ws bricks) (,brickid source)))))]
+                       (let*-values ([(g brickid) (make-node g brick)]
+                                     [(g) (add-edge g `((,ws bricks)
+                                                        (,brickid source)))]
+                                     [(g) (add-edge g `((,ws members)
+                                                        (,brickid
+                                                          member-of)))])
+                         g))]
                 [(g targetid) (make-node g target)]
-                [(g) (add-edge g `((,ws target) (,targetid result)))])
+                [(g) (add-edge g `((,ws target) (,targetid result)))]
+                [(g) (add-edge g `((,ws members) (,targetid member-of)))])
     g))
 
 #;(module+ test
@@ -68,6 +74,22 @@
                                      (:edge (+ result) (15 source)))))])
         (check-true (done? g)) ))))
 
+(define (nodes-missing-a-neighbor g)
+  (for/list ([node (members-of g 'numbo-ws)]
+             #:when (missing-a-neighbor? g node))
+    node))
+
+(define (missing-a-neighbor? g node)
+  (case (class-of g node)
+    [(number)
+     (define sources (port->neighbors g `(,node source)))
+     (define results (port->neighbors g `(,node result)))
+     (or (empty? sources) (empty? results))]
+    [(operator)
+     (define operands (port->neighbors g `(,node operands)))
+     (define results (port->neighbors g `(,node result)))
+     (or (< (length operands) 2) (empty? results))]
+    [else #f]))
 
 ;; Completing an archetype
 
@@ -182,6 +204,7 @@
   (define new-node2 (dict-ref node-map node2))
   `((,new-node1 ,port-label1) (,new-node2 ,port-label2)))
 
+;TODO mv to graph.rkt
 (define (copy-graph-into-graph g g1)
   (let-values ([(g node-map)
       (for/fold ([g g] [node-map '()])
@@ -319,12 +342,28 @@
       '(4+5=9 4+2=6 6+9=15)
       "group with 4 and 5 in it didn't get strongest activation")))
 
+;; Running
+
+(define (archetypes g slipnet-root)
+  (for/list ([node (members-of g slipnet-root)]
+             #:when (eq? 'archetype (class-of g node)))
+    node))
+
+;Assumes that node has an archetype
+(define (archetype-of g node)
+  (for/first ([archetype (archetypes g 'slipnet)]
+              #:when (equal? (value-of g node) (value-of g archetype)))
+    archetype))
+
+(define (make-initial-activations g)
+  (make-immutable-hash
+    (for/list ([node (nodes-missing-a-neighbor g)])
+      (define archetype (archetype-of g node))
+      `(,archetype . 1.0))))
+
 (define (search-slipnet g initial-activations)
   'STUB)
 
-;; Run
-
-;(define (find-unfinished-nodes g)
 
 
 (define (do-timestep g)
@@ -375,3 +414,24 @@
 ;  '(numbo-ws (bricks 4 5 6) (target 15))))
 ;
 ;(pr-graph g)
+
+
+(define slipnet (make-slipnet
+  (make-graph '(:group 4+5=9 4 5 + 9
+                 (:edge (4 result) (+ operands))
+                 (:edge (5 result) (+ operands))
+                 (:edge (+ result) (9 source))))
+  (make-graph '(:group 4+2=6 4 2 + 6
+                 (:edge (4 result) (+ operands))
+                 (:edge (2 result) (+ operands))
+                 (:edge (+ result) (6 source))))
+  (make-graph '(:group 6+9=15 6 9 + 15
+                 (:edge (9 result) (+ operands))
+                 (:edge (9 result) (+ operands))
+                 (:edge (+ result) (15 source))))))
+
+(define g (let*-values ([(g) (make-graph)]
+                        [(g) (make-numbo-ws g '(4 5 6) 15)]
+                        [(g _) (copy-graph-into-graph g slipnet)])
+            g))
+(pr-graph g)
