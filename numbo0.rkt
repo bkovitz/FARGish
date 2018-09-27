@@ -103,12 +103,27 @@
                                                from-ctx from-node to-ctx)])
                            `(bind ,from-node ,to-node))))
 
+(define (all-binds? completion)
+  (for/and ([action completion])
+    (bind? action)))
+
+(define (all-builds? completion)
+  (for/and ([action completion])
+    (build? action)))
+
+(define (filter-out-invalid-completions completions)
+  (for/list ([completion completions]
+             #:when (and (not (all-binds? completion))
+                         (not (all-builds? completion))))
+    completion))
+
 ;TODO filter out completions that don't build anything
 (define (all-possible-archetype-completions g from-ctx to-ctx)
   (local-require (only-in racket/list cartesian-product))
-  (apply cartesian-product
-    (for/list ([from-node (members-of g from-ctx)])
-      (build/bind-actions g from-ctx from-node to-ctx))))
+  (filter-out-invalid-completions
+    (apply cartesian-product
+      (for/list ([from-node (members-of g from-ctx)])
+        (build/bind-actions g from-ctx from-node to-ctx)))))
 
 (define (attrs-to-copy g from-node)
   (define attrs (get-node-attrs g from-node))
@@ -187,10 +202,20 @@
   (and (list? x)
        (eq? 'build (car x))))
 
+(define (bind? x)
+  (and (list? x)
+       (eq? 'bind (car x))))
+
 (define (best-completion actions->g)
   (define best-action->g (argmin (λ (ag) (count build? (car ag)))
                                  actions->g))
   (cdr best-action->g))
+
+(define (tag-failed g node)
+  (if (failed? g node)
+    g
+    (do-graph-edits g `((:let ([:tag (:node failed)])
+                           (:edge (:tag tagged) (,node tags)))))))
 
 (define (hacked-finish-archetype g from-ctx to-ctx)
   (define actions->g
@@ -200,7 +225,10 @@
       (with-handlers ([cant-make-edge? (λ (x) alist)])
         (cons `(,bdx-actions . ,(try-bdx-actions g from-ctx to-ctx bdx-actions))
               alist))))
-  (best-completion actions->g))
+  #R (stream->list (map car actions->g))
+  (if (empty? actions->g)
+    (tag-failed g from-ctx)
+    (best-completion actions->g)))
 
 ;; Making a slipnet
 
@@ -361,29 +389,75 @@
               #:when (equal? (value-of g node) (value-of g archetype)))
     archetype))
 
-(define (make-initial-activations g)
+#;(define (make-initial-activations g)
   (make-immutable-hash
     (for/list ([node (nodes-missing-a-neighbor g)])
       (define archetype (archetype-of g node))
       `(,archetype . 1.0))))
 
+(define (make-initial-activations g)
+  (for/fold ([h (hash)])
+            ([node (members-of g 'numbo-ws)])
+    (define s (salience-of g node))
+    (if (zero? s)
+      h
+      (let ([archetype (archetype-of g node)])
+        (hash-update h archetype (λ (old) (+ old s)) 0.0)))))
+
+(define (failed? g node)
+  (for/or ([neighbor (port->neighbors g `(,node tags))]
+           #:when (eq? 'failed (class-of g neighbor)))
+    neighbor))
+
+(define (candidate-group? g slipnode)
+  (and (group? g slipnode)
+       (not (failed? g slipnode))))
+
 (define (most-active-group g activations)
-  (define group-activations (for/list ([a (hash->list activations)]
-                                       #:when (match-let ([`(,node . ,x) a])
-                                                (group? g node)))
-                              a))
+  (define group-activations (for/list ([g-a (hash->list activations)]
+                                       #:when (candidate-group? g (car g-a)))
+                              g-a))
+  (when (empty? group-activations)
+    (raise 'nothing-to-do))
   (car (argmax cdr group-activations)))
 
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
   (most-active-group g activations))
 
+(define salience-decay 0.9)
+
+(define (salience-of g node)
+  (let ([s (get-node-attr g node 'salience)])
+    (if (void? s) 0.0 s)))
+
+(define (update-saliences g)
+  (for/fold ([g g])
+            ([node (members-of g 'numbo-ws)])
+    (define new-salience (+ (* salience-decay (salience-of g node))
+                            (if (missing-a-neighbor? g node) 1.0 0.0)))
+    (set-node-attr g node 'salience new-salience)))
+
+(define (eq?f x)
+  (λ (x*) (eq? x x*)))
+
+(define (log x)
+  (displayln (~a x)))
+
 (define (do-timestep g)
-  (define archetypal-group (search-slipnet g (make-initial-activations g)))
-  (hacked-finish-archetype g #R archetypal-group 'numbo-ws))
+  (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
+    (let* ([g (update-saliences g)]
+           [activations (make-initial-activations g)]
+           [archetypal-group (search-slipnet g #R activations)])
+    (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
+
+(define (initialize-salience g)
+  (for/fold ([g g])
+            ([node (members-of g 'numbo-ws)])
+    (set-node-attr g node 'salience 0.0)))
 
 ;(define (run g)
-;  (let* ([g (initialize-ws-activations g)])
+;  (let* ([g (initialize-salience g)])
 
 ;; Output for debugging/experimentation
 
@@ -437,7 +511,7 @@
                  (:edge (4 result) (+ operands))
                  (:edge (5 result) (+ operands))
                  (:edge (+ result) (9 source))))
-  (make-graph '(:group 4+2=6 4 2 + 6
+  #;(make-graph '(:group 4+2=6 4 2 + 6
                  (:edge (4 result) (+ operands))
                  (:edge (2 result) (+ operands))
                  (:edge (+ result) (6 source))))
@@ -453,4 +527,6 @@
 (define g2 (do-timestep g))
 (define g3 (do-timestep g2))
 (define g4 (do-timestep g3))
-(pr-group g4 'numbo-ws)
+(define g5 (do-timestep g4))
+(define g6 (do-timestep g5))
+(pr-group g6 'numbo-ws)

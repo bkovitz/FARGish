@@ -7,7 +7,7 @@
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe) 
 
-(provide make-node add-node add-edge get-node-attr get-node-attrs
+(provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
          add-tag port->neighbors port->neighboring-ports all-nodes
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
          check-desiderata pr-graph pr-group members-of 
@@ -312,6 +312,15 @@
     [(hash-table ((== id) attrs) _ ...)
      attrs]
     [_ (void)]))
+
+;TODO UT
+(define (set-node-attr g node k v)
+  (if (has-node? g node)
+    (let ([attrs (get-node-attrs g node)])
+      (struct-copy graph g
+        [hm-node->attrs
+          (hash-set (graph-hm-node->attrs g) node (hash-set attrs k v))]))
+    g))
 
 (module+ test
   (let*-values ([(g target15) (make-node empty-graph '((class . target15)))]
