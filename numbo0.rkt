@@ -176,7 +176,7 @@
       (match-define `((,ignored ,port-label1) (,from-neighbor ,port-label2))
                     from-edge)
       (define bindee1 (hash-ref hm-bdx from-node))
-      (define bindee2 (hash-ref #R hm-bdx from-neighbor))
+      (define bindee2 (hash-ref hm-bdx from-neighbor))
       (try-to-make-edge g `((,bindee1 ,port-label1) (,bindee2 ,port-label2)))
       )))
 
@@ -188,9 +188,9 @@
        (eq? 'build (car x))))
 
 (define (best-completion actions->g)
-  (cdr
-    (argmin (λ (ag) (count build? (car ag)))
-            actions->g)))
+  (define best-action->g (argmin (λ (ag) (count build? (car ag)))
+                                 actions->g))
+  (cdr best-action->g))
 
 (define (hacked-finish-archetype g from-ctx to-ctx)
   (define actions->g
@@ -283,7 +283,7 @@
 
 (define slipnet-spreading-rate 0.1)
 (define slipnet-decay 0.9)
-(define slipnet-timesteps 10)
+(define slipnet-timesteps 20)
 
 (define (activation-edges-starting-from g nodes)
   (for*/set ([node nodes]
@@ -335,7 +335,7 @@
                      (:edge (2 result) (+ operands))
                      (:edge (+ result) (6 source))))
       (make-graph '(:group 6+9=15 6 9 + 15
-                     (:edge (9 result) (+ operands))
+                     (:edge (6 result) (+ operands))
                      (:edge (9 result) (+ operands))
                      (:edge (+ result) (15 source))))))
     (define initial-activations #hash((archetype4 . 1.0) (archetype5 . 1.0)))
@@ -442,7 +442,7 @@
                  (:edge (2 result) (+ operands))
                  (:edge (+ result) (6 source))))
   (make-graph '(:group 6+9=15 6 9 + 15
-                 (:edge (9 result) (+ operands))
+                 (:edge (6 result) (+ operands))
                  (:edge (9 result) (+ operands))
                  (:edge (+ result) (15 source))))))
 
@@ -450,4 +450,7 @@
                         [(g) (make-numbo-ws g '(4 5 6) 15)]
                         [(g _) (copy-graph-into-graph g slipnet)])
             g))
-(pr-graph g)
+(define g2 (do-timestep g))
+(define g3 (do-timestep g2))
+(define g4 (do-timestep g3))
+(pr-group g4 'numbo-ws)
