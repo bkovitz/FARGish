@@ -637,8 +637,8 @@
 (define big-slipnet
   (let ()
     (define ns (make-base-namespace))
-    (define operand-pairs (for*/set ([i (in-range 0 13)]
-                                     [j (in-range 0 13)])
+    (define operand-pairs (for*/set ([i (in-range 1 13)]
+                                     [j (in-range 1 13)])
                             `(,i ,j)))
     (define tuples (for*/list ([ij operand-pairs]
                                [op '(+ - *)])
