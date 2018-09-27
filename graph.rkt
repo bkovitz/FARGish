@@ -10,11 +10,11 @@
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
          add-tag port->neighbors port->neighboring-ports all-nodes
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
-         check-desiderata pr-graph pr-group members-of 
+         check-desiderata pr-graph pr-group members-of member-of?
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
          bound-from? succ? has-node? tag-of node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
-         empty-graph placeholder placeholder? group?
+         empty-graph placeholder placeholder? group? remove-node
          graph-set-stacked-variable graph-get-stacked-variable
          graph-push-stacked-variable graph-pop-stacked-variable
          graph-update-stacked-variable
@@ -382,6 +382,14 @@
     (struct-copy graph g
       [edges (set-remove (graph-edges g) edge*)]
       [hm-port->neighboring-ports p->nps])))
+
+;TODO UT
+(define (remove-node g node)
+  (let ([g (for/fold ([g g])
+                     ([edge (node->incident-edges g node)])
+             (remove-edge g edge))])
+    (struct-copy graph g
+      [hm-node->attrs (hash-remove (graph-hm-node->attrs g) node)])))
 
 (module+ test
   (let* ([g (add-node empty-graph '((class . number) (name . source9)))]

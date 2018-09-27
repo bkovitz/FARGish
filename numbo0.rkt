@@ -10,7 +10,10 @@
 ; printing the result
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
-         racket/hash describe "graph.rkt" "make-graph.rkt")
+         racket/hash describe
+         "graph.rkt" "make-graph.rkt")
+
+(provide (all-defined-out))
 
 ;; Making a workspace
 
@@ -444,9 +447,36 @@
 (define (log x)
   (displayln (~a x)))
 
+(define (decayable-node? g node)
+  (or (eq? 'failed (class-of g node))
+      (and (member-of? g 'numbo-ws node)
+           (not (brick? g node))
+           (not (target? g node)))))
+
+(define (decayable-nodes g)
+  (for/list ([node (all-nodes g)]
+             #:when (decayable-node? g node))
+    node))
+
+(define support-decay-rate 0.5)
+
+(define (decay-nodes g)
+  (for/fold ([g g])
+            ([node (decayable-nodes g)])
+    (define support (get-node-attr g node 'support))
+    (if (void? support)
+      (set-node-attr g node 'support 1.0)
+      (let ([new-support (* support-decay-rate support)])
+        (if (< new-support 0.2)
+          (begin
+            (log (format "removing ~a" node))
+            (remove-node g node))
+          (set-node-attr g node 'support new-support))))))
+
 (define (do-timestep g)
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
-    (let* ([g (update-saliences g)]
+    (let* ([g (decay-nodes g)]
+           [g (update-saliences g)]
            [activations (make-initial-activations g)]
            [archetypal-group (search-slipnet g #R activations)])
     (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
@@ -456,8 +486,49 @@
             ([node (members-of g 'numbo-ws)])
     (set-node-attr g node 'salience 0.0)))
 
-;(define (run g)
-;  (let* ([g (initialize-salience g)])
+(define (result-of g node)
+  (port->neighbor g `(,node result)))
+
+(define (source-of g node)
+  (port->neighbor g `(,node source)))
+
+(define (operands-of g node)
+  (port->neighbors g `(,node operands)))
+
+(define (brick? g node)
+  (eq? 'numbo-ws (source-of g node)))
+
+(define (target? g node)
+  (eq? 'numbo-ws (result-of g node)))
+
+(define (result-expr g)
+  (define target (port->neighbor g '(numbo-ws target)))
+  (list '= target
+    (let loop ([node target])
+      (case (class-of g node)
+        [(number)
+         (if (brick? g node)
+           node
+           (loop (source-of g node)))]
+        [(operator)
+         (list* (value-of g node)
+                (for/list ([operand (operands-of g node)])
+                  (loop operand)))]))))
+
+(define max-timesteps 30)
+
+(define (run g)
+  (with-handlers ([(λ (e) (match e
+                            [`(done ,_) #t]
+                            [else #f]))
+                   (λ (e) (cadr e))])
+    (for/fold ([g g])
+              ([t max-timesteps])
+      (if (done? g)
+        (begin
+          (log (result-expr g))
+          (raise `(done ,g)))
+        (do-timestep g)))))
 
 ;; Output for debugging/experimentation
 
@@ -511,7 +582,7 @@
                  (:edge (4 result) (+ operands))
                  (:edge (5 result) (+ operands))
                  (:edge (+ result) (9 source))))
-  #;(make-graph '(:group 4+2=6 4 2 + 6
+  (make-graph '(:group 4+2=6 4 2 + 6
                  (:edge (4 result) (+ operands))
                  (:edge (2 result) (+ operands))
                  (:edge (+ result) (6 source))))
@@ -524,9 +595,14 @@
                         [(g) (make-numbo-ws g '(4 5 6) 15)]
                         [(g _) (copy-graph-into-graph g slipnet)])
             g))
-(define g2 (do-timestep g))
-(define g3 (do-timestep g2))
-(define g4 (do-timestep g3))
-(define g5 (do-timestep g4))
-(define g6 (do-timestep g5))
-(pr-group g6 'numbo-ws)
+
+(define h (run g))
+(pr-group h 'numbo-ws)
+
+;(define g2 (do-timestep g))
+;(define g3 (do-timestep g2))
+;(define g4 (do-timestep g3))
+;(define g5 (do-timestep g4))
+;(define g6 (do-timestep g5))
+;(pr-group g6 'numbo-ws)
+
