@@ -224,7 +224,6 @@
 (define (best-completion actions->g)
   (define best-action->g (argmin (λ (ag) (count build? (car ag)))
                                  actions->g))
-  #R (car best-action->g)
   (cdr best-action->g))
 
 (define (tag-failed g node)
@@ -241,7 +240,6 @@
       (with-handlers ([cant-make-edge? (λ (x) alist)])
         (cons `(,bdx-actions . ,(try-bdx-actions g from-ctx to-ctx bdx-actions))
               alist))))
-  #R (stream->list (map car actions->g))
   (if (empty? actions->g)
     (tag-failed g from-ctx)
     (best-completion actions->g)))
@@ -491,7 +489,7 @@
     (let* ([g (decay-nodes g)]
            [g (update-saliences g)]
            [activations (make-initial-activations g)]
-           [archetypal-group (search-slipnet g #R activations)])
+           [archetypal-group (search-slipnet g activations)])
     (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
 
 (define (initialize-salience g)
@@ -530,7 +528,7 @@
 
 (define max-timesteps 30)
 
-(define (run g)
+(define (run^ g)
   (with-handlers ([(λ (e) (match e
                             [`(done ,_) #t]
                             [else #f]))
@@ -542,6 +540,12 @@
           (log (result-expr g))
           (raise `(done ,g)))
         (do-timestep g)))))
+
+(define (run bricks target [slipnet slipnet])
+  (let*-values ([(g) (make-graph)]
+                [(g) (make-numbo-ws g bricks target)]
+                [(g _) (copy-graph-into-graph g slipnet)])
+    (run^ g)))
 
 ;; Output for debugging/experimentation
 
@@ -589,6 +593,28 @@
 ;
 ;(pr-graph g)
 
+(define (mkgroup n1 op n2 result)
+  (let ([group-name (string->symbol (format "~a~a~a=~a" n1 op n2 result))]
+        [n2-name (if (equal? n1 n2) (string->symbol (format "~aa" n2)) n2)]
+        [result-name (if (or (equal? result n1) (equal? result n2))
+                       (string->symbol (format "~ar" result))
+                       result)])
+    (make-graph `(:group ,group-name
+                   (:node (:attrs ((class . number)
+                                   (value . ,n1)
+                                   (name .  ,n1))))
+                   (:node (:attrs ((class . number)
+                                   (value . ,n2)
+                                   (name .  ,n2-name))))
+                   (:node (:attrs ((class . operator)
+                                   (value . ,op)
+                                   (name . ,op))))
+                   (:node (:attrs ((class . number)
+                                   (value . ,result)
+                                   (name .  ,result-name))))
+                   (:edge (,n1 result) (,op operands))
+                   (:edge (,n2-name result) (,op operands))
+                   (:edge (,op result) (,result-name source))))))
 
 (define slipnet (make-slipnet
   (make-graph '(:group 4+5=9 4 5 + 9
@@ -608,14 +634,30 @@
                  (:edge (9 result) (+ operands))
                  (:edge (+ result) (15 source))))))
 
-(define g (let*-values ([(g) (make-graph)]
-                        ;[(g) (make-numbo-ws g '(4 5 6) 15)]
-                        [(g) (make-numbo-ws g '(1 1) 2)]
-                        [(g _) (copy-graph-into-graph g slipnet)])
-            g))
+(define big-slipnet
+  (let ()
+    (define ns (make-base-namespace))
+    (define operand-pairs (for*/set ([i (in-range 0 13)]
+                                     [j (in-range 0 13)])
+                            `(,i ,j)))
+    (define tuples (for*/list ([ij operand-pairs]
+                               [op '(+ - *)])
+                     (match-define `(,i ,j) ij)
+                     (define expr `(,op ,i ,j))
+                     (define result (eval expr ns))
+                     `(,i ,op ,j ,result)))
+    (define graphs (for/list ([tuple tuples])
+                     (apply mkgroup tuple)))
+    (apply make-slipnet graphs)))
 
-(define h (run g))
-(pr-group h 'numbo-ws)
+;(define g (let*-values ([(g) (make-graph)]
+;                        ;[(g) (make-numbo-ws g '(4 5 6) 15)]
+;                        [(g) (make-numbo-ws g '(1 1) 2)]
+;                        [(g _) (copy-graph-into-graph g slipnet)])
+;            g))
+;
+;(define h (run g))
+;(pr-group h 'numbo-ws)
 
 ;(define g2 (do-timestep g))
 ;(define g3 (do-timestep g2))
@@ -624,3 +666,6 @@
 ;(define g6 (do-timestep g5))
 ;(pr-group g6 'numbo-ws)
 
+;(define g (run '(4 5 6) 15))
+;(pr-group g 'numbo-ws)
+;(define h (run '(1 1) 2))
