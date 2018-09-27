@@ -186,10 +186,12 @@
       (equal? to-node node)]
     ))
 
+(define irrelevant-port-labels (set 'activation 'canonical-node 'alternates))
+
 ; assumes that edge is a list in a certain order
 (define (edge-from-irrelevant-port? g edge)
   (match-let ([`((,_ ,port-label) (,_ ,_)) edge])
-    (eq? 'activation port-label)))
+    (set-member? irrelevant-port-labels port-label)))
 
 (define (required-edges-in-ctx g node ctx)
   (for/list ([edge (node->incident-edges g node)]
@@ -268,6 +270,17 @@
 (define (add-activation-link g node1 node2)
   (add-edge g `((,node1 activation) (,node2 activation))))
 
+(define (designate-canonical-node g canonical-node alternate-node)
+  (add-edge g `((,canonical-node alternates) (,alternate-node canonical-node))))
+
+(define (canonical-of g node)
+  (let ([c (port->neighbor g `(,node canonical-node))])
+    (if (void? c) node c)))
+
+(define (alternates-of g node)
+  (let ([as (port->neighbors g `(,node alternates))])
+    (if (or (void? as) (empty? as)) (list node) as)))
+
 (define (add-activation-links-to-ctx g new-nodes)
   (for*/fold ([g g])
              ([node new-nodes]
@@ -294,14 +307,14 @@
 
 (define (add-and-link-archetype-nodes sl hm-value->instances)
   (for/fold ([sl sl])
-              ([hm-item (hash->list hm-value->instances)])
+            ([hm-item (hash->list hm-value->instances)])
     (match-define `(,archetype-value . ,instances) hm-item)
     (let-values ([(sl archetype-node)
                       (make-node sl `((class . archetype)
                                       (value . ,archetype-value)))])
       (for/fold ([sl sl])
                 ([instance instances])
-        (add-activation-link sl archetype-node instance)))))
+        (designate-canonical-node sl archetype-node instance)))))
 
 (define (has-top-level-slipnet-class? g node)
   (case (class-of g node)
@@ -329,6 +342,7 @@
 
 (define (activation-edges-starting-from g nodes)
   (for*/set ([node nodes]
+             [node (alternates-of g node)]
              [edge (port->incident-edges g `(,node activation))])
     edge))
 
@@ -338,15 +352,20 @@
 (define (get-activation activations node)
   (dict-ref activations node 0.0))
 
+(define (edge->canonical-nodes g edge)
+  (for/list ([port edge])
+    (match-define `(,node ,_) port)
+    (canonical-of g node)))
+
 (define (spread-activation-across-edge g initial-activations activations edge)
-  (define (spread-1way as e)
-    (match-define `((,from-node activation) (,to-node activation)) e)
-    (add-activation as to-node
+  (define (spread-1way activations canonical-nodes)
+    (match-define `(,from-node ,to-node) canonical-nodes)
+    (add-activation activations to-node
       (* slipnet-spreading-rate
          (get-activation initial-activations from-node))))
-  (let* ([edge (set->list edge)]
-         [activations (spread-1way activations edge)]
-         [activations (spread-1way activations (reverse edge))])
+  (let* ([canonical-nodes (edge->canonical-nodes g edge)]
+         [activations (spread-1way activations canonical-nodes)]
+         [activations (spread-1way activations (reverse canonical-nodes))])
     activations))
 
 (define (decay-activations activations)
@@ -363,7 +382,9 @@
 (define (run-slipnet g initial-activations)
   (for/fold ([activations initial-activations])
             ([timestep slipnet-timesteps])
-    (do-slipnet-timestep g activations)))
+    (let ([as (do-slipnet-timestep g activations)])
+      ;#R (sorted as)
+      as)))
 
 (module+ test
   (test-case "spreading activation"
@@ -435,8 +456,14 @@
     (raise 'nothing-to-do))
   (car (argmax cdr group-activations)))
 
+;TODO Move this to a util file
+(define (sorted xs)
+  (let ([xs (for/list ([x (in xs)]) x)])
+    (sort xs string<? #:key ~a)))
+
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
+  ;#R (sorted activations)
   (most-active-group g activations))
 
 (define salience-decay 0.9)
@@ -666,6 +693,6 @@
 ;(define g6 (do-timestep g5))
 ;(pr-group g6 'numbo-ws)
 
-;(define g (run '(4 5 6) 15))
-;(pr-group g 'numbo-ws)
+(define g (run '(4 5 6) 15 slipnet))
+(pr-group g 'numbo-ws)
 ;(define h (run '(1 1) 2))
