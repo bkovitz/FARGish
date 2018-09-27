@@ -114,10 +114,22 @@
   (for/and ([action completion])
     (build? action)))
 
+(define (multiple-binds-to-same-bindee? completion)
+  (define h (for/fold ([h (hash)])
+                      ([action completion])
+              (match action
+                [`(bind ,_ ,bindee)
+                 (hash-update h bindee add1 0)]
+                [else h])))
+  (for/or ([kv (hash->list h)])
+    (match-define `(,_ . ,n) kv)
+    (> n 1)))
+
 (define (filter-out-invalid-completions completions)
   (for/list ([completion completions]
              #:when (and (not (all-binds? completion))
-                         (not (all-builds? completion))))
+                         (not (all-builds? completion))
+                         (not (multiple-binds-to-same-bindee? completion))))
     completion))
 
 ;TODO filter out completions that don't build anything
@@ -212,6 +224,7 @@
 (define (best-completion actions->g)
   (define best-action->g (argmin (λ (ag) (count build? (car ag)))
                                  actions->g))
+  #R (car best-action->g)
   (cdr best-action->g))
 
 (define (tag-failed g node)
@@ -586,13 +599,18 @@
                  (:edge (4 result) (+ operands))
                  (:edge (2 result) (+ operands))
                  (:edge (+ result) (6 source))))
+  (make-graph '(:group 1+1=2 1 1 + 2
+                 (:edge (1 result) (+ operands))
+                 (:edge (1a result) (+ operands))
+                 (:edge (+ result) (2 source))))
   (make-graph '(:group 6+9=15 6 9 + 15
                  (:edge (6 result) (+ operands))
                  (:edge (9 result) (+ operands))
                  (:edge (+ result) (15 source))))))
 
 (define g (let*-values ([(g) (make-graph)]
-                        [(g) (make-numbo-ws g '(4 5 6) 15)]
+                        ;[(g) (make-numbo-ws g '(4 5 6) 15)]
+                        [(g) (make-numbo-ws g '(1 1) 2)]
                         [(g _) (copy-graph-into-graph g slipnet)])
             g))
 
