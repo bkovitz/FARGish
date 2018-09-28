@@ -1,3 +1,5 @@
+; numbo0 -- A "hacked" Numbo that does most things in non-FARG-like ways
+
 #lang debug at-exp racket
 
 ;HACK TODO
@@ -10,10 +12,18 @@
 ; printing the result
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
-         racket/hash describe
+         racket/hash profile describe
          "graph.rkt" "make-graph.rkt")
 
 (provide (all-defined-out))
+
+;; Global constants
+
+(define max-timesteps 20)
+(define slipnet-spreading-rate 0.1)
+(define slipnet-decay 0.5)
+(define slipnet-timesteps 10)
+(define support-decay-rate 0.5)
 
 ;; Making a workspace
 
@@ -336,10 +346,6 @@
 
 ;; Running the slipnet
 
-(define slipnet-spreading-rate 0.1)
-(define slipnet-decay 0.9)
-(define slipnet-timesteps 20)
-
 (define (activation-edges-starting-from g nodes)
   (for*/set ([node nodes]
              [node (alternates-of g node)]
@@ -357,11 +363,18 @@
     (match-define `(,node ,_) port)
     (canonical-of g node)))
 
+(define (sliplink-weight g from-node to-node)
+  (case `(,(class-of g from-node) ,(class-of g to-node))
+    [((group archetype))
+     0.01]
+    [else 1.0]))
+
 (define (spread-activation-across-edge g initial-activations activations edge)
   (define (spread-1way activations canonical-nodes)
     (match-define `(,from-node ,to-node) canonical-nodes)
     (add-activation activations to-node
       (* slipnet-spreading-rate
+         (sliplink-weight g from-node to-node) 
          (get-activation initial-activations from-node))))
   (let* ([canonical-nodes (edge->canonical-nodes g edge)]
          [activations (spread-1way activations canonical-nodes)]
@@ -496,9 +509,7 @@
              #:when (decayable-node? g node))
     node))
 
-(define support-decay-rate 0.5)
-
-(define (decay-nodes g)
+(define (decay-support g)
   (for/fold ([g g])
             ([node (decayable-nodes g)])
     (define support (get-node-attr g node 'support))
@@ -513,7 +524,7 @@
 
 (define (do-timestep g)
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
-    (let* ([g (decay-nodes g)]
+    (let* ([g (decay-support g)]
            [g (update-saliences g)]
            [activations (make-initial-activations g)]
            [archetypal-group (search-slipnet g activations)])
@@ -552,8 +563,6 @@
          (list* (value-of g node)
                 (for/list ([operand (operands-of g node)])
                   (loop operand)))]))))
-
-(define max-timesteps 30)
 
 (define (run^ g)
   (with-handlers ([(λ (e) (match e

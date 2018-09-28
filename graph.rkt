@@ -5,7 +5,7 @@
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct "id-set.rkt"
-         racket/dict racket/pretty describe) 
+         racket/dict racket/pretty describe mischief/memoize) 
 
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
          add-tag port->neighbors port->neighboring-ports all-nodes
@@ -115,7 +115,7 @@
 (define (name-of g id)
   (hm->name (get-node-attrs g id)))
 
-(define (class-of g node)
+(define/memoize (class-of g node)
   (get-node-attr g node 'class) )
 
 (define (value-of g node)
