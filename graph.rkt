@@ -4,7 +4,7 @@
 
 ;; Data structure for port graphs
 
-(require rackunit data/collection racket/generic racket/struct "id-set.rkt"
+(require rackunit racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe mischief/memoize) 
 
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
@@ -17,11 +17,10 @@
          empty-graph placeholder placeholder? group? remove-node
          graph-set-stacked-variable graph-get-stacked-variable
          graph-push-stacked-variable graph-pop-stacked-variable
-         graph-update-stacked-variable
+         graph-update-stacked-variable node-attr?
          (struct-out graph))
 
 ;; A port graph
-;(struct graph (elems edges id-set spec) #:transparent)
 
 (struct graph (hm-node->attrs
                hm-port->neighboring-ports
@@ -31,7 +30,6 @@
                spec) #:transparent)
 
 (define empty-spec '())
-;(define empty-graph (graph #hash() (set) empty-id-set empty-spec))
 (define empty-graph (graph #hash() #hash() (set) empty-id-set '() empty-spec))
 
 ;; Stacked variables
@@ -105,18 +103,11 @@
 
 (define all-edges graph-edges)
 
-(define (hm->name hm)
-  (if (void? hm)
-    'noname
-    (hash-ref hm 'name
-              (λ () (hash-ref hm 'value
-                              (λ () (hash-ref hm 'class 'noname)))))))
-
-(define (name-of g id)
-  (hm->name (get-node-attrs g id)))
+(define (name-of g node)
+  (get-node-attr g node 'name))
 
 (define/memoize (class-of g node)
-  (get-node-attr g node 'class) )
+  (get-node-attr g node 'class))
 
 (define (value-of g node)
   (get-node-attr g node 'value))
@@ -219,29 +210,11 @@
            [neighboring-port (port->neighboring-ports g port)])
       (printf "  ~a -- ~a\n" port neighboring-port))))
 
-#;(define (has-node? g id)
-  (hash-has-key? (graph-elems g) id))
-
 (define (has-node? g id)
   (hash-has-key? (graph-hm-node->attrs g) id))
 
 (module+ test
   (check-false (has-node? empty-graph 'plus)))
-
-(define (make-name class v)
-  (cond
-    [(eq? 'letter class)
-     v]
-    [(eq? 'number class)
-     v]
-    [(and (void? v) (void? class))
-     'no-name]
-    [(void? class)
-     v]
-    [(void? v)
-     class]
-    [else
-      (string->symbol (format "~a~a" class v))]))
 
 (define letter-symbols
   (set 'a 'b 'c 'd 'e 'f 'g 'h 'i 'j 'k 'l 'm 'n 'o 'p 'q 'r 's 't 'u 'v
@@ -255,23 +228,52 @@
 ;; we should find an appropriate class definition. For now, though, we
 ;; just hard-code a couple things.
 (define (normalize-attrs attrs)
+  (define (recur attrs)
+    (match attrs
+      [(? list?)
+       (recur (make-immutable-hash attrs))]
+      [(hash-table ('class cl) _ ...)
+       attrs]
+      [(? letter-symbol? letter)
+       (recur `((class . letter) (value . ,letter)))]
+      [(? symbol? sym)
+       (recur `((class . ,sym)))]
+      [(? number? n)
+       (recur `((class . number) (value . ,n) (name . ,n)))]
+      [(hash-table _ ...)
+       (raise-arguments-error 'normalize-attrs "must define 'class"
+                              "attrs" attrs)]
+      [_ (raise-arguments-error 'normalize-attrs "invalid node attributes"
+                                "attrs" attrs)]))
+  (ensure-has-name (recur attrs)))
+
+(define (ensure-has-name attrs)
   (match attrs
-    [(? letter-symbol? letter)
-     (normalize-attrs `((class . letter) (value . ,letter)))]
-    [(? symbol? sym)
-     (normalize-attrs `((class . ,sym)))]
-    [(? number? n)
-     (normalize-attrs `((class . number) (value . ,n) (name . ,n)))]
     [(hash-table ('name _) _ ...)
      attrs]
-    [(hash-table ('class cl) ('value v) _ ...)
-     (hash-set attrs 'name (make-name cl v))]
-    [(hash-table ('class cl) _ ...)
-     (hash-set attrs 'name (make-name cl (void)))]
-    [(? list?)
-     (normalize-attrs (make-immutable-hash attrs))]
-    [_ (raise-arguments-error 'normalize-attrs "invalid node attributes"
-                              "attrs" attrs)]))
+    [_ (hash-set attrs 'name (default-name attrs))]))
+
+(define (value-name attrs)
+  (match attrs
+    [(hash-table ('value (? placeholder? p)) _ ...)
+     'placeholder]
+    [(hash-table ('value v) _ ...)
+     v]
+    [(hash-table ('class c) _ ...)
+     c]))
+
+(define (default-name attrs) ; N.b.: ignores 'name key even if it's there
+  (match attrs
+    [(hash-table ('class 'letter) _ ...)
+     (value-name attrs)]
+    [(hash-table ('class 'number) _ ...)
+     (value-name attrs)]
+    [(hash-table ('class class) ('value (list v ...)) _ ...)
+     (string->symbol (string-join (cons (~a class) (map ~a v)) "-"))]
+    [(hash-table ('class class) ('value v) _ ...)
+     (string->symbol (format "~a~a" class v))]
+    [(hash-table ('class class) _ ...)
+     class]))
 
 (module+ test
   (check-equal? (normalize-attrs 'a)
@@ -285,7 +287,7 @@
 
 (define (make-node g attrs) ;returns g* id  (two values)
   (let*-values ([(attrs) (normalize-attrs attrs)]
-                [(name) (hm->name attrs)]
+                [(name) (hash-ref attrs 'name)]
                 [(id-set id) (gen-id (graph-id-set g) name)]
                 [(attrs) (hash-set attrs 'id id)]
                 [(g) (struct-copy graph g
@@ -295,16 +297,22 @@
     (values g id)))
 
 (define (get-node-attr g id k) ;returns void if either node or key not found
-  (if (eq? 'name k)
-    (name-of g id)
-    (let ([hm (get-node-attrs g id)])
-      (if (void? hm)
-        (void)
-        (hash-ref (get-node-attrs g id) k (void))))))
+  (let ([hm (get-node-attrs g id)])
+    (if (void? hm)
+      (void)
+      (hash-ref (get-node-attrs g id) k (void)))))
 ;  (match (graph-hm-node->attrs g)
 ;    [(hash-table ((== id) attrs) _ ...)
 ;     (hash-ref attrs k (void))]
 ;    [_ (void)]))
+
+;;TODO UT
+;; Returns value of id's attribute k, or #f if either node or key not found
+(define (node-attr? g id k)
+  (match (get-node-attrs g id)
+    [(hash-table ((== k) v) _ ...)
+     v]
+    [_ #f]))
 
 ;;TODO UT
 (define (get-node-attrs g id) ;returns void if node not found
@@ -481,78 +489,78 @@
                              "(:attrs <alist>), (class), or (class value)"
                              args)]))
 
-(define (look-up-node g d-name->id name)
-  (dict-ref d-name->id name (λ () (if (has-node? g name) name (void)))))
+(define (look-up-node g d-alias->id name)
+  (dict-ref d-alias->id name (λ () (if (has-node? g name) name (void)))))
 
 (define (atom? x)
   (and (not (null? x))
        (not (pair? x))))
 
-(define (graph-edit-make-node g d-name->id groupid args)
+(define (graph-edit-make-node g d-alias->id groupid args)
   (let*-values ([(g id) (make-node g (node-args->attrs args))]
-                [(d-name->id) (let ([v (value-of g id)])
+                [(d-alias->id) (let ([v (value-of g id)])
                                 (if (void? v)
-                                  d-name->id
-                                  (dict-set d-name->id (name-of g id) id)))]
+                                  d-alias->id
+                                  (dict-set d-alias->id (name-of g id) id)))]
                 [(g) (if (void? groupid)
                        g
                        (add-edge g `((,groupid members) (,id member-of))))])
-    (values g d-name->id id)))
+    (values g d-alias->id id)))
 
-(define (get-port g d-name->id groupid port-spec)
+(define (get-port g d-alias->id groupid port-spec)
   (match port-spec
     [`((:node . ,args) ,port-label)
-      (let*-values ([(g d-name->id id)
-                       (graph-edit-make-node g d-name->id groupid args)])
-        (values g d-name->id `(,id ,port-label)))]
+      (let*-values ([(g d-alias->id id)
+                       (graph-edit-make-node g d-alias->id groupid args)])
+        (values g d-alias->id `(,id ,port-label)))]
     [`(,name ,port-label)
-      (let ([id (look-up-node g d-name->id name)])
+      (let ([id (look-up-node g d-alias->id name)])
         (if (void? id)
           (error 'get-port @~a{no such node: @name})
-          (values g d-name->id `(,id ,port-label))))]
+          (values g d-alias->id `(,id ,port-label))))]
     [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
 
 
 (define (do-graph-edits g items)
-  (define (recur g d-name->id groupid last-id items)
+  (define (recur g d-alias->id groupid last-id items)
     (match items
-      ['() (values g d-name->id last-id)]
+      ['() (values g d-alias->id last-id)]
       [`((:node . ,args) . ,more)
-        (let-values ([(g d-name->id id)
-                        (graph-edit-make-node g d-name->id groupid args)])
-          (recur g d-name->id groupid id more))]
+        (let-values ([(g d-alias->id id)
+                        (graph-edit-make-node g d-alias->id groupid args)])
+          (recur g d-alias->id groupid id more))]
       [`((:find-node ,name) . ,more)
-        (let ([id (look-up-node g d-name->id name)])
+        (let ([id (look-up-node g d-alias->id name)])
           (if (void? id)
             (error @~a{no such node: @id})
-            (recur g d-name->id groupid id more)))]
+            (recur g d-alias->id groupid id more)))]
       [`((:edge ,port1 ,port2) . ,more)
-        (let*-values ([(g d-name->id port1)
-                         (get-port g d-name->id groupid port1)]
-                      [(g d-name->id port2)
-                         (get-port g d-name->id groupid port2)]
+        (let*-values ([(g d-alias->id port1)
+                         (get-port g d-alias->id groupid port1)]
+                      [(g d-alias->id port2)
+                         (get-port g d-alias->id groupid port2)]
                       [(edge) `(,port1 ,port2)]
                       [(g) (add-edge g edge)])
-          (recur g d-name->id groupid edge more))]
+          (recur g d-alias->id groupid edge more))]
       [`((:define ,name ,item) . ,more)
-        (let*-values ([(g d-name->id itemid)
-                         (recur g d-name->id groupid last-id (list item))]
-                      [(d-name->id) (dict-set d-name->id name itemid)])
-          (recur g d-name->id groupid itemid more))]
+        (let*-values ([(g d-alias->id itemid)
+                         (recur g d-alias->id groupid last-id (list item))]
+                      [(d-alias->id) (dict-set d-alias->id name itemid)])
+          (recur g d-alias->id groupid itemid more))]
       [`((:make . ,makes) . ,more)
-        (let-values ([(g d-name->id itemid)
-                        (recur g d-name->id groupid last-id makes)])
-          (recur g d-name->id groupid itemid more))]
+        (let-values ([(g d-alias->id itemid)
+                        (recur g d-alias->id groupid last-id makes)])
+          (recur g d-alias->id groupid itemid more))]
       [`((:group ,name . ,members) . ,more)
-        (let*-values ([(g d-name->id new-groupid)
-                         (graph-edit-make-node g d-name->id groupid
+        (let*-values ([(g d-alias->id new-groupid)
+                         (graph-edit-make-node g d-alias->id groupid
                                                `((:attrs ((class . group)
                                                           (name . ,name)))))]
-                      [(g d-name->id last-id)
-                         (recur g d-name->id new-groupid new-groupid members)])
-          (recur g d-name->id groupid new-groupid more))]
+                      [(g d-alias->id last-id)
+                         (recur g d-alias->id new-groupid new-groupid members)])
+          (recur g d-alias->id groupid new-groupid more))]
       [`(,item . ,more) ;didn't recognize it, rewrite it
-        (recur g d-name->id groupid last-id
+        (recur g d-alias->id groupid last-id
                (cons (rewrite-item g item) more))]))
   (let-values ([(g d id) (recur g '() (void) (void) items)])
     g))

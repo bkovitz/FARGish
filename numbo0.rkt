@@ -629,30 +629,37 @@
 ;
 ;(pr-graph g)
 
-(define (mkgroup n1 op n2 result)
+(define (make-equation-graph n1 op n2 result)
   (let ([group-name (string->symbol (format "~a~a~a=~a" n1 op n2 result))]
         [n2-name (if (equal? n1 n2) (string->symbol (format "~aa" n2)) n2)]
         [result-name (if (or (equal? result n1) (equal? result n2))
                        (string->symbol (format "~ar" result))
                        result)])
-    (make-graph `(:group ,group-name
-                   (:node (:attrs ((class . number)
-                                   (value . ,n1)
-                                   (name .  ,n1))))
-                   (:node (:attrs ((class . number)
-                                   (value . ,n2)
-                                   (name .  ,n2-name))))
-                   (:node (:attrs ((class . operator)
-                                   (value . ,op)
-                                   (name . ,op))))
-                   (:node (:attrs ((class . number)
-                                   (value . ,result)
-                                   (name .  ,result-name))))
-                   (:edge (,n1 result) (,op operands))
-                   (:edge (,n2-name result) (,op operands))
-                   (:edge (,op result) (,result-name source))))))
+    (make-graph `(:let ([:equation
+                          (:group ,group-name
+                            (:node (:attrs ((class . number)
+                                            (value . ,n1)
+                                            (name .  ,n1))))
+                            (:node (:attrs ((class . number)
+                                            (value . ,n2)
+                                            (name .  ,n2-name))))
+                            (:node (:attrs ((class . operator)
+                                            (value . ,op)
+                                            (name . ,op))))
+                            (:node (:attrs ((class . number)
+                                            (value . ,result)
+                                            (name .  ,result-name))))
+                            (:edge (,n1 result) (,op operands))
+                            (:edge (,n2-name result) (,op operands))
+                            (:edge (,op result) (,result-name source)))])
+                    (add-tag (fills-port ,n1 result) :equation)
+                    (add-tag (fills-port ,n2-name result) :equation)
+                    (add-tag (fills-port ,op result) :equation)
+                    (add-tag (fills-port ,op operands) :equation)
+                    (add-tag (fills-port ,result source) :equation)
+                    ))))
 
-(define slipnet (make-slipnet
+#;(define slipnet (make-slipnet
   (make-graph '(:group 4+5=9 4 5 + 9
                  (:edge (4 result) (+ operands))
                  (:edge (5 result) (+ operands))
@@ -670,7 +677,13 @@
                  (:edge (9 result) (+ operands))
                  (:edge (+ result) (15 source))))))
 
-(define big-slipnet
+(define slipnet (make-slipnet
+  (make-equation-graph 4 '+ 5 9)
+  (make-equation-graph 4 '+ 2 6)
+  (make-equation-graph 1 '+ 1 2)
+  (make-equation-graph 6 '+ 9 15)))
+
+#;(define big-slipnet
   (let ()
     (define ns (make-base-namespace))
     (define operand-pairs (for*/set ([i (in-range 1 13)]
@@ -683,7 +696,7 @@
                      (define result (eval expr ns))
                      `(,i ,op ,j ,result)))
     (define graphs (for/list ([tuple tuples])
-                     (apply mkgroup tuple)))
+                     (apply make-equation-graph tuple)))
     (apply make-slipnet graphs)))
 
 ;(define g (let*-values ([(g) (make-graph)]
@@ -702,6 +715,6 @@
 ;(define g6 (do-timestep g5))
 ;(pr-group g6 'numbo-ws)
 
-(define g (run '(4 5 6) 15 slipnet))
-(pr-group g 'numbo-ws)
+;(define g (run '(4 5 6) 15 slipnet))
+;(pr-group g 'numbo-ws)
 ;(define h (run '(1 1) 2))

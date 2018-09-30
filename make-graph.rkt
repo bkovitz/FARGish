@@ -99,6 +99,10 @@
                        (value . ,placeholder))))]
     [`(copy-node ,node ,ctx)
       `(:node ,(class-of g node))]
+    [`(add-tag ,tag . ,nodes)
+      `(:let ([:tag (:node ,(tag->attrs tag))])
+          ,@(for/list ([node nodes])
+              `(:edge (:tag tagged) (,node tags))))]
     [`(bind ,a ,b)
       `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
     [`(succ ,a ,b . ,more)
@@ -231,10 +235,13 @@
 (define (tag->attrs tag)
   (match tag
     [`(,class . ,args)
-     `(:attrs ((class . ,class) (value . ,args)))]
+     `(:attrs ((tag? . #t) (class . ,class) (value . ,args)))]
     [class
-      `(:attrs ((class . ,class)))]
+     `(:attrs ((tag? . #t) (class . ,class)))]
     [_ (raise-argument-error 'tag->attrs "invalid tag" "tag" tag)]))
+
+(define (tag? g node)
+  (node-attr? g node 'tag?))
 
 ;; Symmetric tag
 (define (add-tag g tag . nodes)
@@ -265,12 +272,25 @@
     (let* ([g (make-graph 'a 'b)]
            [g (add-tag g '(needs-neighbor source) 'a)]
            [g (add-tag g '(needs-neighbor result) 'b)])
-      (pr-graph g)
+      (check-not-false (has-tag? g 'needs-neighbor 'a))
+      (check-not-false (has-tag? g '(needs-neighbor source) 'a))
+      (check-not-false (has-tag? g 'needs-neighbor 'b))
+      (check-false (has-tag? g '(needs-neighbor source) 'b))))
+  (test-case "add-tag via rewrite"
+    (let* ([g (make-graph 'a 'b 'c '(add-tag near a b))])
+      (check-not-false (has-tag? g 'near 'a))
+      (check-not-false (has-tag? g 'near 'b))
+      (check-false (has-tag? g 'near 'c)))
+    (let* ([g (make-graph 'a 'b
+                          '(add-tag (needs-neighbor source) a)
+                          '(add-tag (needs-neighbor result) b))])
       (check-not-false (has-tag? g 'needs-neighbor 'a))
       (check-not-false (has-tag? g '(needs-neighbor source) 'a))
       (check-not-false (has-tag? g 'needs-neighbor 'b))
       (check-false (has-tag? g '(needs-neighbor source) 'b)))
-    ))
+    )
+  
+  )
 
 (define (tag-of tag g node1 node2)
   (match tag
