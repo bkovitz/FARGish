@@ -5,7 +5,7 @@
 (require rackunit data/collection racket/generic racket/struct
          racket/dict racket/pretty describe "graph.rkt")
 
-(provide make-graph do-graph-edits add-tag tag-of)
+(provide make-graph do-graph-edits add-tag tag-of check-desiderata)
 
 (define (node-args->attrs args)
   (match args
@@ -288,9 +288,7 @@
       (check-not-false (has-tag? g '(needs-neighbor source) 'a))
       (check-not-false (has-tag? g 'needs-neighbor 'b))
       (check-false (has-tag? g '(needs-neighbor source) 'b)))
-    )
-  
-  )
+    ))
 
 (define (tag-of tag g node1 node2)
   (match tag
@@ -309,5 +307,28 @@
 (module+ test
   (test-case "tag-of"
     (let ([g (make-graph 'a 'b 'c '(succ a b))])
-      (check-equal? (tag-of 'succ g 'a 'b) 'succ)
-      )))
+      (check-equal? (tag-of 'succ g 'a 'b) 'succ))))
+
+(module+ test
+  (test-case "placeholder class, name, and value"
+    (let ([g (make-graph '(placeholder letter x))])
+        (check-equal? (get-node-attr g 'x 'class) 'letter)
+        (check-pred placeholder? (get-node-attr g 'x 'value)))))
+
+;; Desiderata
+
+; Eventually this should get a third argument: the node with the desiderata,
+; or the group in which to search.
+(define (check-desiderata g)
+  (define nodes-of-interest (find-nodes-of-class g 'bind))
+  (for/hash ([node nodes-of-interest])
+    (values node (port->neighbors g `(,node basis)))))
+
+(module+ test
+  (test-case "check-desiderata"
+    (let* ([g (make-graph 'a 'b 'x '(bind a b))]
+           [desiderata-status (check-desiderata g)])
+      (check-equal? desiderata-status #hash((bind . ())))
+      (let* ([g (add-edge g '((bind basis) (x basis-of)))]
+           [desiderata-status (check-desiderata g)])
+        (check-equal? desiderata-status #hash((bind . (x))))))))
