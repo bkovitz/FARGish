@@ -5,21 +5,8 @@
 (require rackunit data/collection racket/generic racket/struct
          racket/dict racket/pretty describe "graph.rkt")
 
-(provide make-graph do-graph-edits add-tag tag-of check-desiderata)
-
-(define (node-args->attrs args)
-  (match args
-    [`((:attrs ,attrs))
-      attrs]
-    [`(,class)
-      `((class . ,class))]
-    [`(,class ,value)
-      `((class . ,class) (value . ,value))]
-    [`(,class ,value ,name)
-      `((class . ,class) (value . ,value) (name . ,name))]
-    [_ (raise-argument-error 'node-args->attrs
-                             "(:attrs <alist>), (class), or (class value)"
-                             args)]))
+(provide make-graph do-graph-edits tag-of check-desiderata tags-of class-is-a?
+         node-is-a?)
 
 (define (current-groupid g)
   (graph-get-stacked-variable g 'groupid (void)))
@@ -60,7 +47,9 @@
     [`(,name ,port-label)
       (let ([id (look-up-node g name)])
         (if (void? id)
-          (error 'get-port @~a{no such node: @name})
+          (begin
+            (pr-graph g)
+            (error 'get-port @~a{no such node: @name in port-spec: @port-spec}))
           (values g `(,id ,port-label))))]
     [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
 
@@ -81,6 +70,34 @@
 
 (define (operator? x)
   (set-member? operators x))
+
+(define (node-args->attrs args)
+  (match args
+    [(? hash? args)
+     args]
+    [`((:attrs ,attrs))
+      attrs]
+    [`(,class)
+      `((class . ,class))]
+    [`(,class ,value)
+      `((class . ,class) (value . ,value))]
+    [`(,class ,value ,name)
+      `((class . ,class) (value . ,value) (name . ,name))]
+    [_ (raise-argument-error 'node-args->attrs
+                             "(:attrs <alist>), (class), or (class value)"
+                             args)]))
+
+(define (parse-group-elems elems) ; returns attrs, true elems  (two values)
+  (define (recur elems attrs true-elems)
+    (match elems
+      ['() (values attrs (reverse true-elems))]
+      [`((:name ,name) . ,more)
+        (recur more (hash-set attrs 'name name) true-elems)]
+      [`((:class ,class) . ,more)
+        (recur more (hash-set attrs 'class class) true-elems)]
+      [`(,elem . ,more)
+        (recur more attrs (cons elem true-elems))]))
+  (recur elems #hash((class . group) (group? . #t)) '()))
 
 (define (rewrite-item g item)
   (match item
@@ -143,14 +160,21 @@
             (set-alias g n)))]
       [`((:begin . ,xs) . ,more)
         (recur (recur g xs) more)]
-      [`((:group ,name . ,xs) . ,more)
-         (let*-values ([(g groupid) (make-node/mg g
-                                      `((:attrs ((class . group)
-                                                 (name . ,name)))))]
-                       [(g) (push-groupid g groupid)]
-                       [(g) (recur g xs)]
-                       [(g) (pop-groupid g)]
-                       [(g) (set-lastid g groupid)])
+      [`((:group . ,xs) . ,more)
+        (let*-values ([(attrs xs) (parse-group-elems xs)]
+                      [(g groupid) (make-node/mg g attrs)]
+                      [(g) (push-groupid g groupid)]
+                      [(g) (recur g xs)]
+                      [(g) (pop-groupid g)]
+                      [(g) (set-lastid g groupid)])
+
+;         (let*-values ([(g groupid) (make-node/mg g
+;                                      `((:attrs ((class . group)
+;                                                 (name . ,name)))))]
+;                       [(g) (push-groupid g groupid)]
+;                       [(g) (recur g xs)]
+;                       [(g) (pop-groupid g)]
+;                       [(g) (set-lastid g groupid)])
            (recur g more))]
       [`(,item . ,more) ;didn't recognize it, rewrite it
         (recur g (cons (rewrite-item g item) more))]
@@ -208,7 +232,8 @@
       (check-equal? (class-of g 'a) 'letter)
       (check-equal? (class-of g 'b) 'letter)))
   (test-case ":group"
-    (let ([g (make-graph '(:group outer a b (:group inner c d) e) 'f)])
+    (let ([g (make-graph '(:group (:name outer) a b
+                                  (:group (:name inner) c d) e) 'f)])
       (check-equal? (set 'a 'b 'c 'd 'e 'f 'inner 'outer)
                     (list->set (all-nodes g)))
       (check-equal? (set 'inner 'a 'b 'e)
@@ -226,25 +251,19 @@
 
 ;; Tags
 
-#;(define (add-tag g tag from to)
-  (let*-values ([(g bindid) (make-node g '((class . bind)))]
-                [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
-                [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
-    g))
-
 (define (tag->attrs tag)
   (match tag
     [`(,class . ,args)
-     `(:attrs ((tag? . #t) (class . ,class) (value . ,args)))]
-    [class
-     `(:attrs ((tag? . #t) (class . ,class)))]
+     `(:attrs ((tag? . #t) (class . ,class) (value . ,tag)))]
+    [class #:when (not (list? class))
+     `(:attrs ((tag? . #t) (class . ,class) (value . ,tag)))]
     [_ (raise-argument-error 'tag->attrs "invalid tag" "tag" tag)]))
 
 (define (tag? g node)
   (node-attr? g node 'tag?))
 
-;; Symmetric tag
-(define (add-tag g tag . nodes)
+;; Symmetric tag  TODO Obsolete? Just do add-tag in do-graph-edits?
+#;(define (add-tag g tag . nodes)
   (when (empty? nodes)
     (raise-argument-error 'add-tag "must tag at least one node" "nodes" nodes))
   (do-graph-edits g
@@ -252,26 +271,49 @@
          ,@(for/list ([node nodes])
              `(:edge (:tag tagged) (,node tags)))))))
 
-(define (has-tag? g tag node)
-  (define attrs (cadr (tag->attrs tag)))
-  (define class (dict-ref attrs 'class))
-  (define value (dict-ref attrs 'value (void)))
-  (define (is? tagnode)
-    (and (equal? (class-of g tagnode) class)
-         (or (void? value) (equal? (value-of g tagnode) value))))
-  (for/or ([tagnode (port->neighbors g `(,node tags))])
+(define (class-is-a? g ancestor class)
+  (equal? ancestor class)) ;TODO Inheritance
+
+(define (node-is-a? g class node)
+  (class-is-a? g class (class-of g node)))
+
+(define (safe-cdr x)
+  (match x
+    [`(,_ . ,d) d]
+    [_ x]))
+
+;TODO Match placeholders in tagspec?
+(define (has-tag? g tagspec node)
+  (define is?
+    (match tagspec
+      [`(,tagclass . ,tagargs)
+       (λ (tagnode) (and (class-is-a? g (class-of g tagnode) tagclass)
+                         (equal? tagargs (safe-cdr (value-of g tagnode)))))]
+      [tagclass #:when (not (list? tagclass))
+       (λ (tagnode) (class-is-a? g (class-of g tagnode) tagclass))]
+      [_ (raise-argument-error 'has-tag?
+                               "tagspec must be (tagclass . args) or tagclass"
+                               "tagspec" tagspec)]))
+  (for/or ([tagnode (tags-of g node)])
     (is? tagnode)))
+
+;  (define attrs #R (cadr (tag->attrs tag)))
+;  (define class (dict-ref attrs 'class))
+;  (define value (dict-ref attrs 'value (void)))
+;  (define (is? tagnode)
+;    (and (equal? (class-of g tagnode) class)
+;         (or (void? value) (equal? (value-of g tagnode) #R value))))
+;  (for/or ([tagnode (port->neighbors g `(,node tags))])
+;    (is? tagnode)))
 
 (module+ test
   (test-case "add-tag"
-    (let* ([g (make-graph 'a 'b 'c)]
-           [g (add-tag g 'near 'a 'b)])
+    (let* ([g (make-graph 'a 'b 'c '(add-tag near a b))])
       (check-not-false (has-tag? g 'near 'a))
       (check-not-false (has-tag? g 'near 'b))
       (check-false (has-tag? g 'near 'c)))
-    (let* ([g (make-graph 'a 'b)]
-           [g (add-tag g '(needs-neighbor source) 'a)]
-           [g (add-tag g '(needs-neighbor result) 'b)])
+    (let* ([g (make-graph 'a 'b '(add-tag (needs-neighbor source) a)
+                                '(add-tag (needs-neighbor result) b))])
       (check-not-false (has-tag? g 'needs-neighbor 'a))
       (check-not-false (has-tag? g '(needs-neighbor source) 'a))
       (check-not-false (has-tag? g 'needs-neighbor 'b))
@@ -290,6 +332,7 @@
       (check-false (has-tag? g '(needs-neighbor source) 'b)))
     ))
 
+;TODO This is way too model- and tag-specific
 (define (tag-of tag g node1 node2)
   (match tag
     ['succ (for*/first ([tag1 (port->neighbors g `(,node1 succ-to))]
@@ -297,6 +340,15 @@
                         #:when (equal? tag1 tag2))
              tag)]
     [_ (raise-arguments-error 'tag-of "unknown tag" "tag" tag)]))
+
+(define (tags-of g node)
+  (port->neighbors g `(,node tags)))
+
+#;(define (add-tag g tag from to)
+  (let*-values ([(g bindid) (make-node g '((class . bind)))]
+                [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
+                [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
+    g))
 
 #;(module+ test
   (let* ([g (make-graph 'a 'b)]

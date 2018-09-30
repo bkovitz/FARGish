@@ -11,7 +11,7 @@
 ; done?
 ; printing the result
 
-(require rackunit data/collection racket/dict racket/generic racket/pretty
+(require rackunit #;data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
          "graph.rkt" "make-graph.rkt")
 
@@ -104,7 +104,7 @@
      (or (< (length operands) 2) (empty? results))]
     [else #f]))
 
-;; Completing an archetype
+;; Completing an instance of an archetypal group
 
 (define (superficial-matches g from-ctx from-node to-ctx)
   (for/list ([to-node (members-of g to-ctx)]
@@ -157,15 +157,15 @@
   `((class . ,c) (value . ,v)))
 
 (define (do-bdx-actions g from-ctx to-ctx bdx-actions)
-  (for/fold ([g g] [hm-bdx (hash)])
+  (for/fold ([g g] [ht-bdx (hash)])
             ([bdx-action bdx-actions])
     (match bdx-action
       [`(bind ,from-node ,to-node)
-       (values g (hash-set hm-bdx from-node to-node))]
+       (values g (hash-set ht-bdx from-node to-node))]
       [`(build ,from-node)
        (let*-values ([(g to-id) (make-node g (attrs-to-copy g from-node))]
                      [(g) (add-edge g `((,to-id member-of) (,to-ctx members)))])
-         (values g (hash-set hm-bdx from-node to-id)))]
+         (values g (hash-set ht-bdx from-node to-id)))]
       [_ (error "try-bdx-actions")])))
 
 (define (max-neighbors-of g port)
@@ -211,14 +211,14 @@
          
 ; throws 'cant-make-edge
 (define (try-bdx-actions g0 from-ctx to-ctx bdx-actions)
-  (let-values ([(g hm-bdx) (do-bdx-actions g0 from-ctx to-ctx bdx-actions)])
+  (let-values ([(g ht-bdx) (do-bdx-actions g0 from-ctx to-ctx bdx-actions)])
     (for*/fold ([g g])
-               ([from-node (hash-keys hm-bdx)]
+               ([from-node (hash-keys ht-bdx)]
                 [from-edge (required-edges-in-ctx g0 from-node from-ctx)])
       (match-define `((,ignored ,port-label1) (,from-neighbor ,port-label2))
                     from-edge)
-      (define bindee1 (hash-ref hm-bdx from-node))
-      (define bindee2 (hash-ref hm-bdx from-neighbor))
+      (define bindee1 (hash-ref ht-bdx from-node))
+      (define bindee2 (hash-ref ht-bdx from-neighbor))
       (try-to-make-edge g `((,bindee1 ,port-label1) (,bindee2 ,port-label2)))
       )))
 
@@ -258,25 +258,6 @@
 
 ;; Making a slipnet
 
-(define (map-edge node-map edge)
-  (match-define `((,node1 ,port-label1) (,node2 ,port-label2)) edge)
-  (define new-node1 (dict-ref node-map node1))
-  (define new-node2 (dict-ref node-map node2))
-  `((,new-node1 ,port-label1) (,new-node2 ,port-label2)))
-
-;TODO mv to graph.rkt
-(define (copy-graph-into-graph g g1)
-  (let-values ([(g node-map)
-      (for/fold ([g g] [node-map '()])
-                ([node (all-nodes g1)])
-        (let-values ([(g nodeid) (make-node g (get-node-attrs g1 node))])
-          (values g (cons `(,node . ,nodeid) node-map))))])
-    (let ([g (for/fold ([g g])
-                        ([edge (all-edges g1)])
-                (let ([edge (map-edge node-map (set->list edge))])
-                  (if (has-edge? g edge) g (add-edge g edge))))])
-      (values g (dict-values node-map)))))
-
 (define (add-activation-link g node1 node2)
   (add-edge g `((,node1 activation) (,node2 activation))))
 
@@ -297,6 +278,15 @@
               [ctx (member-of g node)])
     (add-activation-link g node ctx)))
 
+(define (equation? g node)
+  (node-is-a? g 'equation node))
+
+(define (add-activation-links-to-equation-tags g new-nodes)
+  (for*/fold ([g g])
+             ([eqn (filter (λ (n) (equation? g n)) new-nodes)]
+              [tag (tags-of g eqn)])
+    (add-activation-link g eqn tag)))
+
 (define (make-map-of-value-instances g nodes)
   (for/fold ([hm (hash)])
             ([node nodes])
@@ -306,19 +296,20 @@
       (hash-update hm v (λ (old) (cons node old)) '()))))
 
 (define (merge-slipnet-graphs graphs)
-  (for/fold ([sl (make-graph)] [hm-value->instances (hash)])
+  (for/fold ([sl (make-graph)] [ht-value->instances (hash)])
             ([g graphs])
     (let*-values ([(sl new-nodes) (copy-graph-into-graph sl g)]
                   [(sl) (add-activation-links-to-ctx sl new-nodes)]
+                  [(sl) (add-activation-links-to-equation-tags sl new-nodes)]
                   [(hm) (make-map-of-value-instances sl new-nodes)])
-      (values sl (hash-union hm-value->instances hm #:combine
+      (values sl (hash-union ht-value->instances hm #:combine
                              (let () (local-require racket/base)
                                append))))))
 
-(define (add-and-link-archetype-nodes sl hm-value->instances)
+(define (add-and-link-archetype-nodes sl ht-value->instances)
   (for/fold ([sl sl])
-            ([hm-item (hash->list hm-value->instances)])
-    (match-define `(,archetype-value . ,instances) hm-item)
+            ([ht-item (hash->list ht-value->instances)])
+    (match-define `(,archetype-value . ,instances) ht-item)
     (let-values ([(sl archetype-node)
                       (make-node sl `((class . archetype)
                                       (value . ,archetype-value)))])
@@ -339,8 +330,8 @@
       (add-edge sl `((,topnode members) (,node member-of))))))
 
 (define (make-slipnet . graphs)
-  (let*-values ([(sl hm-value->instances) (merge-slipnet-graphs graphs)]
-                [(sl) (add-and-link-archetype-nodes sl hm-value->instances)]
+  (let*-values ([(sl ht-value->instances) (merge-slipnet-graphs graphs)]
+                [(sl) (add-and-link-archetype-nodes sl ht-value->instances)]
                 [(sl) (link-all-into-slipnet sl)])
     sl))
 
@@ -402,15 +393,15 @@
 (module+ test
   (test-case "spreading activation"
     (define slipnet (make-slipnet
-      (make-graph '(:group 4+5=9 4 5 + 9
+      (make-graph '(:group (:name 4+5=9) 4 5 + 9
                      (:edge (4 result) (+ operands))
                      (:edge (5 result) (+ operands))
                      (:edge (+ result) (9 source))))
-      (make-graph '(:group 4+2=6 4 2 + 6
+      (make-graph '(:group (:name 4+2=6) 4 2 + 6
                      (:edge (4 result) (+ operands))
                      (:edge (2 result) (+ operands))
                      (:edge (+ result) (6 source))))
-      (make-graph '(:group 6+9=15 6 9 + 15
+      (make-graph '(:group (:name 6+9=15) 6 9 + 15
                      (:edge (6 result) (+ operands))
                      (:edge (9 result) (+ operands))
                      (:edge (+ result) (15 source))))))
@@ -471,7 +462,7 @@
 
 ;TODO Move this to a util file
 (define (sorted xs)
-  (let ([xs (for/list ([x (in xs)]) x)])
+  (let ([xs (for/list ([x xs]) x)])
     (sort xs string<? #:key ~a)))
 
 (define (search-slipnet g initial-activations)
@@ -636,7 +627,7 @@
                        (string->symbol (format "~ar" result))
                        result)])
     (make-graph `(:let ([:equation
-                          (:group ,group-name
+                          (:group (:name ,group-name) (:class equation)
                             (:node (:attrs ((class . number)
                                             (value . ,n1)
                                             (name .  ,n1))))
@@ -653,7 +644,7 @@
                             (:edge (,n2-name result) (,op operands))
                             (:edge (,op result) (,result-name source)))])
                     (add-tag (fills-port ,n1 result) :equation)
-                    (add-tag (fills-port ,n2-name result) :equation)
+                    (add-tag (fills-port ,n2 result) :equation)
                     (add-tag (fills-port ,op result) :equation)
                     (add-tag (fills-port ,op operands) :equation)
                     (add-tag (fills-port ,result source) :equation)

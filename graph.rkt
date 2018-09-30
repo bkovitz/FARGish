@@ -1,7 +1,5 @@
 #lang debug at-exp racket
 
-;TODO Remove make-graph and associated functions from this file.
-
 ;; Data structure for port graphs
 
 (require rackunit racket/generic racket/struct "id-set.rkt"
@@ -10,7 +8,7 @@
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
          port->neighbors port->neighboring-ports all-nodes
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
-         pr-graph pr-group members-of member-of?
+         pr-graph pr-group members-of member-of? copy-graph-into-graph
          nodes-of-class-in class-of members-of member-of next-to? bound-to?
          bound-from? succ? has-node? node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
@@ -22,8 +20,8 @@
 
 ;; A port graph
 
-(struct graph (hm-node->attrs
-               hm-port->neighboring-ports
+(struct graph (ht-node->attrs
+               ht-port->neighboring-ports
                edges
                id-set
                stacks  ; dict of temp vars for do-graph-edits
@@ -99,7 +97,7 @@
 ;; Querying a graph
 
 (define (all-nodes g)
-  (hash-keys (graph-hm-node->attrs g)))
+  (hash-keys (graph-ht-node->attrs g)))
 
 (define all-edges graph-edges)
 
@@ -215,7 +213,7 @@
       (printf "  ~a -- ~a\n" port neighboring-port))))
 
 (define (has-node? g id)
-  (hash-has-key? (graph-hm-node->attrs g) id))
+  (hash-has-key? (graph-ht-node->attrs g) id))
 
 (module+ test
   (check-false (has-node? empty-graph 'plus)))
@@ -261,6 +259,8 @@
   (match attrs
     [(hash-table ('value (? placeholder? p)) _ ...)
      'placeholder]
+    [(hash-table ('value (? pair? v)) _ ...)
+     (string->symbol (string-join (map ~a v) "-"))]
     [(hash-table ('value v) _ ...)
      v]
     [(hash-table ('class c) _ ...)
@@ -268,6 +268,8 @@
 
 (define (default-name attrs) ; N.b.: ignores 'name key even if it's there
   (match attrs
+    [(hash-table ('class class) ('tag? #t) _ ...)
+     (value-name attrs)]
     [(hash-table ('class 'letter) _ ...)
      (value-name attrs)]
     [(hash-table ('class 'number) _ ...)
@@ -285,7 +287,14 @@
   (check-equal? (normalize-attrs '((class . plus)))
                 #hash((class . plus) (name . plus)))
   (check-equal? (normalize-attrs '((class . plus) (value . xyz)))
-                #hash((class . plus) (value . xyz) (name . plusxyz))))
+                #hash((class . plus) (value . xyz) (name . plusxyz)))
+  (check-equal? (normalize-attrs '((class . fills-port)
+                                   (tag? . #t)
+                                   (value . (fills-port 5 result))))
+                #hash((class . fills-port)
+                      (tag? . #t)
+                      (name . fills-port-5-result)
+                      (value . (fills-port 5 result)))))
 
 ;; Making nodes
 
@@ -295,8 +304,8 @@
                 [(id-set id) (gen-id (graph-id-set g) name)]
                 [(attrs) (hash-set attrs 'id id)]
                 [(g) (struct-copy graph g
-                       [hm-node->attrs
-                         (hash-set (graph-hm-node->attrs g) id attrs)]
+                       [ht-node->attrs
+                         (hash-set (graph-ht-node->attrs g) id attrs)]
                        [id-set id-set])])
     (values g id)))
 
@@ -305,7 +314,7 @@
     (if (void? hm)
       (void)
       (hash-ref (get-node-attrs g id) k (void)))))
-;  (match (graph-hm-node->attrs g)
+;  (match (graph-ht-node->attrs g)
 ;    [(hash-table ((== id) attrs) _ ...)
 ;     (hash-ref attrs k (void))]
 ;    [_ (void)]))
@@ -320,7 +329,7 @@
 
 ;;TODO UT
 (define (get-node-attrs g id) ;returns void if node not found
-  (match (graph-hm-node->attrs g)
+  (match (graph-ht-node->attrs g)
     [(hash-table ((== id) attrs) _ ...)
      attrs]
     [_ (void)]))
@@ -330,8 +339,8 @@
   (if (has-node? g node)
     (let ([attrs (get-node-attrs g node)])
       (struct-copy graph g
-        [hm-node->attrs
-          (hash-set (graph-hm-node->attrs g) node (hash-set attrs k v))]))
+        [ht-node->attrs
+          (hash-set (graph-ht-node->attrs g) node (hash-set attrs k v))]))
     g))
 
 (module+ test
@@ -366,12 +375,12 @@
 (define (add-edge g edge) ; edge is '((node1 port-label1) (node2 port-label2))
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
-  (let* ([p->nps (graph-hm-port->neighboring-ports g)]
+  (let* ([p->nps (graph-ht-port->neighboring-ports g)]
          [p->nps (hash-update p->nps port1 (λ (st) (set-add st port2)) (set))]
          [p->nps (hash-update p->nps port2 (λ (st) (set-add st port1)) (set))])
     (struct-copy graph g
       [edges (set-add edges (set port1 port2))]
-      [hm-port->neighboring-ports p->nps]
+      [ht-port->neighboring-ports p->nps]
       )))
 
 (define (has-edge? g edge)
@@ -382,7 +391,7 @@
 (define (remove-edge g edge)
   (match-define `(,port1 ,port2) edge)
   (define edge* (apply set edge))
-  (let* ([p->nps (graph-hm-port->neighboring-ports g)]
+  (let* ([p->nps (graph-ht-port->neighboring-ports g)]
          [p->nps (hash-update p->nps
                               port1
                               (λ (st) (set-remove st port2))
@@ -393,7 +402,7 @@
                               (set))])
     (struct-copy graph g
       [edges (set-remove (graph-edges g) edge*)]
-      [hm-port->neighboring-ports p->nps])))
+      [ht-port->neighboring-ports p->nps])))
 
 ;TODO UT
 (define (remove-node g node)
@@ -401,7 +410,7 @@
                      ([edge (node->incident-edges g node)])
              (remove-edge g edge))])
     (struct-copy graph g
-      [hm-node->attrs (hash-remove (graph-hm-node->attrs g) node)])))
+      [ht-node->attrs (hash-remove (graph-ht-node->attrs g) node)])))
 
 (module+ test
   (let* ([g (add-node empty-graph '((class . number) (name . source9)))]
@@ -425,12 +434,12 @@
 ;;; Neighbors
 
 (define (port->neighboring-ports g port)
-  (define p->nps (graph-hm-port->neighboring-ports g))
+  (define p->nps (graph-ht-port->neighboring-ports g))
   (hash-ref p->nps port '()))
 
 ;TODO refactor
 (define (port->neighbors g port)
-  (define p->nps (graph-hm-port->neighboring-ports g))
+  (define p->nps (graph-ht-port->neighboring-ports g))
   (for/list ([neighboring-port (in-set (hash-ref p->nps port '()))])
     (match-define (list neighbor _) neighboring-port)
     neighbor))
@@ -446,7 +455,7 @@
 
 ;TODO Inefficient
 (define (node->ports g node)
-  (for/list ([port (hash-keys (graph-hm-port->neighboring-ports g))]
+  (for/list ([port (hash-keys (graph-ht-port->neighboring-ports g))]
              #:when (equal? node (car port)))
     port))
 
@@ -475,3 +484,24 @@
                   (set 'b 'c))
     (let* ([g (remove-edge g '((b in) (a out)))])
       (check-equal? (port->neighbors g '(a out)) '(c)))))
+
+;TODO Replace dict-ref with hash-ref
+(define (map-edge node-map edge)
+  (match-define `((,node1 ,port-label1) (,node2 ,port-label2)) edge)
+  (define new-node1 (dict-ref node-map node1))
+  (define new-node2 (dict-ref node-map node2))
+  `((,new-node1 ,port-label1) (,new-node2 ,port-label2)))
+
+;TODO UT
+(define (copy-graph-into-graph g g1)
+  (let-values ([(g node-map)
+      (for/fold ([g g] [node-map '()])
+                ([node (all-nodes g1)])
+        (let-values ([(g nodeid) (make-node g (get-node-attrs g1 node))])
+          (values g (cons `(,node . ,nodeid) node-map))))])
+    (let ([g (for/fold ([g g])
+                        ([edge (all-edges g1)])
+                (let ([edge (map-edge node-map (set->list edge))])
+                  (if (has-edge? g edge) g (add-edge g edge))))])
+      (values g (dict-values node-map)))))
+
