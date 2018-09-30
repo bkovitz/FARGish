@@ -65,3 +65,28 @@
   (void))
 
 ;(test 500000)
+
+(define (testd iters n)
+  (define alist (for/list ([i n])
+                  (cons i 'a)))
+  (define ht (make-immutable-hash alist))
+  (time
+    (for/fold ([result '()])
+              ([_ iters])
+      (cons (hash-ref ht 0) (hash-ref ht (sub1 n)))))
+  (time
+    (for/fold ([result '()])
+              ([_ iters])
+      (cons (dict-ref ht 0) (dict-ref ht (sub1 n)))))
+  (time
+    (for/fold ([result '()])
+              ([_ iters])
+      (cons (dict-ref alist 0) (dict-ref alist (sub1 n)))))
+  (time
+    (for/fold ([result '()])
+              ([_ iters])
+      (cons (cdr (assoc 0 alist)) (cdr (assoc (sub1 n) alist))))))
+
+; Wow, dict-ref's performance is horrible: 15x slower than hash-ref.
+; assoc outperforms hash-ref only when the alist has 2 or fewer elements.
+
