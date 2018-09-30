@@ -8,6 +8,7 @@
             ([letter-pair '((a b) (b a) (a c) (c a) (b c) (c b))])
     (match-define `(,from ,to) letter-pair)
     (add-tag g 'bind from to)))
+      ;TODO Is this still the right way to call add-tag?
 
 #;(define model
   (let* ([g (make-graph 'a 'b 'c '(tag next a b) '(tag next b c))]

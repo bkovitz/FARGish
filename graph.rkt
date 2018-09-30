@@ -8,11 +8,11 @@
          racket/dict racket/pretty describe mischief/memoize) 
 
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
-         add-tag port->neighbors port->neighboring-ports all-nodes
+         port->neighbors port->neighboring-ports all-nodes
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
          check-desiderata pr-graph pr-group members-of member-of?
          nodes-of-class-in class-of bind members-of member-of next-to? bound-to?
-         bound-from? succ? has-node? tag-of node->neighbors node->ports
+         bound-from? succ? has-node? node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
          empty-graph placeholder placeholder? group? remove-node
          graph-set-stacked-variable graph-get-stacked-variable
@@ -676,35 +676,6 @@
   (let ([g (make-graph '(placeholder letter x))])
     (check-equal? (get-node-attr g 'x 'class) 'letter)
     (check-pred placeholder? (get-node-attr g 'x 'value))))
-
-
-;; Tags
-
-(define (add-tag g tag from to)
-  (let*-values ([(g bindid) (make-node g '((class . bind)))]
-                [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
-                [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
-    g))
-
-(define (tag-of tag g node1 node2)
-  (match tag
-    ['succ (for*/first ([tag1 (port->neighbors g `(,node1 succ-to))]
-                        [tag2 (port->neighbors g `(,node2 succ-from))]
-                        #:when (equal? tag1 tag2))
-             tag)]
-    [_ (raise-arguments-error 'tag-of "unknown tag" "tag" tag)]))
-
-(module+ test
-  (let* ([g (make-graph 'a 'b)]
-         [g (add-tag g 'bind 'a 'b)])
-    (check-true (has-edge? g '((a bound-to) (bind bind-from))))
-    (check-true (has-edge? g '((b bound-from) (bind bind-to))))))
-
-(module+ test
-  (test-case "tag-of"
-    (let ([g (make-graph 'a 'b 'c '(succ a b))])
-      (check-equal? (tag-of 'succ g 'a 'b) 'succ)
-      )))
 
 ;; Desiderata
 

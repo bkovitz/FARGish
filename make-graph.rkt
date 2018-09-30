@@ -5,7 +5,7 @@
 (require rackunit data/collection racket/generic racket/struct
          racket/dict racket/pretty describe "graph.rkt")
 
-(provide make-graph do-graph-edits)
+(provide make-graph do-graph-edits add-tag tag-of)
 
 (define (node-args->attrs args)
   (match args
@@ -218,7 +218,76 @@
   (test-case "succ"
     (let ([g (make-graph 'a 'b 'c '(succ a b c))])
       (check-true (succ? g 'a 'b))
-      (check-true (succ? g 'b 'c))))
+      (check-true (succ? g 'b 'c)))))
 
-  (let ([g (make-graph '(:node letter a))])
-    (pr-graph g)))
+;; Tags
+
+#;(define (add-tag g tag from to)
+  (let*-values ([(g bindid) (make-node g '((class . bind)))]
+                [(g) (add-edge g `((,bindid bind-from) (,from bound-to)))]
+                [(g) (add-edge g `((,bindid bind-to) (,to bound-from)))])
+    g))
+
+(define (tag->attrs tag)
+  (match tag
+    [`(,class . ,args)
+     `(:attrs ((class . ,class) (value . ,args)))]
+    [class
+      `(:attrs ((class . ,class)))]
+    [_ (raise-argument-error 'tag->attrs "invalid tag" "tag" tag)]))
+
+;; Symmetric tag
+(define (add-tag g tag . nodes)
+  (when (empty? nodes)
+    (raise-argument-error 'add-tag "must tag at least one node" "nodes" nodes))
+  (do-graph-edits g
+    `((:let ([:tag (:node ,(tag->attrs tag))])
+         ,@(for/list ([node nodes])
+             `(:edge (:tag tagged) (,node tags)))))))
+
+(define (has-tag? g tag node)
+  (define attrs (cadr (tag->attrs tag)))
+  (define class (dict-ref attrs 'class))
+  (define value (dict-ref attrs 'value (void)))
+  (define (is? tagnode)
+    (and (equal? (class-of g tagnode) class)
+         (or (void? value) (equal? (value-of g tagnode) value))))
+  (for/or ([tagnode (port->neighbors g `(,node tags))])
+    (is? tagnode)))
+
+(module+ test
+  (test-case "add-tag"
+    (let* ([g (make-graph 'a 'b 'c)]
+           [g (add-tag g 'near 'a 'b)])
+      (check-not-false (has-tag? g 'near 'a))
+      (check-not-false (has-tag? g 'near 'b))
+      (check-false (has-tag? g 'near 'c)))
+    (let* ([g (make-graph 'a 'b)]
+           [g (add-tag g '(needs-neighbor source) 'a)]
+           [g (add-tag g '(needs-neighbor result) 'b)])
+      (pr-graph g)
+      (check-not-false (has-tag? g 'needs-neighbor 'a))
+      (check-not-false (has-tag? g '(needs-neighbor source) 'a))
+      (check-not-false (has-tag? g 'needs-neighbor 'b))
+      (check-false (has-tag? g '(needs-neighbor source) 'b)))
+    ))
+
+(define (tag-of tag g node1 node2)
+  (match tag
+    ['succ (for*/first ([tag1 (port->neighbors g `(,node1 succ-to))]
+                        [tag2 (port->neighbors g `(,node2 succ-from))]
+                        #:when (equal? tag1 tag2))
+             tag)]
+    [_ (raise-arguments-error 'tag-of "unknown tag" "tag" tag)]))
+
+#;(module+ test
+  (let* ([g (make-graph 'a 'b)]
+         [g (add-tag g 'bind 'a 'b)])
+    (check-true (has-edge? g '((a bound-to) (bind bind-from))))
+    (check-true (has-edge? g '((b bound-from) (bind bind-to))))))
+
+(module+ test
+  (test-case "tag-of"
+    (let ([g (make-graph 'a 'b 'c '(succ a b))])
+      (check-equal? (tag-of 'succ g 'a 'b) 'succ)
+      )))
