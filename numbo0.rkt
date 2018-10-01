@@ -11,7 +11,7 @@
 ; done?
 ; printing the result
 
-(require rackunit #;data/collection racket/dict racket/generic racket/pretty
+(require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
          "graph.rkt" "make-graph.rkt")
 
@@ -21,8 +21,8 @@
 
 (define max-timesteps 20)
 (define slipnet-spreading-rate 0.1)
-(define slipnet-decay 0.5)
-(define slipnet-timesteps 10)
+(define slipnet-decay 0.9)
+(define slipnet-timesteps 5)
 (define support-decay-rate 0.5)
 
 ;; Making a workspace
@@ -393,19 +393,14 @@
 (module+ test
   (test-case "spreading activation"
     (define slipnet (make-slipnet
-      (make-graph '(:group (:name 4+5=9) 4 5 + 9
-                     (:edge (4 result) (+ operands))
-                     (:edge (5 result) (+ operands))
-                     (:edge (+ result) (9 source))))
-      (make-graph '(:group (:name 4+2=6) 4 2 + 6
-                     (:edge (4 result) (+ operands))
-                     (:edge (2 result) (+ operands))
-                     (:edge (+ result) (6 source))))
-      (make-graph '(:group (:name 6+9=15) 6 9 + 15
-                     (:edge (6 result) (+ operands))
-                     (:edge (9 result) (+ operands))
-                     (:edge (+ result) (15 source))))))
-    (define initial-activations #hash((archetype4 . 1.0) (archetype5 . 1.0)))
+      (make-equation-graph 4 '+ 5 9)
+      (make-equation-graph 4 '+ 2 6)
+      (make-equation-graph 6 '+ 9 15)))
+    (define initial-activations #hash(
+      (archetype4 . 1.0)
+      (archetype5 . 1.0)
+      (archetype-fills-port-4-result . 1.0)
+      (archetype-fills-port-5-result . 1.0)))
     (define activations (run-slipnet slipnet initial-activations))
     (check-equal?
       (sequence->list
@@ -414,6 +409,43 @@
                                (λ (a1 a2) (> (cdr a1) (cdr a2)))))))
       '(4+5=9 4+2=6 6+9=15)
       "group with 4 and 5 in it didn't get strongest activation")))
+
+;; Desiderata and diagnosis
+
+(define (desiderata->tags g desiderata)
+  (let loop ([result (set)] [desiderata desiderata])
+    (if (null? desiderata)
+      result
+      (match-let ([`(,th . ,arch) (car desiderata)])
+        (loop (if (th) (set-add result arch) result)
+              (cdr desiderata))))))
+
+(define (desiderata-of g node)
+  (case (class-of g node)
+    [(number)
+     (define sources (port->neighbors g `(,node source)))
+     (define results (port->neighbors g `(,node result)))
+     (define v (value-of g node))
+     `((,(thunk (empty? sources)) . (fills-port ,v source))
+       (,(thunk (empty? results)) . (fills-port ,v result)))]
+    [else '()]))
+
+(module+ test
+  (test-case "desiderata->tags"
+    (let* ([g (make-numbo-ws (make-graph) '(4 5 6) 15)]
+           [desiderata (desiderata-of g 4)])
+      (check-equal? (desiderata->tags g desiderata)
+                    (set '(fills-port 4 result))))))
+
+(define (whats-your-problem g node)
+  (for/set ([tagvalue (desiderata->tags g (desiderata-of g node))])
+    (archetype-of-value g tagvalue)))
+
+(module+ test
+  (test-case "whats-your-problem"
+    (let ([g (make-start-graph '(4 5 6) 15 slipnet)])
+      (check-equal? (whats-your-problem g 4)
+                    (set 'archetype-fills-port-4-result)))))
 
 ;; Running
 
@@ -428,11 +460,31 @@
               #:when (equal? (value-of g node) (value-of g archetype)))
     archetype))
 
+(define (archetype-of-value g value)
+  (for/first ([archetype (archetypes g 'slipnet)]
+              #:when (equal? value (value-of g archetype)))
+    archetype))
+
 #;(define (make-initial-activations g)
   (make-immutable-hash
     (for/list ([node (nodes-missing-a-neighbor g)])
       (define archetype (archetype-of g node))
       `(,archetype . 1.0))))
+
+(define (archetypes-to-activate-for g node)
+  (define w (whats-your-problem g node))
+  (if (empty? w)
+    '()
+    (cons (archetype-of g node) (set->list w))))
+
+#;(define (make-initial-activations g)
+  (for/fold ([h (hash)])
+            ([node (members-of g 'numbo-ws)])
+    (define s (salience-of g node))
+    (if (zero? s)
+      h
+      (let ([archetype (archetype-of g node)])
+        (hash-update h archetype (λ (old) (+ old s)) 0.0)))))
 
 (define (make-initial-activations g)
   (for/fold ([h (hash)])
@@ -440,7 +492,8 @@
     (define s (salience-of g node))
     (if (zero? s)
       h
-      (let ([archetype (archetype-of g node)])
+      (for/fold ([h h])
+                ([archetype (archetypes-to-activate-for g node)])
         (hash-update h archetype (λ (old) (+ old s)) 0.0)))))
 
 (define (failed? g node)
@@ -568,11 +621,14 @@
           (raise `(done ,g)))
         (do-timestep g)))))
 
-(define (run bricks target [slipnet slipnet])
+(define (make-start-graph bricks target slipnet)
   (let*-values ([(g) (make-graph)]
                 [(g) (make-numbo-ws g bricks target)]
                 [(g _) (copy-graph-into-graph g slipnet)])
-    (run^ g)))
+    g))
+
+(define (run bricks target [slipnet slipnet])
+  (run^ (make-start-graph bricks target slipnet)))
 
 ;; Output for debugging/experimentation
 

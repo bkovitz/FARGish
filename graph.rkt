@@ -157,7 +157,8 @@
          (member-of? g to-ctx to-node))))
 
 (define (group? g node)
-  (eq? 'group (class-of g node)))
+  #;(eq? 'group (class-of g node))
+  (node-attr? g 'group? node))
 
 (define (succ? g node1 node2)
   (for*/or ([succ (port->neighbors g `(,node1 succ-to))]
@@ -321,7 +322,7 @@
 
 ;;TODO UT
 ;; Returns value of id's attribute k, or #f if either node or key not found
-(define (node-attr? g id k)
+(define (node-attr? g k id)
   (match (get-node-attrs g id)
     [(hash-table ((== k) v) _ ...)
      v]

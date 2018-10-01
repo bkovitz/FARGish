@@ -260,7 +260,7 @@
     [_ (raise-argument-error 'tag->attrs "invalid tag" "tag" tag)]))
 
 (define (tag? g node)
-  (node-attr? g node 'tag?))
+  (node-attr? g 'tag? node))
 
 ;; Symmetric tag  TODO Obsolete? Just do add-tag in do-graph-edits?
 #;(define (add-tag g tag . nodes)
