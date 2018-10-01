@@ -310,7 +310,8 @@
                        [id-set id-set])])
     (values g id)))
 
-(define (get-node-attr g id k) ;returns void if either node or key not found
+;; Returns void if either node or key not found.
+(define (get-node-attr g id k)
   (let ([hm (get-node-attrs g id)])
     (if (void? hm)
       (void)
@@ -330,7 +331,8 @@
 
 ;;TODO UT
 (define (get-node-attrs g id) ;returns void if node not found
-  (match (graph-ht-node->attrs g)
+  (hash-ref (graph-ht-node->attrs g) id (void))
+  #;(match (graph-ht-node->attrs g)  ;OUCH!!! SLOW
     [(hash-table ((== id) attrs) _ ...)
      attrs]
     [_ (void)]))

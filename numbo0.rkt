@@ -20,7 +20,7 @@
 ;; Global constants
 
 (define max-timesteps 20)
-(define slipnet-spreading-rate 0.1)
+(define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 5)
 (define support-decay-rate 0.5)
@@ -515,8 +515,7 @@
 
 ;TODO Move this to a util file
 (define (sorted xs)
-  (let ([xs (for/list ([x xs]) x)])
-    (sort xs string<? #:key ~a)))
+  (sort (hash->list xs) string<? #:key ~a))
 
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
@@ -730,21 +729,48 @@
   (make-equation-graph 1 '+ 1 2)
   (make-equation-graph 6 '+ 9 15)))
 
-#;(define big-slipnet
-  (let ()
-    (define ns (make-base-namespace))
-    (define operand-pairs (for*/set ([i (in-range 1 13)]
-                                     [j (in-range 1 13)])
-                            `(,i ,j)))
-    (define tuples (for*/list ([ij operand-pairs]
-                               [op '(+ - *)])
-                     (match-define `(,i ,j) ij)
-                     (define expr `(,op ,i ,j))
-                     (define result (eval expr ns))
-                     `(,i ,op ,j ,result)))
-    (define graphs (for/list ([tuple tuples])
-                     (apply make-equation-graph tuple)))
-    (apply make-slipnet graphs)))
+(define (commutative? op)
+  (case op
+    [(+ *) #t]
+    [(- /) #f]))
+
+;; Returns a list of graphs, one for each equation.
+(define (make-memorized-arithmetic-tables n)
+  (define ns (make-base-namespace))
+  (define operand-pairs (for*/set ([i (in-range 1 (add1 n))]
+                                   [j (in-range 1 (add1 n))])
+                          `(,i ,j)))
+  (define tuples (for*/fold ([tuples '()])
+                            ([ij operand-pairs]
+                             [op '(+ - *)])
+                   (match-define `(,i ,j) ij)
+                   (define expr `(,op ,i ,j))
+                   (define result (eval expr ns))
+                   (cond
+                     [(negative? result)
+                       tuples]
+                     [(and (commutative? op) (< i j))
+                       tuples]
+                     [else (cons `(,i ,op ,j ,result) tuples)])))
+  (for/list ([tuple tuples])
+    (apply make-equation-graph tuple)))
+
+(define big-slipnet
+  (apply make-slipnet (make-memorized-arithmetic-tables 12)))
+;  (let ()
+;    (define ns (make-base-namespace))
+;    (define operand-pairs (for*/set ([i (in-range 1 13)]
+;                                     [j (in-range 1 13)])
+;                            `(,i ,j)))
+;    (define tuples (for*/list ([ij operand-pairs]
+;                               [op '(+ - *)])
+;                     (match-define `(,i ,j) ij)
+;                     (define expr `(,op ,i ,j))
+;                     (define result (eval expr ns))
+;                     `(,i ,op ,j ,result)))
+;    (define graphs (for/list ([tuple tuples])
+;                     (apply make-equation-graph tuple)))
+;    (apply make-slipnet graphs)))
 
 ;(define g (let*-values ([(g) (make-graph)]
 ;                        ;[(g) (make-numbo-ws g '(4 5 6) 15)]
