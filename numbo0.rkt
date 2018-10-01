@@ -19,7 +19,7 @@
 
 ;; Global constants
 
-(define max-timesteps 20)
+(define max-timesteps 1 #;20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 5)
@@ -487,7 +487,7 @@
         (hash-update h archetype (λ (old) (+ old s)) 0.0)))))
 
 (define (make-initial-activations g)
-  (for/fold ([h (hash)])
+  (for/fold ([h (hash)]) ; (archetype . activation)
             ([node (members-of g 'numbo-ws)])
     (define s (salience-of g node))
     (if (zero? s)
@@ -517,9 +517,12 @@
 (define (sorted xs)
   (sort (hash->list xs) string<? #:key ~a))
 
+(define (sorted-by-cdr ht)
+  (sort (hash->list ht) < #:key cdr))
+
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
-  ;#R (sorted activations)
+  #R (sorted-by-cdr activations)
   (most-active-group g activations))
 
 (define salience-decay 0.9)
@@ -788,6 +791,6 @@
 ;(define g6 (do-timestep g5))
 ;(pr-group g6 'numbo-ws)
 
-;(define g (run '(4 5 6) 15 slipnet))
-;(pr-group g 'numbo-ws)
+(define g (run '(4 5 6) 15 big-slipnet))
+(pr-group g 'numbo-ws)
 ;(define h (run '(1 1) 2))
