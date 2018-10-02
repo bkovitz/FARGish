@@ -447,6 +447,33 @@
       (check-equal? (whats-your-problem g 4)
                     (set 'archetype-fills-port-4-result)))))
 
+;; Tagging
+
+(define (number-node? g node)
+  (node-is-a? g 'number node))
+
+(define (needs-source? g node)
+  (if (and (number-node? g node)
+           (empty? (port->neighbors g `(,node source))))
+    `(need source)
+    #f))
+
+(define (needs-result? g node)
+  (if (and (number-node? g node)
+           (empty? (port->neighbors g `(,node result))))
+    `(need result)
+    #f))
+
+(define (tags-for-relations g node1 node2)
+  (case (list (class-of g node1) (class-of g node2))
+    [(number number)
+     (define n1 (value-of g node1))
+     (define n2 (value-of g node2))
+     (cond
+       (> n1 n2) `>
+       (< n1 n2) '<
+       else '=)]))
+
 ;; Running
 
 (define (archetypes g slipnet-root)
