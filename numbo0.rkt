@@ -13,13 +13,13 @@
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
-         "graph.rkt" "make-graph.rkt")
+         "wheel.rkt" "graph.rkt" "make-graph.rkt")
 
 (provide (all-defined-out))
 
 ;; Global constants
 
-(define max-timesteps 1 #;20)
+(define max-timesteps 20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 5)
@@ -412,40 +412,62 @@
 
 ;; Desiderata and diagnosis
 
-(define (desiderata->tags g desiderata)
-  (let loop ([result (set)] [desiderata desiderata])
-    (if (null? desiderata)
-      result
-      (match-let ([`(,th . ,arch) (car desiderata)])
-        (loop (if (th) (set-add result arch) result)
-              (cdr desiderata))))))
+;(define (desiderata->tags g desiderata)
+;  (let loop ([result (set)] [desiderata desiderata])
+;    (if (null? desiderata)
+;      result
+;      (match-let ([`(,th . ,arch) (car desiderata)])
+;        (loop (if (th) (set-add result arch) result)
+;              (cdr desiderata))))))
+;
+;(define (desiderata-of g node)
+;  (case (class-of g node)
+;    [(number)
+;     (define sources (port->neighbors g `(,node source)))
+;     (define results (port->neighbors g `(,node result)))
+;     (define v (value-of g node))
+;     `((,(thunk (empty? sources)) . (fills-port ,v source))
+;       (,(thunk (empty? results)) . (fills-port ,v result)))]
+;    [else '()]))
+;
+;(module+ test
+;  (test-case "desiderata->tags"
+;    (let* ([g (make-numbo-ws (make-graph) '(4 5 6) 15)]
+;           [desiderata (desiderata-of g 4)])
+;      (check-equal? (desiderata->tags g desiderata)
+;                    (set '(fills-port 4 result))))))
+;
+;(define (whats-your-problem g node)
+;  (for/set ([tagvalue (desiderata->tags g (desiderata-of g node))])
+;    (archetype-of-value g tagvalue)))
+;
+;(module+ test
+;  (test-case "whats-your-problem"
+;    (let ([g (make-start-graph '(4 5 6) 15 slipnet)])
+;      (check-equal? (whats-your-problem g 4)
+;                    (set 'archetype-fills-port-4-result)))))
 
-(define (desiderata-of g node)
-  (case (class-of g node)
-    [(number)
-     (define sources (port->neighbors g `(,node source)))
-     (define results (port->neighbors g `(,node result)))
-     (define v (value-of g node))
-     `((,(thunk (empty? sources)) . (fills-port ,v source))
-       (,(thunk (empty? results)) . (fills-port ,v result)))]
-    [else '()]))
+(define (problem-tag? g tag)
+  (eq? 'need (safe-car (value-of g tag))))
 
-(module+ test
-  (test-case "desiderata->tags"
-    (let* ([g (make-numbo-ws (make-graph) '(4 5 6) 15)]
-           [desiderata (desiderata-of g 4)])
-      (check-equal? (desiderata->tags g desiderata)
-                    (set '(fills-port 4 result))))))
+(define (problem-tags g node)
+  (for/list ([tag (tags-of g node)]
+             #:when (problem-tag? g tag))
+    tag))
+
+(define (problem-tag->solution-tag g tag node)
+  (match (value-of g tag)
+    ['(need result)
+     `(fills-port ,(value-of g node) result)]
+    ['(need source)
+     `(fills-port ,(value-of g node) source)]
+    ['(need greater-result)
+     `(fills-port-greater-result ,(value-of g node))]
+    [_ (error 'problem-tag->solution-tag)]))
 
 (define (whats-your-problem g node)
-  (for/set ([tagvalue (desiderata->tags g (desiderata-of g node))])
-    (archetype-of-value g tagvalue)))
-
-(module+ test
-  (test-case "whats-your-problem"
-    (let ([g (make-start-graph '(4 5 6) 15 slipnet)])
-      (check-equal? (whats-your-problem g 4)
-                    (set 'archetype-fills-port-4-result)))))
+  (for/set ([tag (problem-tags g node)])
+    (archetype-of-value g (problem-tag->solution-tag g tag node))))
 
 ;; Tagging
 
@@ -455,24 +477,80 @@
 (define (needs-source? g node)
   (if (and (number-node? g node)
            (empty? (port->neighbors g `(,node source))))
-    `(need source)
-    #f))
+    `((need source))
+    '()))
 
 (define (needs-result? g node)
   (if (and (number-node? g node)
            (empty? (port->neighbors g `(,node result))))
-    `(need result)
-    #f))
+    `((need result))
+    '()))
+
+(define (>-mates g node)
+  (for*/list ([tag (tags-of g node)]
+              #:when (and (node-is-a? g '> tag)
+                          (equal? node (port->neighbor g `(,tag tagged-b)))))
+    (port->neighbor g `(,tag tagged-a))))
+
+(define (needs-greater-result? g node)
+  (and (has-tag? g '(need result) node)
+       (for/or ([mate (>-mates g node)])
+         (has-tag? g '(need source) mate))))
 
 (define (tags-for-relations g node1 node2)
   (case (list (class-of g node1) (class-of g node2))
-    [(number number)
+    [((number number))
      (define n1 (value-of g node1))
      (define n2 (value-of g node2))
      (cond
-       (> n1 n2) `>
-       (< n1 n2) '<
-       else '=)]))
+       [(> n1 n2) '(>)]
+       [(= n1 n2) '(=)]
+       [else '()])]
+    [else (error 'tags-for-relations)]))
+
+(define (tags-for-relational-need g node)
+  (cond
+    [(needs-greater-result? g node)
+     '((need greater-result))]
+    [else '()]))
+
+(define (number-nodes-in g ctx)
+  (for/list ([node (members-of g ctx)]
+             #:when (number-node? g node))
+    node))
+
+(define (accumulate-tags tag-funcs g . nodes)
+  (for*/list ([tag-func tag-funcs]
+              [tag (apply tag-func g nodes)])
+    tag))
+
+(define (add-simplest-tags g ctx)
+  (for*/fold ([g g])
+             ([node (number-nodes-in g ctx)]
+              [tag (accumulate-tags (list needs-source?
+                                          needs-result?)
+                                    g node)])
+    (do-graph-edits g `((add-tag ,tag ,node)))))
+
+(define (add-relation-tags g ctx)
+  (for*/fold ([g g])
+             ([node1 (number-nodes-in g ctx)]
+              [node2 (number-nodes-in g ctx)]
+              #:when (not (equal? node1 node2))
+              [tag (accumulate-tags (list tags-for-relations) g node1 node2)])
+    (do-graph-edits g `((add-tag2 ,tag ,node1 ,node2)))))
+
+(define (add-relational-need-tags g ctx)
+  (for*/fold ([g g])
+             ([node (number-nodes-in g ctx)]
+              [tag (accumulate-tags (list tags-for-relational-need) g node)])
+    (do-graph-edits g `((add-tag ,tag ,node)))))
+
+(define (tag-all-numbers g ctx)
+  (let* ([g (add-simplest-tags g ctx)]
+         [g (add-relation-tags g ctx)]
+         [g (add-relational-need-tags g ctx)])
+    g))
 
 ;; Running
 
@@ -549,7 +627,7 @@
 
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
-  #R (sorted-by-cdr activations)
+  ;#R (sorted-by-cdr activations)
   (most-active-group g activations))
 
 (define salience-decay 0.9)
@@ -598,6 +676,7 @@
 (define (do-timestep g)
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
     (let* ([g (decay-support g)]
+           [g (tag-all-numbers g 'numbo-ws)]
            [g (update-saliences g)]
            [activations (make-initial-activations g)]
            [archetypal-group (search-slipnet g activations)])
@@ -729,7 +808,13 @@
                             (:edge (,n2-name result) (,op operands))
                             (:edge (,op result) (,result-name source)))])
                     (add-tag (fills-port ,n1 result) :equation)
+                    ,@(if (> result n1)
+                       `((add-tag (fills-port-greater-result ,n1) :equation))
+                       '())
                     (add-tag (fills-port ,n2 result) :equation)
+                    ,@(if (> result n2)
+                       `((add-tag (fills-port-greater-result ,n2) :equation))
+                       '())
                     (add-tag (fills-port ,op result) :equation)
                     (add-tag (fills-port ,op operands) :equation)
                     (add-tag (fills-port ,result source) :equation)

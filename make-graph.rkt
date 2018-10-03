@@ -3,10 +3,10 @@
 ;; Data structure for port graphs
 
 (require rackunit data/collection racket/generic racket/struct
-         racket/dict racket/pretty describe "graph.rkt")
+         racket/dict racket/pretty describe "wheel.rkt" "graph.rkt")
 
 (provide make-graph do-graph-edits tag-of check-desiderata tags-of class-is-a?
-         node-is-a?)
+         node-is-a? has-tag?)
 
 (define (current-groupid g)
   (graph-get-stacked-variable g 'groupid (void)))
@@ -48,7 +48,7 @@
       (let ([id (look-up-node g name)])
         (if (void? id)
           (begin
-            (pr-graph g)
+            ;(pr-graph g)
             (error 'get-port @~a{no such node: @name in port-spec: @port-spec}))
           (values g `(,id ,port-label))))]
     [_ (raise-argument-error 'get-port "(node port-label)" port-spec)]))
@@ -118,8 +118,12 @@
       `(:node ,(class-of g node))]
     [`(add-tag ,tag . ,nodes)
       `(:let ([:tag (:node ,(tag->attrs tag))])
-          ,@(for/list ([node nodes])
-              `(:edge (:tag tagged) (,node tags))))]
+         ,@(for/list ([node nodes])
+             `(:edge (:tag tagged) (,node tags))))]
+    [`(add-tag2 ,tag ,node1 ,node2) ;asymmetric tag
+      `(:let ([:tag (:node ,(tag->attrs tag))])
+         (:edge (:tag tagged-a) (,node1 tags))
+         (:edge (:tag tagged-b) (,node2 tags)))]
     [`(bind ,a ,b)
       `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
     [`(succ ,a ,b . ,more)
@@ -276,11 +280,6 @@
 
 (define (node-is-a? g class node)
   (class-is-a? g class (class-of g node)))
-
-(define (safe-cdr x)
-  (match x
-    [`(,_ . ,d) d]
-    [_ x]))
 
 ;TODO Match placeholders in tagspec?
 (define (has-tag? g tagspec node)
