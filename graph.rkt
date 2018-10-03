@@ -1,4 +1,4 @@
-#lang debug at-exp racket
+#lang debug at-exp errortrace racket
 
 ;; Data structure for port graphs
 
@@ -6,7 +6,7 @@
          racket/dict racket/pretty describe mischief/memoize) 
 
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
-         port->neighbors port->neighboring-ports all-nodes
+         port->neighbors port->neighboring-ports all-nodes pr-node
          find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
          pr-graph pr-group members-of member-of? copy-graph-into-graph
          nodes-of-class-in class-of members-of member-of next-to? bound-to?
@@ -15,7 +15,7 @@
          empty-graph placeholder placeholder? group? remove-node
          graph-set-stacked-variable graph-get-stacked-variable
          graph-push-stacked-variable graph-pop-stacked-variable
-         graph-update-stacked-variable node-attr?
+         graph-update-stacked-variable node-attr? graph-edge-weight
          (struct-out graph))
 
 ;; A port graph
@@ -28,7 +28,7 @@
                spec) #:transparent)
 
 (define empty-spec '())
-(define empty-graph (graph #hash() #hash() (set) empty-id-set '() empty-spec))
+(define empty-graph (graph #hash() #hash() #hash() empty-id-set '() empty-spec))
 
 ;; Stacked variables
 
@@ -99,7 +99,8 @@
 (define (all-nodes g)
   (hash-keys (graph-ht-node->attrs g)))
 
-(define all-edges graph-edges)
+(define (all-edges g)
+  (hash-keys (graph-edges g)))
 
 (define (name-of g node)
   (get-node-attr g node 'name))
@@ -186,32 +187,27 @@
 
 ;; Printing a graph
 
+(define (pr-node g nodeid)
+  (printf " ~a ~a\n" (~a nodeid #:min-width 12)
+                      (hash-remove (get-node-attrs g nodeid) 'id))
+  (for* ([port (node->ports g nodeid)]
+         [neighboring-port (port->neighboring-ports g port)])
+    (define weight (~r (graph-edge-weight g `(,port ,neighboring-port))
+                       #:precision '(= 1)))
+    (printf "  ~a -- ~a ~a\n" port neighboring-port weight)))
+
 (define (pr-graph g)
   (displayln "Nodes:")
   (for ([nodeid (sort (set->list (all-nodes g))
                       (λ (id1 id2) (string<? (~a id1) (~a id2))))])
-    (printf " ~a ~a\n" (~a nodeid #:min-width 12)
-                        (hash-remove (get-node-attrs g nodeid) 'id))
-    (for* ([port (node->ports g nodeid)]
-           [neighboring-port (port->neighboring-ports g port)])
-      (printf "  ~a -- ~a\n" port neighboring-port)))
-;  (displayln "Edges:")
-;  (define edges (for/list ([e (all-edges g)])
-;                  (string-join (sort (stream->list (map ~a e)) string<?))))
-;  (for ([edge (sort edges string<?)])
-;    (printf " ~a\n" edge))
-  )
+    (pr-node g nodeid)))
 
 (define (pr-group g groupid)
   (displayln "Nodes:")
   (for ([nodeid (cons groupid
                       (sort (members-of g groupid)
                             (λ (id1 id2) (string<? (~a id1) (~a id2)))))])
-    (printf " ~a ~a\n" (~a nodeid #:min-width 12)
-                        (hash-remove (get-node-attrs g nodeid) 'id))
-    (for* ([port (node->ports g nodeid)]
-           [neighboring-port (port->neighboring-ports g port)])
-      (printf "  ~a -- ~a\n" port neighboring-port))))
+    (pr-node g nodeid)))
 
 (define (has-node? g id)
   (hash-has-key? (graph-ht-node->attrs g) id))
@@ -375,7 +371,7 @@
 ;;; Making edges
 
 ;TODO Don't put in a new edge if it's already there
-(define (add-edge g edge) ; edge is '((node1 port-label1) (node2 port-label2))
+#;(define (add-edge g edge) ; edge is '((node1 port-label1) (node2 port-label2))
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
   (let* ([p->nps (graph-ht-port->neighboring-ports g)]
@@ -386,10 +382,28 @@
       [ht-port->neighboring-ports p->nps]
       )))
 
+(define (add-edge g edge [weight 1.0]) ; edge is '((node1 port-label1) (node2 port-label2))
+  (match-define `(,port1 ,port2) edge)
+  (define edges (graph-edges g))
+  (let* ([p->nps (graph-ht-port->neighboring-ports g)]
+         [p->nps (hash-update p->nps port1 (λ (st) (set-add st port2)) (set))]
+         [p->nps (hash-update p->nps port2 (λ (st) (set-add st port1)) (set))])
+    (struct-copy graph g
+      [edges (hash-set edges (set port1 port2) weight)]
+      [ht-port->neighboring-ports p->nps]
+      )))
+
+;TODO Should accept a list or a set for 'edge'
 (define (has-edge? g edge)
   (match-define `(,port1 ,port2) edge)
   (define edge* (set port1 port2))
-  (set-member? (graph-edges g) edge*))
+  (hash-has-key? (graph-edges g) edge*)
+  #;(set-member? (graph-edges g) edge*))
+
+(define (graph-edge-weight g edge)
+  (match-define `(,port1 ,port2) edge)
+  (define edge* (set port1 port2))
+  (hash-ref (graph-edges g) edge* (void)))
 
 (define (remove-edge g edge)
   (match-define `(,port1 ,port2) edge)
@@ -404,7 +418,8 @@
                               (λ (st) (set-remove st port1))
                               (set))])
     (struct-copy graph g
-      [edges (set-remove (graph-edges g) edge*)]
+      ;[edges (set-remove (graph-edges g) edge*)]
+      [edges (hash-remove (graph-edges g) edge*)]
       [ht-port->neighboring-ports p->nps])))
 
 ;TODO UT
@@ -416,14 +431,22 @@
       [ht-node->attrs (hash-remove (graph-ht-node->attrs g) node)])))
 
 (module+ test
-  (let* ([g (add-node empty-graph '((class . number) (name . source9)))]
-         [g (add-node g '((class . plus)))]
-         [g (add-edge g '((source9 output) (plus operand)))])
-    (check-true (has-edge? g '((source9 output) (plus operand))))
-    (check-true (has-edge? g '((plus operand) (source9 output))))
-    (let* ([g (remove-edge g '((plus operand) (source9 output)))])
-      (check-false (has-edge? g '((source9 output) (plus operand)))))
-    ))
+  (test-case "add-edge"
+    (let* ([g (add-node empty-graph '((class . number) (name . source9)))]
+           [g (add-node g '((class . plus)))]
+           [g (add-edge g '((source9 output) (plus operand)))])
+      (check-true (has-edge? g '((source9 output) (plus operand))))
+      (check-true (has-edge? g '((plus operand) (source9 output))))
+      (check-equal? (graph-edge-weight g '((plus operand) (source9 output)))
+                    1.0)
+      (let* ([g (remove-edge g '((plus operand) (source9 output)))])
+        (check-false (has-edge? g '((source9 output) (plus operand)))))))
+  (test-case "add-edge with weight"
+    (let* ([g (add-node empty-graph '((class . letter) (name . a)))]
+           [g (add-node g '((class . letter) (name . b)))]
+           [g (add-edge g '((a output) (b input)) 0.62)])
+      (check-equal? (graph-edge-weight g '((a output) (b input)))
+                    0.62))))
 
 ;;; Making a whole graph
 

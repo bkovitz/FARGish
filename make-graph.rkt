@@ -1,4 +1,4 @@
-#lang debug at-exp racket
+#lang debug at-exp errortrace racket
 
 ;; Data structure for port graphs
 
@@ -206,13 +206,14 @@
   (test-case ":edge"
     (let ([g (make-graph '(:edge ((:node letter a) out)
                                   ((:node letter b) in)))])
-      (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+      (check-equal? (list->set (all-edges g)) (set (set '(a out) '(b in))))))
   (test-case ":edge between refs"
     (let ([g (make-graph 'a 'b '(:edge (a out) (b in)))])
-      (check-equal? (all-edges g) (set (set '(a out) '(b in))))))
+      (check-equal? (list->set (all-edges g)) (set (set '(a out) '(b in))))))
   (test-case ":edge between numbers"
     (let ([g (make-graph 4 '+ '(:edge (4 result) (+ operands)))])
-      (check-equal? (all-edges g) (set (set '(4 result) '(+ operands))))))
+      (check-equal? (list->set (all-edges g))
+                    (set (set '(4 result) '(+ operands))))))
   (test-case "make-graph with placeholders"
     (let ([g (make-graph 'a '(placeholder letter) 'c '(placeholder letter)
                          '(placeholder letter X) '(placeholder))])
@@ -229,7 +230,7 @@
                              (:node letter a)
                              (:edge (:a out) (a in))))])
       (check-equal? (list->set (all-nodes g)) (set 'a 'b))
-      (check-equal? (all-edges g) (set (set '(a in) '(b out))))))
+      (check-equal? (list->set (all-edges g)) (set (set '(a in) '(b out))))))
   (test-case ":begin"
     (let ([g (make-graph '(:begin a b))])
       (check-equal? (list->set (all-nodes g)) (set 'a 'b))

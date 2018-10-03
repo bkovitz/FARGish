@@ -19,10 +19,10 @@
 
 ;; Global constants
 
-(define max-timesteps 20)
+(define max-timesteps 1 #;20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
-(define slipnet-timesteps 5)
+(define slipnet-timesteps 3)
 (define support-decay-rate 0.5)
 
 ;; Making a workspace
@@ -258,8 +258,8 @@
 
 ;; Making a slipnet
 
-(define (add-activation-link g node1 node2)
-  (add-edge g `((,node1 activation) (,node2 activation))))
+(define (add-activation-link g node1 node2 [weight 1.0])
+  (add-edge g `((,node1 activation) (,node2 activation)) weight))
 
 (define (designate-canonical-node g canonical-node alternate-node)
   (add-edge g `((,canonical-node alternates) (,alternate-node canonical-node))))
@@ -276,7 +276,7 @@
   (for*/fold ([g g])
              ([node new-nodes]
               [ctx (member-of g node)])
-    (add-activation-link g node ctx)))
+    (add-activation-link g node ctx 0.5)))
 
 (define (equation? g node)
   (node-is-a? g 'equation node))
@@ -354,18 +354,24 @@
     (match-define `(,node ,_) port)
     (canonical-of g node)))
 
-(define (sliplink-weight g from-node to-node)
+#;(define (sliplink-weight g from-node to-node)
   (case `(,(class-of g from-node) ,(class-of g to-node))
     [((group archetype))
      0.01]
     [else 1.0]))
 
+(define (sliplink-weight g from-node to-node)
+  (graph-edge-weight g `((,from-node activation) (,to-node activation))))
+
 (define (spread-activation-across-edge g initial-activations activations edge)
+  (define weight (match-let ([`((,from ,_) (,to ,_)) (set->list edge)])
+                   (sliplink-weight g from to)))
   (define (spread-1way activations canonical-nodes)
     (match-define `(,from-node ,to-node) canonical-nodes)
     (add-activation activations to-node
       (* slipnet-spreading-rate
-         (sliplink-weight g from-node to-node) 
+         #;(sliplink-weight g from-node to-node) 
+         weight
          (get-activation initial-activations from-node))))
   (let* ([canonical-nodes (edge->canonical-nodes g edge)]
          [activations (spread-1way activations canonical-nodes)]
@@ -401,6 +407,7 @@
       (archetype5 . 1.0)
       (archetype-fills-port-4-result . 1.0)
       (archetype-fills-port-5-result . 1.0)))
+    (pr-graph slipnet) ;DEBUG
     (define activations (run-slipnet slipnet initial-activations))
     (check-equal?
       (sequence->list
@@ -627,7 +634,7 @@
 
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
-  ;#R (sorted-by-cdr activations)
+  #R (sorted-by-cdr activations)
   (most-active-group g activations))
 
 (define salience-decay 0.9)
@@ -678,7 +685,7 @@
     (let* ([g (decay-support g)]
            [g (tag-all-numbers g 'numbo-ws)]
            [g (update-saliences g)]
-           [activations (make-initial-activations g)]
+           [activations #R (make-initial-activations g)]
            [archetypal-group (search-slipnet g activations)])
     (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
 
