@@ -518,16 +518,27 @@
   (define new-node2 (dict-ref node-map node2))
   `((,new-node1 ,port-label1) (,new-node2 ,port-label2)))
 
-;TODO UT
 (define (copy-graph-into-graph g g1)
   (let-values ([(g node-map)
-      (for/fold ([g g] [node-map '()])
+      (for/fold ([g g] [node-map #hash()])
                 ([node (all-nodes g1)])
         (let-values ([(g nodeid) (make-node g (get-node-attrs g1 node))])
-          (values g (cons `(,node . ,nodeid) node-map))))])
+          (values g (hash-set node-map node nodeid))))])
     (let ([g (for/fold ([g g])
                         ([edge (all-edges g1)])
                 (let ([edge (map-edge node-map (set->list edge))])
                   (if (has-edge? g edge) g (add-edge g edge))))])
-      (values g (dict-values node-map)))))
+      (values g node-map))))
 
+(module+ test
+  (test-case "copy-graph-into-graph"
+    (let*-values ([(g) (add-node empty-graph '((class . letter) (name . a)))]
+                  [(g) (add-node g '((class . letter) (name . b)))]
+                  [(g) (add-edge g '((a out) (b in)))]
+                  [(g* node-map) (copy-graph-into-graph empty-graph g)]
+                  [(g** node-map2) (copy-graph-into-graph g* g)])
+      (check-equal? (list->set (all-nodes g**))
+                    (set 'a 'b 'a2 'b2))
+      (check-equal? (list->set (all-edges g**))
+                    (set (set '(a out) '(b in))
+                         (set '(a2 out) '(b2 in)))))))
