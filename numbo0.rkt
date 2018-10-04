@@ -19,7 +19,7 @@
 
 ;; Global constants
 
-(define max-timesteps 1 #;20)
+(define max-timesteps 40)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 3)
@@ -258,88 +258,171 @@
 
 ;; Making a slipnet
 
-(define (add-activation-link g node1 node2 [weight 1.0])
-  (add-edge g `((,node1 activation) (,node2 activation)) weight))
-
-(define (designate-canonical-node g canonical-node alternate-node)
-  (add-edge g `((,canonical-node alternates) (,alternate-node canonical-node))))
-
-(define (canonical-of g node)
-  (let ([c (port->neighbor g `(,node canonical-node))])
-    (if (void? c) node c)))
-
-(define (alternates-of g node)
-  (let ([as (port->neighbors g `(,node alternates))])
-    (if (or (void? as) (empty? as)) (list node) as)))
-
-(define (add-activation-links-to-ctx g new-nodes)
-  (for*/fold ([g g])
-             ([node new-nodes]
-              [ctx (member-of g node)])
-    (add-activation-link g node ctx 0.5)))
+;(define (add-activation-link g node1 node2 [weight 1.0])
+;  (add-edge g `((,node1 activation) (,node2 activation)) weight))
+;
+;(define (designate-canonical-node g canonical-node alternate-node)
+;  (add-edge g `((,canonical-node alternates) (,alternate-node canonical-node))))
+;
+;(define (canonical-of g node)
+;  (let ([c (port->neighbor g `(,node canonical-node))])
+;    (if (void? c) node c)))
+;
+;(define (alternates-of g node)
+;  (let ([as (port->neighbors g `(,node alternates))])
+;    (if (or (void? as) (empty? as)) (list node) as)))
+;
+;(define (add-activation-links-to-ctx g new-nodes)
+;  (for*/fold ([g g])
+;             ([node new-nodes]
+;              [ctx (member-of g node)])
+;    (add-activation-link g node ctx 0.5)))
 
 (define (equation? g node)
   (node-is-a? g 'equation node))
+;
+;(define (add-activation-links-to-equation-tags g new-nodes)
+;  (for*/fold ([g g])
+;             ([eqn (filter (λ (n) (equation? g n)) new-nodes)]
+;              [tag (tags-of g eqn)])
+;    (add-activation-link g eqn tag)))
+;
+;(define (make-map-of-value-instances g nodes)
+;  (for/fold ([hm (hash)])
+;            ([node nodes])
+;    (define v (get-node-attr g node 'value))
+;    (if (void? v)
+;      hm
+;      (hash-update hm v (λ (old) (cons node old)) '()))))
+;
+;(define (merge-slipnet-graphs graphs)
+;  (for/fold ([sl (make-graph)] [ht-value->instances (hash)])
+;            ([g graphs])
+;    (let*-values ([(sl new-nodes) (copy-graph-into-graph sl g)]
+;                  [(sl) (add-activation-links-to-ctx sl new-nodes)]
+;                  [(sl) (add-activation-links-to-equation-tags sl new-nodes)]
+;                  [(hm) (make-map-of-value-instances sl new-nodes)])
+;      (values sl (hash-union ht-value->instances hm #:combine
+;                             (let () (local-require racket/base)
+;                               append))))))
+;
+;(define (add-and-link-archetype-nodes sl ht-value->instances)
+;  (for/fold ([sl sl])
+;            ([ht-item (hash->list ht-value->instances)])
+;    (match-define `(,archetype-value . ,instances) ht-item)
+;    (let-values ([(sl archetype-node)
+;                      (make-node sl `((class . archetype)
+;                                      (value . ,archetype-value)))])
+;      (for/fold ([sl sl])
+;                ([instance instances])
+;        (designate-canonical-node sl archetype-node instance)))))
+;
+;(define (has-top-level-slipnet-class? g node)
+;  (case (class-of g node)
+;    [(group archetype) #t]
+;    [else #f]))
 
-(define (add-activation-links-to-equation-tags g new-nodes)
-  (for*/fold ([g g])
-             ([eqn (filter (λ (n) (equation? g n)) new-nodes)]
-              [tag (tags-of g eqn)])
-    (add-activation-link g eqn tag)))
+;(define (link-all-into-slipnet sl0)
+;  (let-values ([(sl topnode) (make-node sl0 '((class . slipnet)))])
+;    (for/fold ([sl sl])
+;              ([node (all-nodes sl0)]
+;               #:when (has-top-level-slipnet-class? sl0 node))
+;      (add-edge sl `((,topnode members) (,node member-of))))))
 
-(define (make-map-of-value-instances g nodes)
-  (for/fold ([hm (hash)])
-            ([node nodes])
-    (define v (get-node-attr g node 'value))
-    (if (void? v)
-      hm
-      (hash-update hm v (λ (old) (cons node old)) '()))))
+;(define (make-slipnet . graphs)
+;  (let*-values ([(sl ht-value->instances) (merge-slipnet-graphs graphs)]
+;                [(sl) (add-and-link-archetype-nodes sl ht-value->instances)]
+;                [(sl) (link-all-into-slipnet sl)])
+;    sl))
 
-(define (merge-slipnet-graphs graphs)
-  (for/fold ([sl (make-graph)] [ht-value->instances (hash)])
-            ([g graphs])
-    (let*-values ([(sl new-nodes) (copy-graph-into-graph sl g)]
-                  [(sl) (add-activation-links-to-ctx sl new-nodes)]
-                  [(sl) (add-activation-links-to-equation-tags sl new-nodes)]
-                  [(hm) (make-map-of-value-instances sl new-nodes)])
-      (values sl (hash-union ht-value->instances hm #:combine
-                             (let () (local-require racket/base)
-                               append))))))
+(define (archetype-of-value sl value)
+  (for/or ([node (port->neighbors sl '(slipnet archetypes))])
+    (if (equal? value (get-node-attr sl node 'value))
+      node
+      #f)))
 
-(define (add-and-link-archetype-nodes sl ht-value->instances)
+(define (has-archetype? sl attrs)
+  (archetype-of-value sl (cdr (assoc 'value attrs))))
+
+(define (archetype-of sl node)
+  (case (class-of sl node)
+    [(equation) node]
+    [else (archetype-of-value sl (value-of sl node))]))
+
+(define (make-archetype-for sl node)
+  (case (class-of sl node)
+    [(equation)
+     (values sl node)]
+    [(number letter operator fills-port fills-port-greater-result)
+     (define attrs `((class . archetype) (value . ,(value-of sl node))))
+     (let ([atype (has-archetype? sl attrs)])
+       (if atype
+         (values sl atype)
+         (let*-values ([(sl atype) (make-node sl attrs)]
+                       [(sl) (add-edge sl `((slipnet archetypes)
+                                           (,atype slipnet)))])
+           (values sl atype))))]))
+
+(define (add-activation-edges sl from-node to-nodes)
   (for/fold ([sl sl])
-            ([ht-item (hash->list ht-value->instances)])
-    (match-define `(,archetype-value . ,instances) ht-item)
-    (let-values ([(sl archetype-node)
-                      (make-node sl `((class . archetype)
-                                      (value . ,archetype-value)))])
-      (for/fold ([sl sl])
-                ([instance instances])
-        (designate-canonical-node sl archetype-node instance)))))
+            ([to-node to-nodes])
+    (define from-archetype (archetype-of sl from-node))
+    (define to-archetype (archetype-of sl to-node))
+    (define edge `((,from-archetype activation) (,to-archetype activation)))
+    (if (has-edge? sl edge) sl (add-edge sl edge))))
 
-(define (has-top-level-slipnet-class? g node)
-  (case (class-of g node)
-    [(group archetype) #t]
-    [else #f]))
+(define (make-activation-edges-for sl new-node)
+  (cond
+    [(tag? sl new-node)
+     (add-activation-edges sl new-node (taggees-of sl new-node))]
+    [(equation? sl new-node)
+     (add-activation-edges sl new-node (members-of sl new-node))]
+    [else sl]))
 
-(define (link-all-into-slipnet sl0)
-  (let-values ([(sl topnode) (make-node sl0 '((class . slipnet)))])
-    (for/fold ([sl sl])
-              ([node (all-nodes sl0)]
-               #:when (has-top-level-slipnet-class? sl0 node))
-      (add-edge sl `((,topnode members) (,node member-of))))))
+(define (update-archetypes-for slipnet g node-map)
+  (for/fold ([sl slipnet])
+            ([(old-node new-node) node-map])
+    (let-values ([(sl atype) (make-archetype-for sl new-node)])
+      sl
+      )
+    ;TODO
+    ))
+
+(define (add-all-activation-edges sl new-nodes)
+  (for/fold ([sl sl])
+            ([new-node new-nodes])
+    (make-activation-edges-for sl new-node)))
 
 (define (make-slipnet . graphs)
-  (let*-values ([(sl ht-value->instances) (merge-slipnet-graphs graphs)]
-                [(sl) (add-and-link-archetype-nodes sl ht-value->instances)]
-                [(sl) (link-all-into-slipnet sl)])
-    sl))
+  (define-values (sl new-nodes)
+    (for/fold ([sl (make-graph '(:node (:attrs ((class . slipnet)))))]
+               [new-nodes (set)])
+              ([g graphs])
+      (let*-values ([(sl node-map) (copy-graph-into-graph sl g)]
+                    [(sl) (update-archetypes-for sl g node-map)])
+        (values sl (set-union new-nodes (apply set (hash-values node-map)))))))
+  (add-all-activation-edges sl new-nodes))
+
+(module+ test
+  (test-case "make-slipnet"
+    (define slipnet (make-slipnet
+      (make-equation-graph 4 '+ 5 9)
+      (make-equation-graph 4 '+ 2 6)
+      (make-equation-graph 6 '+ 9 15)))
+    ;TODO Actually test something
+    'STUB
+;    (pr-graph slipnet) ;DEBUG
+;    (newline)
+;    (println (port->neighbors slipnet '(slipnet archetypes)))
+;    (newline)
+;    (println (all-nodes slipnet))
+    ))
 
 ;; Running the slipnet
 
 (define (activation-edges-starting-from g nodes)
   (for*/set ([node nodes]
-             [node (alternates-of g node)]
+             #;[node (alternates-of g node)]
              [edge (port->incident-edges g `(,node activation))])
     edge))
 
@@ -349,7 +432,7 @@
 (define (get-activation activations node)
   (dict-ref activations node 0.0))
 
-(define (edge->canonical-nodes g edge)
+#;(define (edge->canonical-nodes g edge)
   (for/list ([port edge])
     (match-define `(,node ,_) port)
     (canonical-of g node)))
@@ -363,7 +446,7 @@
 (define (sliplink-weight g from-node to-node)
   (graph-edge-weight g `((,from-node activation) (,to-node activation))))
 
-(define (spread-activation-across-edge g initial-activations activations edge)
+#;(define (spread-activation-across-edge g initial-activations activations edge)
   (define weight (match-let ([`((,from ,_) (,to ,_)) (set->list edge)])
                    (sliplink-weight g from to)))
   (define (spread-1way activations canonical-nodes)
@@ -376,6 +459,20 @@
   (let* ([canonical-nodes (edge->canonical-nodes g edge)]
          [activations (spread-1way activations canonical-nodes)]
          [activations (spread-1way activations (reverse canonical-nodes))])
+    activations))
+
+(define (spread-activation-across-edge g initial-activations activations edge)
+  (define weight (match-let ([`((,from ,_) (,to ,_)) (set->list edge)])
+                   (sliplink-weight g from to)))
+  (define (spread-1way activations hop)
+    (match-define `((,from-node ,_) (,to-node ,_)) hop) ;TODO catch self-link?
+    (add-activation activations to-node
+      (* slipnet-spreading-rate
+         weight
+         (get-activation initial-activations from-node))))
+  (let* ([hop (set->list edge)]
+         [activations (spread-1way activations hop)]
+         [activations (spread-1way activations (reverse hop))])
     activations))
 
 (define (decay-activations activations)
@@ -393,7 +490,7 @@
   (for/fold ([activations initial-activations])
             ([timestep slipnet-timesteps])
     (let ([as (do-slipnet-timestep g activations)])
-      ;#R (sorted as)
+      ;#R (sorted-by-cdr as)
       as)))
 
 (module+ test
@@ -407,8 +504,9 @@
       (archetype5 . 1.0)
       (archetype-fills-port-4-result . 1.0)
       (archetype-fills-port-5-result . 1.0)))
-    (pr-graph slipnet) ;DEBUG
+    ;(pr-graph slipnet) ;DEBUG
     (define activations (run-slipnet slipnet initial-activations))
+    ;#R (sorted-by-cdr activations)
     (check-equal?
       (sequence->list
         (filter (λ (node) (group? slipnet node))
@@ -567,12 +665,12 @@
     node))
 
 ;Assumes that node has an archetype
-(define (archetype-of g node)
+#;(define (archetype-of g node)
   (for/first ([archetype (archetypes g 'slipnet)]
               #:when (equal? (value-of g node) (value-of g archetype)))
     archetype))
 
-(define (archetype-of-value g value)
+#;(define (archetype-of-value g value)
   (for/first ([archetype (archetypes g 'slipnet)]
               #:when (equal? value (value-of g archetype)))
     archetype))
@@ -634,7 +732,7 @@
 
 (define (search-slipnet g initial-activations)
   (define activations (run-slipnet g initial-activations))
-  #R (sorted-by-cdr activations)
+  ;#R (sorted-by-cdr activations)
   (most-active-group g activations))
 
 (define salience-decay 0.9)
@@ -685,7 +783,7 @@
     (let* ([g (decay-support g)]
            [g (tag-all-numbers g 'numbo-ws)]
            [g (update-saliences g)]
-           [activations #R (make-initial-activations g)]
+           [activations (make-initial-activations g)]
            [archetypal-group (search-slipnet g activations)])
     (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
 
@@ -879,6 +977,7 @@
 
 (define big-slipnet
   (apply make-slipnet (make-memorized-arithmetic-tables 12)))
+
 ;  (let ()
 ;    (define ns (make-base-namespace))
 ;    (define operand-pairs (for*/set ([i (in-range 1 13)]
@@ -910,6 +1009,6 @@
 ;(define g6 (do-timestep g5))
 ;(pr-group g6 'numbo-ws)
 
-(define g (run '(4 5 6) 15 big-slipnet))
-(pr-group g 'numbo-ws)
+;(define g (run '(4 5 6) 15 big-slipnet))
+;(pr-group g 'numbo-ws)
 ;(define h (run '(1 1) 2))

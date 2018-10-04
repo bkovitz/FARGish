@@ -6,7 +6,7 @@
          racket/dict racket/pretty describe "wheel.rkt" "graph.rkt")
 
 (provide make-graph do-graph-edits tag-of check-desiderata tags-of class-is-a?
-         node-is-a? has-tag?)
+         node-is-a? has-tag? tag? taggees-of)
 
 (define (current-groupid g)
   (graph-get-stacked-variable g 'groupid (void)))
@@ -343,6 +343,10 @@
 
 (define (tags-of g node)
   (port->neighbors g `(,node tags)))
+
+;TODO This is way too model- and tag-specific
+(define (taggees-of g tagnode)
+  (port->neighbors g `(,tagnode tagged)))
 
 #;(define (add-tag g tag from to)
   (let*-values ([(g bindid) (make-node g '((class . bind)))]

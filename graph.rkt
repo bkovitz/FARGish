@@ -382,6 +382,7 @@
       [ht-port->neighboring-ports p->nps]
       )))
 
+;TODO If the edge already exists, don't add it
 (define (add-edge g edge [weight 1.0]) ; edge is '((node1 port-label1) (node2 port-label2))
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
