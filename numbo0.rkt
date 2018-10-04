@@ -2,14 +2,14 @@
 
 #lang debug at-exp racket
 
-;HACK TODO
+;TODO
 ; bind/complete archetype in one step  DONE
 ; tag scout
-; slipnet search
+; slipnet search  DONE
 ; large number or diff attracts mult
 ; smaller target attracts subtraction
-; done?
-; printing the result
+; done?  DONE
+; printing the result  DONE
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
@@ -19,7 +19,7 @@
 
 ;; Global constants
 
-(define max-timesteps 40)
+(define max-timesteps 20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 3)
@@ -843,51 +843,7 @@
 (define (run bricks target [slipnet slipnet])
   (run^ (make-start-graph bricks target slipnet)))
 
-;; Output for debugging/experimentation
-
-;Need some sort ;of expr->graph func.
-
-;(define g (apply make-graph
-;  '((:group workspace
-;      4 5 6 15)
-;    (:group archetype
-;      4 5 + 9
-;      (:edge (4 result) (+ operands))
-;      (:edge (5 result) (+ operands))
-;      (:edge (+ result) (9 source)))
-;    (:make
-;      (:define finisher (:node finish-archetype-instantiation))
-;      (:edge (finisher from-ctx) (archetype general-port))
-;      (:edge (finisher to-ctx) (workspace general-port))))))
-;
-;
-;(define g1
-;  (make-graph '(:group 4+5=9 4 5 + 9
-;                 (:edge (4 result) (+ operands))
-;                 (:edge (5 result) (+ operands))
-;                 (:edge (+ result) (9 source)))))
-;
-;(define g2
-;  (make-graph '(:group 4+2=6 4 2 + 6
-;                 (:edge (4 result) (+ operands))
-;                 (:edge (2 result) (+ operands))
-;                 (:edge (+ result) (6 source)))))
-
-;(define-values (h new) (copy-graph-into-graph (make-graph) g1))
-;(define-values (h new) (copy-graph-into-graph g1 g2))
-
-;(pr-graph h)
-;new
-;(define hm (make-map-of-node-instances h new))
-;hm
-
-;(pr-graph g)
-
-
-;(define g (make-graph
-;  '(numbo-ws (bricks 4 5 6) (target 15))))
-;
-;(pr-graph g)
+;; Memorized arithmetic
 
 (define (make-equation-graph n1 op n2 result)
   (let ([group-name (string->symbol (format "~a~a~a=~a" n1 op n2 result))]
@@ -978,36 +934,6 @@
 (define big-slipnet
   (apply make-slipnet (make-memorized-arithmetic-tables 12)))
 
-;  (let ()
-;    (define ns (make-base-namespace))
-;    (define operand-pairs (for*/set ([i (in-range 1 13)]
-;                                     [j (in-range 1 13)])
-;                            `(,i ,j)))
-;    (define tuples (for*/list ([ij operand-pairs]
-;                               [op '(+ - *)])
-;                     (match-define `(,i ,j) ij)
-;                     (define expr `(,op ,i ,j))
-;                     (define result (eval expr ns))
-;                     `(,i ,op ,j ,result)))
-;    (define graphs (for/list ([tuple tuples])
-;                     (apply make-equation-graph tuple)))
-;    (apply make-slipnet graphs)))
-
-;(define g (let*-values ([(g) (make-graph)]
-;                        ;[(g) (make-numbo-ws g '(4 5 6) 15)]
-;                        [(g) (make-numbo-ws g '(1 1) 2)]
-;                        [(g _) (copy-graph-into-graph g slipnet)])
-;            g))
-;
-;(define h (run g))
-;(pr-group h 'numbo-ws)
-
-;(define g2 (do-timestep g))
-;(define g3 (do-timestep g2))
-;(define g4 (do-timestep g3))
-;(define g5 (do-timestep g4))
-;(define g6 (do-timestep g5))
-;(pr-group g6 'numbo-ws)
 
 ;(define g (run '(4 5 6) 15 big-slipnet))
 ;(pr-group g 'numbo-ws)

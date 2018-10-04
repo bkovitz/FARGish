@@ -6,10 +6,11 @@
 
 
 (for ([_ (in-naturals 1)])
+  (newline)
   (define bricks (read (open-input-string
                          (format "(~a)" (readline "Bricks: ")))))
   #:break (empty? bricks)
   (define target (read (open-input-string
                          (format "(~a)" (readline "Target: ")))))
-  #:break (empty? target)
+  #:break (not (= 1 (length target)))
   (run bricks (car target) big-slipnet))
