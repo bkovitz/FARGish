@@ -7,7 +7,8 @@
 
 (provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
          port->neighbors port->neighboring-ports all-nodes pr-node
-         find-nodes-of-class value-of port->neighbor bound-from-ctx-to-ctx?
+         find-nodes-of-class value-of value-of-equal?
+         port->neighbor bound-from-ctx-to-ctx? default-name
          pr-graph pr-group members-of member-of? copy-graph-into-graph
          nodes-of-class-in class-of members-of member-of next-to? bound-to?
          bound-from? succ? has-node? node->neighbors node->ports
@@ -29,6 +30,15 @@
 
 (define empty-spec '())
 (define empty-graph (graph #hash() #hash() #hash() empty-id-set '() empty-spec))
+
+;; Miscellaneous
+
+(define placeholder
+  (let ()
+     (struct placeholder [])
+     (placeholder)))
+
+(define (placeholder? x) (eq? x placeholder))
 
 ;; Stacked variables
 
@@ -105,11 +115,15 @@
 (define (name-of g node)
   (get-node-attr g node 'name))
 
-(define/memoize (class-of g node)
+(define (class-of g node)
   (get-node-attr g node 'class))
 
 (define (value-of g node)
   (get-node-attr g node 'value))
+
+(define (value-of-equal? g v node)
+  (define node-value (value-of g node))
+  (and (not (void? node-value)) (equal? v node-value)))
 
 ;TODO UT
 (define (find-nodes-of-class g class)
@@ -158,7 +172,6 @@
          (member-of? g to-ctx to-node))))
 
 (define (group? g node)
-  #;(eq? 'group (class-of g node))
   (node-attr? g 'group? node))
 
 (define (succ? g node1 node2)
@@ -182,8 +195,7 @@
     (check-equal? (find-nodes-of-class g 'source)
                   '(source15))
     (check-equal? (list->set (find-nodes-of-class g 'letter))
-                  (set 'a 'b))
-    ))
+                  (set 'a 'b))))
 
 ;; Printing a graph
 
@@ -320,10 +332,11 @@
 ;;TODO UT
 ;; Returns value of id's attribute k, or #f if either node or key not found
 (define (node-attr? g k id)
-  (match (get-node-attrs g id)
-    [(hash-table ((== k) v) _ ...)
-     v]
-    [_ #f]))
+  (hash-ref (get-node-attrs g id) k #f))
+;  (match (get-node-attrs g id)
+;    [(hash-table ((== k) v) _ ...)
+;     v]
+;    [_ #f]))
 
 ;;TODO UT
 (define (get-node-attrs g id) ;returns void if node not found
@@ -370,20 +383,9 @@
 
 ;;; Making edges
 
-;TODO Don't put in a new edge if it's already there
-#;(define (add-edge g edge) ; edge is '((node1 port-label1) (node2 port-label2))
-  (match-define `(,port1 ,port2) edge)
-  (define edges (graph-edges g))
-  (let* ([p->nps (graph-ht-port->neighboring-ports g)]
-         [p->nps (hash-update p->nps port1 (λ (st) (set-add st port2)) (set))]
-         [p->nps (hash-update p->nps port2 (λ (st) (set-add st port1)) (set))])
-    (struct-copy graph g
-      [edges (set-add edges (set port1 port2))]
-      [ht-port->neighboring-ports p->nps]
-      )))
-
-;TODO If the edge already exists, don't add it
-(define (add-edge g edge [weight 1.0]) ; edge is '((node1 port-label1) (node2 port-label2))
+;edge is '((node1 port-label1) (node2 port-label2))
+;Doesn't add the edge if it already exists, but will change its weight.
+(define (add-edge g edge [weight 1.0])
   (match-define `(,port1 ,port2) edge)
   (define edges (graph-edges g))
   (let* ([p->nps (graph-ht-port->neighboring-ports g)]
@@ -398,8 +400,7 @@
 (define (has-edge? g edge)
   (match-define `(,port1 ,port2) edge)
   (define edge* (set port1 port2))
-  (hash-has-key? (graph-edges g) edge*)
-  #;(set-member? (graph-edges g) edge*))
+  (hash-has-key? (graph-edges g) edge*))
 
 (define (graph-edge-weight g edge)
   (match-define `(,port1 ,port2) edge)
@@ -419,7 +420,6 @@
                               (λ (st) (set-remove st port1))
                               (set))])
     (struct-copy graph g
-      ;[edges (set-remove (graph-edges g) edge*)]
       [edges (hash-remove (graph-edges g) edge*)]
       [ht-port->neighboring-ports p->nps])))
 
@@ -442,21 +442,27 @@
                     1.0)
       (let* ([g (remove-edge g '((plus operand) (source9 output)))])
         (check-false (has-edge? g '((source9 output) (plus operand)))))))
-  (test-case "add-edge with weight"
-    (let* ([g (add-node empty-graph '((class . letter) (name . a)))]
-           [g (add-node g '((class . letter) (name . b)))]
-           [g (add-edge g '((a output) (b input)) 0.62)])
-      (check-equal? (graph-edge-weight g '((a output) (b input)))
-                    0.62))))
-
-;;; Making a whole graph
-
-(define placeholder
-  (let ()
-     (struct placeholder [])
-     (placeholder)))
-
-(define (placeholder? x) (eq? x placeholder))
+  (let* ([ab-graph (add-node empty-graph '((class . letter) (name . a)))]
+         [ab-graph (add-node ab-graph '((class . letter) (name . b)))])
+    (test-case "add-edge with weight"
+      (let ([g (add-edge ab-graph '((a out) (b in)) 0.62)])
+        (check-equal? (graph-edge-weight g '((a out) (b in)))
+                      0.62)))
+    (test-case "add-edge twice"
+      (let* ([g (add-edge ab-graph '((a out) (b in)) 0.51)]
+             [g (add-edge g '((a out) (b in)))])
+        (check-equal? (list (set '(a out) '(b in)))
+                      (all-edges g))
+        (check-equal? (graph-edge-weight g `((a out) (b in)))
+                      1.00)))
+    (test-case "add-edge twice with weight"
+      (let* ([g (add-edge ab-graph '((a out) (b in)) 0.75)]
+             [g (add-edge g '((a out) (b in)) 0.22)])
+        (check-equal? (list (set '(a out) '(b in)))
+                      (all-edges g))
+        (check-equal? (graph-edge-weight g `((a out) (b in)))
+                      0.22)))
+  ))
 
 ;;; Neighbors
 
@@ -464,17 +470,19 @@
   (define p->nps (graph-ht-port->neighboring-ports g))
   (hash-ref p->nps port '()))
 
+(define empty-set (set))
+
 ;TODO refactor
 (define (port->neighbors g port)
   (define p->nps (graph-ht-port->neighboring-ports g))
-  (for/list ([neighboring-port (in-set (hash-ref p->nps port '()))])
+  (for/list ([neighboring-port (in-set (hash-ref p->nps port empty-set))])
     (match-define (list neighbor _) neighboring-port)
     neighbor))
 
 (define (port->neighbor g port)
   (match (port->neighbors g port)
     ['() (void)]
-    [`(,neighbor _ ...) neighbor]))
+    [`(,neighbor . ,_) neighbor]))
 
 (define (port-neighbor? g port node)
   (for/or ([neighbor (port->neighbors g port)])

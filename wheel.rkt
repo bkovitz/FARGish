@@ -2,7 +2,7 @@
 
 #lang debug at-exp racket
 
-(provide atom? safe-car safe-cdr)
+(provide atom? safe-car safe-cdr exactly-one?)
 
 (define (atom? x)
   (and (not (null? x))
@@ -17,6 +17,10 @@
   (match x
     [`(,_ . ,d) d]
     [_ (void)]))
+
+(define (exactly-one? pred seq)
+  (= 1 (for/sum ([item seq])
+         (if (pred item) 1 0))))
 
 ;;;based on version by soegaard, https://stackoverflow.com/a/45545280/1393162
 ;(define-match-expander dict

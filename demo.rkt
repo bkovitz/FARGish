@@ -5,12 +5,15 @@
          "graph.rkt" "make-graph.rkt" "numbo0.rkt")
 
 
-(for ([_ (in-naturals 1)])
+(let loop ()
   (newline)
   (define bricks (read (open-input-string
                          (format "(~a)" (readline "Bricks: ")))))
-  #:break (empty? bricks)
+  (when (empty? bricks)
+    (exit))
   (define target (read (open-input-string
                          (format "(~a)" (readline "Target: ")))))
-  #:break (not (= 1 (length target)))
-  (run bricks (car target) big-slipnet))
+  (when (not (= 1 (length target)))
+    (exit))
+  (run bricks (car target) big-slipnet)
+  (loop))
