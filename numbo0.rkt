@@ -645,12 +645,15 @@
             (remove-node g node))
           (set-node-attr g node 'support new-support))))))
 
+(define saved-is (void))
+
 (define (do-timestep g)
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
     (let* ([g (decay-support g)]
            [g (tag-all-numbers g 'numbo-ws)]
            [g (update-saliences g)]
            [activations (make-initial-activations g)]
+           [_ (set! saved-is activations)]
            [archetypal-group (search-slipnet g activations)])
     (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
 
@@ -809,3 +812,6 @@
 ;(define g (run '(4 5 6) 15 big-slipnet))
 ;(pr-group g 'numbo-ws)
 ;(define h (run '(1 1) 2))
+
+(define g (make-start-graph '(4 5 6) 15 slipnet))
+(define g1 (do-timestep g))
