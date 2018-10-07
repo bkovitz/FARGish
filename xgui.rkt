@@ -40,16 +40,21 @@
      (bs! 1)]))
 
 (define canvas
-  (new canvas% [parent frame]
-               [paint-callback
-                 (λ (canvas dc)
-                   (for ([args to-show])
-                     (apply dynamic-send dc args)))
-
-                 #;(λ (canvas dc)
-                   (set! num-invocations (add1 num-invocations))
-                   (send dc set-scale 3 3)
-                   (send dc set-text-foreground "blue")
-                   (send dc draw-text @~a{Invocation @num-invocations} 0 0))]))
+  (let ([my-canvas% (class canvas%
+                      (define/override (on-char ch)
+                        (println (send ch get-key-code)))
+                      (super-new))])
+    (new my-canvas% [parent frame]
+                    [paint-callback
+                      (λ (canvas dc)
+                        (for ([args to-show])
+                          (apply dynamic-send dc args)))
+ 
+                      #;(λ (canvas dc)
+                        (set! num-invocations (add1 num-invocations))
+                        (send dc set-scale 3 3)
+                        (send dc set-text-foreground "blue")
+                        (send dc draw-text @~a{Invocation @num-invocations} 0 0))]
+  )))
 (send canvas set-canvas-background dark-orchid)
 (send frame show #t)
