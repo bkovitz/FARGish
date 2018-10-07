@@ -2,7 +2,9 @@
 
 #lang debug at-exp racket/gui
 
+(require rackjure/threading)
 (require pict pict/color data/collection data/pvector)
+(require describe)
 
 (define is '#hash(
   (archetype-fills-port-15-source . 1.0)
@@ -31,13 +33,28 @@
 (define (activations->archetype-names activations)
   (map (λ (pair) (archetype-symbol->s (car pair))) (hash->list activations)))
 
-(define (make-layout activations)
+(struct cell (archetype name text disk pict) #:transparent)
+
+(define max-width 147)
+(define max-height 20)
+(define layout-width 900.0)
+(define awidth (+ max-width 10.0))
+(define aheight (+ max-height 20.0))
+(define cell-ghost (ghost (rectangle awidth aheight)))
+
+(define (make-cell archetype)
+  (define name (archetype-symbol->s archetype))
+  (define t (text name))
+  (define d (disk 15 #:draw-border? #f #:color "Aquamarine"))
+  (define p (inset
+              (cb-superimpose (ct-superimpose cell-ghost t) d)
+              0.0 10.0))
+  (cell archetype name t d p))
+
+(define (make-layout0 activations)
   (define ts (map text (activations->archetype-names activations)))
   (define max-width (apply max (map pict-width ts)))
   (define max-height (apply max (map pict-height ts)))
-  (define awidth (+ max-width 10.0))
-  (define aheight (+ max-height 20.0))
-  (define cell-ghost (ghost (rectangle awidth aheight)))
   (define cells (map (λ (t)
                        (inset
                          (cb-superimpose
@@ -45,7 +62,6 @@
                            (disk 15 #:draw-border? #f #:color "Aquamarine"))
                          0.0 10.0))
                      ts))
-  (define layout-width 900.0)
   (for/fold ([rows (pvector)] #:result (apply vl-append rows))
             ([cell cells])
     (cond
@@ -57,3 +73,33 @@
       [else (set-nth rows
                      (sub1 (length rows))
                      (hb-append (last rows) cell))])))
+
+(struct layout (cells pict) #:transparent)
+
+(define (lay-out-rows items [max-width layout-width])
+  (for/fold ([pict (blank)] [row (blank)] #:result (vl-append pict row))
+            ([item items])
+    (define item-width (pict-width item))
+    (define row-width (pict-width row))
+    (if (> (+ row-width item-width) max-width)
+      (values (vl-append pict row) item)
+      (values pict (hb-append row item)))))
+
+(define (make-layout activations)
+  (define cells (for/hasheq ([a (hash-keys activations)])
+                  (values a (make-cell a))))
+  (define sorted-cells (sort (hash-values cells) string<? #:key cell-name))
+  (layout cells (lay-out-rows (map cell-pict sorted-cells))))
+
+
+;;
+
+(define (mkdisk color) (disk 15 #:draw-border? #f #:color color))
+(define d1 (mkdisk "Aquamarine"))
+(define d2 (mkdisk "SlateGray"))
+(define d3 (mkdisk "Orchid"))
+(define row (ghost (rectangle 100 20)))
+(define p (foldl vl-append (blank) (list (lc-superimpose row d1)
+                                         (cc-superimpose row d2)
+                                         (rc-superimpose row d3))))
+
