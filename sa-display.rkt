@@ -8,6 +8,8 @@
 (require pict pict/color)
 (require describe)
 
+(provide (all-defined-out))
+
 (define WIDTH 1000)
 
 (struct cell (nodeid name text disk pict) #:transparent)
@@ -56,6 +58,8 @@
   (class canvas%
     (inherit get-dc refresh)
 
+    (init-field controller)
+
     (define activations #hash())
     (define pict (void))
     (define dirty? #t)
@@ -78,19 +82,26 @@
       (draw-pict pict dc 0 0))))
 
 (define frame (new frame% [label "Spreading activation"]))
-(define canvas (new sa-canvas% [parent frame]))
+(define canvas (new sa-canvas% [parent frame] [controller '()]))
 
 ;;
 
-(define is '#hash(
-  (archetype-fills-port-15-source . 1.0)
-  (archetype-fills-port-4-result . 1.0)
-  (archetype-fills-port-5-result . 1.0)
-  (archetype-fills-port-6-result . 1.0)
-  (archetype-fills-port-greater-result-4 . 1.0)
-  (archetype-fills-port-greater-result-5 . 1.0)
-  (archetype-fills-port-greater-result-6 . 1.0)
-  (archetype15 . 1.0)
-  (archetype4 . 1.0)
-  (archetype5 . 1.0)
-  (archetype6 . 1.0)))
+(module* example racket
+  (require (submod ".."))
+
+  (define is '#hash(
+    (archetype-fills-port-15-source . 1.0)
+    (archetype-fills-port-4-result . 1.0)
+    (archetype-fills-port-5-result . 1.0)
+    (archetype-fills-port-6-result . 1.0)
+    (archetype-fills-port-greater-result-4 . 1.0)
+    (archetype-fills-port-greater-result-5 . 1.0)
+    (archetype-fills-port-greater-result-6 . 1.0)
+    (archetype15 . 1.0)
+    (archetype4 . 1.0)
+    (archetype5 . 1.0)
+    (archetype6 . 1.0)))
+
+  (send canvas set-activations! is)
+  (send frame show #t)
+)
