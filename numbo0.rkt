@@ -813,5 +813,5 @@
 ;(pr-group g 'numbo-ws)
 ;(define h (run '(1 1) 2))
 
-(define g (make-start-graph '(4 5 6) 15 slipnet))
-(define g1 (do-timestep g))
+;(define g (make-start-graph '(4 5 6) 15 slipnet))
+;(define g1 (do-timestep g))

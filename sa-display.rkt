@@ -69,10 +69,16 @@
     (super-new [min-width min-width]
                [min-height min-height])
 
+    (send controller set-view this)
+
     (define/public (set-activations! ht)
       (set! activations ht)
       (set! dirty? #t)
       (refresh))
+
+    (define/override (on-char ke)
+      (case (send ke get-key-code)
+        [(#\space) (send controller make-new-activations)]))
 
     (define/override (on-paint)
       (define dc (get-dc))
@@ -81,13 +87,25 @@
         (set! dirty? #f))
       (draw-pict pict dc 0 0))))
 
-(define frame (new frame% [label "Spreading activation"]))
-(define canvas (new sa-canvas% [parent frame] [controller '()]))
-
-;;
-
-(module* example racket
+(module* example racket/gui
   (require (submod ".."))
+  (require "numbo0.rkt")
+
+  (define controller%
+    (class object%
+      (super-new)
+
+      (init-field (view (void)))
+
+      (define g (make-start-graph '(4 5 6) 15 slipnet))
+
+      (define/public (set-view new-view)
+        (set! view new-view))
+
+      (define/public (make-new-activations)
+        (set! g (do-timestep g))
+        (send canvas set-activations! saved-is)
+        (displayln saved-is))))
 
   (define is '#hash(
     (archetype-fills-port-15-source . 1.0)
@@ -102,6 +120,9 @@
     (archetype5 . 1.0)
     (archetype6 . 1.0)))
 
-  (send canvas set-activations! is)
+  (define frame (new frame% [label "Spreading activation"]))
+  (define canvas (new sa-canvas% [parent frame] [controller (new controller%)]))
+
+  ;(send canvas set-activations! is)
   (send frame show #t)
 )
