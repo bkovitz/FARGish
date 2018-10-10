@@ -13,7 +13,7 @@
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
-         "wheel.rkt" "graph.rkt" "make-graph.rkt")
+         "wheel.rkt" "xsusp.rkt" "graph.rkt" "make-graph.rkt")
 
 (provide (all-defined-out))
 

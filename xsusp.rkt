@@ -7,10 +7,8 @@
 (provide maybe-suspend with-suspension-proc
          suspend? set-suspend! unset-suspend!)
 
-(define suspend? (void)) (set! suspend? #f)
-(define resume-k (void)) (set! resume-k #f)
-(define suspension-prompt-tag
-  (make-continuation-prompt-tag 'suspension-prompt-tag))
+(define suspend? #f)
+(define resume-k #f)
 
 (define (maybe-suspend v)
   (when suspend?
