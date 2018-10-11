@@ -16,20 +16,22 @@
   (set! suspend? bool))
 
 (define (maybe-suspend v)
-  (if suspend? (suspend-k v) v))
+  (if suspend?
+    (begin (suspend-k v) v)
+    v))
 
 (define-syntax-rule (suspended expr)
   (letrec ([make-resume-k
-             (λ (there v)  ; v is the last value from expr via (suspend-k v)
+             (λ (there)  ; there = continuation in expr
                (λ ()
                  (let/cc here
                    (set-suspend-k! (make-suspend-k here))
-                   (there v))))]  ; give v back to expr
+                   (there))))]
            [make-suspend-k
-             (λ (here)
+             (λ (here)  ; here = continuation in caller/controller
                (λ (v)   ; expr calls (suspend-k v)
                  (let/cc there
-                   (set! resume-k (make-resume-k there v))
+                   (set! resume-k (make-resume-k there))
                    (here v))))]  ; return v to caller/controller
            [first-call
              (λ ()
@@ -39,7 +41,7 @@
                  expr
                  (set-suspend?! #f)
                  (let loop ()
-                   (suspend-k (void))
+                   (suspend-k (void))  ; return void after expr is done
                    (loop))))]
            [resume-k first-call])
     (λ ()

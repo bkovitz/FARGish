@@ -88,24 +88,24 @@
       (draw-pict pict dc 0 0))))
 
 (module* example racket/gui
+  ;; To run in DrRacket:  (require (submod "sa-display.rkt" example))
+
   (require (submod ".."))
-  (require "numbo0.rkt")
+  (require "numbo0.rkt"  "xsusp2.rkt")
 
   (define controller%
     (class object%
       (super-new)
 
-      (init-field (view (void)))
+      (init-field [view (void)])
 
-      (define g (make-start-graph '(4 5 6) 15 slipnet))
+      (define get-next-activations (suspended (run '(4 5 6) 15 slipnet)))
 
       (define/public (set-view new-view)
         (set! view new-view))
 
       (define/public (make-new-activations)
-        (set! g (do-timestep g))
-        (send canvas set-activations! saved-is)
-        (displayln saved-is))))
+        (send canvas set-activations! (get-next-activations)))))
 
   (define is '#hash(
     (archetype-fills-port-15-source . 1.0)

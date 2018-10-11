@@ -13,7 +13,7 @@
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
-         "wheel.rkt" "xsusp.rkt" "graph.rkt" "make-graph.rkt")
+         "wheel.rkt" "xsusp2.rkt" "graph.rkt" "make-graph.rkt")
 
 (provide (all-defined-out))
 
@@ -422,7 +422,7 @@
 (define (run-slipnet g initial-activations)
   (for/fold ([activations initial-activations])
             ([timestep slipnet-timesteps])
-    (let ([as (do-slipnet-timestep g activations)])
+    (let ([as (maybe-suspend (do-slipnet-timestep g activations))])
       ;#R (sorted-by-cdr as)
       as)))
 
@@ -652,10 +652,10 @@
     (let* ([g (decay-support g)]
            [g (tag-all-numbers g 'numbo-ws)]
            [g (update-saliences g)]
-           [activations (make-initial-activations g)]
+           [activations (maybe-suspend #R (make-initial-activations g))]
            [_ (set! saved-is activations)]
            [archetypal-group (search-slipnet g activations)])
-    (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
+    (hacked-finish-archetype g archetypal-group 'numbo-ws))))
 
 (define (initialize-salience g)
   (for/fold ([g g])
