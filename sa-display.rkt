@@ -41,7 +41,7 @@
     #f))
 
 (define (archetype-symbol->s sym)
-  (define s (symbol->string sym))
+  (define s (~a sym))
   (or (strip-prefix s "archetype-")
       (strip-prefix s "archetype")
       s))
@@ -99,13 +99,13 @@
 
       (init-field [view (void)])
 
-      (define get-next-activations (suspended (run '(4 5 6) 15 slipnet)))
+      (define get-next-activations (suspended (run '(2 2) 4 slipnet)))
 
       (define/public (set-view new-view)
         (set! view new-view))
 
       (define/public (make-new-activations)
-        (send canvas set-activations! (get-next-activations)))))
+        (send canvas set-activations! #R (get-next-activations)))))
 
   (define is '#hash(
     (archetype-fills-port-15-source . 1.0)

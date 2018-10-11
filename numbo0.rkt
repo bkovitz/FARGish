@@ -459,7 +459,7 @@
     tag))
 
 (define (problem-tag->solution-tag g tag node)
-  (match (value-of g tag)
+  (match #R (value-of g #R tag)
     ['(need result)
      `(fills-port ,(value-of g node) result)]
     ['(need source)
@@ -469,8 +469,10 @@
     [_ (error 'problem-tag->solution-tag)]))
 
 (define (whats-your-problem g node)
-  (for/set ([tag (problem-tags g node)])
-    (archetype-of-value g (problem-tag->solution-tag g tag node))))
+  (for*/set ([tag (problem-tags g node)]
+             [archetype (list (archetype-of-value g (problem-tag->solution-tag g tag node)))] ;superfluous list in lieu of #:define
+            #:when (not (void? archetype)))
+    archetype))
 
 ;; Tagging
 
