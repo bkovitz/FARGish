@@ -312,7 +312,8 @@
   (case (class-of sl node)
     [(equation)
      (values sl node)]
-    [(number letter operator fills-port fills-port-greater-result)
+    [(number letter operator fills-port fills-port-greater-result
+      doubled-operands)
      (make-archetype-for-value sl (value-of sl node))]
     [else (raise-arguments-error 'make-archetype-for-node
             "node's class has no defined way to make an archetype"
@@ -451,7 +452,9 @@
 ;; Desiderata and diagnosis
 
 (define (problem-tag? g tag)
-  (eq? 'need (safe-car (value-of g tag))))
+  (or (eq? 'need (safe-car (value-of g tag)))
+      (eq? 'doubled-operands (safe-car (value-of g tag))))) ;HACK
+
 
 (define (problem-tags g node)
   (for/list ([tag (tags-of g node)]
@@ -466,7 +469,9 @@
      `(fills-port ,(value-of g node) source)]
     ['(need greater-result)
      `(fills-port-greater-result ,(value-of g node))]
-    [_ (error 'problem-tag->solution-tag)]))
+    [`(doubled-operands ,_) ;HACK: This is not a problem
+     (value-of g tag)]      ;      and this is not a solution
+    [_ (error (~a `(problem-tag->solution-tag ,tag ,node)))]))
 
 (define (whats-your-problem g node)
   (for*/set ([tag (problem-tags g node)]
@@ -551,10 +556,26 @@
               [tag (accumulate-tags (list tags-for-relational-need) g node)])
     (do-graph-edits g `((add-tag ,tag ,node)))))
 
+(define (nodes-that-need-result g ctx)
+  (for/list ([node (number-nodes-in g ctx)]
+             #:when (needs-result? g ctx))
+    node))
+
+(define (add-doubled-operand-tags g ctx)
+  (for*/fold ([g g])
+             ([node1 (nodes-that-need-result g ctx)]
+              [node2 (nodes-that-need-result g ctx)]
+              #:when (not (eq? node1 node2)))
+    (if (= (value-of g node1) (value-of g node2))
+      (do-graph-edits g `((add-tag (doubled-operands ,(value-of g node1))
+                                   ,node1 ,node2)))
+      g)))
+
 (define (tag-all-numbers g ctx)
   (let* ([g (add-simplest-tags g ctx)]
          [g (add-relation-tags g ctx)]
-         [g (add-relational-need-tags g ctx)])
+         [g (add-relational-need-tags g ctx)]
+         [g (add-doubled-operand-tags g ctx)])
     g))
 
 ;; Running
@@ -617,6 +638,10 @@
                             (if (missing-a-neighbor? g node) 1.0 0.0)))
     (set-node-attr g node 'salience new-salience)))
 
+(define (print-saliences g)
+  (for ([node (members-of g 'numbo-ws)])
+    (displayln @~a{@node @(salience-of g node)})))
+
 (define (eq?f x)
   (λ (x*) (eq? x x*)))
 
@@ -653,7 +678,9 @@
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
     (let* ([g (decay-support g)]
            [g (tag-all-numbers g 'numbo-ws)]
+           ;[_ (pr-group g 'numbo-ws)] ;DEBUG
            [g (update-saliences g)]
+           ;[_ (print-saliences g)] ;DEBUG
            [activations (maybe-suspend (make-initial-activations g))]
            [_ (set! saved-is activations)]
            [archetypal-group (search-slipnet g activations)])
@@ -751,6 +778,9 @@
                     (add-tag (fills-port ,op result) :equation)
                     (add-tag (fills-port ,op operands) :equation)
                     (add-tag (fills-port ,result source) :equation)
+                    ,@(if (equal? n1 n2)
+                        `((add-tag (doubled-operands ,n1) :equation))
+                        '())
                     ))))
 
 #;(define slipnet (make-slipnet

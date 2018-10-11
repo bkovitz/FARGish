@@ -19,7 +19,7 @@
   (match-define (cons nodeid activation) pair)
   (define name (archetype-symbol->s nodeid))
   (define t (inset (text name) 0.0 12.0))
-  (define diameter (* 8.0 activation))
+  (define diameter (* 10.0 (sqrt activation)))
   (define d (disk diameter #:draw-border? #f #:color "Aquamarine"))
   (define p (inset
               (vc-append t d)
@@ -74,7 +74,7 @@
     (send controller set-view this)
 
     (define/public (set-activations! ht)
-      (set! activations ht)
+      (set! activations #R ht)
       (set! dirty? #t)
       (refresh))
 
@@ -88,6 +88,11 @@
         (set! pict (activations->pict activations))
         (set! dirty? #f))
       (draw-pict pict dc 0 0))))
+
+(define (filter-activations activations)
+  (for/hash ([(key a) activations]
+             #:when (> a 0.1))
+    (values key a)))
 
 (module* example racket/gui
   ;; To run in DrRacket:  (require (submod "sa-display.rkt" example))
@@ -107,7 +112,8 @@
         (set! view new-view))
 
       (define/public (make-new-activations)
-        (send canvas set-activations! (get-next-activations)))))
+        (send canvas set-activations!
+              (filter-activations (get-next-activations))))))
 
   (define is '#hash(
     (archetype-fills-port-15-source . 1.0)
