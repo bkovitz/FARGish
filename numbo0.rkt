@@ -459,7 +459,7 @@
     tag))
 
 (define (problem-tag->solution-tag g tag node)
-  (match #R (value-of g #R tag)
+  (match (value-of g tag)
     ['(need result)
      `(fills-port ,(value-of g node) result)]
     ['(need source)
@@ -654,10 +654,10 @@
     (let* ([g (decay-support g)]
            [g (tag-all-numbers g 'numbo-ws)]
            [g (update-saliences g)]
-           [activations (maybe-suspend #R (make-initial-activations g))]
+           [activations (maybe-suspend (make-initial-activations g))]
            [_ (set! saved-is activations)]
            [archetypal-group (search-slipnet g activations)])
-    (hacked-finish-archetype g archetypal-group 'numbo-ws))))
+    (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
 
 (define (initialize-salience g)
   (for/fold ([g g])

@@ -69,6 +69,8 @@
     (super-new [min-width min-width]
                [min-height min-height])
 
+    (send this init-auto-scrollbars 1000 2000 0.0 0.0)
+
     (send controller set-view this)
 
     (define/public (set-activations! ht)
@@ -99,13 +101,13 @@
 
       (init-field [view (void)])
 
-      (define get-next-activations (suspended (run '(2 2) 4 slipnet)))
+      (define get-next-activations (suspended (run '(2 2) 4 big-slipnet)))
 
       (define/public (set-view new-view)
         (set! view new-view))
 
       (define/public (make-new-activations)
-        (send canvas set-activations! #R (get-next-activations)))))
+        (send canvas set-activations! (get-next-activations)))))
 
   (define is '#hash(
     (archetype-fills-port-15-source . 1.0)
@@ -121,7 +123,10 @@
     (archetype6 . 1.0)))
 
   (define frame (new frame% [label "Spreading activation"]))
-  (define canvas (new sa-canvas% [parent frame] [controller (new controller%)]))
+  (define canvas (new sa-canvas%
+                      [parent frame]
+                      [controller (new controller%)]
+                      [style '(hscroll vscroll)]))
 
   ;(send canvas set-activations! is)
   (send frame show #t)
