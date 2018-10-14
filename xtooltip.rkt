@@ -7,12 +7,25 @@
 
 (define fr (new frame% [label "xtooltip"] [width 200] [height 100]))
 
+;CONFUSION: Is the documentation on client->screen or get-current-mouse-state
+;wrong?
+(define-values (screen-x-offset screen-y-offset)
+  (let-values ([(xo yo) (get-display-left-top-inset)])
+    (values (- xo) (- yo))))
+(define (window-top-left-in-screen-coordinates window)
+  (let ([parent (send window get-parent)])
+    (if parent
+      (let-values ([(wx wy) (send parent client->screen (send window get-x)
+                                                        (send window get-y))])
+        (values (+ wx screen-x-offset) (+ wy screen-y-offset)))
+      (values (send window get-x) (send window get-y)))))
+
 (define (in-window? window point)  ; <--- CODE SMELL: reinventing the wheel?
-  (define-values (wx wy) (send window client->screen 0 0))
+  (define-values (wx wy) (window-top-left-in-screen-coordinates window))
   (define-values (ww wh) (send window get-size))
   (define-values (px py) (values (send point get-x) (send point get-y)))
   (and (<= wx px (+ wx ww))
-       (<= (- wy wh) py wy)))
+       (<= wy py (+ wy wh))))
 
 (define (text->tooltip-pict text)
   (let* ([text (if (pair? text) (map ~a text) (string-split (~a text) "\n"))]
@@ -54,16 +67,19 @@
     (define canvas (new pict-canvas% [pict pict] [parent this]))
     (send this show #t)))
 
-(define TOOLTIP-HOVER-DELAY 500) ;500 ms of mouse sitting above relevant window
-                                 ;with no mouse motion triggers tooltip
-(define message/tooltip%
-  (class message%
+(define TOOLTIP-HOVER-DELAY 750)
+  ;When mouse cursor sits motionless over relevant window for this long,
+  ;tooltip appears.
+
+(define tooltip-mixin
+  (mixin (window<%>) (window<%>)
     (init-field [tooltip (void)]
                 [tooltip-window #f])
     (super-new)
 
     (define (maybe-open-tooltip-window)
       (define-values (point buttons) (get-current-mouse-state))
+      (list (send point get-x) (send point get-y))
       (when (and (null? buttons) (in-window? this point))
         (set! tooltip-window (new tooltip-window% [text tooltip]
                                                   [point point]))))
@@ -88,11 +104,13 @@
             (send timer start TOOLTIP-HOVER-DELAY #t))
           #t)  ; UNSURE: What is on-subwindow-event supposed to return here?
         #f))))
-        ;BUG: Often no motion event comes when the mouse leaves this window,
-        ;so the tooltip stays up.
+      ;BUG: Often no motion event comes when the mouse leaves this window,
+      ;so the tooltip stays up.
 
-(define m (new message/tooltip%
-               [parent fr] [label "Label"] [tooltip #;22.6 "Hey!"]))
+(define m (new (tooltip-mixin message%)
+               [parent fr] [label "Label"] [tooltip 22.6]))
+(define b (new (tooltip-mixin button%)
+               [parent fr] [label "Button"] [tooltip "Press this"]))
 (send fr show #t)
 
 ;(define tf (new tooltip-frame% [frame-to-track m]))
