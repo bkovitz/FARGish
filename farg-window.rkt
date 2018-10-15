@@ -30,6 +30,9 @@
     (define/public (set-slipnet-activations! as)
       (send slipnet-canvas set-dots! (sanitized-activations as)))
 
+    (define/public (set-saliences! ss)
+      (send ws-canvas set-dots! (sanitized-activations ss)))
+
     (define slipnet-canvas (new dots-canvas% [parent this]))
     (define ws-canvas (new dots-canvas% [parent this] [color "Dark Orchid"]))))
 
@@ -55,6 +58,9 @@
         [`(done ,result)
           (send view create-status-line)
           (send view set-status-text (~a result))]
+        [`(numbo-ws ,ht)
+          (when view
+            (send view set-saliences! ht))]
         [got
           (displayln
             @~a{Unknown suspension result from model-runner: @got})]))))

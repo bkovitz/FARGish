@@ -645,6 +645,10 @@
   (for ([node (members-of g 'numbo-ws)])
     (displayln @~a{@node @(salience-of g node)})))
 
+(define (saliences-ht g)
+  (for/hash ([node (members-of g 'numbo-ws)])
+    (values node (salience-of g node))))
+
 (define (eq?f x)
   (λ (x*) (eq? x x*)))
 
@@ -683,6 +687,7 @@
            [g (tag-all-numbers g 'numbo-ws)]
            ;[_ (pr-group g 'numbo-ws)] ;DEBUG
            [g (update-saliences g)]
+           [_ (maybe-suspend 'numbo-ws (saliences-ht g))]
            ;[_ (print-saliences g)] ;DEBUG
            [activations (maybe-suspend 'slipnet-activations
                                        (make-initial-activations g))]
@@ -725,6 +730,7 @@
                   (loop operand)))]))))
 
 (define (run^ g)
+  (maybe-suspend 'numbo-ws (saliences-ht g))
   (with-handlers ([(λ (e) (match e
                             [`(done ,_) #t]
                             [else #f]))

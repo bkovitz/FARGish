@@ -16,8 +16,9 @@
     (init-field [virtual-width 1000]
                 [max-diameter 20.0]
                 [diameter-multiplier max-diameter]
-                [color "Aquamarine"])
-    (super-new)
+                [color "Aquamarine"]
+                [style '()])
+    (super-new [style (list* 'border 'hscroll 'vscroll style)])
 
     (inherit get-dc refresh)
 
@@ -61,14 +62,14 @@
     (define/override (on-paint)
       (define dc (get-dc))
       (when dirty?
-        (set! pict (dots-dict->pict d-name->value))
+        (set! pict (dots-dict->pict d-name->value)))
+      (draw-pict pict dc 0 0)
+      (when dirty?
         (define width (exact-ceiling (pict-width pict)))
         (define height (exact-ceiling (pict-height pict)))
-        #R width #R height
-        #;(when (and (not (zero? width)) (not (zero? height)))
+        (when (and (not (zero? width)) (not (zero? height)))
           (send this init-auto-scrollbars width height 0.0 0.0))
-        (set! dirty? #f))
-      (draw-pict pict dc 0 0))))
+        (set! dirty? #f)))))
 
 (module* example racket/gui
   ;; To run in DrRacket:  (require (submod "dots-canvas.rkt" example)) (run)
