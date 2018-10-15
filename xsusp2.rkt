@@ -49,6 +49,7 @@
 
 (module+ test
   (test-case "maybe-suspend"
+
     (define (func n)
       (let loop ([i 0])
         (if (< (maybe-suspend i) n)

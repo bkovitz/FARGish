@@ -1,4 +1,4 @@
-; dot-canvas.rkt -- A canvas% of named dots
+; dots-canvas.rkt -- A canvas% of named dots
 ; 
 ; The diameter of each dot represents a number.
 
@@ -11,10 +11,10 @@
 
 (struct cell (name pict) #:transparent)
 
-(define dot-canvas%
+(define dots-canvas%
   (class canvas%
     (init-field [virtual-width 1000]
-                [max-diameter 40.0]
+                [max-diameter 20.0]
                 [diameter-multiplier max-diameter]
                 [color "Aquamarine"])
     (super-new)
@@ -33,13 +33,13 @@
     (define (make-cell pair)
       (match-define (cons -name value) pair)
       (define name (~a -name))
-      (define t (inset (text name) 4 2))
+      (define t (inset (text name) 4 3))
       (define d (cc-superimpose
                   (ghost (disk max-diameter))
                   (disk (* diameter-multiplier value)
                       #:draw-border? #f
                       #:color color)))
-      (define p (inset (vc-append t d) 10.0 10.0))
+      (define p (inset (vc-append t d) 2 6))
       (cell name p))
 
     (define (lay-out-rows picts)
@@ -62,23 +62,28 @@
       (define dc (get-dc))
       (when dirty?
         (set! pict (dots-dict->pict d-name->value))
-        (send this init-auto-scrollbars (exact-ceiling (pict-width pict))
-                                        (exact-ceiling (pict-height pict))
-                                        0.0 0.0)
+        (define width (exact-ceiling (pict-width pict)))
+        (define height (exact-ceiling (pict-height pict)))
+        #R width #R height
+        #;(when (and (not (zero? width)) (not (zero? height)))
+          (send this init-auto-scrollbars width height 0.0 0.0))
         (set! dirty? #f))
       (draw-pict pict dc 0 0))))
 
 (module* example racket/gui
-  ;; To run in DrRacket:  (require (submod "dot-canvas.rkt" example)) (run)
+  ;; To run in DrRacket:  (require (submod "dots-canvas.rkt" example)) (run)
 
   (require (submod ".."))
   (provide (all-defined-out))
 
   (define (run)
-    (define frame (new frame% [label "dot-canvas example"]
+    (define frame (new frame% [label "dots-canvas example"]
                               [width 300]
                               [height 200]))
-    (define canvas (new dot-canvas% [parent frame]
-                                     [style '(hscroll vscroll)]))
-    (send canvas set-dots! #hash((abc . 1.0) (archetype52 . 0.6)))
+    (define canvas (new dots-canvas% [parent frame]
+                                     [style '(hscroll vscroll)]
+                                     [virtual-width 300]))
+    (send canvas set-dots!
+          #hash((abc . 1.0) (archetype52 . 0.6) (zipdot . 0.1)
+                (x . 0.15) (bcdef-dot . 0.2) (this-dot . 0.3)))
     (send frame show #t)))

@@ -13,7 +13,7 @@
 
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
-         "wheel.rkt" "xsusp2.rkt" "graph.rkt" "make-graph.rkt")
+         "wheel.rkt" "xsusp3.rkt" "graph.rkt" "make-graph.rkt")
 
 (provide (all-defined-out))
 
@@ -423,7 +423,8 @@
 (define (run-slipnet g initial-activations)
   (for/fold ([activations initial-activations])
             ([timestep slipnet-timesteps])
-    (let ([as (maybe-suspend (do-slipnet-timestep g activations))])
+    (let ([as (maybe-suspend 'slipnet-activations
+                             (do-slipnet-timestep g activations))])
       ;#R (sorted-by-cdr as)
       as)))
 
@@ -475,7 +476,9 @@
 
 (define (whats-your-problem g node)
   (for*/set ([tag (problem-tags g node)]
-             [archetype (list (archetype-of-value g (problem-tag->solution-tag g tag node)))] ;superfluous list in lieu of #:define
+             [archetype (list (archetype-of-value g
+                                (problem-tag->solution-tag g tag node)))]
+                                ;superfluous list in lieu of #:define
             #:when (not (void? archetype)))
     archetype))
 
@@ -681,7 +684,8 @@
            ;[_ (pr-group g 'numbo-ws)] ;DEBUG
            [g (update-saliences g)]
            ;[_ (print-saliences g)] ;DEBUG
-           [activations (maybe-suspend (make-initial-activations g))]
+           [activations (maybe-suspend 'slipnet-activations
+                                       (make-initial-activations g))]
            [_ (set! saved-is activations)]
            [archetypal-group (search-slipnet g activations)])
     (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
