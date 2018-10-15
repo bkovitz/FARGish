@@ -9,34 +9,34 @@
          node-is-a? has-tag? tag? taggees-of)
 
 (define (current-groupid g)
-  (graph-get-stacked-variable g 'groupid (void)))
+  (graph-get-var g 'groupid (void)))
   ;(dict-ref (graph-stacks g) 'groupid #f))
 
 (define (push-groupid g groupid)
-  (graph-push-stacked-variable g 'groupid groupid))
+  (graph-push-and-set-var g 'groupid groupid))
 
 (define (pop-groupid g)
-  (graph-pop-stacked-variable g 'groupid))
+  (graph-pop-var g 'groupid))
 
 (define (set-lastid g id)
-  (graph-set-stacked-variable g 'lastid id))
+  (graph-set-var g 'lastid id))
 
 (define (get-lastid g)
-  (graph-get-stacked-variable g 'lastid))
+  (graph-get-var g 'lastid))
 
 (define (set-alias g alias)
-  (graph-update-stacked-variable g 'hm-alias->id
+  (graph-update-var g 'hm-alias->id
     (λ (hm) (hash-set hm alias (get-lastid g)))
     #hash()))
 
 (define (push-aliases g)
-  (graph-push-stacked-variable g 'hm-alias->id))
+  (graph-push-var g 'hm-alias->id))
 
 (define (pop-aliases g)
-  (graph-pop-stacked-variable g 'hm-alias->id))
+  (graph-pop-var g 'hm-alias->id))
 
 (define (look-up-node g name)
-  (let ([hm-alias->id (graph-get-stacked-variable g 'hm-alias->id #hash())])
+  (let ([hm-alias->id (graph-get-var g 'hm-alias->id #hash())])
     (hash-ref hm-alias->id name (thunk (if (has-node? g name) name (void))))))
 
 (define (get-port g port-spec)
@@ -239,12 +239,12 @@
   (test-case ":group"
     (let ([g (make-graph '(:group (:name outer) a b
                                   (:group (:name inner) c d) e) 'f)])
-      (check-equal? (set 'a 'b 'c 'd 'e 'f 'inner 'outer)
-                    (list->set (all-nodes g)))
-      (check-equal? (set 'inner 'a 'b 'e)
-                    (list->set (members-of g 'outer)))
-      (check-equal? (set 'c 'd)
-                    (list->set (members-of g 'inner)))))
+      (check-equal? (list->set (all-nodes g))
+                    (set 'a 'b 'c 'd 'e 'f 'inner 'outer))
+      (check-equal? (list->set (members-of g 'outer))
+                    (set 'inner 'a 'b 'e))
+      (check-equal? (list->set (members-of g 'inner))
+                    (set 'c 'd))))
   (test-case "bind"
     (let ([g (make-graph 'a 'b '(bind a b))])
       (check-true (bound-to? g 'a 'b))

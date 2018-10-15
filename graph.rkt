@@ -14,9 +14,15 @@
          bound-from? succ? has-node? node->neighbors node->ports
          node->incident-edges port->incident-edges has-edge? all-edges
          empty-graph placeholder placeholder? group? remove-node
-         graph-set-stacked-variable graph-get-stacked-variable
-         graph-push-stacked-variable graph-pop-stacked-variable
-         graph-update-stacked-variable node-attr? graph-edge-weight
+
+         graph-set-var
+         graph-get-var
+         graph-update-var
+         graph-push-var
+         graph-push-and-set-var
+         graph-pop-var
+
+         node-attr? graph-edge-weight
          (struct-out graph))
 
 ;; A port graph
@@ -26,10 +32,11 @@
                edges
                id-set
                stacks  ; dict of temp vars for do-graph-edits
+               vars    ; hash-table of vars: name -> value
                spec) #:transparent)
 
 (define empty-spec '())
-(define empty-graph (graph #hash() #hash() #hash() empty-id-set '() empty-spec))
+(define empty-graph (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
 
 ;; Miscellaneous
 
@@ -40,69 +47,95 @@
 
 (define (placeholder? x) (eq? x placeholder))
 
-;; Stacked variables
-
-(define graph-get-stacked-variable
-  (case-lambda
-    [(g name default-value)
-     (let ([stack (dict-ref (graph-stacks g) name '())])
-       (if (null? stack)
-         default-value
-         (car stack)))]
-    [(g name)
-     (let ([stack (dict-ref (graph-stacks g) name)])
-       (car stack))]))
-
-(define (graph-set-stacked-variable g name value)
-  (let* ([stacks (graph-stacks g)]
-         [stack (dict-ref stacks name '())]
-         [stack (if (null? stack)
-                  (list value)
-                  (cons value (cdr stack)))])
-    (struct-copy graph g
-      [stacks (dict-set stacks name stack)])))
-
-(define (graph-update-stacked-variable g name f default-value)
-  (define v0 (graph-get-stacked-variable g name default-value))
-  (graph-set-stacked-variable g name (f v0)))
-
-(define graph-push-stacked-variable
-  (case-lambda
-    [(g name value)
-     (let* ([stacks (graph-stacks g)]
-            [stack (dict-ref stacks name '())]
-            [stack (cons value stack)])
-       (struct-copy graph g
-         [stacks (dict-set stacks name stack)]))]
-    [(g name)
-     (let* ([stacks (graph-stacks g)]
-            [stack (dict-ref stacks name '())]
-            [stack (if (null? stack)
-                     stack
-                     (cons (car stack) stack))])
-       (struct-copy graph g
-         [stacks (dict-set stacks name stack)]))]))
-
-(define (graph-pop-stacked-variable g name)
-  (let* ([stacks (graph-stacks g)]
-         [stack (dict-ref stacks name)]
-         [stack (if (null? stack) stack (cdr stack))])
-    (struct-copy graph g
-      [stacks (dict-set stacks name stack)])))
+; --------------------
+; Graph variables
+; 
+; Graph variables are variables associated with the graph as a whole.
+; Each variable has its own stack, manipulable by graph-push-var and
+; graph-pop-var.
+;
+; It's not an error to pop an empty stack.
 
 (module+ test
-  (test-case "stacked variable"
-    (define g0 empty-graph)
-    (define g1 (graph-set-stacked-variable g0 'abc 5))
-    (check-equal? (graph-get-stacked-variable g1 'abc (void)) 5)
-    (define g2 (graph-set-stacked-variable g1 'abc 6))
-    (check-equal? (graph-get-stacked-variable g2 'abc (void)) 6)
-    (define g3 (graph-push-stacked-variable g2 'abc 7))
-    (check-equal? (graph-get-stacked-variable g3 'abc (void)) 7)
-    (define g4 (graph-update-stacked-variable g3 'abc add1 (void)))
-    (check-equal? (graph-get-stacked-variable g4 'abc (void)) 8)
-    (define g5 (graph-pop-stacked-variable g4 'abc))
-    (check-equal? (graph-get-stacked-variable g5 'abc (void)) 6)))
+  (test-case "graph variables"
+    (let* ([g empty-graph]
+           ; Setting, getting, and updating
+           [g (graph-set-var g 'abc 5)]
+           [_ (check-equal? (graph-get-var g 'abc) 5)]
+           [_ (check-equal? (graph-get-var g 'undefined 86) 86)]
+           [g (graph-update-var g 'abc add1)]
+           [_ (check-equal? (graph-get-var g 'abc) 6)]
+           ; Pushing and popping
+           [g (graph-push-var g 'abc)]
+           [_ (check-equal? (graph-get-var g 'abc) 6)]
+           [g (graph-set-var g 'abc 'new-value)]
+           [_ (check-equal? (graph-get-var g 'abc) 'new-value)]
+           [g (graph-pop-var g 'abc)]
+           [_ (check-equal? (graph-get-var g 'abc) 6)]
+           ; Push and set at the same time
+           [g (graph-push-and-set-var g 'xyz 123)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) 123)]
+           [g (graph-push-and-set-var g 'xyz 456)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) 456)]
+           [g (graph-pop-var g 'xyz)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) 123)]
+           [g (graph-pop-var g 'xyz)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) (void))])
+      (void))))
+
+(define (graph-set-var g name value)
+  (let ([ht (hash-set (graph-vars g) name value)])
+    (struct-copy graph g [vars ht])))
+
+(define graph-get-var
+  (case-lambda
+    [(g name)
+     (hash-ref (graph-vars g) name)]
+    [(g name failure-result)
+     (hash-ref (graph-vars g) name failure-result)]))
+
+(define graph-update-var
+  (case-lambda
+    [(g name f)
+     (let ([ht (hash-update (graph-vars g) name f)])
+       (struct-copy graph g [vars ht]))]
+    [(g name f failure-result)
+     (let ([ht (hash-update (graph-vars g) name f failure-result)])
+       (struct-copy graph g [vars ht]))]))
+
+(define (graph-remove-var g name)
+  (let ([vars (hash-remove (graph-vars g) name)])
+    (struct-copy graph g [vars vars])))
+
+(define (graph-push-var g name)
+  (let ([vars (graph-vars g)])
+    (if (hash-has-key? vars name)
+      (let* ([value (hash-ref vars name)]
+             [stacks (hash-update (graph-stacks g)
+                                  name
+                                  (λ (stack) (cons value stack))
+                                  (λ () '()))])
+        (struct-copy graph g [stacks stacks]))
+      g)))
+
+(define (graph-push-and-set-var g name value)
+  (let ([g (graph-push-var g name)])
+    (graph-set-var g name value)))
+
+(define (graph-pop-var g name)
+  (let ([stacks (graph-stacks g)])
+    (cond
+      [(not (hash-has-key? stacks name))
+       (graph-remove-var g name)]
+      [else
+       (let* ([stack (hash-ref stacks name)]
+              [value (car stack)]
+              [stack (cdr stack)]
+              [stacks (if (null? stack)
+                        (hash-remove stacks name)
+                        (hash-set stacks name stack))]
+              [vars (hash-set (graph-vars g) name value)])
+         (struct-copy graph g [stacks stacks] [vars vars]))])))
 
 ;; Querying a graph
 
