@@ -3,9 +3,8 @@
 #lang debug at-exp racket/gui
 
 (require (prefix-in pict: pict) pict/snip mrlib/snip-canvas)
-;(require drracket/private/tooltip)
 
-(define fr (new frame% [label "xtooltip"] [width 200] [height 100]))
+;; Adding tooltips to windows ==========================================
 
 ;CONFUSION: This is needed only because pane% doesn't support client->screen.
 ;Is the reason why it doesn't also a reason why this function shouldn't exist?
@@ -51,7 +50,7 @@
                        #:draw-border? #t)])
     (pict:cc-superimpose background text-image)))
 
-(define pict-canvas%  ; <--- CODE SMELL: reinventing the wheel (pict.rkt)
+(define -pict-canvas%  ; <--- CODE SMELL: reinventing the wheel (pict.rkt)
   (class canvas%
     (init-field pict
                 [style '()])
@@ -79,7 +78,7 @@
                [stretchable-height #f]
                [x (exact-ceiling (- (send point get-x) (/ width 2) 3))]
                [y (exact-ceiling (- (send point get-y) height 8))])
-    (define canvas (new pict-canvas% [pict pict] [parent this]))
+    (define canvas (new -pict-canvas% [pict pict] [parent this]))
     (send this show #t)))
 
 (define TOOLTIP-HOVER-DELAY 600)
@@ -121,14 +120,18 @@
       ;BUG: Often no 'motion event comes when the mouse leaves this window,
       ;so the tooltip stays up.
 
-(define m (new (tooltip-mixin message%)
-               [parent fr] [label "Label"] [tooltip 22.6]))
-(define b (new (tooltip-mixin button%)
-               [parent fr] [label "Button"] [tooltip "Press this"]))
+;; Labeled dots with tooltips ==========================================
+
+(define fr (new frame% [label "xtooltip"] [width 200] [height 100]))
+
+;(define m (new (tooltip-mixin message%)
+;               [parent fr] [label "Label"] [tooltip 22.6]))
+;(define b (new (tooltip-mixin button%)
+;               [parent fr] [label "Button"] [tooltip "Press this"]))
 
 (define hp (new horizontal-pane% [parent fr] [alignment '(left top)]))
 
-(define tpc% (tooltip-mixin pict-canvas%))
+(define pict-canvas% (tooltip-mixin -pict-canvas%))
 
 (define (disk d)
   (pict:cc-superimpose
@@ -140,16 +143,19 @@
                                  [stretchable-width #f]
                                  [stretchable-height #f]))
   (define l (new message% [parent vp] [label label]))
-  (define d (new tpc% [parent vp]
-                      [pict (disk (* 8.0 activation))]
-                      [tooltip activation]))
+  (define d (new pict-canvas% [parent vp]
+                              [pict (disk (* 8.0 activation))]
+                              [tooltip activation]))
   vp)
 
-;(define tpc1 (new tpc% [parent hp] [pict (disk 30)] [tooltip 22.6]))
-;(define tpc2 (new tpc% [parent hp] [pict (disk 3)] [tooltip 2.6]))
 (define d1 (make-dot hp "archetype4" 4.1))
 (define d2 (make-dot hp "some-sa-node" 2.26))
 (define d3 (make-dot hp "this-dot" 0.4))
+
+(send fr show #t)
+
+
+
 
 (define inert-pasteboard%  ; <--- CODE SMELL: reinventing wheel?
   (class pasteboard%
@@ -171,19 +177,6 @@
 ;    (define/public (insert-dot label activation-level)
 ;      (send pb insert (new pict-snip%
 ;    (super-new [editor pb])))
-
-(send fr show #t)
-
-;(define tf (new tooltip-frame% [frame-to-track m]))
-;(send tf set-tooltip (list "tooltip text"))
-;(let*-values ([(x y w h) (values (send m get-x)
-;                                 (send m get-y)
-;                                 (send m get-width)
-;                                 (send m get-height))]
-;              [(x y) (send m client->screen x y)])
-;  #R x #R y
-;  (send tf show-over x y w h))
-;#;(send tf show #t)
 
 ; QUESTIONS
 ;
