@@ -5,20 +5,24 @@
 #lang debug at-exp racket/gui
 
 (require (prefix-in model: "numbo0.rkt") "xsusp3.rkt" "dots-canvas.rkt")
+(require "graph.rkt" "make-graph.rkt")
 (require framework)
 (require describe)
 (provide (all-defined-out))
 
 (define farg-window%
   (class frame%
-    (init-field controller
+    (init-field [controller (void)]
                 [label "FARG model"]
                 [slipnet-activations '()]
-                [width 600]
-                [height 400])
+                [width 1000]
+                [height 600])
     (super-new [label label] [width width] [height height])
 
-    (send controller set-view! this)
+    ;(send controller set-view! this)
+
+    (define/public (set-controller! c)
+      (set! controller c))
 
     (define/override (on-subwindow-char receiver ke)
       (if (eq? this receiver)
@@ -44,12 +48,15 @@
     (values key activation)))
 
 (define g (void)) ; current graph, i.e. current FARG model
+(define activations (void))  ; current slipnet activations
 
 (define controller%
   (class object%
     (init-field model-runner
-                [view (void)])
+                view)
     (super-new)
+
+    (send view set-controller! this)
 
     (define/public (set-view! -view)
       (set! view -view))
@@ -57,6 +64,7 @@
     (define/public (continue)
       (match (model-runner)
         [`(slipnet-activations ,ht)
+          (set! activations ht)
           (when view
             (send view set-slipnet-activations! ht))]
         [`(g ,new-g) ; new graph
@@ -76,9 +84,11 @@
 (define frame (void))
 
 (define (run . args)
+  (when (void? frame)
+    (set! frame (new farg-window%)))
   (set! controller (new controller%
-                       [model-runner (suspended (apply model:run args))]))
-  (set! frame (new farg-window% [controller controller]))
+                       [model-runner (suspended (apply model:run args))]
+                       [view frame]))
   (send frame show #t))
 
 ;; To run in DrRacket:

@@ -488,16 +488,14 @@
   (node-is-a? g 'number node))
 
 (define (needs-source? g node)
-  (if (and (number-node? g node)
-           (empty? (port->neighbors g `(,node source))))
-    `((need source))
-    '()))
+  (define need? (and (number-node? g node)
+                     (empty? (port->neighbors g `(,node source)))))
+  `((need source) ,need?))
 
 (define (needs-result? g node)
-  (if (and (number-node? g node)
-           (empty? (port->neighbors g `(,node result))))
-    `((need result))
-    '()))
+  (define need? (and (number-node? g node)
+                     (empty? (port->neighbors g `(,node result)))))
+  `((need result) ,need?))
 
 (define (>-mates g node)
   (for*/list ([tag (tags-of g node)]
@@ -540,10 +538,21 @@
 (define (add-simplest-tags g ctx)
   (for*/fold ([g g])
              ([node (number-nodes-in g ctx)]
-              [tag (accumulate-tags (list needs-source?
-                                          needs-result?)
-                                    g node)])
-    (do-graph-edits g `((add-tag ,tag ,node)))))
+              [info (list (needs-source? g node)
+                          (needs-result? g node))])
+    (match-define `(,tag ,need?) info)
+    (define already-has? (has-tag? g tag node))
+    (if need?
+      (if already-has?
+        g
+        (do-graph-edits g `((add-tag ,tag ,node)
+                            (boost-salience ,node))))
+      (if (has-tag? g tag node)
+        ;(remove-node g already-has?) ;HACK: should go through rewrite
+        (do-graph-edits g `((:remove-node ,already-has?)
+                            (reduce-salience ,node)))
+                      ;HACK: effect on salience should depend on other factors
+        g))))
 
 (define (add-relation-tags g ctx)
   (for*/fold ([g g])
@@ -589,6 +598,11 @@
     '()
     (cons (archetype-of-node g node) (set->list w))))
 
+(define (archetype-salience-factor g archetype) ;HACK
+  (match (value-of g archetype)
+    [`(doubled-operands . ,_) 0.1]
+    [else 1.0]))
+
 (define (make-initial-activations g)
   (for/fold ([h (hash)]) ; (archetype . activation)
             ([node (members-of g 'numbo-ws)])
@@ -597,7 +611,12 @@
       h
       (for/fold ([h h])
                 ([archetype (archetypes-to-activate-for g node)])
-        (hash-update h archetype (λ (old) (+ old s)) 0.0)))))
+        (hash-update h
+                     archetype
+                     (λ (old)
+                       (+ old (* (archetype-salience-factor g archetype)
+                                 s)))
+                     0.0)))))
 
 (define (failed? g node)
   (for/or ([neighbor (port->neighbors g `(,node tags))]
@@ -628,7 +647,7 @@
   ;#R (sorted-by-cdr activations)
   (most-active-group g activations))
 
-(define salience-decay 0.9)
+(define salience-decay 0.8)
 
 (define (salience-of g node)
   (let ([s (get-node-attr g node 'salience)])
@@ -637,8 +656,9 @@
 (define (update-saliences g)
   (for/fold ([g g])
             ([node (members-of g 'numbo-ws)])
-    (define new-salience (+ (* salience-decay (salience-of g node))
-                            (if (missing-a-neighbor? g node) 1.0 0.0)))
+;    (define new-salience (+ (* salience-decay (salience-of g node))
+;                            (if (missing-a-neighbor? g node) 1.0 0.0)))
+    (define new-salience (* salience-decay (salience-of g node)))
     (set-node-attr g node 'salience new-salience)))
 
 (define (print-saliences g)

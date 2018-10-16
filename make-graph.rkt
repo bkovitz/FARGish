@@ -131,6 +131,10 @@
         `(:begin
            (:edgenode succ ,a ,b (succ-to succ-from) (succ-to succ-from))
            ,@(if (null? more) '() (list (loop b (car more) (cdr more))))))]
+    [`(boost-salience ,node)
+      `(:update-attr ,node salience ,(λ (old) (+ old 1.0)) 0.0)]
+    [`(reduce-salience ,node)
+      `(:update-attr ,node salience ,(λ (old) (* old 0.5)) 0.0)]
     [_ (error 'rewrite-item @~a{can't rewrite: @item})]))
 
 (define (do-graph-edits g items)
@@ -156,6 +160,8 @@
                                          (,to-node ,to-port-label)))]
                       [(g) (set-lastid g id)])
           (recur g more))]
+      [`((:remove-node ,node) . ,more)
+        (recur (remove-node g node) more)]
       [`((:let ([,nm ,thing] ...) ,body ...) . ,more)
         (for/fold ([g (push-aliases g)]
                    #:result (recur (pop-aliases (do-graph-edits g body)) more))
@@ -180,6 +186,9 @@
 ;                       [(g) (pop-groupid g)]
 ;                       [(g) (set-lastid g groupid)])
            (recur g more))]
+      [`((:update-attr ,node ,k ,f ,failure-result) . ,more)
+        (let ([g (update-node-attr g node k f failure-result)])
+          (recur g more))]
       [`(,item . ,more) ;didn't recognize it, rewrite it
         (recur g (cons (rewrite-item g item) more))]
       ))
@@ -283,6 +292,7 @@
   (class-is-a? g class (class-of g node)))
 
 ;TODO Match placeholders in tagspec?
+;Returns the first matching tag or #f if none
 (define (has-tag? g tagspec node)
   (define is?
     (match tagspec
@@ -295,7 +305,7 @@
                                "tagspec must be (tagclass . args) or tagclass"
                                "tagspec" tagspec)]))
   (for/or ([tagnode (tags-of g node)])
-    (is? tagnode)))
+    (if (is? tagnode) tagnode #f)))
 
 ;  (define attrs #R (cadr (tag->attrs tag)))
 ;  (define class (dict-ref attrs 'class))

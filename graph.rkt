@@ -5,7 +5,13 @@
 (require rackunit racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe mischief/memoize) 
 
-(provide make-node add-node add-edge get-node-attr get-node-attrs set-node-attr
+(provide make-node add-node add-edge
+         
+         set-node-attr
+         get-node-attr
+         get-node-attrs
+         update-node-attr
+
          port->neighbors port->neighboring-ports all-nodes pr-node
          find-nodes-of-class value-of value-of-equal?
          port->neighbor bound-from-ctx-to-ctx? default-name
@@ -386,6 +392,16 @@
       (struct-copy graph g
         [ht-node->attrs
           (hash-set (graph-ht-node->attrs g) node (hash-set attrs k v))]))
+    g))
+
+;TODO UT
+(define (update-node-attr g node k f failure-result)
+  (if (has-node? g node)
+    (let* ([attrs (get-node-attrs g node)]
+           [attrs (hash-update attrs k f failure-result)])
+      (struct-copy graph g
+        [ht-node->attrs
+          (hash-set (graph-ht-node->attrs g) node attrs)]))
     g))
 
 (module+ test
