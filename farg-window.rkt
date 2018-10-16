@@ -5,6 +5,7 @@
 #lang debug at-exp racket/gui
 
 (require (prefix-in model: "numbo0.rkt") "xsusp3.rkt" "dots-canvas.rkt")
+(require framework)
 (require describe)
 (provide (all-defined-out))
 
@@ -33,13 +34,16 @@
     (define/public (set-saliences! ss)
       (send ws-canvas set-dots! (sanitized-activations ss)))
 
-    (define slipnet-canvas (new dots-canvas% [parent this]))
-    (define ws-canvas (new dots-canvas% [parent this] [color "Dark Orchid"]))))
+    (define vp (new panel:vertical-dragable% [parent this]))
+    (define slipnet-canvas (new dots-canvas% [parent vp]))
+    (define ws-canvas (new dots-canvas% [parent vp] [color "Dark Orchid"]))))
 
 (define (sanitized-activations ht)
   (for/hash ([(key activation) ht]
              #:when (> activation 0.1))
     (values key activation)))
+
+(define g (void)) ; current graph, i.e. current FARG model
 
 (define controller%
   (class object%
@@ -55,6 +59,9 @@
         [`(slipnet-activations ,ht)
           (when view
             (send view set-slipnet-activations! ht))]
+        [`(g ,new-g) ; new graph
+          (set! g new-g)
+          (continue)]
         [`(done ,result)
           (send view create-status-line)
           (send view set-status-text (~a result))]
@@ -73,3 +80,6 @@
                        [model-runner (suspended (apply model:run args))]))
   (set! frame (new farg-window% [controller controller]))
   (send frame show #t))
+
+;; To run in DrRacket:
+;;   (run '(4 5 6) 15 model:big-slipnet)

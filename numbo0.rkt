@@ -687,6 +687,7 @@
            [g (tag-all-numbers g 'numbo-ws)]
            ;[_ (pr-group g 'numbo-ws)] ;DEBUG
            [g (update-saliences g)]
+           [_ (maybe-suspend 'g g)]
            [_ (maybe-suspend 'numbo-ws (saliences-ht g))]
            ;[_ (print-saliences g)] ;DEBUG
            [activations (maybe-suspend 'slipnet-activations
@@ -730,6 +731,7 @@
                   (loop operand)))]))))
 
 (define (run^ g)
+  (maybe-suspend 'g g)
   (maybe-suspend 'numbo-ws (saliences-ht g))
   (with-handlers ([(λ (e) (match e
                             [`(done ,_) #t]
@@ -741,7 +743,7 @@
         (begin
           (log (result-expr g))
           (raise `(done ,g)))
-        (do-timestep g)))))
+        (maybe-suspend 'g (do-timestep g))))))
 
 (define (make-start-graph bricks target slipnet)
   (let*-values ([(g) (make-graph)]
