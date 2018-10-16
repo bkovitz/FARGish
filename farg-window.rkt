@@ -44,7 +44,7 @@
 
 (define (sanitized-activations ht)
   (for/hash ([(key activation) ht]
-             #:when (> activation 0.1))
+             #:when (> activation 0.05))
     (values key activation)))
 
 (define g (void)) ; current graph, i.e. current FARG model

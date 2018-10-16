@@ -14,6 +14,7 @@
 (require rackunit data/collection racket/dict racket/generic racket/pretty
          racket/hash profile describe
          "wheel.rkt" "xsusp3.rkt" "graph.rkt" "make-graph.rkt")
+(require (only-in racket/base (log logarithm)))
 
 (provide (all-defined-out))
 
@@ -22,7 +23,7 @@
 (define max-timesteps 20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
-(define slipnet-timesteps 3)
+(define slipnet-timesteps 4)
 (define support-decay-rate 0.5)
 
 ;; Making a workspace
@@ -400,9 +401,10 @@
                    (sliplink-weight g from to)))
   (define (spread-1way activations hop)
     (match-define `((,from-node ,_) (,to-node ,_)) hop) ;TODO catch self-link?
+    (define r (* 0.1 (- (random) 0.5) weight))
     (add-activation activations to-node
       (* slipnet-spreading-rate
-         weight
+         (+ weight r)
          (get-activation initial-activations from-node))))
   (let* ([hop (set->list edge)]
          [activations (spread-1way activations hop)]
@@ -601,6 +603,8 @@
 (define (archetype-salience-factor g archetype) ;HACK
   (match (value-of g archetype)
     [`(doubled-operands . ,_) 0.1]
+    [`(fills-port ,_ result) 0.5]
+    [`(fills-port ,_ source) 1.3]
     [else 1.0]))
 
 (define (make-initial-activations g)
@@ -672,8 +676,10 @@
 (define (eq?f x)
   (λ (x*) (eq? x x*)))
 
-(define (log x)
-  (displayln (~a x)))
+(define (log . args)
+  (define as (string-join (for/list ([arg args])
+                            (~a arg))))
+  (displayln @~a{  @as}))
 
 (define (decayable-node? g node)
   (or (eq? 'failed (class-of g node))
@@ -695,7 +701,7 @@
       (let ([new-support (* support-decay-rate support)])
         (if (< new-support 0.2)
           (begin
-            (log (format "removing ~a" node))
+            ;(log (format "removing ~a" node))
             (remove-node g node))
           (set-node-attr g node 'support new-support))))))
 
@@ -714,7 +720,8 @@
                                        (make-initial-activations g))]
            [_ (set! saved-is activations)]
            [archetypal-group (search-slipnet g activations)])
-    (hacked-finish-archetype g #R archetypal-group 'numbo-ws))))
+    (log "trying" archetypal-group)
+    (hacked-finish-archetype g archetypal-group 'numbo-ws))))
 
 (define (initialize-salience g)
   (for/fold ([g g])
@@ -749,6 +756,8 @@
          (list* (value-of g node)
                 (for/list ([operand (operands-of g node)])
                   (loop operand)))]))))
+
+(random-seed 0)
 
 (define (run^ g)
   (maybe-suspend 'g g)
@@ -845,17 +854,21 @@
     [(- /) #f]))
 
 ;; Returns a list of graphs, one for each equation.
-(define (make-memorized-arithmetic-tables n)
+(define (make-memorized-arithmetic-tables n [no-greater-than 361])
   (define ns (make-base-namespace))
   (define operand-pairs (for*/set ([i (in-range 1 (add1 n))]
                                    [j (in-range 1 (add1 n))])
                           `(,i ,j)))
+  (define (make-result ij op)
+    (match-define `(,i ,j) ij)
+    (define expr `(,op ,i ,j))
+    (eval expr ns))
   (define tuples (for*/fold ([tuples '()])
                             ([ij operand-pairs]
-                             [op '(+ - *)])
+                             [op '(+ - *)]
+                             [result (list (make-result ij op))]
+                             #:when (<= result no-greater-than))
                    (match-define `(,i ,j) ij)
-                   (define expr `(,op ,i ,j))
-                   (define result (eval expr ns))
                    (cond
                      [(negative? result)
                        tuples]
@@ -866,8 +879,58 @@
     (apply make-equation-graph tuple)))
 
 (set! iters 0)
-(define big-slipnet
-  (apply make-slipnet (make-memorized-arithmetic-tables 12)))
+(define (numeric-archetypes sl)
+  (for/list ([archetype (archetypes sl)]
+             #:when (number? (value-of sl archetype)))
+    archetype))
+
+(define (log10 x)
+  (logarithm x 10.0))
+
+(define (numeric-closeness n m)
+  (min 1.0 (max 0.0
+    (- 1.0 (* 3.0 (abs (- (log10 n) (log10 m))))))))
+
+(define (add-edges-between-number-archetypes sl)
+  (for*/fold ([sl sl])
+               ([n-id (numeric-archetypes sl)]
+                [m-id (numeric-archetypes sl)]
+                #:when (and (not (zero? (value-of sl n-id)))
+                            (not (zero? (value-of sl m-id))))
+                #:when (not (has-edge? sl `((,n-id activation)
+                                            (,m-id activation))))
+                #:when (not (equal? n-id m-id)))
+      (let-values ([(n m) (apply values (sort (list (value-of sl n-id)
+                                                    (value-of sl m-id)) <))])
+        (define nc (* 2.0 (numeric-closeness n m)))
+        (define ns (~a n))
+        (define ms (~a m))
+        (define length-closeness (if (= (string-length ns)
+                                       (string-length ms))
+                                    0.3
+                                    0.0))
+        (define 1st-digit-closeness
+          (let ([n1 (substring ns 0 1)]
+                [m1 (substring ms 0 1)])
+            (if (equal? n1 m1) 0.3 0.0)))
+        (define last-digit-closeness
+          (let ([nlast (substring ns (sub1 (string-length ns))
+                                     (string-length ns))]
+                [mlast (substring ms (sub1 (string-length ms))
+                                     (string-length ms))])
+            (if (equal? nlast mlast) 0.3 0.0)))
+        (define weight (+ nc length-closeness 1st-digit-closeness
+                          last-digit-closeness))
+        (add-edge sl `((,n-id activation) (,m-id activation)) weight))))
+
+(define medium-slipnet
+  (let ([sl (apply make-slipnet (make-memorized-arithmetic-tables 10))])
+    (add-edges-between-number-archetypes sl)))
+
+(define (make-big-slipnet)
+  (define sl (apply make-slipnet (make-memorized-arithmetic-tables 40 361)))
+  (add-edges-between-number-archetypes sl))
+
 #;(begin
   #R iters
   #R (length (archetypes big-slipnet))

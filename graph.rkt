@@ -4,6 +4,7 @@
 
 (require rackunit racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe mischief/memoize) 
+(require racket/serialize)
 
 (provide make-node add-node add-edge
          
@@ -39,7 +40,7 @@
                id-set
                stacks  ; dict of temp vars for do-graph-edits
                vars    ; hash-table of vars: name -> value
-               spec) #:transparent)
+               spec) #:prefab)   ; #:transparent)
 
 (define empty-spec '())
 (define empty-graph (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
@@ -452,9 +453,10 @@
   (hash-has-key? (graph-edges g) edge*))
 
 (define (graph-edge-weight g edge)
-  (match-define `(,port1 ,port2) edge)
-  (define edge* (set port1 port2))
-  (hash-ref (graph-edges g) edge* (void)))
+  (let ([edge (if (set? edge) (set->list edge) edge)])
+    (match-define `(,port1 ,port2) edge)
+    (define edge* (set port1 port2))
+    (hash-ref (graph-edges g) edge* (void))))
 
 (define (remove-edge g edge)
   (match-define `(,port1 ,port2) edge)
@@ -584,8 +586,10 @@
           (values g (hash-set node-map node nodeid))))])
     (let ([g (for/fold ([g g])
                         ([edge (all-edges g1)])
-                (let ([edge (map-edge node-map (set->list edge))])
-                  (if (has-edge? g edge) g (add-edge g edge))))])
+                (let ([g-edge (map-edge node-map (set->list edge))])
+                  (if (has-edge? g g-edge)
+                    g
+                    (add-edge g g-edge (graph-edge-weight g1 edge)))))])
       (values g node-map))))
 
 (module+ test
