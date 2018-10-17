@@ -9,7 +9,7 @@
 
 (provide id-set empty-id-set gen-id remove-id)
 
-(struct id-set (base->suffix all-ids) #:transparent)
+(struct id-set (base->suffix all-ids) #:prefab)
 
 (define empty-id-set (id-set #hash() (set)))
 
@@ -63,19 +63,31 @@
       (values "" "a")
       (values "" 2)))
 
+;; This is faster than ~a
+(define (->string x)
+  (cond
+    [(string? x) x]
+    [(symbol? x) (symbol->string x)]
+    [(number? x) (number->string x)]
+    [else (~a x)]))
+
+(define (->symbol base suffix)
+  (string->symbol (string-append (->string base)
+                                 (->string suffix))))
+
 (define (init-base id-hash base)
   (define-values (suffix next-suffix) (init-suffix base))
   (define id-hash* (hash-set id-hash base next-suffix))
   (values id-hash* (if (and (not (non-empty-string? suffix)) (number? base))
                      base
-                     (string->symbol (~a base suffix)))))
+                     (->symbol base suffix))))
 
 (define (bump-base id-hash base)
   (define suffix (hash-ref id-hash base))
   (values (hash-update id-hash base (if (number? suffix)
                                         add1
                                         bump-string))
-          (string->symbol (~a base suffix))))
+          (->symbol base suffix)))
 
 (module+ test
   (let*-values ([(h plus) (gen-id empty-id-set 'plus)]

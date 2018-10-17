@@ -322,12 +322,16 @@
 
 ;; Making a slipnet
 
+(define (add-activation-edge sl from-node to-node [weight 1.0])
+  (add-edge sl `((,from-node activation) (,to-node activation)) weight))
+
 (define (add-activation-edges sl from-node to-nodes)
   (define from-archetype (archetype-of-node sl from-node))
   (for/fold ([sl sl])
             ([to-node to-nodes])
     (define to-archetype (archetype-of-node sl to-node))
-    (add-edge sl `((,from-archetype activation) (,to-archetype activation)))))
+    (add-activation-edge sl from-archetype to-archetype)
+    #;(add-edge sl `((,from-archetype activation) (,to-archetype activation)))))
 
 (define (add-activation-edges-for sl new-node)
   (cond
@@ -614,7 +618,7 @@
     (if (zero? s)
       h
       (for/fold ([h h])
-                ([archetype (archetypes-to-activate-for g node)])
+                ([archetype #R (archetypes-to-activate-for g node)])
         (hash-update h
                      archetype
                      (λ (old)
@@ -879,6 +883,7 @@
     (apply make-equation-graph tuple)))
 
 (set! iters 0)
+
 (define (numeric-archetypes sl)
   (for/list ([archetype (archetypes sl)]
              #:when (number? (value-of sl archetype)))
@@ -893,13 +898,13 @@
 
 (define (add-edges-between-number-archetypes sl)
   (for*/fold ([sl sl])
-               ([n-id (numeric-archetypes sl)]
-                [m-id (numeric-archetypes sl)]
-                #:when (and (not (zero? (value-of sl n-id)))
-                            (not (zero? (value-of sl m-id))))
-                #:when (not (has-edge? sl `((,n-id activation)
-                                            (,m-id activation))))
-                #:when (not (equal? n-id m-id)))
+             ([n-id (in-list (numeric-archetypes sl))]
+              [m-id (in-list (numeric-archetypes sl))]
+              #:when (and (not (zero? (value-of sl n-id)))
+                          (not (zero? (value-of sl m-id))))
+              #:when (not (has-edge? sl `((,n-id activation)
+                                          (,m-id activation))))
+              #:when (not (equal? n-id m-id)))
       (let-values ([(n m) (apply values (sort (list (value-of sl n-id)
                                                     (value-of sl m-id)) <))])
         (define nc (* 2.0 (numeric-closeness n m)))
@@ -907,29 +912,50 @@
         (define ms (~a m))
         (define length-closeness (if (= (string-length ns)
                                        (string-length ms))
-                                    0.3
+                                    1.0
                                     0.0))
         (define 1st-digit-closeness
           (let ([n1 (substring ns 0 1)]
                 [m1 (substring ms 0 1)])
-            (if (equal? n1 m1) 0.3 0.0)))
+            (if (equal? n1 m1) 1.0 0.0)))
         (define last-digit-closeness
           (let ([nlast (substring ns (sub1 (string-length ns))
                                      (string-length ns))]
                 [mlast (substring ms (sub1 (string-length ms))
                                      (string-length ms))])
-            (if (equal? nlast mlast) 0.3 0.0)))
+            (if (equal? nlast mlast) 1.0 0.0)))
         (define weight (+ nc length-closeness 1st-digit-closeness
                           last-digit-closeness))
         (add-edge sl `((,n-id activation) (,m-id activation)) weight))))
 
-(define medium-slipnet
-  (let ([sl (apply make-slipnet (make-memorized-arithmetic-tables 10))])
-    (add-edges-between-number-archetypes sl)))
+(define (first-number seq)
+  (for/or ([x seq])
+    (if (number? x) x #f)))
+
+(define (archetypes-that-refer-to-numbers sl)
+  (for/list ([archetype (archetypes sl)]
+             #:when (let ([v (value-of sl archetype)])
+                      (and (list? v) (ormap number? v))))
+    archetype))
+
+(define (add-edges-to-number-archetypes-from-referring-archetypes sl)
+  (for*/fold ([sl sl])
+             ([archetype (archetypes-that-refer-to-numbers sl)])
+    (define n (first-number (value-of sl archetype)))
+    (define n-id (archetype-of-value sl n))
+    (if (void? n-id) sl (add-activation-edge sl archetype n-id))))
+
+(define (make-slipnet-for-arithmetic n [no-greater-than 361])
+  (let* ([sl (apply make-slipnet
+                    (make-memorized-arithmetic-tables n no-greater-than))]
+         [sl (add-edges-between-number-archetypes sl)]
+         [sl (add-edges-to-number-archetypes-from-referring-archetypes sl)])
+    sl))
+
+(define medium-slipnet (make-slipnet-for-arithmetic 10))
 
 (define (make-big-slipnet)
-  (define sl (apply make-slipnet (make-memorized-arithmetic-tables 40 361)))
-  (add-edges-between-number-archetypes sl))
+  (make-slipnet-for-arithmetic 40 361))
 
 #;(begin
   #R iters
