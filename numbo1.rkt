@@ -59,7 +59,7 @@
     (nodeclasses (+ - * /)
       (is-a 'operator))
     (tagclass (needs need-type)
-      (enum need-type 'source 'result 'greater-result)
+      (must-be need-type (enum 'source 'result 'greater-result))
       (is-a 'problem-tag)
       (applies-to (node (of-class 'number) (by-ports 'tagged 'tags))
         (condition (case need-type
@@ -71,8 +71,8 @@
                               (walk node '(tag >) '(mate greater))))])))
       (mate 'solution `(fills-port ,(value-of g node) ,need-type)))
     (tagclass >
-      (applies-to (lesser (of-class 'number) (by-ports 'lesser 'tags))
-                  (greater (of-class 'number) (by-ports 'greater 'tags))
+      (applies-to ([lesser (of-class 'number) (by-ports 'lesser 'tags)]
+                   [greater (of-class 'number) (by-ports 'greater 'tags)])
         (condition (value-pred? > lesser greater))))
     (tagclass =
       (applies-to (node1 (of-class 'number) (by-ports 'tagged 'tags))
