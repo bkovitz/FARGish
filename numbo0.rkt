@@ -20,11 +20,11 @@
 
 ;; Global constants
 
-(define max-timesteps 20)
+(define max-timesteps 10)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 20)
-(define support-decay-rate 0.5)
+(define support-decay-rate 0.7)
 
 ;; Making a workspace
 
@@ -151,11 +151,11 @@
       (for/list ([from-node (members-of g from-ctx)])
         (build/bind-actions g from-ctx from-node to-ctx)))))
 
-(define (attrs-to-copy g from-node)
+(define (attrs-to-copy g from-ctx from-node)
   (define attrs (get-node-attrs g from-node))
   (define c (hash-ref attrs 'class (void)))
   (define v (hash-ref attrs 'value (void)))
-  `((class . ,c) (value . ,v)))
+  `((class . ,c) (value . ,v) (built-by . ,from-ctx)))
 
 (define (do-bdx-actions g from-ctx to-ctx bdx-actions)
   (for/fold ([g g] [ht-bdx (hash)])
@@ -164,7 +164,8 @@
       [`(bind ,from-node ,to-node)
        (values g (hash-set ht-bdx from-node to-node))]
       [`(build ,from-node)
-       (let*-values ([(g to-id) (make-node g (attrs-to-copy g from-node))]
+       (let*-values ([(g to-id) (make-node
+                                  g (attrs-to-copy g from-ctx from-node))]
                      [(g) (add-edge g `((,to-id member-of) (,to-ctx members)))])
          (values g (hash-set ht-bdx from-node to-id)))]
       [_ (error "try-bdx-actions")])))
@@ -719,11 +720,52 @@
             (remove-node g node))
           (set-node-attr g node 'support new-support))))))
 
-(define saved-is (void))
+(define (built? g node)
+  (node-attr? g 'built-by node))
+
+(define (block? g node)
+  (and (number-node? g node)
+       (built? g node)))
+
+(define (blocks-in g ctx)
+  (for/list ([node (members-of g ctx)]
+             #:when (block? g node))
+    node))
+
+(define (bricks-in g ctx)
+  (port->neighbors g `(,ctx bricks)))
+
+(define (number-of-unused-bricks g ctx)
+  (for/sum ([brick (bricks-in g ctx)])
+    (if (second (needs-result? g brick)) 1 0)))
+
+(define (number-of-holes g ctx)
+  (for/sum ([block (blocks-in g ctx)])
+    (cond
+      [(second (needs-source? g block))
+       2]
+      [(second (needs-result? g block))
+       1]
+      [else 0])))
+
+(define (clear-blocks g ctx)
+  (for/fold ([g g])
+            ([node (members-of g ctx)]
+             #:when (built? g node))
+    (let* ([g (tag-failed g (get-node-attr g node 'built-by))]
+           [g (do-graph-edits g `((:remove-node ,node)))])
+      g)))
+
+(define (clear-blocks-if-hopeless g ctx)
+  (if (> (number-of-holes g ctx) (number-of-unused-bricks g ctx))
+    (clear-blocks g ctx)
+    g))
 
 (define (do-timestep g)
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
-    (let* ([g (decay-support g)]
+    (let* (;[_ (pr-group g 'numbo-ws)]
+           [g (clear-blocks-if-hopeless g 'numbo-ws)]
+           [g (decay-support g)]
            [g (untag-all-numbers g 'numbo-ws)] ;HACKKKKKKK
            [g (tag-all-numbers g 'numbo-ws)]
            ;[_ (pr-group g 'numbo-ws)] ;DEBUG
@@ -733,10 +775,10 @@
            ;[_ (print-saliences g)] ;DEBUG
            [activations (maybe-suspend 'slipnet-activations
                                        (make-initial-activations g))]
-           [_ (set! saved-is activations)]
-           [archetypal-group (search-slipnet g activations)])
-    (log "trying" archetypal-group)
-    (hacked-finish-archetype g archetypal-group 'numbo-ws))))
+           [archetypal-group (search-slipnet g activations)]
+           [_ (log "trying" archetypal-group)]
+           [g (hacked-finish-archetype g archetypal-group 'numbo-ws)])
+    g)))
 
 (define (initialize-salience g)
   (for/fold ([g g])
@@ -795,7 +837,7 @@
                 [(g _) (copy-graph-into-graph g slipnet)])
     g))
 
-(define (run bricks target [slipnet slipnet])
+(define (run bricks target [slipnet medium-slipnet])
   (run^ (make-start-graph bricks target slipnet)))
 
 ;; Memorized arithmetic
@@ -1008,7 +1050,7 @@
          [sl (add-edges-from-referring-archetypes sl)]
          [sl (add-edges-for-tag-with-arg sl 'fills-port-greater-result)]
          [sl (add-activation-edge sl 'archetypefills-port-greater-result
-                                     'archetype* 8.0)]
+                                     'archetype* 6.0)]
          )
     sl))
 

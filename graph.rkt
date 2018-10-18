@@ -372,7 +372,8 @@
 ;;TODO UT
 ;; Returns value of id's attribute k, or #f if either node or key not found
 (define (node-attr? g k id)
-  (hash-ref (get-node-attrs g id) k #f))
+  (let ([ht (get-node-attrs g id)])
+    (if (void? ht) #f (hash-ref ht k #f))))
 ;  (match (get-node-attrs g id)
 ;    [(hash-table ((== k) v) _ ...)
 ;     v]
