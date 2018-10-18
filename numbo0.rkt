@@ -20,7 +20,7 @@
 
 ;; Global constants
 
-(define max-timesteps 10)
+(define max-timesteps 20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 20)
@@ -409,7 +409,7 @@
                    (sliplink-weight g from to)))
   (define (spread-1way activations hop)
     (match-define `((,from-node ,_) (,to-node ,_)) hop) ;TODO catch self-link?
-    (define r (* 0.1 (- (random) 0.5) weight))
+    (define r (* 0.2 (- (random) 0.5) weight))
     (add-activation activations to-node
       (* slipnet-spreading-rate
          (+ weight r)
@@ -1057,7 +1057,7 @@
 (define medium-slipnet (make-slipnet-for-arithmetic 12))
 
 (define (make-big-slipnet)
-  (make-slipnet-for-arithmetic 40 361))
+  (make-slipnet-for-arithmetic 25 361))
 
 #;(begin
   #R iters
