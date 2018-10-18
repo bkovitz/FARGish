@@ -25,7 +25,7 @@
       (set! controller c))
 
     (define/override (on-subwindow-char receiver ke)
-      (case #R (send ke get-key-code)
+      (case (send ke get-key-code)
         [(#\space) (send controller continue)])
       #t)
 
@@ -46,6 +46,9 @@
 
 (define g (void)) ; current graph, i.e. current FARG model
 (define activations (void))  ; current slipnet activations
+
+(define (pr-activations [as activations])
+  (sort (hash->list activations) #:key cdr <))
 
 (define controller%
   (class object%

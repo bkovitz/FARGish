@@ -23,7 +23,7 @@
 (define max-timesteps 20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
-(define slipnet-timesteps 6)
+(define slipnet-timesteps 20)
 (define support-decay-rate 0.5)
 
 ;; Making a workspace
@@ -325,20 +325,23 @@
 (define (add-activation-edge sl from-node to-node [weight 1.0])
   (add-edge sl `((,from-node activation) (,to-node activation)) weight))
 
-(define (add-activation-edges sl from-node to-nodes)
+(define (has-activation-edge? sl node1 node2)
+  (has-edge? sl `((,node1 activation) (,node2 activation))))
+
+(define (add-activation-edges sl from-node to-nodes [weight 1.0])
   (define from-archetype (archetype-of-node sl from-node))
   (for/fold ([sl sl])
             ([to-node to-nodes])
     (define to-archetype (archetype-of-node sl to-node))
-    (add-activation-edge sl from-archetype to-archetype)
+    (add-activation-edge sl from-archetype to-archetype weight)
     #;(add-edge sl `((,from-archetype activation) (,to-archetype activation)))))
 
 (define (add-activation-edges-for sl new-node)
   (cond
     [(tag? sl new-node)
-     (add-activation-edges sl new-node (taggees-of sl new-node))]
+     (add-activation-edges sl new-node (taggees-of sl new-node) 0.2)]
     [(equation? sl new-node)
-     (add-activation-edges sl new-node (members-of sl new-node))]
+     (add-activation-edges sl new-node (members-of sl new-node) 0.1)]
     [else sl]))
 
 (define (add-archetypes-for-new-nodes slipnet g new-nodes)
@@ -596,6 +599,12 @@
          [g (add-doubled-operand-tags g ctx)])
     g))
 
+(define (untag-all-numbers g ctx)
+  (for*/fold ([g g])
+             ([node (number-nodes-in g ctx)]
+              [tag (tags-of g node)])
+   (do-graph-edits g `((:remove-node ,tag)))))
+
 ;; Running
 
 (define (archetypes-to-activate-for g node)
@@ -607,9 +616,10 @@
 (define (archetype-salience-factor g archetype) ;HACK
   (match (value-of g archetype)
     [`(doubled-operands . ,_) 0.1]
-    [`(fills-port ,_ result) 0.5]
-    [`(fills-port ,_ source) 1.3]
-    [else 1.0]))
+    [`(fills-port ,_ result) 2.0]
+    [`(fills-port ,_ source) 2.0]
+    [`(fills-port-greater-result ,_) 2.0]
+    [else 0.1]))
 
 (define (make-initial-activations g)
   (for/fold ([h (hash)]) ; (archetype . activation)
@@ -618,7 +628,7 @@
     (if (zero? s)
       h
       (for/fold ([h h])
-                ([archetype #R (archetypes-to-activate-for g node)])
+                ([archetype (archetypes-to-activate-for g node)])
         (hash-update h
                      archetype
                      (λ (old)
@@ -714,6 +724,7 @@
 (define (do-timestep g)
   (with-handlers ([(eq?f 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
     (let* ([g (decay-support g)]
+           [g (untag-all-numbers g 'numbo-ws)] ;HACKKKKKKK
            [g (tag-all-numbers g 'numbo-ws)]
            ;[_ (pr-group g 'numbo-ws)] ;DEBUG
            [g (update-saliences g)]
@@ -871,7 +882,10 @@
                             ([ij operand-pairs]
                              [op '(+ - *)]
                              [result (list (make-result ij op))]
-                             #:when (<= result no-greater-than))
+                             #:when (and (<= result no-greater-than)
+                                         (not (and (eq? '* op)
+                                                   (or (= 1 (car ij))
+                                                       (= 1 (cadr ij)))))))
                    (match-define `(,i ,j) ij)
                    (cond
                      [(negative? result)
@@ -928,6 +942,20 @@
                           last-digit-closeness))
         (add-edge sl `((,n-id activation) (,m-id activation)) weight))))
 
+(define (add-edges-between-close-numbers sl)
+  (for*/fold ([sl sl])
+             ([n-id (in-list (numeric-archetypes sl))]
+              [m-id (in-list (numeric-archetypes sl))]
+              [n (list (value-of sl n-id))]
+              [m (list (value-of sl m-id))]
+              #:when (and (not (= n m))
+                          (<= (abs (- n m)) 3)
+                          (not (has-activation-edge? sl n-id m-id))))
+    (add-activation-edge sl n-id m-id (case (abs (- n m))
+                                        [(1) 1.0]
+                                        [(2) 0.9]
+                                        [(3) 0.8]))))
+
 (define (first-number seq)
   (for/or ([x seq])
     (if (number? x) x #f)))
@@ -938,21 +966,53 @@
                       (and (list? v) (ormap number? v))))
     archetype))
 
+;; Archetypes like (fills-port X ...)
+(define (archetypes-that-refer sl)
+  (for/list ([archetype (archetypes sl)]
+             #:when (let ([v (value-of sl archetype)])
+                      (and (list? v) (>= (length v) 2))))
+    archetype))
+
 (define (add-edges-to-number-archetypes-from-referring-archetypes sl)
   (for*/fold ([sl sl])
              ([archetype (archetypes-that-refer-to-numbers sl)])
     (define n (first-number (value-of sl archetype)))
     (define n-id (archetype-of-value sl n))
-    (if (void? n-id) sl (add-activation-edge sl archetype n-id))))
+    (if (void? n-id) sl (add-activation-edge sl archetype n-id 0.1))))
+
+;; Adds activation edges from (fills-port X ...) to X, etc.
+(define (add-edges-from-referring-archetypes sl)
+  (for*/fold ([sl sl])
+             ([archetype (archetypes-that-refer sl)])
+    (define referent (second (value-of sl archetype)))
+    (define referent-archetype (archetype-of-value sl referent))
+    (if (void? referent-archetype)
+      sl
+      (add-activation-edge sl archetype referent-archetype 0.1))))
+
+
+(define (add-edges-for-tag-with-arg sl tagname)
+  (let-values ([(sl atype) (make-archetype-for-value sl tagname)])
+    (for*/fold ([sl sl])
+               ([a (archetypes sl)]
+                #:when (let ([v (value-of sl a)])
+                         (and (list? v) (equal? tagname (car v)))))
+      (add-activation-edge sl atype a 1.0))))
 
 (define (make-slipnet-for-arithmetic n [no-greater-than 361])
   (let* ([sl (apply make-slipnet
                     (make-memorized-arithmetic-tables n no-greater-than))]
-         [sl (add-edges-between-number-archetypes sl)]
-         [sl (add-edges-to-number-archetypes-from-referring-archetypes sl)])
+         ;[sl (add-edges-between-number-archetypes sl)]
+         ;[sl (add-edges-between-close-numbers sl)]
+         ;[sl (add-edges-to-number-archetypes-from-referring-archetypes sl)]
+         [sl (add-edges-from-referring-archetypes sl)]
+         [sl (add-edges-for-tag-with-arg sl 'fills-port-greater-result)]
+         [sl (add-activation-edge sl 'archetypefills-port-greater-result
+                                     'archetype* 8.0)]
+         )
     sl))
 
-(define medium-slipnet (make-slipnet-for-arithmetic 10))
+(define medium-slipnet (make-slipnet-for-arithmetic 12))
 
 (define (make-big-slipnet)
   (make-slipnet-for-arithmetic 40 361))
