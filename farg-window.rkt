@@ -25,12 +25,9 @@
       (set! controller c))
 
     (define/override (on-subwindow-char receiver ke)
-      (if (eq? this receiver)
-        (begin
-          (case (send ke get-key-code)
-            [(#\space) (send controller continue)])
-          #t)
-        #f))
+      (case #R (send ke get-key-code)
+        [(#\space) (send controller continue)])
+      #t)
 
     (define/public (set-slipnet-activations! as)
       (send slipnet-canvas set-dots! (sanitized-activations as)))

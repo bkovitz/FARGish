@@ -6,10 +6,13 @@
 (require racket/hash)
 (require rackunit racket/pretty describe)
 
-(struct tagspec (add-tag target-nodes conditions extends mates) #:transparent)
+(provide (all-defined-out))
+
+(struct tagspec (name add-tag target-nodes conditions extends mates) #:prefab)
 
 (define need-source
   (tagspec
+    '(need source)
     ;add-tag
     (λ (node)
       `(:let ([:tag (:node ,(tag->attrs tag))])
@@ -25,3 +28,7 @@
     (hash 'solution (λ (g this node)
                       `(fills-port ,(value-of g node) source)))))
 
+;(define (add-tag g tagspec . nodes)
+
+(define (taggees-of g tagnode)
+  (port->neighbors g `(,tagnode tagged)))

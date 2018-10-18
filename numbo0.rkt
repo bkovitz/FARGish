@@ -23,7 +23,7 @@
 (define max-timesteps 20)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
-(define slipnet-timesteps 4)
+(define slipnet-timesteps 6)
 (define support-decay-rate 0.5)
 
 ;; Making a workspace
@@ -912,18 +912,18 @@
         (define ms (~a m))
         (define length-closeness (if (= (string-length ns)
                                        (string-length ms))
-                                    1.0
+                                    0.2
                                     0.0))
         (define 1st-digit-closeness
           (let ([n1 (substring ns 0 1)]
                 [m1 (substring ms 0 1)])
-            (if (equal? n1 m1) 1.0 0.0)))
+            (if (equal? n1 m1) 0.6 0.0)))
         (define last-digit-closeness
           (let ([nlast (substring ns (sub1 (string-length ns))
                                      (string-length ns))]
                 [mlast (substring ms (sub1 (string-length ms))
                                      (string-length ms))])
-            (if (equal? nlast mlast) 1.0 0.0)))
+            (if (equal? nlast mlast) 0.3 0.0)))
         (define weight (+ nc length-closeness 1st-digit-closeness
                           last-digit-closeness))
         (add-edge sl `((,n-id activation) (,m-id activation)) weight))))
