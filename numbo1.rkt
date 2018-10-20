@@ -45,6 +45,9 @@
                 (is-a 'number)
                 (links-into 'ctx (by-ports 'bricks 'source) as-member)
 
+(define (no-neighbor-at-port? port-label node)
+  (λ (g)
+    (
 (define numbo
   (farg-model
     (nodeclass ws
@@ -58,6 +61,11 @@
       (links-into 'ctx (by-ports 'target 'result) as-member))
     (nodeclasses (+ - * /)
       (is-a 'operator))
+    (tagclass (needs source)
+      (is-a 'problem-tag)
+      (applies-to (node (of-class 'number) (by-ports 'tagged 'tags))
+        (condition (no-neighbor-at-port? 'source node))
+        (mate 'solution `(fills-port ,(value-of g node) source))))
     (tagclass (needs need-type)
       (must-be need-type (enum 'source 'result 'greater-result))
       (is-a 'problem-tag)
@@ -95,10 +103,41 @@
                        (any-has-tag?/g '(needs source)
                          (mates-via/g node '> 'greater))))))
 
+(tagclass (needs 'greater-result) ; specialization (quoted) overrides variable
+  (is-a 'problem-tag)
+  (applies-to (node (of-class 'number)) ; default by-ports
+    (condition (and? (has-tag? '(needs result) node)
+                       (any-has-tag? '(needs source)
+                         (mates-via node '> 'greater))))))
+
+(tagclass (needs 'greater-result) ; specialization (quoted) overrides variable
+  (is-a 'problem-tag)
+  (applies-to (node (of-class 'number)) ; default by-ports
+    (condition (λ (node)
+                 (λ (g)
+                   (and (has-tag? g '(needs result) node)
+                        (any-has-tag? g '(needs source)
+                          (mates-via node g '> 'greater))))))))
+
 ;; This defines two functions, has-tag? and has-tag?/g. The second one is:
 ;;  (λ (g . args) (apply has-tag? g args))
 (define/g (has-tag? g tagspec node)
   ...)
+
+(filter f lis)
+(filter f)
+
+(define has-tag?
+  (case-lambda
+    [(tagspec node)
+      (λ (g) (has-tag? g tagspec node))]
+    [(arg1 arg2)
+     (if (graph? arg1)
+       (let ([g arg1] [tagspec arg2])
+         (λ (node) (has-tag? g tagspec node)))
+       (
+    [(g tagspec node)
+      ...]
 
 (define empty-set (set))
 (define empty-hash (hash))

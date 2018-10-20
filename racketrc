@@ -1,0 +1,6 @@
+(require racket/enter)
+(enter! "xnice.rkt")
+(require readline/pread xrepl xrepl/xrepl)
+(parameterize ([current-eval graph-eval]
+               [current-prompt-read (readline-prompt)])
+  (read-eval-print-loop))
