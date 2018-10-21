@@ -21,24 +21,26 @@
 
 ;; A function whose first argument is a graph, and that returns one or more
 ;; values, the first of which is the updated graph.
-(struct gfunc (f) #:property prop:procedure 0)
+(struct gfunc* (f) #:property prop:procedure 0)
 
 (define-syntax-rule (gλ args body0 body ...)
-  (gfunc (λ args body0 body ...)))
+  (gfunc* (λ args body0 body ...)))
 
-;NEXT: Make the /g function a struct
 (define-syntax (define/g stx)
   (syntax-case stx ()
-    [(define/g (name g args ...) body0 body ...)
-     (with-syntax ([name/g (format-id #'name "~a/g" #'name
-                                      #:source #'name #:props #'name)])
-       #'(begin
-           (define name (gλ (g args ...) body0 body ...))
-           (define (name/g args ...)
-             (gλ (g) (name g args ...)))))]))
+    [(define/g (name g args ... . optargs) body0 body ...)
+     (with-syntax* ([name (syntax-property #'name 'gfunc? #t #t)]
+                    [name/g (format-id #'name "~a/g" #'name
+                                       #:source #'name #:props #'name)])
+       #`(begin
+           (define name (gλ (g args ... . optargs) body0 body ...))
+           (define (name/g args ... . optargs)
+             (gλ (g) #,@(if (null? (syntax->datum #'optargs))
+                          #'(name g args ...)
+                          #'(apply name g args ... optargs))))))]))
 
-(struct is-a* (ancestors) #:prefab)
-; ancestors: (Setof Symbol)
+(struct is-a* (parents) #:prefab)
+; parents: (Setof Symbol)
 
 (define (is-a . args)
   (is-a* (list->set args)))
@@ -54,18 +56,57 @@
 (define (links-into ctx-class . by-portss)
   (links-into* ctx-class by-portss))
 
-(struct nodeclass* (name ancestors links-intos) #:prefab)
+(struct nodeclass* (name parents links-intos) #:prefab)
+
+(define (nodeclass-name x)
+  (if (nodeclass*? x)
+    (nodeclass*-name x)
+    x))
+
+(define (hash-ref/sk ht key sk fk)
+  (let ([value (hash-ref ht key (void))])
+    (cond
+      [(void? value) (if (procedure? fk) (fk) fk)]
+      [else (sk value)])))
+
+(define (get-spec g-or-spec)
+  (cond
+    [(farg-model-spec*? g-or-spec) g-or-spec]
+    [(g:graph? g-or-spec) (g:graph-spec g-or-spec)]
+    [else (raise-arguments-error 'get-spec
+                                 @~a{Can't get spec from @|g-or-spec|.})]))
+
+(define (nodeclass-is-a? g-or-spec ancestor child)
+  (define child-name (nodeclass-name child))
+  (define ancestor-name (nodeclass-name ancestor))
+  (if (equal? ancestor-name child-name)
+    #t
+    (let ([spec (get-spec g-or-spec)]
+          [ht (farg-model-spec*-ancestors spec)])
+      (hash-ref/sk ht child-name
+        (λ (st) (set-member? st ancestor-name))
+        #f))))
+
+(define (node-is-a? g ancestor node)
+  (nodeclass-is-a? g ancestor (g:class-of g node)))
+
+(define (plain-name name)
+  (cond
+    [(list? name) (car name)]
+    [else name]))
 
 (define (make-nodeclass name . elems)
-  (for/fold ([ancestors empty-set]
-             [links-intos empty-hash]
-             #:result (nodeclass* name ancestors links-intos))
+  (for/fold ([parents empty-set]
+             [links-intos empty-set]
+             #:result (nodeclass* (plain-name name)
+                                  parents
+                                  (set->list links-intos)))
             ([elem elems])
     (match elem
-      [(is-a* ancestors-)
-       (values (set-union ancestors ancestors-) links-intos)]
+      [(is-a* parents-)
+       (values (set-union parents parents-) links-intos)]
       [(links-into* ctx by-portss)
-       (values ancestors (hash-set links-intos ctx by-portss))])))
+       (values parents (set-add links-intos elem))])))
 
 (define-syntax-rule (nodeclass name elems ...)
   (make-nodeclass (quote name) elems ...))
@@ -131,63 +172,109 @@
            (λ (g) #f)  ; tag can't apply if number of nodes is wrong
            (apply make-pred/g nodes))))]))
 
-(struct farg-model-spec* (nodeclasses) #:prefab)
-; nodeclasses: (Immutable-HashTable Any nodeclass)
+(struct farg-model-spec* (nodeclasses ancestors) #:prefab)
+; nodeclasses: (Immutable-HashTable Any nodeclass*)
+; ancestors: (Immutable-HashTable Any (Setof Any))
+
+(define (make-ancestors-table ht-nodeclasses)
+  (define (all-ancestors-of name)
+    (let recur ([name name] [result (set)] [already-seen (set name)])
+      (hash-ref/sk ht-nodeclasses #R name
+        (λ (nc)
+          (let* ([parents (set-subtract (nodeclass*-parents nc) already-seen)]
+                 [result (set-union result parents)]
+                 [already-seen (set-union already-seen parents)])
+            (if (set-empty? #R parents)
+              result
+              (apply set-union (map
+                                 (λ (parent)
+                                   (recur parent result already-seen))
+                                 (set->list parents))))))
+        result)))
+  (for/hash ([name (hash-keys ht-nodeclasses)])
+    (values name (set-add (all-ancestors-of name) name))))
 
 (define (farg-model-spec . nodeclasses)
   (define ht (for/hash ([nodeclass nodeclasses])
                (values (nodeclass*-name nodeclass) nodeclass)))
-  (farg-model-spec* ht))
+  (farg-model-spec* ht (make-ancestors-table ht)))
+
+(define (get-nodeclasses x)
+  (cond
+    [(farg-model-spec*? x) (farg-model-spec*-nodeclasses x)]
+    [(g:graph? x) (get-nodeclasses (g:graph-spec x))]
+    [else (raise-arguments-error 'get-nodeclasses
+                                 @~a{Can't get nodeclasses from @|x|.})]))
+
+(define (nodeclass*-of g node)
+  (hash-ref (get-nodeclasses g) (g:class-of g node)))
+  ;TODO Appropriate response if unknown class
+
+(define (get-links-into g node ctx)
+  (define nc (nodeclass*-of g node))
+  (define ctx-class (g:class-of g ctx))
+  (filter (λ (li) (nodeclass-is-a? g (links-into*-ctx-class li) ctx-class))
+          (nodeclass*-links-intos nc)))
+
+(define as-member (by-ports 'members 'member-of))
 
 (define spec
   (farg-model-spec
-    (nodeclass ws)))
+    (nodeclass ws
+      (is-a 'ctx))
+    (nodeclass (number n))
+    (nodeclass (brick n)
+      (is-a 'number)
+      (links-into 'ctx (by-ports 'bricks 'source) as-member))
+    ))
 
 (define start-graph (struct-copy g:graph g:empty-graph [spec spec]))
 
 (define/g (make-node g classname [value (void)])
-  (define nodeclass (hash-ref (g:graph-spec g) classname
+  (define nodeclass (hash-ref (get-nodeclasses g) classname
                               (λ ()
                                 (raise-arguments-error 'make-node
-                                  @~a{Undefined class name: @{classname}.}))))
+                                  @~a{Undefined class name: @|classname|.}))))
   (cond
     [(void? value)
-     (g:make-node g (make-hash 'class classname))]
+     (g:make-node g (hash 'class classname))]
     [else
-     (g:make-node g (make-hash 'class classname 'value value))]))
+     (g:make-node g (hash 'class classname 'value value))]))
 
-(define g g:empty-graph)
+(define/g (make-node/in g ctx . args)
+  ;TODO Raise error if ctx does not exist
+  (let-values ([(g node) (apply make-node g args)])
+    (for*/fold ([g g])
+               ([links-into (get-links-into g node ctx)]
+                [by-ports (links-into*-by-portss links-into)])
+      (match-define (by-ports* from-port to-port) by-ports)
+        (g:add-edge g `((,ctx ,from-port) (,node ,to-port))))))
 
-(define (call-gfunc gfunc g . args)
-  (call-with-values (λ () (apply gfunc g args))
-    (λ vals vals)))
+(define-syntax-rule (first-value expr)
+  (call-with-values (λ () expr)
+    (λ (result . ignored) result)))
 
-(define graph-eval
-  (let ([ev (current-eval)])
-    (λ (x)
-      (writeln x)
-      (define (fix-up stx)
-        (syntax-case stx ()
-          [(top f args ...)
-           (begin (println "HERE") #R (gfunc? (graph-eval #'(#%top-interaction . f))))
-           (with-syntax ([g (format-id #'f "g"
-                                       #:source #'f #:props #'f)])
-             #'(top f g args ...))]
-          [x #'x]))
-      (writeln (fix-up x))
-      (ev (fix-up x)))))
+(define/g (add-node g . args)
+  (first-value (apply make-node g args)))
 
-;(define-syntax (~>graph! stx)
-;  (syntax-case stx ()
-;    [(~>graph! g)
-;     #'((void))]
-;    [(~>graph! g (f args ...) more ...)
-;     (call-with-values (λ () (f g args ...))
-;       (λ result
-;         (match result
-;           [`(,new-g)
-;             (set! g new-g)
-;             (~>graph! g more ...)]
-;           [`(,new-g ,return-value)
-;             (set! g new-g)
+(define/g (add-node/in g . args)
+  (first-value (apply make-node/in g args)))
 
+(define g (void))
+(set! g (g:add-spec g:empty-graph spec))
+
+;; A little hack to make it easier to work on graphs in the REPL.
+;; (gdo makenode 'ws) operates on g, set!s g to the new graph, and
+;; returns the nodeid of the created node.
+(define-syntax (gdo stx)
+  (syntax-case stx ()
+    [(gdo gfunc args ...)
+     (with-syntax ([g (format-id #'gdo "g"
+                                 #:source #'gdo #:props #'f)])
+       #'(call-with-values (λ () (gfunc g args ...))
+           (λ (new-g . results)
+             (set! g new-g)
+             (cond
+               [(null? results) (void)]
+               [(null? (cdr results)) (car results)]
+               [else results]))))]))

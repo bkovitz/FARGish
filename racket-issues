@@ -1,0 +1,4 @@
+(set-union) won't take zero arguments. Why not return empty set?
+
+(#%app f arg . optarg) won't compile. This makes it hard to write a macro
+that forwards arguments to a function definition.

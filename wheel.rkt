@@ -2,7 +2,7 @@
 
 #lang debug at-exp racket
 
-(provide atom? safe-car safe-cdr exactly-one?)
+(provide (all-defined-out))
 
 (define (atom? x)
   (and (not (null? x))

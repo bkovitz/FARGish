@@ -30,7 +30,9 @@
          graph-pop-var
 
          node-attr? graph-edge-weight
-         (struct-out graph))
+         (struct-out graph)
+         add-spec
+         )
 
 ;; A port graph
 
@@ -42,8 +44,11 @@
                vars    ; hash-table of vars: name -> value
                spec) #:prefab)   ; #:transparent)
 
-(define empty-spec '())
+(define empty-spec #hash())
 (define empty-graph (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
+
+(define (add-spec g spec)
+  (struct-copy graph g [spec spec]))
 
 ;; Miscellaneous
 
