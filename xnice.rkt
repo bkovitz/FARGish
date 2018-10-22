@@ -2,9 +2,10 @@
 
 #lang debug at-exp racket
 
+(require racket/hash)
+(require (prefix-in g: "graph.rkt") (prefix-in g: "make-graph.rkt"))
 (require (for-syntax racket/syntax) racket/syntax)
 (require debug/repl describe)
-(require (prefix-in g: "graph.rkt") (prefix-in g: "make-graph.rkt"))
 
 (define empty-set (set))
 (define empty-hash (hash))
@@ -56,7 +57,10 @@
 (define (links-into ctx-class . by-portss)
   (links-into* ctx-class by-portss))
 
-(struct nodeclass* (name parents links-intos) #:prefab)
+(struct default-attrs* (attrs))
+;attrs: (Hash Any Any)
+
+(struct nodeclass* (name parents default-attrs links-intos) #:prefab)
 
 (define (nodeclass-name x)
   (if (nodeclass*? x)
@@ -97,19 +101,34 @@
 
 (define (make-nodeclass name . elems)
   (for/fold ([parents empty-set]
+             [default-attrs (hash 'class name)]
              [links-intos empty-set]
-             #:result (nodeclass* (plain-name name)
+             #:result (nodeclass* name
                                   parents
+                                  default-attrs
                                   (set->list links-intos)))
             ([elem elems])
     (match elem
       [(is-a* parents-)
-       (values (set-union parents parents-) links-intos)]
+       (values (set-union parents parents-) default-attrs links-intos)]
+      [(default-attrs* attrs)
+       (values parents (hash-union default-attrs attrs) links-intos)]
       [(links-into* ctx by-portss)
-       (values parents (set-add links-intos elem))])))
+       (values parents default-attrs (set-add links-intos elem))])))
+
+;(define default-attrs-for-tag
+;  (default-attrs* (hash 'tag? #t)))
+
+(define (make-tagclass name . elems)
+  (define default-attrs (default-attrs* (hash 'tag? #t
+                                              'value name)))
+  (apply make-nodeclass name (cons default-attrs elems)))
 
 (define-syntax-rule (nodeclass name elems ...)
   (make-nodeclass (quote name) elems ...))
+
+(define-syntax-rule (tagclass name elems ...)
+  (make-tagclass (quote name) elems ...))
 
 ;; Single instance
 ;(define (tag-applies-to? (need source) . nodes)
@@ -179,12 +198,12 @@
 (define (make-ancestors-table ht-nodeclasses)
   (define (all-ancestors-of name)
     (let recur ([name name] [result (set)] [already-seen (set name)])
-      (hash-ref/sk ht-nodeclasses #R name
+      (hash-ref/sk ht-nodeclasses name
         (λ (nc)
           (let* ([parents (set-subtract (nodeclass*-parents nc) already-seen)]
                  [result (set-union result parents)]
                  [already-seen (set-union already-seen parents)])
-            (if (set-empty? #R parents)
+            (if (set-empty? parents)
               result
               (apply set-union (map
                                  (λ (parent)
@@ -222,29 +241,36 @@
   (farg-model-spec
     (nodeclass ws
       (is-a 'ctx))
-    (nodeclass (number n))
-    (nodeclass (brick n)
+    (nodeclass number)
+    (nodeclass brick
       (is-a 'number)
       (links-into 'ctx (by-ports 'bricks 'source) as-member))
+    (tagclass (need source)
+      (is-a 'problem-tag))
     ))
 
 (define start-graph (struct-copy g:graph g:empty-graph [spec spec]))
 
+;; Returns two values: g nodeid
 (define/g (make-node g classname [value (void)])
   (define nodeclass (hash-ref (get-nodeclasses g) classname
                               (λ ()
                                 (raise-arguments-error 'make-node
                                   @~a{Undefined class name: @|classname|.}))))
+  (define default-attrs (nodeclass*-default-attrs nodeclass))
   (cond
     [(void? value)
-     (g:make-node g (hash 'class classname))]
+     (g:make-node g default-attrs)
+     #;(g:make-node g (hash 'class classname))]
     [else
-     (g:make-node g (hash 'class classname 'value value))]))
+     (g:make-node g (hash-set default-attrs 'value value))
+     #;(g:make-node g (hash 'class classname 'value value))]))
 
+;; Returns two values: g nodeid
 (define/g (make-node/in g ctx . args)
   ;TODO Raise error if ctx does not exist
   (let-values ([(g node) (apply make-node g args)])
-    (for*/fold ([g g])
+    (for*/fold ([g g] #:result (values g node))
                ([links-into (get-links-into g node ctx)]
                 [by-ports (links-into*-by-portss links-into)])
       (match-define (by-ports* from-port to-port) by-ports)
