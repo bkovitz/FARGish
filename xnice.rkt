@@ -343,7 +343,7 @@
     #f))
 
 (define (any-matching-condition? g applies-to nodes)
-  (for*/or ([cfunc (applies-to*-conditions applies-to)])
+  (for/or ([cfunc (applies-to*-conditions applies-to)])
     (condition-func-passes? g cfunc nodes)))
 
 (define (first-matching-applies-to g tagclass nodes)
@@ -368,6 +368,42 @@
 (define/g (add-tag g tagclass . args)
   (first-value (apply make-tag g tagclass args)))
 
+(define (set-intersect* set-or-void . sets)
+  (cond
+    [(void? set-or-void)
+     (apply set-intersect* sets)]
+    [(null? sets)
+     set-or-void]
+    [else (apply set-intersect set-or-void sets)]))
+
+(define (linked-from g taggee-info node)
+  (let/cc break
+    (for/fold ([froms (void)] #:result (if (void? froms) empty-set froms))
+              ([by-ports (in-list (taggee*-by-portss taggee-info))])
+      (match-define (by-ports* from-port to-port) by-ports)
+      (let ([froms (set-intersect* froms
+                                   (g:port->port-label->nodes g
+                                                              `(,node ,to-port)
+                                                              from-port))])
+        (if (set-empty? froms)
+          (break froms)
+          froms)))))
+
+(define (linked-from-common-node? g taggees nodes)
+  (let/cc break
+    (for/fold ([back-nodes (void)] #:result (not (set-empty? back-nodes)))
+              ([taggee taggees] [node nodes])
+      (let ([back-nodes (set-intersect* back-nodes
+                                        (linked-from g taggee node))])
+        (if (set-empty? back-nodes)
+          (break #f)
+          back-nodes)))))
+
+(define (tagged-with? g tagclass . nodes)
+  (let ([tagclass (get-nodeclass* g tagclass)])
+    (for/or ([applies-to (nodeclass*-applies-tos tagclass)])
+      (linked-from-common-node? g (applies-to*-taggees applies-to) nodes))))
+
 (define g (void))
 (set! g (g:add-spec g:empty-graph spec))
 
@@ -390,3 +426,4 @@
 (gdo make-node 'ws)
 (gdo make-node/in 'ws 'brick 7)
 (gdo make-tag '(need source) 'brick7)
+(tagged-with? g '(need source) 'brick7)

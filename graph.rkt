@@ -6,33 +6,70 @@
          racket/dict racket/pretty describe mischief/memoize) 
 (require racket/serialize)
 
-(provide make-node add-node add-edge
+(provide (struct-out graph)
+         empty-graph
+         add-spec
+         copy-graph-into-graph
          
+         make-node
+         default-name
+         add-node
+         add-edge
+         remove-node
+         
+         has-node?
+         has-edge?
+         all-nodes
+         all-edges
+         find-nodes-of-class
+
          set-node-attr
          get-node-attr
          get-node-attrs
          update-node-attr
+         node-attr?
 
-         port->neighbors port->neighboring-ports all-nodes pr-node
-         find-nodes-of-class value-of value-of-equal?
-         port->neighbor bound-from-ctx-to-ctx? default-name
-         pr-graph pr-group members-of member-of? copy-graph-into-graph
-         nodes-of-class-in class-of members-of member-of next-to? bound-to?
-         bound-from? succ? has-node? node->neighbors node->ports
-         node->incident-edges port->incident-edges has-edge? all-edges
-         empty-graph placeholder placeholder? group? remove-node
+         graph-edge-weight
+
+         port->neighboring-ports
+         port->neighbors
+         port->neighbor
+         port->port-label->nodes 
+         port->incident-edges
+
+         node->neighbors
+         node->ports
+         node->incident-edges
+
+         pr-node
+         pr-graph
+         pr-group
+
+         class-of
+         value-of
+         value-of-equal?
+         
+         members-of
+         member-of?
+         members-of
+         member-of
+         nodes-of-class-in
+         bound-from-ctx-to-ctx?
+
+         next-to?
+         bound-to?
+         bound-from?
+         succ?
+         placeholder
+         placeholder?
+         group?
 
          graph-set-var
          graph-get-var
          graph-update-var
          graph-push-var
          graph-push-and-set-var
-         graph-pop-var
-
-         node-attr? graph-edge-weight
-         (struct-out graph)
-         add-spec
-         )
+         graph-pop-var)
 
 ;; A port graph
 
@@ -45,7 +82,8 @@
                spec) #:prefab)   ; #:transparent)
 
 (define empty-spec #hash())
-(define empty-graph (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
+(define empty-graph
+  (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
 
 (define (add-spec g spec)
   (struct-copy graph g [spec spec]))
@@ -555,7 +593,16 @@
 (define (port->incident-edges g port)
   (for/list ([nport (port->neighboring-ports g port)])
     (set port nport)))
-  
+
+;Returns a set of nodes
+(define (port->port-label->nodes g from-port to-port-label)
+  (for/fold ([nodes empty-set])
+            ([nport (port->neighboring-ports g from-port)])
+    (match-define `(,nport-node ,nport-label) nport)
+    (if (equal? to-port-label nport-label)
+      (set-add nodes nport-node)
+      nodes)))
+
 ;Returns lists; first port of edge is the node's port
 ;TODO OAOO
 (define (node->incident-edges g node)
