@@ -60,7 +60,8 @@
 (struct default-attrs* (attrs))
 ;attrs: (Hash Any Any)
 
-(struct nodeclass* (name parents default-attrs links-intos) #:prefab)
+(struct nodeclass* (name parents default-attrs links-intos applies-tos)
+                   #:prefab)
 
 (define (nodeclass-name x)
   (if (nodeclass*? x)
@@ -96,28 +97,31 @@
 
 (define (plain-name name)
   (cond
-    [(list? name) (car name)]
+    [(pair? name) (car name)]
     [else name]))
 
 (define (make-nodeclass name . elems)
   (for/fold ([parents empty-set]
              [default-attrs (hash 'class name)]
              [links-intos empty-set]
+             [applies-tos empty-set]
              #:result (nodeclass* name
                                   parents
                                   default-attrs
-                                  (set->list links-intos)))
+                                  (set->list links-intos)
+                                  (set->list applies-tos)))
             ([elem elems])
     (match elem
       [(is-a* parents-)
-       (values (set-union parents parents-) default-attrs links-intos)]
+       (values
+         (set-union parents parents-) default-attrs links-intos applies-tos)]
       [(default-attrs* attrs)
-       (values parents (hash-union default-attrs attrs) links-intos)]
+       (values
+         parents (hash-union default-attrs attrs) links-intos applies-tos)]
       [(links-into* ctx by-portss)
-       (values parents default-attrs (set-add links-intos elem))])))
-
-;(define default-attrs-for-tag
-;  (default-attrs* (hash 'tag? #t)))
+       (values parents default-attrs (set-add links-intos elem) applies-tos)]
+      [(applies-to* _ _)
+       (values parents default-attrs links-intos (set-add applies-tos elem))])))
 
 (define (make-tagclass name . elems)
   (define default-attrs (default-attrs* (hash 'tag? #t
@@ -152,10 +156,16 @@
 ;  (λ (g) (apply tag-applies-to? g tagclass nodes)))
 
 (struct applies-to* (taggees conditions) #:prefab)
+; taggees: (List taggee*)
+; conditions: (List cfunc)
 
 (struct taggee* (name of-classes by-portss) #:prefab)
+; name: Any
+; of-classes: (List of-class*)
+; by-portss: (List by-ports*)
 
 (struct of-class* (class) #:prefab)
+; class: Any
 
 (define of-class of-class*)
 
@@ -165,7 +175,7 @@
               ([taggee-info taggee-infos])
       (cond
         [(of-class*? taggee-info)
-         (values (cons taggee-info of-classes) by-portss)]
+         (values (cons (of-class*-class taggee-info) of-classes) by-portss)]
         [(by-ports*? taggee-info)
          (values of-classes (cons taggee-info by-portss))]
         [else (raise-arguments-error 'applies-to
@@ -175,21 +185,26 @@
 (define-syntax applies-to
   (syntax-rules (condition)
     [(applies-to ([taggee taggee-info ...] ...)
-       (condition condition-expr) ...)
+       (condition condition-expr0 condition-expr ...) ...)
      (applies-to* (list (make-taggee 'taggee taggee-info ...) ...)
-                  (list (make-condition-func taggee ...)))]))
+                  (list (make-condition-func (taggee ...)
+                          condition-expr0 condition-expr ...) ...))]))
 
 ; Makes a function that returns a g-func that returns true if the condition
 ; applies to the given nodes. TODO: Check preconditions from tag-infos.
 (define-syntax make-condition-func
   (syntax-rules ()
     [(make-condition-func (taggee ...) body0 body ...)
-     (let ([num-taggees (length (list taggee ...))]
+     (let ([num-taggees (length (list 'taggee ...))]
            [make-pred/g (λ (taggee ...) body0 body ...)])
        (λ nodes
          (if (not (= num-taggees (length nodes)))
            (λ (g) #f)  ; tag can't apply if number of nodes is wrong
            (apply make-pred/g nodes))))]))
+
+(define (condition-func-passes? g cfunc nodes)
+  (define cfunc-takes-g (apply cfunc nodes))
+  (cfunc-takes-g g))
 
 (struct farg-model-spec* (nodeclasses ancestors) #:prefab)
 ; nodeclasses: (Immutable-HashTable Any nodeclass*)
@@ -225,6 +240,13 @@
     [else (raise-arguments-error 'get-nodeclasses
                                  @~a{Can't get nodeclasses from @|x|.})]))
 
+(define (get-nodeclass* g x)
+  (cond
+    [(nodeclass*? x) x]
+    [else (let ([nodeclasses (get-nodeclasses g)])
+            (hash-ref nodeclasses x
+                      (λ () (raise-arguments-error 'get-nodeclass*
+                              @~a{Unknown node class: @|x|.}))))]))
 (define (nodeclass*-of g node)
   (hash-ref (get-nodeclasses g) (g:class-of g node)))
   ;TODO Appropriate response if unknown class
@@ -237,6 +259,9 @@
 
 (define as-member (by-ports 'members 'member-of))
 
+(define/g (no-neighbor-at-port? g port-label node)
+  (null? (g:port->neighbors g `(,node ,port-label))))
+
 (define spec
   (farg-model-spec
     (nodeclass ws
@@ -246,7 +271,9 @@
       (is-a 'number)
       (links-into 'ctx (by-ports 'bricks 'source) as-member))
     (tagclass (need source)
-      (is-a 'problem-tag))
+      (is-a 'problem-tag)
+      (applies-to ([node (of-class 'number) (by-ports 'tagged 'tags)])
+        (condition (no-neighbor-at-port?/g 'source node))))
     ))
 
 (define start-graph (struct-copy g:graph g:empty-graph [spec spec]))
@@ -260,11 +287,9 @@
   (define default-attrs (nodeclass*-default-attrs nodeclass))
   (cond
     [(void? value)
-     (g:make-node g default-attrs)
-     #;(g:make-node g (hash 'class classname))]
+     (g:make-node g default-attrs)]
     [else
-     (g:make-node g (hash-set default-attrs 'value value))
-     #;(g:make-node g (hash 'class classname 'value value))]))
+     (g:make-node g (hash-set default-attrs 'value value))]))
 
 ;; Returns two values: g nodeid
 (define/g (make-node/in g ctx . args)
@@ -273,8 +298,20 @@
     (for*/fold ([g g] #:result (values g node))
                ([links-into (get-links-into g node ctx)]
                 [by-ports (links-into*-by-portss links-into)])
+      (match-define (by-ports* from-port to-port) by-ports) ;TODO OAOO
+      (g:add-edge g `((,ctx ,from-port) (,node ,to-port))))))
+
+(define/g (link-to g by-portss from-node to-node)
+  (let* ([by-portss (match by-portss
+                      [(struct* taggee* ([by-portss bps])) bps]
+                      [(struct* links-into* ([by-portss bps])) bps]
+                      [else
+                        (raise-arguments-error 'link-to
+                          @~a{Can't extract by-portss from @|by-portss|.})])])
+    (for/fold ([g g])
+              ([by-ports by-portss])
       (match-define (by-ports* from-port to-port) by-ports)
-        (g:add-edge g `((,ctx ,from-port) (,node ,to-port))))))
+      (g:add-edge g `((,from-node ,from-port) (,to-node ,to-port))))))
 
 (define-syntax-rule (first-value expr)
   (call-with-values (λ () expr)
@@ -285,6 +322,51 @@
 
 (define/g (add-node/in g . args)
   (first-value (apply make-node/in g args)))
+
+(define (possible-taggee? g taggee node)
+  (for/or ([of-class (taggee*-of-classes taggee)])
+    (node-is-a? g of-class node)))
+
+(define (all-taggees-could-apply? g applies-to nodes)
+  (define taggees (applies-to*-taggees applies-to))
+  (if (not (= (length taggees) (length nodes)))
+    #f
+    (for/and ([taggee taggees]
+              [node nodes])
+      (possible-taggee? g taggee node))))
+
+;; Returns #f or the applies-to*.
+(define (applies-to? g applies-to nodes)
+  (if (and (all-taggees-could-apply? g applies-to nodes)
+           (any-matching-condition? g applies-to nodes))
+    applies-to
+    #f))
+
+(define (any-matching-condition? g applies-to nodes)
+  (for*/or ([cfunc (applies-to*-conditions applies-to)])
+    (condition-func-passes? g cfunc nodes)))
+
+(define (first-matching-applies-to g tagclass nodes)
+  (define nodeclass (get-nodeclass* g tagclass))
+  (define applies-tos (nodeclass*-applies-tos nodeclass))
+  (for/or ([applies-to applies-tos])
+    (applies-to? g applies-to nodes)))
+
+;TODO Make the tag a member of the nodes' least common ctx
+;TODO Don't make the tag if it's already there
+(define/g (make-tag g tagclass . nodes)
+  (cond
+    [(first-matching-applies-to g tagclass nodes)
+     => (λ (applies-to)
+          (let*-values ([(g tag) (make-node g tagclass)])
+            (for/fold ([g g] #:result (values g tag))
+                      ([taggee (applies-to*-taggees applies-to)]
+                       [node nodes])
+              (link-to g taggee tag node))))]
+    [else (raise 'fizzle)]))
+
+(define/g (add-tag g tagclass . args)
+  (first-value (apply make-tag g tagclass args)))
 
 (define g (void))
 (set! g (g:add-spec g:empty-graph spec))
@@ -304,3 +386,7 @@
                [(null? results) (void)]
                [(null? (cdr results)) (car results)]
                [else results]))))]))
+
+(gdo make-node 'ws)
+(gdo make-node/in 'ws 'brick 7)
+(gdo make-tag '(need source) 'brick7)
