@@ -4,7 +4,7 @@
          racket/hash describe readline/readline
          "graph.rkt" "make-graph.rkt" "numbo0.rkt")
 
-(define big-slipnet (make-big-slipnet))
+;(define big-slipnet (make-big-slipnet))
 
 (let loop ()
   (newline)
@@ -16,5 +16,5 @@
                          (format "(~a)" (readline "Target: ")))))
   (when (not (= 1 (length target)))
     (exit))
-  (run bricks (car target) big-slipnet)
+  (run bricks (car target) medium-slipnet)
   (loop))

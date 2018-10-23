@@ -11,10 +11,12 @@
 ; done?  DONE
 ; printing the result  DONE
 
-(require rackunit data/collection racket/dict racket/generic racket/pretty
+(require rackunit (except-in data/collection cartesian-product range)
+         racket/dict racket/generic racket/pretty
          racket/hash profile describe
          "wheel.rkt" "xsusp3.rkt" "graph.rkt" "make-graph.rkt")
 (require (only-in racket/base (log logarithm)))
+(require (only-in racket/list range cartesian-product))
 
 (provide (all-defined-out))
 
@@ -396,7 +398,10 @@
     edge))
 
 (define (add-activation activations node amount)
-  (hash-update activations node (λ (old) (+ old amount)) 0.0))
+  (hash-update activations
+               node
+               (λ (old) (min 2.0 (+ old amount)))
+               0.0))
 
 (define (get-activation activations node)
   (dict-ref activations node 0.0))
@@ -945,6 +950,22 @@
   (for/list ([tuple tuples])
     (apply make-equation-graph tuple)))
 
+(define (commutative-redundant? tuple)
+  (match-define `(,op ,i ,j) tuple)
+  (and (commutative? op) (< i j)))
+
+(define (remove-tuple-dups tuples)
+  (for/list ([tuple (list->set tuples)]
+             #:when (not (commutative-redundant? tuple)))
+    tuple))
+
+(define (tuples->equations tuples)
+  (define ns (make-base-namespace))
+  (for/list ([tuple (remove-tuple-dups tuples)])
+    (match-define `(,op ,i ,j) tuple)
+    (define result (eval tuple ns))
+    (apply make-equation-graph `(,i ,op ,j ,result))))
+
 (set! iters 0)
 
 (define (numeric-archetypes sl)
@@ -1048,20 +1069,54 @@
                          (and (list? v) (equal? tagname (car v)))))
       (add-activation-edge sl atype a 1.0))))
 
+(define (add-activation-edges-for-arithmetic sl)
+  (let* ([sl (add-edges-from-referring-archetypes sl)]
+         [sl (add-edges-between-close-numbers sl)]
+         [sl (add-edges-for-tag-with-arg sl 'fills-port-greater-result)]
+         [sl (add-activation-edge sl 'archetypefills-port-greater-result
+                                     'archetype* 6.0)])
+    sl))
+
 (define (make-slipnet-for-arithmetic n [no-greater-than 361])
   (let* ([sl (apply make-slipnet
                     (make-memorized-arithmetic-tables n no-greater-than))]
          ;[sl (add-edges-between-number-archetypes sl)]
          ;[sl (add-edges-between-close-numbers sl)]
          ;[sl (add-edges-to-number-archetypes-from-referring-archetypes sl)]
-         [sl (add-edges-from-referring-archetypes sl)]
-         [sl (add-edges-for-tag-with-arg sl 'fills-port-greater-result)]
-         [sl (add-activation-edge sl 'archetypefills-port-greater-result
-                                     'archetype* 6.0)]
+;         [sl (add-edges-from-referring-archetypes sl)]
+;         [sl (add-edges-for-tag-with-arg sl 'fills-port-greater-result)]
+;         [sl (add-activation-edge sl 'archetypefills-port-greater-result
+;                                     'archetype* 6.0)]
          )
-    sl))
+    (add-activation-edges-for-arithmetic sl)))
 
-(define medium-slipnet (make-slipnet-for-arithmetic 12))
+(define (.. lb ub [step 1])
+  (range lb (add1 ub) step))
+
+(define elementary-equation-tuples
+  (append
+    (cartesian-product
+      '(+ - *)
+      '(0 1 2 3 4 5 6 7 8 9 10)
+      '(0 1 2 3 4 5 6 7 8 9 10))
+    (cartesian-product
+      '(+ - *)
+      '(0 1 2 3 4 5 6 7 8 9 10)
+      '(10))
+    (cartesian-product
+      '(+ -)
+      (.. 0 100)
+      '(0 1 2 3))
+    (cartesian-product
+      '(*)
+      (.. 10 100 10)
+      '(0 1 2 3 4 5 6 7 8 9 10))
+    ))
+
+;(define medium-slipnet (make-slipnet-for-arithmetic 12))
+(define medium-slipnet
+  (add-activation-edges-for-arithmetic
+    (apply make-slipnet (tuples->equations elementary-equation-tuples))))
 
 (define (make-big-slipnet)
   (make-slipnet-for-arithmetic 25 361))
