@@ -748,6 +748,13 @@
        1]
       [else 0])))
 
+(define (number-of-sources-needed g ctx)
+  (for/sum ([block (blocks-in g ctx)])
+    (cond
+      [(second (needs-source? g block))
+       2]
+      [else 0])))
+
 (define (clear-blocks g ctx)
   (for/fold ([g g])
             ([node (members-of g ctx)]
@@ -757,7 +764,7 @@
       g)))
 
 (define (clear-blocks-if-hopeless g ctx)
-  (if (> (number-of-holes g ctx) (number-of-unused-bricks g ctx))
+  (if (> (number-of-sources-needed g ctx) (number-of-unused-bricks g ctx))
     (clear-blocks g ctx)
     g))
 
