@@ -47,8 +47,7 @@
 (struct is-a* (parents) #:prefab)
 ; parents: (Setof Symbol)
 
-; TODO from-port-label to-port-label
-(struct by-ports* (from-port to-port) #:prefab)
+(struct by-ports* (from-port-label to-port-label) #:prefab)
 
 (struct links-into* (ctx-class by-portss) #:prefab)
 ;ctx-class : Symbol
@@ -60,13 +59,12 @@
 (struct nodeclass* (name parents default-attrs links-intos applies-tos)
                    #:prefab)
 
-;TODO taggee-infos
-(struct applies-to* (taggees conditions) #:prefab)
-; taggees: (List taggee*)
+(struct applies-to* (taggee-infos conditions) #:prefab)
+; taggees: (List taggee-info*)
 ; conditions: (List cfunc)
 
 ;TODO taggee-info*
-(struct taggee* (name of-classes by-portss) #:prefab)
+(struct taggee-info* (name of-classes by-portss) #:prefab)
 ; name: Any
 ; of-classes: (List of-class*)
 ; by-portss: (List by-ports*)
@@ -101,9 +99,9 @@
 
 (define-syntax applies-to
   (syntax-rules (condition)
-    [(applies-to ([taggee taggee-info ...] ...)
+    [(applies-to ([taggee taggee-elem ...] ...)
        (condition condition-expr0 condition-expr ...) ...)
-     (applies-to* (list (make-taggee 'taggee taggee-info ...) ...)
+     (applies-to* (list (make-taggee-info 'taggee taggee-elem ...) ...)
                   (list (make-condition-func (taggee ...)
                           condition-expr0 condition-expr ...) ...))]))
 
@@ -158,18 +156,18 @@
                                               'value name)))
   (apply make-nodeclass name (cons default-attrs elems)))
 
-(define (make-taggee name . taggee-infos)
+(define (make-taggee-info name . taggee-elems)
   (define-values (of-classes by-portss)
     (for/fold ([of-classes '()] [by-portss '()])
-              ([taggee-info taggee-infos])
+              ([taggee-elem taggee-elems])
       (cond
-        [(of-class*? taggee-info)
-         (values (cons (of-class*-class taggee-info) of-classes) by-portss)]
-        [(by-ports*? taggee-info)
-         (values of-classes (cons taggee-info by-portss))]
+        [(of-class*? taggee-elem)
+         (values (cons (of-class*-class taggee-elem) of-classes) by-portss)]
+        [(by-ports*? taggee-elem)
+         (values of-classes (cons taggee-elem by-portss))]
         [else (raise-arguments-error 'applies-to
-                @~a{@taggee-info is neither of-class nor by-ports.})])))
-  (taggee* name of-classes by-portss))
+                @~a{@taggee-elem is neither of-class nor by-ports.})])))
+  (taggee-info* name of-classes by-portss))
 
 ; Makes a function that returns a g-func that returns true if the condition
 ; applies to the given nodes. TODO: Check preconditions from tag-infos.
@@ -293,20 +291,20 @@
     (for*/fold ([g g] #:result (values g node))
                ([links-into (get-links-into g node ctx)]
                 [by-ports (links-into*-by-portss links-into)])
-      (match-define (by-ports* from-port to-port) by-ports) ;TODO OAOO
-      (g:add-edge g `((,ctx ,from-port) (,node ,to-port))))))
+      (match-define (by-ports* from-port-label to-port-label) by-ports) ;TODO OAOO
+      (g:add-edge g `((,ctx ,from-port-label) (,node ,to-port-label))))))
 
 (define/g (link-to g by-portss from-node to-node)
   (let* ([by-portss (match by-portss
-                      [(struct* taggee* ([by-portss bps])) bps]
+                      [(struct* taggee-info* ([by-portss bps])) bps]
                       [(struct* links-into* ([by-portss bps])) bps]
                       [else
                         (raise-arguments-error 'link-to
                           @~a{Can't extract by-portss from @|by-portss|.})])])
     (for/fold ([g g])
               ([by-ports by-portss])
-      (match-define (by-ports* from-port to-port) by-ports)
-      (g:add-edge g `((,from-node ,from-port) (,to-node ,to-port))))))
+      (match-define (by-ports* from-port-label to-port-label) by-ports)
+      (g:add-edge g `((,from-node ,from-port-label) (,to-node ,to-port-label))))))
 
 (define/g (add-node g . args)
   (first-value (apply make-node g args)))
@@ -327,9 +325,9 @@
      => (λ (applies-to)
           (let*-values ([(g tag) (make-node g tagclass)])
             (for/fold ([g g] #:result (values g tag))
-                      ([taggee (applies-to*-taggees applies-to)]
+                      ([taggee-info (applies-to*-taggee-infos applies-to)]
                        [node nodes])
-              (link-to g taggee tag node))))]
+              (link-to g taggee-info tag node))))]
     [else (raise 'fizzle)]))
 
 (define/g (add-tag g tagclass . args)
@@ -338,17 +336,17 @@
 (define (tagged-with? g tagclass . nodes)
   (let ([tagclass (get-nodeclass* g tagclass)])
     (for/or ([applies-to (nodeclass*-applies-tos tagclass)])
-      (linked-from-common-node? g (applies-to*-taggees applies-to) nodes))))
+      (linked-from-common-node? g (applies-to*-taggee-infos applies-to) nodes))))
 
 (define (linked-from g taggee-info node)
   (let/cc break
     (for/fold ([froms (void)] #:result (if (void? froms) empty-set froms))
-              ([by-ports (in-list (taggee*-by-portss taggee-info))])
-      (match-define (by-ports* from-port to-port) by-ports)
+              ([by-ports (in-list (taggee-info*-by-portss taggee-info))])
+      (match-define (by-ports* from-port-label to-port-label) by-ports)
       (let ([froms (set-intersect* froms
                                    (g:port->port-label->nodes g
-                                                              `(,node ,to-port)
-                                                              from-port))])
+                                     `(,node ,to-port-label)
+                                     from-port-label))])
         (if (set-empty? froms)
           (break froms)
           froms)))))
@@ -362,21 +360,21 @@
   (define cfunc-takes-g (apply cfunc nodes))
   (cfunc-takes-g g))
 
-(define (possible-taggee? g taggee node)
-  (for/or ([of-class (taggee*-of-classes taggee)])
+(define (possible-taggee? g taggee-info node)
+  (for/or ([of-class (taggee-info*-of-classes taggee-info)])
     (node-is-a? g of-class node)))
 
-(define (all-taggees-could-apply? g applies-to nodes)
-  (define taggees (applies-to*-taggees applies-to))
-  (if (not (= (length taggees) (length nodes)))
+(define (all-taggee-infos-could-apply? g applies-to nodes)
+  (define taggee-infos (applies-to*-taggee-infos applies-to))
+  (if (not (= (length taggee-infos) (length nodes)))
     #f
-    (for/and ([taggee taggees]
+    (for/and ([taggee-info taggee-infos]
               [node nodes])
-      (possible-taggee? g taggee node))))
+      (possible-taggee? g taggee-info node))))
 
 ;; Returns #f or the applies-to*.
 (define (applies-to? g applies-to nodes)
-  (if (and (all-taggees-could-apply? g applies-to nodes)
+  (if (and (all-taggee-infos-could-apply? g applies-to nodes)
            (any-matching-condition? g applies-to nodes))
     applies-to
     #f))
@@ -391,12 +389,12 @@
   (for/or ([applies-to applies-tos])
     (applies-to? g applies-to nodes)))
 
-(define (linked-from-common-node? g taggees nodes)
+(define (linked-from-common-node? g taggee-infos nodes)
   (let/cc break
     (for/fold ([back-nodes (void)] #:result (not (set-empty? back-nodes)))
-              ([taggee taggees] [node nodes])
+              ([taggee-info taggee-infos] [node nodes])
       (let ([back-nodes (set-intersect* back-nodes
-                                        (linked-from g taggee node))])
+                                        (linked-from g taggee-info node))])
         (if (set-empty? back-nodes)
           (break #f)
           back-nodes)))))
