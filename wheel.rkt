@@ -27,6 +27,10 @@
     [`(,_ . ,d) d]
     [_ (void)]))
 
+(define-syntax-rule (first-value expr)
+  (call-with-values (λ () expr)
+    (λ (result . ignored) result)))
+
 (define (exactly-one? pred seq)
   (= 1 (for/sum ([item seq])
          (if (pred item) 1 0))))

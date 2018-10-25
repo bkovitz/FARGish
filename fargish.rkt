@@ -1,4 +1,7 @@
 ; fargish.rkt -- Definitions for specifying FARG models
+;
+; See the unit test at the end for how all the pieces here fit together
+; and how to use them.
 
 #lang debug at-exp racket
 
@@ -9,9 +12,33 @@
 (require (for-syntax racket/syntax) racket/syntax)
 (require rackunit debug/repl describe)
 
+(provide
+  farg-model-spec
+  
+  ; Spec elements
+  is-a by-ports links-into applies-to default-attrs nodeclass tagclass
+
+  ; Predefined spec helpers
+  as-member no-neighbor-at-port? no-neighbor-at-port?/g
+
+  ; Making and operating on a graph that holds a FARG model
+  make-empty-graph
+  make-node make-node/g
+  make-node/in make-node/in/g
+  add-node add-node/g
+  add-node/in add-node/in/g
+  link-to link-to/g
+
+  ; Specifically related to tagging
+  applies-to?
+  make-tag make-tag/g
+  add-tag add-tag/g
+  tagged-with?)
+
 ;; ======================================================================
 ;;
 ;; Structs that hold a FARG model specification and its elements
+;;
 
 (struct farg-model-spec* (nodeclasses ancestors) #:prefab)
 ; nodeclasses: (Immutable-HashTable Any nodeclass*)
@@ -70,6 +97,8 @@
 
 (define of-class of-class*)
 
+(define default-attrs default-attrs*)
+
 (define-syntax applies-to
   (syntax-rules (condition)
     [(applies-to ([taggee taggee-info ...] ...)
@@ -88,6 +117,7 @@
 ;;
 ;; Handy predefined elements and functions for making a FARG model
 ;; specification.
+;;
 
 (define as-member (by-ports 'members 'member-of))
 
@@ -175,6 +205,7 @@
 ;;
 ;; Functions to make it easy to pass arguments that are either names of
 ;; specification elements or the specification elements themselves
+;;
 
 (define (nodeclass-name x)
   (if (nodeclass*? x)
@@ -194,6 +225,7 @@
 ;;
 ;; Where appropriate, these functions' first argument can be either a graph
 ;; (that contains a spec) or a spec.
+;;
 
 (define (get-nodeclasses x)
   (cond
@@ -238,12 +270,8 @@
 ;; Functions that create and operate on a graph that holds a FARG model
 ;;
 
-(define (empty-graph spec)
+(define (make-empty-graph spec)
   (struct-copy g:graph g:empty-graph [spec spec]))
-
-(define (condition-func-passes? g cfunc nodes)
-  (define cfunc-takes-g (apply cfunc nodes))
-  (cfunc-takes-g g))
 
 ;; Returns two values: g nodeid
 (define/g (make-node g classname [value (void)])
@@ -280,15 +308,59 @@
       (match-define (by-ports* from-port to-port) by-ports)
       (g:add-edge g `((,from-node ,from-port) (,to-node ,to-port))))))
 
-(define-syntax-rule (first-value expr)
-  (call-with-values (λ () expr)
-    (λ (result . ignored) result)))
-
 (define/g (add-node g . args)
   (first-value (apply make-node g args)))
 
 (define/g (add-node/in g . args)
   (first-value (apply make-node/in g args)))
+
+;; ----------------------------------------------------------------------
+;;
+;; Graph functions specifically relating to tags
+;;
+
+;TODO Make the tag a member of the nodes' least common ctx
+;TODO Don't make the tag if it's already there
+(define/g (make-tag g tagclass . nodes)
+  (cond
+    [(first-matching-applies-to g tagclass nodes)
+     => (λ (applies-to)
+          (let*-values ([(g tag) (make-node g tagclass)])
+            (for/fold ([g g] #:result (values g tag))
+                      ([taggee (applies-to*-taggees applies-to)]
+                       [node nodes])
+              (link-to g taggee tag node))))]
+    [else (raise 'fizzle)]))
+
+(define/g (add-tag g tagclass . args)
+  (first-value (apply make-tag g tagclass args)))
+
+(define (tagged-with? g tagclass . nodes)
+  (let ([tagclass (get-nodeclass* g tagclass)])
+    (for/or ([applies-to (nodeclass*-applies-tos tagclass)])
+      (linked-from-common-node? g (applies-to*-taggees applies-to) nodes))))
+
+(define (linked-from g taggee-info node)
+  (let/cc break
+    (for/fold ([froms (void)] #:result (if (void? froms) empty-set froms))
+              ([by-ports (in-list (taggee*-by-portss taggee-info))])
+      (match-define (by-ports* from-port to-port) by-ports)
+      (let ([froms (set-intersect* froms
+                                   (g:port->port-label->nodes g
+                                                              `(,node ,to-port)
+                                                              from-port))])
+        (if (set-empty? froms)
+          (break froms)
+          froms)))))
+
+;; ----------------------------------------------------------------------
+;;
+;; Internal support functions for the above
+;;
+
+(define (condition-func-passes? g cfunc nodes)
+  (define cfunc-takes-g (apply cfunc nodes))
+  (cfunc-takes-g g))
 
 (define (possible-taggee? g taggee node)
   (for/or ([of-class (taggee*-of-classes taggee)])
@@ -319,40 +391,6 @@
   (for/or ([applies-to applies-tos])
     (applies-to? g applies-to nodes)))
 
-;TODO Make the tag a member of the nodes' least common ctx
-;TODO Don't make the tag if it's already there
-(define/g (make-tag g tagclass . nodes)
-  (cond
-    [(first-matching-applies-to g tagclass nodes)
-     => (λ (applies-to)
-          (let*-values ([(g tag) (make-node g tagclass)])
-            (for/fold ([g g] #:result (values g tag))
-                      ([taggee (applies-to*-taggees applies-to)]
-                       [node nodes])
-              (link-to g taggee tag node))))]
-    [else (raise 'fizzle)]))
-
-(define/g (add-tag g tagclass . args)
-  (first-value (apply make-tag g tagclass args)))
-
-;; ----------------------------------------------------------------------
-;;
-;; Graph functions specifically relating to tags
-;;
-
-(define (linked-from g taggee-info node)
-  (let/cc break
-    (for/fold ([froms (void)] #:result (if (void? froms) empty-set froms))
-              ([by-ports (in-list (taggee*-by-portss taggee-info))])
-      (match-define (by-ports* from-port to-port) by-ports)
-      (let ([froms (set-intersect* froms
-                                   (g:port->port-label->nodes g
-                                                              `(,node ,to-port)
-                                                              from-port))])
-        (if (set-empty? froms)
-          (break froms)
-          froms)))))
-
 (define (linked-from-common-node? g taggees nodes)
   (let/cc break
     (for/fold ([back-nodes (void)] #:result (not (set-empty? back-nodes)))
@@ -362,11 +400,6 @@
         (if (set-empty? back-nodes)
           (break #f)
           back-nodes)))))
-
-(define (tagged-with? g tagclass . nodes)
-  (let ([tagclass (get-nodeclass* g tagclass)])
-    (for/or ([applies-to (nodeclass*-applies-tos tagclass)])
-      (linked-from-common-node? g (applies-to*-taggees applies-to) nodes))))
 
 ;; ======================================================================
 ;;
@@ -390,15 +423,17 @@
           (condition (no-neighbor-at-port?/g 'source node))))
       ))
 
-  (define g (empty-graph spec))
+  (define g (make-empty-graph spec))
 
   (define ws (gdo make-node 'ws))
   (check-true (g:has-node? g ws))
 
-  (define brick7 (gdo make-node/in 'ws 'brick 7))
+  (define brick7 (gdo make-node/in ws 'brick 7))
   (check-true (g:has-node? g brick7))
-
+  (define number15 (gdo make-node/in ws 'number 15))
+  (check-true (g:has-node? g number15))
 
   (define tag (gdo make-tag '(need source) brick7))
   (check-true (tagged-with? g '(need source) brick7))
+  (check-false (tagged-with? g '(need source) number15))
   )
