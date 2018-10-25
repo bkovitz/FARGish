@@ -6,8 +6,7 @@
 #lang debug at-exp racket
 
 (require racket/hash)
-(require (prefix-in g: "graph.rkt") (prefix-in g: "make-graph.rkt")
-         (only-in "graph.rkt" define/g))
+(require (prefix-in g: "graph.rkt") (only-in "graph.rkt" define/g))
 (require "wheel.rkt")
 (require (for-syntax racket/syntax) racket/syntax)
 (require rackunit debug/repl describe)
@@ -17,6 +16,7 @@
   
   ; Spec elements
   is-a by-ports links-into applies-to default-attrs nodeclass tagclass
+  of-class
 
   ; Predefined spec helpers
   as-member no-neighbor-at-port? no-neighbor-at-port?/g
@@ -27,13 +27,30 @@
   make-node/in make-node/in/g
   add-node add-node/g
   add-node/in add-node/in/g
+  add-nodes/in add-nodes/in/g
   link-to link-to/g
+
+  node-is-a? nodeclass-is-a?
+
+  add-edge    ; Forwarded from graph.rkt
+  class-of
+  port->neighbor
+  port->neighbors
 
   ; Specifically related to tagging
   applies-to?
   make-tag make-tag/g
   add-tag add-tag/g
-  tagged-with?)
+  tagged-with?
+
+  ; Accessing a spec
+  get-spec
+  )
+
+(define add-edge g:add-edge)
+(define class-of g:class-of)
+(define port->neighbor g:port->neighbor)
+(define port->neighbors g:port->neighbors)
 
 ;; ======================================================================
 ;;
@@ -97,6 +114,7 @@
 
 (define default-attrs default-attrs*)
 
+;TODO Make condition(s) optional.
 (define-syntax applies-to
   (syntax-rules (condition)
     [(applies-to ([taggee taggee-elem ...] ...)
@@ -277,12 +295,12 @@
                               (λ ()
                                 (raise-arguments-error 'make-node
                                   @~a{Undefined class name: @|classname|.}))))
-  (define default-attrs (nodeclass*-default-attrs nodeclass))
+  (define default-attrs (nodeclass*-default-attrs #R nodeclass))
   (cond
     [(void? value)
-     (g:make-node g default-attrs)]
+     (g:make-node g #R default-attrs)]
     [else
-     (g:make-node g (hash-set default-attrs 'value value))]))
+     (g:make-node g #R (hash-set default-attrs 'value value))]))
 
 ;; Returns two values: g nodeid
 (define/g (make-node/in g ctx . args)
@@ -311,6 +329,11 @@
 
 (define/g (add-node/in g . args)
   (first-value (apply make-node/in g args)))
+
+(define/g (add-nodes/in g ctx classname vs)
+  (for/fold ([g g])
+            ([value vs])
+    (add-node/in g ctx classname value)))
 
 ;; ----------------------------------------------------------------------
 ;;

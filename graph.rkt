@@ -4,6 +4,7 @@
 
 (require rackunit racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe mischief/memoize) 
+(require racket/hash)
 (require (for-syntax racket/syntax) racket/syntax)
 (require racket/serialize)
 
@@ -24,10 +25,11 @@
          all-edges
          find-nodes-of-class
 
-         set-node-attr
          get-node-attr
-         get-node-attrs
+         set-node-attr
          update-node-attr
+         get-node-attrs
+         union-node-attrs
          node-attr?
 
          graph-edge-weight
@@ -433,6 +435,13 @@
     [(hash-table ((== id) attrs) _ ...)
      attrs]
     [_ (void)]))
+
+;TODO UT
+(define (union-node-attrs g node override-attrs)
+    (let ([attrs (get-node-attrs g node)])
+      (struct-copy graph g
+        [ht-node->attrs
+          (hash-union attrs override-attrs #:combine (λ (v0 v) v))])))
 
 ;TODO UT
 (define (set-node-attr g node k v)

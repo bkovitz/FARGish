@@ -13,6 +13,11 @@
       [(void? value) (if (procedure? fk) (fk) fk)]
       [else (sk value)])))
 
+(define (hash-remove* h . keys)
+  (for/fold ([h h])
+            ([key keys])
+    (hash-remove h key)))
+
 (define (atom? x)
   (and (not (null? x))
        (not (pair? x))))
