@@ -4,6 +4,7 @@
 
 (require rackunit racket/generic racket/struct "id-set.rkt"
          racket/dict racket/pretty describe mischief/memoize) 
+(require (for-syntax racket/syntax) racket/syntax)
 (require racket/serialize)
 
 (provide (struct-out graph)
@@ -69,7 +70,10 @@
          graph-update-var
          graph-push-var
          graph-push-and-set-var
-         graph-pop-var)
+         graph-pop-var
+
+         define/g
+         gdo)
 
 ;; A port graph
 
@@ -657,3 +661,39 @@
       (check-equal? (list->set (all-edges g**))
                     (set (set '(a out) '(b in))
                          (set '(a2 out) '(b2 in)))))))
+
+;; A function whose first argument is a graph, and that returns one or more
+;; values, the first of which is the updated graph.
+(struct gfunc* (f) #:property prop:procedure 0)
+
+(define-syntax-rule (gλ args body0 body ...)
+  (gfunc* (λ args body0 body ...)))
+
+(define-syntax (define/g stx)
+  (syntax-case stx ()
+    [(define/g (name g args ... . optargs) body0 body ...)
+     (with-syntax* ([name (syntax-property #'name 'gfunc? #t #t)]
+                    [name/g (format-id #'name "~a/g" #'name
+                                       #:source #'name #:props #'name)])
+       #`(begin
+           (define name (gλ (g args ... . optargs) body0 body ...))
+           (define (name/g args ... . optargs)
+             (gλ (g) #,@(if (null? (syntax->datum #'optargs))
+                          #'(name g args ...)
+                          #'(apply name g args ... optargs))))))]))
+
+; A little hack to make it easier to work on graphs in the REPL.
+; (gdo makenode 'ws) operates on a variable in the local context called g,
+; set!s g to the new graph, and returns the nodeid of the created node.
+(define-syntax (gdo stx)
+  (syntax-case stx ()
+    [(gdo gfunc args ...)
+     (with-syntax ([g (format-id #'gdo "g"
+                                 #:source #'gdo #:props #'f)])
+       #'(call-with-values (λ () (gfunc g args ...))
+           (λ (new-g . results)
+             (set! g new-g)
+             (cond
+               [(null? results) (void)]
+               [(null? (cdr results)) (car results)]
+               [else results]))))]))

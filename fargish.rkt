@@ -1,61 +1,31 @@
-; xnice.rkt -- Experimenting with making nice syntax for specifying a FARG model
+; fargish.rkt -- Definitions for specifying FARG models
 
 #lang debug at-exp racket
 
 (require racket/hash)
-(require (prefix-in g: "graph.rkt") (prefix-in g: "make-graph.rkt"))
+(require (prefix-in g: "graph.rkt") (prefix-in g: "make-graph.rkt")
+         (only-in "graph.rkt" define/g))
+(require "wheel.rkt")
 (require (for-syntax racket/syntax) racket/syntax)
-(require debug/repl describe)
+(require rackunit debug/repl describe)
 
-(define empty-set (set))
-(define empty-hash (hash))
+;; ======================================================================
+;;
+;; Structs that hold a FARG model specification and its elements
 
-#;(define-syntax (define/g stx)
-  (syntax-case stx ()
-    [(define/g (name g args ...) body0 body ...)
-     (with-syntax ([name/g (format-id #'name "~a/g" #'name
-                                      #:source #'name #:props #'name)])
-       #'(begin
-           (define (name g args ...) body0 body ...)
-           (define (name/g args ...)
-             (λ (g) (name g args ...)))))]))
-
-;; A function whose first argument is a graph, and that returns one or more
-;; values, the first of which is the updated graph.
-(struct gfunc* (f) #:property prop:procedure 0)
-
-(define-syntax-rule (gλ args body0 body ...)
-  (gfunc* (λ args body0 body ...)))
-
-(define-syntax (define/g stx)
-  (syntax-case stx ()
-    [(define/g (name g args ... . optargs) body0 body ...)
-     (with-syntax* ([name (syntax-property #'name 'gfunc? #t #t)]
-                    [name/g (format-id #'name "~a/g" #'name
-                                       #:source #'name #:props #'name)])
-       #`(begin
-           (define name (gλ (g args ... . optargs) body0 body ...))
-           (define (name/g args ... . optargs)
-             (gλ (g) #,@(if (null? (syntax->datum #'optargs))
-                          #'(name g args ...)
-                          #'(apply name g args ... optargs))))))]))
+(struct farg-model-spec* (nodeclasses ancestors) #:prefab)
+; nodeclasses: (Immutable-HashTable Any nodeclass*)
+; ancestors: (Immutable-HashTable Any (Setof Any))
 
 (struct is-a* (parents) #:prefab)
 ; parents: (Setof Symbol)
 
-(define (is-a . args)
-  (is-a* (list->set args)))
-
+; TODO from-port-label to-port-label
 (struct by-ports* (from-port to-port) #:prefab)
-
-(define by-ports by-ports*)
 
 (struct links-into* (ctx-class by-portss) #:prefab)
 ;ctx-class : Symbol
 ;by-portss : (Listof by-ports)
-
-(define (links-into ctx-class . by-portss)
-  (links-into* ctx-class by-portss))
 
 (struct default-attrs* (attrs))
 ;attrs: (Hash Any Any)
@@ -63,42 +33,72 @@
 (struct nodeclass* (name parents default-attrs links-intos applies-tos)
                    #:prefab)
 
-(define (nodeclass-name x)
-  (if (nodeclass*? x)
-    (nodeclass*-name x)
-    x))
+;TODO taggee-infos
+(struct applies-to* (taggees conditions) #:prefab)
+; taggees: (List taggee*)
+; conditions: (List cfunc)
 
-(define (hash-ref/sk ht key sk fk)
-  (let ([value (hash-ref ht key (void))])
-    (cond
-      [(void? value) (if (procedure? fk) (fk) fk)]
-      [else (sk value)])))
+;TODO taggee-info*
+(struct taggee* (name of-classes by-portss) #:prefab)
+; name: Any
+; of-classes: (List of-class*)
+; by-portss: (List by-ports*)
 
-(define (get-spec g-or-spec)
-  (cond
-    [(farg-model-spec*? g-or-spec) g-or-spec]
-    [(g:graph? g-or-spec) (g:graph-spec g-or-spec)]
-    [else (raise-arguments-error 'get-spec
-                                 @~a{Can't get spec from @|g-or-spec|.})]))
+(struct of-class* (class) #:prefab)
+; class: Any
 
-(define (nodeclass-is-a? g-or-spec ancestor child)
-  (define child-name (nodeclass-name child))
-  (define ancestor-name (nodeclass-name ancestor))
-  (if (equal? ancestor-name child-name)
-    #t
-    (let ([spec (get-spec g-or-spec)]
-          [ht (farg-model-spec*-ancestors spec)])
-      (hash-ref/sk ht child-name
-        (λ (st) (set-member? st ancestor-name))
-        #f))))
+;; ======================================================================
+;;
+;; Functions and macros to create elements of FARG model specifications
+;;
+;; A definition of a FARG model specification should consist entirely of
+;; invocations of these functions and macros.
+;;
 
-(define (node-is-a? g ancestor node)
-  (nodeclass-is-a? g ancestor (g:class-of g node)))
+(define (farg-model-spec . nodeclasses)
+  (define ht (for/hash ([nodeclass nodeclasses])
+               (values (nodeclass*-name nodeclass) nodeclass)))
+  (farg-model-spec* ht (make-ancestors-table ht)))
 
-(define (plain-name name)
-  (cond
-    [(pair? name) (car name)]
-    [else name]))
+(define (is-a . args)
+  (is-a* (list->set args)))
+
+(define by-ports by-ports*)
+
+(define (links-into ctx-class . by-portss)
+  (links-into* ctx-class by-portss))
+
+(define of-class of-class*)
+
+(define-syntax applies-to
+  (syntax-rules (condition)
+    [(applies-to ([taggee taggee-info ...] ...)
+       (condition condition-expr0 condition-expr ...) ...)
+     (applies-to* (list (make-taggee 'taggee taggee-info ...) ...)
+                  (list (make-condition-func (taggee ...)
+                          condition-expr0 condition-expr ...) ...))]))
+
+(define-syntax-rule (nodeclass name elems ...)
+  (make-nodeclass (quote name) elems ...))
+
+(define-syntax-rule (tagclass name elems ...)
+  (make-tagclass (quote name) elems ...))
+
+;; ----------------------------------------------------------------------
+;;
+;; Handy predefined elements and functions for making a FARG model
+;; specification.
+
+(define as-member (by-ports 'members 'member-of))
+
+(define/g (no-neighbor-at-port? g port-label node)
+  (null? (g:port->neighbors g `(,node ,port-label))))
+
+;; ======================================================================
+;;
+;; Non-exported functions and macros that support those above that
+;; create elements of a FARG model specification.
+;;
 
 (define (make-nodeclass name . elems)
   (for/fold ([parents empty-set]
@@ -128,47 +128,6 @@
                                               'value name)))
   (apply make-nodeclass name (cons default-attrs elems)))
 
-(define-syntax-rule (nodeclass name elems ...)
-  (make-nodeclass (quote name) elems ...))
-
-(define-syntax-rule (tagclass name elems ...)
-  (make-tagclass (quote name) elems ...))
-
-;; Single instance
-;(define (tag-applies-to? (need source) . nodes)
-;  (let ([pred (λ (node)
-;                (no-neighbor-at-port?/g 'source node))])
-;    (apply pred nodes)))
-;
-;;; Assuming only one condition for now
-;(define (tag-applies-to? g tagclass . nodes)
-;  (let ([condition?/g (apply (tagclass-condition tagclass) nodes)])
-;    (condition?/g g)))
-;
-;(define (tag-applies-to?/g tagclass . nodes)
-;  (apply (tagclass-condition tagclass) nodes))
-;
-;(define (tag-applies-to? g tagclass . nodes)
-;  (let ([condition?/g (tagclass-condition tagclass)])
-;    (apply condition?/g g nodes)))
-;
-;(define (tag-applies-to?/g tagclass . nodes)
-;  (λ (g) (apply tag-applies-to? g tagclass nodes)))
-
-(struct applies-to* (taggees conditions) #:prefab)
-; taggees: (List taggee*)
-; conditions: (List cfunc)
-
-(struct taggee* (name of-classes by-portss) #:prefab)
-; name: Any
-; of-classes: (List of-class*)
-; by-portss: (List by-ports*)
-
-(struct of-class* (class) #:prefab)
-; class: Any
-
-(define of-class of-class*)
-
 (define (make-taggee name . taggee-infos)
   (define-values (of-classes by-portss)
     (for/fold ([of-classes '()] [by-portss '()])
@@ -182,14 +141,6 @@
                 @~a{@taggee-info is neither of-class nor by-ports.})])))
   (taggee* name of-classes by-portss))
 
-(define-syntax applies-to
-  (syntax-rules (condition)
-    [(applies-to ([taggee taggee-info ...] ...)
-       (condition condition-expr0 condition-expr ...) ...)
-     (applies-to* (list (make-taggee 'taggee taggee-info ...) ...)
-                  (list (make-condition-func (taggee ...)
-                          condition-expr0 condition-expr ...) ...))]))
-
 ; Makes a function that returns a g-func that returns true if the condition
 ; applies to the given nodes. TODO: Check preconditions from tag-infos.
 (define-syntax make-condition-func
@@ -201,14 +152,6 @@
          (if (not (= num-taggees (length nodes)))
            (λ (g) #f)  ; tag can't apply if number of nodes is wrong
            (apply make-pred/g nodes))))]))
-
-(define (condition-func-passes? g cfunc nodes)
-  (define cfunc-takes-g (apply cfunc nodes))
-  (cfunc-takes-g g))
-
-(struct farg-model-spec* (nodeclasses ancestors) #:prefab)
-; nodeclasses: (Immutable-HashTable Any nodeclass*)
-; ancestors: (Immutable-HashTable Any (Setof Any))
 
 (define (make-ancestors-table ht-nodeclasses)
   (define (all-ancestors-of name)
@@ -228,10 +171,29 @@
   (for/hash ([name (hash-keys ht-nodeclasses)])
     (values name (set-add (all-ancestors-of name) name))))
 
-(define (farg-model-spec . nodeclasses)
-  (define ht (for/hash ([nodeclass nodeclasses])
-               (values (nodeclass*-name nodeclass) nodeclass)))
-  (farg-model-spec* ht (make-ancestors-table ht)))
+;; ======================================================================
+;;
+;; Functions to make it easy to pass arguments that are either names of
+;; specification elements or the specification elements themselves
+
+(define (nodeclass-name x)
+  (if (nodeclass*? x)
+    (nodeclass*-name x)
+    x))
+
+(define (get-spec g-or-spec)
+  (cond
+    [(farg-model-spec*? g-or-spec) g-or-spec]
+    [(g:graph? g-or-spec) (g:graph-spec g-or-spec)]
+    [else (raise-arguments-error 'get-spec
+                                 @~a{Can't get spec from @|g-or-spec|.})]))
+
+;; ======================================================================
+;;
+;; Functions to access elements of a FARG model specification
+;;
+;; Where appropriate, these functions' first argument can be either a graph
+;; (that contains a spec) or a spec.
 
 (define (get-nodeclasses x)
   (cond
@@ -257,26 +219,31 @@
   (filter (λ (li) (nodeclass-is-a? g (links-into*-ctx-class li) ctx-class))
           (nodeclass*-links-intos nc)))
 
-(define as-member (by-ports 'members 'member-of))
+(define (nodeclass-is-a? g-or-spec ancestor child)
+  (define child-name (nodeclass-name child))
+  (define ancestor-name (nodeclass-name ancestor))
+  (if (equal? ancestor-name child-name)
+    #t
+    (let* ([spec (get-spec g-or-spec)]
+           [ht (farg-model-spec*-ancestors spec)])
+      (hash-ref/sk ht child-name
+        (λ (st) (set-member? st ancestor-name))
+        #f))))
 
-(define/g (no-neighbor-at-port? g port-label node)
-  (null? (g:port->neighbors g `(,node ,port-label))))
+(define (node-is-a? g ancestor node)
+  (nodeclass-is-a? g ancestor (g:class-of g node)))
 
-(define spec
-  (farg-model-spec
-    (nodeclass ws
-      (is-a 'ctx))
-    (nodeclass number)
-    (nodeclass brick
-      (is-a 'number)
-      (links-into 'ctx (by-ports 'bricks 'source) as-member))
-    (tagclass (need source)
-      (is-a 'problem-tag)
-      (applies-to ([node (of-class 'number) (by-ports 'tagged 'tags)])
-        (condition (no-neighbor-at-port?/g 'source node))))
-    ))
+;; ======================================================================
+;;
+;; Functions that create and operate on a graph that holds a FARG model
+;;
 
-(define start-graph (struct-copy g:graph g:empty-graph [spec spec]))
+(define (empty-graph spec)
+  (struct-copy g:graph g:empty-graph [spec spec]))
+
+(define (condition-func-passes? g cfunc nodes)
+  (define cfunc-takes-g (apply cfunc nodes))
+  (cfunc-takes-g g))
 
 ;; Returns two values: g nodeid
 (define/g (make-node g classname [value (void)])
@@ -368,13 +335,10 @@
 (define/g (add-tag g tagclass . args)
   (first-value (apply make-tag g tagclass args)))
 
-(define (set-intersect* set-or-void . sets)
-  (cond
-    [(void? set-or-void)
-     (apply set-intersect* sets)]
-    [(null? sets)
-     set-or-void]
-    [else (apply set-intersect set-or-void sets)]))
+;; ----------------------------------------------------------------------
+;;
+;; Graph functions specifically relating to tags
+;;
 
 (define (linked-from g taggee-info node)
   (let/cc break
@@ -404,26 +368,37 @@
     (for/or ([applies-to (nodeclass*-applies-tos tagclass)])
       (linked-from-common-node? g (applies-to*-taggees applies-to) nodes))))
 
-(define g (void))
-(set! g (g:add-spec g:empty-graph spec))
+;; ======================================================================
+;;
+;; Unit test that shows how all the elements fit together
+;;
 
-; A little hack to make it easier to work on graphs in the REPL.
-; (gdo makenode 'ws) operates on a variable in the local context called g,
-; set!s g to the new graph, and returns the nodeid of the created node.
-(define-syntax (gdo stx)
-  (syntax-case stx ()
-    [(gdo gfunc args ...)
-     (with-syntax ([g (format-id #'gdo "g"
-                                 #:source #'gdo #:props #'f)])
-       #'(call-with-values (λ () (gfunc g args ...))
-           (λ (new-g . results)
-             (set! g new-g)
-             (cond
-               [(null? results) (void)]
-               [(null? (cdr results)) (car results)]
-               [else results]))))]))
+(module+ test
+  (require (only-in "graph.rkt" gdo))
 
-(gdo make-node 'ws)
-(gdo make-node/in 'ws 'brick 7)
-(gdo make-tag '(need source) 'brick7)
-(tagged-with? g '(need source) 'brick7)
+  (define spec
+    (farg-model-spec
+      (nodeclass ws
+        (is-a 'ctx))
+      (nodeclass number)
+      (nodeclass brick
+        (is-a 'number)
+        (links-into 'ctx (by-ports 'bricks 'source) as-member))
+      (tagclass (need source)
+        (is-a 'problem-tag)
+        (applies-to ([node (of-class 'number) (by-ports 'tagged 'tags)])
+          (condition (no-neighbor-at-port?/g 'source node))))
+      ))
+
+  (define g (empty-graph spec))
+
+  (define ws (gdo make-node 'ws))
+  (check-true (g:has-node? g ws))
+
+  (define brick7 (gdo make-node/in 'ws 'brick 7))
+  (check-true (g:has-node? g brick7))
+
+
+  (define tag (gdo make-tag '(need source) brick7))
+  (check-true (tagged-with? g '(need source) brick7))
+  )
