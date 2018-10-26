@@ -438,10 +438,11 @@
 
 ;TODO UT
 (define (union-node-attrs g node override-attrs)
-    (let ([attrs (get-node-attrs g node)])
+    (let* ([attrs (get-node-attrs g node)]
+           [attrs (hash-union attrs override-attrs #:combine (λ (v0 v) v))])
       (struct-copy graph g
         [ht-node->attrs
-          (hash-union attrs override-attrs #:combine (λ (v0 v) v))])))
+          (hash-set (graph-ht-node->attrs g) node attrs)])))
 
 ;TODO UT
 (define (set-node-attr g node k v)

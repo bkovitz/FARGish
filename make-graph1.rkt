@@ -73,9 +73,19 @@
     (values g id)))
 
 (define (make-node/mg g args)
-  (let*-values ([(args-for-make-node override-attrs) #R (parse-node-args args)]
+  (let*-values ([(attrs) (node-args->attrs args)]
                 [(g id) (let ([groupid (current-groupid g)])
                           (if (void? groupid)
+                            (make-node-with-attrs g attrs)
+                            (make-node-with-attrs/in g groupid attrs)))]
+                [(g) (set-lastid g id)])
+    (values g id)))
+
+#;(define (make-node/mg g args)
+  (let*-values ([(args-for-make-node override-attrs) (parse-node-args args)]
+                [(g id) (let ([groupid (current-groupid g)])
+                          (if (void? groupid)
+                            ;NEXT Need to override 'name ?
                             (apply make-node g args-for-make-node)
                             (apply make-node/in g groupid args-for-make-node)))]
                 [(g) (if override-attrs
@@ -109,7 +119,23 @@
                              "(:attrs <alist>), (class), or (class value)"
                              args)]))
 
-(define (hash->class-and-value ht)
+(define (node-args->attrs args)
+  (match args
+    [(? hash? args)
+     args]
+    [`((:attrs ,attrs))
+      (make-immutable-hash attrs)]
+    [`(,class)
+      (hash 'class class)]
+    [`(,class ,value)
+      (hash 'class class 'value value)]
+    [`(,class ,value ,name)
+      (hash 'class class 'value value 'name name)]
+    [_ (raise-argument-error 'node-args->attrs
+                             "(:attrs <alist>), (class), or (class value)"
+                             args)]))
+
+#;(define (hash->class-and-value ht)
   (let ([class (hash-ref ht
                          'class
                          (λ ()
@@ -121,7 +147,8 @@
 
 ; Returns two values: args to pass to make-node, hash table of overriding attrs
 ; or #f if no overrides
-(define (parse-node-args args)
+#;(define (parse-node-args args)
+  args
   (match args
     [(? hash? args)
      (values (hash->class-and-value args)
@@ -196,6 +223,10 @@
     (match items
       ['() g]
       [`((:node . ,args) . ,more)
+;        #R args
+;        (let ([g (add-node/mg g args)])
+;           #R (all-nodes g)
+;           (recur g more))]
         (recur (add-node/mg g args) more)]
       [`((:edge ,port1 ,port2) . ,more)
         (let*-values ([(g p1) (get-port g port1)]
@@ -252,6 +283,12 @@
 (define unit-test-spec
   (farg-model-spec
     (nodeclass letter)
+    (nodeclass number)
+    (nodeclass operator)
+    (make-nodeclass placeholder)
+    (nodeclass group)
+    (nodeclass bind)
+    (nodeclass succ)
     ))
 
 (define (make-graph . items)
@@ -270,8 +307,6 @@
       (check-equal? (class-of g 'b) 'letter)))
   (test-case "placeholder"
     (let ([g (make-graph '(placeholder letter x))])
-      #R (all-nodes g)
-      (pr-graph g) ;DEBUG
       (check-equal? (get-node-attr g 'x 'class) 'letter)
       (check-pred placeholder? (get-node-attr g 'x 'value))))
   (test-case ":edge"

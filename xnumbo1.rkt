@@ -13,6 +13,9 @@
 (define (no-neighbor-at-port? port-label node)
   (λ (g)
     (
+
+
+
 (define numbo
   (farg-model
     (nodeclass ws

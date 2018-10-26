@@ -16,7 +16,7 @@
   
   ; Spec elements
   is-a by-ports links-into applies-to default-attrs nodeclass tagclass
-  of-class
+  of-class make-nodeclass
 
   ; Predefined spec helpers
   as-member no-neighbor-at-port? no-neighbor-at-port?/g
@@ -25,6 +25,8 @@
   make-empty-graph
   make-node make-node/g
   make-node/in make-node/in/g
+  make-node-with-attrs make-node-with-attrs/g
+  make-node-with-attrs/in make-node-with-attrs/in/g
   add-node add-node/g
   add-node/in add-node/in/g
   add-nodes/in add-nodes/in/g
@@ -264,8 +266,10 @@
 (define (get-links-into g node ctx)
   (define nc (nodeclass*-of g node))
   (define ctx-class (g:class-of g ctx))
-  (filter (λ (li) (nodeclass-is-a? g (links-into*-ctx-class li) ctx-class))
-          (nodeclass*-links-intos nc)))
+  (let ([lis (filter (λ (li)
+                       (nodeclass-is-a? g (links-into*-ctx-class li) ctx-class))
+               (nodeclass*-links-intos nc))])
+    (if (null? lis) (list (links-into ctx as-member)) lis)))
 
 (define (nodeclass-is-a? g-or-spec ancestor child)
   (define child-name (nodeclass-name child))
@@ -289,28 +293,47 @@
 (define (make-empty-graph spec)
   (struct-copy g:graph g:empty-graph [spec spec]))
 
+;NEXT Allow name, other overriding attrs, after value.
 ;; Returns two values: g nodeid
 (define/g (make-node g classname [value (void)])
-  (define nodeclass (hash-ref (get-nodeclasses g) classname
-                              (λ ()
-                                (raise-arguments-error 'make-node
-                                  @~a{Undefined class name: @|classname|.}))))
-  (define default-attrs (nodeclass*-default-attrs #R nodeclass))
-  (cond
-    [(void? value)
-     (g:make-node g #R default-attrs)]
-    [else
-     (g:make-node g #R (hash-set default-attrs 'value value))]))
+  (make-node-with-attrs g (hash 'class classname 'value value)))
+;  (define nodeclass (hash-ref (get-nodeclasses g) classname
+;                              (λ ()
+;                                (raise-arguments-error 'make-node
+;                                  @~a{Undefined class name: @|classname|.}))))
+;  (define default-attrs (nodeclass*-default-attrs nodeclass))
+;  (cond
+;    [(void? value)
+;     (g:make-node g #R default-attrs)]
+;    [else
+;     (g:make-node g #R (hash-set default-attrs 'value value))]))
 
 ;; Returns two values: g nodeid
-(define/g (make-node/in g ctx . args)
+(define/g (make-node-with-attrs g attrs)
+  (define classname (hash-ref attrs 'class
+                              (λ ()
+                                (raise-arguments-error 'make-node-with-attrs
+                                  @~a{No class name provided in @|attrs|.}))))
+  (define nodeclass (hash-ref (get-nodeclasses g) classname
+                              (λ ()
+                                (raise-arguments-error 'make-node-with-attrs
+                                  @~a{Undefined class name: @|classname|.}))))
+  (define default-attrs (nodeclass*-default-attrs nodeclass))
+  (g:make-node g (hash-union default-attrs attrs #:combine (λ (v0 v) v))))
+
+;; Returns two values: g nodeid
+(define/g (make-node-with-attrs/in g ctx attrs)
   ;TODO Raise error if ctx does not exist
-  (let-values ([(g node) (apply make-node g args)])
+  (let-values ([(g node) (make-node-with-attrs g attrs)])
     (for*/fold ([g g] #:result (values g node))
                ([links-into (get-links-into g node ctx)]
                 [by-ports (links-into*-by-portss links-into)])
       (match-define (by-ports* from-port-label to-port-label) by-ports) ;TODO OAOO
       (g:add-edge g `((,ctx ,from-port-label) (,node ,to-port-label))))))
+
+;; Returns two values: g nodeid
+(define/g (make-node/in g ctx classname value)
+  (make-node-with-attrs/in g ctx (hash 'class classname 'value value)))
 
 (define/g (link-to g by-portss from-node to-node)
   (let* ([by-portss (match by-portss
