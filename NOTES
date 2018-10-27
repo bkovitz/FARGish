@@ -25,3 +25,45 @@ When starting an agent, just boost or support an existing agent that matches.
 A node has a my-builder port. If the node gets tagged 'failed, it gives
 antipathy to its builder. It should give antipathy to any nodes that depend on
 its success.
+
+----
+
+Graph layers
+
+Lowest (raw):
+
+  make-node g attrs
+  add-node
+  add-edge
+  remove-node
+
+  get-node-attr
+  ...
+
+  port->neighboring-ports
+  ...
+  node->neighbors
+  ...
+
+  graph-set-var
+  ...
+
+  define/g
+  gdo
+
+  The above can still call upon elements of the spec, as long as there is
+  a reasonable default spec.
+
+Graph ops (little language with hooks)
+
+  do-graph-edits
+
+  class-of
+  tag?
+  members-of
+  ...
+
+FARGish (defining, accessing, and applying a spec)
+
+  node-args->attrs
+  default-name
