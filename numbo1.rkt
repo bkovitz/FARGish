@@ -5,7 +5,7 @@
 
 (require errortrace)
 (require "wheel.rkt" "xsusp3.rkt" "fargish.rkt" (prefix-in g: "graph.rkt")
-         (prefix-in g: "make-graph.rkt")
+         (prefix-in g: "make-graph1.rkt")
          (only-in "graph.rkt" pr-graph pr-group pr-node))
 (require racket/set racket/hash)
 (require rackunit racket/pretty describe)
@@ -56,6 +56,7 @@
 ;; ======================================================================
 ;;
 ;; Making a workspace
+;;
 
 (define (make-numbo-ws g bricks target)
   (let*-values ([(g ws) (make-node g 'numbo-ws)]
@@ -107,13 +108,13 @@
     
 
 
-    #;(let ([g (do-graph-edits g '((:begin (:node number 9) (:node operator + +)
-                                   (:edge (4 result) (+ operands))
-                                   (:edge (5 result) (+ operands))
-                                   (:edge (+ result) (9 source)))))])
+    (let ([g (g:do-graph-edits g '((:begin (:node number 9) (:node operator + +)
+                                   (:edge (brick4 result) (+ operands))
+                                   (:edge (brick5 result) (+ operands))
+                                   (:edge (+ result) (number9 source)))))])
       (check-false (done? g))
-      (let ([g (do-graph-edits g '((:let ([+ (:node operator + +)])
-                                     (:edge (9 result) (+ operands))
-                                     (:edge (6 result) (+ operands))
-                                     (:edge (+ result) (15 source)))))])
+      (let ([g (g:do-graph-edits g '((:let ([+ (:node operator + +)])
+                                     (:edge (number9 result) (+ operands))
+                                     (:edge (brick6 result) (+ operands))
+                                     (:edge (+ result) (target15 source)))))])
         (check-true (done? g)) ))))

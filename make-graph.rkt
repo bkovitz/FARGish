@@ -1,6 +1,7 @@
 #lang debug at-exp errortrace racket
 
-;; Data structure for port graphs
+;; Graph operations: a little language for making and editing graphs,
+;; plus some support functions.
 
 (require rackunit data/collection racket/generic racket/struct
          racket/dict racket/pretty describe "wheel.rkt" "graph.rkt")

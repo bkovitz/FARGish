@@ -1115,8 +1115,8 @@
 
 ;(define medium-slipnet (make-slipnet-for-arithmetic 12))
 (define medium-slipnet
-  (add-activation-edges-for-arithmetic
-    (apply make-slipnet (tuples->equations elementary-equation-tuples))))
+  (time (add-activation-edges-for-arithmetic
+    (apply make-slipnet (tuples->equations elementary-equation-tuples)))))
 
 (define (make-big-slipnet)
   (make-slipnet-for-arithmetic 25 361))

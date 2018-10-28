@@ -1,5 +1,8 @@
 ; make-graph1.rkt -- Version of make-graph for numbo1.rkt and model1.rkt
 ;
+; Graph operations: a little language for making and editing graphs,
+; plus some support functions.
+;
 ; This is a HACK. There should only be one make-graph.rkt. The only real
 ; difference between this file and make-graph.rkt is that this one calls
 ; make-node and add-node in fargish.rkt.
@@ -223,12 +226,9 @@
     (match items
       ['() g]
       [`((:node . ,args) . ,more)
-;        #R args
-;        (let ([g (add-node/mg g args)])
-;           #R (all-nodes g)
-;           (recur g more))]
         (recur (add-node/mg g args) more)]
       [`((:edge ,port1 ,port2) . ,more)
+        (pr-graph g) ;DEBUG
         (let*-values ([(g p1) (get-port g port1)]
                       [(g p2) (get-port g port2)]
                       [(edge) `(,p1 ,p2)]
