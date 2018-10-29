@@ -8,28 +8,35 @@
   (empty-graph
    graph?
 
-   make-node
+   make-node  ; g attrs -> g nodeid
    remove-node
    add-node
    add-edge
+   remove-edge
    
    has-node?
    has-edge?
+   graph-edge-weight
    all-nodes
    all-edges
 
    port->neighboring-ports
    port->neighbors
    port->neighbor
+   port-neighbor?
    port->port-label->nodes 
    port->incident-edges
 
-   node->neighbors
    node->ports
-   node->incident-edges
+   node->incident-hops
+   node->neighbors
 
-   define/g
-   gdo))
+   ;define/g
+   ;gdo
+   ))
+
+(define-signature graph-name^
+  (ensure-node-name)) ; g attrs -> attrs name
 
 (define-signature graph-node-attrs^
   (get-node-attr
