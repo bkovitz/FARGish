@@ -1,6 +1,6 @@
 ; graph1.rkt -- Data structure for port graphs
 
-#lang debug at-exp racket
+#lang debug at-exp errortrace racket
 
 (require "wheel.rkt" "id-set.rkt")
 (require (for-syntax racket/syntax) racket/syntax)
@@ -92,8 +92,65 @@
                spec) #:prefab)
 
 (define empty-spec #hash())
-(define empty-graph
+
+(define (make-empty-graph)
   (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
+
+(define empty-graph (make-empty-graph))
+
+;; ======================================================================
+;;
+;; define/g and gdo
+;;
+
+; A function whose first argument is a graph, and that returns one or more
+; values, the first of which is the updated graph.
+(struct gfunc* (f) #:property prop:procedure 0)
+
+(define-syntax-rule (gλ args body0 body ...)
+  (gfunc* (λ args body0 body ...)))
+
+(define-syntax (define/g stx)
+  (syntax-case stx ()
+    [(define/g (name g args ... . optargs) body0 body ...)
+     (with-syntax* ([name (syntax-property #'name 'gfunc? #t #t)]
+                    [name/g (format-id #'name "~a/g" #'name
+                                       #:source #'name #:props #'name)])
+       #`(begin
+           (define name (gλ (g args ... . optargs) body0 body ...))
+           (define (name/g args ... . optargs)
+             (gλ (g) #,(if (null? (syntax->datum #'optargs))
+                         #'(name g args ...)
+                         #'(apply name g args ... optargs))))))]))
+
+; A little hack to make it easier to work on graphs in the REPL.
+; (gdo makenode 'ws) operates on a variable in the local context called g,
+; set!s g to the new graph, and returns the nodeid of the created node.
+(define-syntax (gdo stx)
+  (syntax-case stx ()
+    [(gdo gfunc args ...)
+     (with-syntax ([g (format-id #'gdo "g"
+                                 #:source #'gdo #:props #'f)])
+       #'(call-with-values (λ () (gfunc g args ...))
+           (λ (new-g . results)
+             (set! g new-g)
+             (cond
+               [(null? results) (void)]
+               [(null? (cdr results)) (car results)]
+               [else results]))))]))
+
+(module+ test
+  (test-case "define/g"
+    (define mk (make-node/g #hash((name . plus))))
+    (define g1 (add-node empty-graph #hash((name . plus))))
+    (define-values (g2 plusid) (mk empty-graph))
+    (check-equal? (all-nodes g2) '(plus))
+    (check-equal? (all-nodes g1) (all-nodes g2)))
+
+  (test-case "gdo"
+    (define g (make-empty-graph))
+    (gdo make-node #hash((name . this-node)))
+    (check-equal? (all-nodes g) '(this-node))))
 
 ;; ======================================================================
 ;;
@@ -101,7 +158,7 @@
 ;;
 
 ; Returns two values: g nodeid
-(define (make-node g attrs)
+(define/g (make-node g attrs)
   (let*-values ([(attrs name) (ensure-node-name g attrs)]
                 [(id-set id) (gen-id (graph-id-set g) name)]
                 [(attrs) (hash-set attrs 'id id)]
@@ -111,10 +168,10 @@
                          [id-set id-set]))])
     (values g id)))
 
-(define (add-node . args)
-  (first-value (apply make-node args)))
+(define/g (add-node g . args)
+  (first-value (apply make-node g args)))
 
-(define (remove-node g node)
+(define/g (remove-node g node)
   (let ([g (for/fold ([g g])
                      ([edge (node->incident-hops g node)])
              (remove-edge g edge))])
@@ -154,7 +211,7 @@
 
 ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
 ;Doesn't add the edge if it already exists, but will change its weight.
-(define (add-edge g edge [weight 1.0])
+(define/g (add-edge g edge [weight 1.0])
   (let ([edge (edge->list edge)])
     (match-define `(,port1 ,port2) edge)
     (define edges (graph-edges g))
@@ -172,7 +229,7 @@
         [ht-port->neighboring-ports p->nps]))))
 
 ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
-(define (remove-edge g e)
+(define/g (remove-edge g e)
   (define edge (edge->list e))
   (match-define `(,port1 ,port2) edge)
   (define edge* (edge->set e))
@@ -302,8 +359,7 @@
       (check-equal? (graph-edge-weight g '((plus operand) (source9 output)))
                     1.0)
       (let* ([g (remove-edge g '((plus operand) (source9 output)))])
-        (check-false (has-edge? g '((source9 output) (plus operand)))))
-      ))
+        (check-false (has-edge? g '((source9 output) (plus operand)))))))
 
   (let* ([ab-graph (add-node empty-graph #hash((class . letter) (name . a)))]
          [ab-graph (add-node ab-graph #hash((class . letter) (name . b)))])
@@ -398,8 +454,7 @@
                          `((,node1 tags) (,tag1 taggees))))
 
       ; node->neighbors
-      (check-equal? (node->neighbors g node1) (set node2 tag1))))
-  )
+      (check-equal? (node->neighbors g node1) (set node2 tag1)))))
 
 ;; ======================================================================
 ;;
