@@ -3,11 +3,11 @@
 ; See the unit test at the end for how all the pieces here fit together
 ; and how to use them.
 
-#lang debug at-exp errortrace racket
+#lang debug at-exp racket
 
 (require racket/hash)
 (require (prefix-in g: "graph1.rkt") (only-in "graph1.rkt" define/g gdo))
-(require "prgraph.rkt" "wheel.rkt")
+(require "wheel.rkt")
 (require (for-syntax racket/syntax) racket/syntax)
 (require rackunit debug/repl describe)
 
@@ -209,8 +209,7 @@
 (struct default-attrs* (attrs))
 ;attrs: (Hash Any Any)
 
-(struct nodeclass* (name parents default-attrs links-intos applies-tos
-                    archetype-type)
+(struct nodeclass* (name parents default-attrs links-intos applies-tos)
                    #:prefab)
 
 (struct applies-to* (taggee-infos conditions) #:prefab)
@@ -261,8 +260,16 @@
 ;; invocations of these functions and macros.
 ;;
 
+
+
 (define (farg-model-spec . nodeclasses)
-  (let* ([ht-nodeclasses (for/hash ([nodeclass nodeclasses])
+  (define predefined-nodeclasses  ;TODO move outside
+    (list (nodeclass archetype
+            (links-into 'slipnet (by-ports 'archetypes 'slipnet) as-member))
+          (nodeclass slipnet
+            (is-a 'ctx))))
+  (let* ([nodeclasses (append predefined-nodeclasses nodeclasses)]
+         [ht-nodeclasses (for/hash ([nodeclass nodeclasses])
                            (values (nodeclass*-name nodeclass) nodeclass))]
          [ht-ancestors (make-ancestors-table ht-nodeclasses)]
          [ht-nodeclasses (for/hash ([(name nodeclass) (in-hash ht-nodeclasses)])
@@ -325,33 +332,27 @@
              [default-attrs (hash 'class name)]
              [links-intos empty-set]
              [applies-tos empty-set]
-             [archetype-type no-archetype]
              #:result (nodeclass* name
                                   (remove-duplicates (reverse parents))
                                   default-attrs
                                   (set->list links-intos)
-                                  (set->list applies-tos)
-                                  archetype-type))
+                                  (set->list applies-tos)))
             ([elem elems])
     (match elem
       [(is-a* parents-)
        (values
-         (append parents parents-) default-attrs links-intos applies-tos
-         archetype-type)]
+         (append parents parents-) default-attrs links-intos applies-tos)]
       [(default-attrs* attrs)
        (values
-         parents (hash-union default-attrs attrs) links-intos applies-tos
-         archetype-type)]
+         parents (hash-union default-attrs attrs) links-intos applies-tos)]
       [(links-into* ctx by-portss)
-       (values parents default-attrs (set-add links-intos elem) applies-tos
-               archetype-type)]
+       (values parents default-attrs (set-add links-intos elem) applies-tos)]
       [(applies-to* _ _)
-       (values parents default-attrs links-intos (set-add applies-tos elem)
-                                                          archetype-type)]
+       (values parents default-attrs links-intos (set-add applies-tos elem))]
       [(archetype* atype-type)
        (if (archetype-type? atype-type)
-         (values parents default-attrs links-intos (set-add applies-tos elem)
-                 atype-type)
+         (values parents (hash-set default-attrs 'archetype-type atype-type)
+                 links-intos (set-add applies-tos elem))
          (raise-arguments-error 'nodeclass
            @~a{archetype must be is-value, is-node, or no-archetype,
                not @|atype-type|.}))])))
@@ -753,26 +754,37 @@
 ;; Archetypes
 ;; 
 
-(define (node->archetype-type g node)
-  (define nc (get-nodeclass* g (class-of g node)))
-  'STUB)
+(define (archetypes g)
+  (port->neighbors g '(slipnet archetypes)))
 
-(define (archetype-of-value g value)
-  'STUB)
+(define (node->archetype-type g node)
+  (get-node-attr g node 'archetype-type no-archetype))
+
+(define (archetype-of-value g value) ;TODO Extremely inefficient
+  (let loop ([atypes (archetypes g)])
+    (cond
+      [(null? atypes)
+       #f]
+      [(value-of-equal? g value (car atypes))
+       (car atypes)]
+      [else (loop (cdr atypes))])))
 
 ; Makes archetype for node if one does not already exist. Links it to
 ; 'slipnet node if it's not already linked. Returns two values: g archetype.
 ; If the node does not get an archetype, returns g <void>.
 (define (make-archetype-for-node g node)
-  (match (node->archetype-type g node)
+  (match #R (node->archetype-type g #R node)
     [(? no-archetype?) (values g (void))]
     [(? is-node?)
      (values (link-in-new-archetype g node) node)]
     [(? is-value?)
      (cond
-       [(archetype-of-value g (value-of node))
-        => (λ (found-archetype) (values g found-archetype))]
-       [else (make-archetype-for-value g (value-of node))])]))
+       [(archetype-of-value g (value-of g node))
+        => (λ (found-archetype) (values g #R found-archetype))]
+       [else (make-archetype-for-value g (value-of g node))])]))
+
+;NEXT Add another nodeclass parameter to specify how to construct a name.
+;Then apply it to archetype.
 
 (define (make-archetype-for-value g value)
   (let*-values ([(g archetype) (make-node g 'archetype value)]
@@ -780,7 +792,7 @@
     (values g archetype)))
 
 (define (link-in-new-archetype g archetype)
-  (let ([slipnet (find-or-make-slipnet g)])
+  (let-values ([(g slipnet) (find-or-make-slipnet g)])
     (add-edge g `((,slipnet archetypes) (,archetype slipnet)))))
 
 (define (find-or-make-slipnet g)
@@ -793,7 +805,7 @@
 ;; Unit test
 ;; 
 
-#;(module+ test
+(module+ test
   (test-case "archetypes"
     (define archetype-test-spec
       (farg-model-spec
@@ -815,5 +827,8 @@
     (define plus (gdo make-node '+))
     (define equation (gdo make-node 'equation))
 
+    (define atype (gdo make-archetype-for-node number7))
+
+    (pr-graph g)
     ))
 

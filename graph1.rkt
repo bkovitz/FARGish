@@ -466,12 +466,11 @@
 (define (get-node-attrs g id) ;returns void if node not found
   (hash-ref (graph-ht-node->attrs g) id (void)))
 
-;; Returns void if either node or key not found.
-(define (get-node-attr g id k)
+(define (get-node-attr g id k [failure-result (void)])
   (let ([hm (get-node-attrs g id)])
     (if (void? hm)
       (void)
-      (hash-ref (get-node-attrs g id) k (void)))))
+      (hash-ref (get-node-attrs g id) k failure-result))))
 
 (define (set-node-attr g node k v)
   (if (has-node? g node)
