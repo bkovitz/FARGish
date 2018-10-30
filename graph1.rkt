@@ -40,7 +40,7 @@
 
 (define-unit graph-core@
   (import graph-name^)
-  (export graph-core^)
+  (export simple-graph-struct^ graph-core^)
 
   (struct graph (ht-node->attrs
                  ht-port->neighboring-ports
@@ -220,10 +220,12 @@
 (module+ test
   (define-compound-unit/infer g@
     (import)
-    (export graph-name^ graph-core^)
+    (export graph-name^ simple-graph-struct^ graph-core^)
     (link simple-graph-name@ graph-core@))
 
-  (define-values/invoke-unit g@ (import) (export graph-core^))
+  (define-values/invoke-unit g@
+    (import)
+    (export simple-graph-struct^ graph-core^))
 
   (test-case "make-node"
     (let*-values ([(g) empty-graph]
@@ -350,3 +352,88 @@
       ; node->neighbors
       (check-equal? (node->neighbors g node1) (set node2 tag1))))
   )
+
+;; ======================================================================
+;;
+;; graph-node-attrs@
+;;
+
+(define-unit graph-node-attrs@
+  (import simple-graph-struct^ graph-core^)
+  (export graph-node-attrs^)
+
+  ;;TODO UT
+  (define (get-node-attrs g id) ;returns void if node not found
+    (hash-ref (graph-ht-node->attrs g) id (void)))
+
+  ;; Returns void if either node or key not found.
+  (define (get-node-attr g id k)
+    (let ([hm (get-node-attrs g id)])
+      (if (void? hm)
+        (void)
+        (hash-ref (get-node-attrs g id) k (void)))))
+
+  ;TODO UT
+  (define (set-node-attr g node k v)
+    (if (has-node? g node)
+      (let ([attrs (get-node-attrs g node)])
+        (struct-copy graph g
+          [ht-node->attrs
+            (hash-set (graph-ht-node->attrs g) node (hash-set attrs k v))]))
+      g))
+
+  ;TODO UT
+  (define (update-node-attr g node k f failure-result)
+    (if (has-node? g node)
+      (let* ([attrs (get-node-attrs g node)]
+             [attrs (hash-update attrs k f failure-result)])
+        (struct-copy graph g
+          [ht-node->attrs
+            (hash-set (graph-ht-node->attrs g) node attrs)]))
+      g))
+  
+  ;TODO UT
+  (define (union-node-attrs g node override-attrs)
+      (let* ([attrs (get-node-attrs g node)]
+             [attrs (hash-union attrs override-attrs #:combine (λ (v0 v) v))])
+        (struct-copy graph g
+          [ht-node->attrs
+            (hash-set (graph-ht-node->attrs g) node attrs)])))
+
+  ;;TODO UT
+  ;; Returns value of id's attribute k, or #f if either node or key not found
+  (define (node-attr? g k id)
+    (let ([ht (get-node-attrs g id)])
+      (if (void? ht) #f (hash-ref ht k #f))))
+)
+
+(module+ test
+  (let ()
+    (define-compound-unit/infer get-node-attrs-test@
+      (import)
+      (export graph-core^ simple-graph-struct^ graph-node-attrs^)
+      (link simple-graph-name@ graph-core@ graph-node-attrs@))
+
+    (define-values/invoke-unit get-node-attrs-test@
+      (import)
+      (export simple-graph-struct^ graph-core^ graph-node-attrs^))
+
+    (test-case "get-node-attr"  
+      (let*-values ([(g target15) (make-node empty-graph
+                                             #hash((class . target15)))]
+                    [(g target15a) (make-node g #hash((class . target15)))])
+        (check-equal? (get-node-attr g 'target15 'name) 'target15)
+        (check-equal? (get-node-attr g 'target15 'class) 'target15)
+        (check-equal? (get-node-attr g 'target15 'id) 'target15)
+        (check-equal? (get-node-attr g 'target15a 'name) 'target15)
+        (check-equal? (get-node-attr g 'target15a 'class) 'target15)
+        (check-equal? (get-node-attr g 'target15a 'id) 'target15a)
+        (check-pred void? (get-node-attr g 'no-such-node 'id))
+        (check-pred void? (get-node-attr g 'target15 'no-such-attr))
+        
+        (check-false (node-attr? g 'no-such-node 'name))
+        (check-false (node-attr? g 'target15 'no-such-attr))
+        (check-not-false (node-attr? g 'target15 'name))
+        
+        ))))
+

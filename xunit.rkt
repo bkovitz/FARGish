@@ -75,7 +75,7 @@
 
 ;; ======================================================================
 ;;
-;;; Mutual reference
+;; Mutual reference
 ;; 
 
 (define-signature a^
@@ -108,3 +108,29 @@
 (define-values/invoke-unit ab@ (import) (export a^ b^))
 
 (a '(1 2 3) '())
+
+;; ======================================================================
+;;
+;; Importing a struct
+;; 
+;; Apparently it doesn't work:
+;;
+;;  struct-copy: not all accessors are statically known for structure type in: S
+
+(define-signature struct^
+  ((struct S (x y))))
+
+(define-unit defstruct^
+  (import)
+  (export struct^)
+  (struct S (x y)))
+
+(define-unit test-struct@
+  (import struct^)
+  (export)
+
+  (define s (S 100 200))
+  (define t (struct-copy S s [x 300]))
+  (list (S-x t) (S-y t)))
+
+(invoke-unit test-struct@)

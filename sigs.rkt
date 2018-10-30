@@ -5,10 +5,7 @@
 (provide (all-defined-out))
 
 (define-signature graph-core^
-  (empty-graph
-   graph?
-
-   make-node  ; g attrs -> g nodeid
+  (make-node  ; g attrs -> g nodeid
    remove-node
    add-node
    add-edge
@@ -35,6 +32,16 @@
    ;gdo
    ))
 
+(define-signature simple-graph-struct^
+  ((struct graph (ht-node->attrs
+                 ht-port->neighboring-ports
+                 edges
+                 id-set
+                 stacks  ; dict of temp vars for do-graph-edits
+                 vars    ; hash-table of vars: name -> value
+                 spec))
+   empty-graph))
+
 (define-signature graph-name^
   (ensure-node-name)) ; g attrs -> attrs name
 
@@ -44,8 +51,7 @@
    update-node-attr
    get-node-attrs
    union-node-attrs
-   node-attr?
-   graph-edge-weight))
+   node-attr?))
 
 (define-signature graph-vars^
   (graph-set-var
