@@ -4,9 +4,8 @@
 #lang debug at-exp racket
 
 (require errortrace)
-(require "wheel.rkt" "xsusp3.rkt" "fargish.rkt" (prefix-in g: "graph.rkt")
-         (prefix-in g: "make-graph1.rkt")
-         (only-in "graph.rkt" pr-graph pr-group pr-node))
+(require "wheel.rkt" "xsusp3.rkt" "fargish.rkt" (prefix-in g: "graph1.rkt")
+         (prefix-in g: "make-graph1.rkt"))
 (require racket/set racket/hash)
 (require rackunit racket/pretty describe)
 
@@ -37,7 +36,7 @@
       (links-into 'ctx (by-ports 'target 'result) as-member))
     (nodeclass brick
       (is-a 'number)
-      (links-into 'ctx (by-ports 'bricks 'result) as-member))
+      (links-into 'ctx (by-ports 'bricks 'source) as-member))
     (nodeclass operator)
     (nodeclass +
       (is-a 'operator))
@@ -67,14 +66,14 @@
 (define (make-numbo-g . args)
   (first-value (apply make-numbo-ws (make-empty-graph spec) args)))
 
-#;(module+ test
+(module+ test
   (test-case "numbo-ws"
     (let*-values ([(g) (make-empty-graph spec)]
                   ;[(_) (pretty-print (get-spec g))]
                   [(g ws) (make-numbo-ws g '(4 5 6) 15)])
-      (pr-graph g)
-      #f
+      ;(pr-graph g)
       ;TODO
+      (void)
       )))
 
 ;; ======================================================================
@@ -109,12 +108,12 @@
 
 
     (let ([g (g:do-graph-edits g '((:begin (:node number 9) (:node operator + +)
-                                   (:edge (brick4 result) (+ operands))
-                                   (:edge (brick5 result) (+ operands))
-                                   (:edge (+ result) (number9 source)))))])
+                                   (:edge (4 result) (+ operands))
+                                   (:edge (5 result) (+ operands))
+                                   (:edge (+ result) (9 source)))))])
       (check-false (done? g))
       (let ([g (g:do-graph-edits g '((:let ([+ (:node operator + +)])
-                                     (:edge (number9 result) (+ operands))
-                                     (:edge (brick6 result) (+ operands))
-                                     (:edge (+ result) (target15 source)))))])
+                                     (:edge (9 result) (+ operands))
+                                     (:edge (6 result) (+ operands))
+                                     (:edge (+ result) (15 source)))))])
         (check-true (done? g)) ))))

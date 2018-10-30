@@ -20,7 +20,8 @@
   (farg-model
     (nodeclass ws
       (is-a 'ctx))
-    (nodeclass (number n))
+    (nodeclass (number n)
+      (archetype is-value))
     (nodeclass (brick n)
       (is-a 'number)
       (links-into 'ctx (by-ports 'bricks 'source) as-member))
@@ -28,7 +29,11 @@
       (is-a 'number)
       (links-into 'ctx (by-ports 'target 'result) as-member))
     (nodeclasses (+ - * /)
-      (is-a 'operator))
+      (is-a 'operator)
+      (archetype is-value))
+    (nodeclass equation
+      (is-a 'ctx)
+      (archetype is-node))
     (tagclass (needs source)
       (is-a 'problem-tag)
       (applies-to (node (of-class 'number) (by-ports 'tagged 'tags))

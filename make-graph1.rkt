@@ -12,14 +12,14 @@
 ;; Data structure for port graphs
 
 (require "wheel.rkt"
-         (except-in "graph.rkt" make-node add-node add-edge class-of
-                                port->neighbor port->neighbors)
+         (except-in "graph1.rkt" make-node add-node add-edge
+                                 port->neighbor port->neighbors)
          "fargish.rkt")
 
 (require rackunit data/collection racket/generic racket/struct
          racket/dict racket/pretty describe)
 
-(provide make-graph do-graph-edits check-desiderata tag?)
+(provide make-graph do-graph-edits)
 
 (define (current-groupid g)
   (graph-get-var g 'groupid (void)))
@@ -200,21 +200,13 @@
       `(:node ,(class-of g node))]
     [`(add-tag ,tag . ,nodes)
       (apply add-tag g tag nodes)]
-;    [`(add-tag ,tag . ,nodes)
-;      `(:let ([:tag (:node ,(tag->attrs tag))])
-;         ,@(for/list ([node nodes])
-;             `(:edge (:tag tagged) (,node tags))))]
-;    [`(add-tag2 ,tag ,node1 ,node2) ;asymmetric tag
-;      `(:let ([:tag (:node ,(tag->attrs tag))])
-;         (:edge (:tag tagged-a) (,node1 tags))
-;         (:edge (:tag tagged-b) (,node2 tags)))]
-    [`(bind ,a ,b)
-      `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
-    [`(succ ,a ,b . ,more)
-      (let loop ([a a] [b b] [more more])
-        `(:begin
-           (:edgenode succ ,a ,b (succ-to succ-from) (succ-to succ-from))
-           ,@(if (null? more) '() (list (loop b (car more) (cdr more))))))]
+;    [`(bind ,a ,b)
+;      `(:edgenode bind ,a ,b (bound-to bind-from) (bind-to bound-from))]
+;    [`(succ ,a ,b . ,more)
+;      (let loop ([a a] [b b] [more more])
+;        `(:begin
+;           (:edgenode succ ,a ,b (succ-to succ-from) (succ-to succ-from))
+;           ,@(if (null? more) '() (list (loop b (car more) (cdr more))))))]
     [`(boost-salience ,node)
       `(:update-attr ,node salience ,(λ (old) (+ old 1.0)) 0.0)]
     [`(reduce-salience ,node)
@@ -228,7 +220,6 @@
       [`((:node . ,args) . ,more)
         (recur (add-node/mg g args) more)]
       [`((:edge ,port1 ,port2) . ,more)
-        (pr-graph g) ;DEBUG
         (let*-values ([(g p1) (get-port g port1)]
                       [(g p2) (get-port g port2)]
                       [(edge) `(,p1 ,p2)]
@@ -351,19 +342,17 @@
                     (set 'inner 'a 'b 'e))
       (check-equal? (list->set (members-of g 'inner))
                     (set 'c 'd))))
-  (test-case "bind"
-    (let ([g (make-graph 'a 'b '(bind a b))])
-      (check-true (bound-to? g 'a 'b))
-      (check-true (bound-from? g 'b 'a))))
-  (test-case "succ"
-    (let ([g (make-graph 'a 'b 'c '(succ a b c))])
-      (check-true (succ? g 'a 'b))
-      (check-true (succ? g 'b 'c)))))
+;  (test-case "bind"
+;    (let ([g (make-graph 'a 'b '(bind a b))])
+;      (check-true (bound-to? g 'a 'b))
+;      (check-true (bound-from? g 'b 'a))))
+;  (test-case "succ"
+;    (let ([g (make-graph 'a 'b 'c '(succ a b c))])
+;      (check-true (succ? g 'a 'b))
+;      (check-true (succ? g 'b 'c))))
+  )
 
 ;; Tags
-
-(define (tag? g node)
-  (node-attr? g 'tag? node))
 
 (module+ test
   (test-case "placeholder class, name, and value"
@@ -371,20 +360,20 @@
         (check-equal? (get-node-attr g 'x 'class) 'letter)
         (check-pred placeholder? (get-node-attr g 'x 'value)))))
 
-;; Desiderata
-
-; Eventually this should get a third argument: the node with the desiderata,
-; or the group in which to search.
-(define (check-desiderata g)
-  (define nodes-of-interest (find-nodes-of-class g 'bind))
-  (for/hash ([node nodes-of-interest])
-    (values node (port->neighbors g `(,node basis)))))
-
-(module+ test
-  (test-case "check-desiderata"
-    (let* ([g (make-graph 'a 'b 'x '(bind a b))]
-           [desiderata-status (check-desiderata g)])
-      (check-equal? desiderata-status #hash((bind . ())))
-      (let* ([g (add-edge g '((bind basis) (x basis-of)))]
-           [desiderata-status (check-desiderata g)])
-        (check-equal? desiderata-status #hash((bind . (x))))))))
+;;; Desiderata
+;
+;; Eventually this should get a third argument: the node with the desiderata,
+;; or the group in which to search.
+;(define (check-desiderata g)
+;  (define nodes-of-interest (find-nodes-of-class g 'bind))
+;  (for/hash ([node nodes-of-interest])
+;    (values node (port->neighbors g `(,node basis)))))
+;
+;(module+ test
+;  (test-case "check-desiderata"
+;    (let* ([g (make-graph 'a 'b 'x '(bind a b))]
+;           [desiderata-status (check-desiderata g)])
+;      (check-equal? desiderata-status #hash((bind . ())))
+;      (let* ([g (add-edge g '((bind basis) (x basis-of)))]
+;           [desiderata-status (check-desiderata g)])
+;        (check-equal? desiderata-status #hash((bind . (x))))))))
