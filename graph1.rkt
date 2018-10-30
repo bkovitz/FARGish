@@ -2,231 +2,210 @@
 
 #lang debug at-exp racket
 
-(require "wheel.rkt" "sigs.rkt" "id-set.rkt" "sigs.rkt")
+(require "wheel.rkt" "id-set.rkt")
 (require (for-syntax racket/syntax) racket/syntax)
 (require racket/hash)
 (require expect/rackunit (only-in rackunit test-case))
 (require racket/pretty describe debug/repl racket/enter)
 
-;(require rackunit racket/generic racket/struct "id-set.rkt"
-;         racket/dict racket/pretty describe mischief/memoize) 
-;(require racket/serialize)
 
 ;; ======================================================================
 ;;
-;; simple-graph-name@
+;; The graph representation
 ;;
 
-(define-unit simple-graph-name@
-  (import)
-  (export graph-name^)
+(struct graph (ht-node->attrs
+               ht-port->neighboring-ports
+               edges
+               id-set
+               stacks  ; dict of temp vars for do-graph-edits
+               vars    ; hash-table of vars: name -> value
+               spec) #:prefab)
 
-  (define (ensure-node-name g attrs)
-    (define (set-name-and-return name)
-      (values (hash-set attrs 'name name) name))
-    (cond
-      [(hash-ref attrs 'name #f)
-       => (λ (name) (values attrs name))]
-      [(hash-ref attrs 'value #f)
-       => set-name-and-return]
-      [(hash-ref attrs 'class #f)
-       => set-name-and-return]
-      [else (set-name-and-return 'UNKNOWN)])))
+(define empty-spec #hash())
+(define empty-graph
+  (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
 
-;; ======================================================================
+;; ----------------------------------------------------------------------
 ;;
-;; graph-core@
+;; Making and removing nodes
 ;;
 
-(define-unit graph-core@
-  (import graph-name^)
-  (export simple-graph-struct^ graph-core^)
+; Returns two values: g nodeid
+(define (make-node g attrs)
+  (let*-values ([(attrs name) (ensure-node-name g attrs)]
+                [(id-set id) (gen-id (graph-id-set g) name)]
+                [(attrs) (hash-set attrs 'id id)]
+                [(g) (let ([ht (graph-ht-node->attrs g)])
+                       (struct-copy graph g
+                         [ht-node->attrs (hash-set ht id attrs)]
+                         [id-set id-set]))])
+    (values g id)))
 
-  (struct graph (ht-node->attrs
-                 ht-port->neighboring-ports
-                 edges
-                 id-set
-                 stacks  ; dict of temp vars for do-graph-edits
-                 vars    ; hash-table of vars: name -> value
-                 spec) #:prefab)
+(define (add-node . args)
+  (first-value (apply make-node args)))
 
-  (define empty-spec #hash())
-  (define empty-graph
-    (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
+(define (remove-node g node)
+  (let ([g (for/fold ([g g])
+                     ([edge (node->incident-hops g node)])
+             (remove-edge g edge))])
+    (struct-copy graph g
+      [ht-node->attrs (hash-remove (graph-ht-node->attrs g) node)])))
 
-  ;; ----------------------------------------------------------------------
-  ;;
-  ;; Making and removing nodes
-  ;;
+(define (ensure-node-name g attrs)
+  (define (set-name-and-return name)
+    (values (hash-set attrs 'name name) name))
+  (cond
+    [(hash-ref attrs 'name #f)
+     => (λ (name) (values attrs name))]
+    [(hash-ref attrs 'value #f)
+     => set-name-and-return]
+    [(hash-ref attrs 'class #f)
+     => set-name-and-return]
+    [else (set-name-and-return 'UNKNOWN)]))
 
-  ; Returns two values: g nodeid
-  (define (make-node g attrs)
-    (let*-values ([(attrs name) (ensure-node-name g attrs)]
-                  [(id-set id) (gen-id (graph-id-set g) name)]
-                  [(attrs) (hash-set attrs 'id id)]
-                  [(g) (let ([ht (graph-ht-node->attrs g)])
-                         (struct-copy graph g
-                           [ht-node->attrs (hash-set ht id attrs)]
-                           [id-set id-set]))])
-      (values g id)))
+;; ----------------------------------------------------------------------
+;;
+;; Making and removing edges
+;;
 
-  (define (add-node . args)
-    (first-value (apply make-node args)))
+(define (edge->set edge)
+  (cond
+    [(set? edge) edge]
+    [(pair? edge) (list->set edge)]
+    [else (raise-argument-error 'edge->set
+            "edge must be set of two ports or list of two ports" edge)]))
 
-  (define (remove-node g node)
-    (let ([g (for/fold ([g g])
-                       ([edge (node->incident-hops g node)])
-               (remove-edge g edge))])
-      (struct-copy graph g
-        [ht-node->attrs (hash-remove (graph-ht-node->attrs g) node)])))
+(define (edge->list edge)
+  (cond
+    [(pair? edge) edge]
+    [(set? edge) (set->list edge)]
+    [else (raise-argument-error 'edge->list
+            "edge must be set of two ports or list of two ports" edge)]))
 
-  ;; ----------------------------------------------------------------------
-  ;;
-  ;; Making and removing edges
-  ;;
-
-  (define (edge->set edge)
-    (cond
-      [(set? edge) edge]
-      [(pair? edge) (list->set edge)]
-      [else (raise-argument-error 'edge->set
-              "edge must be set of two ports or list of two ports" edge)]))
-
-  (define (edge->list edge)
-    (cond
-      [(pair? edge) edge]
-      [(set? edge) (set->list edge)]
-      [else (raise-argument-error 'edge->list
-              "edge must be set of two ports or list of two ports" edge)]))
-  
-  ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
-  ;Doesn't add the edge if it already exists, but will change its weight.
-  (define (add-edge g edge [weight 1.0])
-    (let ([edge (edge->list edge)])
-      (match-define `(,port1 ,port2) edge)
-      (define edges (graph-edges g))
-      (let* ([p->nps (graph-ht-port->neighboring-ports g)]
-             [p->nps (hash-update p->nps
-                                  port1
-                                  (λ (st) (set-add st port2))
-                                  empty-set)]
-             [p->nps (hash-update p->nps
-                                  port2
-                                  (λ (st) (set-add st port1))
-                                  empty-set)])
-        (struct-copy graph g
-          [edges (hash-set edges (set port1 port2) weight)]
-          [ht-port->neighboring-ports p->nps]))))
-
-  ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
-  (define (remove-edge g e)
-    (define edge (edge->list e))
+;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
+;Doesn't add the edge if it already exists, but will change its weight.
+(define (add-edge g edge [weight 1.0])
+  (let ([edge (edge->list edge)])
     (match-define `(,port1 ,port2) edge)
-    (define edge* (edge->set e))
+    (define edges (graph-edges g))
     (let* ([p->nps (graph-ht-port->neighboring-ports g)]
            [p->nps (hash-update p->nps
                                 port1
-                                (λ (st) (set-remove st port2))
+                                (λ (st) (set-add st port2))
                                 empty-set)]
            [p->nps (hash-update p->nps
                                 port2
-                                (λ (st) (set-remove st port1))
+                                (λ (st) (set-add st port1))
                                 empty-set)])
       (struct-copy graph g
-        [edges (hash-remove (graph-edges g) edge*)]
-        [ht-port->neighboring-ports p->nps])))
+        [edges (hash-set edges (set port1 port2) weight)]
+        [ht-port->neighboring-ports p->nps]))))
 
-  ;; ----------------------------------------------------------------------
-  ;;
-  ;; Querying existence of nodes and edges
-  ;;
+;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
+(define (remove-edge g e)
+  (define edge (edge->list e))
+  (match-define `(,port1 ,port2) edge)
+  (define edge* (edge->set e))
+  (let* ([p->nps (graph-ht-port->neighboring-ports g)]
+         [p->nps (hash-update p->nps
+                              port1
+                              (λ (st) (set-remove st port2))
+                              empty-set)]
+         [p->nps (hash-update p->nps
+                              port2
+                              (λ (st) (set-remove st port1))
+                              empty-set)])
+    (struct-copy graph g
+      [edges (hash-remove (graph-edges g) edge*)]
+      [ht-port->neighboring-ports p->nps])))
 
-  (define (has-node? g id)
-    (hash-has-key? (graph-ht-node->attrs g) id))
+;; ----------------------------------------------------------------------
+;;
+;; Querying existence of nodes and edges
+;;
 
-  (define (has-edge? g edge)
-    (hash-has-key? (graph-edges g) (edge->set edge)))
+(define (has-node? g id)
+  (hash-has-key? (graph-ht-node->attrs g) id))
 
-  (define (all-nodes g)
-    (hash-keys (graph-ht-node->attrs g)))
+(define (has-edge? g edge)
+  (hash-has-key? (graph-edges g) (edge->set edge)))
 
-  (define (all-edges g)
-    (hash-keys (graph-edges g)))
+(define (all-nodes g)
+  (hash-keys (graph-ht-node->attrs g)))
 
-  (define (graph-edge-weight g edge)
-    (let ([edge (if (set? edge) (set->list edge) edge)])
-      (match-define `(,port1 ,port2) edge)
-      (define edge* (set port1 port2))
-      (hash-ref (graph-edges g) edge* (void))))
+(define (all-edges g)
+  (hash-keys (graph-edges g)))
 
-  ;; ----------------------------------------------------------------------
-  ;;
-  ;; Neighbors
-  ;;
+(define (graph-edge-weight g edge)
+  (let ([edge (if (set? edge) (set->list edge) edge)])
+    (match-define `(,port1 ,port2) edge)
+    (define edge* (set port1 port2))
+    (hash-ref (graph-edges g) edge* (void))))
 
-  (define (port->neighboring-ports g port)
-    (define p->nps (graph-ht-port->neighboring-ports g))
-    (hash-ref p->nps port '()))
+;; ----------------------------------------------------------------------
+;;
+;; Neighbors
+;;
 
-  (define (port->neighbors g port)
-    (define p->nps (graph-ht-port->neighboring-ports g))
-    (for/list ([neighboring-port (in-set (hash-ref p->nps port empty-set))])
-      (match-define (list neighbor _) neighboring-port)
-      neighbor))
+(define (port->neighboring-ports g port)
+  (define p->nps (graph-ht-port->neighboring-ports g))
+  (hash-ref p->nps port '()))
 
-  (define (port->neighbor g port)
-    (match (port->neighbors g port)
-      ['() (void)]
-      [`(,neighbor . ,_) neighbor]))
+(define (port->neighbors g port)
+  (define p->nps (graph-ht-port->neighboring-ports g))
+  (for/list ([neighboring-port (in-set (hash-ref p->nps port empty-set))])
+    (match-define (list neighbor _) neighboring-port)
+    neighbor))
 
-  (define (port-neighbor? g port node)
-    (for/or ([neighbor (port->neighbors g port)])
-      (equal? neighbor node)))
-  
-  ;Returns a set of nodes
-  (define (port->port-label->nodes g from-port to-port-label)
-    (for/fold ([nodes empty-set])
-              ([nport (port->neighboring-ports g from-port)])
-      (match-define `(,nport-node ,nport-label) nport)
-      (if (equal? to-port-label nport-label)
-        (set-add nodes nport-node)
-        nodes)))
+(define (port->neighbor g port)
+  (match (port->neighbors g port)
+    ['() (void)]
+    [`(,neighbor . ,_) neighbor]))
 
-  ;Returns a list of edges, each edge represented as a set
-  (define (port->incident-edges g port)
-    (for/list ([nport (port->neighboring-ports g port)])
-      (set port nport)))
+(define (port-neighbor? g port node)
+  (for/or ([neighbor (port->neighbors g port)])
+    (equal? neighbor node)))
 
-  ;TODO Inefficient
-  (define (node->ports g node)
-    (for/list ([port (hash-keys (graph-ht-port->neighboring-ports g))]
-               #:when (equal? node (car port)))
-      port))
+;Returns a set of nodes
+(define (port->port-label->nodes g from-port to-port-label)
+  (for/fold ([nodes empty-set])
+            ([nport (port->neighboring-ports g from-port)])
+    (match-define `(,nport-node ,nport-label) nport)
+    (if (equal? to-port-label nport-label)
+      (set-add nodes nport-node)
+      nodes)))
 
-  ;Returns list of lists, each of which represents an edge; first port of
-  ;edge is the node's port
-  (define (node->incident-hops g node)
-    (for*/list ([port (node->ports g node)]
-                [nport (port->neighboring-ports g port)])
-      `(,port ,nport)))
+;Returns a list of edges, each edge represented as a set
+(define (port->incident-edges g port)
+  (for/list ([nport (port->neighboring-ports g port)])
+    (set port nport)))
 
-  ;Returns set of nodes
-  (define (node->neighbors g node)
-    (for*/set ([port (node->ports g node)]
-               [neighbor (port->neighbors g port)])
-      neighbor))
-  )
+;TODO Inefficient
+(define (node->ports g node)
+  (for/list ([port (hash-keys (graph-ht-port->neighboring-ports g))]
+             #:when (equal? node (car port)))
+    port))
+
+;Returns list of lists, each of which represents an edge; first port of
+;edge is the node's port
+(define (node->incident-hops g node)
+  (for*/list ([port (node->ports g node)]
+              [nport (port->neighboring-ports g port)])
+    `(,port ,nport)))
+
+;Returns set of nodes
+(define (node->neighbors g node)
+  (for*/set ([port (node->ports g node)]
+             [neighbor (port->neighbors g port)])
+    neighbor))
+
+;; ======================================================================
+;;
+;; Unit tests
+;;
 
 (module+ test
-  (define-compound-unit/infer g@
-    (import)
-    (export graph-name^ simple-graph-struct^ graph-core^)
-    (link simple-graph-name@ graph-core@))
-
-  (define-values/invoke-unit g@
-    (import)
-    (export simple-graph-struct^ graph-core^))
-
   (test-case "make-node"
     (let*-values ([(g) empty-graph]
                   [(_) (check-false (has-node? g 5))]
@@ -355,85 +334,86 @@
 
 ;; ======================================================================
 ;;
-;; graph-node-attrs@
+;; Node attributes
 ;;
 
-(define-unit graph-node-attrs@
-  (import simple-graph-struct^ graph-core^)
-  (export graph-node-attrs^)
+(define (get-node-attrs g id) ;returns void if node not found
+  (hash-ref (graph-ht-node->attrs g) id (void)))
 
-  ;;TODO UT
-  (define (get-node-attrs g id) ;returns void if node not found
-    (hash-ref (graph-ht-node->attrs g) id (void)))
+;; Returns void if either node or key not found.
+(define (get-node-attr g id k)
+  (let ([hm (get-node-attrs g id)])
+    (if (void? hm)
+      (void)
+      (hash-ref (get-node-attrs g id) k (void)))))
 
-  ;; Returns void if either node or key not found.
-  (define (get-node-attr g id k)
-    (let ([hm (get-node-attrs g id)])
-      (if (void? hm)
-        (void)
-        (hash-ref (get-node-attrs g id) k (void)))))
+(define (set-node-attr g node k v)
+  (if (has-node? g node)
+    (let ([attrs (get-node-attrs g node)])
+      (struct-copy graph g
+        [ht-node->attrs
+          (hash-set (graph-ht-node->attrs g) node (hash-set attrs k v))]))
+    g))
 
-  ;TODO UT
-  (define (set-node-attr g node k v)
-    (if (has-node? g node)
-      (let ([attrs (get-node-attrs g node)])
-        (struct-copy graph g
-          [ht-node->attrs
-            (hash-set (graph-ht-node->attrs g) node (hash-set attrs k v))]))
-      g))
+(define (update-node-attr g node k f failure-result)
+  (if (has-node? g node)
+    (let* ([attrs (get-node-attrs g node)]
+           [attrs (hash-update attrs k f failure-result)])
+      (struct-copy graph g
+        [ht-node->attrs
+          (hash-set (graph-ht-node->attrs g) node attrs)]))
+    g))
 
-  ;TODO UT
-  (define (update-node-attr g node k f failure-result)
-    (if (has-node? g node)
-      (let* ([attrs (get-node-attrs g node)]
-             [attrs (hash-update attrs k f failure-result)])
-        (struct-copy graph g
-          [ht-node->attrs
-            (hash-set (graph-ht-node->attrs g) node attrs)]))
-      g))
-  
-  ;TODO UT
-  (define (union-node-attrs g node override-attrs)
-      (let* ([attrs (get-node-attrs g node)]
-             [attrs (hash-union attrs override-attrs #:combine (λ (v0 v) v))])
-        (struct-copy graph g
-          [ht-node->attrs
-            (hash-set (graph-ht-node->attrs g) node attrs)])))
+(define (union-node-attrs g node override-attrs)
+    (let* ([attrs (get-node-attrs g node)]
+           [attrs (hash-union attrs override-attrs #:combine (λ (v0 v) v))])
+      (struct-copy graph g
+        [ht-node->attrs
+          (hash-set (graph-ht-node->attrs g) node attrs)])))
 
-  ;;TODO UT
-  ;; Returns value of id's attribute k, or #f if either node or key not found
-  (define (node-attr? g k id)
-    (let ([ht (get-node-attrs g id)])
-      (if (void? ht) #f (hash-ref ht k #f))))
-)
+;;TODO Update calling code: argument order is reversed
+;; Returns value of id's attribute k, or #f if either node or key not found
+(define (node-attr? g node k)
+  (let ([ht (get-node-attrs g node)])
+    (if (void? ht) #f (hash-ref ht k #f))))
+
+;; ======================================================================
+;;
+;; Unit tests
+;;
 
 (module+ test
-  (let ()
-    (define-compound-unit/infer get-node-attrs-test@
-      (import)
-      (export graph-core^ simple-graph-struct^ graph-node-attrs^)
-      (link simple-graph-name@ graph-core@ graph-node-attrs@))
+  (test-case "node attrs"  
+    (let*-values ([(g target15) (make-node empty-graph
+                                   #hash((name . target15) (class . target)))]
+                  [(g target15a) (make-node g
+                                   #hash((name . target15) (class .  target)))])
+      (check-equal? (get-node-attr g 'target15 'name) 'target15)
+      (check-equal? (get-node-attr g 'target15 'class) 'target)
+      (check-equal? (get-node-attr g 'target15 'id) 'target15)
+      (check-equal? (get-node-attr g 'target15a 'name) 'target15)
+      (check-equal? (get-node-attr g 'target15a 'class) 'target)
+      (check-equal? (get-node-attr g 'target15a 'id) 'target15a)
+      (check-pred void? (get-node-attr g 'no-such-node 'id))
+      (check-pred void? (get-node-attr g 'target15 'no-such-attr))
+      
+      (check-false (node-attr? g 'no-such-node 'name))
+      (check-false (node-attr? g 'target15 'no-such-attr))
+      (check-not-false (node-attr? g 'target15 'name))
 
-    (define-values/invoke-unit get-node-attrs-test@
-      (import)
-      (export simple-graph-struct^ graph-core^ graph-node-attrs^))
-
-    (test-case "get-node-attr"  
-      (let*-values ([(g target15) (make-node empty-graph
-                                             #hash((class . target15)))]
-                    [(g target15a) (make-node g #hash((class . target15)))])
-        (check-equal? (get-node-attr g 'target15 'name) 'target15)
-        (check-equal? (get-node-attr g 'target15 'class) 'target15)
-        (check-equal? (get-node-attr g 'target15 'id) 'target15)
-        (check-equal? (get-node-attr g 'target15a 'name) 'target15)
-        (check-equal? (get-node-attr g 'target15a 'class) 'target15)
-        (check-equal? (get-node-attr g 'target15a 'id) 'target15a)
-        (check-pred void? (get-node-attr g 'no-such-node 'id))
-        (check-pred void? (get-node-attr g 'target15 'no-such-attr))
-        
-        (check-false (node-attr? g 'no-such-node 'name))
-        (check-false (node-attr? g 'target15 'no-such-attr))
-        (check-not-false (node-attr? g 'target15 'name))
-        
-        ))))
-
+      (let*-values ([(g) (set-node-attr g 'target15 'support 0.64)]
+                    [(_) (check-equal? (get-node-attr g 'target15 'support)
+                                       0.64)]
+                    [(g) (update-node-attr g 'target15
+                                             'support
+                                             (curry + 0.1)
+                                             0.0)]
+                    [(_) (check-equal? (get-node-attr g 'target15 'support)
+                                       0.74)]
+                    [(g) (union-node-attrs g 'target15
+                           #hash((tob . 10) (support . 0.4)))]
+                    [(_) (check-equal? (get-node-attrs g 'target15)
+                           #hash((name . target15) (id . target15)
+                                 (class . target) (support . 0.4)
+                                 (tob . 10)))])
+        (void)))))

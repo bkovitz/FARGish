@@ -1,0 +1,6 @@
+A failed attempt at dividing graph.rkt into units, with the intention
+of doing the same to numbo0.rkt. Obstacle: struct-copy doesn't work
+inside a unit unless the struct is defined in the same unit. This
+could be gotten around, but it's tough to say whether the benefits
+of units would make up for nuisances like this one and whatever unknown
+ones await.
