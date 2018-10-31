@@ -783,13 +783,21 @@
         => (λ (found-archetype) (values g #R found-archetype))]
        [else (make-archetype-for-value g (value-of g node))])]))
 
-;NEXT Add another nodeclass parameter to specify how to construct a name.
+;TODO Add another nodeclass parameter to specify how to construct a name.
 ;Then apply it to archetype.
+;HACK for now: name it here.
 
 (define (make-archetype-for-value g value)
   (let*-values ([(g archetype) (make-node g 'archetype value)]
                 [(g) (link-in-new-archetype g archetype)])
     (values g archetype)))
+
+(define (archetype-name value)
+  (string->symbol (string-append "archetype"
+    (cond
+      [(number? value) (~a value)]
+      [(symbol? value) (~a value)]
+      [(pair? value) (
 
 (define (link-in-new-archetype g archetype)
   (let-values ([(g slipnet) (find-or-make-slipnet g)])
