@@ -659,7 +659,7 @@
     (raise 'nothing-to-do))
   (car (argmax cdr group-activations)))
 
-;TODO Move this to a util file
+;TODO Move this to a util file DONE rm this
 (define (sorted xs)
   (sort (hash->list xs) string<? #:key ~a))
 

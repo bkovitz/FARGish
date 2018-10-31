@@ -523,12 +523,15 @@
 (define (make-empty-graph spec)
   (struct-copy g:graph g:empty-graph [spec spec]))
 
+(define (basic-attrs classname value)
+  (if (void? value)
+    (hash 'class classname)
+    (hash 'class classname 'value value)))
+
 ;NEXT Allow name, other overriding attrs, after value.
 ;; Returns two values: g nodeid
 (define/g (make-node g classname [value (void)])
-  (make-node-with-attrs g (if (void? value)
-                            (hash 'class classname)
-                            (hash 'class classname 'value value))))
+  (make-node-with-attrs g (basic-attrs classname value)))
 ;  (define nodeclass (hash-ref (get-nodeclasses g) classname
 ;                              (λ ()
 ;                                (raise-arguments-error 'make-node
@@ -564,8 +567,8 @@
       (g:add-edge g `((,ctx ,from-port-label) (,node ,to-port-label))))))
 
 ;; Returns two values: g nodeid
-(define/g (make-node/in g ctx classname value)
-  (make-node-with-attrs/in g ctx (hash 'class classname 'value value)))
+(define/g (make-node/in g ctx classname [value (void)])
+  (make-node-with-attrs/in g ctx (basic-attrs classname value)))
 
 (define/g (link-to g by-portss from-node to-node)
   (let* ([by-portss (match by-portss

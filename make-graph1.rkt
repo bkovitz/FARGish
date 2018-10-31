@@ -16,8 +16,8 @@
                                  port->neighbor port->neighbors)
          "fargish.rkt")
 
-(require rackunit data/collection racket/generic racket/struct
-         racket/dict racket/pretty describe)
+(require rackunit racket/struct
+         racket/pretty describe)
 
 (provide make-graph do-graph-edits)
 

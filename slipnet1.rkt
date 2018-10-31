@@ -65,7 +65,7 @@
         (is-a 'ctx)
         (archetype is-value))
       (nodeclass operator
-        (archetype is-value))
+        (archetype is-class))
       (nodeclass +
         (is-a 'operator))
       (nodeclass equation

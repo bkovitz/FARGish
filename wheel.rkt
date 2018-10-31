@@ -7,6 +7,18 @@
 (define empty-set (set))
 (define empty-hash (hash))
 
+(define (->list x)
+  (cond
+    [(pair? x) x]
+    [(hash? x) (hash->list x)]
+    [else x]))
+
+(define (sorted xs)
+  (sort (->list xs) string<? #:key ~a))
+
+(define (sorted-by-cdr ht)
+  (sort (hash->list ht) < #:key cdr))
+
 (define (hash-ref/sk ht key sk fk)
   (let ([value (hash-ref ht key (void))])
     (cond
