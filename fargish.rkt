@@ -231,26 +231,33 @@
 (define is-value
   (let ()
     (struct is-value* [] #:prefab)
-    is-value*))
+    (is-value*)))
 
 (define (is-value? x) (eq? x is-value))
 
 (define is-node
   (let ()
     (struct is-node* [] #:prefab)
-    is-node*))
+    (is-node*)))
 
 (define (is-node? x) (eq? x is-node))
 
 (define no-archetype
   (let ()
     (struct no-archetype* [] #:prefab)
-    no-archetype*))
+    (no-archetype*)))
 
 (define (no-archetype? x) (eq? x no-archetype))
 
+(define is-class
+  (let ()
+    (struct is-class* [] #:prefab)
+    (is-class*)))
+
+(define (is-class? x) (eq? x is-class))
+
 (define (archetype-type? x)
-  (or (is-value? x) (is-node? x) (no-archetype? x)))
+  (or (is-value? x) (is-node? x) (no-archetype? x) (is-class? x)))
 
 ;; ======================================================================
 ;;
@@ -772,23 +779,30 @@
 ; Makes archetype for node if one does not already exist. Links it to
 ; 'slipnet node if it's not already linked. Returns two values: g archetype.
 ; If the node does not get an archetype, returns g <void>.
-(define (make-archetype-for-node g node)
-  (match #R (node->archetype-type g #R node)
+(define (get-or-make-archetype-for-node g node)
+  (define (get-or-make avalue)
+    (cond
+      [(archetype-of-value g avalue)
+       => (λ (found-archetype) (values g found-archetype))]
+      [else (make-archetype-for-value g avalue)]))
+  (match (node->archetype-type g node)
     [(? no-archetype?) (values g (void))]
     [(? is-node?)
      (values (link-in-new-archetype g node) node)]
     [(? is-value?)
-     (cond
-       [(archetype-of-value g (value-of g node))
-        => (λ (found-archetype) (values g #R found-archetype))]
-       [else (make-archetype-for-value g (value-of g node))])]))
+     (get-or-make (value-of g node))]
+    [(? is-class?)
+     (get-or-make (class-of g node))]))
 
 ;TODO Add another nodeclass parameter to specify how to construct a name.
 ;Then apply it to archetype.
 ;HACK for now: name it here.
 
 (define (make-archetype-for-value g value)
-  (let*-values ([(g archetype) (make-node g 'archetype value)]
+  (let*-values ([(g archetype) (make-node-with-attrs g
+                                 (hash 'class 'archetype
+                                       'value value
+                                       'name (archetype-name value)))]
                 [(g) (link-in-new-archetype g archetype)])
     (values g archetype)))
 
@@ -797,7 +811,8 @@
     (cond
       [(number? value) (~a value)]
       [(symbol? value) (~a value)]
-      [(pair? value) (
+      [(pair? value) (#\- (string-join (map ~a value) "-"))]
+      [else (~a #\- value)]))))
 
 (define (link-in-new-archetype g archetype)
   (let-values ([(g slipnet) (find-or-make-slipnet g)])
@@ -822,7 +837,7 @@
         (nodeclass number
           (archetype is-value))
         (nodeclass operator
-          (archetype is-value))
+          (archetype is-class))
         (nodeclass +
           (is-a 'operator))
         (nodeclass equation
@@ -831,12 +846,24 @@
 
     (define g (make-empty-graph archetype-test-spec))
 
+    (define ws (gdo make-node 'ws))
     (define number7 (gdo make-node 'number 7))
     (define plus (gdo make-node '+))
     (define equation (gdo make-node 'equation))
 
-    (define atype (gdo make-archetype-for-node number7))
+    (define a7 (gdo get-or-make-archetype-for-node number7))
+    (define a+ (gdo get-or-make-archetype-for-node plus))
+    (define aeq (gdo get-or-make-archetype-for-node equation))
+    (define aws (gdo get-or-make-archetype-for-node ws))
 
-    (pr-graph g)
-    ))
+    (define a7b (gdo get-or-make-archetype-for-node number7))
+    (define a+b (gdo get-or-make-archetype-for-node plus))
+    (define aeqb (gdo get-or-make-archetype-for-node equation))
+
+    (check-equal? a7 a7b)
+    (check-equal? a+ a+b)
+    (check-equal? aeq aeqb)
+    (check-equal? aws (void))
+
+    (check-equal? (list->set (archetypes g)) (set a7 a+ aeq))))
 
