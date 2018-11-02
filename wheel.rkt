@@ -2,6 +2,8 @@
 
 #lang debug at-exp racket
 
+(require (for-syntax racket/syntax) racket/syntax)
+
 (provide (all-defined-out))
 
 (define empty-set (set))
@@ -17,7 +19,24 @@
   (sort (->list xs) string<? #:key ~a))
 
 (define (sorted-by-cdr ht)
-  (sort (hash->list ht) < #:key cdr))
+  (sort (->list ht) < #:key cdr))
+
+(define-syntax (define-singleton stx)
+  (syntax-case stx ()
+    [(define-singleton name)
+     (with-syntax ([name? (format-id #'name "~a?" #'name
+                                     #:source #'name #:props #'name)])
+       #`(begin
+           (define name
+             (let ()
+               (struct name () #:prefab)
+               (name)))
+           (define (name? x)
+             (eq? name x))))]))
+
+(define-syntax-rule (define-singletons name ...)
+  (begin
+    (define-singleton name) ...))
 
 (define (hash-ref/sk ht key sk fk)
   (let ([value (hash-ref ht key (void))])
