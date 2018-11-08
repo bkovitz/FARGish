@@ -13,6 +13,10 @@
     #:attributes ((parent 1))
     (pattern ((~literal is-a) parent:expr ...+))
     (pattern ((~literal value) value:expr))
+    (pattern ((~literal archetype) archetype:expr))
+    (pattern ((~literal applies-to) applies-to:expr))
+    (pattern ((~literal archetype-mate) archetype-mate:expr))
+    (pattern ((~literal default-attrs) default-attrs:expr))
   )
 
   (define-syntax-class nodeclass

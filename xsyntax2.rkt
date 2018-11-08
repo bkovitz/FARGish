@@ -43,7 +43,7 @@
            (λ (g) #f)  ; tag can't apply if number of nodes is wrong
            (apply make-pred/g nodes))))]))
 
-(define-syntax (nodeclass stx)
+(define-syntax (nodeclass-body stx)
   (define-syntax-class name-and-args
     #:description "nodeclass name or name with arguments"
     #:attributes [(name 0) (arg 1)]
@@ -87,33 +87,39 @@
                          ) ...)))
 
   (syntax-parse stx
-    [(nodeclass nm:name-and-args elems:nodeclass-elems)
-     #`(make-nodeclass
-         (hash 'name 'nm.name
-               'args '(nm.arg ...)
-               'parents (list elems.parent-expr ... ...)
-               'display-name (list (λ (nm.arg ...) elems.name-expr) ...)
-               'archetype-names (list (λ (nm.arg ...)
-                                        elems.archetype-expr) ... ...)
-               'value (list (λ (nm.arg ...) elems.value-expr) ...)
-               'links-into
-                 (list (λ (nm.arg ...)
-                         (links-into* elems.li-expr.ctx
-                                      (list elems.li-expr.by-ports ...))) ...)
-               'applies-to
-                 (list (λ (nm.arg ...)
-                         (applies-to*
-                           (list (taggee-info*
-                                   'elems.a2-expr.taggee.name
-                                   (list elems.a2-expr.taggee.of-class-expr
-                                         ... ...)
-                                   (list elems.a2-expr.taggee.by-ports ...))
-                                   ...)
-                           (list (make-condition-func
-                                   (elems.a2-expr.taggee.name ...)
-                                   elems.a2-expr.condition-expr ...) ...)))
-                       ...)
-               ))]))
+    [(_ nm:name-and-args elems:nodeclass-elems)
+     #`(hash 'name 'nm.name
+             'args '(nm.arg ...)
+             'parents (list elems.parent-expr ... ...)
+             'display-name (list (λ (nm.arg ...) elems.name-expr) ...)
+             'archetype-names (list (λ (nm.arg ...)
+                                      elems.archetype-expr) ... ...)
+             'value (list (λ (nm.arg ...) elems.value-expr) ...)
+             'links-into
+               (list (λ (nm.arg ...)
+                       (links-into* elems.li-expr.ctx
+                                    (list elems.li-expr.by-ports ...))) ...)
+             'applies-to
+               (list (λ (nm.arg ...)
+                       (applies-to*
+                         (list (taggee-info*
+                                 'elems.a2-expr.taggee.name
+                                 (list elems.a2-expr.taggee.of-class-expr
+                                       ... ...)
+                                 (list elems.a2-expr.taggee.by-ports ...))
+                                 ...)
+                         (list (make-condition-func
+                                 (elems.a2-expr.taggee.name ...)
+                                 elems.a2-expr.condition-expr ...) ...)))
+                     ...)
+             )]))
+
+(define-syntax-rule (nodeclass body ...)
+  (make-nodeclass (nodeclass-body body ...)))
+
+(define-syntax-rule (tagclass body ...)
+  (let ([class-attrs (nodeclass-body body ...)])
+    (make-nodeclass (hash-set class-attrs 'tag? #t))))
 
 (define (set-to-last-defined attrs key fk)
   (hash-ref/sk attrs key
@@ -130,7 +136,6 @@
          [class-attrs (set-to-last-defined class-attrs 'display-name
                         (λ () (hash-set class-attrs 'display-name
                                 (λ _ name))))])
-
     (nodeclass* (hash-ref class-attrs 'name)
                 class-attrs
                 placeholder)))
@@ -170,7 +175,8 @@
                                        'display-name 'name)]
          [attrs (class-attr->node-attr class-attrs attrs args
                                        'archetype-names 'archetype-names)]
-         )
+         [attrs (class-attr->node-attr class-attrs attrs args
+                                       'tag? 'tag?)])
     attrs))
 
 (module+ test
@@ -190,6 +196,9 @@
                   5)
     (check-equal? (hash-ref attrs 'name)
                   5)
+
+    (check-equal? (hash-ref attrs 'tag? (void))
+                  (void))
     )
   
   (test-case "nodeclass with no name and no value"
@@ -252,15 +261,18 @@
                   (list (links-into* 'ctx
                                      (list (by-ports 'members 'member-of))))))
 
-  (test-case "get-nodeclass-attr and applies-to"
+  (test-case "tagclass and applies-to"
     (define tag
-      (nodeclass (tag n)
+      (tagclass (tag n)
         (is-a 'parent)
         (name n)
         (links-into 'ctx (by-ports 'members 'member-of))
         (applies-to ([node (of-class 'number) (by-ports 'tagged 'tags)])
           (condition (λ (g) (equal? n node))))
         (value n)))
+
+    (define attrs (args->node-attrs tag (list 5)))
+    (check-true (hash-ref attrs 'tag?))
 
     (define applies-tos (get-nodeclass-attr tag 'applies-to (list 5)))
     ; (Listof applies-to*) built for n == 5
@@ -279,5 +291,3 @@
     (check-true (gfunc5 'graph))  ; In real life, you'd pass a real graph here
     )
   )
-
-

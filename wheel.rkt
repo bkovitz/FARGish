@@ -63,6 +63,11 @@
     [`(,_ . ,d) d]
     [_ (void)]))
 
+(define (safe-last x)
+  (cond
+    [(pair? x) (last x)]
+    [else (void)]))
+
 (define-syntax-rule (first-value expr)
   (call-with-values (λ () expr)
     (λ (result . ignored) result)))
