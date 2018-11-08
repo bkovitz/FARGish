@@ -8,6 +8,9 @@
 (require syntax/parse syntax/parse/define
          (for-syntax syntax/parse))
 (require "wheel.rkt")
+(require rackunit)
+
+(define-singleton placeholder)
 
 (struct nodeclass* (name class-attrs ancestors) #:prefab)
 
@@ -59,23 +62,19 @@
   (syntax-parse stx
     ;[(nodeclass (name:id arg:id ...) elems:nodeclass-elems)
     [(nodeclass nm:name-and-args elems:nodeclass-elems)
-     #`(hash 'name 'nm.name
-             'args '(nm.arg ...)
-             'parents (list elems.parent-expr ... ...)
-             'display-name (list (λ (nm.arg ...) elems.name-expr) ...)
-             'archetypes (list (λ (nm.arg ...) elems.archetype-expr ...) ...)
-             'value (list (λ (nm.arg ...) elems.value-expr) ...)
-             'links-into
-               (list (λ (nm.arg ...)
-                       (links-into* elems.li-expr.ctx
-                                    (list elems.li-expr.by-ports ...)) ...))
-             )]))
-
-(nodeclass (number n)
-  (is-a 'parent)
-  (name n)
-  (links-into 'ctx 'by-ports)
-  (archetype 'a))
+     #`(make-nodeclass
+         (hash 'name 'nm.name
+               'args '(nm.arg ...)
+               'parents (list elems.parent-expr ... ...)
+               'display-name (list (λ (nm.arg ...) elems.name-expr) ...)
+               'archetype-names (list (λ (nm.arg ...)
+                                        elems.archetype-expr) ... ...)
+               'value (list (λ (nm.arg ...) elems.value-expr) ...)
+               'links-into
+                 (list (λ (nm.arg ...)
+                         (links-into* elems.li-expr.ctx
+                                      (list elems.li-expr.by-ports ...))) ...)
+               ))]))
 
 ;(define (make-nodeclass class-attrs)
 ;  (let ([class-attrs (
@@ -85,3 +84,124 @@
 ;          'parents (hash-ref ht 'is-a)
 ;          'archetypes (hash-ref
 
+(define (set-to-last-defined attrs key fk)
+  (hash-ref/sk attrs key
+    (λ (v) (cond
+             [(null? v) (fk)]
+             [else (hash-set attrs key (last v))]))
+    fk))
+
+(define (make-nodeclass class-attrs)
+  (let* ([name (hash-ref class-attrs 'name)]
+         [class-attrs (set-to-last-defined class-attrs 'value
+                        (λ () (hash-remove class-attrs 'value)))]
+         [class-attrs (set-to-last-defined class-attrs 'display-name
+                        (λ () (hash-set class-attrs 'display-name
+                                (λ _ name))))])
+
+    (nodeclass* (hash-ref class-attrs 'name)
+                class-attrs
+                placeholder)))
+
+(define (apply-class-attr-func func args)
+  (cond
+    [(void? func) (void)]
+    [(pair? func) (for/list ([f func])
+                    (apply f args))]
+    [else (apply func args)]))
+
+(define (class-attr->node-attr class-attrs node-attrs args class-key node-key)
+  (let* ([func (hash-ref class-attrs class-key (void))]
+         [v (apply-class-attr-func func args)])
+    (if (void? v)
+      node-attrs
+      (hash-set node-attrs node-key v))))
+
+(define (args->node-attrs nodeclass args)
+  (let* ([class-attrs (nodeclass*-class-attrs nodeclass)]
+         [attrs (hash 'args args)]
+         [attrs (class-attr->node-attr class-attrs attrs args
+                                       'value 'value)]
+         [attrs (class-attr->node-attr class-attrs attrs args
+                                       'display-name 'name)]
+         [attrs (class-attr->node-attr class-attrs attrs args
+                                       'archetype-names 'archetype-names)]
+         )
+    attrs))
+
+(module+ test
+  (test-case "nodeclass with explicit name and value"
+    (define number
+      (nodeclass (number n)
+        (is-a 'parent)
+        (name n)
+        (links-into 'ctx 'by-ports)
+        (archetype 'a)
+        (value n)))
+
+    (define attrs (args->node-attrs number (list 5)))
+    (check-equal? (hash-ref attrs 'value)
+                  5)
+    (check-equal? (hash-ref attrs 'name)
+                  5)
+    )
+  
+  (test-case "nodeclass with no name and no value"
+    (define number
+      (nodeclass (number n)
+        (is-a 'parent)
+        (links-into 'ctx 'by-ports)
+        (archetype 'a)))
+
+    (define attrs (args->node-attrs number (list 5)))
+    (check-equal? (hash-ref attrs 'value (void))
+                  (void))
+    (check-equal? (hash-ref attrs 'name)
+                  'number)
+    )
+
+  (test-case "nodeclass with multiple names and values: the last one prevails"
+    (define number
+      (nodeclass (number n)
+        (is-a 'parent)
+        (name (list 'first-name n))
+        (links-into 'ctx 'by-ports)
+        (value (list 'first n))
+        (archetype 'a)
+        (value (list 'second n))
+        (name (list 'second-name n))))
+
+    (define attrs (args->node-attrs number (list 5)))
+    (check-equal? (hash-ref attrs 'value (void))
+                  (list 'second 5))
+    (check-equal? (hash-ref attrs 'name)
+                  '(second-name 5)))
+
+  (test-case "three archetype-names in two clauses"
+    (define number
+      (nodeclass (number n)
+        (is-a 'parent)
+        (name n)
+        (links-into 'ctx 'by-ports)
+        (archetype 'a 'b)
+        (archetype 'c)
+        (value n)))
+
+    (define attrs (args->node-attrs number (list 5)))
+    (check-equal? (hash-ref attrs 'archetype-names (void))
+                  '(a b c)))
+  )
+
+
+
+(define number
+  (nodeclass (number n)
+    (is-a 'parent)
+    (name n)
+    (links-into 'ctx 'by-ports)
+    (archetype 'a 'b)
+    (archetype 'c)
+    (value n)))
+
+number
+(args->node-attrs number (list 5))
