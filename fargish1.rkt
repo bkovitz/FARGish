@@ -4,6 +4,7 @@
 
 (require syntax/parse syntax/parse/define
          (for-syntax syntax/parse))
+(require racket/hash)
 (require "wheel.rkt")
 (require rackunit)
 
@@ -359,8 +360,123 @@
                            (when (not (nodeclass*? nodeclass))
                              (raise-arguments-error 'farg-model-spec
                                @~a{@nodeclass is not a nodeclass*.}))
-                           (values (nodeclass*-name nodeclass*)))]
+                           (values (nodeclass*-name nodeclass) nodeclass))]
          [ht-ancestors (make-ancestors-table ht-nodeclasses)]
          [ht-nodeclasses (for/hash ([(name nc) (in-hash ht-nodeclasses)])
                            (values name (inherit-attrs name ht-nodeclasses)))])
     (farg-model-spec* ht-nodeclasses ht-ancestors)))
+
+;; ======================================================================
+;;
+;; Functions to access a farg-model-spec*
+;;
+
+(define (get-nodeclass* spec nodeclass-or-name)
+  (cond
+    [(nodeclass*? nodeclass-or-name) nodeclass-or-name]
+    [else (hash-ref (farg-model-spec*-nodeclasses spec)
+                    nodeclass-or-name
+                    (void))]))
+
+(define (nodeclass-name nodeclass-or-name)
+  (if (nodeclass*? nodeclass-or-name)
+    (nodeclass*-name nodeclass-or-name)
+    nodeclass-or-name))
+
+(define (nodeclass-is-a? spec nodeclass ancestor)
+  (let ([child-name (nodeclass-name nodeclass)]
+        [ancestor-name (nodeclass-name ancestor)])
+    (hash-ref/sk (farg-model-spec*-ancestors spec) child-name
+      (λ (ancestors) (set-member? ancestors ancestor-name))
+      #f)))
+
+;; ======================================================================
+;;
+;; Ancillary functions for inheritance
+;;
+
+(define (make-ancestors-table ht-nodeclasses)
+  (define (all-ancestors-of name)
+    (let recur ([name name] [result (set)] [already-seen (set name)])
+      (hash-ref/sk ht-nodeclasses name
+        (λ (nc)
+          (let* ([parents (set-subtract (list->set (nodeclass-parents nc))
+                                        already-seen)]
+                 [result (set-union result parents)]
+                 [already-seen (set-union already-seen parents)])
+            (if (set-empty? parents)
+              result
+              (apply set-union (map
+                                 (λ (parent)
+                                   (recur parent result already-seen))
+                                 (set->list parents))))))
+        result)))
+  (for/hash ([name (hash-keys ht-nodeclasses)])
+    (values name (set-add (all-ancestors-of name) name))))
+
+(define (nodeclass-parents nodeclass)
+  (get-nodeclass-attr nodeclass 'parents))
+
+; Returns list of ancestors with name first, followed by name's parents
+; in the order specified in is-a clauses, followed by the parents of
+; each of those, and so on. (Breadth-first traversal.)
+(define (ancestors-in-reverse-inheritance-order name ht-nodeclasses)
+  (define (recur result pending-parents)
+    (cond
+      [(null? pending-parents) result]
+      [(member (car pending-parents) result)
+       (recur result (cdr pending-parents))]
+      [else (let* ([parent (car pending-parents)]
+                   [nodeclass (hash-ref ht-nodeclasses parent (void))]
+                   [grandparents (if (void? nodeclass)
+                                   '()
+                                   (nodeclass-parents nodeclass))])
+              (recur (cons parent result)
+                     (remove-duplicates (append (cdr pending-parents)
+                                                grandparents))))]))
+  (recur '() (list name)))
+
+(define (inherit-attrs nodeclass-name ht-nodeclasses)
+  (let* ([nodeclass (hash-ref ht-nodeclasses nodeclass-name)]
+         [ancestor-names (ancestors-in-reverse-inheritance-order
+                                    nodeclass-name ht-nodeclasses)]
+         [ancestor-attrs (for/list ([ancestor-name ancestor-names])
+                                   (define ancestor (hash-ref ht-nodeclasses
+                                                              ancestor-name
+                                                              #f))
+                                   (if ancestor
+                                     (nodeclass*-class-attrs ancestor)
+                                     empty-hash))]
+         [new-attrs
+           (apply hash-union ancestor-attrs
+                             #:combine (λ (v0 v) v))])
+    (struct-copy nodeclass* nodeclass
+                 [class-attrs new-attrs])))
+
+;; ======================================================================
+;;
+;; Unit tests for inheritance
+;;
+
+(module+ test
+  (test-case "class-attr inheritance"
+    (define spec
+      (farg-model-spec
+        (nodeclass A
+          (archetype 'A))
+        (nodeclass B
+          (is-a 'A)
+          (archetype 'B))))
+
+    (define A (get-nodeclass* spec 'A))
+    (define B (get-nodeclass* spec 'B))
+
+    #R (get-nodeclass-attr A 'archetype-names)
+    #R (get-nodeclass-attr B 'archetype-names) ;NEXT inherit archetype-names
+
+    (check-true (nodeclass-is-a? spec 'B 'A))
+    (check-false (nodeclass-is-a? spec 'A 'B))
+    (check-true (nodeclass-is-a? spec 'A 'A))
+    (check-true (nodeclass-is-a? spec 'B 'B))
+    )
+  )
