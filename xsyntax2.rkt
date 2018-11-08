@@ -15,6 +15,7 @@
 (struct nodeclass* (name class-attrs ancestors) #:prefab)
 
 (struct by-ports* (from-port-label to-port-label) #:prefab)
+(define by-ports by-ports*)
 
 (struct links-into* (ctx-class by-portss) #:prefab)
 ;ctx-class : Symbol
@@ -103,23 +104,35 @@
                 class-attrs
                 placeholder)))
 
-(define (apply-class-attr-func func args)
+; value can be a procedure, a value, or a list of procedures and/or values.
+; Whenever a procedure is found, we pass it args.
+(define (apply-class-attr value args)
+  (define (apply-f f)
+    (cond
+      [(procedure? f) (apply f args)]
+      [else f]))
   (cond
-    [(void? func) (void)]
-    [(pair? func) (for/list ([f func])
-                    (apply f args))]
-    [else (apply func args)]))
+    [(void? value) (void)]
+    [(pair? value) (for/list ([f value])
+                    (apply-f f))]
+    [else (apply-f value)]))
+
+(define (get-nodeclass-attr nodeclass key [args '()])
+  (let* ([class-attrs (nodeclass*-class-attrs nodeclass)]
+         [value (hash-ref class-attrs key (void))])
+    (apply-class-attr value args)))
 
 (define (class-attr->node-attr class-attrs node-attrs args class-key node-key)
-  (let* ([func (hash-ref class-attrs class-key (void))]
-         [v (apply-class-attr-func func args)])
+  (let* ([value (hash-ref class-attrs class-key (void))]
+         [v (apply-class-attr value args)])
     (if (void? v)
       node-attrs
       (hash-set node-attrs node-key v))))
 
 (define (args->node-attrs nodeclass args)
   (let* ([class-attrs (nodeclass*-class-attrs nodeclass)]
-         [attrs (hash 'args args)]
+         [attrs (hash 'args args
+                      'class (nodeclass*-name nodeclass))]
          [attrs (class-attr->node-attr class-attrs attrs args
                                        'value 'value)]
          [attrs (class-attr->node-attr class-attrs attrs args
@@ -140,6 +153,8 @@
         (value n)))
 
     (define attrs (args->node-attrs number (list 5)))
+    (check-equal? (hash-ref attrs 'class)
+                  'number)
     (check-equal? (hash-ref attrs 'value)
                   5)
     (check-equal? (hash-ref attrs 'name)
@@ -198,10 +213,10 @@
   (nodeclass (number n)
     (is-a 'parent)
     (name n)
-    (links-into 'ctx 'by-ports)
-    (archetype 'a 'b)
-    (archetype 'c)
+    (links-into 'ctx (by-ports 'members 'member-of))
     (value n)))
 
 number
-(args->node-attrs number (list 5))
+(get-nodeclass-attr number 'name (list 5))
+(get-nodeclass-attr number 'args)
+(get-nodeclass-attr number 'links-into (list 5))
