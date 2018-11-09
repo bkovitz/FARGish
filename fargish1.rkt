@@ -162,8 +162,7 @@
          [class-attrs (set-to-last-defined class-attrs 'value
                         (λ () (hash-remove class-attrs 'value)))]
          [class-attrs (set-to-last-defined class-attrs 'display-name
-                        (λ () (hash-set class-attrs 'display-name
-                                (λ _ name))))])
+                        (λ () (hash-remove class-attrs 'display-name)))])
     (nodeclass* (hash-ref class-attrs 'name)
                 class-attrs
                 (void))))
@@ -249,8 +248,8 @@
     (define attrs (args->node-attrs number (list 5)))
     (check-equal? (hash-ref attrs 'value (void))
                   (void))
-    (check-equal? (hash-ref attrs 'name)
-                  'number)
+    (check-equal? (hash-ref attrs 'name (void))
+                  (void))  ; farg-model-spec will assign a display-name
     )
 
   (test-case "nodeclass with multiple names and values: the last one prevails"
@@ -363,8 +362,20 @@
                            (values (nodeclass*-name nodeclass) nodeclass))]
          [ht-ancestors (make-ancestors-table ht-nodeclasses)]
          [ht-nodeclasses (for/hash ([(name nc) (in-hash ht-nodeclasses)])
-                           (values name (inherit-attrs name ht-nodeclasses)))])
+                           (values name
+                                   (supply-default-class-attrs
+                                     (inherit-attrs name ht-nodeclasses))))])
     (farg-model-spec* ht-nodeclasses ht-ancestors)))
+
+(define (supply-default-class-attrs nodeclass)
+  (let* ([class-attrs (nodeclass*-class-attrs nodeclass)]
+         [class-attrs (hash-update class-attrs 'display-name
+                        (λ (v) (if (null? v)
+                                 (nodeclass*-name nodeclass)
+                                 v))
+                        (λ () (nodeclass*-name nodeclass)))])
+    (struct-copy nodeclass* nodeclass
+                 [class-attrs class-attrs])))
 
 ;; ======================================================================
 ;;
@@ -417,10 +428,10 @@
 (define (nodeclass-parents nodeclass)
   (get-nodeclass-attr nodeclass 'parents))
 
-; Returns list of ancestors with name first, followed by name's parents
-; in the order specified in is-a clauses, followed by the parents of
-; each of those, and so on. (Breadth-first traversal.)
-(define (ancestors-in-reverse-inheritance-order name ht-nodeclasses)
+; Returns list of ancestors with "oldest" ancestor first. name is the last
+; element of the result. Parents at one level occur in reverse order: the
+; first parent appears last in the list. (Breadth-first traversal.)
+(define (ancestors-in-descending-order name ht-nodeclasses)
   (define (recur result pending-parents)
     (cond
       [(null? pending-parents) result]
@@ -436,10 +447,23 @@
                                                 grandparents))))]))
   (recur '() (list name)))
 
+(define (ancestors-in-ascending-order name ht-nodeclasses)
+  (reverse (ancestors-in-descending-order name ht-nodeclasses)))
+
+(define (combine-attrs key ancestor-value child-value)
+  (case key
+    [(archetype-names applies-to links-into)
+     (append child-value ancestor-value)]
+    [(parents args)
+     child-value]
+    [else (if (or (null? child-value) (void? child-value))
+            ancestor-value
+            child-value)]))
+
 (define (inherit-attrs nodeclass-name ht-nodeclasses)
   (let* ([nodeclass (hash-ref ht-nodeclasses nodeclass-name)]
-         [ancestor-names (ancestors-in-reverse-inheritance-order
-                                    nodeclass-name ht-nodeclasses)]
+         [ancestor-names (ancestors-in-descending-order nodeclass-name
+                                                        ht-nodeclasses)]
          [ancestor-attrs (for/list ([ancestor-name ancestor-names])
                                    (define ancestor (hash-ref ht-nodeclasses
                                                               ancestor-name
@@ -449,7 +473,7 @@
                                      empty-hash))]
          [new-attrs
            (apply hash-union ancestor-attrs
-                             #:combine (λ (v0 v) v))])
+                             #:combine/key combine-attrs)])
     (struct-copy nodeclass* nodeclass
                  [class-attrs new-attrs])))
 
@@ -459,24 +483,57 @@
 ;;
 
 (module+ test
-  (test-case "class-attr inheritance"
+  (test-case "class-attr inheritance: archetype-names"
     (define spec
       (farg-model-spec
         (nodeclass A
           (archetype 'A))
         (nodeclass B
           (is-a 'A)
-          (archetype 'B))))
+          (archetype 'B))
+        (nodeclass C
+          (is-a 'B)
+          (archetype 'C))))
 
     (define A (get-nodeclass* spec 'A))
     (define B (get-nodeclass* spec 'B))
-
-    #R (get-nodeclass-attr A 'archetype-names)
-    #R (get-nodeclass-attr B 'archetype-names) ;NEXT inherit archetype-names
 
     (check-true (nodeclass-is-a? spec 'B 'A))
     (check-false (nodeclass-is-a? spec 'A 'B))
     (check-true (nodeclass-is-a? spec 'A 'A))
     (check-true (nodeclass-is-a? spec 'B 'B))
-    )
+
+    (check-equal? '(A) (get-nodeclass-attr A 'archetype-names))
+    (check-equal? '(B A) (get-nodeclass-attr B 'archetype-names)))
+
+  ;TODO Map args appropriately when child and parent have different args,
+  ;or throw exception in farg-model-spec if it can't be done.
+  
+  (test-case "class-attr inheritance: name and value"
+    (define spec
+      (farg-model-spec
+        (nodeclass (number n)
+          (name n)
+          (value n))
+        (nodeclass (brick n)
+          (is-a 'number))
+        (nodeclass empty)))
+
+    (define number (get-nodeclass* spec 'number))
+    (define brick (get-nodeclass* spec 'brick))
+    (define empty (get-nodeclass* spec 'empty))
+
+    (define n7-attrs (args->node-attrs number (list 7)))
+    (define b5-attrs (args->node-attrs brick (list 5)))
+    (define e-attrs (args->node-attrs empty '()))
+
+    (check-equal? (hash-ref n7-attrs 'name) 7)
+    (check-equal? (hash-ref n7-attrs 'value) 7)
+
+    (check-equal? (hash-ref b5-attrs 'name) 5)
+    (check-equal? (hash-ref b5-attrs 'value) 5)
+
+    (check-equal? (hash-ref e-attrs 'name) 'empty)
+    (check-equal? (hash-ref e-attrs 'value (void)) (void))
   )
+)

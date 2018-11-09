@@ -20,6 +20,7 @@
 
   ; Predefined spec helpers
   as-member no-neighbor-at-port? no-neighbor-at-port?/g
+  has-neighor-at-port? has-neighor-at-port?/g
 
   ; Making and operating on a graph that holds a FARG model
   make-empty-graph
@@ -328,6 +329,9 @@
 (define/g (no-neighbor-at-port? g port-label node)
   (null? (g:port->neighbors g `(,node ,port-label))))
 
+(define/g (has-neighor-at-port? g port-label node)
+  (not (no-neighbor-at-port? g port-label node)))
+
 ;; ======================================================================
 ;;
 ;; Non-exported functions and macros that support those above that
@@ -413,6 +417,7 @@
   (for/hash ([name (hash-keys ht-nodeclasses)])
     (values name (set-add (all-ancestors-of name) name))))
 
+; WRONG comment
 ; Returns list of ancestors with name first, followed by name's parents
 ; in the order specified in is-a clauses, followed by the parents of
 ; each of those, and so on. (Breadth-first traversal.)
@@ -436,7 +441,7 @@
   (let* ([nodeclass (hash-ref ht-nodeclasses nodeclass-name)]
          [ancestor-names (ancestors-in-reverse-inheritance-order
                                     nodeclass-name ht-nodeclasses)]
-         [ancestor-default-attrs (for/list ([ancestor-name ancestor-names])
+         [ancestor-default-attrs (for/list ([ancestor-name #R ancestor-names])
                                    (define ancestor (hash-ref ht-nodeclasses
                                                               ancestor-name
                                                               #f))
