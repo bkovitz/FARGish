@@ -37,6 +37,8 @@
          port->neighboring-ports
          port->neighbors
          port->neighbor
+         port-has-neighbor?
+         port-neighbor?
          port->port-label->nodes 
          port->incident-edges
 
@@ -44,18 +46,19 @@
          node->ports
          node->incident-hops
 
-         ;pr-node
-         ;pr-graph
-         ;pr-group
+         pr-node
+         pr-graph
+         pr-group
 
          ;class-of
          ;value-of
          ;value-of-equal?
          
-         ;members-of
-         ;member-of?
-         ;members-of
-         ;member-of
+         members-of
+         member-of
+         member-of?
+         no-neighbor-at-port? no-neighbor-at-port?/g
+         has-neighor-at-port? has-neighor-at-port?/g
          ;nodes-of-class-in
          ;bound-from-ctx-to-ctx?
 
@@ -294,6 +297,9 @@
 (define (port-neighbor? g port node)
   (for/or ([neighbor (port->neighbors g port)])
     (equal? neighbor node)))
+
+(define (port-has-neighbor? g port)
+  (not (null? (port->neighboring-ports g port))))
 
 ;Returns a set of nodes
 (define (port->port-label->nodes g from-port to-port-label)
@@ -673,3 +679,50 @@
       (check-equal? (list->set (all-edges g**))
                     (set (set '(a out) '(b in))
                          (set '(a2 out) '(b2 in)))))))
+
+;; ======================================================================
+;;
+;; Commonly useful specialized graph functions
+;;
+
+(define (members-of g groupid)
+  (port->neighbors g `(,groupid members)))
+
+(define (member-of g node)
+  (port->neighbors g `(,node member-of)))
+
+(define (member-of? g ctx node)
+  (member ctx (member-of g node)))
+
+(define/g (no-neighbor-at-port? g port-label node)
+  (null? (port->neighbors g `(,node ,port-label))))
+
+(define/g (has-neighor-at-port? g port-label node)
+  (not (no-neighbor-at-port? g port-label node)))
+
+;; ======================================================================
+;;
+;; Printing a graph
+;; 
+
+(define (pr-node g nodeid)
+  (printf " ~a ~a\n" (~a nodeid #:min-width 12)
+                      (hash-remove (get-node-attrs g nodeid) 'id))
+  (for* ([port (node->ports g nodeid)]
+         [neighboring-port (port->neighboring-ports g port)])
+    (define weight (~r (graph-edge-weight g `(,port ,neighboring-port))
+                       #:precision '(= 1)))
+    (printf "  ~a -- ~a ~a\n" port neighboring-port weight)))
+
+(define (pr-graph g)
+  (displayln "nodes:")
+  (for ([nodeid (sort (set->list (all-nodes g))
+                      (λ (id1 id2) (string<? (~a id1) (~a id2))))])
+    (pr-node g nodeid)))
+
+(define (pr-group g groupid)
+  (displayln "nodes:")
+  (for ([nodeid (cons groupid
+                      (sort (members-of g groupid)
+                            (λ (id1 id2) (string<? (~a id1) (~a id2)))))])
+    (pr-node g nodeid)))

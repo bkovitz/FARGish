@@ -9,11 +9,21 @@
 (require rackunit)
 
 (provide farg-model-spec
-         nodeclass tagclass
+         nodeclass
+         tagclass
          args->node-attrs
+         apply-class-attr
+
+         as-member
+
          get-nodeclass-attr
+         get-nodeclass*
+         nodeclass-name
+         nodeclass-is-a?
+
          (struct-out farg-model-spec*)
          (struct-out nodeclass*)
+         ;nodeclass-links-intos
          (struct-out by-ports*)
          by-ports
          (struct-out links-into*)
@@ -50,6 +60,21 @@
 ; name: Any
 ; of-classes: (Listof Symbol)
 ; by-portss: (List by-ports*)
+
+
+;; ----------------------------------------------------------------------
+;;
+;; struct accessors, some of which apply conventions for looking up
+;; items within hash tables
+;;
+
+;(define (nodeclass-links-intos nodeclass)
+;  (define args (
+;  (define links-intos (hash-ref (nodeclass*-class-attrs nodeclass)
+;                                'links-into
+;                                '()))
+;  (for/list ([links-into links-intos])
+;    (
 
 ;; ======================================================================
 ;;
@@ -345,7 +370,7 @@
 (define predefined-nodeclasses
   (list
     (nodeclass (archetype value)
-      (links-into 'slipnet (by-ports 'archetypes 'slipnet) as-member)
+      (links-into 'slipnet (by-ports 'archetypes 'slipnet) (list as-member))
       (name (archetype-name value)))
     (nodeclass slipnet
       (is-a 'ctx))

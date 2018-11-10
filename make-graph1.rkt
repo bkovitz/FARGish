@@ -14,7 +14,7 @@
 (require "wheel.rkt"
          (except-in "graph1.rkt" make-node add-node add-edge
                                  port->neighbor port->neighbors)
-         "fargish.rkt")
+         "fargish1.rkt")
 
 (require rackunit racket/struct
          racket/pretty describe)

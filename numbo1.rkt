@@ -4,10 +4,12 @@
 #lang debug at-exp racket
 
 (require errortrace)
-(require "wheel.rkt" "xsusp3.rkt" "fargish.rkt"
-         (prefix-in g: "graph1.rkt") (only-in "graph1.rkt" define/g gdo)
-         (prefix-in g: "make-graph1.rkt")
-         (only-in "make-graph1.rkt" make-graph))
+(require "wheel.rkt" "xsusp3.rkt" "fargish1.rkt"
+         (prefix-in g: "graph1.rkt")
+         (only-in "graph1.rkt" define/g gdo no-neighbor-at-port?/g
+                  has-neighor-at-port?/g)
+         #;(prefix-in g: "make-graph1.rkt")
+         #;(only-in "make-graph1.rkt" make-graph))
 (require racket/set racket/hash)
 (require rackunit racket/pretty describe)
 
@@ -32,8 +34,8 @@
       (is-a 'ctx))
     (nodeclass equation
       (is-a 'ctx))
-    (nodeclass number)
-    (nodeclass target
+    (nodeclass (number n))
+    (nodeclass (target n)
       (is-a 'number)
       (links-into 'ctx (by-ports 'target 'result) as-member))
     (nodeclass brick
@@ -52,6 +54,10 @@
       (is-a 'problem-tag)
       (applies-to ([node (of-class 'number) (by-ports 'tagged 'tags)])
         (condition (no-neighbor-at-port?/g 'source node))))
+    (tagclass (fills-port result n)
+      (is-a 'solution-tag)
+      (applies-to ([node (by-ports 'tagged 'tags)])
+        (condition (has-neighor-at-port?/g 'result node))))
     ))
 
 ;; ======================================================================
@@ -199,3 +205,24 @@
     (check-equal? (sorted (map class-of/g (members-of g equation)))
                   '(+ number number number))
 ))
+
+(define (add-fills-port-tags g equation)
+  (for*/fold ([g g])
+             ([node (members-of g equation)]
+              [port-label `(source result)])
+    (if (g:port-has-neighbor? g `(,node ,port-label))
+      (add-tag g `(fills-port ,(value-of g node) ,port-label) equation)
+      g)))
+    
+(define (add-equation-tags g equation)
+  (let* ([g (add-fills-port-tags g equation)])
+    g))
+
+(module+ test
+  (test-case "add-equation-tags"
+    (define g (make-empty-graph spec))
+    (define equation (gdo make-equation 4 '(+ 2 2)))
+    
+    (gdo add-equation-tags equation)
+    (pr-graph g)
+  ))
