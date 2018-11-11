@@ -8,9 +8,8 @@
          "xsusp3.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
-           farg-model-spec nodeclass tagclass)
+           farg-model-spec nodeclass tagclass by-ports as-member)
          (prefix-in g: "graph1.rkt")
-         ;(prefix-in g: "make-graph1.rkt")
          (only-in "graph1.rkt"
            pr-graph pr-group pr-node
            define/g gdo)
@@ -18,17 +17,18 @@
 
 (require rackunit racket/pretty describe)
 
+(provide do-graph-edits do-graph-edit make-graph)
+
 ;; ======================================================================
 ;;
-;; do-graph-edits and do-graph-edit
+;; make-graph, do-graph-edits, and do-graph-edit
 ;;
 
-(provide do-graph-edits do-graph-edit)
+(define (make-graph spec . edits)
+  (do-graph-edits (m:make-empty-graph spec) edits))
 
 (define (do-graph-edits g edits)
-  (for/fold ([g g])
-            ([edit edits])
-    (do-graph-edit g edit)))
+  (apply do-graph-edit g edits))
 
 (define (do-graph-edit g . edits)
   (for/fold ([g g])
@@ -52,6 +52,8 @@
                   ([id* id] [nodespec* nodespec])
           (let*-values ([(g nodeid) (get/make g nodespec*)])
             (set-alias g id*)))]
+      [nodespec
+        (first-value (get/make g nodespec))]
       )))
 
 (define (make-node/sh g . args)
@@ -113,20 +115,20 @@
 ;;
 
 (module+ test
-  (test-case "shorthand basics"
-    (define spec
-      (farg-model-spec
-        (nodeclass (number n)
-          (value n)
-          (name n))
-        (nodeclass (brick n)
-          (is-a 'number))
-        (nodeclass +)
-        (nodeclass equation
-          (is-a 'ctx))))
+  (define spec
+    (farg-model-spec
+      (nodeclass (number n)
+        (value n)
+        (name n))
+      (nodeclass (brick n)
+        (is-a 'number)
+        (links-into 'ctx (by-ports 'bricks 'source) as-member))
+      (nodeclass +)
+      (nodeclass equation
+        (is-a 'ctx))))
 
-    (define g (void))
-    (set! g (m:make-empty-graph spec))
+  (test-case "shorthand basics"
+    (define g (m:make-empty-graph spec))
 
     (define slipnet (gdo m:make-node 'slipnet))
 
@@ -148,4 +150,14 @@
                   (list->set '(15 + 9 6)))
     (check-true (g:has-edge? g '((+ result) (15 source))))
     (check-true (g:has-edge? g '((9 result) (+ operands))))
-    (check-true (g:has-edge? g '((6 result) (+ operands))))))
+    (check-true (g:has-edge? g '((6 result) (+ operands)))))
+  
+  (test-case "make-graph, just make some nodes"
+    (define g (make-graph spec '(ws) '(slipnet) '(:in ws
+                                                   (brick 7))))
+
+    (check-equal? (list->set (g:all-nodes g))
+                  (list->set '(ws slipnet 7)))
+    (check-true (g:has-edge? g '((ws bricks) (7 source))))
+    (check-equal? (list->set (g:members-of g 'ws))
+                  (list->set '(7)))))
