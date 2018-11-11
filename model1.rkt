@@ -15,7 +15,7 @@
          (only-in "graph1.rkt"
            pr-graph pr-group pr-node
            define/g gdo
-           no-neighbor-at-port?/g has-neighor-at-port?/g))
+           no-neighbor-at-port?/g has-neighbor-at-port?/g))
 (require racket/set racket/hash)
 (require rackunit racket/pretty describe)
 

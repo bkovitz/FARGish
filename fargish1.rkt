@@ -553,3 +553,22 @@
 
     (check-equal? (hash-ref e-attrs 'name) 'empty)
     (check-equal? (hash-ref e-attrs 'value (void)) (void))))
+
+
+;; ======================================================================
+;;
+;; Unit tests for port classes
+;;
+
+#;(define spec
+  (farg-model-spec
+    (nodeclass (number n)
+      (name n)
+      (value n))
+    (nodeclass +)
+    (portclass source)
+    (portclass result)
+    (portclass operands
+      (max-neighbors 2))
+    (can-link 'source 'result)
+    (can-link 'result 'operands)))

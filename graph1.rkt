@@ -58,7 +58,7 @@
          member-of
          member-of?
          no-neighbor-at-port? no-neighbor-at-port?/g
-         has-neighor-at-port? has-neighor-at-port?/g
+         has-neighbor-at-port? has-neighbor-at-port?/g
          ;nodes-of-class-in
          ;bound-from-ctx-to-ctx?
 
@@ -697,7 +697,7 @@
 (define/g (no-neighbor-at-port? g port-label node)
   (null? (port->neighbors g `(,node ,port-label))))
 
-(define/g (has-neighor-at-port? g port-label node)
+(define/g (has-neighbor-at-port? g port-label node)
   (not (no-neighbor-at-port? g port-label node)))
 
 ;; ======================================================================
