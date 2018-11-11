@@ -13,6 +13,7 @@
          tagclass
          args->node-attrs
          apply-class-attr
+         realize-attrs
 
          as-member
 
@@ -20,10 +21,10 @@
          get-nodeclass*
          nodeclass-name
          nodeclass-is-a?
+         get-raw-nodeclass-attr
 
          (struct-out farg-model-spec*)
          (struct-out nodeclass*)
-         ;nodeclass-links-intos
          (struct-out by-ports*)
          by-ports
          (struct-out links-into*)
@@ -39,7 +40,7 @@
 ; nodeclasses: (Immutable-HashTable Symbol nodeclass*)
 ; ancestors: (Immutable-HashTable Symbol (Setof Symbol))
 
-(struct nodeclass* (name class-attrs ancestors) #:prefab)
+(struct nodeclass* (name class-attrs) #:prefab)
 ; class-attrs: (Immutable-HashTable Symbol Any)
 ; ancestors: (Setof Symbol)
 
@@ -60,21 +61,6 @@
 ; name: Any
 ; of-classes: (Listof Symbol)
 ; by-portss: (List by-ports*)
-
-
-;; ----------------------------------------------------------------------
-;;
-;; struct accessors, some of which apply conventions for looking up
-;; items within hash tables
-;;
-
-;(define (nodeclass-links-intos nodeclass)
-;  (define args (
-;  (define links-intos (hash-ref (nodeclass*-class-attrs nodeclass)
-;                                'links-into
-;                                '()))
-;  (for/list ([links-into links-intos])
-;    (
 
 ;; ======================================================================
 ;;
@@ -189,8 +175,7 @@
          [class-attrs (set-to-last-defined class-attrs 'display-name
                         (λ () (hash-remove class-attrs 'display-name)))])
     (nodeclass* (hash-ref class-attrs 'name)
-                class-attrs
-                (void))))
+                class-attrs)))
 
 ;; ======================================================================
 ;;
@@ -210,8 +195,12 @@
                     (apply-f f))]
     [else (apply-f value)]))
 
+(define (get-raw-nodeclass-attr nodeclass key)
+  (let ([class-attrs (nodeclass*-class-attrs nodeclass)])
+    (hash-ref class-attrs key (void))))
+
 (define (get-nodeclass-attr nodeclass key [args '()])
-  (let* ([class-attrs (nodeclass*-class-attrs nodeclass)]
+  (let* ([class-attrs (nodeclass*-class-attrs nodeclass)] ;TODO OAOO prev
          [value (hash-ref class-attrs key (void))])
     (apply-class-attr value args)))
 
@@ -235,6 +224,14 @@
          [attrs (class-attr->node-attr class-attrs attrs args
                                        'tag? 'tag?)])
     attrs))
+
+; Returns nodeclass* nc with all class-attrs updated so that procedures
+; that need to be passed args are called and replaced with their results.
+(define (realize-attrs nc args)
+  (define realized-attrs (for/hash ([(k v) (nodeclass*-class-attrs nc)])
+                           (values k (apply-class-attr v args))))
+  (struct-copy nodeclass* nc
+    [class-attrs realized-attrs]))
 
 ;; ======================================================================
 ;;
@@ -260,8 +257,7 @@
                   5)
 
     (check-equal? (hash-ref attrs 'tag? (void))
-                  (void))
-    )
+                  (void)))
   
   (test-case "nodeclass with no name and no value"
     (define number
@@ -274,8 +270,7 @@
     (check-equal? (hash-ref attrs 'value (void))
                   (void))
     (check-equal? (hash-ref attrs 'name (void))
-                  (void))  ; farg-model-spec will assign a display-name
-    )
+                  (void)))  ; farg-model-spec will assign a display-name
 
   (test-case "nodeclass with multiple names and values: the last one prevails"
     (define number
@@ -350,9 +345,7 @@
     (define gfunc5 (cfunc 5))
     ; The 'condition' func, now with n == 5 and node == 5
 
-    (check-true (gfunc5 'graph))  ; In real life, you'd pass a real graph here
-    )
-  )
+    (check-true (gfunc5 'graph))))  ; In real life, you'd pass a real graph here
 
 ;; ======================================================================
 ;;
@@ -559,6 +552,4 @@
     (check-equal? (hash-ref b5-attrs 'value) 5)
 
     (check-equal? (hash-ref e-attrs 'name) 'empty)
-    (check-equal? (hash-ref e-attrs 'value (void)) (void))
-  )
-)
+    (check-equal? (hash-ref e-attrs 'value (void)) (void))))

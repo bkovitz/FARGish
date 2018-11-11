@@ -39,21 +39,10 @@
 ;; Access to a few things without a prefix
 ;;
 
+(define get-node-attr g:get-node-attr)
+
 (define as-member f:as-member)
 (define by-ports f:by-ports)
-
-;; ======================================================================
-;;
-;; Printing
-;;
-
-(define (pr-nodeclass-of g nodeid)
-  (define args (args-of g nodeid))
-  (define nc (nodeclass*-of g nodeid))
-  (define realized-attrs (for/hash ([(k v) (f:nodeclass*-class-attrs nc)])
-                           (values k (f:apply-class-attr v args))))
-  (pretty-print (struct-copy f:nodeclass* nc
-                  [class-attrs realized-attrs])))
 
 ;; ======================================================================
 ;;
@@ -120,12 +109,13 @@
       (match-define (f:by-ports* from-port-label to-port-label) by-ports)
       (g:add-edge g `((,ctx ,from-port-label) (,node ,to-port-label))))))
 
+(define/g (add-node/in g . args)
+  (first-value (apply make-node/in g args)))
+
 ;; ======================================================================
 ;;
 ;; Functions to query nodes
 ;;
-
-(define get-node-attr g:get-node-attr)
 
 (define (args-of g node)
   (get-node-attr g node 'args))
@@ -145,6 +135,76 @@
 
 (define (tag? g node)
   (g:node-attr? g node 'tag?))
+
+(define (node-is-a? g node ancestor)
+  (f:nodeclass-is-a? (get-spec g) (nodeclass*-of g node) ancestor))
+
+;; ======================================================================
+;;
+;; Predicates
+;;
+
+(define/g (value-pred? g pred? . nodes)
+  (values g
+    (cond
+      [(null? nodes) #t]
+      [(null? (cdr nodes)) #t]
+      [else (let* ([node1 (car nodes)] [v (value-of g node1)])
+              (for/and ([node (cdr nodes)])
+                (pred? v (value-of g node))))])))
+
+;; ======================================================================
+;;
+;; Tagging
+;;
+
+; Returns a nodeclass* where all the class-attrs have the args filled in
+; as provided in nodespec. nodespec can be a symbol, in which case there
+; are no args, or a list where the nodeclass's name is the first element
+; and the remaining elements are the args, e.g. '(fills-port result 5).
+(define (realize-nodespec g nodespec)
+  (match nodespec
+    [`(,class-name . ,args)
+     (f:realize-attrs (get-nodeclass* g class-name) args)]
+    [(? symbol?)
+     (f:realize-attrs (get-nodeclass* g nodespec) '())]
+    [else (raise-arguments-error 'realize-nodespec
+                                 @~a{Invalid nodespec: @|nodespec|.})]))
+
+; taggee-info* ti must be fully realized (no args needed).
+(define (taggee-info-match? g ti node)
+  (let ([spec (get-spec g)]
+        [nclass (class-of g node)])
+    (for/or ([ofc (f:taggee-info*-of-classes ti)])
+      (f:nodeclass-is-a? spec nclass ofc))))
+
+; The condition function c must be fully realized (no args needed).
+(define (condition-match? g c . nodes)
+  (define cfunc-takes-g (apply c nodes))
+  (call-with-values (λ () (cfunc-takes-g g))
+    (case-lambda 
+      [(result) result]
+      [(g result . ignored) result])))
+
+(define (tagclass-applies-to? g tagspec . nodes)
+  (if (null? nodes)
+    #f
+    (let ([tagclass (realize-nodespec g tagspec)])
+      (for/or ([applies-to (f:get-raw-nodeclass-attr tagclass 'applies-to)])
+        (and (for/and ([ti (f:applies-to*-taggee-infos applies-to)]
+                       [node nodes])
+               (taggee-info-match? g ti node))
+             (for/or ([c (f:applies-to*-conditions applies-to)])
+               (apply condition-match? g c nodes)))))))
+
+;; ======================================================================
+;;
+;; Printing
+;;
+
+(define (pr-nodeclass-of g nodeid)
+  (pretty-print (f:realize-attrs (nodeclass*-of g nodeid)
+                                 (args-of g nodeid))))
 
 ;; ======================================================================
 ;;
@@ -170,10 +230,55 @@
 
     (check-equal? (list->set (g:all-nodes g))
                   (set ws number22 brick7))
+
+    ; display-names
+    (check-equal? (get-node-attr g number22 'name) 22)
+    (check-equal? (get-node-attr g brick7 'name) 7)
+
+    ; values
+    (check-equal? (get-node-attr g number22 'value) 22)
+    (check-equal? (get-node-attr g brick7 'value) 7)
+
+    ; linking into a ctx
     (check-true (g:port-neighbor? g `(,ws bricks) brick7))
     (check-equal? (list->set (g:port->neighboring-ports g `(,ws members)))
                   (set `(,number22 member-of) `(,brick7 member-of)))
-    ))
+
+    ; is-a ancestor relations
+    (check-true (node-is-a? g brick7 'brick))
+    (check-true (node-is-a? g brick7 'number))
+    (check-true (node-is-a? g number22 'number))
+    (check-false (node-is-a? g number22 'brick)))
+  
+  (test-case "tagging"
+    (define spec
+      (farg-model-spec
+        (nodeclass (number n)
+          (value n)
+          (name n))
+        (nodeclass (brick n)
+          (is-a 'number)
+          (links-into 'ctx (by-ports 'bricks 'source) as-member))
+        (nodeclass (neither n)
+          (value n))
+        (tagclass (same nc)  ; same value, both is-a nc
+          (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
+                       [node2 (of-class nc) (by-ports 'tagged 'tags)])
+            (condition (value-pred?/g = node1 node2))))))
+
+    (define g (make-empty-graph spec))
+
+    (define ws (gdo make-node 'ws))
+    (define number22 (gdo make-node/in 'ws 'number 22))
+    (define brick7 (gdo make-node/in ws 'brick 7))
+    (define brick22 (gdo make-node/in ws 'brick 22))
+    (define neither22 (gdo make-node/in ws 'neither 22))
+
+    ;(pr-graph g)
+
+    (check-false (tagclass-applies-to? g '(same number) brick7 number22))
+    (check-true (tagclass-applies-to? g '(same number) brick22 number22))
+    (check-false (tagclass-applies-to? g '(same number) neither22 number22))))
 
 
 (define spec
@@ -183,7 +288,20 @@
       (name n))
     (nodeclass (brick n)
       (is-a 'number)
-      (links-into 'ctx (by-ports 'bricks 'source) as-member))))
+      (links-into 'ctx (by-ports 'bricks 'source) as-member))
+    (tagclass (same nc)  ; same value, both is-a nc
+      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
+                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
+        (condition (value-pred?/g = node1 node2))))
+    ))
 
 (define g (void))
 (set! g (make-empty-graph spec))
+
+(define ws (gdo make-node 'ws))
+(define number22 (gdo make-node/in 'ws 'number 22))
+(define brick7 (gdo make-node/in ws 'brick 7))
+(define brick22 (gdo make-node/in ws 'brick 22))
+
+;(tagclass-applies-to? g '(same number) brick7 number22)
+;(tagclass-applies-to? g '(same number) brick22 number22)
