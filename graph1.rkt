@@ -45,6 +45,7 @@
          node->neighbors
          node->ports
          node->incident-hops
+         other-node
 
          pr-node
          pr-graph
@@ -327,6 +328,12 @@
   (for*/list ([port (node->ports g node)]
               [nport (port->neighboring-ports g port)])
     `(,port ,nport)))
+
+;TODO UT
+(define (other-node hop)
+  (match hop
+    [`((,_ ,_) (,node ,_))
+      node]))
 
 ;Returns set of nodes
 (define (node->neighbors g node)

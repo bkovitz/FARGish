@@ -40,6 +40,8 @@
 ;;
 
 (define get-node-attr g:get-node-attr)
+(define members-of g:members-of)
+(define member-of? g:member-of?)
 
 (define as-member f:as-member)
 (define by-ports f:by-ports)
@@ -87,6 +89,14 @@
                      (f:get-nodeclass-attr nc 'links-into args))])
     (if (null? lis) (list (f:links-into* ctx (list as-member))) lis)))
 
+(define (max-neighbors-of-port g port)
+  (match-define `(,node ,port-label) port)
+  (define portclass (f:get-portclass* (get-spec g) port-label))
+  (cond
+    [(f:portclass*? portclass)
+     (f:get-portclass-attr portclass 'max-neighbors +inf.0)]
+    [else +inf.0]))
+
 ;; ======================================================================
 ;;
 ;; Functions to make nodes
@@ -122,6 +132,10 @@
 
 (define (name-of g node)
   (get-node-attr g node 'name))
+
+(define (ids->names g ids)
+  (for/list ([id ids])
+    (name-of g id)))
 
 (define (class-of g node)
   (get-node-attr g node 'class))
@@ -281,27 +295,27 @@
     (check-false (tagclass-applies-to? g '(same number) neither22 number22))))
 
 
-(define spec
-  (farg-model-spec
-    (nodeclass (number n)
-      (value n)
-      (name n))
-    (nodeclass (brick n)
-      (is-a 'number)
-      (links-into 'ctx (by-ports 'bricks 'source) as-member))
-    (tagclass (same nc)  ; same value, both is-a nc
-      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
-                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
-        (condition (value-pred?/g = node1 node2))))
-    ))
-
-(define g (void))
-(set! g (make-empty-graph spec))
-
-(define ws (gdo make-node 'ws))
-(define number22 (gdo make-node/in 'ws 'number 22))
-(define brick7 (gdo make-node/in ws 'brick 7))
-(define brick22 (gdo make-node/in ws 'brick 22))
-
-;(tagclass-applies-to? g '(same number) brick7 number22)
-;(tagclass-applies-to? g '(same number) brick22 number22)
+;(define spec
+;  (farg-model-spec
+;    (nodeclass (number n)
+;      (value n)
+;      (name n))
+;    (nodeclass (brick n)
+;      (is-a 'number)
+;      (links-into 'ctx (by-ports 'bricks 'source) as-member))
+;    (tagclass (same nc)  ; same value, both is-a nc
+;      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
+;                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
+;        (condition (value-pred?/g = node1 node2))))
+;    ))
+;
+;(define g (void))
+;(set! g (make-empty-graph spec))
+;
+;(define ws (gdo make-node 'ws))
+;(define number22 (gdo make-node/in 'ws 'number 22))
+;(define brick7 (gdo make-node/in ws 'brick 7))
+;(define brick22 (gdo make-node/in ws 'brick 22))
+;
+;;(tagclass-applies-to? g '(same number) brick7 number22)
+;;(tagclass-applies-to? g '(same number) brick22 number22)

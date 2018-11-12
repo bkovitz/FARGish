@@ -16,7 +16,6 @@
          realize-attrs
 
          as-member
-         unlimited
 
          get-nodeclass-attr
          get-nodeclass*
@@ -24,6 +23,7 @@
          nodeclass-is-a?
          get-raw-nodeclass-attr
 
+         get-portclass*
          get-portclass-attr
 
          (struct-out farg-model-spec*)
@@ -203,7 +203,7 @@
   (let* ([name (hash-ref class-attrs 'name)]
          [class-attrs (set-to-last-defined class-attrs 'max-neighbors
                         (λ ()
-                          (hash-set class-attrs 'max-neighbors unlimited)))])
+                          (hash-set class-attrs 'max-neighbors +inf.0)))])
     (portclass* name class-attrs)))
 
 ;; ======================================================================
@@ -267,8 +267,8 @@
 ;; Functions to access elements of a portclass
 ;;
 
-(define (get-portclass-attr portclass key)
-  (hash-ref (portclass*-class-attrs portclass) key (void)))
+(define (get-portclass-attr portclass key [default (void)])
+  (hash-ref (portclass*-class-attrs portclass) key default))
 
 ;; ======================================================================
 ;;
@@ -390,8 +390,6 @@
 ;;
 
 (define as-member (by-ports 'members 'member-of))
-
-(define-singleton unlimited)
 
 (define (archetype-name value)
   (string->symbol (string-append "archetype-"
@@ -644,5 +642,4 @@
     (check-equal? (get-portclass-attr source 'name) 'source)
 
     (check-equal? (get-portclass-attr source 'max-neighbors) 1)
-    (check-equal? (get-portclass-attr operands 'max-neighbors) unlimited)
-    ))
+    (check-equal? (get-portclass-attr operands 'max-neighbors) +inf.0)))
