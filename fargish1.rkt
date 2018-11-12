@@ -22,6 +22,7 @@
          nodeclass-name
          nodeclass-is-a?
          get-raw-nodeclass-attr
+         archetype-name
 
          get-portclass*
          get-portclass-attr
@@ -400,7 +401,7 @@
 (define predefined-nodeclasses
   (list
     (nodeclass (archetype value)
-      (links-into 'slipnet (by-ports 'archetypes 'slipnet) (list as-member))
+      (links-into 'slipnet (by-ports 'archetypes 'slipnet) as-member)
       (name (archetype-name value)))
     (nodeclass slipnet
       (is-a 'ctx))

@@ -874,4 +874,3 @@
     (check-equal? aws (void))
 
     (check-equal? (list->set (archetypes g)) (set a7 a+ aeq))))
-

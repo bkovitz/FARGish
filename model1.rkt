@@ -11,7 +11,6 @@
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass)
          (prefix-in g: "graph1.rkt")
-         ;(prefix-in g: "make-graph1.rkt")
          (only-in "graph1.rkt"
            pr-graph pr-group pr-node
            define/g gdo
@@ -75,7 +74,6 @@
 
 (define (nodeclass*-of g node)
   (hash-ref (get-nodeclasses g) (class-of g node)))
-  ;TODO Appropriate response if unknown class
 
 (define (get-links-into g node ctx)
   (define nc (nodeclass*-of g node))
@@ -96,6 +94,10 @@
     [(f:portclass*? portclass)
      (f:get-portclass-attr portclass 'max-neighbors +inf.0)]
     [else +inf.0]))
+
+(define (get-nodeclass-attr g node key)
+  (define args (get-node-attr g node 'args))
+  (f:get-nodeclass-attr (nodeclass*-of g node) key args)) 
 
 ;; ======================================================================
 ;;
@@ -295,27 +297,27 @@
     (check-false (tagclass-applies-to? g '(same number) neither22 number22))))
 
 
-;(define spec
-;  (farg-model-spec
-;    (nodeclass (number n)
-;      (value n)
-;      (name n))
-;    (nodeclass (brick n)
-;      (is-a 'number)
-;      (links-into 'ctx (by-ports 'bricks 'source) as-member))
-;    (tagclass (same nc)  ; same value, both is-a nc
-;      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
-;                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
-;        (condition (value-pred?/g = node1 node2))))
-;    ))
-;
-;(define g (void))
-;(set! g (make-empty-graph spec))
-;
-;(define ws (gdo make-node 'ws))
-;(define number22 (gdo make-node/in 'ws 'number 22))
-;(define brick7 (gdo make-node/in ws 'brick 7))
-;(define brick22 (gdo make-node/in ws 'brick 22))
-;
+(define spec
+  (farg-model-spec
+    (nodeclass (number n)
+      (value n)
+      (name n))
+    (nodeclass (brick n)
+      (is-a 'number)
+      (links-into 'ctx (by-ports 'bricks 'source) as-member))
+    (tagclass (same nc)  ; same value, both is-a nc
+      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
+                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
+        (condition (value-pred?/g = node1 node2))))
+    ))
+
+(define g (void))
+(set! g (make-empty-graph spec))
+
+(define ws (gdo make-node 'ws))
+(define number22 (gdo make-node/in 'ws 'number 22))
+(define brick7 (gdo make-node/in ws 'brick 7))
+(define brick22 (gdo make-node/in ws 'brick 22))
+
 ;;(tagclass-applies-to? g '(same number) brick7 number22)
 ;;(tagclass-applies-to? g '(same number) brick22 number22)
