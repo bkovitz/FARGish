@@ -49,6 +49,15 @@
             ([key keys])
     (hash-remove h key)))
 
+(define (hash-map-values ht f)
+  (for/hash ([(k v) ht])
+    (values k (f v))))
+
+(define (hash-by equiv-class xs)
+  (for/fold ([ht empty-hash] #:result (hash-map-values ht reverse))
+            ([x xs])
+    (hash-update ht (equiv-class x) (λ (lst) (cons x lst)) '())))
+
 (define (atom? x)
   (and (not (null? x))
        (not (pair? x))))

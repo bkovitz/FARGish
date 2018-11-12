@@ -16,6 +16,7 @@
          realize-attrs
 
          as-member
+         unlimited
 
          get-nodeclass-attr
          get-nodeclass*
@@ -23,8 +24,11 @@
          nodeclass-is-a?
          get-raw-nodeclass-attr
 
+         get-portclass-attr
+
          (struct-out farg-model-spec*)
          (struct-out nodeclass*)
+         (struct-out portclass*)
          (struct-out by-ports*)
          by-ports
          (struct-out links-into*)
@@ -36,13 +40,17 @@
 ;; structs that compose a FARG model spec
 ;;
 
-(struct farg-model-spec* (nodeclasses ancestors) #:prefab)
+(struct farg-model-spec* (nodeclasses ancestors portclasses) #:prefab)
 ; nodeclasses: (Immutable-HashTable Symbol nodeclass*)
 ; ancestors: (Immutable-HashTable Symbol (Setof Symbol))
+; portclasses: (Immutable-HashTable Symbol portclass*)
 
 (struct nodeclass* (name class-attrs) #:prefab)
 ; class-attrs: (Immutable-HashTable Symbol Any)
 ; ancestors: (Setof Symbol)
+
+(struct portclass* (name class-attrs) #:prefab)
+; class-attrs: (Immutable-HashTable Symbol Any)
 
 (struct by-ports* (from-port-label to-port-label) #:prefab)
 ; from-port-label: Symbol
@@ -145,8 +153,19 @@
                          (list (make-condition-func
                                  (elems.a2-expr.taggee.name ...)
                                  elems.a2-expr.condition-expr ...) ...)))
-                     ...)
-             )]))
+                     ...))]))
+
+(define-syntax (portclass-body stx)
+  (define-splicing-syntax-class portclass-elems
+    #:description "portclass elements"
+    #:datum-literals [max-neighbors]
+    #:attributes [(max-neighbors-expr 1)]
+    (pattern (~seq (max-neighbors ~! max-neighbors-expr:expr) ...)))
+
+  (syntax-parse stx
+    [(_ nm:id elems:portclass-elems)
+     #`(hash 'name 'nm
+             'max-neighbors (list elems.max-neighbors-expr ...))]))
 
 (define-syntax-rule (nodeclass body ...)
   (make-nodeclass (nodeclass-body body ...)))
@@ -155,9 +174,12 @@
   (let ([class-attrs (nodeclass-body body ...)])
     (make-nodeclass (hash-set class-attrs 'tag? #t))))
 
+(define-syntax-rule (portclass body ...)
+  (make-portclass (portclass-body body ...)))
+
 ;; ======================================================================
 ;;
-;; Ancillary functions for the nodeclass macros
+;; Ancillary functions for the nodeclass and portclass macros
 ;;
 
 (define (set-to-last-defined attrs key fk)
@@ -176,6 +198,13 @@
                         (λ () (hash-remove class-attrs 'display-name)))])
     (nodeclass* (hash-ref class-attrs 'name)
                 class-attrs)))
+
+(define (make-portclass class-attrs)
+  (let* ([name (hash-ref class-attrs 'name)]
+         [class-attrs (set-to-last-defined class-attrs 'max-neighbors
+                        (λ ()
+                          (hash-set class-attrs 'max-neighbors unlimited)))])
+    (portclass* name class-attrs)))
 
 ;; ======================================================================
 ;;
@@ -232,6 +261,14 @@
                            (values k (apply-class-attr v args))))
   (struct-copy nodeclass* nc
     [class-attrs realized-attrs]))
+
+;; ======================================================================
+;;
+;; Functions to access elements of a portclass
+;;
+
+(define (get-portclass-attr portclass key)
+  (hash-ref (portclass*-class-attrs portclass) key (void)))
 
 ;; ======================================================================
 ;;
@@ -354,6 +391,8 @@
 
 (define as-member (by-ports 'members 'member-of))
 
+(define-singleton unlimited)
+
 (define (archetype-name value)
   (string->symbol (string-append "archetype-"
     (cond
@@ -371,19 +410,31 @@
       (is-a 'ctx))
     (nodeclass ctx)))
 
-(define (farg-model-spec . nodeclasses)
-  (let* ([nodeclasses (append predefined-nodeclasses nodeclasses)]
-         [ht-nodeclasses (for/hash ([nodeclass nodeclasses])
-                           (when (not (nodeclass*? nodeclass))
-                             (raise-arguments-error 'farg-model-spec
-                               @~a{@nodeclass is not a nodeclass*.}))
+(define (farg-model-spec . classes)
+  (let*-values ([(classes) (append predefined-nodeclasses classes)]
+                [(ht) (hash-by type-of classes)]
+                [(ht-nodeclasses ht-ancestors)
+                   (set-up-nodeclasses (hash-ref ht 'nodeclass '()))]
+                [(ht-portclasses)
+                   (set-up-portclasses (hash-ref ht 'portclass '()))])
+    (farg-model-spec* ht-nodeclasses ht-ancestors ht-portclasses)))
+
+(define (type-of class-struct)
+  (cond
+    [(nodeclass*? class-struct) 'nodeclass]
+    [(portclass*? class-struct) 'portclass]
+    [else (raise-arguments-error 'farg-model-spec
+            @~a{@class-struct is neither a nodeclass* nor a portclass*.})]))
+
+(define (set-up-nodeclasses nodeclasses)
+  (let* ([ht-nodeclasses (for/hash ([nodeclass nodeclasses])
                            (values (nodeclass*-name nodeclass) nodeclass))]
          [ht-ancestors (make-ancestors-table ht-nodeclasses)]
          [ht-nodeclasses (for/hash ([(name nc) (in-hash ht-nodeclasses)])
                            (values name
                                    (supply-default-class-attrs
                                      (inherit-attrs name ht-nodeclasses))))])
-    (farg-model-spec* ht-nodeclasses ht-ancestors)))
+    (values ht-nodeclasses ht-ancestors)))
 
 (define (supply-default-class-attrs nodeclass)
   (let* ([class-attrs (nodeclass*-class-attrs nodeclass)]
@@ -394,6 +445,10 @@
                         (λ () (nodeclass*-name nodeclass)))])
     (struct-copy nodeclass* nodeclass
                  [class-attrs class-attrs])))
+
+(define (set-up-portclasses portclasses)
+  (for/hash ([portclass portclasses])
+    (values (portclass*-name portclass) portclass)))
 
 ;; ======================================================================
 ;;
@@ -418,6 +473,13 @@
     (hash-ref/sk (farg-model-spec*-ancestors spec) child-name
       (λ (ancestors) (set-member? ancestors ancestor-name))
       #f)))
+
+(define (get-portclass* spec portclass-or-name)
+  (cond
+    [(portclass*? portclass-or-name) portclass-or-name]
+    [else (hash-ref (farg-model-spec*-portclasses spec)
+                    portclass-or-name
+                    (void))]))
 
 ;; ======================================================================
 ;;
@@ -560,15 +622,27 @@
 ;; Unit tests for port classes
 ;;
 
-#;(define spec
-  (farg-model-spec
-    (nodeclass (number n)
-      (name n)
-      (value n))
-    (nodeclass +)
-    (portclass source)
-    (portclass result)
-    (portclass operands
-      (max-neighbors 2))
-    (can-link 'source 'result)
-    (can-link 'result 'operands)))
+(module+ test
+  (define spec
+    (farg-model-spec
+      (nodeclass (number n)
+        (name n)
+        (value n))
+      (nodeclass +)
+      (portclass source
+        (max-neighbors 1))
+      (portclass result
+        (max-neighbors 1))
+      (portclass operands)
+      #;(can-link 'source 'result)
+      #;(can-link 'result 'operands)))
+
+  (test-case "portclasses"
+    (define source (get-portclass* spec 'source))
+    (define operands (get-portclass* spec 'operands))
+
+    (check-equal? (get-portclass-attr source 'name) 'source)
+
+    (check-equal? (get-portclass-attr source 'max-neighbors) 1)
+    (check-equal? (get-portclass-attr operands 'max-neighbors) unlimited)
+    ))
