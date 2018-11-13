@@ -45,7 +45,10 @@
   (define archetype-nodeid
     (match (archetype-spec-of-node g node)
       [(? no-archetype?) (void)]
-      [(? is-node?) node]
+      [(? is-node?)
+       (if (g:has-edge? g `((slipnet archetypes) (,node slipnet)))
+         node
+         (void))]
       [(? is-value?) (f:archetype-name (value-of g node))]
       [(? is-class?) (f:archetype-name (class-of g node))]
       [v (f:archetype-name v)]))
@@ -73,6 +76,8 @@
      (make-archetype-for-value g (value-of g node))]
     [(? is-class?)
      (make-archetype-for-value g (class-of g node))]
+    [(? is-node?)
+     (values (g:add-edge g `((slipnet archetypes) (,node slipnet))) node)]
     [v
      (make-archetype-for-value g v)]))
 
@@ -215,10 +220,11 @@
     ;(pr-graph g)
 
     (check-equal? (list->set (archetypes g))
-                  (list->set '(archetype-a archetype-b archetype-c)))
-    ;TODO The groups should also be archetypes
+                  (list->set '(a-b a-c archetype-a archetype-b archetype-c)))
 
     (check-true (g:has-edge? g `((archetype-a activation) (a-b activation))))
+
+    (pr-graph g)
   )
 ;    (define group1
 ;      (make-graph spec
