@@ -13,6 +13,10 @@
            define/g gdo))
 (require rackunit racket/pretty describe)
 
+(define slipnet-spreading-rate 0.01)
+(define slipnet-decay 0.9)
+(define slipnet-timesteps 20)
+
 ;; ======================================================================
 ;;
 ;; Archetypes
@@ -177,6 +181,66 @@
         (values sl new-nodes))))
   (add-activation-edges-for-new-nodes sl new-nodes))
 
+;; ======================================================================
+;;
+;; Spreading activation
+;;
+
+(define (run-slipnet g initial-activations)
+  (for/fold ([activations initial-activations])
+            ([timestep slipnet-timesteps])
+    (let ([as (maybe-suspend 'slipnet-activations
+                             (do-slipnet-timestep g activations))])
+      ;#R (sorted-by-cdr as)
+      as)))
+
+(define (do-slipnet-timestep g initial-activations)
+  (for/fold ([activations (decay-activations initial-activations)])
+            ([edge (activation-edges-starting-from g
+                     (hash-keys initial-activations))])
+    (spread-activation-across-edge g initial-activations activations edge)))
+
+(define (decay-activations activations)
+  (make-immutable-hash (for/list ([(node a) (in-hash activations)])
+                         `(,node . ,(* slipnet-decay a)))))
+
+(define (activation-edges-starting-from g nodes)
+  (for*/set ([node nodes]
+             [edge (g:port->incident-edges g `(,node activation))])
+    edge))
+
+(define (spread-activation-across-edge g initial-activations activations edge)
+  (define weight (match-let ([`((,from ,_) (,to ,_)) (set->list edge)])
+                   (sliplink-weight g from to)))
+  (define (spread-1way activations hop)
+    (match-define `((,from-node ,_) (,to-node ,_)) hop) ;TODO catch self-link?
+    (define r (* 0.2 (- (random) 0.5) weight))
+    (add-activation activations to-node
+      (* slipnet-spreading-rate
+         (+ weight r)
+         (get-activation initial-activations from-node))))
+  (let* ([hop (set->list edge)]
+         [activations (spread-1way activations hop)]
+         [activations (spread-1way activations (reverse hop))])
+    activations))
+
+(define (sliplink-weight g from-node to-node)
+  (g:graph-edge-weight g `((,from-node activation) (,to-node activation))))
+
+(define (add-activation activations node amount)
+  (hash-update activations
+               node
+               (λ (old) (min 2.0 (+ old amount)))
+               0.0))
+
+(define (get-activation activations node)
+  (hash-ref activations node 0.0))
+
+;; ======================================================================
+;;
+;; Unit tests
+;;
+
 (module+ test
 ;  (define spec0
 ;    (farg-model-spec
@@ -193,7 +257,37 @@
 ;        (is-a 'ctx)
 ;        (archetype is-node))))
 
+  (define spec
+    (farg-model-spec
+      (nodeclass (letter a)
+        (name a)
+        (value a)
+        (archetype a))
+      (nodeclass (group nm)
+        (is-a 'ctx)
+        (name nm)
+        (archetype is-node))))
+
+  (define group1
+    (make-graph spec
+      '(:in (group a-b)
+         (:edge (letter a) out (letter b) in))))
+
+  (define group2
+    (make-graph spec
+      '(:in (group a-c)
+         (:edge (letter a) out (letter c) in))))
+
   (test-case "make-slipnet"
+    (define g (make-slipnet spec group1 group2)) 
+
+    (check-equal? (list->set (archetypes g))
+                  (list->set '(a-b a-c archetype-a archetype-b archetype-c)))
+
+    (check-true (g:has-edge? g `((archetype-a activation) (a-b activation))))
+  )
+
+  (test-case "spreading activation in slipnet"
     (define spec
       (farg-model-spec
         (nodeclass (letter a)
@@ -217,15 +311,23 @@
 
     (define g (make-slipnet spec group1 group2)) 
 
-    ;(pr-graph g)
+    (define initial-activations (hash 'archetype-a 1.0))
 
-    (check-equal? (list->set (archetypes g))
-                  (list->set '(a-b a-c archetype-a archetype-b archetype-c)))
+    (define activations (run-slipnet g initial-activations))
 
-    (check-true (g:has-edge? g `((archetype-a activation) (a-b activation))))
+    (check-true (> (hash-ref activations 'a-b) 0.0))
+    (check-true (> (hash-ref activations 'a-c) 0.0))
+    (check-true (> (hash-ref activations 'archetype-b) 0.0))
+    (check-true (> (hash-ref activations 'archetype-c) 0.0))
 
-    (pr-graph g)
-  )
+    (check-true (> (hash-ref activations 'archetype-a)
+                   (hash-ref activations 'a-b)
+                   (hash-ref activations 'archetype-b)))
+    (check-true (> (hash-ref activations 'archetype-a)
+                   (hash-ref activations 'a-c)
+                   (hash-ref activations 'archetype-c))))
+
+    
 ;    (define group1
 ;      (make-graph spec
 ;        '(:in (group a-b)
@@ -247,3 +349,7 @@
 ;;    (newline)
 ;;    (println (all-nodes slipnet))
     )
+
+
+
+;(gdo do-slipnet-timestep initial-activations)
