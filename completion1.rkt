@@ -18,7 +18,7 @@
 (require racket/list)
 (require rackunit racket/pretty describe)
 
-;(provide complete-partial-instance-in)
+(provide complete-partial-instance-in)
 
 ;; ======================================================================
 ;;

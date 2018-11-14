@@ -107,6 +107,7 @@
                    (~alt (of-class ~! of-class-expr:expr ...)
                          by-ports:expr) ...)))
 
+  ;TODO Allow any number of conditions: 0 or more. If 0, then always pass.
   (define-splicing-syntax-class a2-body
     #:description "body of applies-to"
     #:datum-literals [condition]

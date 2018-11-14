@@ -13,6 +13,20 @@
            define/g gdo))
 (require rackunit racket/pretty describe)
 
+(provide archetypes
+         archetype-of-value
+         archetype-of-node
+         add-group-to-slipnet
+         group-members-and-tags
+
+         no-archetype
+         is-node
+         is-value
+         is-class
+
+         run-slipnet
+         do-slipnet-timestep)
+
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 20)
@@ -158,6 +172,7 @@
      (add-activation-edges sl new-node (members-of sl new-node) 0.1)]
     [else sl]))
 
+;TODO Get rid of g
 (define (add-archetypes-for-new-nodes slipnet g new-nodes)
   (for/fold ([sl slipnet])
             ([new-node new-nodes])
@@ -180,6 +195,19 @@
                     [(new-nodes) (set-union new-nodes news)])
         (values sl new-nodes))))
   (add-activation-edges-for-new-nodes sl new-nodes))
+
+; group is a nodeid. Its tags and members will get archetypes and activation
+; links.
+(define (add-group-to-slipnet g group)
+  (let* ([nodes (group-members-and-tags g group)]
+         [g (add-archetypes-for-new-nodes g 'ignored nodes)]
+         [g (add-activation-edges-for-new-nodes g nodes)])
+    g))
+
+(define (group-members-and-tags g group)
+  (set-union (set group)
+             (list->set (g:members-of g group))
+             (list->set (g:port->neighbors g `(,group tags))))) ;HACK
 
 ;; ======================================================================
 ;;

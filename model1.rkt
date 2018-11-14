@@ -2,7 +2,7 @@
 ;
 ; Goes with numbo1.rkt. Probably will be obsolete soon after numbo1.rkt is done.
 
-#lang debug at-exp racket
+#lang debug at-exp errortrace racket
 
 (require errortrace)
 (require "wheel.rkt"
@@ -32,6 +32,56 @@
 (define (make-empty-graph spec)
   (struct-copy g:graph g:empty-graph [spec spec]))
 
+
+
+;TODO Can we get rid of reverse here?
+(define (make-choice-pairs f choices)
+  (for/fold ([pairs '()] [w 0.0] #:result (values (reverse pairs) w))
+            ([choice choices])
+        (let ([delta (f choice)])
+          (if (zero? delta)
+            (values pairs w)
+            (values (cons `(,delta . ,choice) pairs)
+                    (+ delta w))))))
+
+;TODO Move this to another file
+;(define (weighted-choice-by f choices)
+;  (define-values (choice-pairs total) (make-choice-pairs f choices))
+;  (cond
+;    [(null? choice-pairs)
+;     (void)]
+;    [(null? (cdr choice-pairs))
+;     (cdar choice-pairs)]
+;    [else (let ([r (* (random) total)])
+;            (let loop ([choice-pairs choice-pairs])
+;              (let ([pair (car choice-pairs)])
+;                (cond
+;                  [(<= r (car pair))
+;                   (cdr pair)]
+;                  [else (loop (cdr choice-pairs))]))))]))
+
+(define (select-choice-pair r choice-pairs)
+  (let ([first-item-weight (caar choice-pairs)])
+    (cond
+      [(<= r first-item-weight)
+       (values (car choice-pairs) (cdr choice-pairs))]
+      [else (let-values ([(pair rest)
+                            (select-choice-pair
+                              (- r first-item-weight)
+                              (cdr choice-pairs))])
+              (values pair (cons (car choice-pairs) rest)))])))
+
+(define (seq-weighted-by f choices)
+  (define-values (choice-pairs total) (make-choice-pairs f choices))
+  (let loop ([choice-pairs choice-pairs] [total total])
+    (cond
+      [(null? choice-pairs)
+       '()]
+      [else (let ([r (* (random) total)])
+              (let-values ([(pair choice-pairs)
+                              (select-choice-pair r choice-pairs)])
+                (cons (cdr pair)
+                      (loop choice-pairs (- total (car pair))))))])))
 
 ;; ======================================================================
 ;;
@@ -105,9 +155,11 @@
 ;;
 
 (define/g (make-node g classname . args)
-  (let* ([nodeclass (get-nodeclass* g classname)]
-         [attrs (f:args->node-attrs nodeclass args)])
-    (g:make-node g attrs)))
+  (let*-values ([(nodeclass) (get-nodeclass* g classname)]
+                [(attrs) (f:args->node-attrs nodeclass args)]
+                [(g node) (g:make-node g attrs)]
+                [(g) (boost-salience-of g node)])
+    (values g node)))
 
 (define/g (add-node g . args)
   (first-value (apply make-node g args)))
@@ -123,6 +175,11 @@
 
 (define/g (add-node/in g . args)
   (first-value (apply make-node/in g args)))
+
+(define/g (add-nodes/in g ctx classname vs)
+  (for/fold ([g g])
+            ([value vs])
+    (add-node/in g ctx classname value)))
 
 ;; ======================================================================
 ;;
@@ -171,6 +228,32 @@
 
 ;; ======================================================================
 ;;
+;; Salience
+;;
+
+(define (salience-of g node)
+  (let ([s (get-node-attr g node 'salience)])
+    (if (void? s) 0.0 s)))
+
+(define (boost-salience-of g node)
+  (g:update-node-attr g node 'salience
+    (curry + 1.0)
+    0.0))
+
+(define (pr-saliences g)
+  (for ([node (members-of g 'ws)])
+    (displayln @~a{@node @(salience-of g node)})))
+
+(define (saliences-ht g)
+  (for/hash ([node (members-of g 'ws)])
+    (values node (salience-of g node))))
+
+(define (seq-weighted-by-salience g nodes)
+  (seq-weighted-by (λ (node) (salience-of g node))
+                   nodes))
+
+;; ======================================================================
+;;
 ;; Tagging
 ;;
 
@@ -178,12 +261,23 @@
 ; as provided in nodespec. nodespec can be a symbol, in which case there
 ; are no args, or a list where the nodeclass's name is the first element
 ; and the remaining elements are the args, e.g. '(fills-port result 5).
+;TODO Call parse-nodespec
 (define (realize-nodespec g nodespec)
   (match nodespec
     [`(,class-name . ,args)
      (f:realize-attrs (get-nodeclass* g class-name) args)]
     [(? symbol?)
      (f:realize-attrs (get-nodeclass* g nodespec) '())]
+    [else (raise-arguments-error 'realize-nodespec
+                                 @~a{Invalid nodespec: @|nodespec|.})]))
+
+; Returns two values: class-name, args
+(define (parse-nodespec nodespec)
+  (match nodespec
+    [`(,class-name . ,args)
+     (values class-name args)]
+    [(? symbol?)
+     (values nodespec '())]
     [else (raise-arguments-error 'realize-nodespec
                                  @~a{Invalid nodespec: @|nodespec|.})]))
 
@@ -212,6 +306,132 @@
                (taggee-info-match? g ti node))
              (for/or ([c (f:applies-to*-conditions applies-to)])
                (apply condition-match? g c nodes)))))))
+
+;TODO BUG This seems to ignore the args.
+;TODO OAOO: There's some redundancy between this function and
+;tagclass-applies-to?
+(define (tagged-with? g tagspec . nodes)
+  (if (null? nodes)
+    #f
+    (let ([tagclass (realize-nodespec g tagspec)])
+      (for/or ([applies-to (f:get-raw-nodeclass-attr tagclass 'applies-to)])
+        (linked-from-common-node? g
+          (f:applies-to*-taggee-infos applies-to) nodes)))))
+
+;HACK
+(define (has-tag? g tagspec node)
+  (for/or ([neighbor (g:port->neighbors g `(,node tags))])
+    (matches-tagspec? g tagspec neighbor)))
+
+(define (matches-tagspec? g tagspec node)
+  (let-values ([(spec-class-name spec-args) (parse-nodespec tagspec)])
+    (and (node-is-a? g node spec-class-name)
+         (equal? spec-args (get-node-attr g node 'args)))))
+
+;TODO Handle case where taggee-infos is empty
+(define (linked-from-common-node? g taggee-infos nodes)
+  (let/cc break
+    (for/fold ([back-nodes (void)] #:result (not (set-empty? back-nodes)))
+              ([taggee-info taggee-infos] [node nodes])
+      (let ([back-nodes (set-intersect* back-nodes
+                                        (linked-from g taggee-info node))])
+        (if (set-empty? back-nodes)
+          (break #f)
+          back-nodes)))))
+
+(define (linked-from g taggee-info node)
+  (let/cc break
+    (for/fold ([froms (void)] #:result (if (void? froms) empty-set froms))
+              ([by-ports (in-list (f:taggee-info*-by-portss taggee-info))])
+      (match-define (f:by-ports* from-port-label to-port-label) by-ports)
+      (let ([froms (set-intersect* froms
+                                   (g:port->port-label->nodes g
+                                     `(,node ,to-port-label)
+                                     from-port-label))])
+        (if (set-empty? froms)
+          (break froms)
+          froms)))))
+
+(define (common-ctxs g nodes)
+  (apply set-intersect (for/list ([node nodes])
+                         (list->set (g:member-of g node)))))
+
+(define (link-as-member g ctxs node)
+  (for/fold ([g g])
+            ([ctx ctxs])
+    (g:add-edge g `((,ctx members) (,node member-of)))))
+
+;TODO Make the tag a member of the nodes' least common ctx
+;TODO Don't make the tag if it's already there
+(define/g (make-tag g tagspec . nodes)
+  (let*-values ([(tagclass) (realize-nodespec g tagspec)]
+                [(tagclass-name args) (parse-nodespec tagspec)])
+    (cond
+      [(first-matching-applies-to g tagclass nodes)
+       => (λ (applies-to)
+            (let*-values ([(g tag) (apply make-node g tagclass-name args)])
+              (for/fold ([g g]
+                         #:result (values
+                                    (link-as-member g (common-ctxs g nodes) tag)
+                                    tag))
+                        ([taggee-info (f:applies-to*-taggee-infos applies-to)]
+                         [node nodes])
+                (link-to g taggee-info tag node))))]
+      [else (raise 'fizzle)])))
+
+(define/g (add-tag g tagspec . nodes)
+  (if (for/and ([node nodes])
+        (has-tag? g tagspec node)) ;HACK!!!!
+    g
+    (first-value (apply make-tag g tagspec nodes))))
+
+(define/g (add-tags g tagspecs . nodes)
+  (for/fold ([g g])
+            ([tagspec tagspecs])
+    (apply add-tag g tagspec nodes)))
+
+(define/g (link-to g by-portss from-node to-node)
+  (let* ([by-portss (match by-portss
+                      [(struct* f:taggee-info* ([by-portss bps])) bps]
+                      [(struct* f:links-into* ([by-portss bps])) bps]
+                      [else
+                        (raise-arguments-error 'link-to
+                          @~a{Can't extract by-portss from @|by-portss|.})])])
+    (for/fold ([g g])
+              ([by-ports by-portss])
+      (match-define (f:by-ports* from-port-label to-port-label) by-ports)
+      (g:add-edge g `((,from-node ,from-port-label) (,to-node ,to-port-label))))))
+
+(define (first-matching-applies-to g realized-tagclass nodes)
+  ;(define nodeclass (get-nodeclass* g realized-tagclass))
+  (define applies-tos (f:get-raw-nodeclass-attr realized-tagclass 'applies-to))
+  (for/or ([applies-to applies-tos])
+    (applies-to? g applies-to nodes)))
+
+(define (condition-func-passes? g cfunc nodes)
+  (define cfunc-takes-g (apply cfunc nodes))
+  (cfunc-takes-g g))
+
+(define (possible-taggee? g taggee-info node)
+  (for/or ([of-class (f:taggee-info*-of-classes taggee-info)])
+    (node-is-a? g node of-class)))
+
+(define (all-taggee-infos-could-apply? g applies-to nodes)
+  (define taggee-infos (f:applies-to*-taggee-infos applies-to))
+  (if (not (= (length taggee-infos) (length nodes)))
+    #f
+    (for/and ([taggee-info taggee-infos]
+              [node nodes])
+      (possible-taggee? g taggee-info node))))
+
+;; Returns #f or the applies-to*.
+(define (applies-to? g applies-to nodes)
+  (if (and (all-taggee-infos-could-apply? g applies-to nodes)
+           ;TODO OAOO with tagclass-applies-to?
+           (for/or ([c (f:applies-to*-conditions applies-to)])
+             (apply condition-match? g c nodes)))
+    applies-to
+    #f))
 
 ;; ======================================================================
 ;;
@@ -294,7 +514,12 @@
 
     (check-false (tagclass-applies-to? g '(same number) brick7 number22))
     (check-true (tagclass-applies-to? g '(same number) brick22 number22))
-    (check-false (tagclass-applies-to? g '(same number) neither22 number22))))
+    (check-false (tagclass-applies-to? g '(same number) neither22 number22))
+    
+    (define tag (gdo make-tag '(same number) brick22 number22))
+    (check-true (tagged-with? g '(same number) brick22 number22))
+    (check-true (tagged-with? g '(same number) number22 brick22))
+    ))
 
 
 (define spec

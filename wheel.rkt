@@ -85,6 +85,9 @@
   (= 1 (for/sum ([item seq])
          (if (pred item) 1 0))))
 
+(define (eq?? x)
+  (λ (x*) (eq? x x*)))
+
 ;; "Fills the void": if first argument is void, returns intersection of
 ;; remaining arguments.
 ;;
