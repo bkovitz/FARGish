@@ -36,8 +36,9 @@
   (farg-model-spec
     (nodeclass numbo-ws
       (is-a 'ctx))
-    (nodeclass equation
+    (nodeclass (equation nm)
       (is-a 'ctx)
+      (name nm)
       (archetype is-node))
     (nodeclass (number n)
       (name n)
@@ -107,26 +108,57 @@
 ;; Searching the numbo-ws
 ;;
 
+;(define (done? g)
+;  (define (has-source? node)
+;    (cond
+;      [(node-is-a? g node 'number)
+;       (define sources (g:port->neighbors g `(,node source)))
+;       (if (empty? sources)
+;         #f
+;         (for/and ([source sources])
+;           (has-source? source)))]
+;      [(node-is-a? g node 'operator)
+;       (define operands (g:port->neighbors g `(,node operands)))
+;       (if (empty? operands)
+;         #f
+;         (for/and ([operand operands])
+;           (has-source? operand)))]
+;      [(node-is-a? g node 'ws)
+;       #t]))
+;  ;TODO? throw error if no match?
+;
+;  (has-source? (g:port->neighbor g '(ws target))))
+
+(define (numbers-in g ctx)
+  (for/list ([node (members-of g ctx)]
+             #:when (node-is-a? g node 'number))
+    node))
+
 (define (done? g)
+  (define target (g:port->neighbor g '(ws target)))
+  (define target-number (value-of g target))
   (define (has-source? node)
     (cond
-      [(node-is-a? g 'number node)
+      [(node-is-a? g node 'number)
        (define sources (g:port->neighbors g `(,node source)))
        (if (empty? sources)
          #f
          (for/and ([source sources])
            (has-source? source)))]
-      [(node-is-a? g 'operator node)
+      [(node-is-a? g node 'operator)
        (define operands (g:port->neighbors g `(,node operands)))
        (if (empty? operands)
          #f
          (for/and ([operand operands])
            (has-source? operand)))]
-      [(node-is-a? g 'numbo-ws node)
+      [(node-is-a? g node 'ws)
        #t]))
   ;TODO? throw error if no match?
 
-  (has-source? (g:port->neighbor g '(numbo-ws target))))
+  (for/or ([node (numbers-in g 'ws)])
+    (and (= target-number (value-of g node))
+         (has-source? node))))
+
 
 ;(module+ test
 ;  (let ([g (make-numbo-g '(4 5 6) 15)])
@@ -154,7 +186,8 @@
 ; new node for each number and operator. Adds edges between appropriate
 ; 'source and 'result ports.
 (define (make-equation g result- expr)
-  (let*-values ([(g equation) (make-node g 'equation)]
+  (let*-values ([(g equation) (make-node g
+                                'equation (equation-name result- expr))]
                 [(g result) (make-node/in g equation 'number result-)]
                 [(g operator) (make-expr/in g equation expr)]
                 [(g) (g:add-edge g `((,operator result) (,result source)))])
@@ -170,13 +203,19 @@
                            `((,operand result) (,operator operands)))])
         g))))
 
+(define (equation-name result expr)
+  (string->symbol
+    (string-append
+      (string-join (map ~a (cdr expr)) (~a (car expr)))
+      @~a{=@result})))
+
 ;TODO UT
 (define (add-memorized-equations g)
   (for/fold ([g g])
             ([eqn (list '(9 (+ 4 5))
                         '(15 (+ 9 6)))])
-    (let*-values ([(g equation) (apply make-equation g eqn)])
-      (add-equation-tags g equation)
+    (let*-values ([(g equation) (apply make-equation g eqn)]
+                  [(g) (add-equation-tags g equation)])
       (add-group-to-slipnet g equation))))
 
 (module+ test
@@ -224,9 +263,11 @@
 ;;
 
 (define (search-slipnet g initial-activations)
-  (define activations (run-slipnet g initial-activations))
-  ;#R (sorted-by-cdr activations)
-  (most-active-equation g activations))
+  (let* ([g (g:graph-set-var g 'initial-activations initial-activations)]
+         [activations (run-slipnet g initial-activations)]
+         [g (g:graph-set-var g 'activations activations)])
+  (sorted-by-cdr activations)
+    (values g (most-active-equation g activations))))
 
 (define (most-active-equation g activations)
   (define eqn-activations (for/list ([e-a (hash->list activations)]
@@ -254,7 +295,6 @@
                                        (g:node->neighbors g neighbor)))
                     (set-union already-visited new-neighbors)))])))
 
-;NEXT Convert to archetypes
 (define (make-initial-activations g focal-node)
   (for/fold ([ht (hash)]) ; (archetype . activation)
             ([pair (neighborhood-around g focal-node)])
@@ -262,7 +302,22 @@
     (define activation (* (salience-of g node) (expt 0.8 num-steps)))
     (if (zero? activation)
       ht
-      (hash-set ht node activation))))
+      (for/fold ([ht ht])
+                ([archetype (relevant-archetypes g node)])
+        (hash-set ht archetype activation)))))
+
+(define (need->fills-port g tag)
+  (define value (value-of-taggee g tag))
+  (define port-label (car (args-of g tag)))
+  `(fills-port ,value ,port-label))
+
+;TODO This should be in the spec
+(define (relevant-archetypes g node)
+  (cond
+    [(node-is-a? g node 'problem-tag)
+     (list (f:archetype-name (need->fills-port g node)))]
+    [else
+     (get-nodeclass-attr g node 'archetype-names)]))
 
 ;; ======================================================================
 ;;
@@ -324,7 +379,7 @@
                   ;[(_) (pr-group g 'ws)]
                   [(activations) (maybe-suspend 'slipnet-activations
                                               (make-initial-activations g focal-node))]
-                  [(equation) (search-slipnet g activations)]
+                  [(g equation) (search-slipnet g activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]
                   [(g) (complete-partial-instance-in g equation 'ws)]
@@ -355,7 +410,11 @@
   (safe-car
     (seq-weighted-by-salience g (members-of g 'ws))))
 
-(define g (make-numbo-g '(4 5 6) 15))
-(gdo add-memorized-equations)
-
-(pr-graph g)
+;(define g (make-numbo-g '(4 5 6) 15))
+;(gdo add-memorized-equations)
+;
+;(pr-graph g)
+;
+;(gdo do-timestep)
+;(gdo do-timestep)
+;(done? g)

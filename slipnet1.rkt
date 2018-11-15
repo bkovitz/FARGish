@@ -85,7 +85,10 @@
   (define archetype-node (archetype-of-node g node))
   (if (void? archetype-node)
     (make-archetype-for-node g node)
-    (values g archetype-node)))
+    (values (ensure-member-of-slipnet g archetype-node) archetype-node)))
+
+(define (ensure-member-of-slipnet g node)
+  (g:add-edge g `((slipnet members) (,node member-of))))
 
 (define (make-archetype-for-node g node)
   (match (archetype-spec-of-node g node)

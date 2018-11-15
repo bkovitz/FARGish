@@ -350,6 +350,10 @@
 (define (tags-of g node)
   (g:port->neighbors g `(,node tags)))
 
+;TODO This is way too model- and tag-specific.
+(define (value-of-taggee g tag)
+  (value-of g (g:port->neighbor g `(,tag tagged))))
+
 ;TODO Fix HACK: This assumes that a tag's value is its tagspec. Should be
 ;independent of how the node's value is defined.
 (define (tag-still-applies? g tag)
