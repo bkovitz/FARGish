@@ -75,7 +75,7 @@
        g]
       [(and (open-port? g from-port1 to-port1)
             (open-port? g from-port2 to-port2))
-       (g:add-edge g to-hop)]
+       (add-edge g to-hop)]
       [else (raise 'cant-make-edge)])))
 
 (define (open-port? g from-port to-port)

@@ -3,7 +3,10 @@
 #lang debug at-exp racket
 
 (require errortrace)
-(require "wheel.rkt" "xsusp3.rkt" "model1.rkt" "shorthand.rkt"
+(require "wheel.rkt"
+         "xsusp3.rkt"
+         "model1.rkt"
+         "shorthand.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass)
@@ -159,10 +162,6 @@
         sl
         (add-activation-edge sl from-archetype to-archetype weight)))))
     ;(add-edge sl `((,from-archetype activation) (,to-archetype activation)))))
-
-;TODO This is way too model- and tag-specific. Move to model1.rkt or tag1.rkt.
-(define (taggees-of g tagnode)
-  (g:port->neighbors g `(,tagnode tagged)))
 
 (define (add-activation-edges-for sl new-node)
   (cond

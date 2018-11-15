@@ -28,6 +28,7 @@
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 3)
 (define support-decay-rate 0.5)
+(define salience-decay 0.8)
 
 (define (make-empty-graph spec)
   (struct-copy g:graph g:empty-graph [spec spec]))
@@ -151,7 +152,7 @@
 
 ;; ======================================================================
 ;;
-;; Functions to make nodes
+;; Functions to make nodes and edges
 ;;
 
 (define/g (make-node g classname . args)
@@ -180,6 +181,23 @@
   (for/fold ([g g])
             ([value vs])
     (add-node/in g ctx classname value)))
+
+;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
+;Doesn't add the edge if it already exists, but will change its weight.
+;Adds both nodes to the 'touched-nodes set regardless of whether the edge
+;already exists.
+(define/g (add-edge g edge [weight 1.0])
+  (for/fold ([g (g:add-edge g edge weight)])
+            ([node (g:edge->nodes edge)])
+    (touch-node g node)))
+
+(define/g (touch-node g node)
+  (g:graph-update-var g 'touched-nodes
+    (λ (touched-so-far) (set-add touched-so-far node))
+    empty-set))
+
+(define/g (clear-touched-nodes g)
+  (g:graph-set-var g 'touched-nodes empty-set))
 
 ;; ======================================================================
 ;;
@@ -240,6 +258,27 @@
     (curry + 1.0)
     0.0))
 
+(define (boost-salience-of-touched-nodes g)
+  (for/fold ([g g])
+            ([node (g:graph-get-var g 'touched-nodes)])
+    (boost-salience-of g node)))
+
+(define (reduce-salience-of g node)
+  (g:update-node-attr g node 'salience
+    (curry * 0.5)
+    0.0))
+
+(define (decay-saliences-in g ctx)
+  (for/fold ([g g])
+            ([node (members-of g ctx)])
+    (g:update-node-attr g node 'salience
+      (curry * salience-decay)
+      0.0)))
+
+(define (seq-weighted-by-salience g nodes)
+  (seq-weighted-by (λ (node) (salience-of g node))
+                   nodes))
+
 (define (pr-saliences g)
   (for ([node (members-of g 'ws)])
     (displayln @~a{@node @(salience-of g node)})))
@@ -247,10 +286,6 @@
 (define (saliences-ht g)
   (for/hash ([node (members-of g 'ws)])
     (values node (salience-of g node))))
-
-(define (seq-weighted-by-salience g nodes)
-  (seq-weighted-by (λ (node) (salience-of g node))
-                   nodes))
 
 ;; ======================================================================
 ;;
@@ -306,6 +341,19 @@
                (taggee-info-match? g ti node))
              (for/or ([c (f:applies-to*-conditions applies-to)])
                (apply condition-match? g c nodes)))))))
+
+;TODO This is way too model- and tag-specific.
+(define (taggees-of g tag)
+  (g:port->neighbors g `(,tag tagged)))
+
+;TODO This is way too model- and tag-specific.
+(define (tags-of g node)
+  (g:port->neighbors g `(,node tags)))
+
+;TODO Fix HACK: This assumes that a tag's value is its tagspec. Should be
+;independent of how the node's value is defined.
+(define (tag-still-applies? g tag)
+  (apply tagclass-applies-to? g (value-of g tag) (taggees-of g tag)))
 
 ;TODO BUG This seems to ignore the args.
 ;TODO OAOO: There's some redundancy between this function and
@@ -441,6 +489,11 @@
 (define (pr-nodeclass-of g nodeid)
   (pretty-print (f:realize-attrs (nodeclass*-of g nodeid)
                                  (args-of g nodeid))))
+
+(define (log . args)
+  (define as (string-join (for/list ([arg args])
+                            (~a arg))))
+  (displayln @~a{  @as}))
 
 ;; ======================================================================
 ;;

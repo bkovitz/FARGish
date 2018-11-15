@@ -47,6 +47,12 @@
          node->incident-hops
          other-node
 
+         edge->set
+         edge->list
+         edge->nodes
+         port->node
+         port->port-label
+
          pr-node
          pr-graph
          pr-group
@@ -214,6 +220,14 @@
     [(set? edge) (set->list edge)]
     [else (raise-argument-error 'edge->list
             "edge must be set of two ports or list of two ports" edge)]))
+
+;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
+(define (edge->nodes edge)
+  (for/list ([port edge])
+    (port->node port)))
+
+(define port->node car)
+(define port->port-label cadr)
 
 ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
 ;Doesn't add the edge if it already exists, but will change its weight.

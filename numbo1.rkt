@@ -254,6 +254,7 @@
                                        (g:node->neighbors g neighbor)))
                     (set-union already-visited new-neighbors)))])))
 
+;NEXT Convert to archetypes
 (define (make-initial-activations g focal-node)
   (for/fold ([ht (hash)]) ; (archetype . activation)
             ([pair (neighborhood-around g focal-node)])
@@ -296,6 +297,20 @@
                 [(null? tagspecs) (loop (cdr nodes))]
                 [else (values node tagspecs)]))])))
 
+(define (remove-obsolete-tags g ctx)
+  (for*/fold ([g g])
+             ([node (members-of g ctx)]
+              [tag (tags-of g node)])
+    (if (tag-still-applies? g tag)
+      g
+      (remove-tag g tag))))
+
+(define (remove-tag g tag)
+  (let ([nodes (taggees-of g tag)])
+    (for/fold ([g (g:remove-node g tag)])
+              ([node nodes])
+      (reduce-salience-of g node))))
+
 ;; ======================================================================
 ;;
 ;; Running
@@ -303,12 +318,18 @@
 
 (define (do-timestep g)
   (with-handlers ([(eq?? 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
-    (let* ([g (look-for-problems g 'ws)]
-           [activations (maybe-suspend 'slipnet-activations
-                                       (make-initial-activations g))]
-           [equation (search-slipnet g activations)]
-           [_ (log "trying" equation)]
-           [g (complete-partial-instance-in g equation 'ws)])
+    (let*-values ([(g) (decay-saliences-in g 'ws)]
+                  ;[focal-node (choose-focal-node g 'ws)]
+                  [(g focal-node) (look-for-problems g 'ws)]
+                  ;[(_) (pr-group g 'ws)]
+                  [(activations) (maybe-suspend 'slipnet-activations
+                                              (make-initial-activations g focal-node))]
+                  [(equation) (search-slipnet g activations)]
+                  [(_) (log "trying" equation)]
+                  [(g) (clear-touched-nodes g)]
+                  [(g) (complete-partial-instance-in g equation 'ws)]
+                  [(g) (remove-obsolete-tags g 'ws)]
+                  [(g) (boost-salience-of-touched-nodes g)])
       g)))
 
 (define (run^ g)
@@ -329,6 +350,10 @@
   (let*-values ([(g) (make-numbo-g bricks target)]
                 [(g) (add-memorized-equations g)])
     (run^ g)))
+
+(define (choose-focal-node g ctx)
+  (safe-car
+    (seq-weighted-by-salience g (members-of g 'ws))))
 
 (define g (make-numbo-g '(4 5 6) 15))
 (gdo add-memorized-equations)
