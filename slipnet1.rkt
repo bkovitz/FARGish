@@ -56,6 +56,11 @@
        (car atypes)]
       [else (loop (cdr atypes))])))
 
+;HACK This isn't guaranteed to work, but it's way faster than the linear
+;search in the commented-out function above.
+;(define (archetype-of-value g value)
+;  (define id 
+
 (define (archetype-spec-of-node g node)
   (match (get-nodeclass-attr g node 'archetype-names)
     [`(,aname . ,_) aname]
@@ -221,7 +226,7 @@
             ([timestep slipnet-timesteps])
     (let ([as (maybe-suspend 'slipnet-activations
                              (do-slipnet-timestep g activations))])
-      ;#R (sorted-by-cdr as)
+      ;#R (take-right (sorted-by-cdr as) 20)
       as)))
 
 (define (do-slipnet-timestep g initial-activations)

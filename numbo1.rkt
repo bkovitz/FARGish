@@ -24,7 +24,9 @@
 
 ;; Global constants
 
-(define max-timesteps 20)
+(random-seed 0)
+
+(define max-timesteps 10)
 (define support-decay-rate 0.5)
 
 ;; ======================================================================
@@ -209,14 +211,44 @@
       (string-join (map ~a (cdr expr)) (~a (car expr)))
       @~a{=@result})))
 
+
+(define (.. lb ub [step 1])
+  (range lb (add1 ub) step))
+
+(define elementary-equation-tuples
+  (append
+    (cartesian-product
+      '(+ - *)
+      '(0 1 2 3 4 5 6 7 8 9 10)
+      '(0 1 2 3 4 5 6 7 8 9 10))
+    (cartesian-product
+      '(+ - *)
+      '(0 1 2 3 4 5 6 7 8 9 10)
+      '(10))
+    (cartesian-product
+      '(+ -)
+      (.. 0 100)
+      '(0 1 2 3))
+    (cartesian-product
+      '(*)
+      (.. 10 100 10)
+      '(0 1 2 3 4 5 6 7 8 9 10))
+    ))
+
+(define base-namespace (make-base-namespace))
+(define (eval-expr expr)
+  (eval expr base-namespace))
+
 ;TODO UT
 (define (add-memorized-equations g)
   (for/fold ([g g])
-            ([eqn (list '(9 (+ 4 5))
-                        '(15 (+ 9 6)))])
-    (let*-values ([(g equation) (apply make-equation g eqn)]
-                  [(g) (add-equation-tags g equation)])
-      (add-group-to-slipnet g equation))))
+            ([expr elementary-equation-tuples])
+    (add-memorized-equation g (list (eval-expr expr) expr))))
+
+(define (add-memorized-equation g eqn)
+  (let*-values ([(g equation) (apply make-equation g eqn)]
+                [(g) (add-equation-tags g equation)])
+    (add-group-to-slipnet g equation)))
 
 (module+ test
   (test-case "make-equation"
@@ -278,7 +310,7 @@
   (car (argmax cdr eqn-activations)))
 
 ;TODO Move to model1.rkt
-(define (neighborhood-around g node [max-steps 2])
+(define (neighborhood-around g node [max-steps 3])
   (let loop ([num-steps 1]
              [result (set `(,node 0))]
              [neighbors (g:node->neighbors g node)]
@@ -291,7 +323,8 @@
                                                `(,neighbor ,num-steps)))])
               (loop (add1 num-steps)
                     result
-                    (apply set-union (for/list ([neighbor new-neighbors])
+                    (apply set-union empty-set
+                                     (for/list ([neighbor new-neighbors])
                                        (g:node->neighbors g neighbor)))
                     (set-union already-visited new-neighbors)))])))
 
@@ -299,7 +332,7 @@
   (for/fold ([ht (hash)]) ; (archetype . activation)
             ([pair (neighborhood-around g focal-node)])
     (match-define `(,node ,num-steps) pair)
-    (define activation (* (salience-of g node) (expt 0.8 num-steps)))
+    (define activation (* (salience-of g node) (expt 0.95 num-steps)))
     (if (zero? activation)
       ht
       (for/fold ([ht ht])
@@ -317,7 +350,7 @@
     [(node-is-a? g node 'problem-tag)
      (list (f:archetype-name (need->fills-port g node)))]
     [else
-     (get-nodeclass-attr g node 'archetype-names)]))
+     (map f:archetype-name (get-nodeclass-attr g node 'archetype-names))]))
 
 ;; ======================================================================
 ;;
@@ -376,9 +409,11 @@
     (let*-values ([(g) (decay-saliences-in g 'ws)]
                   ;[focal-node (choose-focal-node g 'ws)]
                   [(g focal-node) (look-for-problems g 'ws)]
+                  [(_) (log "focusing on" (name-of g focal-node))]
                   ;[(_) (pr-group g 'ws)]
                   [(activations) (maybe-suspend 'slipnet-activations
-                                              (make-initial-activations g focal-node))]
+                                   (make-initial-activations g focal-node))]
+                  ;[(_) #R activations]
                   [(g equation) (search-slipnet g activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]
@@ -401,6 +436,7 @@
           (raise `(done ,g)))
         (maybe-suspend 'g (do-timestep g))))))
 
+;TODO Pass slipnet as argument so you don't have to recreate it each time
 (define (run bricks target)
   (let*-values ([(g) (make-numbo-g bricks target)]
                 [(g) (add-memorized-equations g)])
