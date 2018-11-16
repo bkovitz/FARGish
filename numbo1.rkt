@@ -11,7 +11,7 @@
          "completion1.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
-           farg-model-spec nodeclass tagclass)
+           farg-model-spec nodeclass tagclass portclass)
          (prefix-in g: "graph1.rkt")
          (only-in "graph1.rkt"
            pr-graph pr-group pr-node
@@ -74,10 +74,14 @@
       (archetype `(fills-port ,result ,n))
       (applies-to ([node (of-class 'equation) (by-ports 'tagged 'tags)])
         (condition (const #t)))
+      )
+    (portclass source
+      (max-neighbors 1))
+    (portclass result
+      (max-neighbors 1))
+    ))
 ;      (applies-to ([node (by-ports 'tagged 'tags)])
 ;        (condition (has-neighbor-at-port?/g result node)))
-      )
-    ))
 
 ;; ======================================================================
 ;;
@@ -239,10 +243,22 @@
 (define (eval-expr expr)
   (eval expr base-namespace))
 
+(define (remove-redundant-exprs exprs)
+  (for/fold ([st empty-set] #:result (map car (set->list st)))
+            ([expr exprs])
+    (match-define `(,op . ,operands) expr)
+    (define e
+      (case op
+        [(+ *) `(,expr ,op ,(apply set operands))]
+        [(- /) `(,expr ,op ,operands)]))
+    (if (set-member? st e)
+      st
+      (set-add st e))))
+
 ;TODO UT
 (define (add-memorized-equations g)
   (for/fold ([g g])
-            ([expr elementary-equation-tuples])
+            ([expr (remove-redundant-exprs elementary-equation-tuples)])
     (add-memorized-equation g (list (eval-expr expr) expr))))
 
 (define (add-memorized-equation g eqn)
@@ -371,7 +387,7 @@
   (let-values ([(node problem-tags) (find-node-with-problems g ctx)])
     (if (void? node)
       (values g (void))
-      (values (add-tags g problem-tags node) node))))
+      (values (add-tags g #R problem-tags node) node))))
 
 ; Returns two values: node, problem-tags. If no problem found, then (void)
 ; (void).
@@ -409,11 +425,12 @@
     (let*-values ([(g) (decay-saliences-in g 'ws)]
                   ;[focal-node (choose-focal-node g 'ws)]
                   [(g focal-node) (look-for-problems g 'ws)]
-                  [(_) (log "focusing on" (name-of g focal-node))]
+                  [(_) (log "focusing on" focal-node)]
+                  [(_) (pr-node g focal-node)]
                   ;[(_) (pr-group g 'ws)]
                   [(activations) (maybe-suspend 'slipnet-activations
                                    (make-initial-activations g focal-node))]
-                  ;[(_) #R activations]
+                  [(_) #R (sorted-by-cdr activations)]
                   [(g equation) (search-slipnet g activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]
@@ -421,6 +438,10 @@
                   [(g) (remove-obsolete-tags g 'ws)]
                   [(g) (boost-salience-of-touched-nodes g)])
       g)))
+
+;Print the top activations
+(define (top-as g [n 20])
+  (take-right (sorted-by-cdr (g:graph-get-var g 'activations)) n))
 
 (define (run^ g)
   (maybe-suspend 'g g)
@@ -438,9 +459,12 @@
 
 ;TODO Pass slipnet as argument so you don't have to recreate it each time
 (define (run bricks target)
+    (run^ (make-g bricks target)))
+
+(define (make-g bricks target)
   (let*-values ([(g) (make-numbo-g bricks target)]
                 [(g) (add-memorized-equations g)])
-    (run^ g)))
+    g))
 
 (define (choose-focal-node g ctx)
   (safe-car

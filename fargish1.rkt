@@ -11,6 +11,7 @@
 (provide farg-model-spec
          nodeclass
          tagclass
+         portclass
          args->node-attrs
          apply-class-attr
          realize-attrs
