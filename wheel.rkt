@@ -9,6 +9,10 @@
 (define empty-set (set))
 (define empty-hash (hash))
 
+(define (without-voids seq)
+  (for/list ([x seq] #:when (not (void? x)))
+    x))
+
 (define (->list x)
   (cond
     [(pair? x) x]

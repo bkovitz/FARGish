@@ -53,7 +53,8 @@
     (nodeclass (brick n)
       (is-a 'number)
       (links-into 'ctx (by-ports 'bricks 'source) as-member))
-    (nodeclass operator)
+    (nodeclass operator
+      (archetype is-class))
     (nodeclass +
       (is-a 'operator))
     (nodeclass -
@@ -63,6 +64,18 @@
     (nodeclass /
       (is-a 'operator))
     (tagclass problem-tag)
+    (tagclass equation-tag
+      (applies-to ([node (of-class 'equation) (by-ports 'tagged 'tags)])
+        (condition (const #t)))) ;HACK condition should be optional
+    (tagclass (result x)
+      (is-a 'equation-tag)
+      (archetype `(result ,x)))
+    (tagclass (has-operand x)
+      (is-a 'equation-tag)
+      (archetype `(has-operand ,x)))
+    (tagclass (result-digits n)
+      (is-a 'equation-tag)
+      (archetype `(result-digits ,n)))
     (tagclass (needs need-type)
       (is-a 'problem-tag)
       (name (string->symbol @~a{needs-@need-type}))
@@ -74,7 +87,7 @@
       (is-a 'solution-tag)
       (archetype `(fills-port ,result ,n))
       (applies-to ([node (of-class 'equation) (by-ports 'tagged 'tags)])
-        (condition (const #t)))
+        (condition (const #t))) ;HACK condition should be optional
       )
     (portclass source
       (max-neighbors 1))
@@ -243,16 +256,16 @@
   (eval expr base-namespace))
 
 (define (remove-redundant-exprs exprs)
-  (for/fold ([st empty-set] #:result (map car (set->list st)))
+  (for/fold ([ht empty-hash] #:result (hash-values ht))
             ([expr exprs])
     (match-define `(,op . ,operands) expr)
-    (define e
+    (define key
       (case op
-        [(+ *) `(,expr ,op ,(apply set operands))]
-        [(- /) `(,expr ,op ,operands)]))
-    (if (set-member? st e)
-      st
-      (set-add st e))))
+        [(+ *) `(,op ,(apply set operands))]
+        [(- /) expr]))
+    (if (hash-has-key? ht key)
+      ht
+      (hash-set ht key expr))))
 
 ;TODO UT
 (define (add-memorized-equations g exprs)
@@ -351,8 +364,8 @@
     (if (zero? activation)
       ht
       (for/fold ([ht ht])
-                ([archetype (relevant-archetypes g node)])
-        (hash-set ht archetype activation)))))
+                ([archetype (without-voids (relevant-archetypes g node))])
+        (hash-update ht archetype (λ (old) (+ (* 0.9 old) activation)) 0.0)))))
 
 (define (need->fills-port g tag)
   (define value (value-of-taggee g tag))
@@ -365,7 +378,9 @@
     [(node-is-a? g node 'problem-tag)
      (list (f:archetype-name (need->fills-port g node)))]
     [else
-     (map f:archetype-name (get-nodeclass-attr g node 'archetype-names))]))
+     ;HACK Should get all archetypes of node, not just first one
+     (list (archetype-of-node g node))
+     #;(map f:archetype-name (get-nodeclass-attr g node 'archetype-names))]))
 
 ;; ======================================================================
 ;;
@@ -400,10 +415,16 @@
                 [(null? tagspecs) (loop (cdr nodes))]
                 [else (values node tagspecs)]))])))
 
+;HACK In lieu of a correct tags-of function.
+(define (neighbor-tags g node)
+  (for/list ([neighbor (g:port->neighbors g node)]
+             #:when (tag? g neighbor))
+    neighbor))
+
 (define (remove-obsolete-tags g ctx)
   (for*/fold ([g g])
              ([node (members-of g ctx)]
-              [tag (tags-of g node)])
+              [tag (neighbor-tags g node)])
     (if (tag-still-applies? g tag)
       g
       (remove-tag g tag))))
@@ -430,10 +451,11 @@
                   [(_) (log "focusing on" focal-node)]
                   [(_) (pr-node g focal-node)]
                   ;[(_) (pr-group g 'ws)]
-                  [(activations) (maybe-suspend 'slipnet-activations
-                                   (make-initial-activations g focal-node))]
-                  [(_) #R (sorted-by-cdr activations)]
-                  [(g equation) (search-slipnet g activations)]
+                  [(initial-activations)
+                     (maybe-suspend 'slipnet-activations
+                                    (make-initial-activations g focal-node))]
+                  [(_) #R (sorted-by-cdr initial-activations)]
+                  [(g equation) (search-slipnet g initial-activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]
                   [(g) (complete-partial-instance-in g equation 'ws)]
@@ -469,12 +491,6 @@
 
 (define g (g:copy-graph std-numbo-graph))
 
-
-;(define g (make-numbo-g '(4 5 6) 15))
-;(gdo add-memorized-equations)
-;
+(gdo start-numbo-ws '(1 1) 2)
+(gdo do-timestep)
 ;(pr-graph g)
-;
-;(gdo do-timestep)
-;(gdo do-timestep)
-;(done? g)
