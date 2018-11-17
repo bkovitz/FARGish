@@ -32,7 +32,7 @@
 
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
-(define slipnet-timesteps 20)
+(define slipnet-timesteps 10)
 
 ;; ======================================================================
 ;;

@@ -85,6 +85,7 @@
          graph-pop-var
 
          copy-graph-into-graph
+         copy-graph
 
          define/g
          gdo
@@ -105,8 +106,8 @@
 
 (define empty-spec #hash())
 
-(define (make-empty-graph)
-  (graph #hash() #hash() #hash() empty-id-set #hash() #hash() empty-spec))
+(define (make-empty-graph [spec empty-spec])
+  (graph #hash() #hash() #hash() empty-id-set #hash() #hash() spec))
 
 (define empty-graph (make-empty-graph))
 
@@ -673,6 +674,7 @@
   (define new-node2 (hash-ref node-map node2))
   `((,new-node1 ,port-label1) (,new-node2 ,port-label2)))
 
+; Returns two values: g, node-map
 (define (copy-graph-into-graph g g1)
   (let-values ([(g node-map)
       (for/fold ([g g] [node-map #hash()])
@@ -680,12 +682,16 @@
         (let-values ([(g nodeid) (make-node g (get-node-attrs g1 node))])
           (values g (hash-set node-map node nodeid))))])
     (let ([g (for/fold ([g g])
-                        ([edge (all-edges g1)])
+                       ([edge (all-edges g1)])
                 (let ([g-edge (map-edge node-map (set->list edge))])
                   (if (has-edge? g g-edge)
                     g
                     (add-edge g g-edge (graph-edge-weight g1 edge)))))])
       (values g node-map))))
+
+(define (copy-graph g)
+  (first-value (copy-graph-into-graph (make-empty-graph (graph-spec g))
+                                      g)))
 
 (module+ test
   (test-case "copy-graph-into-graph"
@@ -727,13 +733,16 @@
 ;; 
 
 (define (pr-node g nodeid)
-  (printf " ~a ~a\n" (~a nodeid #:min-width 12)
-                      (hash-remove (get-node-attrs g nodeid) 'id))
-  (for* ([port (node->ports g nodeid)]
-         [neighboring-port (port->neighboring-ports g port)])
-    (define weight (~r (graph-edge-weight g `(,port ,neighboring-port))
-                       #:precision '(= 1)))
-    (printf "  ~a -- ~a ~a\n" port neighboring-port weight)))
+  (if (has-node? g nodeid)
+    (begin
+      (printf " ~a ~a\n" (~a nodeid #:min-width 12)
+                          (hash-remove (get-node-attrs g nodeid) 'id))
+      (for* ([port (node->ports g nodeid)]
+             [neighboring-port (port->neighboring-ports g port)])
+        (define weight (~r (graph-edge-weight g `(,port ,neighboring-port))
+                           #:precision '(= 1)))
+        (printf "  ~a -- ~a ~a\n" port neighboring-port weight)))
+    (printf "No such node: ~a\n" nodeid))) 
 
 (define (pr-graph g)
   (displayln "nodes:")

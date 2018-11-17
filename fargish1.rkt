@@ -617,7 +617,6 @@
     (check-equal? (hash-ref e-attrs 'name) 'empty)
     (check-equal? (hash-ref e-attrs 'value (void)) (void))))
 
-
 ;; ======================================================================
 ;;
 ;; Unit tests for port classes

@@ -342,22 +342,46 @@
              (for/or ([c (f:applies-to*-conditions applies-to)])
                (apply condition-match? g c nodes)))))))
 
-;TODO This is way too model- and tag-specific.
-(define (taggees-of g tag)
-  (g:port->neighbors g `(,tag tagged)))
+(define (tagspec->port-labels g tagspec)
+  (define tagclass (realize-nodespec g tagspec))
+  (for*/set ([applies-to (f:get-raw-nodeclass-attr tagclass 'applies-to)]
+             [ti (f:applies-to*-taggee-infos applies-to)]
+             [by-ports (f:taggee-info*-by-portss ti)])
+    (f:by-ports*-from-port-label by-ports)))
 
-;TODO This is way too model- and tag-specific.
+;Something of a HACK. This simply takes the neighbors at the union of the
+;tag class's taggee-infos' by-portss. Properly, it should look only at
+;port labels in one applies-to* that actually applies to the tag. Perhaps
+;the best way to resolve this is just to define a rule about what counts
+;as a taggee, which is fast to compute. Maybe require that tag and taggee
+;ports be defined as portclasses that inherit from 'tag-port and 'taggee-port.
+;Returns a set.
+(define (taggees-of g tag)
+  (define port-labels (tagspec->port-labels g (tagspec-of g tag)))
+  (apply set-union empty-set (for/list ([port-label port-labels])
+                               (list->set
+                                 (g:port->neighbors g `(,tag ,port-label))))))
+
+
+;HACK This is way too model- and tag-specific.
 (define (tags-of g node)
   (g:port->neighbors g `(,node tags)))
 
-;TODO This is way too model- and tag-specific.
+;HACK This is way too model- and tag-specific.
 (define (value-of-taggee g tag)
   (value-of g (g:port->neighbor g `(,tag tagged))))
 
-;TODO Fix HACK: This assumes that a tag's value is its tagspec. Should be
-;independent of how the node's value is defined.
+(define (tagspec-of g tag)
+  (define tagclass (class-of g tag))
+  (define args (args-of g tag))
+  (cond
+    [(void? args) tagclass]
+    [(null? args) tagclass]
+    [else (cons tagclass args)]))
+
+;TODO UT
 (define (tag-still-applies? g tag)
-  (apply tagclass-applies-to? g (value-of g tag) (taggees-of g tag)))
+  (apply tagclass-applies-to? g (tagspec-of g tag) (taggees-of g tag)))
 
 ;TODO BUG This seems to ignore the args.
 ;TODO OAOO: There's some redundancy between this function and
@@ -576,6 +600,10 @@
     (define tag (gdo make-tag '(same number) brick22 number22))
     (check-true (tagged-with? g '(same number) brick22 number22))
     (check-true (tagged-with? g '(same number) number22 brick22))
+
+    (check-equal? (taggees-of g tag) (set brick22 number22))
+    (check-equal? (tags-of g brick22) (set tag))
+    (check-equal? (tags-of g number22) (set tag))
     ))
 
 

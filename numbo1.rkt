@@ -7,6 +7,7 @@
 (require "wheel.rkt"
          "xsusp3.rkt"
          "model1.rkt"
+         "shorthand.rkt"
          "slipnet1.rkt"
          "completion1.rkt"
          (prefix-in f: "fargish1.rkt")
@@ -85,29 +86,27 @@
 
 ;; ======================================================================
 ;;
-;; Making a workspace
+;; Numbo graph and workspace
 ;;
 
-(define (make-numbo-ws g bricks target)
-  (let*-values ([(g ws) (make-node g 'ws)]
-                [(g) (add-nodes/in g ws 'brick bricks)]
-                [(g) (add-node/in g ws 'target target)])
-    (values g ws)))
+(define empty-numbo-graph
+  (make-graph spec '(ws) '(slipnet)))
 
-(define (make-numbo-g . args)
-  (let* ([g (first-value (apply make-numbo-ws (make-empty-graph spec) args))]
-         [g (add-node g 'slipnet)])
+;TODO Empty out contents of 'ws first?
+(define (start-numbo-ws g bricks target)
+  (let*-values ([(g) (add-nodes/in g ws 'brick bricks)]
+                [(g) (add-node/in g ws 'target target)])
     g))
 
-(module+ test
-  (test-case "numbo-ws"
-    (let*-values ([(g) (make-empty-graph spec)]
-                  ;[(_) (pretty-print (get-spec g))]
-                  [(g ws) (make-numbo-ws g '(4 5 6) 15)])
-      ;(pr-graph g)
-      ;TODO
-      (void)
-      )))
+;(module+ test
+;  (test-case "numbo-ws"
+;    (let*-values ([(g) (make-empty-graph spec)]
+;                  ;[(_) (pretty-print (get-spec g))]
+;                  [(g ws) (make-numbo-ws g '(4 5 6) 15)])
+;      ;(pr-graph g)
+;      ;TODO
+;      (void)
+;      )))
 
 ;; ======================================================================
 ;;
@@ -219,7 +218,7 @@
 (define (.. lb ub [step 1])
   (range lb (add1 ub) step))
 
-(define elementary-equation-tuples
+(define elementary-equation-exprs
   (append
     (cartesian-product
       '(+ - *)
@@ -256,9 +255,9 @@
       (set-add st e))))
 
 ;TODO UT
-(define (add-memorized-equations g)
+(define (add-memorized-equations g exprs)
   (for/fold ([g g])
-            ([expr (remove-redundant-exprs elementary-equation-tuples)])
+            ([expr (remove-redundant-exprs exprs)])
     (add-memorized-equation g (list (eval-expr expr) expr))))
 
 (define (add-memorized-equation g eqn)
@@ -420,6 +419,9 @@
 ;; Running
 ;;
 
+(define std-numbo-graph
+  (add-memorized-equations empty-numbo-graph elementary-equation-exprs))
+
 (define (do-timestep g)
   (with-handlers ([(eq?? 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
     (let*-values ([(g) (decay-saliences-in g 'ws)]
@@ -459,16 +461,14 @@
 
 ;TODO Pass slipnet as argument so you don't have to recreate it each time
 (define (run bricks target)
-    (run^ (make-g bricks target)))
-
-(define (make-g bricks target)
-  (let*-values ([(g) (make-numbo-g bricks target)]
-                [(g) (add-memorized-equations g)])
-    g))
+    (run^ (start-numbo-ws std-numbo-graph bricks target)))
 
 (define (choose-focal-node g ctx)
   (safe-car
     (seq-weighted-by-salience g (members-of g 'ws))))
+
+(define g (g:copy-graph std-numbo-graph))
+
 
 ;(define g (make-numbo-g '(4 5 6) 15))
 ;(gdo add-memorized-equations)
