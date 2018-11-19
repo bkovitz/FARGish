@@ -1,7 +1,7 @@
 ; numbo1 -- A "hacked" Numbo that does most things in non-FARG-like ways
 ;           but not as bad as numbo0
 
-#lang debug at-exp errortrace racket
+#lang debug at-exp racket
 
 (require errortrace)
 (require "wheel.rkt"
@@ -64,7 +64,7 @@
     (nodeclass /
       (is-a 'operator))
     (tagclass problem-tag)
-    (tagclass equation-tag
+    (tagclass (equation-tag x)
       (applies-to ([node (of-class 'equation) (by-ports 'tagged 'tags)])
         (condition (const #t)))) ;HACK condition should be optional
     (tagclass (result x)  ;NEXT It looks like inheriting exposed the args bug:
@@ -343,12 +343,14 @@
   (let* ([g (g:graph-set-var g 'initial-activations initial-activations)]
          [activations (run-slipnet g initial-activations)]
          [g (g:graph-set-var g 'activations activations)])
-  (sorted-by-cdr activations)
+    ;#R (take-right (sorted-by-cdr activations) 20)
     (values g (most-active-equation g activations))))
 
 (define (most-active-equation g activations)
   (define eqn-activations (for/list ([e-a (hash->list activations)]
-                                     #:when (node-is-a? g (car e-a) 'equation))
+                                     #:when
+                                       (and (g:has-node? g (car e-a))
+                                            (node-is-a? g (car e-a) 'equation)))
                             e-a))
   (when (null? eqn-activations)
     (raise 'nothing-to-do))
@@ -418,7 +420,7 @@
   (let-values ([(node problem-tags) (find-node-with-problems g ctx)])
     (if (void? node)
       (values g (void))
-      (values (add-tags g #R problem-tags node) node))))
+      (values (add-tags g problem-tags node) node))))
 
 ; Returns two values: node, problem-tags. If no problem found, then (void)
 ; (void).
@@ -471,7 +473,7 @@
                   [(initial-activations)
                      (maybe-suspend 'slipnet-activations
                                     (make-initial-activations g focal-node))]
-                  [(_) #R (sorted-by-cdr initial-activations)]
+                  [(_) (sorted-by-cdr initial-activations)]
                   [(g equation) (search-slipnet g initial-activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]

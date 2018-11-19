@@ -124,7 +124,9 @@
     [else (f:get-nodeclass* (get-spec g-or-spec) nc-or-classname)]))
 
 (define (nodeclass*-of g node)
-  (hash-ref (get-nodeclasses g) (class-of g node)))
+  (hash-ref (get-nodeclasses g) (class-of g node)
+            (λ () (raise-arguments-error 'nodeclass*-of
+                    @~a{No such class: @(class-of g node)}))))
 
 (define (get-links-into g node ctx)
   (define nc (nodeclass*-of g node))
@@ -312,7 +314,7 @@
 (define (realize-nodespec g nodespec)
   (match nodespec
     [`(,class-name . ,args)
-     #R (list class-name args)
+     (list class-name args)
      (f:realize-attrs (get-nodeclass* g class-name) args)]
     [(? symbol?)
      (f:realize-attrs (get-nodeclass* g nodespec) '())]
