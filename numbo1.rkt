@@ -1,7 +1,7 @@
 ; numbo1 -- A "hacked" Numbo that does most things in non-FARG-like ways
 ;           but not as bad as numbo0
 
-#lang debug at-exp racket
+#lang debug at-exp errortrace racket
 
 (require errortrace)
 (require "wheel.rkt"
@@ -67,7 +67,9 @@
     (tagclass equation-tag
       (applies-to ([node (of-class 'equation) (by-ports 'tagged 'tags)])
         (condition (const #t)))) ;HACK condition should be optional
-    (tagclass (result x)
+    (tagclass (result x)  ;NEXT It looks like inheriting exposed the args bug:
+                          ;'equation doesn't take an x. What do we do about
+                          ;this?
       (is-a 'equation-tag)
       (archetype `(result ,x)))
     (tagclass (has-operand x)
@@ -294,21 +296,36 @@
                   '(+ number number number))
 ))
 
-(define (add-fills-port-tags g equation)
-  (for*/fold ([g g])
-             ([node (members-of g equation)]
-              [port-label `(source result)])
-    (let ([value (value-of g node)])
-      (cond
-        [(void? value) g]
-        [else
-          (if (g:port-has-neighbor? g `(,node ,port-label))
-            (add-tag g `(fills-port ,value ,port-label) equation)
-            g)]))))
+;(define (add-fills-port-tags g equation)
+;  (for*/fold ([g g])
+;             ([node (members-of g equation)]
+;              [port-label `(source result)])
+;    (let ([value (value-of g node)])
+;      (cond
+;        [(void? value) g]
+;        [else
+;          (if (g:port-has-neighbor? g `(,node ,port-label))
+;            (add-tag g `(fills-port ,value ,port-label) equation)
+;            g)]))))
     
+;(define (add-equation-tags g equation)
+;  (let* ([g (add-fills-port-tags g equation)])
+;    g))
+
+(define ht-port-label->tag
+  #hash((result . result)
+        (operands . has-operand)))
+
 (define (add-equation-tags g equation)
-  (let* ([g (add-fills-port-tags g equation)])
-    g))
+  (let ([operator (find-in g 'operator equation)])
+    (if (void? operator)
+      g
+      (for*/fold ([g g])
+                 ([port-label '(result operands)]
+                  [neighbor (g:port->neighbors g `(,operator ,port-label))])
+        (define tagclass (hash-ref ht-port-label->tag port-label))
+        (define tagspec `(,tagclass ,(value-of g neighbor)))
+        (add-tag g tagspec equation)))))
 
 (module+ test
   (test-case "add-equation-tags"

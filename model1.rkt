@@ -232,6 +232,18 @@
 
 ;; ======================================================================
 ;;
+;; Functions to search for nodes
+;;
+
+(define (find-in g nodeclass-name ctx)
+  (let loop ([nodes (members-of g ctx)])
+    (cond
+      [(null? nodes) (void)]
+      [(node-is-a? g (car nodes) nodeclass-name) (car nodes)]
+      [else (loop (cdr nodes))])))
+
+;; ======================================================================
+;;
 ;; Predicates
 ;;
 
@@ -300,6 +312,7 @@
 (define (realize-nodespec g nodespec)
   (match nodespec
     [`(,class-name . ,args)
+     #R (list class-name args)
      (f:realize-attrs (get-nodeclass* g class-name) args)]
     [(? symbol?)
      (f:realize-attrs (get-nodeclass* g nodespec) '())]

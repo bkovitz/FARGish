@@ -219,7 +219,7 @@
 (define (apply-class-attr value args)
   (define (apply-f f)
     (cond
-      [(procedure? f) (apply f args)]
+      [(procedure? f) #R (list f (procedure-arity f)) (apply f args)]
       [else f]))
   (cond
     [(void? value) (void)]
@@ -261,6 +261,7 @@
 ; that need to be passed args are called and replaced with their results.
 (define (realize-attrs nc args)
   (define realized-attrs (for/hash ([(k v) (nodeclass*-class-attrs nc)])
+                           #R k
                            (values k (apply-class-attr v args))))
   (struct-copy nodeclass* nc
     [class-attrs realized-attrs]))
