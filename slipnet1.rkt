@@ -28,7 +28,8 @@
          is-class
 
          run-slipnet
-         do-slipnet-timestep)
+         do-slipnet-timestep
+         ss)
 
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
@@ -43,6 +44,9 @@
 
 (define (archetypes g)
   (g:port->neighbors g '(slipnet archetypes)))
+
+(define (is-archetype? g id)
+  (member id (archetypes g)))
 
 (define (node->archetype-type g node)
   (g:get-node-attr g node 'archetype-type no-archetype))
@@ -154,7 +158,12 @@
 ;; 
 
 (define (add-activation-edge sl from-node to-node [weight 1.0])
-  (g:add-edge sl `((,from-node activation) (,to-node activation)) weight))
+  (let* ([edge `((,from-node activation) (,to-node activation))]
+         [old-weight (g:graph-edge-weight sl edge)]
+         [weight (if (void? old-weight)
+                   weight
+                   (+ weight old-weight))])
+    (g:add-edge sl edge weight)))
 
 (define (has-activation-edge? sl node1 node2)
   (g:has-edge? sl `((,node1 activation) (,node2 activation))))
@@ -174,7 +183,7 @@
 (define (add-activation-edges-for sl new-node)
   (cond
     [(tag? sl new-node)
-     (add-activation-edges sl new-node (taggees-of sl new-node) 0.2)]
+     (add-activation-edges sl new-node (taggees-of sl new-node) 1)]
     [(node-is-a? sl new-node 'ctx)
      (add-activation-edges sl new-node (members-of sl new-node) 0.1)]
     [else sl]))
@@ -270,6 +279,26 @@
 
 (define (get-activation activations node)
   (hash-ref activations node 0.0))
+
+;; ======================================================================
+;;
+;; Searching a slipnet
+;;
+
+(define (ss g . items)
+  (define initial-activations
+    (for/fold ([ht empty-hash])
+              ([item items])
+      (cond
+        [(list? item)
+         (hash-update ht (f:archetype-name item)
+           (curry + 1.0) 0.0)]
+        [else
+         (let ([item (if (is-archetype? g item)
+                       item
+                       (f:archetype-name item))])
+           (hash-update ht item (curry + 1.0) 0.0))])))
+  (take-right (sorted-by-cdr (run-slipnet g initial-activations)) 20))
 
 ;; ======================================================================
 ;;

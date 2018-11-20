@@ -33,6 +33,7 @@
          node-attr?
 
          graph-edge-weight
+         set-edge-weight
 
          port->neighboring-ports
          port->neighbors
@@ -289,6 +290,15 @@
     (match-define `(,port1 ,port2) edge)
     (define edge* (set port1 port2))
     (hash-ref (graph-edges g) edge* (void))))
+
+;TODO UT
+(define (set-edge-weight g edge new-weight)
+  (let ([edge (if (set? edge) (set->list edge) edge)])
+    (match-define `(,port1 ,port2) edge)
+    (if (has-edge? g edge)
+      (struct-copy graph g
+        [edges (hash-set (graph-edges g) (set port1 port2) new-weight)])
+      g)))
 
 ;; ======================================================================
 ;;

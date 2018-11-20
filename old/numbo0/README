@@ -1,0 +1,12 @@
+numbo0 -- A simplified, hacked-up Numbo, which does nearly all its work
+          via spreading activation
+
+
+Run:
+
+  racket demo.rkt
+
+To get a text-only Numbo.
+
+
+There is also some code for a GUI but it's extremely crude.

@@ -107,9 +107,9 @@
 (define empty-numbo-graph
   (make-graph spec '(ws) '(slipnet)))
 
-;TODO Empty out contents of 'ws first?
 (define (start-numbo-ws g bricks target)
-  (let*-values ([(g) (add-nodes/in g ws 'brick bricks)]
+  (let*-values ([(g) (remove-nodes/in g ws)]
+                [(g) (add-nodes/in g ws 'brick bricks)]
                 [(g) (add-node/in g ws 'target target)])
     g))
 
@@ -325,7 +325,8 @@
                   [neighbor (g:port->neighbors g `(,operator ,port-label))])
         (define tagclass (hash-ref ht-port-label->tag port-label))
         (define tagspec `(,tagclass ,(value-of g neighbor)))
-        (add-tag g tagspec equation)))))
+        (add-tag-even-if-already-there g tagspec equation)
+        ))))
 
 (module+ test
   (test-case "add-equation-tags"
@@ -375,31 +376,42 @@
                                        (g:node->neighbors g neighbor)))
                     (set-union already-visited new-neighbors)))])))
 
-(define (make-initial-activations g focal-node)
-  (for/fold ([ht (hash)]) ; (archetype . activation)
-            ([pair (neighborhood-around g focal-node)])
-    (match-define `(,node ,num-steps) pair)
-    (define activation (* (salience-of g node) (expt 0.95 num-steps)))
-    (if (zero? activation)
-      ht
-      (for/fold ([ht ht])
-                ([archetype (without-voids (relevant-archetypes g node))])
-        (hash-update ht archetype (λ (old) (+ (* 0.9 old) activation)) 0.0)))))
+;(define (make-initial-activations g focal-node)
+;  (for/fold ([ht (hash)]) ; (archetype . activation)
+;            ([pair (neighborhood-around g focal-node)])
+;    (match-define `(,node ,num-steps) pair)
+;    (define activation (* (salience-of g node) (expt 0.95 num-steps)))
+;    (if (zero? activation)
+;      ht
+;      (for/fold ([ht ht])
+;                ([archetype (without-voids (relevant-archetypes g node))])
+;        (hash-update ht archetype (λ (old) (+ (* 0.9 old) activation)) 0.0)))))
 
-(define (need->fills-port g tag)
-  (define value (value-of-taggee g tag))
-  (define port-label (car (args-of g tag)))
-  `(fills-port ,value ,port-label))
+;HACK
+(define (make-initial-activations g)
+  (let* ([ht empty-hash]
+         [target (g:port->neighbor g '(ws target))]
+         [archetype (f:archetype-name `(result ,(value-of g target)))]
+         [ht (hash-set ht archetype 5.0)])
+    (for/fold ([ht ht])
+              ([brick (g:port->neighbors g '(ws bricks))])
+      (define archetype (f:archetype-name `(has-operand ,(value-of g brick))))
+      (hash-update ht archetype (λ (old) (+ old 1.0)) 0.0))))
 
-;TODO This should be in the spec
-(define (relevant-archetypes g node)
-  (cond
-    [(node-is-a? g node 'problem-tag)
-     (list (f:archetype-name (need->fills-port g node)))]
-    [else
-     ;HACK Should get all archetypes of node, not just first one
-     (list (archetype-of-node g node))
-     #;(map f:archetype-name (get-nodeclass-attr g node 'archetype-names))]))
+;(define (need->fills-port g tag)
+;  (define value (value-of-taggee g tag))
+;  (define port-label (car (args-of g tag)))
+;  `(fills-port ,value ,port-label))
+;
+;;TODO This should be in the spec
+;(define (relevant-archetypes g node)
+;  (cond
+;    [(node-is-a? g node 'problem-tag)
+;     (list (f:archetype-name (need->fills-port g node)))]
+;    [else
+;     ;HACK Should get all archetypes of node, not just first one
+;     (list (archetype-of-node g node))
+;     #;(map f:archetype-name (get-nodeclass-attr g node 'archetype-names))]))
 
 ;; ======================================================================
 ;;
@@ -466,14 +478,14 @@
   (with-handlers ([(eq?? 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
     (let*-values ([(g) (decay-saliences-in g 'ws)]
                   ;[focal-node (choose-focal-node g 'ws)]
-                  [(g focal-node) (look-for-problems g 'ws)]
-                  [(_) (log "focusing on" focal-node)]
-                  [(_) (pr-node g focal-node)]
-                  ;[(_) (pr-group g 'ws)]
+;                  [(g focal-node) (look-for-problems g 'ws)]
+;                  [(_) (log "focusing on" focal-node)]
+;                  [(_) (pr-node g focal-node)]
+;                  ;[(_) (pr-group g 'ws)]
                   [(initial-activations)
                      (maybe-suspend 'slipnet-activations
-                                    (make-initial-activations g focal-node))]
-                  [(_) (sorted-by-cdr initial-activations)]
+                                    (make-initial-activations g #;focal-node))]
+                  [(_) #R (sorted-by-cdr initial-activations)]
                   [(g equation) (search-slipnet g initial-activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]
@@ -510,6 +522,11 @@
 
 (define g (g:copy-graph std-numbo-graph))
 
-(gdo start-numbo-ws '(1 1) 2)
+;(gdo g:set-edge-weight '((1+1=2 activation) (archetype-has-operand-1
+;                                              activation)) 2.0)
+
+;(gdo start-numbo-ws '(4 5 6) 15)
+;(gdo start-numbo-ws '(0 4 5) 20)
+(gdo start-numbo-ws '(100 4 5) 20)
 (gdo do-timestep)
 ;(pr-graph g)

@@ -184,6 +184,11 @@
             ([value vs])
     (add-node/in g ctx classname value)))
 
+(define/g (remove-nodes/in g ctx)
+  (for/fold ([g g])
+            ([node (members-of g ctx)])
+    (g:remove-node g node)))
+
 ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
 ;Doesn't add the edge if it already exists, but will change its weight.
 ;Adds both nodes to the 'touched-nodes set regardless of whether the edge
@@ -474,7 +479,10 @@
   (if (for/and ([node nodes])
         (has-tag? g tagspec node)) ;HACK!!!!
     g
-    (first-value (apply make-tag g tagspec nodes))))
+    (apply add-tag-even-if-already-there g tagspec nodes)))
+
+(define/g (add-tag-even-if-already-there g tagspec . nodes)
+  (first-value (apply make-tag g tagspec nodes)))
 
 (define/g (add-tags g tagspecs . nodes)
   (for/fold ([g g])
