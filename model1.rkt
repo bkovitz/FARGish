@@ -159,6 +159,10 @@
 
 (define/g (make-node g classname . args)
   (let*-values ([(nodeclass) (get-nodeclass* g classname)]
+                [(_) (when (void? nodeclass)
+                       (raise-arguments-error 'make-node
+                         @~a{No such class: @classname
+                             args = @args}))]
                 [(attrs) (f:args->node-attrs nodeclass args)]
                 [(g node) (g:make-node g attrs)]
                 [(g) (boost-salience-of g node)])

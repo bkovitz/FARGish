@@ -13,6 +13,27 @@
   (for/list ([x seq] #:when (not (void? x)))
     x))
 
+; Useful for unit tests involving inexact numbers
+(define (trunc x)
+  (if (number? x)
+    (/ (truncate (* x 10000)) 10000)
+    x))
+
+; Useful for unit tests involving inexact numbers
+(define (trunc-all x)
+  (cond
+    [(number? x)
+     (trunc x)]
+    [(hash? x)
+     (for/hash ([(k v) x])
+       (values (trunc-all k) (trunc-all v)))]
+    [(pair? x)
+     (map trunc-all x)]
+    [(set? x)
+     (for/set ([x* x])
+       (trunc-all x*))]
+    [else x]))
+
 (define (->list x)
   (cond
     [(pair? x) x]

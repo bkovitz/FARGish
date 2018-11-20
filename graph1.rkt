@@ -42,6 +42,7 @@
          port-neighbor?
          port->port-label->nodes 
          port->incident-edges
+         port->incident-hops
 
          node->neighbors
          node->ports
@@ -286,6 +287,7 @@
   (hash-keys (graph-edges g)))
 
 (define (graph-edge-weight g edge)
+  ;TODO Why not just call edge->set ?
   (let ([edge (if (set? edge) (set->list edge) edge)])
     (match-define `(,port1 ,port2) edge)
     (define edge* (set port1 port2))
@@ -340,6 +342,12 @@
 (define (port->incident-edges g port)
   (for/list ([nport (port->neighboring-ports g port)])
     (set port nport)))
+
+;TODO UT
+;Returns a list of edges, each edge represented as a list, with port first
+(define (port->incident-hops g port)
+  (for/list ([nport (port->neighboring-ports g port)])
+    (list port nport)))
 
 ;TODO Inefficient
 (define (node->ports g node)

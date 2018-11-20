@@ -41,12 +41,23 @@
                       [(g) (pop-groupid g)]
                       [(g) (set-lastid g group)])
           g)]
-      [`(:edge ,nodespec1 ,port-label1 ,nodespec2 ,port-label2)
-        (let*-values ([(g node1) (get/make g nodespec1)]
-                      [(g node2) (get/make g nodespec2)]
-                      [(g) (g:add-edge g
-                             `((,node1 ,port-label1) (,node2 ,port-label2)))])
-          g)]
+      [`(:edge . ,args)
+        (match args
+          [`(,nodespec1 ,port-label1 ,nodespec2 ,port-label2 . ,more)
+            (let ([weight (match more
+                            ['() 1.0]
+                            [`(,weight) weight]
+                            [else (raise-arguments-error 'do-graph-edit
+                                    @~a{Bad syntax for weight in @edit})])])
+              (let*-values ([(g node1) (get/make g nodespec1)]
+                            [(g node2) (get/make g nodespec2)]
+                            [(g) (g:add-edge g
+                                   `((,node1 ,port-label1)
+                                     (,node2 ,port-label2))
+                                   weight)])
+                g))]
+          [else (raise-arguments-error 'do-graph-edit
+                  @~a{Bad arguments for edge: @edit})])]
       [`(:let ([,id ,nodespec] ...) . ,edits)
         (for/fold ([g (push-aliases g)] #:result (do-graph-edits g edits))
                   ([id* id] [nodespec* nodespec])
