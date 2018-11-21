@@ -2,10 +2,12 @@
 ;
 ; Forward-only spreading
 
-#lang debug at-exp errortrace racket
+#lang debug at-exp racket
 
-(require "wheel.rkt")
-(require rackunit racket/pretty describe)
+(require "wheel.rkt"
+         (prefix-in g: "graph1.rkt"))
+(require racket/flonum racket/unsafe/ops)
+(require rackunit racket/pretty describe profile)
 
 (provide spread/forward)
 
@@ -26,22 +28,22 @@
 ; front: (Setof nodeid)
 ; node->deltas: nodeid -> (Listof (Cons nodeid delta))
 ; Returns two values: activations new-front
-(define (spread initial-activations front node->deltas)
-  (for/fold ([activations initial-activations]
-             [new-front empty-set])
-            ([(nodeid Δ) (make-deltas front node->deltas)])
-    (values (hash-update activations
-                         nodeid
-                         (λ (old-weight) (sat+ old-weight Δ))
-                         0.0)
-            (set-add new-front nodeid))))
-
-(define (make-deltas front node->deltas)
-  (for*/fold ([ht empty-hash])
-             ([from-node (in-set front)]
-              [delta (in-list (node->deltas from-node))])
-    (match-define `(,to-node . ,Δ) delta)
-    (hash-update ht to-node (λ (oldΔ) (+ Δ oldΔ)) 0.0)))
+;(define (spread initial-activations front node->deltas)
+;  (for/fold ([activations initial-activations]
+;             [new-front empty-set])
+;            ([(nodeid Δ) (make-deltas front node->deltas)])
+;    (values (hash-update activations
+;                         nodeid
+;                         (λ (old-weight) (sat+ old-weight Δ))
+;                         0.0)
+;            (set-add new-front nodeid))))
+;
+;(define (make-deltas front node->deltas)
+;  (for*/fold ([ht empty-hash])
+;             ([from-node (in-set front)]
+;              [delta (in-list (node->deltas from-node))])
+;    (match-define `(,to-node . ,Δ) delta)
+;    (hash-update ht to-node (λ (oldΔ) (+ Δ oldΔ)) 0.0)))
 
 ; initial-activations: (Hashof nodeid flonum?)
 ; node->hops nodeid -> (Hashof hop flonum?)
@@ -52,47 +54,62 @@
 ; Returns two values: activations hops
 (define (spread/forward initial-activations node->hops prev-hops)
   (for/fold ([activations initial-activations] [hops empty-set])
-            ([(hop weight) (if prev-hops
-                             (following-hops node->hops prev-hops)
-                             (all-hops initial-activations node->hops))])
+            ([(hop weight) (in-hash
+                             (if prev-hops
+                               (following-hops node->hops prev-hops)
+                               (all-hops initial-activations node->hops)))])
     (values (apply-hop initial-activations activations hop weight)
             (set-add hops hop))))
 
 (define (all-hops activations node->hops)
   (for*/fold ([ht empty-hash])
-             ([from-node (hash-keys activations)]
-              [(hop weight) (node->hops from-node)])
-    (hash-update ht hop (λ (oldΔ) (+ weight oldΔ)) 0.0)))
+             ([from-node (in-list (hash-keys activations))]
+              [(hop weight) (in-hash (node->hops from-node))])
+    (hash-update ht hop (λ (oldΔ) (unsafe-fl+ weight oldΔ)) 0.0)))
 
 (define (following-hops node->hops prev-hops)
   (for*/fold ([ht empty-hash])
-             ([prev-hop prev-hops]
-              [(hop weight) (node->hops (hop->to-node prev-hop))]
+             ([prev-hop (in-set prev-hops)]
+              [(hop weight) (in-hash (node->hops (g:hop->to-node prev-hop)))]
               #:when (not (equal? hop (reverse prev-hop))))
-    (hash-update ht hop (λ (oldΔ) (+ weight oldΔ)) 0.0)))
+    (hash-update ht hop (λ (oldΔ) (unsafe-fl+ weight oldΔ)) 0.0)))
+
+; This attempt at optimization only made it slower
+;(define (following-hops node->hops prev-hops)
+;  (let prev-hops-loop ([ht empty-hash] [prev-hops (set->list prev-hops)])
+;    (cond
+;      [(null? prev-hops) ht]
+;      [else (define prev-hop (car prev-hops))
+;            (define reversed-prev-hop (reverse prev-hop))
+;            (define ht-hops (node->hops (g:hop->to-node prev-hop)))
+;            (let hops-loop ([ht ht]
+;                            [pos (hash-iterate-first ht-hops)])
+;              (if pos
+;                (let-values ([(hop weight)
+;                                (hash-iterate-key+value ht-hops pos)])
+;                  (if (equal? hop reversed-prev-hop)
+;                    (hops-loop ht (hash-iterate-next ht-hops pos))
+;                    (hops-loop (hash-update ht
+;                                            hop
+;                                            (λ (oldδ) (unsafe-fl+ weight oldδ))
+;                                            0.0)
+;                               (hash-iterate-next ht-hops pos))))
+;                (prev-hops-loop ht (cdr prev-hops))))])))
 
 (define (activation-of activations node)
   (hash-ref activations node 0.0))
 
 (define (apply-hop initial-activations activations hop weight)
   (define from-activation (activation-of initial-activations
-                                         (hop->from-node hop)))
+                                         (g:hop->from-node hop)))
   (hash-update activations
-               (hop->to-node hop)
-               (λ (old-weight) (+ old-weight (* weight from-activation)))
+               (g:hop->to-node hop)
+               (λ (old-weight) (unsafe-fl+ old-weight (unsafe-fl* weight from-activation)))
                0.0))
-
-(define (hop->to-node hop)
-  (match-define `(,from-port (,to-node ,_)) hop)
-  to-node)
-
-(define (hop->from-node hop)
-  (match-define `((,from-node ,_) ,to-port) hop)
-  from-node)
 
 ;; ======================================================================
 ;;
-;; Unit test
+;; unit test
 ;;
 
 (module+ test
@@ -117,7 +134,7 @@
                                   (:edge a activation c activation 0.2)
                                   (:edge a activation d activation 0.3)
                                   (:edge b activation c activation 0.1))))
-      ;The edges are symmetric but activation should flow one-way, so
+      ;the edges are symmetric but activation should flow one-way, so
       ; a -> b on the first timestep, b -> c but not b -> a on the second
       ;timestep.
     (define (node->hops from-node)
@@ -168,3 +185,51 @@
                                            'c 0.21
                                            'd 0.3))])
       (void))))
+
+;; ----------------------------------------------------------------------
+
+(module+ perftest
+  (require (prefix-in g: "graph1.rkt")
+           "shorthand.rkt"
+           "model1.rkt"
+           (only-in "fargish1.rkt"
+             farg-model-spec nodeclass tagclass))
+
+  (random-seed 0)
+
+  (define spec
+    (farg-model-spec
+      (nodeclass (number n)
+        (value n)
+        (name n))))
+
+  (define num-nodes 100)
+  (define num-edges 2000)
+  (define g (let* ([g (make-graph spec)]
+                   [g (for/fold ([g g])
+                                ([n num-nodes])
+                        (add-node g 'number n))]
+                   [g (for/fold ([g g])
+                                ([i num-edges])
+                        (define node1 (random 0 num-nodes))
+                        (define node2 (random 0 num-nodes))
+                        (add-edge g `((,node1 activation) (,node2
+                                                            activation))))])
+               g))
+
+  (define (node->hops from-node)
+    (for/fold ([ht empty-hash])
+              ([hop (in-list (g:port->incident-hops g `(,from-node activation)))])
+      (hash-update ht
+                   hop
+                   (λ (oldΔ) (+ oldΔ (g:graph-edge-weight g hop)))
+                   0.0)))
+
+  (define initial-activations #hash((1 . 1.0) (2 . 1.0) (3 . 1.0) (4 . 1.0)))
+
+  (define (spread initial-activations num-steps)
+    (for/fold ([activations initial-activations] [prev-hops #f])
+              ([t num-steps])
+      (spread/forward activations node->hops prev-hops)))
+
+  (define-values (as hops) (profile (spread initial-activations 10))))

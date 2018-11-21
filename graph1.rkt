@@ -54,6 +54,8 @@
          edge->nodes
          port->node
          port->port-label
+         hop->from-node
+         hop->to-node
 
          pr-node
          pr-graph
@@ -231,6 +233,16 @@
 
 (define port->node car)
 (define port->port-label cadr)
+
+;(define (hop->to-node hop)
+;  (match-define `(,from-port (,to-node ,_)) hop)
+;  to-node)
+;
+;(define (hop->from-node hop)
+;  (match-define `((,from-node ,_) ,to-port) hop)
+;  from-node)
+(define hop->to-node caadr)
+(define hop->from-node caar)
 
 ;edge is '((node1 port-label1) (node2 port-label2)) or a set of those.
 ;Doesn't add the edge if it already exists, but will change its weight.

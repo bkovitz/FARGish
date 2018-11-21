@@ -648,13 +648,13 @@
         (condition (value-pred?/g = node1 node2))))
     ))
 
-(define g (void))
-(set! g (make-empty-graph spec))
-
-(define ws (gdo make-node 'ws))
-(define number22 (gdo make-node/in 'ws 'number 22))
-(define brick7 (gdo make-node/in ws 'brick 7))
-(define brick22 (gdo make-node/in ws 'brick 22))
+;(define g (void))
+;(set! g (make-empty-graph spec))
+;
+;(define ws (gdo make-node 'ws))
+;(define number22 (gdo make-node/in 'ws 'number 22))
+;(define brick7 (gdo make-node/in ws 'brick 7))
+;(define brick22 (gdo make-node/in ws 'brick 22))
 
 ;;(tagclass-applies-to? g '(same number) brick7 number22)
 ;;(tagclass-applies-to? g '(same number) brick22 number22)
