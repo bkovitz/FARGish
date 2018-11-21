@@ -13,7 +13,7 @@
 
 ;(define decay-rate 0.9)
 ;(define spread-rate 0.1)
-;(define max-activation 3.0)
+(define max-activation 2.0)
 ;
 ;(define (decay activations)
 ;  (hash-map-values activations (λ (a) (* decay-rate a))))
@@ -21,6 +21,10 @@
 ;(define (sat+ . args)
 ;  (min (apply + args)
 ;       max-activation))
+
+(define (unsafe-sat+ . args)
+  (min (apply unsafe-fl+ args)
+       max-activation))
 
 ; FAILED ATTEMPT at forward-only spreading. Could be the basis of
 ; spread/bidirectional.
@@ -50,7 +54,7 @@
 ; prev-hops: #f or (Setof hop)
 ; On the first timestep, pass #f for prev-hops. On all following timesteps,
 ; pass the hops returned from the previous call.
-; For simplicity, this function does no decay or saturation. 
+; For simplicity, this function does no decay. 
 ; Returns two values: activations hops
 (define (spread/forward initial-activations node->hops prev-hops)
   (for/fold ([activations initial-activations] [hops empty-set])
@@ -104,7 +108,7 @@
                                          (g:hop->from-node hop)))
   (hash-update activations
                (g:hop->to-node hop)
-               (λ (old-weight) (unsafe-fl+ old-weight (unsafe-fl* weight from-activation)))
+               (λ (old-weight) (unsafe-sat+ old-weight (unsafe-fl* weight from-activation)))
                0.0))
 
 ;; ======================================================================

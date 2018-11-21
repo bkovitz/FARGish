@@ -27,8 +27,8 @@
 
 (random-seed 0)
 
-(define max-timesteps 10)
-(define support-decay-rate 0.5)
+;(define max-timesteps 10)
+;(define support-decay-rate 0.5)
 
 ;; ======================================================================
 ;;
@@ -108,9 +108,9 @@
   (make-graph spec '(ws) '(slipnet)))
 
 (define (start-numbo-ws g bricks target)
-  (let*-values ([(g) (remove-nodes/in g ws)]
-                [(g) (add-nodes/in g ws 'brick bricks)]
-                [(g) (add-node/in g ws 'target target)])
+  (let*-values ([(g) (remove-nodes/in g 'ws)]
+                [(g) (add-nodes/in g 'ws 'brick bricks)]
+                [(g) (add-node/in g 'ws 'target target)])
     g))
 
 ;(module+ test
@@ -528,5 +528,5 @@
 ;(gdo start-numbo-ws '(4 5 6) 15)
 ;(gdo start-numbo-ws '(0 4 5) 20)
 (gdo start-numbo-ws '(100 4 5) 20)
-(gdo do-timestep)
+(time (gdo do-timestep))
 ;(pr-graph g)

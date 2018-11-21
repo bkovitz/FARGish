@@ -634,19 +634,19 @@
     ))
 
 
-(define spec
-  (farg-model-spec
-    (nodeclass (number n)
-      (value n)
-      (name n))
-    (nodeclass (brick n)
-      (is-a 'number)
-      (links-into 'ctx (by-ports 'bricks 'source) as-member))
-    (tagclass (same nc)  ; same value, both is-a nc
-      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
-                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
-        (condition (value-pred?/g = node1 node2))))
-    ))
+;(define spec
+;  (farg-model-spec
+;    (nodeclass (number n)
+;      (value n)
+;      (name n))
+;    (nodeclass (brick n)
+;      (is-a 'number)
+;      (links-into 'ctx (by-ports 'bricks 'source) as-member))
+;    (tagclass (same nc)  ; same value, both is-a nc
+;      (applies-to ([node1 (of-class nc) (by-ports 'tagged 'tags)]
+;                   [node2 (of-class nc) (by-ports 'tagged 'tags)])
+;        (condition (value-pred?/g = node1 node2))))
+;    ))
 
 ;(define g (void))
 ;(set! g (make-empty-graph spec))

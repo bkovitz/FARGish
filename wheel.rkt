@@ -13,6 +13,16 @@
   (for/list ([x seq] #:when (not (void? x)))
     x))
 
+; Like the built-in take, but if lst has m < n elements, returns lst instead
+; of throwing an exception.
+; ECCH Won't override the standard take when (require "wheel.rkt").
+;(define (take lst n)
+;  (let loop ([l lst] [n n] [result '()])
+;    (cond
+;      [(null? l) lst]
+;      [(<= n 0) (reverse result)] ;insanity
+;      [else (loop (cdr l) (sub1 n) (cons (car l) result))])))
+
 ; Useful for unit tests involving inexact numbers
 (define (trunc x)
   (if (number? x)

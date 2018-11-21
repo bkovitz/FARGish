@@ -7,6 +7,7 @@
          "xsusp3.rkt"
          "model1.rkt"
          "shorthand.rkt"
+         "sa.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass)
@@ -14,6 +15,7 @@
          (only-in "graph1.rkt"
            pr-graph pr-group pr-node
            define/g gdo))
+(require racket/flonum racket/unsafe/ops)
 (require rackunit racket/pretty describe)
 
 (provide archetypes
@@ -21,6 +23,7 @@
          archetype-of-node
          add-group-to-slipnet
          group-members-and-tags
+         is-archetype?
 
          no-archetype
          is-node
@@ -183,7 +186,7 @@
 (define (add-activation-edges-for sl new-node)
   (cond
     [(tag? sl new-node)
-     (add-activation-edges sl new-node (taggees-of sl new-node) 1)]
+     (add-activation-edges sl new-node (taggees-of sl new-node) 1.0)]
     [(node-is-a? sl new-node 'ctx)
      (add-activation-edges sl new-node (members-of sl new-node) 0.1)]
     [else sl]))
@@ -235,6 +238,7 @@
             ([timestep slipnet-timesteps])
     (let ([as (maybe-suspend 'slipnet-activations
                              (do-slipnet-timestep g activations))])
+      #R (length (hash-keys activations))
       ;#R (take-right (sorted-by-cdr as) 20)
       as)))
 
@@ -298,7 +302,33 @@
                        item
                        (f:archetype-name item))])
            (hash-update ht item (curry + 1.0) 0.0))])))
-  (take-right (sorted-by-cdr (run-slipnet g initial-activations)) 20))
+  (sorted-by-cdr (run-forward-slipnet g initial-activations))
+  #;(take-right (sorted-by-cdr (run-forward-slipnet g initial-activations)) 20))
+
+(define (run-forward-slipnet g initial-activations)
+  (define n->h (curry node->hops g))
+  (for/fold ([activations initial-activations] [prev-hops #f]
+             #:result activations)
+            ([t slipnet-timesteps])
+    (let* ([activations (if prev-hops
+                          (decay-activations activations)
+                          activations)])
+      (let ([len (length (hash-keys activations))])
+        #R t
+        #R len
+        #R (take-right (sorted-by-cdr activations) (min 10 len))
+        (void))
+      (spread/forward activations n->h prev-hops))))
+
+(define (node->hops g from-node)
+  (for/fold ([ht empty-hash])
+            ([hop (in-list (g:port->incident-hops g `(,from-node activation)))])
+    (hash-update ht
+                 hop
+                 (λ (oldΔ) (fl+ oldΔ
+                                (fl* slipnet-spreading-rate
+                                     (g:graph-edge-weight g hop))))
+                 0.0)))
 
 ;; ======================================================================
 ;;
