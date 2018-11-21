@@ -5,6 +5,8 @@
 ; weights are adjusted according to what you're searching for, and you
 ; stop when you find what you're searching for.
 
+;TODO UT
+
 #lang debug at-exp racket
 
 (require "wheel.rkt"
@@ -26,6 +28,11 @@
 (define spread-rate 0.01)
 (define max-activation 2.0)
 
+;; ======================================================================
+;;
+;; Crawler
+;;
+
 (struct crawler* (item-infos steps-taken) #:prefab)
 
 (struct item-info* (item edge->weight activations) #:prefab)
@@ -43,7 +50,8 @@
 (define (crawl g crawler)
   (let* ([archetype->edges (make-archetype->edges g)]
          [activationss (for/list ([item-info (crawler*-item-infos crawler)])
-                         (spread-activation-for-item-info archetype->edges
+                         (spread-activation-for-item-info g
+                                                          archetype->edges
                                                           item-info))]
          [archetypes (top-archetypes (merge-activationss activationss))]
          [activationss (for/list ([activations activationss])
@@ -55,10 +63,10 @@
          [steps-taken (add1 (crawler*-steps-taken crawler))])
     (crawler* item-infos steps-taken)))
 
-(define (spread-activation-for-item-info archetype->edges item-info)
-  (spread-activation archetype->edges
-                     (item-info*-edge->weight item-info)
-                     (item-info*-activations item-info)))
+;; ======================================================================
+;;
+;; Ancillary functions to find edges and assign them weights
+;;
 
 ; Returns (Listof (Setof nodeid)). These edges only list archetypes, unlike
 ; edges in graph1.rkt, which also include ports.
@@ -68,12 +76,77 @@
       (match-define `((,k1 ,_) (,k2 ,_)) hop)
       (set k1 k2))))
 
-(define (make-edge->weight items)
-  (λ (edge)  ; edge: (Setof nodeid)
-    1.0)) ;STUB
+; crude for now
+(define (metric n m)
+  (cond
+    [(and (number? n) (number? m))
+     (max 0.0 (- 1.0
+                 (/ (abs (- n m))
+                    10.0)))]
+    [else 0.0]))
+
+; Returns (g (Setof nodeid) -> flonum?) appropriate for item.
+(define (make-edge->weight item)
+  (match item
+    [`(,class ,n)
+      (λ (g edge)
+        (match-define `(,archetype1 ,archetype2) (set->list edge))
+        (define num-for-archetype1 (archetype->number g class n archetype1))
+        (define num-for-archetype2 (archetype->number g class n archetype2))
+        (cond
+          [(void? num-for-archetype1) 1.0]
+          [(void? num-for-archetype2) 1.0]
+          [else (let* ([n1 (metric n num-for-archetype1)]
+                       [n2 (metric n num-for-archetype2)]
+                       [weight (max 0.0 (* 10.0 n1 n2))])
+                  weight)]))]
+    [else (λ (g edge) 1.0)]))
+
+;TODO Something like this should be in the spec. That would enable inheritance
+;to work.
+(define (archetype->number g class target-number archetype)
+  (define aclass (class-of g archetype))
+  (cond
+    [(eq? 'equation aclass) ;TODO inheritance
+     (tags->number g class target-number archetype)]
+    [(eq? 'archetype aclass) ;TODO inheritance
+     (args->number class (args-of g archetype))]
+    [else (void)]))
+
+(define (args->number class args)
+  (match (safe-car args)
+    [`(,argclass ,n . ,_) #:when (and (equal? argclass class) ;TODO inheritance
+                                      (number? n))
+      n]
+    [n #:when (number? n)
+      n]
+    [else (void)]))
+
+(define (tags->number g tagclass target-number node)
+  (safe-argmax (λ (tag-n)
+                 (metric target-number tag-n))
+               (for/list ([tag (tags-of g node)]
+                          #:when (node-is-a? g tag tagclass))
+                 (tagspec->number tagclass (tagspec-of g tag)))))
+
+(define (tagspec->number class tagspec)
+  (match tagspec
+    [`(,tagclass ,n . ,_) #:when (equal? tagclass class) ;TODO inheritance
+      n]
+    [else (void)]))
+
+;; ======================================================================
+;;
+;; Ancillary functions for spreading activation
+;;
+
+(define (spread-activation-for-item-info g archetype->edges item-info)
+  (spread-activation archetype->edges
+                     (curry (item-info*-edge->weight item-info) g)
+                     (item-info*-activations item-info)))
 
 ; archetype->edges: (nodeid -> (Listof (Setof nodeid)))
-; edge->weight: ((Setof nodeid) -> flonum?)
+; edge->weight: (graph* (Setof nodeid) -> flonum?)
 (define (spread-activation archetype->edges edge->weight initial-activations)
   (define (spread-activation-across-edge activations edge)
     (match-define `(,k1 ,k2) (set->list edge))

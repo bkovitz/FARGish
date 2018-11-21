@@ -13,6 +13,12 @@
   (for/list ([x seq] #:when (not (void? x)))
     x))
 
+(define (clamp lb ub x)
+  (cond
+    [(< x lb) lb]
+    [(> x ub) ub]
+    [else x]))
+
 ; Like the built-in take, but if lst has m < n elements, returns lst instead
 ; of throwing an exception.
 ; ECCH Won't override the standard take when (require "wheel.rkt").
@@ -111,6 +117,29 @@
   (cond
     [(pair? x) (last x)]
     [else (void)]))
+
+; Allows any or all args to be void, and there need not be any args.
+(define (safe-max . args)
+  (for/fold ([result (void)])
+            ([arg args])
+    (cond
+      [(void? arg) result]
+      [(void? result) arg]
+      [(<= arg result) result]
+      [else arg])))
+
+; Allows any or all list elems to be void, and the list can be empty.
+(define (safe-argmax proc lst)
+  (for/fold ([result (void)] [m (void)] #:result result)
+            ([elem lst])
+    (if (void? elem)
+      (values result m)
+      (let* ([n (proc elem)])
+        (cond
+          [(void? n) (values result m)]
+          [(void? result) (values elem n)]
+          [(<= n m) (values result m)]
+          [else (values elem n)])))))
 
 (define-syntax-rule (first-value expr)
   (call-with-values (λ () expr)
