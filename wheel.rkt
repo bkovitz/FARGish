@@ -62,6 +62,13 @@
 (define (sorted-by-cdr ht)
   (sort (->list ht) < #:key cdr))
 
+(define (sorted-by-car ht)
+  (sort (->list ht) < #:key car))
+
+(define (values-sorted-by-key ht)
+  (for/list ([k (sorted (hash-keys ht))])
+    (hash-ref ht k)))
+
 (define-syntax (define-singleton stx)
   (syntax-case stx ()
     [(define-singleton name)
@@ -128,6 +135,16 @@
       [(<= arg result) result]
       [else arg])))
 
+; Allows any or all args to be void, and there need not be any args.
+(define (safe-min . args)
+  (for/fold ([result (void)])
+            ([arg args])
+    (cond
+      [(void? arg) result]
+      [(void? result) arg]
+      [(>= arg result) result]
+      [else arg])))
+
 ; Allows any or all list elems to be void, and the list can be empty.
 (define (safe-argmax proc lst)
   (for/fold ([result (void)] [m (void)] #:result result)
@@ -140,6 +157,41 @@
           [(void? result) (values elem n)]
           [(<= n m) (values result m)]
           [else (values elem n)])))))
+
+; Allows any or all list elems to be void, and the list can be empty.
+(define (safe-argmin proc lst)
+  (for/fold ([result (void)] [m (void)] #:result result)
+            ([elem lst])
+    (if (void? elem)
+      (values result m)
+      (let* ([n (proc elem)])
+        (cond
+          [(void? n) (values result m)]
+          [(void? result) (values elem n)]
+          [(<= n m) (values result m)]
+          [else (values elem n)])))))
+
+(define (min-key . hts)
+  (apply safe-min (all-hash-keys hts)))
+
+(define (max-key . hts)
+  (apply safe-max (all-hash-keys hts)))
+
+(define (min-value . hts)
+  (apply safe-min (all-hash-values hts)))
+
+(define (max-value . hts)
+  (apply safe-max (all-hash-values hts)))
+
+(define (all-hash-keys hts)
+  (for*/list ([ht hts]
+              [k (hash-keys ht)])
+    k))
+
+(define (all-hash-values hts)
+  (for*/list ([ht hts]
+              [k (hash-values ht)])
+    k))
 
 (define-syntax-rule (first-value expr)
   (call-with-values (λ () expr)
