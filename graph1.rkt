@@ -298,12 +298,12 @@
 (define (all-edges g)
   (hash-keys (graph-edges g)))
 
-(define (graph-edge-weight g edge)
+(define (graph-edge-weight g edge [weight-if-no-edge (void)])
   ;TODO Why not just call edge->set ?
   (let ([edge (if (set? edge) (set->list edge) edge)])
     (match-define `(,port1 ,port2) edge)
     (define edge* (set port1 port2))
-    (hash-ref (graph-edges g) edge* (void))))
+    (hash-ref (graph-edges g) edge* weight-if-no-edge)))
 
 ;TODO UT
 (define (set-edge-weight g edge new-weight)

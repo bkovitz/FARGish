@@ -28,6 +28,8 @@
 
 (define spread-rate 0.01)
 (define max-activation 2.0)
+(define spread-decay 0.9)
+(define num-top-archetypes 100)
 
 ;; ======================================================================
 ;;
@@ -111,16 +113,23 @@
         (match-define `(,archetype1 ,archetype2) (set->list edge))
         (define num-for-archetype1 (archetype->number g class n archetype1))
         (define num-for-archetype2 (archetype->number g class n archetype2))
-        (cond
-          [(void? num-for-archetype1) 1.0]
-          [(void? num-for-archetype2) 1.0]
-          [else (let* ([n1 (metric n num-for-archetype1)]
-                       [n2 (metric n num-for-archetype2)]
-                       [weight (- (* (+ n1 1.0)
-                                     (+ n2 1.0))
-                                  1.0)])
-                  weight)]))]  ; weight will be in range 0.0 .. 3.0
-    [else (λ (g edge) 1.0)]))
+        (define sw (max 1.0 (sliplink-weight g archetype1 archetype2 1.0)))
+        (define w (cond
+                    [(void? num-for-archetype1) sw]
+                    [(void? num-for-archetype2) sw]
+                    [else (let* ([n1 (metric n num-for-archetype1)]
+                                 [n2 (metric n num-for-archetype2)]
+                                 [weight (- (* (+ n1 1.0)
+                                               (+ n2 1.0))
+                                            1.0)])
+                            weight)]))  ; weight will be in range 0.0 .. 3.0
+        #;(* w sw)
+        w)]
+    [else
+      (λ (g edge)
+        (match-define `(,archetype1 ,archetype2) (set->list edge))
+        (sliplink-weight g archetype1 archetype2 0.0)
+        1.0)]))
 
 ;TODO Something like this should be in the spec. That would enable inheritance
 ;to work.
@@ -167,10 +176,10 @@
     (define w4 (edge->weight g (set 'archetype-has-operand-3 '3*4=12)))
     (define w5 (edge->weight g (set 'archetype-24 '3*8=24))) ;inexact but good
     (define w6 (edge->weight g (set 'archetype-12 '3*4=12)))
-    (check-equal? w1 3.0)
-    (check-equal? w2 3.0)
-    (check-equal? w3 1.0)
-    (check-equal? w4 1.0)
+    (check >= w1 3.0)
+    (check >= w2 3.0)
+    (check >= w3 1.0)
+    (check >= w4 1.0)
     (check < w5 w1)
     (check < w3 w5)
     (check < w6 w5)
@@ -192,6 +201,9 @@
   (define (spread-activation-across-edge activations edge)
     (match-define `(,k1 ,k2) (set->list edge))
     (define weight (edge->weight edge))
+    ;#R (list k1 k2 weight)
+    ;#R (list (hash-ref activations k1 (void)))
+    ;#R (list (hash-ref activations k2 (void)))
     (let* ([activations (add-activation activations k1 k2 weight)]
            [activations (add-activation activations k2 k1 weight)])
       activations))
@@ -210,7 +222,8 @@
                             [e (archetype->edges archetype)])
                   (set-add st e)))
 
-  (for*/fold ([activations initial-activations])
+  (for*/fold ([activations (decay-activations initial-activations
+                                              spread-decay)])
              ([edge edges])
     (spread-activation-across-edge activations edge)))
 
@@ -233,7 +246,7 @@
 (define (merge-activationss activationss)
   (apply hash-union activationss #:combine +))
 
-(define (top-archetypes activations [n 100])
+(define (top-archetypes activations [n num-top-archetypes])
   (for/set ([a (sort (hash->list activations) > #:key cdr)]
             [i n])
     (car a)))
@@ -301,16 +314,16 @@
 
 (define as (top-archetypes (merge-activationss (list a1 a2 a3))))
 
-;(define d (time
-;  (for/fold ([c c])
-;            ([i 30])
-;    (displayln @~a{timestep @i})
-;    (define c* (crawl g c))
-;    (pretty-print (top-activations c*))
-;    (newline)
-;    c*
-;    )
-;  ))
+(define d (time
+  (for/fold ([c c])
+            ([i 10])
+    (displayln @~a{timestep @i})
+    (define c* (crawl g c))
+    (pretty-print (top-activations c* 100))
+    (newline)
+    c*
+    )
+  ))
 
 (define ii (third (crawler*-item-infos c)))
 (define f (item-info*-edge->weight ii))

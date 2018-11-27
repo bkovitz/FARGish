@@ -25,6 +25,7 @@
          link-archetypally
          group-members-and-tags
          is-archetype?
+         sliplink-weight
 
          no-archetype
          is-node
@@ -33,6 +34,7 @@
 
          run-slipnet
          do-slipnet-timestep
+         decay-activations
          ss)
 
 (define slipnet-spreading-rate 0.01)
@@ -263,9 +265,9 @@
                      (hash-keys initial-activations))])
     (spread-activation-across-edge g initial-activations activations edge)))
 
-(define (decay-activations activations)
+(define (decay-activations activations [decay-rate slipnet-decay])
   (make-immutable-hash (for/list ([(node a) (in-hash activations)])
-                         `(,node . ,(* slipnet-decay a)))))
+                         `(,node . ,(* decay-rate a)))))
 
 (define (activation-edges-starting-from g nodes)
   (for*/set ([node nodes]
@@ -287,8 +289,10 @@
          [activations (spread-1way activations (reverse hop))])
     activations))
 
-(define (sliplink-weight g from-node to-node)
-  (g:graph-edge-weight g `((,from-node activation) (,to-node activation))))
+(define (sliplink-weight g from-node to-node [weight-if-no-edge 0.0])
+  (g:graph-edge-weight g
+                       `((,from-node activation) (,to-node activation))
+                       weight-if-no-edge))
 
 (define (add-activation activations node amount)
   (hash-update activations
