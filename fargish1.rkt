@@ -139,6 +139,8 @@
              'display-name (list (λ (nm.arg ...) elems.name-expr) ...)
              'archetype-names (list (λ (nm.arg ...)
                                       elems.archetype-expr) ... ...)
+             'default-archetype-name (λ (nm.arg ...)
+                                       (list 'nm.name nm.arg ...))
              'value (list (λ (nm.arg ...) elems.value-expr) ...)
              'links-into
                (list (λ (nm.arg ...)
@@ -198,8 +200,10 @@
          [class-attrs (set-to-last-defined class-attrs 'value
                         (λ () (hash-remove class-attrs 'value)))]
          [class-attrs (set-to-last-defined class-attrs 'display-name
-                        (λ () (hash-remove class-attrs 'display-name)))])
-    (nodeclass* (hash-ref class-attrs 'name)
+                        (λ () (hash-remove class-attrs 'display-name)))]
+         [class-attrs (add-default-class-attrs class-attrs)]
+         [class-attrs (hash-remove class-attrs 'default-archetype-name)])
+    (nodeclass* name
                 class-attrs)))
 
 (define (make-portclass class-attrs)
@@ -208,6 +212,20 @@
                         (λ ()
                           (hash-set class-attrs 'max-neighbors +inf.0)))])
     (portclass* name class-attrs)))
+
+(define (add-default-class-attrs attrs)
+  (hash-ref/sk attrs 'tag? (λ (flag) (if flag
+                                         (add-default-tag-attrs attrs)
+                                         attrs))
+                           attrs))
+
+(define (add-default-tag-attrs attrs)
+  (define archetype-names (hash-ref attrs 'archetype-names '()))
+  (if (null? archetype-names)
+    (hash-set attrs
+              'archetype-names
+              (list (hash-ref attrs 'default-archetype-name)))
+    attrs))
 
 ;; ======================================================================
 ;;

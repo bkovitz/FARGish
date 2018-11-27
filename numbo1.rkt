@@ -91,6 +91,14 @@
       (applies-to ([node (of-class 'equation) (by-ports 'tagged 'tags)])
         (condition (const #t))) ;HACK condition should be optional
       )
+    (tagclass (num-digits n)
+      (applies-to ([node (of-class 'number)])
+        (condition (const #t))))
+        ; TODO Should be something like this:
+        ; (condition (=/g n (num-digits-of-value/g node)))
+    (tagclass (decade n)
+      (applies-to ([node (of-class 'number)])
+        (condition (const #t))))
     (portclass source
       (max-neighbors 1))
     (portclass result

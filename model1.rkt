@@ -629,8 +629,8 @@
     (check-true (tagged-with? g '(same number) number22 brick22))
 
     (check-equal? (taggees-of g tag) (set brick22 number22))
-    (check-equal? (tags-of g brick22) (set tag))
-    (check-equal? (tags-of g number22) (set tag))
+    (check-equal? (tags-of g brick22) (list tag))
+    (check-equal? (tags-of g number22) (list tag))
     ))
 
 

@@ -75,6 +75,12 @@
   (for/list ([item-info (crawler*-item-infos crawler)])
     (item-info*-activations item-info)))
 
+(define (top-activations crawler [n 20])
+  (define activationss (merge-activationss (activationss-of crawler)))
+  (for/list ([a (sort (hash->list activationss) > #:key cdr)]
+             [i n])
+    a))
+
 ;; ======================================================================
 ;;
 ;; Ancillary functions to find edges and assign them weights
@@ -110,8 +116,10 @@
           [(void? num-for-archetype2) 1.0]
           [else (let* ([n1 (metric n num-for-archetype1)]
                        [n2 (metric n num-for-archetype2)]
-                       [weight (max 0.0 (* 10.0 n1 n2))])
-                  weight)]))]
+                       [weight (- (* (+ n1 1.0)
+                                     (+ n2 1.0))
+                                  1.0)])
+                  weight)]))]  ; weight will be in range 0.0 .. 3.0
     [else (λ (g edge) 1.0)]))
 
 ;TODO Something like this should be in the spec. That would enable inheritance
@@ -146,6 +154,27 @@
     [`(,tagclass ,n . ,_) #:when (equal? tagclass class) ;TODO inheritance
       n]
     [else (void)]))
+
+(module+ test
+  (require "numbo1.rkt")
+
+  (test-case "edge->weight"
+    (define edge->weight (make-edge->weight '(result 28)))
+    (define g std-numbo-graph)
+    (define w1 (edge->weight g (set 'archetype-result-28 'archetype-28)))
+    (define w2 (edge->weight g (set 'archetype-result-28 '4*7=28)))
+    (define w3 (edge->weight g (set 'archetype-has-operand-3 '3*8=24)))
+    (define w4 (edge->weight g (set 'archetype-has-operand-3 '3*4=12)))
+    (define w5 (edge->weight g (set 'archetype-24 '3*8=24))) ;inexact but good
+    (define w6 (edge->weight g (set 'archetype-12 '3*4=12)))
+    (check-equal? w1 3.0)
+    (check-equal? w2 3.0)
+    (check-equal? w3 1.0)
+    (check-equal? w4 1.0)
+    (check < w5 w1)
+    (check < w3 w5)
+    (check < w6 w5)
+    (check-equal? w6 0.0)))
 
 ;; ======================================================================
 ;;
@@ -272,6 +301,17 @@
 
 (define as (top-archetypes (merge-activationss (list a1 a2 a3))))
 
-(define d (time (for/fold ([c c])
-                    ([i 10])
-            (crawl g c))))
+;(define d (time
+;  (for/fold ([c c])
+;            ([i 30])
+;    (displayln @~a{timestep @i})
+;    (define c* (crawl g c))
+;    (pretty-print (top-activations c*))
+;    (newline)
+;    c*
+;    )
+;  ))
+
+(define ii (third (crawler*-item-infos c)))
+(define f (item-info*-edge->weight ii))
+(f g (set 'archetype-result-25 '28-3=25))

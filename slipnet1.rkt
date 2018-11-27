@@ -238,7 +238,6 @@
             ([timestep slipnet-timesteps])
     (let ([as (maybe-suspend 'slipnet-activations
                              (do-slipnet-timestep g activations))])
-      #R (length (hash-keys activations))
       ;#R (take-right (sorted-by-cdr as) 20)
       as)))
 
@@ -442,8 +441,24 @@
 ;;    (println (port->neighbors slipnet '(slipnet archetypes)))
 ;;    (newline)
 ;;    (println (all-nodes slipnet))
-    )
+  
+  (test-case "default archetype name for tag"
+    (define spec
+      (farg-model-spec
+        (nodeclass (letter a)
+          (name a)
+          (value a))
+        (tagclass (tag n)
+          (applies-to ([node])
+            (condition (const #t))))))
 
+    (define g (make-slipnet spec))
+    (define tag (gdo make-node/in 'ws 'tag 22))
+    (gdo make-archetype-for-node tag)
+    (check-equal? (archetype-of-node g tag) 'archetype-tag-22)
+    ;(pr-graph g)
+    )
+)
 
 
 ;(gdo do-slipnet-timestep initial-activations)
