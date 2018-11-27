@@ -22,6 +22,7 @@
          archetype-of-value
          archetype-of-node
          add-group-to-slipnet
+         link-archetypally
          group-members-and-tags
          is-archetype?
 
@@ -58,7 +59,7 @@
   (let loop ([atypes (archetypes g)])
     (cond
       [(null? atypes)
-       #f]
+       (void)]
       [(value-of-equal? g value (car atypes))
        (car atypes)]
       [else (loop (cdr atypes))])))
@@ -97,6 +98,14 @@
   (define archetype-node (archetype-of-node g node))
   (if (void? archetype-node)
     (make-archetype-for-node g node)
+    (values (ensure-member-of-slipnet g archetype-node) archetype-node)))
+
+; Makes archetype for value if one does not already exist. Links it to
+; 'slipnet node if it's not already linked. Returns two values: g archetype.
+(define (get-or-make-archetype-for-value g value)
+  (define archetype-node (archetype-of-value g value))
+  (if (void? archetype-node)
+    (make-archetype-for-value g value)
     (values (ensure-member-of-slipnet g archetype-node) archetype-node)))
 
 (define (ensure-member-of-slipnet g node)
@@ -144,7 +153,9 @@
 ;                [(g) (link-in-new-archetype g archetype)])
 ;    (values g archetype)))
 (define (make-archetype-for-value g value)
-  (make-node/in g 'slipnet 'archetype value))
+  (let*-values ([(g archetype) (make-node/in g 'slipnet 'archetype value)]
+                [(g) (g:set-node-attr g archetype 'value value)])
+    (values g archetype)))
 
 (define (link-in-new-archetype g archetype)
   (let-values ([(g slipnet) (find-or-make-slipnet g)])
@@ -227,6 +238,11 @@
   (set-union (set group)
              (list->set (g:members-of g group))
              (list->set (g:port->neighbors g `(,group tags))))) ;HACK
+
+(define (link-archetypally g archetype value [weight 1.0])
+  (let*-values ([(g value-archetype) (get-or-make-archetype-for-value g value)]
+                [(g) (add-activation-edge g archetype value-archetype weight)])
+    g))
 
 ;; ======================================================================
 ;;
@@ -455,9 +471,7 @@
     (define g (make-slipnet spec))
     (define tag (gdo make-node/in 'ws 'tag 22))
     (gdo make-archetype-for-node tag)
-    (check-equal? (archetype-of-node g tag) 'archetype-tag-22)
-    ;(pr-graph g)
-    )
+    (check-equal? (archetype-of-node g tag) 'archetype-tag-22))
 )
 
 

@@ -301,8 +301,45 @@
     (check-equal? (sorted (map value-of/g (members-of g equation)))
                   (list (void) 2 2 4))
     (check-equal? (sorted (map class-of/g (members-of g equation)))
-                  '(+ number number number))
-))
+                  '(+ number number number))))
+
+(define (args->number g node)
+  (match (args-of g node)
+    [(list n) #:when (integer? n)
+     n]
+    [else #f]))
+
+(define (first-digit n)
+  (let loop ([n (floor (abs n))])
+    (cond
+      [(<= n 9) n]
+      [else (loop (truncate (/ n 10)))])))
+
+;HACK Archetypes should really have attrs that tell what they're archetypes of.
+(define (number-archetype? g node)
+  (and (eq? 'archetype (class-of g node))
+       (args->number g node)))
+
+(define (number-archetypes g)
+  (for/list ([a (archetypes g)]
+             #:when (number-archetype? g a))
+    a))
+
+(define (add-tags-to-number-archetypes g)
+  (for/fold ([g g])
+            ([archetype (number-archetypes g)])
+    (define n (args->number g archetype))
+    (define num-digits (string-length (~a (abs n))))
+    (define decade (cond
+                     [(negative? n) #f]
+                     [(= 1 num-digits) 0]
+                     [(= 2 num-digits) (first-digit n)]
+                     [else #f]))
+    (let* ([g (link-archetypally g archetype `(num-digits ,num-digits))]
+           [g (if decade
+                (link-archetypally g archetype `(decade ,decade))
+                g)])
+      g)))
 
 ;(define (add-fills-port-tags g equation)
 ;  (for*/fold ([g g])
@@ -480,7 +517,10 @@
 ;;
 
 (define std-numbo-graph
-  (add-memorized-equations empty-numbo-graph elementary-equation-exprs))
+  (let* ([g empty-numbo-graph]
+         [g (add-memorized-equations g elementary-equation-exprs)]
+         [g (add-tags-to-number-archetypes g)])
+    g))
 
 (define (do-timestep g)
   (with-handlers ([(eq?? 'nothing-to-do) (λ (_) (log "Nothing to do.") g)])
