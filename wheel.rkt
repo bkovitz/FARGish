@@ -121,6 +121,22 @@
     [`(,_ . ,d) d]
     [_ (void)]))
 
+(define (safe-take lst n)
+  (cond
+    [(null? lst)
+     '()]
+    [(zero? n)
+     '()]
+    [else (cons (car lst) (safe-take (cdr lst) (sub1 n)))]))
+
+(define (safe-drop lst n)
+  (cond
+    [(null? lst)
+     '()]
+    [(zero? n)
+     '()]
+    [else (safe-drop (cdr lst) (sub1 n))]))
+
 (define (safe-last x)
   (cond
     [(pair? x) (last x)]

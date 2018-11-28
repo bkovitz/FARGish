@@ -10,6 +10,7 @@
 #lang debug at-exp racket
 
 (require "wheel.rkt"
+         "observe.rkt"
          "model1.rkt"
          "slipnet1.rkt"
          (prefix-in f: "fargish1.rkt")
@@ -18,7 +19,7 @@
            pr-graph pr-group pr-node
            define/g gdo
            no-neighbor-at-port?/g has-neighbor-at-port?/g))
-(require plot pict pict/convert)
+(require data/gvector plot pict pict/convert)
 (require racket/hash)
 (require racket/flonum racket/unsafe/ops)
 (require rackunit racket/pretty describe profile)
@@ -63,8 +64,11 @@
                                 [activations activationss])
                        (struct-copy item-info* item-info
                                     [activations activations]))]
-         [num-steps-taken (add1 (crawler*-num-steps-taken crawler))])
-    (deposit-activations! (crawler* item-infos num-steps-taken))))
+         [num-steps-taken (add1 (crawler*-num-steps-taken crawler))]
+         [new-crawler (crawler* item-infos num-steps-taken)])
+    (observing 't num-steps-taken
+      (observe! (merge-activationss (activationss-of new-crawler))))
+    new-crawler))
 
 ; TODO Rename this and/or provide a convenient interface to top-archetypes
 (define (top-ars crawler [n 20])
@@ -299,45 +303,45 @@
 
 ; ----------------------------------------------------------------------
 
-(define os (make-hash)) ; observations: key -> (t -> value)
-
-(define (deposit! k t v)
-  (hash-update! os
-                k
-                (λ (ht-t->v)
-                     (hash-set! ht-t->v t v)
-                     ht-t->v)
-                (λ () (make-hash))))
-
-(define (merged-activations crawler)
-  (merge-activationss (for/list ([item-info (crawler*-item-infos crawler)])
-                        (item-info*-activations item-info))))
-
-(define (deposit-activations! crawler)
-  (define t (crawler*-num-steps-taken crawler))
-  (for ([(k v) (merged-activations crawler)])
-    (deposit! k t v))
-  crawler)
-
-(define (timeseries k)
-  (sorted-by-car
-    (hash-ref os k empty-hash)))
-
-; Plot activation history
-(define (plot-ah . ks)
-  (define hts (for/list ([k ks]) (hash-ref os k empty-hash)))
-  (define tmin (apply min-key hts))
-  (define tmax (apply max-key hts))
-  (define ymin (safe-min 0.0 (apply min-value hts)))
-  (define ymax (safe-max 1.0 (apply max-value hts)))
-  (define (make-plot k)
-    (define vs (reverse (for/list ([t-v (timeseries k)])
-                          (list (car t-v) (cdr t-v)))))
-    (plot-pict (lines vs) #:height 100
-                          #:x-label #f #:y-label (~a k)
-                          #:x-min tmin #:x-max tmax
-                          #:y-min ymin #:y-max ymax))
-  (apply vl-append (map make-plot ks)))
+;(define os (make-hash)) ; observations: key -> (t -> value)
+;
+;(define (deposit! k t v)
+;  (hash-update! os
+;                k
+;                (λ (ht-t->v)
+;                     (hash-set! ht-t->v t v)
+;                     ht-t->v)
+;                (λ () (make-hash))))
+;
+;(define (merged-activations crawler)
+;  (merge-activationss (for/list ([item-info (crawler*-item-infos crawler)])
+;                        (item-info*-activations item-info))))
+;
+;(define (deposit-activations! crawler)
+;  (define t (crawler*-num-steps-taken crawler))
+;  (for ([(k v) (merged-activations crawler)])
+;    (deposit! k t v))
+;  crawler)
+;
+;(define (timeseries k)
+;  (sorted-by-car
+;    (hash-ref os k empty-hash)))
+;
+;; Plot activation history
+;(define (plot-ah . ks)
+;  (define hts (for/list ([k ks]) (hash-ref os k empty-hash)))
+;  (define tmin (apply min-key hts))
+;  (define tmax (apply max-key hts))
+;  (define ymin (safe-min 0.0 (apply min-value hts)))
+;  (define ymax (safe-max 1.0 (apply max-value hts)))
+;  (define (make-plot k)
+;    (define vs (reverse (for/list ([t-v (timeseries k)])
+;                          (list (car t-v) (cdr t-v)))))
+;    (plot-pict (lines vs) #:height 100
+;                          #:x-label #f #:y-label (~a k)
+;                          #:x-min tmin #:x-max tmax
+;                          #:y-min ymin #:y-max ymax))
+;  (apply vl-append (map make-plot ks)))
 
 ; ----------------------------------------------------------------------
 
@@ -353,11 +357,11 @@
 
 (define d (time
   (for/fold ([c c])
-            ([i 50])
-    (displayln @~a{timestep @i})
+            ([i 10])
+    ;(displayln @~a{timestep @i})
     (define c* (crawl g c))
-    (pretty-print (top-activations c* 10))
-    (newline)
+    ;(pretty-print (top-activations c* 10))
+    ;(newline)
     c*
     )
   ))
