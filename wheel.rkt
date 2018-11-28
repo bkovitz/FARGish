@@ -54,7 +54,8 @@
   (cond
     [(pair? x) x]
     [(hash? x) (hash->list x)]
-    [else x]))
+    [(sequence? x) x]
+    [else (list x)]))
 
 (define (sorted xs)
   (sort (->list xs) string<? #:key ~a))
@@ -124,6 +125,19 @@
   (cond
     [(pair? x) (last x)]
     [else (void)]))
+
+(define (safe-append . args)
+  (cond
+    [(null? args)
+     '()]
+    [(null? (cdr args))
+     (->list (car args))]
+    [else (append (->list (car args)) (safe-append (cdr args)))]))
+
+(define (append-item lst item)
+  (cond
+    [(null? lst) (list item)]
+    [else (cons (car lst) (append-item (cdr list) item))]))
 
 ; Allows any or all args to be void, and there need not be any args.
 (define (safe-max . args)
