@@ -335,9 +335,9 @@
                      [(= 1 num-digits) 0]
                      [(= 2 num-digits) (first-digit n)]
                      [else #f]))
-    (let* ([g (link-archetypally g archetype `(num-digits ,num-digits))]
+    (let* ([g (link-archetypally g archetype `(num-digits ,num-digits) 2.0)]
            [g (if decade
-                (link-archetypally g archetype `(decade ,decade))
+                (link-archetypally g archetype `(decade ,decade) 2.0)
                 g)])
       g)))
 

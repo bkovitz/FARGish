@@ -26,10 +26,10 @@
 (provide make-crawler
          crawl)
 
-(define spread-rate 0.01)
-(define max-activation 2.0)
-(define spread-decay 0.9)
-(define num-top-archetypes 100)
+(define spread-rate 0.2)
+(define max-activation 10.0)
+(define spread-decay 0.8)
+(define num-top-archetypes 500)
 
 ;; ======================================================================
 ;;
@@ -88,7 +88,7 @@
 ;; Ancillary functions to find edges and assign them weights
 ;;
 
-; Returns (Listof (Setof nodeid)). These edges only list archetypes, unlike
+; Returns (Listof (Setof2 nodeid)). These edges only list archetypes, unlike
 ; edges in graph1.rkt, which also include ports.
 (define (make-archetype->edges g)
   (λ (archetype)
@@ -123,7 +123,7 @@
                                                (+ n2 1.0))
                                             1.0)])
                             weight)]))  ; weight will be in range 0.0 .. 3.0
-        #;(* w sw)
+        ;(* w sw)
         w)]
     [else
       (λ (g edge)
@@ -191,12 +191,13 @@
 ;;
 
 (define (spread-activation-for-item-info g archetype->edges item-info)
-  (spread-activation archetype->edges
+  (spread-activation-with-splitting
+                     archetype->edges
                      (curry (item-info*-edge->weight item-info) g)
                      (item-info*-activations item-info)))
 
 ; archetype->edges: (nodeid -> (Listof (Setof nodeid)))
-; edge->weight: (graph* (Setof nodeid) -> flonum?)
+; edge->weight: (graph* (Setof2 nodeid) -> flonum?)
 (define (spread-activation archetype->edges edge->weight initial-activations)
   (define (spread-activation-across-edge activations edge)
     (match-define `(,k1 ,k2) (set->list edge))
@@ -226,6 +227,42 @@
                                               spread-decay)])
              ([edge edges])
     (spread-activation-across-edge activations edge)))
+
+(define (other-elem st elem)
+  (define ls (set->list st))
+  (if (equal? (first ls) elem)
+    (second ls)
+    (first ls)))
+
+; archetype->edges: (nodeid -> (Listof (Setof nodeid)))
+; edge->weight: (graph* (Setof2 nodeid) -> flonum?)
+(define (spread-activation-with-splitting
+          archetype->edges edge->weight initial-activations)
+  (define (spread-activation-from-node activations node)
+    (define edges (for*/fold ([st empty-set])
+                             ([e (archetype->edges node)])
+                    (set-add st e)))
+    (define fan-out-factor (/ 1.0 (set-count edges)))
+
+    (for*/fold ([activations activations])
+               ([edge edges])
+      (define weight (edge->weight edge))
+      (define delta (* spread-rate
+                       weight
+                       fan-out-factor
+                       (hash-ref initial-activations node 0.0)))
+      (define neighbor (other-elem edge node))
+      ;#R (list node neighbor delta)
+      (hash-update activations
+                   neighbor
+                   (λ (old-activation) (unsafe-sat+ old-activation delta))
+                   0.0)))
+
+  (for*/fold ([activations (decay-activations initial-activations
+                                              spread-decay)])
+             ([node (hash-keys initial-activations)])
+    (spread-activation-from-node activations node)))
+
 
 (define (items->activations g items)
   (for/fold ([ht empty-hash])
@@ -316,10 +353,10 @@
 
 (define d (time
   (for/fold ([c c])
-            ([i 10])
+            ([i 50])
     (displayln @~a{timestep @i})
     (define c* (crawl g c))
-    (pretty-print (top-activations c* 100))
+    (pretty-print (top-activations c* 10))
     (newline)
     c*
     )
