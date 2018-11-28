@@ -9,32 +9,41 @@
 
 ;(provide os os-n os-prefix observing observe! see)
 
-(define os-prefix (make-parameter '())) ; list of (key value)
+(define os-prefix (make-parameter '())) ; list of (key . value)
   ;TODO should guard that parameter is a list of key-value pairs?
 
-(define os (make-gvector)) ; "observations"
-(define os-n (void)) (set! os-n 0)
+(define os (make-gvector)) ; "observations": (key . value)s
 
-(define-simple-macro (observing keyspec body:expr ...+)
-  (parameterize ([os-prefix (safe-append (os-prefix) keyspec)])
+(define-simple-macro (observing k v body:expr ...+)
+  (parameterize ([os-prefix (append-item (os-prefix) (cons k v))])
     body ...))
 
-#;(define (observe! . args)
-  (when (null? args)
-    (raise-arguments-error 'observe!
-      "need at least one argument"))
-  (let*-values ([(keys x) (split-at-right args 1)]
-                [(keys) (if (null? keys)
-                          (let ([n os-n])
-                            (set! os-n (add1 n))
-                            n)
-                          keys)]
-                [(x) (car x)])
-    (hash-set! os (safe-append (os-prefix) keys) x)
-    x))
-
 (define (observe! k v)
-  (gvector-add! os (append-item (os-prefix) (list k v))))
+  (gvector-add! os (append-item (os-prefix) (cons k v))))
 
-; NEXT (see . keys)
+(define (arg-matches? arg o)
+  (match-define `(,k ,v) arg)
+  (cond
+    [(assoc k o) => (λ (pair) (equal? v (cdr pair)))]
+    [else #f]))
 
+(define (matches? args o)
+  (let loop ([args args])
+    (cond
+      [(null? args) #t]
+      [(arg-matches? (take args 2) o)
+       (matches? (drop args 2) o)]
+      [else #f])))
+
+(define (table . args)
+  (for ([o os]
+        #:when (matches? args o))
+    (displayln o)))
+
+(for ([t 10])
+  (observing 't t
+    (for ([node (list 'a 'b 'c)])
+      (observing 'node node
+        (observe! 'ac (random))))))
+
+(table 'node 'c)

@@ -137,7 +137,7 @@
 (define (append-item lst item)
   (cond
     [(null? lst) (list item)]
-    [else (cons (car lst) (append-item (cdr list) item))]))
+    [else (cons (car lst) (append-item (cdr lst) item))]))
 
 ; Allows any or all args to be void, and there need not be any args.
 (define (safe-max . args)
