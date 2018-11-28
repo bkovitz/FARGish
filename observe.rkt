@@ -26,7 +26,11 @@
     [(ht)
      (for ([(k v) ht])
        (gvector-add! os (append-item (os-prefix) (cons k v))))
-     ht]))
+     ht]
+    [(k1 k2 ht)
+     (for ([(k v) ht])
+       (gvector-add! os (append-item (os-prefix) (cons k1 k) (cons k2 v))))]
+     ))
 
 (define (arg-matches? arg o)
   (match arg
@@ -45,10 +49,35 @@
        (matches? (safe-drop args 2) o)]
       [else #f])))
 
+(define (top? arg)
+  (match arg
+    [`(TOP . ,_) #t]
+    [else #f]))
+
 (define (tabl . args)
-  (for ([o os]
-        #:when (matches? args o))
-    (displayln o)))
+  (let*-values ([(tops args) (partition top? args)])
+    (cond
+      [(null? tops)
+       (for ([o os]
+             #:when (matches? args o))
+         (displayln o))]
+      [else
+        (match (car tops)
+          [`(TOP ,n ,label-key ,numeric-key)
+            (let* ([os* (filter (λ (o) (matches? args o)) (gvector->list os))]
+                   [keys (set label-key numeric-key)]
+                   [ignore-key? (λ (kv) (set-member? keys (car kv)))]
+                   [groups (group-by (λ (o)
+                                       (remf* ignore-key? o))
+                                     os*)]
+                   [groups (for/list ([group groups])
+                             (safe-take
+                               (sort group >
+                                     #:key (λ (o) (cdr (assoc numeric-key o))))
+                               n))])
+              (pretty-print groups))])])))
+
+
 
 ;(for ([t 10])
 ;  (observing 't t
@@ -57,3 +86,5 @@
 ;        (observe! 'ac (random))))))
 ;
 ;(tabl 'node 'c)
+
+;(tabl '(TOP 20 node ac))

@@ -67,7 +67,7 @@
          [num-steps-taken (add1 (crawler*-num-steps-taken crawler))]
          [new-crawler (crawler* item-infos num-steps-taken)])
     (observing 't num-steps-taken
-      (observe! (merge-activationss (activationss-of new-crawler))))
+      (observe! 'node 'ac (merge-activationss (activationss-of new-crawler))))
     new-crawler))
 
 ; TODO Rename this and/or provide a convenient interface to top-archetypes
@@ -357,7 +357,7 @@
 
 (define d (time
   (for/fold ([c c])
-            ([i 10])
+            ([i 50])
     ;(displayln @~a{timestep @i})
     (define c* (crawl g c))
     ;(pretty-print (top-activations c* 10))
