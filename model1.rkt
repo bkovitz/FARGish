@@ -165,6 +165,7 @@
                              args = @args}))]
                 [(attrs) (f:args->node-attrs nodeclass args)]
                 [(g node) (g:make-node g attrs)]
+                [(g) (record-new-node g node)]
                 [(g) (boost-salience-of g node)])
     (values g node)))
 
@@ -209,6 +210,20 @@
 
 (define/g (clear-touched-nodes g)
   (g:graph-set-var g 'touched-nodes empty-set))
+
+(define/g (record-new-node g node)
+  (g:graph-update-var g 'new-nodes
+    (λ (so-far) (set-add so-far node))
+    empty-set))
+
+(define/g (new-nodes g)
+  (g:graph-get-var g 'new-nodes empty-set))
+
+(define/g (clear-new-nodes g)
+  (g:graph-set-var g 'new-nodes empty-set))
+
+(define (new-node? g node)
+  (set-member? (new-nodes g) node))
 
 ;; ======================================================================
 ;;
@@ -344,8 +359,11 @@
 (define (taggee-info-match? g ti node)
   (let ([spec (get-spec g)]
         [nclass (class-of g node)])
-    (for/or ([ofc (f:taggee-info*-of-classes ti)])
-      (f:nodeclass-is-a? spec nclass ofc))))
+    (define of-classes (f:taggee-info*-of-classes ti))
+    (if (null? of-classes)
+      #t
+      (for/or ([ofc of-classes])
+        (f:nodeclass-is-a? spec nclass ofc)))))
 
 ; The condition function c must be fully realized (no args needed).
 (define (condition-match? g c . nodes)
@@ -516,8 +534,11 @@
   (cfunc-takes-g g))
 
 (define (possible-taggee? g taggee-info node)
-  (for/or ([of-class (f:taggee-info*-of-classes taggee-info)])
-    (node-is-a? g node of-class)))
+  (define of-classes (f:taggee-info*-of-classes taggee-info))
+  (if (null? of-classes)
+    #t
+    (for/or ([of-class of-classes])
+      (node-is-a? g node of-class))))
 
 (define (all-taggee-infos-could-apply? g applies-to nodes)
   (define taggee-infos (f:applies-to*-taggee-infos applies-to))

@@ -40,17 +40,25 @@
 ;; Crawler
 ;;
 
-(struct crawler* (target-class item-infos num-steps-taken found) #:prefab)
+(struct crawler* (target-class item-infos to-reject num-steps-taken found)
+        #:prefab)
 
 (struct item-info* (item edge->weight activations) #:prefab)
 
 ; items = Listof items to search for, e.g. '((has-operand 3) (has-result 28)).
 (define (make-crawler g target-class items)
-  (crawler* target-class
-            (map (λ (item) (make-item-info g item))
-                 items)
-            0
-            (void)))
+  (let-values ([(to-reject items) (partition reject? items)])
+    (crawler* target-class
+              (map (λ (item) (make-item-info g item))
+                   items)
+              to-reject
+              0
+              (void))))
+
+(define (reject? x)
+  (match x
+    [`(reject ,_) x]
+    [else #f]))
 
 (define (make-item-info g item)
   (item-info* item (make-edge->weight item) (item->activations g item)))
@@ -74,7 +82,9 @@
       (cond
         [(< activation done-threshold)
          (return #f)]
-        [(node-is-a? g node (crawler*-target-class crawler))
+        [(and
+           (node-is-a? g node (crawler*-target-class crawler))
+           (>= (items-match g crawler node) 0.9))
          node] ;HACK This is a bug if node is #f
         [else #f]))))
 
@@ -131,7 +141,7 @@
       (set k1 k2))))
 
 ; crude for now
-(define (metric n m)
+(define (inexact-metric n m)
   (cond
     [(and (number? n) (number? m))
      (max 0.0 (- 1.0
@@ -139,10 +149,43 @@
                     10.0)))]
     [else 0.0]))
 
+(define (exact-metric n m)
+  (cond
+    [(and (number? n) (number? m))
+     (if (= n m) 1.0 0.0)]
+    [else 0.0]))
+
+(define (rejected? crawler node)
+  (define to-reject (crawler*-to-reject crawler))
+  (if (null? to-reject)
+    #f
+    (for/or ([rj to-reject])
+      (match-define `(reject ,r) rj)
+      (equal? node r))))
+
+(define (items-match g crawler node)
+  (if (rejected? crawler node)
+    0.0
+    (apply * (for/list ([item-info (crawler*-item-infos crawler)])
+               (item-match g (item-info*-item item-info) node)))))
+
+(define (item-match g item node)
+  (match item
+    [`(,class (inexact ,n))
+      (define num-for-archetype (archetype->number g class n node))
+      (inexact-metric n num-for-archetype)]
+    [`(,class ,n)
+      (define num-for-archetype (archetype->number g class n node))
+      (exact-metric n num-for-archetype)]
+    [else 1.0]))
+
 ; Returns (g (Setof nodeid) -> flonum?) appropriate for item.
 (define (make-edge->weight item)
   (match item
     [`(,class ,n)
+      (define metric (match n
+                       [(? number?) (curry exact-metric n)]
+                       [`(inexact ,n) (curry inexact-metric n)]))
       (λ (g edge)
         (match-define `(,archetype1 ,archetype2) (set->list edge))
         (define num-for-archetype1 (archetype->number g class n archetype1))
@@ -151,8 +194,8 @@
         (define w (cond
                     [(void? num-for-archetype1) sw]
                     [(void? num-for-archetype2) sw]
-                    [else (let* ([n1 (metric n num-for-archetype1)]
-                                 [n2 (metric n num-for-archetype2)]
+                    [else (let* ([n1 (metric num-for-archetype1)]
+                                 [n2 (metric num-for-archetype2)]
                                  [weight (- (* (+ n1 1.0)
                                                (+ n2 1.0))
                                             1.0)])
@@ -187,7 +230,7 @@
 
 (define (tags->number g tagclass target-number node)
   (safe-argmax (λ (tag-n)
-                 (metric target-number tag-n))
+                 (inexact-metric target-number tag-n))
                (for/list ([tag (tags-of g node)]
                           #:when (node-is-a? g tag tagclass))
                  (tagspec->number tagclass (tagspec-of g tag)))))
@@ -244,8 +287,9 @@
       activations))
 
   (define (add-activation activations from to edge-weight)
+    (define r (* 0.2 (- (random) 0.5) edge-weight))
     (define delta (* spread-rate
-                     edge-weight
+                     (+ edge-weight r)
                      (hash-ref initial-activations from 0.0)))
     (hash-update activations
                  to
@@ -281,8 +325,9 @@
     (for*/fold ([activations activations])
                ([edge edges])
       (define weight (edge->weight edge))
+      (define r (* 0.2 (- (random) 0.5) weight))
       (define delta (* spread-rate
-                       weight
+                       (+ weight r)
                        fan-out-factor
                        (hash-ref initial-activations node 0.0)))
       (define neighbor (other-elem edge node))
@@ -308,11 +353,14 @@
        (hash-update ht (f:archetype-name item) (curry + 1.0) 0.0)])))
 
 (define (item->activations g item)
-  (cond
-    [(is-archetype? g item)
-     (hash item 1.0)]
-    [else
-     (hash (f:archetype-name item) 1.0)]))
+  (let ([item (match item
+                [`(,class (inexact ,n)) `(,class ,n)]
+                [else item])])
+    (cond
+      [(is-archetype? g item)
+       (hash item 1.0)]
+      [else
+       (hash (f:archetype-name item) 1.0)])))
 
 (define (merge-activationss activationss)
   (apply hash-union activationss #:combine +))

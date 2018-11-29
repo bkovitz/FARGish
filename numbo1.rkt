@@ -100,6 +100,10 @@
     (tagclass (decade n)
       (applies-to ([node (of-class 'number)])
         (condition (const #t))))
+    (tagclass (tried atype)
+      (value atype)
+      (applies-to ([node (by-ports 'tagged 'tags)])
+        (condition (const #t))))
     (portclass source
       (max-neighbors 1))
     (portclass result
@@ -517,13 +521,133 @@
 (define (choose-search-items g ctx)
   (for/fold ([search-items '()])
             ([node (numbers-in g ctx)])
-    
     (cond
       [(g:no-neighbor-at-port? g 'result node)
-       (cons `(has-operand ,(value-of g node)) search-items)]
+       `((has-operand ,(value-of g node))
+         ,@(reject-equations g node)
+         ,@search-items)]
       [(g:no-neighbor-at-port? g 'source node)
-       (cons `(result ,(value-of g node)) search-items)]
+       `((result ,(value-of g node))
+         ,@(reject-equations g node)
+         ,@search-items)]
       [else search-items])))
+
+(define (reject-equations g node)
+  (for/list ([equation (tried-equations g node)])
+    `(reject ,equation)))
+
+(define (tried-equations g node)
+  (for/list ([tag (tags-of g node)]
+             #:when (node-is-a? g tag 'tried))
+    (value-of g tag)))
+
+(define (tag-touched-nodes-with-tried g archetype)
+  (for/fold ([g g])
+            ([node (g:graph-get-var g 'touched-nodes)])
+    (add-tag g `(tried ,archetype) node)))
+
+(define (new-blocks g)
+  (for/list ([node (new-nodes g)]
+             #:when (block? g node))
+    node))
+
+(define (block? g node)
+  (eq? 'number (class-of g node)))
+
+(define (target-of g ctx)
+  (g:port->neighbor g `(,ctx target)))
+
+(define (value-of-target g ctx)
+  (value-of g (target-of g ctx)))
+
+(define (any-new-block-is-target? g)
+  (for/or ([new-block (new-blocks g)])
+    (= (value-of g new-block) (value-of-target g 'ws))))
+
+(define (new-operator g)
+  (for/or ([node (new-nodes g)])
+    (if (node-is-a? g node 'operator)
+      node
+      #f)))
+
+(define (operands-of g node)
+  (if node
+    (g:port->neighbors g `(,node operands))
+    '()))
+
+(define (results-of g node)
+  (if node
+    (g:port->neighbors g `(,node result))
+    '()))
+
+(define (just-the-number nspec)
+  (match nspec
+    [(? number?) nspec]
+    [`(inexact ,n) n]))
+
+(define (result-searched-for search-items)
+  (let loop ([search-items search-items])
+    (match search-items
+      ['() (void)]
+      [`((result ,nspec) . ,more) (just-the-number nspec)]
+      [`(,_ . ,more) (loop more)])))
+
+(define (operands-searched-for search-items)
+  (let loop ([search-items search-items])
+    (match search-items
+      ['() '()]
+      [`((has-operand ,nspec) . ,more) (just-the-number nspec)]
+      [`(,_ . ,more) (loop more)])))
+
+(define (all-new-block-operands/result g relational-operator search-items)
+  (match (result-searched-for search-items)
+    [(? void?) 1.0]
+    [result
+      (for/fold ([x 1.0])
+                ([operand (new-block-operands g)])
+        (* x (if (relational-operator (value-of g operand) result)
+                1.0
+                0.8)))]))
+
+(define (all-new-block-results/operands g relational-operator search-items)
+  (for*/fold ([x 1.0])
+            ([operand (operands-searched-for search-items)]
+             [result-node (new-block-results g)])
+    (* x (if (relational-operator (value-of g result-node) operand)
+           1.0
+           0.8))))
+
+(define (new-block-operands g)
+  (for/list ([node (operands-of g (new-operator g))]
+             #:when (and (new-node? g node)
+                         (block? g node)))
+    node))
+
+(define (new-block-results g)
+  (for/list ([node (results-of g (new-operator g))]
+             #:when (and (new-node? g node)
+                         (block? g node)))
+    node))
+
+(define (promisingness g search-items)
+  (case (class-of g (new-operator g))
+    [(+ *)
+     (cond
+       [(any-new-block-is-target? g)
+        -1.0]
+       [else
+         (*
+           (all-new-block-operands/result g < search-items)
+           (all-new-block-results/operands g > search-items))])]
+    [(-)
+     (cond
+       [(any-new-block-is-target? g)
+        -1.0]
+       [else
+         (*
+           (all-new-block-operands/result g < search-items)
+           (all-new-block-results/operands g > search-items))])]))
+
 
 ;; ======================================================================
 ;;
@@ -547,18 +671,38 @@
                   [(search-items) (choose-search-items g 'ws)]
                   [(crawler) (make-crawler g 'equation search-items)]
                   [(crawler) (crawl-to-completion g crawler)]
-                  [(equation) (crawler-found crawler)]
+                  [(equation) (crawler-found crawler)])
 ;                  [(initial-activations)
 ;                     (maybe-suspend 'slipnet-activations
 ;                                    (make-initial-activations g #;focal-node))]
 ;                  [(_) #R (sorted-by-cdr initial-activations)]
 ;                  [(g equation) (search-slipnet g initial-activations)]
-                  [(_) (log "trying" equation)]
-                  [(g) (clear-touched-nodes g)]
-                  [(g) (complete-partial-instance-in g equation 'ws)]
-                  [(g) (remove-obsolete-tags g 'ws)]
-                  [(g) (boost-salience-of-touched-nodes g)])
-      g)))
+    (if (void? equation)
+      (start-over g)
+      (try-equation g equation search-items)))))
+
+(define (try-equation g equation search-items)
+  (let*-values ([(_) (log "trying" equation)]
+                [(g) (clear-touched-nodes g)]
+                [(g) (clear-new-nodes g)]
+                [(g) (complete-partial-instance-in g equation 'ws)]
+                [(g) (remove-obsolete-tags g 'ws)]
+                [(g) (boost-salience-of-touched-nodes g)]
+                [(p) (promisingness g search-items)]
+                [(_) (log "promisingness:" p)]
+                [(g) (tag-touched-nodes-with-tried g equation)])
+    g))
+
+(define (start-over g)
+  (log "giving up on that line of \"thought\"")
+  (for/fold ([g g])
+            ([node (blocks-and-operators g 'ws)])
+    (g:remove-node g node)))
+
+(define (blocks-and-operators g ctx)
+  (for/list ([node (members-of g ctx)]
+             #:when (or (block? g node) (node-is-a? g node 'operator)))
+    node))
 
 ;Print the top activations
 (define (top-as g [n 20])
@@ -591,7 +735,7 @@
 ;(gdo g:set-edge-weight '((1+1=2 activation) (archetype-has-operand-1
 ;                                              activation)) 2.0)
 
-;(gdo start-numbo-ws '(4 5 6) 15)
+(gdo start-numbo-ws '(4 5 6) 15)
 ;(gdo start-numbo-ws '(0 4 5) 20)
 ;(gdo start-numbo-ws '(100 4 5) 20)
 ;(time (gdo do-timestep))
@@ -602,3 +746,6 @@
 ;(define c (make-crawler g 'equation si))
 ;(define d (crawl-to-completion g c))
 ;(crawler-found d)
+
+;(gdo start-numbo-ws '(1 1 1 1 1) 5)
+(gdo do-timestep)
