@@ -25,33 +25,61 @@
 (require rackunit racket/pretty describe profile)
 
 (provide make-crawler
-         crawl)
+         crawl-to-completion
+         crawl-step
+         crawler-found)
 
-(define spread-rate 0.2)
+(define spread-rate 0.01)
 (define max-activation 10.0)
-(define spread-decay 0.8)
-(define num-top-archetypes 500)
+(define spread-decay 0.9)
+(define num-top-archetypes 100)
+(define done-threshold 0.01)
 
 ;; ======================================================================
 ;;
 ;; Crawler
 ;;
 
-(struct crawler* (item-infos num-steps-taken) #:prefab)
+(struct crawler* (target-class item-infos num-steps-taken found) #:prefab)
 
 (struct item-info* (item edge->weight activations) #:prefab)
 
 ; items = Listof items to search for, e.g. '((has-operand 3) (has-result 28)).
-(define (make-crawler g items)
-  (crawler* (map (λ (item) (make-item-info g item))
+(define (make-crawler g target-class items)
+  (crawler* target-class
+            (map (λ (item) (make-item-info g item))
                  items)
-            0))
+            0
+            (void)))
 
 (define (make-item-info g item)
   (item-info* item (make-edge->weight item) (item->activations g item)))
 
+(define (crawl-to-completion g crawler)
+  (let/cc return
+    (for/fold ([crawler crawler])
+              ([t 10])
+      (cond
+        [(crawler-done? g crawler)
+         => (λ (node) (return (struct-copy crawler* crawler
+                                           [found node])))]
+        [else (crawl-step g crawler)]))))
+
+(define crawler-found crawler*-found)
+
+(define (crawler-done? g crawler)
+  (let/cc return
+    (for/or ([pair (top-activations crawler num-top-archetypes)])
+      (match-define `(,node . ,activation) pair)
+      (cond
+        [(< activation done-threshold)
+         (return #f)]
+        [(node-is-a? g node (crawler*-target-class crawler))
+         node] ;HACK This is a bug if node is #f
+        [else #f]))))
+
 ;TODO UT
-(define (crawl g crawler)
+(define (crawl-step g crawler)
   (let* ([archetype->edges (make-archetype->edges g)]
          [activationss (for/list ([item-info (crawler*-item-infos crawler)])
                          (spread-activation-for-item-info g
@@ -65,7 +93,9 @@
                        (struct-copy item-info* item-info
                                     [activations activations]))]
          [num-steps-taken (add1 (crawler*-num-steps-taken crawler))]
-         [new-crawler (crawler* item-infos num-steps-taken)])
+         [new-crawler (struct-copy crawler* crawler
+                                   [item-infos item-infos]
+                                   [num-steps-taken num-steps-taken])])
     (observing 't num-steps-taken
       (observe! 'node 'ac (merge-activationss (activationss-of new-crawler))))
     new-crawler))
@@ -168,26 +198,26 @@
       n]
     [else (void)]))
 
-(module+ test
-  (require "numbo1.rkt")
-
-  (test-case "edge->weight"
-    (define edge->weight (make-edge->weight '(result 28)))
-    (define g std-numbo-graph)
-    (define w1 (edge->weight g (set 'archetype-result-28 'archetype-28)))
-    (define w2 (edge->weight g (set 'archetype-result-28 '4*7=28)))
-    (define w3 (edge->weight g (set 'archetype-has-operand-3 '3*8=24)))
-    (define w4 (edge->weight g (set 'archetype-has-operand-3 '3*4=12)))
-    (define w5 (edge->weight g (set 'archetype-24 '3*8=24))) ;inexact but good
-    (define w6 (edge->weight g (set 'archetype-12 '3*4=12)))
-    (check >= w1 3.0)
-    (check >= w2 3.0)
-    (check >= w3 1.0)
-    (check >= w4 1.0)
-    (check < w5 w1)
-    (check < w3 w5)
-    (check < w6 w5)
-    (check-equal? w6 0.0)))
+;(module+ test
+;  (require "numbo1.rkt")
+;
+;  (test-case "edge->weight"
+;    (define edge->weight (make-edge->weight '(result 28)))
+;    (define g std-numbo-graph)
+;    (define w1 (edge->weight g (set 'archetype-result-28 'archetype-28)))
+;    (define w2 (edge->weight g (set 'archetype-result-28 '4*7=28)))
+;    (define w3 (edge->weight g (set 'archetype-has-operand-3 '3*8=24)))
+;    (define w4 (edge->weight g (set 'archetype-has-operand-3 '3*4=12)))
+;    (define w5 (edge->weight g (set 'archetype-24 '3*8=24))) ;inexact but good
+;    (define w6 (edge->weight g (set 'archetype-12 '3*4=12)))
+;    (check >= w1 3.0)
+;    (check >= w2 3.0)
+;    (check >= w3 1.0)
+;    (check >= w4 1.0)
+;    (check < w5 w1)
+;    (check < w3 w5)
+;    (check < w6 w5)
+;    (check-equal? w6 0.0)))
 
 ;; ======================================================================
 ;;
@@ -345,27 +375,27 @@
 
 ; ----------------------------------------------------------------------
 
-(require "numbo1.rkt")
-
-(define c (make-crawler g '((has-operand 3) (has-operand 8) (result 28))))
-
-(define a1 (do-slipnet-timestep g (items->activations g '((has-operand 3)))))
-(define a2 (do-slipnet-timestep g (items->activations g '((has-operand 8)))))
-(define a3 (do-slipnet-timestep g (items->activations g '((result 28)))))
-
-(define as (top-archetypes (merge-activationss (list a1 a2 a3))))
-
-(define d (time
-  (for/fold ([c c])
-            ([i 50])
-    ;(displayln @~a{timestep @i})
-    (define c* (crawl g c))
-    ;(pretty-print (top-activations c* 10))
-    ;(newline)
-    c*
-    )
-  ))
-
-(define ii (third (crawler*-item-infos c)))
-(define f (item-info*-edge->weight ii))
-(f g (set 'archetype-result-25 '28-3=25))
+;(require "numbo1.rkt")
+;
+;(define c (make-crawler g '((has-operand 3) (has-operand 8) (result 28))))
+;
+;(define a1 (do-slipnet-timestep g (items->activations g '((has-operand 3)))))
+;(define a2 (do-slipnet-timestep g (items->activations g '((has-operand 8)))))
+;(define a3 (do-slipnet-timestep g (items->activations g '((result 28)))))
+;
+;(define as (top-archetypes (merge-activationss (list a1 a2 a3))))
+;
+;(define d (time
+;  (for/fold ([c c])
+;            ([i 50])
+;    ;(displayln @~a{timestep @i})
+;    (define c* (crawl-step g c))
+;    ;(pretty-print (top-activations c* 10))
+;    ;(newline)
+;    c*
+;    )
+;  ))
+;
+;(define ii (third (crawler*-item-infos c)))
+;(define f (item-info*-edge->weight ii))
+;(f g (set 'archetype-result-25 '28-3=25))

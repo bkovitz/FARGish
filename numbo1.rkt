@@ -10,6 +10,7 @@
          "shorthand.rkt"
          "slipnet1.rkt"
          "completion1.rkt"
+         "crawl.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass portclass)
@@ -511,6 +512,19 @@
               ([node nodes])
       (reduce-salience-of g node))))
 
+; ----------------------------------------------------------------------
+
+(define (choose-search-items g ctx)
+  (for/fold ([search-items '()])
+            ([node (numbers-in g ctx)])
+    
+    (cond
+      [(g:no-neighbor-at-port? g 'result node)
+       (cons `(has-operand ,(value-of g node)) search-items)]
+      [(g:no-neighbor-at-port? g 'source node)
+       (cons `(result ,(value-of g node)) search-items)]
+      [else search-items])))
+
 ;; ======================================================================
 ;;
 ;; Running
@@ -530,11 +544,15 @@
 ;                  [(_) (log "focusing on" focal-node)]
 ;                  [(_) (pr-node g focal-node)]
 ;                  ;[(_) (pr-group g 'ws)]
-                  [(initial-activations)
-                     (maybe-suspend 'slipnet-activations
-                                    (make-initial-activations g #;focal-node))]
-                  [(_) #R (sorted-by-cdr initial-activations)]
-                  [(g equation) (search-slipnet g initial-activations)]
+                  [(search-items) (choose-search-items g 'ws)]
+                  [(crawler) (make-crawler g 'equation search-items)]
+                  [(crawler) (crawl-to-completion g crawler)]
+                  [(equation) (crawler-found crawler)]
+;                  [(initial-activations)
+;                     (maybe-suspend 'slipnet-activations
+;                                    (make-initial-activations g #;focal-node))]
+;                  [(_) #R (sorted-by-cdr initial-activations)]
+;                  [(g equation) (search-slipnet g initial-activations)]
                   [(_) (log "trying" equation)]
                   [(g) (clear-touched-nodes g)]
                   [(g) (complete-partial-instance-in g equation 'ws)]
@@ -575,6 +593,12 @@
 
 ;(gdo start-numbo-ws '(4 5 6) 15)
 ;(gdo start-numbo-ws '(0 4 5) 20)
-(gdo start-numbo-ws '(100 4 5) 20)
-(time (gdo do-timestep))
-;(pr-graph g)
+;(gdo start-numbo-ws '(100 4 5) 20)
+;(time (gdo do-timestep))
+
+;(gdo start-numbo-ws '(3 8 4 6 1) 27)
+;;(gdo complete-partial-instance-in '3*8=24 'ws)
+;(define si (choose-search-items g 'ws))
+;(define c (make-crawler g 'equation si))
+;(define d (crawl-to-completion g c))
+;(crawler-found d)
