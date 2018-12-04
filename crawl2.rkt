@@ -1,3 +1,6 @@
+; SECOND VERSION -- IN PROGRESS
+; Moving stuff out to search-item.rkt and sa.rkt
+
 ; crawl.rkt -- Crawl a slipnet
 ;
 ; Crawling means searching via a narrowly focused form of spreading
@@ -13,6 +16,7 @@
          "observe.rkt"
          "model1.rkt"
          "slipnet1.rkt"
+         "search-item.rkt"
          (prefix-in f: "fargish1.rkt")
          (prefix-in g: "graph1.rkt")
          (only-in "graph1.rkt"
@@ -40,20 +44,22 @@
 ;; Crawler
 ;;
 
-(struct crawler* (target-class item-infos to-reject num-steps-taken found)
+;(struct crawler* (target-class item-infos to-reject num-steps-taken found)
+(struct crawler* (search-items num-steps-taken ht-activations found)
         #:prefab)
 
-(struct item-info* (item edge->weight activations) #:prefab)
+;; items = Listof items to search for, e.g. '((has-operand 3) (has-result 28)).
+;(define (make-crawler g target-class items)
+;  (let-values ([(to-reject items) (partition reject? items)])
+;    (crawler* target-class
+;              (map (λ (item) (make-item-info g item))
+;                   items)
+;              to-reject
+;              0
+;              (void))))
 
-; items = Listof items to search for, e.g. '((has-operand 3) (has-result 28)).
-(define (make-crawler g target-class items)
-  (let-values ([(to-reject items) (partition reject? items)])
-    (crawler* target-class
-              (map (λ (item) (make-item-info g item))
-                   items)
-              to-reject
-              0
-              (void))))
+(define (make-crawler g search-items)
+  (crawler* search-items 0 empty-hash (void)))
 
 (define (reject? x)
   (match x
@@ -84,7 +90,7 @@
          (return #f)]
         [(and
            (node-is-a? g node (crawler*-target-class crawler))
-           #;(>= (items-match g crawler node) 0.9))
+           (>= (items-match g crawler node) 0.9))
          node] ;HACK This is a bug if node is #f
         [else #f]))))
 

@@ -10,17 +10,17 @@
 
 (provide (all-defined-out))
 
-(struct search-item* (class number required?))
-(struct target-class* (class))
-(struct rejection-item* (node))
-(struct inexact-number* (x exactness))
+(struct search-item* (class number required?) #:prefab)
+(struct target-class* (class) #:prefab)
+(struct rejection-item* (node) #:prefab)
+(struct inexact-number* (x exactness) #:prefab)
 
 ;; ======================================================================
 ;;
 ;; Constructors and simple predicates
 ;;
 
-(define (search-item class n [required? #f])
+(define (search-item class [n (void)] [required? #f])
   (search-item* class n required? #f))
 
 (define rejection-item rejection-item*)
@@ -31,8 +31,8 @@
   (inexact-number* n exactness))
 
 (define search-item? search-item*?)
-
 (define rejection-item? rejection-item*?)
+(define target-class? target-class*?)
 
 (define (required-item? s-item)
   (and (search-item*? s-item)
@@ -46,6 +46,31 @@
 ;;
 ;; Calculations
 ;;
+
+(define (search-item->archetype-name search-item)
+  (define v (search-item->v))
+  (cond
+    [(void? v) (void)]
+    [else (f:archetype-name v)]))
+
+(define (search-item->v s-item)
+  (define n (->exact-number s-item))
+  (cond
+    [(not (search-item? s-item))
+     (void)]
+    [(void? n)
+     (search-item*-class s-item)]
+    [else
+     (define class (search-item*-class s-item))
+     `(,class ,n)]))
+
+(define (->exact-number x)
+  (cond
+    [(number? x) x]
+    [(inexact-number? x) (inexact-number*-n x)]
+    [(search-item? x) (->exact-number (search-item*-n x))]
+    [(rejection-item? x) (void)]
+    [(target-class? x) (void)]))
 
 (define (acceptability g s-item node)
   (cond
@@ -65,5 +90,12 @@
   (cond
     [(void? n) 1.0]
     [(void? m) 1.0]
-    [(exact-number? n)
+    [(and (exact-number? n) (exact-number? m))
+     (if (= n m) 1.0 0.0)]
+    [else
+     (define absolute-difference (abs (- (->number n) (->number m))))
+     (define greatest-exactness (max (exactness n) (exactness m)))
+     (cond
+       [(< greatest-exactness 0.01) 1.0]
+       [else (exp (- (* greatest-exactness absolute-difference)))])]))
 

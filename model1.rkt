@@ -23,7 +23,7 @@
 ;; Global constants
 
 ;TODO Global constants should be stored as variables in the graph.
-(define max-timesteps 20)
+(define max-timesteps 10)
 (define slipnet-spreading-rate 0.01)
 (define slipnet-decay 0.9)
 (define slipnet-timesteps 3)
