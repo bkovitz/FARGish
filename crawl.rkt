@@ -22,7 +22,7 @@
 (require data/gvector plot pict pict/convert)
 (require racket/hash)
 (require racket/flonum racket/unsafe/ops)
-(require rackunit racket/pretty describe profile)
+(require rackunit racket/pretty describe profile racket/enter racket/trace)
 
 (provide make-crawler
          crawl-to-completion
@@ -32,7 +32,7 @@
 (define spread-rate 0.01)
 (define max-activation 10.0)
 (define spread-decay 0.9)
-(define num-top-archetypes 100)
+(define num-top-archetypes 1000)
 (define done-threshold 0.01)
 
 ;; ======================================================================

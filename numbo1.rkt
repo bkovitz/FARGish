@@ -20,7 +20,7 @@
            define/g gdo
            no-neighbor-at-port?/g has-neighbor-at-port?/g))
 (require racket/set racket/hash)
-(require rackunit racket/pretty describe)
+(require rackunit racket/pretty describe profile racket/enter racket/trace)
 
 (provide (all-defined-out))
 
@@ -527,7 +527,7 @@
          ,@(reject-equations g node)
          ,@search-items)]
       [(g:no-neighbor-at-port? g 'source node)
-       `((result ,(value-of g node))
+       `((result (inexact ,(value-of g node)))
          ,@(reject-equations g node)
          ,@search-items)]
       [else search-items])))

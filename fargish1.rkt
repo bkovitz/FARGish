@@ -114,8 +114,8 @@
     #:datum-literals [condition]
     ;#:attributes [(taggee 1) (condition-expr 1)]
     #:auto-nested-attributes
-    (pattern (~seq ([taggee:taggee-body] ...)
-               (condition condition-expr:expr ...+))))
+    (pattern (~seq ([taggee:taggee-body] ...+)
+               (condition condition-expr:expr ...))))
 
   (define-splicing-syntax-class nodeclass-elems
     #:description "nodeclass elements"
