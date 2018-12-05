@@ -726,6 +726,9 @@
 (define (run bricks target)
     (run^ (start-numbo-ws std-numbo-graph bricks target)))
 
+(define (runvoid bricks target)
+  (set! g (run bricks target)))
+
 (define (choose-focal-node g ctx)
   (safe-car
     (seq-weighted-by-salience g (members-of g 'ws))))
@@ -748,4 +751,4 @@
 ;(crawler-found d)
 
 ;(gdo start-numbo-ws '(1 1 1 1 1) 5)
-;(gdo do-timestep)
+(gdo do-timestep)

@@ -18,7 +18,7 @@
 (require racket/list)
 (require rackunit racket/pretty describe)
 
-(provide complete-partial-instance-in)
+(provide complete-partial-instance-in best-completion-actions)
 
 ;; ======================================================================
 ;;
@@ -26,6 +26,12 @@
 ;;
 
 (define (complete-partial-instance-in g from-ctx to-ctx)
+  (cdr (best-completion/g-actions g from-ctx to-ctx)))
+
+(define (best-completion-actions g from-ctx to-ctx)
+  (car (best-completion/g-actions g from-ctx to-ctx)))
+
+(define (best-completion/g-actions g from-ctx to-ctx)
   (define actions->g
     (for/fold ([ht empty-hash])
               ([bdx-actions (all-possible-completions g from-ctx to-ctx)])
@@ -45,9 +51,8 @@
 
 ; The completion with the fewest builds wins
 (define (best-completion actions->g)
-  (define best-action->g (argmin (λ (ag) (count build? (car ag)))
-                                 (hash->list actions->g)))
-  (cdr best-action->g))
+  (argmin (λ (ag) (count build? (car ag)))
+          (hash->list actions->g)))
 
 (define (tag-failed g node)
   g) ;STUB

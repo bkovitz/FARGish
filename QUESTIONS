@@ -1,0 +1,18 @@
+How to avoid rebuilding the graph of all the equations.
+
+How to make building that graph much faster.
+
+How to get better performance on spreading activation and support network:
+number-crunching on a big graph.
+
+How do you stop flow of dependency? OO: polymorphism. Lisp: switch statements??
+
+How to avoid getting a sprawl of tiny functions?
+
+Easy ways to make little languages? Without getting mired in syntax-parse?
+
+Why is scrolling so slow in DrRacket? How to speed it up?
+
+Way to get decent data visualization without writing lots of code.
+
+How to grab and move edge in graph visualization.

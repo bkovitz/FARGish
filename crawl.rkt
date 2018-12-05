@@ -32,7 +32,7 @@
 (define spread-rate 0.01)
 (define max-activation 10.0)
 (define spread-decay 0.9)
-(define num-top-archetypes 1000)
+(define num-top-archetypes 100)
 (define done-threshold 0.01)
 
 ;; ======================================================================
@@ -200,8 +200,9 @@
                                                (+ n2 1.0))
                                             1.0)])
                             weight)]))  ; weight will be in range 0.0 .. 3.0
-        ;(* w sw)
-        w)]
+        ;#R (list item archetype1 archetype2 w)
+        (* w sw)
+        )]
     [else
       (λ (g edge)
         (match-define `(,archetype1 ,archetype2) (set->list edge))
