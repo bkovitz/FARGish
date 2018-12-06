@@ -86,7 +86,7 @@
 
 ; Returns number in range 0.0..1.0. 1.0 means exact match; 0.0 means total
 ; non-match.
-(define (distance-metric n m)
+(define (distance->unit-interval n m)
   (cond
     [(void? n) 1.0]
     [(void? m) 1.0]
