@@ -9,6 +9,22 @@
 (define empty-set (set))
 (define empty-hash (hash))
 
+; cond with #:define
+(define-syntax cond
+  (syntax-rules (else =>)
+    [(_)
+     (raise-arguments-error 'cond "all clauses failed")]
+    [(_ #:define name expr more ...)
+     (let* ([name expr])
+       (begin (cond more ...)))]
+    [(_ [c => func] more ...)
+     (let ([c-value c])
+       (if c-value (func c-value) (cond more ...)))]
+    [(_ [else body0 body ...])
+     (begin body0 body ...)]
+    [(_ [c body0 body ...] more ...)
+     (if c (begin body0 body ...) (cond more ...))]))
+
 (define (without-voids seq)
   (for/list ([x seq] #:when (not (void? x)))
     x))
