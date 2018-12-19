@@ -39,6 +39,117 @@
 (define num-top-archetypes 1000)
 (define done-threshold 0.01)
 
+
+'(crawler
+   (seek-instance-of equation
+     (require (tagged-with? (has-result
+                              (exact-number (node-available-as target)))))
+     (prefer (tagged-with? (has-operand
+                              (inexact-number (node-available-as brick)))))))
+
+'(crawler
+   (in-ws ([t (node-available-as target)]
+           [b (node-available-as brick)])
+     (seek-instance-of equation
+       (require (tagged-with? (has-result (exact-number t))))
+       (prefer (tagged-with? (has-operand (inexact-number b)))))))
+
+'(crawler
+   (in-ws ([t (node-available-as target)]
+           [b (node-available-as brick)])
+     (seek-instance-of equation
+       (require (has-result (exact-number t)))
+       (prefer (has-operand (inexact-number b))))))
+
+'(crawler
+   (seek-instance-of equation
+     (require (tagged-with? (has-operand (exact brick)
+                                         (count (at-least 2)))
+                            (has-result (inexact target))))))
+
+(struct require-archetype* (archetype) #:prefab)
+(struct require-tagged* (class n) #:prefab)
+(struct prefer-tagged* (class n) #:prefab)
+(struct exact-number* (n) #:prefab)
+(struct inexact-number* (n) #:prefab)
+
+(define (make-required preference)
+  (require-tagged* (prefer-tagged*-class preference)
+                   (prefer-tagged*-n preference)))
+
+                              ; variable -> nodespec
+(define (make-crawler crawler-spec)
+  (define (parse-crawler-spec crawler-spec ws-nodespecs search-item)
+    (match crawler-spec
+      ['() (values ws-nodespecs search-item)]
+      [`(crawler . ,more)
+       (parse-crawler-spec more ws-nodespecs search-item)]
+      [`((in-ws ,ws-items . ,body) . ,more)
+        (let*-values ([(ws-nodespecs) (parse-ws-items ws-nodespecs ws-items)]
+                      [(ws-nodespecs search-item)
+                         (parse-crawler-spec body ws-nodespecs search-item)])
+          (parse-crawler-spec more ws-nodespecs search-item))]
+      [`((seek-instance-of ,archetype . ,search-items) . ,more)
+        (let ([new-search-item (parse-search-items
+                                 (list (require-archetype* archetype))
+                                 search-items)])
+          (parse-crawler-spec
+              more ws-nodespecs (cons new-search-item search-item)))]
+      [else (raise-arguments-error 'make-crawler
+              @~a{Invalid crawler-spec item: @crawler-spec})]))
+
+  (define (parse-ws-items ws-nodespecs ws-items)
+    (match ws-items
+      ['() ws-nodespecs]
+      [`([,name ,tagspec] . ,more)
+        (parse-ws-items (hash-set ws-nodespecs name tagspec) more)]
+      [else (raise-arguments-error 'make-crawler
+              @~a{Invalid workspace item: @ws-items})]))
+
+  (define (parse-search-items items-so-far search-items)
+    (match search-items
+      ['() items-so-far]
+      [`((require . ,search-items) . ,more)
+        (parse-search-items
+          (append items-so-far
+                  (map make-required (parse-search-items '() search-items)))
+          more)]
+      [`((prefer . ,search-items) . ,more)
+        (parse-search-items
+          (append items-so-far
+                  (parse-search-items '() search-items))
+          more)]
+      ; HACK? Tags are limited to one argument; should we support any number?
+      [`((tagged-with? (,class ,n)) . ,more)
+        (parse-search-items
+          (cons (prefer-tagged* class (parse-number n))
+                items-so-far)
+          more)]
+      [else (raise-arguments-error 'make-crawler
+        @~a{Invalid search item: @search-items})]))
+
+  (define (parse-number n)
+    (match n
+      [(? number?) n]
+      [`(exact ,n)
+        (exact-number* n)]
+      [`(inexact ,n)
+        (inexact-number* n)]
+      [else (raise-arguments-error 'make-crawler
+        @~a{Invalid number: @n})]))
+
+  (define-values (ws-nodespecs search-item) (parse-crawler-spec crawler-spec))
+  (crawler* crawler-spec ws-nodespecs search-item)) ;TODO initial state
+
+(define (start-crawler g crawler)
+  ; find nodes for t and b
+  )
+
+(define (crawl g crawler)
+  ; search the slipnet one timestep
+  )
+
+
 ;; ======================================================================
 ;;
 ;; Crawler
