@@ -48,6 +48,7 @@
       (name n)
       (value n)
       (archetype n))
+    ;(make-nodeclass (lambda (n) (list (name n) (value n) (archetype n)))
     (nodeclass (target n)
       (is-a 'number)
       (links-into 'ctx (by-ports 'target 'result) as-member))

@@ -227,6 +227,12 @@
 (define (max-value . hts)
   (apply safe-max (all-hash-values hts)))
 
+(define (absdiff x y)
+  (cond
+    [(void? x) x]
+    [(void? y) y]
+    [else (abs (- x y))]))
+
 (define (all-hash-keys hts)
   (for*/list ([ht hts]
               [k (hash-keys ht)])

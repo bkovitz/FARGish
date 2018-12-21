@@ -409,6 +409,12 @@
 (define (tags-of g node)
   (g:port->neighbors g `(,node tags)))
 
+;TODO UT
+(define (tags-of-class g class node)
+  (for/list ([tag (tags-of g node)]
+             #:when (node-is-a? g tag class))
+    tag))
+
 ;HACK This is way too model- and tag-specific.
 (define (value-of-taggee g tag)
   (value-of g (g:port->neighbor g `(,tag tagged))))
@@ -550,12 +556,11 @@
 
 ;; Returns #f or the applies-to*.
 (define (applies-to? g applies-to nodes)
-  (if (and (all-taggee-infos-could-apply? g applies-to nodes)
-           ;TODO OAOO with tagclass-applies-to?
-           (for/or ([c (f:applies-to*-conditions applies-to)])
-             (apply condition-match? g c nodes)))
-    applies-to
-    #f))
+  (and (all-taggee-infos-could-apply? g applies-to nodes)
+       ;TODO OAOO with tagclass-applies-to?
+       (for/or ([c (f:applies-to*-conditions applies-to)])
+         (apply condition-match? g c nodes))
+       applies-to))
 
 ;; ======================================================================
 ;;
