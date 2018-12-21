@@ -29,21 +29,68 @@
        (require (tagged-with? (has-operand (exact-number bs)))
                 (count-at-least 2)))))
 
+'(crawler
+   (in-ws ([t (node-available-as target)])
+     (require (tagged-with? (has-result (exact-number t))))))
+
 (define-generics search-item
   [acceptability g search-item node])
 
 (struct inexact-number* (n) #:transparent)
-; n: a primitive number
+; n : a primitive number
 
 (define make-inexact inexact-number*)
 
 (struct require-tag* (class n) #:transparent
+; class : a symbol, the name of a nodeclass
+; n : a primitive number or an inexact-number*
   #:methods gen:search-item
   [(define (acceptability g search-item node)
      (define n (require-tag*-n search-item))
      (define class (require-tag*-class search-item))
      (apply safe-max 0.0 (for/list ([tag (tags-of-class g class node)])
                            (number-match g n tag))))])
+
+;(let* ([target (node-available-as g 'target)]
+;       [t (->number g target)])
+;  (require-tag* 'has-operand t))
+;
+;
+;(struct live-crawler* (search-item activations num-steps-taken) #:transparent
+;; search-item : a search-item* (possibly compound)
+;; activations : (Hashof node . activation)
+;; num-steps-taken : integer
+;
+;(define (start-crawler g crawler-definition)
+;  (live-crawler* (make-search-item g crawler-definition)
+;                 initial-activations
+;                 0))
+;
+;(define (crawl-step g live-crawler)
+;  (let* ([search-item (live-crawler*-search-item live-crawler)]
+;         [activations (live-crawler*-activations live-crawler)]
+;         [num-steps-taken (live-crawler*-num-steps-taken live-crawler)])
+;    (struct-copy live-crawler* live-crawler
+;                 [activations (spread-activation
+;                                (λ (archetype)
+;                                  (archetype-edges g archetype))
+;                                (λ (node1 node2)
+;                                  (edge-weight g search-item node1 node2))
+;                                activations)]
+;                 [num-steps-taken (add1 num-steps-taken)])))
+;
+;(define (crawler-found g live-crawler)
+;  ;Look through activations, find best nodes that exceed some activation
+;  ;and acceptability threshold.
+;  'STUB)
+
+(struct seek-instance-of* (archetype) #:transparent
+; archetype : a symbol, the name of a nodeclass
+;   TODO change to an archetype node, i.e. a node linked to via instance-of
+  #:methods gen:search-item
+  [(define (acceptability g search-item node)
+     (define archetype (seek-instance-of*-archetype search-item))
+     (if (node-is-a? g node archetype) 1.0 0.0))])
 
 ; Returns 0.0..1.0 reflecting how well n matches m.
 ;
@@ -137,10 +184,10 @@
       (check-equal? (->number g brickish) (inexact-number* 8) )
       (check-equal? (->number g tag) 3)))
 
-  (test-case "require-tag*"
+  (test-case "require-tag* and seek-instance-of*"
     (let*-values ([(g) empty-g]
                   [(g eqn) (make-node g 'equation '3*8=24)]
-                  [(g) (add-tag g '(has-operand 3) eqn)]
+                  [(g tag1) (make-tag g '(has-operand 3) eqn)]
                   [(g) (add-tag g '(has-operand 8) eqn)])
       (define req-exact3 (require-tag* 'has-operand 3))
       (define req-exact4 (require-tag* 'has-operand 4))
@@ -155,4 +202,10 @@
       (check-equal? (acceptability g req-inexact3 eqn) 1.0)
       (let ([a (acceptability g req-inexact4 eqn)])
         (check-true (< 0.1 a 0.9)))
-   ) ))
+
+      (define seek-equation (seek-instance-of* 'equation))
+      (check-equal? (acceptability g seek-equation eqn) 1.0)
+      (check-equal? (acceptability g seek-equation tag1) 0.0)
+
+    ))
+  )
