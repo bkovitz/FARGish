@@ -176,8 +176,7 @@
     (cond
       [(void? arg) result]
       [(void? result) arg]
-      [(<= arg result) result]
-      [else arg])))
+      [else (max arg result)])))
 
 ; Allows any or all args to be void, and there need not be any args.
 (define (safe-min . args)
@@ -186,8 +185,7 @@
     (cond
       [(void? arg) result]
       [(void? result) arg]
-      [(>= arg result) result]
-      [else arg])))
+      [else (min arg result)])))
 
 ; Allows any or all list elems to be void, and the list can be empty.
 (define (safe-argmax proc lst)

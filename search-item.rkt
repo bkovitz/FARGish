@@ -1,5 +1,7 @@
 ; search-item.rkt -- struct for an item to search for in the slipnet
 
+; ABANDONED
+
 #lang debug at-exp racket
 
 (require "wheel.rkt"

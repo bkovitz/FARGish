@@ -16,7 +16,8 @@
 (require racket/hash)
 (require racket/flonum racket/unsafe/ops)
 (require racket/generic)
-(require rackunit racket/pretty describe profile racket/enter racket/trace)
+(require rackunit)
+(require racket/pretty describe profile racket/enter racket/trace)
 
 (provide acceptability make-inexact)
 
@@ -141,11 +142,17 @@
                   [(g eqn) (make-node g 'equation '3*8=24)]
                   [(g) (add-tag g '(has-operand 3) eqn)]
                   [(g) (add-tag g '(has-operand 8) eqn)])
-      (pr-graph g)
-      #R (tags-of g eqn)
-      #R (tags-of-class g 'has-operand eqn)
       (define req-exact3 (require-tag* 'has-operand 3))
       (define req-exact4 (require-tag* 'has-operand 4))
-      #R (acceptability g req-exact3 eqn)
-      #R (acceptability g req-exact4 eqn)
+      (define req-exact8 (require-tag* 'has-operand 8))
+      (define req-exact-badtag (require-tag* 'no-such-tag 3))
+      (define req-inexact3 (require-tag* 'has-operand (make-inexact 3)))
+      (define req-inexact4 (require-tag* 'has-operand (make-inexact 4)))
+      (check-equal? (acceptability g req-exact3 eqn) 1.0)
+      (check-equal? (acceptability g req-exact4 eqn) 0.0)
+      (check-equal? (acceptability g req-exact8 eqn) 1.0)
+      (check-equal? (acceptability g req-exact-badtag eqn) 0.0)
+      (check-equal? (acceptability g req-inexact3 eqn) 1.0)
+      (let ([a (acceptability g req-inexact4 eqn)])
+        (check-true (< 0.1 a 0.9)))
    ) ))

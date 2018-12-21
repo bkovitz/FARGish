@@ -1,3 +1,6 @@
+; ABANDONED -- This version is an interpreter for lists that represent
+; search-items.
+
 ; SECOND VERSION -- IN PROGRESS
 ; Moving stuff out to search-item.rkt and sa.rkt
 
