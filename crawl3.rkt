@@ -55,6 +55,19 @@
 
 (define make-inexact inexact-number*)
 
+
+(struct in-ws* (prebindings k-search-item) #:transparent)
+; prebindings : (Listof prebinding*)
+; k-search-item : search-item* to fill with prebindings and run when the
+;   prebindings are completed.
+
+(struct prebinding* (name search-item) #:transparent)
+; name : Symbol
+; search-item : search-item* that we will search for in ws to prebind to name.
+
+(define (crawl-step/in-ws live-ws-crawler in-ws)
+
+
 (struct require-tag* (class n) #:transparent
 ; class : a symbol, the name of a nodeclass
 ; n : a primitive number or an inexact-number*
