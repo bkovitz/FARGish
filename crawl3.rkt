@@ -72,11 +72,11 @@
 ;         [num-steps-taken (live-crawler*-num-steps-taken live-crawler)])
 ;    (struct-copy live-crawler* live-crawler
 ;                 [activations (spread-activation
+;                                activations)
 ;                                (λ (archetype)
 ;                                  (archetype-edges g archetype))
 ;                                (λ (node1 node2)
-;                                  (edge-weight g search-item node1 node2))
-;                                activations)]
+;                                  (edge-weight g search-item node1 node2))]
 ;                 [num-steps-taken (add1 num-steps-taken)])))
 ;
 ;(define (crawler-found g live-crawler)
