@@ -29,9 +29,23 @@
        (require (tagged-with? (has-operand (exact-number bs)))
                 (count-at-least 2)))))
 
+; NEXT Implement this simple crawler, without compiling it from a macro
 '(crawler
    (in-ws ([t (node-available-as target)])
      (require (tagged-with? (has-result (exact-number t))))))
+
+; IDEA A "continuation" crawler or search-item, to represent the progression
+; from searching for nodes to bind for in-ws and filling in the references
+; inside the require-tag*. Then, initially, the require-tag* could have a
+; reference inside it, which the continuation simply replaces. There could be
+; a generic function to extract the references from a search-item. When this
+; function returns an empty list, then it's time to start searching for
+; that search-item. This might simplify a lot of code (including the macro).
+
+; IDEA Specify the types of edges that a crawler should follow. Instead of
+; 'activation ports on slipnodes, label them by the kind of connection:
+; archetype, instance, aggregate, part, property. Then crawlers can explore
+; "agnostically" wrt to slipnet or workspace.
 
 (define-generics search-item
   [acceptability g search-item node])

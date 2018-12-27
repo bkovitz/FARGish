@@ -1,5 +1,9 @@
 ; spreading-activation.rkt -- Generic spreading activation
 
+; There are other reasonable ways to define spreading activation than what
+; happens in spread-activation, but at least it's defined independently of
+; everything else.
+
 #lang debug at-exp racket
 
 (require "wheel.rkt")

@@ -67,3 +67,79 @@ FARGish (defining, accessing, and applying a spec)
 
   node-args->attrs
   default-name
+
+
+----
+
+FARG models tend to be accumulations of hacks (hence bug-prone). Is that so
+bad, though? Aren't the brain and mind accumulations of hacks?
+
+It's bad because it's bug-prone and not mathematically tractable. What
+scientific result or hypothesis do you get?
+
+But what if FARGish were mainly a way for hacks to get synergy? And isn't this
+something that blackboard architectures should be good at? Many different
+"experts", all narrow-minded, examine and edit the same workspace, sometimes
+competing and sometimes cooperating.
+
+----
+
+What is the simplest way to express the state of a FARG model as a function of
+its state on the previous timestep?
+
+  Support, a function of desiderata
+
+  Scout movement: bindings as function of ctx, search-items, and salience;
+  activations as function of bindings, ctx, search-items, and salience.
+
+  Salience, a function of touches
+
+  Edits, a function of support to active nodes (and maybe of auto-tagging)
+
+So, what gets updated each timestep are support, scout-bindings,
+scout-activations, salience, and the graph. (Search-items may get updated,
+too; e.g. "lowering of standards". Possibly some global parameters may get
+updated, or node attributes that hold them; e.g. "temperature".)
+
+The state and its update function are like the antecedent of a theorem. The
+conclusion is that the search path tends toward certain attractors, which we
+then claim are reasonable and human-like.
+
+To make a FARG model, we want to go the other way: explicitly encode
+properties of the search path, which we expect to produce reasonable
+attractors; let FARGish construct an appropriate update function. The
+properties of the search path that we want to state are: what causes what to
+be seen first; how pressures interfere with each other constructively and
+destructively. We state that by defining: the nodeclasses and their desiderata
+and port linkage rules; scouts and their search-items; and the slipnet.
+
+We expect this to search reasonably mainly because of the
+cooperative/competitive binding that models analogy-making and conceptual
+blends--and partly because of easy interaction between hacks, especially
+"metric spaces" and "gnomes", and partly because temporal traces serve as
+objects of matching and construction as well as guides to the system's
+behavior ("self-description").
+
+
+What properties do we think make a search reasonable?
+
+- Biased toward the safe and prosaic, but can respond to pressures to explore
+  the exotic and unlikely.
+
+- Conceptual slippage.
+
+- Everything interacts with everything (self-organizing criticality?).
+
+- Analogies almost all the way down.
+
+- Attractors due to self-description/self-monitoring? Hence self-correction.
+
+- Parallel terraced scan.
+
+- What makes a concept node represent a concept is not its name but a unique
+  way of guiding searches (i.e. building up candidate structures, i.e. causing
+  some things to be seen first and favoring some kinds of pressures).
+
+- Some mapping to traditional logic and heuristic.
+
+
