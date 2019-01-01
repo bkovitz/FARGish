@@ -21,9 +21,9 @@
      (let ([c-value c])
        (if c-value (func c-value) (cond more ...)))]
     [(_ [else body0 body ...])
-     (begin body0 body ...)]
+     (let () body0 body ...)]
     [(_ [c body0 body ...] more ...)
-     (if c (begin body0 body ...) (cond more ...))]))
+     (if c (let () body0 body ...) (cond more ...))]))
 
 (define (without-voids seq)
   (for/list ([x seq] #:when (not (void? x)))

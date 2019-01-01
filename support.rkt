@@ -123,10 +123,10 @@
     [(<= initial-sum upper-bound-on-sum)
      xs]
     [else
-      (let* ([new-xs (map reverse-sigmoid (unit-scaled xs))]
-             [new-sum (apply +abs new-xs)]
-             [scaling-factor (/ upper-bound-on-sum new-sum)])
-        (map (curry * scaling-factor) new-xs))]))
+      (define new-xs (map reverse-sigmoid (unit-scaled xs)))
+      (define new-sum (apply +abs new-xs))
+      (define scaling-factor (/ upper-bound-on-sum new-sum))
+      (map (curry * scaling-factor) new-xs)]))
 
 (define (normalize-by-reverse-sigmoid upper-bound-on-sum ht)
   (zip-hash (hash-keys ht)
