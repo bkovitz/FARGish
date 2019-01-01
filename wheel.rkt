@@ -136,6 +136,10 @@
             ([x xs])
     (hash-update ht (equiv-class x) (λ (lst) (cons x lst)) '())))
 
+(define (zip-hash ks vs)
+  (for/hash ([k ks] [v vs])
+    (values k v)))
+
 (define (atom? x)
   (and (not (null? x))
        (not (pair? x))))
