@@ -65,7 +65,7 @@
 ; name : Symbol
 ; search-item : search-item* that we will search for in ws to prebind to name.
 
-(define (crawl-step/in-ws live-ws-crawler in-ws)
+(define (prebind
 
 
 (struct require-tag* (class n) #:transparent

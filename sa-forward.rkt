@@ -159,7 +159,7 @@
                                      (set (hop 'a 'b)
                                           (hop 'a 'c)
                                           (hop 'a 'd)))]
-                  [(_) (check-equal? (trunc-all activations)
+                  [(_) (check-equal? (round-all/ut activations)
                                      (hash 'a 1.0
                                            'b 0.1
                                            'c 0.2
@@ -171,7 +171,7 @@
                                           (hop 'c 'b)))]
                   [(activations prev-hops)
                      (spread/forward activations node->hops prev-hops)]
-                  [(_) (check-equal? (trunc-all activations)
+                  [(_) (check-equal? (round-all/ut activations)
                                      (hash 'a 1.0
                                            'b 0.12
                                            'c 0.21
@@ -183,7 +183,7 @@
                                           (hop 'c 'a)))]
                   [(activations prev-hops)
                      (spread/forward activations node->hops prev-hops)]
-                  [(_) (check-equal? (trunc-all activations)
+                  [(_) (check-equal? (round-all/ut activations)
                                      (hash 'a 1.054
                                            'b 0.12
                                            'c 0.21

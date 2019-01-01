@@ -46,24 +46,24 @@
 ;      [else (loop (cdr l) (sub1 n) (cons (car l) result))])))
 
 ; Useful for unit tests involving inexact numbers
-(define (trunc x)
+(define (round/ut x)
   (if (number? x)
-    (/ (truncate (* x 10000)) 10000)
+    (/ (round (* x 10000.0)) 10000.0)
     x))
 
 ; Useful for unit tests involving inexact numbers
-(define (trunc-all x)
+(define (round-all/ut x)
   (cond
     [(number? x)
-     (trunc x)]
+     (round/ut x)]
     [(hash? x)
      (for/hash ([(k v) x])
-       (values (trunc-all k) (trunc-all v)))]
+       (values (round-all/ut k) (round-all/ut v)))]
     [(pair? x)
-     (map trunc-all x)]
+     (map round-all/ut x)]
     [(set? x)
      (for/set ([x* x])
-       (trunc-all x*))]
+       (round-all/ut x*))]
     [else x]))
 
 (define (->list x)
@@ -102,6 +102,19 @@
 (define-syntax-rule (define-singletons name ...)
   (begin
     (define-singleton name) ...))
+
+(define hash->f 
+  (case-lambda
+    [(ht)
+     (λ (k) (hash-ref ht k))]
+    [(ht default)
+     (λ (k) (hash-ref ht k default))]))
+
+(define (hash->numeric-f ht)
+  (hash->f ht 0.0))
+
+(define (hash->numeric-f/arity-2 ht)
+  (λ (k1 k2) (hash-ref ht (list k1 k2) 0.0)))
 
 (define (hash-ref/sk ht key sk fk)
   (let ([value (hash-ref ht key (void))])

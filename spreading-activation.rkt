@@ -114,7 +114,7 @@
                                               'b 0.1
                                               'c 0.2))]
            [activations (spread activations)]
-           [_ (check-equal? (trunc-all activations)
+           [_ (check-equal? (round-all/ut activations)
                             (hash 'a 0.86
                                   'b 0.18
                                   'c 0.36))])
