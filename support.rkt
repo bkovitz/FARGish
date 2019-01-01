@@ -23,6 +23,7 @@
 ; support-targets
 ; d-t
 ; special handling for antipathy
+; self-support
 
 ; i and j are keys for node/edges/whatever that have or give support. The
 ; variable i refers to a node that is giving support; the variable j refers
@@ -45,25 +46,51 @@
     (support-config*-positive-feedback-rate config))
   (define normalize (support-config*-normalize config))
 
-  (define ht-total-input  ; total input support to j
-    (for*/fold ([ht empty-hash])
-               ([(i si-t) (in-hash support-t)]
-                [j (support-targets i)])
-      (define sj-t (hash-ref support-t j 0.0))
-      (define positive-feedback-ij (* positive-feedback-rate sj-t))
-      (define wij-t (+ (d-t i j) positive-feedback-ij))
+  (define xj-t  ; total input support to j
+    (hash->numeric-f
+      (for*/fold ([ht empty-hash])
+                 ([(i si-t) (in-hash support-t)]
+                  [j (support-targets i)])
+        (define sj-t (hash-ref support-t j 0.0))
+        (define positive-feedback-ij (* positive-feedback-rate sj-t))
+        (define wij-t (+ (d-t i j) positive-feedback-ij))
 
-      (hash-update ht
-                   j
-                   (λ (old) (+ old (* wij-t si-t)))
-                   0.0)))
-
-  (define xj-t (hash->numeric-f ht-total-input))
+        (hash-update ht
+                     j
+                     (λ (old) (+ old (* wij-t si-t)))
+                     0.0))))
 
   (normalize
     (for/hash ([(j sj-t) support-t])
       (values j (+ (* alpha sj-t)
                    (* (- 1.0 alpha) (xj-t j)))))))
+
+;; ======================================================================
+;;
+;; Functions related to normalization
+;;
+
+; Sigmoid function that wraps around y=x for 0.0 <= x <= 1.0.
+; p : number?     Exponent: 2.0 for classic sigmoid where values close to
+;                 0.0 are moved closer to 0.0 and values close to 1.0 are
+;                 moved closer to 1.0. Setting p=0.5 makes a reverse
+;                 sigmoid, where values move toward 0.5.
+; x : number?
+(define (diag-sigmoid p x)
+  (/ (expt x p)
+     (+ (expt x p)
+        (expt (- 1 x) p))))
+
+; Makes an odd function out of f. The returned function returns f(x)
+; for x > 0, -f(-x) for x < 0, 0.0 for x = 0.
+; f : number? -> number?
+(define (oddf f)
+  (λ (x)
+    (cond
+      [(positive? x) (f x)]
+      [(negative? x) (- (f (- x)))]
+      [else 0.0])))
+
 
 ;; ======================================================================
 ;;
@@ -79,8 +106,8 @@
                                                '(b c) 1.0
                                                '(c a) 1.0)))
     (define support-targets (hash->f (hash 'a '(b)
-                                            'b '(c)
-                                            'c '(a))))
+                                           'b '(c)
+                                           'c '(a))))
     (define (next ss)  ; support levels for next timestep
       (support-t+1 default-support-config support-targets d-t ss))
 
