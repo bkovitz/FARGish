@@ -10,7 +10,9 @@
 (require racket/flonum racket/unsafe/ops)
 (require rackunit racket/pretty describe profile)
 
-(provide spread-activation)
+(provide spread-activation
+         default-spreading-activation-params
+         set-weight-noisef)
 
 (struct spreading-activation-params*
         (decay-rate spread-rate max-activation weight-noisef) #:transparent)
@@ -30,6 +32,10 @@
     0.1
     10.0
     (λ (w) (+ w (* 0.2 (- (random) 0.5))))))
+
+(define (set-weight-noisef params f)
+  (struct-copy spreading-activation-params* params
+    [weight-noisef f]))
 
 ; sa-params : spreading-activation-params*
 ; initial-activations : (Hashof node flonum?)
@@ -82,6 +88,7 @@
   (require (prefix-in g: "graph1.rkt")
            "fargish1.rkt"
            "shorthand.rkt")
+
   (test-case "spread-activation test"
     (define spec
       (farg-model-spec
@@ -100,6 +107,7 @@
     (define (2nodes->edge 2nodes)
       (map node->port (set->list 2nodes)))
 
+    ;TODO Call set-weight-noisef
     (define sa-params (struct-copy spreading-activation-params*
                                    default-spreading-activation-params
                         [weight-noisef identity])) ;disable randomness
