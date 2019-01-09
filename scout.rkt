@@ -34,6 +34,8 @@
         #:prefab)
 ; node->neighbors : g node -> (Set node)
 ; select-results : g activations -> (List node)  ; leading results, if any
+; activations : (Hashof node number)
+; results : (Listof node)
 
 (define (make-scout-state node->neighbors select-results initial-activations)
   (scout-state* node->neighbors select-results initial-activations '()))
@@ -52,6 +54,8 @@
                        activations
                        (λ (node) (node->neighbors g node))
                        (const 1.0)))
+                     ;FUTURE Probably will need an edge->weight func that
+                     ;reflects desiderata instead of (const 1.0).
 
   (define activations (for/fold ([as (scout-state-activations scout-state)])
                                 ([i num-steps])
@@ -60,6 +64,50 @@
   (struct-copy scout-state* scout-state
                [activations activations]
                [results results]))
+
+;; NEW WAY
+
+;; A scout gathers candidates, each associated with some measure of salience
+;; (tendency to be considered), and then selects results from among the
+;; candidates, reflecting some measure of how good they are.
+
+(struct scout-state* (gather-candidates select-results ht-candidates results)
+        #:prefab)
+; gather-candidates : graph (Hashof node salience) -> (Hashof node salience)
+; select-results : graph (Hashof node salience) -> (Listof node)
+; ht-candidates : (Hashof node salience)
+; result : (Listof node)
+
+(define (make-scout-state
+          gather-candidates select-results initial-ht-candidates)
+  (scout-state* gather-candidates select-results initial-ht-candidates '()))
+
+(define (step g scout-state [num-steps 1])
+  (define gather-candidates (scout-state*-gather-candidates scout-state))
+  (define select-results (scout-state*-select-results scout-state))
+
+  (define ht-candidates
+    (for/fold ([ht-cs (scout-state*-ht-candidates scout-state)])
+              ([i num-steps])
+      (gather-candidates g ht-cs)))
+  (define results (select-results g ht-candidates))
+
+  (struct-copy scout-state* scout-state
+               [ht-candidates ht-candidates]
+               [results results]))
+
+;; ----------------------------------------------------------------------
+
+(struct scout* (scout-state desideratum) #:prefab)
+
+(define (make-slipnet-scout g desideratum)
+  ; archetypes -> initial-ht-candidates
+  ; node->neighbors easy
+  ; edge->weight from desideratum ?
+  ; select-results: filter by type, exclude excluded, measure goodness,
+  ;   goodness threshold
+  (make-scout-state 
+
 
 ;; ======================================================================
 ;;
