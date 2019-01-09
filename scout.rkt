@@ -96,6 +96,14 @@
                [ht-candidates ht-candidates]
                [results results]))
 
+
+;; THIRD WAY: currying, no struct
+
+(define (step gather-candidates select-results g initial-ht-candidates)
+  (define ht-candidates (gather-candidates g initial-ht-candidates))
+  (define results (select-results g ht-candidates))
+  (values ht-candidates results))
+
 ;; ----------------------------------------------------------------------
 
 (struct scout* (scout-state desideratum) #:prefab)
