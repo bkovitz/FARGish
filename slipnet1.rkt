@@ -7,7 +7,7 @@
          "xsusp3.rkt"
          "model1.rkt"
          "shorthand.rkt"
-         "sa.rkt"
+         ;"sa.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass)
