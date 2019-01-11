@@ -9,6 +9,8 @@
 (require expect/rackunit (only-in rackunit test-case))
 (require racket/pretty describe profile racket/enter racket/trace)
 
+(provide step)
+
 (define (step gather-candidates select-results g initial-ht-candidates)
   (define ht-candidates (gather-candidates g initial-ht-candidates))
   (define results (select-results g ht-candidates))
