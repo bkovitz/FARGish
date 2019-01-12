@@ -43,6 +43,7 @@
          port->port-label->nodes 
          port->incident-edges
          port->incident-hops
+         has-neighbor-from-port-label?
 
          node->neighbors
          node->ports
@@ -385,6 +386,16 @@
   (for*/set ([port (node->ports g node)]
              [neighbor (port->neighbors g port)])
     neighbor))
+
+;Rewrite this when port labels have inheritance and arguments
+(define (port-label-is-a? g port-label ancestor)
+  (equal? port-label ancestor))
+
+;Does node have a neighbor nnode that links to node from `(,nnode ,port-label)?
+(define (has-neighbor-from-port-label? g node nport-label)
+  (for/or ([hop (node->incident-hops g node)])
+    (match-define `(,ignored (,nnode ,port-label)) hop)
+    (port-label-is-a? g port-label nport-label)))
 
 ;; ======================================================================
 ;;

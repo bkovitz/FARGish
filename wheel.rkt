@@ -140,6 +140,13 @@
   (for/hash ([k ks] [v vs])
     (values k v)))
 
+; Multiplication, but "fills in" void as 1.0 if possible.
+(define (safe-* . args)
+  (let* ([args (filter-not void? args)])
+    (cond
+      [(null? args) (void)]
+      [else (apply * args)])))
+
 (define (atom? x)
   (and (not (null? x))
        (not (pair? x))))

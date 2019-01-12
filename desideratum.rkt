@@ -35,3 +35,62 @@
 (define (acceptability g sk so-far bdx node)
 
 ; The search should return "pre-bindings".
+
+(define (acceptability/of-class class sk g result-so-far node)
+  (cond
+    [(m:node-is-a? g node class)
+     (sk g (safe-* result-so-far 1.0) node)]
+    [else 'reject]))
+
+(define (acceptability/in-role port-label value sk g result-so-far node)
+  (cond
+    [(g:has-neighbor-from-port-label? g node port-label)
+     (acceptability/value sk g (safe-* result-so-far 1.0) node)]
+    [else 'reject]))
+
+
+(define (acceptability/generic node-ok? sk g result-so-far node)
+  (cond
+    [(node-ok? g node)
+     (sk g (safe-* result-so-far 1.0) node)]
+    [else 'reject]))
+
+(define (mk-acceptability/of-class class)
+  (curry acceptability/generic (curryr m:node-is-a? class)))
+
+(define (mk-acceptability/in-role port-label)
+  (curry acceptability/generic (curryr g:has-neighbor-from-port-label?
+                                       port-label)))
+
+(define (mk-acceptability/value value)
+  (curry acceptability/generic (curry 
+
+
+(define (acceptability/generic node-measure sk g result-so-far node)
+  (let ([measure (node-measure g node)])
+    (cond
+      [(eq? 'reject measure)
+       'reject]
+      [else (sk g (safe-* result-so-far measure) node)])))
+
+(define (mk-all-or-nothing pred? . final-args)
+  (λ (g node)
+    (if (apply pred? g node final-args)
+      1.0
+      'reject)))
+
+(define (mk-acceptability/of-class class)
+  (curry acceptability/generic (mk-all-or-nothing m:node-is-a? class)))
+
+(define (mk-acceptability/in-role port-label)
+  (curry acceptability/generic (mk-all-or-nothing
+                                 g:has-neighbor-from-port-label? port-label)))
+
+(define (mk-acceptability/value target-value)
+  (curry acceptability/generic
+         (λ (g node)
+           (let ([actual-value (g:value-of g node)])
+             (cond
+               [(void? actual-value)
+                'reject]
+               [else (some-sigmoid-thing target-value actual-value)])))))
