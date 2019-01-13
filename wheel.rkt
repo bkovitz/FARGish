@@ -295,6 +295,11 @@
     [else (apply set-intersect set-or-void sets)]))
 
 
+(define log+1
+  (case-lambda
+    [(x) (log (+ 1.0 x))]
+    [(x b) (log (+ 1.0 x) b)]))
+
 ;;;based on version by soegaard, https://stackoverflow.com/a/45545280/1393162
 ;(define-match-expander dict
 ;  (λ (stx)

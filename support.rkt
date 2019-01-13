@@ -108,7 +108,6 @@
 ;                 sigmoid, where values move toward 0.5.
 ; x : number?
 (define (diag-sigmoid p x)
-  (list p x)
   (/ (expt x p)
      (+ (expt x p)
         (expt (- 1 x) p))))

@@ -29,14 +29,7 @@
     [`(in-role ,port-label)
       (mk-acceptability/in-role port-label)]
     [`(and ,desiderata ...)
-      (mk-chain-result-by safe-* (map mk-acceptability desiderata))]
-
-;    [`((of-class ,class) . ,more)
-;      (curry (mk-acceptability/of-class class)
-;             (->acc more))]
-    
-    ))
-
+      (mk-chain-result-by safe-* (map mk-acceptability desiderata))]))
 
 ; combine-results : (acceptability-result ... -> acceptability-result)
 ; desideratum-funcs : (Listof (g node -> acceptability-result))
@@ -78,6 +71,44 @@
 
 (define (mk-acceptability/in-role port-label)
   (mk-all-or-nothing g:has-neighbor-from-port-label? port-label))
+
+; Returns a function that maps a number into a logarithmic space, where
+; numbers near the center (the 'scale') are mapped further apart than
+; numbers further away from the center.
+;
+; The function is a bit of a hack. The hyperbola defined in the s function
+; should be rotated a bit. The logspace function will give bad results when
+; x <= -scale.
+(define (mk-logspace scale)
+  (define (s x) (/ scale         ; the "slope" term in the logistic func
+                   (+ x scale))) ; (not really slope except where x == scale)
+  (λ (x)
+    (/ 1.0
+       (+ 1.0 (exp (* (- (s x))
+                      (- x scale)))))))
+
+(define (mk-proximity-measure scale stringency)
+  (let* ([logspace (mk-logspace scale)]
+         [stringency (clamp 0.0 1.0 stringency)]
+         [stringency-factor (- (/ (+ (expt (- 1.0 stringency) 2)
+                                     0.0001))
+                               1.0)])
+    (λ (x1 x2)
+      (let ([logdistance (abs (- (logspace x1) (logspace x2)))])
+        (exp (- (expt (* #R logdistance #R stringency-factor) 2)))))))
+    
+
+(define (mk-acceptability/value target-value stringency)
+  (let ([proximity-measure (mk-proximity-measure target-value stringency)])
+    (λ (g node)
+      (let ([actual-value (m:value-of g node)])
+        (cond
+          [(void? actual-value)
+           (void)]
+          [(not (number? actual-value))
+           'reject]
+          [else
+            (proximity-measure actual-value target-value)])))))
 
 
 ;;;;;;;;;;;;;;;;;;;;
