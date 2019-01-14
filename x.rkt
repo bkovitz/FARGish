@@ -19,6 +19,8 @@
            no-neighbor-at-port?/g has-neighbor-at-port?/g))
 
 
+; An acceptability-result is either a number or 'reject.
+
 ; Makes an acceptability function that implements a desideratum.
 ; Returns (g node -> acceptability-result)
 (define (mk-acceptability desideratum)
