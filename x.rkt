@@ -19,115 +19,72 @@
            no-neighbor-at-port?/g has-neighbor-at-port?/g))
 
 
-; An acceptability-result is either a number or 'reject.
-
-; Makes an acceptability function that implements a desideratum.
-; Returns (g node -> acceptability-result)
-(define (mk-acceptability desideratum)
-  (match desideratum
-    ['() (const (void))]
-    [`(of-class ,class)
-      (mk-acceptability/of-class class)]
-    [`(in-role ,port-label)
-      (mk-acceptability/in-role port-label)]
-    [`(and ,desiderata ...)
-      (mk-chain-result-by safe-* (map mk-acceptability desiderata))]))
-
-; combine-results : (acceptability-result ... -> acceptability-result)
-; desideratum-funcs : (Listof (g node -> acceptability-result))
-; Returns (g node -> acceptability-result)
-(define (mk-chain-result-by combine-results desideratum-funcs)
-  (λ (g node)
-    (let loop ([desideratum-funcs desideratum-funcs]
-               [result-so-far (void)])
-      (cond
-        [(null? desideratum-funcs)
-         (combine-results result-so-far)]
-        [else
-         (let* ([dfunc (car desideratum-funcs)]
-                [r (dfunc g node)])
-           (cond
-             [(eq? 'reject r) 'reject]
-             [else (loop (cdr desideratum-funcs)
-                         (combine-results result-so-far r))]))]))))
-
-
-;(define (acceptability/final-result g result-so-far node)
-;  result-so-far)
-
-;(define (acceptability/generic node-measure sk g result-so-far node)
-;  (let ([measure (node-measure g node)])
-;    (cond
-;      [(eq? 'reject measure)
-;       'reject]
-;      [else (sk g (safe-* result-so-far measure) node)])))
-
-(define (mk-all-or-nothing pred? . final-args)
-  (λ (g node)
-    (if (apply pred? g node final-args)
-      1.0
-      'reject)))
-
-(define (mk-acceptability/of-class class)
-  (mk-all-or-nothing m:node-is-a? class))
-
-(define (mk-acceptability/in-role port-label)
-  (mk-all-or-nothing g:has-neighbor-from-port-label? port-label))
-
-; Returns a function that maps a number into a logarithmic space, where
-; numbers near the center (the 'scale') are mapped further apart than
-; numbers further away from the center.
+; Don't bother searching for tags on equation. Just search by crude criteria,
+; guided only by slipnet activations.
 ;
-; The function is a bit of a hack. The hyperbola defined in the s function
-; should be rotated a bit. The logspace function will give bad results when
-; x <= -scale.
-(define (mk-logspace scale)
-  (define (s x) (/ scale         ; the "slope" term in the logistic func
-                   (+ x scale))) ; (not really slope except where x == scale)
-  (λ (x)
-    (/ 1.0
-       (+ 1.0 (exp (* (- (s x))
-                      (- x scale)))))))
+; NEXT Get initial archetypes by searching the desideratum for values.
+; Might need to get values of nodes referenced, maybe examine their tags.
 
-(define (mk-proximity-measure scale stringency)
-  (let* ([logspace (mk-logspace scale)]
-         [stringency (clamp 0.0 1.0 stringency)]
-         [stringency-factor (- (/ (+ (expt (- 1.0 stringency) 2)
-                                     0.0001))
-                               1.0)])
-    (λ (x1 x2)
-      (let ([logdistance (abs (- (logspace x1) (logspace x2)))])
-        (exp (- (expt (* #R logdistance #R stringency-factor) 2)))))))
-    
+'(node (of-class equation)
+       (splice-into ws
+         (bind-to 15 (in-role result))
+         (bind-to 4 (in-role operand))
+         (bind-to 5 (in-role operand))))
 
-(define (mk-acceptability/value target-value stringency)
-  (let ([proximity-measure (mk-proximity-measure target-value stringency)])
-    (λ (g node)
-      (let ([actual-value (m:value-of g node)])
-        (cond
-          [(void? actual-value)
-           (void)]
-          [(not (number? actual-value))
-           'reject]
-          [else
-            (proximity-measure actual-value target-value)])))))
+; First scout searches slipnet for equations. sk: run 2nd scout
+
+; Second scout runs the splicing process. Starts scouts for the bind-tos,
+; then starts scouts to bind/build from the equation nodes. sk: make the
+; built nodes permanent.
+
+; Bind/build scouts build if they can't find a mate.
+
+; The 'bind nodes start more scouts: for neighbor-bindings.
 
 
-;;;;;;;;;;;;;;;;;;;;
+; How do we break this into small, testable pieces?
+;   mk-make-initial-archetypes
+;   Test against list of actions without running them.
 
-(define spec
-  (farg-model-spec
-    (nodeclass (number n)
-      (name n)
-      (value n))
-    (nodeclass (equation nm)
-      (is-a 'ctx)
-      (name nm))
-    (nodeclass +)))
+; The splicing scout needs to make its own desideratum:
 
-(define g (m:make-empty-graph spec))
-(gdo e:make-equation 5 '(+ 2 3))
+'(all-or-nothing
+   (bind (from '4+5=9) (to 'ws)
+     (bind-to 15' (in-role result))  ; how do we bend on this?
+     (bind-to 4' (in-role operand))
+     (bind-to 5' (in-role operand))
+     (bind-or-build-from 9)
+     (bind-or-build-from +)
+     (bind-or-build-from 4)
+     (bind-or-build-from 5)))
 
-(define ac (mk-acceptability '(of-class number)))
-(define ac2 (mk-acceptability '(in-role result)))
-(define ac3 (mk-acceptability '(and (of-class number) (in-role result))))
+; Promisingness might be able to guide releasing one or more desiderata
+; from 'all-or-nothing. The support network could do that: if the rest of
+; the system favors some of the bindings, we could accept an imperfect
+; splice. A simple solution: if at least one bind-to is fulfilled and
+; all the preimage nodes are bound to a mate, then declare victory.
+
+
+
+(define (desideratum->scout->actions desideratum)
+  (let* ([items (desideratum->items desideratum)]
+         [ls/dragnet->t+1 (map item->dragnet->t+1 items)]
+         [ls/dragnet->candidates (map item->dragnet->candidates items)]
+         [. . . more . . .])
+    (λ (g scout)
+      (let* ([dragnets (map apply ls/dragnet->t+1 (dragnets-of g scout))]
+             [candidatess (map apply ls/dragnet->candidates dragnets)]
+             [. . . more . . .])
+        return a list of actions))))
+
+; Update the dragnets of search-items that lack promising candidates.
+; Update the candidate sets of the search-items whose dragnets changed.
+; Start follow-ups that depend on search-items with new candidates.
+; Support promising follow-ups; try to save unpromising ones;
+; lock in completed follow-ups; cancel failed follow-ups.
+; Update the scout's total promisingness.
+
+; Illustrates that g is a different sort of argument.
+(define (scout->actions g scout)
+  (let* ([g->actions (scout->g->actions g scout)])
+    (g->actions g)))
