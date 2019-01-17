@@ -66,16 +66,72 @@
 
 
 
-(define (desideratum->scout->actions desideratum)
+; Experiment in building up the scout-state function one single-argument
+; closure at a time.
+
+(struct scout-state* (dragnets candidatess follow-upss total-promisingness
+                      actions) #:prefab)
+
+(define (desideratum->scout-state->t+1 desideratum)
   (let* ([items (desideratum->items desideratum)]
          [ls/dragnet->t+1 (map item->dragnet->t+1 items)]
-         [ls/dragnet->candidates (map item->dragnet->candidates items)]
-         [. . . more . . .])
+         [followup-definitions (desideratum->followup-definitions desideratum)]
+         [ls/follow-ups->new-candidatess->follow-ups
+           (map followup-definition->follow-ups->new-candidatess->follow-ups
+                followup-definitions)]
+         [ls/follow-up->promisingness
+           (map followup-definition->follow-up->promisingness
+                followup-definitions)]
+         [ls/promisingness->actions
+           (map followup-definition->promisingness->actions
+                followup-definitions)]
+         [ls/follow-up->actions
+           (map compose1 ls/promisingness->actions
+                         ls/follow-up->promisingness)]
+         [follow-upss->total-promisingness
+           (followup-definitions->follow-upss->total-promisingness
+             followup-definitions)])
     (λ (g scout)
-      (let* ([dragnets (map apply ls/dragnet->t+1 (dragnets-of g scout))]
-             [candidatess (map apply ls/dragnet->candidates dragnets)]
-             [. . . more . . .])
-        return a list of actions))))
+      (let* (;;; get data for time t
+             [scout-state (g:get-node-attrs g scout 'state)]
+             [old-candidatess (scout-state*-candidatess scout-state)]
+             [old-dragnets (scout-state*-dragnets scout-state)]
+             [old-followupss (scout-state*-follow-upss scout-state)]
+             ;;; set up closures
+             [ls/dragnet->new-candidates
+               (map candidates->dragnet->new-candidates old-candidatess)]
+             [ls/new-candidates->candidates
+               (map candidates->new-candidates->candidates old-candidatess)]
+             [new-candidatess->follow-upss
+               (map apply ls/follow-ups->new-candidatess->follow-ups
+                          old-followupss)]
+             [ls/follow-ups->actions
+               (append-map (curry map ls/follow-up->actions)
+                           old-followupss)]
+             ;;; make data for time t+1
+             [dragnets (map apply ls/dragnet->t+1 old-dragnets)]
+             [new-candidatess (map apply ls/dragnet->new-candidates dragnets)]
+             [candidatess (map apply ls/new-candidates->candidates
+                                     new-candidatess)]
+             [follow-upss (new-candidatess->follow-upss new-candidatess)]
+             [actions (map apply ls/follow-ups->actions follow-upss)]
+             [total-promisingness
+               (follow-upss->total-promisingness follow-upss)])
+        (scout-state* dragnets candidatess follow-upss total-promisingness
+                      actions)))))
+
+; Still to be written
+
+desideratum->items
+item->dragnet->t+1
+desideratum->followup-definitions
+followup-definition->follow-ups->new-candidatess->follow-ups
+followup-definition->follow-up->promisingness
+followup-definition->promisingness->actions
+followup-definitions->follow-upss->total-promisingness
+candidates->dragnet->new-candidates
+candidates->new-candidates->candidates
+
 
 ; Update the dragnets of search-items that lack promising candidates.
 ; Update the candidate sets of the search-items whose dragnets changed.
