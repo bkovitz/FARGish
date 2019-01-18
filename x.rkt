@@ -93,7 +93,7 @@
              followup-definitions)])
     (λ (g scout)
       (let* (;;; get data for time t
-             [scout-state (g:get-node-attrs g scout 'state)]
+             [scout-state (g:get-node-attr g scout 'state)]
              [old-candidatess (scout-state*-candidatess scout-state)]
              [old-dragnets (scout-state*-dragnets scout-state)]
              [old-followupss (scout-state*-follow-upss scout-state)]

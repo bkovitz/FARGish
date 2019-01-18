@@ -6,7 +6,7 @@
          (for-syntax syntax/parse))
 (require racket/hash)
 (require "wheel.rkt")
-(require rackunit)
+(require expect/rackunit (only-in rackunit test-case))
 
 (require (prefix-in m: "model1.rkt")
          "shorthand.rkt"
