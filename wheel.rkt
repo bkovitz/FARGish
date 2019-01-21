@@ -3,11 +3,21 @@
 #lang debug at-exp racket
 
 (require (for-syntax racket/syntax) racket/syntax)
+(require expect/rackunit (only-in rackunit test-case))
 
 (provide (all-defined-out))
 
 (define empty-set (set))
 (define empty-hash (hash))
+
+; Useful in (map appl list-of-funcs list-of-args)
+(define (appl f . args) (apply f args))
+
+; Quick curries
+
+(define (cons/ a)
+  (λ (d)
+    (cons a d)))
 
 ; cond with #:define
 (define-syntax cond
@@ -273,7 +283,7 @@
   (= 1 (for/sum ([item seq])
          (if (pred item) 1 0))))
 
-(define (eq?? x)
+#;(define (eq?? x)
   (λ (x*) (eq? x x*)))
 
 ;; "Fills the void": if first argument is void, returns intersection of
@@ -294,6 +304,33 @@
      set-or-void]
     [else (apply set-intersect set-or-void sets)]))
 
+; Is x a quoted thing?
+(define (quoted? x)
+  (cond
+    [(null? x) #f]
+    [(not (pair? x)) #f]
+    [else (eq? 'quote (car x))]))
+
+; Removes quoted? elements from all levels of ls. However, if ls is itself
+; quoted, that will have no effect.
+(define (remove-quoted ls)
+  (cond
+    [(null? ls) ls]
+    #:define a (car ls)
+    #:define d (cdr ls)
+    [(quoted? a) (remove-quoted d)]
+    [(atom? a) (cons a (remove-quoted d))]
+    [else (cons (remove-quoted a) (remove-quoted d))]))
+
+(module+ test
+  (test-case "remove-quoted"
+    (check-equal? (remove-quoted '()) '())
+    (check-equal? (remove-quoted '(a b c)) '(a b c))
+    (check-equal? (remove-quoted '('a b c)) '(b c))
+    (check-equal? (remove-quoted '((a 'b) c)) '((a) c))
+    (check-equal? (remove-quoted '('(a b) c)) '(c))
+    (check-equal? (remove-quoted '(splice-into 'ws eqn)) '(splice-into eqn))
+))
 
 (define log+1
   (case-lambda

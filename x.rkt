@@ -76,8 +76,8 @@
   (let* ([items (desideratum->items desideratum)]
          [ls/dragnet->t+1 (map item->dragnet->t+1 items)]
          [followup-definitions (desideratum->followup-definitions desideratum)]
-         [ls/follow-ups->new-candidatess->follow-ups
-           (map followup-definition->follow-ups->new-candidatess->follow-ups
+         [ls/follow-ups->candidates->follow-ups
+           (map followup-definition->follow-ups->candidates->follow-ups
                 followup-definitions)]
          [ls/follow-up->promisingness
            (map followup-definition->follow-up->promisingness
@@ -102,19 +102,19 @@
                (map candidates->dragnet->new-candidates old-candidatess)]
              [ls/new-candidates->candidates
                (map candidates->new-candidates->candidates old-candidatess)]
-             [new-candidatess->follow-upss
-               (map apply ls/follow-ups->new-candidatess->follow-ups
-                          old-followupss)]
+             [ls/candidates->follow-ups
+               (map appl ls/follow-ups->candidates->follow-ups old-followupss)]
              [ls/follow-ups->actions
                (append-map (curry map ls/follow-up->actions)
                            old-followupss)]
              ;;; make data for time t+1
-             [dragnets (map apply ls/dragnet->t+1 old-dragnets)]
-             [new-candidatess (map apply ls/dragnet->new-candidates dragnets)]
-             [candidatess (map apply ls/new-candidates->candidates
+             [dragnets (map appl ls/dragnet->t+1 old-dragnets)]
+             [new-candidatess (map appl ls/dragnet->new-candidates dragnets)]
+             [candidatess (map appl ls/new-candidates->candidates
                                      new-candidatess)]
-             [follow-upss (new-candidatess->follow-upss new-candidatess)]
-             [actions (map apply ls/follow-ups->actions follow-upss)]
+             ;[follow-upss (new-candidatess->follow-upss new-candidatess)]
+             [follow-upss (map appl ls/candidates->follow-ups candidatess)]
+             [actions (map appl ls/follow-ups->actions follow-upss)]
              [total-promisingness
                (follow-upss->total-promisingness follow-upss)])
         (scout-state* dragnets candidatess follow-upss total-promisingness
@@ -122,10 +122,10 @@
 
 ; Still to be written
 
-desideratum->items
-item->dragnet->t+1
-desideratum->followup-definitions
-followup-definition->follow-ups->new-candidatess->follow-ups
+desideratum->items  DONE
+item->dragnet->t+1  DONE
+desideratum->followup-definitions  DONE
+followup-definition->follow-ups->new-candidatess->follow-ups  DONE
 followup-definition->follow-up->promisingness
 followup-definition->promisingness->actions
 followup-definitions->follow-upss->total-promisingness

@@ -39,6 +39,9 @@
     [`(and ,desiderata ...)
       (mk-chain-result-by safe-* (map mk-acceptability desiderata))]))
 
+;(define (desideratum->node->acceptability desideratum)
+
+
 ; combine-results : (acceptability-result ... -> acceptability-result)
 ; desideratum-funcs : (Listof (g node -> acceptability-result))
 ; Returns (g node -> acceptability-result)
