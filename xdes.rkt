@@ -42,6 +42,40 @@
   (filter (not? desideratum-keyword?) 
           (flatten (remove-quoted followup-definition))))
 
+(define (splice-into->actions g owner follow-up)
+  (let ([state (follow-up*->state follow-up)])
+    (case state
+      [(starting) `((start-follow-up ,owner follow-up))]
+      [(failed) '()]
+      [(succeeded) `(scout-
+      [else (cond
+              [(number? promisingness)
+               `((give-support ,owner ,node))]
+              [else (raise-arguments-error ...)])])
+  (let ([promisingness (follow-up->promisingness
+        (cond
+          [(eq? 'failed)
+           `(cancel-follow-up 
+    [(bind)
+      (λ (promisingness)
+        'STUB
+
+
+(define ht/follow-up-types
+  (hash 'splice-into splice-into->actions
+        'bind bind->actions))
+
+(define (follow-up->actions g owner follow-up)
+  (let* ([followup-definition (follow-up*-definition followup)]
+         [followup-type (followup-definition->type followup-definition)]
+         [->actions (hash-ref ht/follow-up-types followup-type (void))])
+    (cond
+      [(void? ->actions)
+       (raise-arguments-error 'follow-up->actions
+          @~a{Undefined follow-up type @followup-type in:
+              @followup-definition})]
+      [else (->actions g owner follow-up)])))
+
 ;; ======================================================================
 ;;
 ;; Advancing a dragnet
@@ -82,11 +116,13 @@
 ;; Advancing a follow-up
 ;;
 
-(struct follow-up* (definition a/arg->candidate state) #:prefab)
+(struct follow-up* (definition a/arg->candidate state node) #:prefab)
 ; definition : The followup-definition that we're implementing
 ; a/arg->candidate : (Alist name candidate) Arguments, i.e. candidates
 ;; env : (Hashof name value)  Variables and values (including args)
 ; state : ?  'starting
+; node : (or/c nodeid void)  Node that "does" follow-up, if one has been
+;                            created
 
 
 (define (followup-definition->follow-ups->candidates->follow-ups
@@ -95,7 +131,7 @@
     (λ (ht/follow-ups)  ; ht/follow-ups : (Hashof (List followup-definition
                         ;                               arg-alist)
                         ;                         follow-up*)
-      (λ (ht/candidates)
+      (λ (ht/candidates)  ; ht/candidates : (Hashof name (List candidate))
         (let ([arg-alists
                 (apply cartesian-product
                        (for/list ([name arg-names])
@@ -117,6 +153,19 @@
 (define (follow-up-exists-for? ht/follow-ups followup-definition arg-alist)
   (hash-has-key? ht/follow-ups (list followup-definition arg-alist)))
 
+; Returns a promisingness or a void (if the node has no 'promisingnessa
+; attribute).
+(define (follow-up->promisingness g follow-up)
+  (let ([state (follow-up*-state follow-up)])
+    (case state
+      [(starting) 0.1]
+      [(failed succeeded) state]
+      [(running)
+        (let ([node (follow-up*-node follow-up)])
+          (g:get-node-attr g node 'promisingness))]
+      [else (raise-arguments-error 'follow-up->promisingness
+              @~a{invalid follow-up state: @state})])))
+              
 ;; ======================================================================
 ;;
 ;; Unit tests
@@ -144,6 +193,21 @@
                     [4′ (in-ctx 'ws)]
                     [5′ (in-ctx 'ws)]
                     [+′ (in-ctx 'ws)])))
+
+  (test-case "desideratum->followup-definitions"
+    (check-equal? (desideratum->followup-definitions d-eqn)
+                  '((splice-into 'ws eqn)))
+    (check-equal? (desideratum->followup-definitions d-spl)
+                  '((bind 9′ 9)
+                    (bind 4′ 4)
+                    (bind 5′ 5)
+                    (bind +′ +))))
+
+  (test-case "followup-definition->arg-names"
+    (check-equal? (followup-definition->arg-names '(splice-into 'ws eqn))
+                  '(eqn))
+    (check-equal? (followup-definition->arg-names '(splice-into ctx1 ctx2))
+                  '(ctx1 ctx2)))
   )
 
 ;;;;;; REPL code

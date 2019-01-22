@@ -69,7 +69,7 @@
 ; Experiment in building up the scout-state function one single-argument
 ; closure at a time.
 
-(struct scout-state* (dragnets candidatess follow-upss total-promisingness
+(struct scout-state* (dragnets candidatess follow-upss self-promisingness
                       actions) #:prefab)
 
 (define (desideratum->scout-state->t+1 desideratum)
@@ -79,17 +79,17 @@
          [ls/follow-ups->candidates->follow-ups
            (map followup-definition->follow-ups->candidates->follow-ups
                 followup-definitions)]
-         [ls/follow-up->promisingness
-           (map followup-definition->follow-up->promisingness
-                followup-definitions)]
-         [ls/promisingness->actions
-           (map followup-definition->promisingness->actions
-                followup-definitions)]
-         [ls/follow-up->actions
-           (map compose1 ls/promisingness->actions
-                         ls/follow-up->promisingness)]
-         [follow-upss->total-promisingness
-           (followup-definitions->follow-upss->total-promisingness
+;         [ls/follow-up->promisingness
+;           (map followup-definition->follow-up->promisingness
+;                followup-definitions)]
+;         [ls/promisingness->actions
+;           (map followup-definition->promisingness->actions
+;                followup-definitions)]
+;         [ls/follow-up->actions
+;           (map compose1 ls/promisingness->actions
+;                         follow-up->promisingness)]
+         [follow-upss->self-promisingness
+           (followup-definitions->follow-upss->self-promisingness
              followup-definitions)])
     (λ (g scout)
       (let* (;;; get data for time t
@@ -104,20 +104,23 @@
                (map candidates->new-candidates->candidates old-candidatess)]
              [ls/candidates->follow-ups
                (map appl ls/follow-ups->candidates->follow-ups old-followupss)]
-             [ls/follow-ups->actions
-               (append-map (curry map ls/follow-up->actions)
-                           old-followupss)]
+;             [ls/follow-ups->actions
+;               (append-map (curry map ls/follow-up->actions)
+;                           old-followupss)]
              ;;; make data for time t+1
              [dragnets (map appl ls/dragnet->t+1 old-dragnets)]
              [new-candidatess (map appl ls/dragnet->new-candidates dragnets)]
              [candidatess (map appl ls/new-candidates->candidates
                                      new-candidatess)]
-             ;[follow-upss (new-candidatess->follow-upss new-candidatess)]
              [follow-upss (map appl ls/candidates->follow-ups candidatess)]
-             [actions (map appl ls/follow-ups->actions follow-upss)]
-             [total-promisingness
-               (follow-upss->total-promisingness follow-upss)])
-        (scout-state* dragnets candidatess follow-upss total-promisingness
+             ;[actions (map appl ls/follow-ups->actions follow-upss)]
+             [actions (for*/fold ([actions '()])
+                                 ([follow-ups follow-upss]
+                                  [follow-up follow-ups])
+                        (append (follow-up->actions g scout follow-up) actions))]
+             [self-promisingness
+               (follow-upss->self-promisingness follow-upss)])
+        (scout-state* dragnets candidatess follow-upss self-promisingness
                       actions)))))
 
 ; Still to be written
@@ -126,9 +129,9 @@ desideratum->items  DONE
 item->dragnet->t+1  DONE
 desideratum->followup-definitions  DONE
 followup-definition->follow-ups->new-candidatess->follow-ups  DONE
-followup-definition->follow-up->promisingness
+follow-up->promisingness  DONE
 followup-definition->promisingness->actions
-followup-definitions->follow-upss->total-promisingness
+followup-definitions->follow-upss->self-promisingness
 candidates->dragnet->new-candidates
 candidates->new-candidates->candidates
 
@@ -138,7 +141,7 @@ candidates->new-candidates->candidates
 ; Start follow-ups that depend on search-items with new candidates.
 ; Support promising follow-ups; try to save unpromising ones;
 ; lock in completed follow-ups; cancel failed follow-ups.
-; Update the scout's total promisingness.
+; Update the scout's self-promisingness.
 
 ; Illustrates that g is a different sort of argument.
 (define (scout->actions g scout)
