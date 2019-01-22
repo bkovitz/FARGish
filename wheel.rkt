@@ -56,6 +56,9 @@
   (for/list ([x seq] #:when (not (void? x)))
     x))
 
+(define (.. lb ub [step 1])
+  (range lb (add1 ub) step))
+
 (define (clamp lb ub x)
   (cond
     [(< x lb) lb]

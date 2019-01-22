@@ -47,45 +47,9 @@
       (string-join (map ~a (cdr expr)) (~a (car expr)))
       @~a{=@result})))
 
-
-(define (.. lb ub [step 1])
-  (range lb (add1 ub) step))
-
-(define elementary-equation-exprs
-  (append
-    (cartesian-product
-      '(+ - *)
-      '(0 1 2 3 4 5 6 7 8 9 10)
-      '(0 1 2 3 4 5 6 7 8 9 10))
-    (cartesian-product
-      '(+ - *)
-      '(0 1 2 3 4 5 6 7 8 9 10)
-      '(10))
-    (cartesian-product
-      '(+ -)
-      (.. 0 100)
-      '(0 1 2 3))
-    (cartesian-product
-      '(*)
-      (.. 10 100 10)
-      '(0 1 2 3 4 5 6 7 8 9 10))
-    ))
-
 (define base-namespace (make-base-namespace))
 (define (eval-expr expr)
   (eval expr base-namespace))
-
-(define (remove-redundant-exprs exprs)
-  (for/fold ([ht empty-hash] #:result (hash-values ht))
-            ([expr exprs])
-    (match-define `(,op . ,operands) expr)
-    (define key
-      (case op
-        [(+ *) `(,op ,(apply set operands))]
-        [(- /) expr]))
-    (if (hash-has-key? ht key)
-      ht
-      (hash-set ht key expr))))
 
 (module+ test
   (require (prefix-in f: "fargish1.rkt")

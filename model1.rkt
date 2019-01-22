@@ -90,6 +90,11 @@
 ;;
 
 (define get-node-attr g:get-node-attr)
+(define set-node-attr g:set-node-attr)
+(define update-node-attr g:update-node-attr)
+(define get-node-attrs g:get-node-attrs)
+(define union-node-attrs g:union-node-attrs)
+(define node-attr? g:node-attr?)
 (define members-of g:members-of)
 (define member-of? g:member-of?)
 
