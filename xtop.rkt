@@ -8,12 +8,13 @@
          (only-in "graph1.rkt"
            pr-graph pr-group pr-node
            define/g gdo))
+(require (prefix-in f: "fargish1.rkt")
+         (only-in "fargish1.rkt"
+           farg-model-spec nodeclass tagclass portclass)
+         (only-in "equation.rkt"
+           make-equation))
 (require "wheel.rkt" predicates sugar)
 (require expect/rackunit (only-in rackunit test-case))
-
-(define eqn-desideratum
-  '(find ([eqn (spreading-activation 'slipnet)])
-     (splice-into 'ws eqn)))
 
 (define (splice-into->desideratum spec/splice-into env g)
   (match spec/splice-into
@@ -61,10 +62,49 @@
   (and (pair? x)
        (eq? 'quote (car x))))
 
-(define desideratum-keywords (seteq 'find 'find/build 'splice-into 'bind))
+(define desideratum-keywords
+  (seteq 'find 'dragnet 'spreading-activation 'crawl 'splice-into 'bind))
 
 (define (desideratum-keyword? x)
   (set-member? desideratum-keywords x))
+
+
+;; ======================================================================
+;;
+;; Scout code
+;;
+
+;(define (make-scout g desideratum)
+;  (
+
+;; ======================================================================
+;;
+;; The top-level code
+;;
+
+(define spec
+  (farg-model-spec
+    (nodeclass (number n)
+      (name n)
+      (value n))
+    (nodeclass (equation nm)
+      (is-a 'ctx)
+      (name nm))
+    (nodeclass +)
+    (nodeclass (scout desideratum))
+    ))
+
+(define eqn-desideratum
+  '(find ([eqn (dragnet (spreading-activation 'slipnet))])
+     (splice-into 'ws eqn)))
+
+(define (run)
+
+  (define g (m:make-empty-graph spec))
+
+  ;(gdo make-scout eqn-desideratum)
+
+  g)
 
 ;; ======================================================================
 ;;
@@ -72,22 +112,6 @@
 ;;
 
 (module+ test
-  (require (prefix-in f: "fargish1.rkt")
-           (only-in "fargish1.rkt"
-             farg-model-spec nodeclass tagclass portclass)
-           (only-in "equation.rkt"
-             make-equation))
-
-  (define spec
-    (farg-model-spec
-      (nodeclass (number n)
-        (name n)
-        (value n))
-      (nodeclass (equation nm)
-        (is-a 'ctx)
-        (name nm))
-      (nodeclass +)))
-
   (test-case "splice-into->desideratum"
     (define g (m:make-empty-graph spec))
     (gdo make-equation '5 '(+ 2 3))
@@ -99,8 +123,7 @@
                           [5′ (crawl 'ws)]
                           [2′ (crawl 'ws)]
                           [+′ (crawl 'ws)])
-                    (bind '3 3′)
-                    (bind '5 5′)
-                    (bind '2 2′)
-                    (bind '+ +′)))
-    ))
+                     (bind '3 3′)
+                     (bind '5 5′)
+                     (bind '2 2′)
+                     (bind '+ +′)))))

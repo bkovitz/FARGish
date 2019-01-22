@@ -97,9 +97,12 @@
 (define node-attr? g:node-attr?)
 (define members-of g:members-of)
 (define member-of? g:member-of?)
+(define copy-graph g:copy-graph)
+(define port->neighboring-ports g:port->neighboring-ports)
 
 (define as-member f:as-member)
 (define by-ports f:by-ports)
+
 
 ;; ======================================================================
 ;;
