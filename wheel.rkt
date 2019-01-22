@@ -3,6 +3,7 @@
 #lang debug at-exp racket
 
 (require (for-syntax racket/syntax) racket/syntax)
+(require sugar)
 (require expect/rackunit (only-in rackunit test-case))
 
 (provide (all-defined-out))
@@ -34,6 +35,22 @@
      (let () body0 body ...)]
     [(_ [c body0 body ...] more ...)
      (if c (let () body0 body ...) (cond more ...))]))
+
+(define-syntax ~>
+  (syntax-rules ()
+    [(_ x) x]
+    [(_ x (f args ...) more ...)
+     (~> (f x args ...) more ...)]
+    [(_ x f more ...)
+     (~> (f x) more ...)]))
+
+(define-syntax ~>>
+  (syntax-rules ()
+    [(_ x) x]
+    [(_ x (f args ...) more ...)
+     (~>> (f args ... x) more ...)]
+    [(_ x f more ...)
+     (~>> (f x) more ...)]))
 
 (define (without-voids seq)
   (for/list ([x seq] #:when (not (void? x)))
@@ -76,7 +93,8 @@
        (round-all/ut x*))]
     [else x]))
 
-(define (->list x)
+;Obsoleted by sugar
+#;(define (->list x)
   (cond
     [(pair? x) x]
     [(hash? x) (hash->list x)]
