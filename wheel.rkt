@@ -3,7 +3,7 @@
 #lang debug at-exp racket
 
 (require (for-syntax racket/syntax) racket/syntax)
-(require sugar)
+(require racket/hash sugar)
 (require expect/rackunit (only-in rackunit test-case))
 
 (provide (all-defined-out))
@@ -170,6 +170,13 @@
 (define (zip-hash ks vs)
   (for/hash ([k ks] [v vs])
     (values k v)))
+
+; Keys in hashes to the right override keys in hashes to the left.
+(define hash-merge
+  (case-lambda
+    [() empty-hash]
+    [(h0 . hs)
+     (apply hash-union h0 hs #:combine/key (λ (k v0 v) v))]))
 
 ; Multiplication, but "fills in" void as 1.0 if possible.
 (define (safe-* . args)

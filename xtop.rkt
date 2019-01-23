@@ -13,8 +13,29 @@
            farg-model-spec nodeclass tagclass portclass)
          (only-in "equation.rkt"
            make-equation))
-(require "wheel.rkt" predicates sugar)
+(require "wheel.rkt" racket/hash predicates sugar)
 (require expect/rackunit (only-in rackunit test-case))
+
+;; ======================================================================
+;;
+;; Desideratum functions
+;;
+;; TODO: move these to a separate module when they work
+;;
+
+(define (desideratum->items desideratum)
+  (match desideratum
+    [`(find (,items ...) ,body ...)
+      items]
+    [else (raise-arguments-error 'desideratum->items
+            @~a{Invalid desideratum: @desideratum})]))
+
+(define (desideratum->followup-definitions desideratum)
+  (match desideratum
+    [`(,let-like (,items ...) ,body ...)
+      body]
+    [else (raise-arguments-error 'desideratum->followup-definitions
+            @~a{Invalid desideratum: @desideratum})]))
 
 (define (splice-into->desideratum spec/splice-into env g)
   (match spec/splice-into
@@ -71,11 +92,153 @@
 
 ;; ======================================================================
 ;;
+;; Dragnets
+;;
+
+;(define (start-dragnet g scout dragnet-spec)
+;  (define ht (parse-dragnet-spec dragnet-spec))
+;  (case dragnet-type
+;    [(spreading-activation)
+;     (
+
+(define (ht-item->scout->initial-dragnet ht/item)
+  (match (hash-ref ht/item 'dragnet)
+    [`(spreading-activation ,root)
+      (λ (g scout)
+        ; TODO Get archetypes from 'start-from
+        (hash) ;STUB
+        )]
+    [`(crawl ,ctx)
+      (let ([initial-nodes (hash-ref ht/item 'start-from '())])
+        (λ (g scout)
+          (for/hash ([node initial-nodes])
+            (values node 1.0))))]))  ; TODO salience instead of 1.0
+
+(define (ht-item->dragnet->t+1 ht/item)
+  (match (hash-ref ht/item 'dragnet)
+    [`(spreading-activation ,root)
+      (λ (g dragnet)
+        (define (node->neighbors node)
+          (m:port->neighbors g `(,node activation)))
+        (sa:spread-activation sa:default-spreading-activation-params
+                              dragnet 
+                              node->neighbors
+                              (const 1.0)))]
+    [`(crawl ,ctx)
+      (λ (g dragnet)
+        dragnet)])) ;STUB Should explore neighbors within ctx
+
+;; ======================================================================
+;;
+;; Candidates
+;;
+
+(define empty-candidates empty-hash)
+
+;; ======================================================================
+;;
+;; Search-items
+;;
+
+(struct item-state* (name dragnet candidates dragnet->t+1
+                     candidates->dragnet->candidates) #:prefab)
+
+(define (initial-item-state g scout item)
+  (let* ([ht/item (parse-search-item item)]
+         ;;; Make closures from ht/item
+         [scout->initial-dragnet (ht-item->scout->initial-dragnet ht/item)]
+         [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
+         [candidates->dragnet->candidates
+           (ht-item->candidates->dragnet->candidates ht/item)]
+         ;;; Make data elements of item-state*
+         [name (hash-ref ht/item 'name)]
+         [dragnet (scout->initial-dragnet g scout)])
+    (item-state* name dragnet empty-candidates dragnet->t+1
+                 candidates->dragnet->candidates)))
+
+(define (item-state->t+1 g item-state)
+  (define dragnet (item-state*-dragnet item-state))
+  (define old-candidates (item-state*-candidates item-state))
+  (define dragnet->t+1 (item-state*-dragnet->t+1 item-state))
+  (define candidates->dragnet->candidates
+    (item-state*-candidates->dragnet->candidates item-state))
+  (if (candidates->advance-dragnet? old-candidates)
+    (let* ([dragnet->candidates (candidates->dragnet->candidates
+                                  old-candidates)]
+           [dragnet (dragnet->t+1 g dragnet)]
+           [candidates (dragnet->candidates g dragnet)])
+      (struct-copy item-state* [dragnet dragnet]
+                               [candidates candidates]))
+    item-state))
+
+; Returns (Hashof symbol Any), with defaults filled in.
+;TODO UT
+;(define (parse-search-item item)
+;  (match item
+;    [`(,name ,infos ...)
+;      (for/fold ([ht (hash 'name name)] #:result (add-search-item-defaults ht))
+;                ([info infos])
+;        (let-values ([(k v) (parse-search-item-info info)])
+;          (if (hash-has-key? ht k)
+;            ht   ; Only first definition of a key is saved
+;            (hash-set ht k v))))]
+;    [else (raise-arguments-error 'parse-search-item
+;            @~a{Invalid search item: @item})]))
+
+;NEXT Make start-dragnet closure from whole desideratum
+
+; Returns (Hashof symbol Any), with defaults filled in.
+(define (parse-search-item item)
+  (match item
+    [`(,name ,infos ...)
+      (define ht (infos->ht infos search-item-defaults))
+      (hash-set ht 'name name)]
+    [else (raise-arguments-error 'parse-search-item
+            @~a{Invalid search item: @item})]))
+
+(define (info->kv info)
+  (cond
+    [(pair? info)
+     (values (car info) (cdr info))]
+    [else
+     (values info '())]))
+
+(define (infos->ht infos [defaults empty-hash])
+  (for/fold ([ht empty-hash] #:result (hash-merge defaults ht))
+            ([info infos])
+    (let-values ([(k v) (info->kv info)])
+      (if (hash-has-key? ht k)
+        ht   ; Only first definition of a key is saved
+        (hash-set ht k v)))))
+
+; TODO Check validity?
+;(define (parse-search-item-info info)
+;  (values (car info) (cdr info)))
+
+(define search-item-defaults
+  (hash 'dragnet '(spreading-activation slipnet)))
+
+;(define (add-search-item-defaults ht)
+;  (hash-merge search-item-defaults ht))
+
+;(define (initial-item-state g scout item)
+;  (define ht (parse-search-item item))
+;  (define name (hash-ref ht 'name))
+;  (define dragnet-spec (hash-ref ht 'dragnet))
+;  (item-state* name (start-dragnet g scout dragnet-spec) (set)))
+
+;; ======================================================================
+;;
 ;; Scout code
 ;;
 
 ;(define (make-scout g desideratum)
-;  (
+;  (let*-values ([(g scout) (m:make-node/in g 'ws 'scout desideratum)]
+;                [(items) (desideratum->items desideratum)]
+;                [(item-states) (for/list ([item items])
+;                                 (initial-item-state g scout item))]
+;                [(g) (m:set-node-attr g scout 'item-states item-states)])
+;    (values g scout)))
 
 ;; ======================================================================
 ;;
@@ -95,16 +258,40 @@
     ))
 
 (define eqn-desideratum
-  '(find ([eqn (dragnet (spreading-activation 'slipnet))])
+  '(find ([eqn (dragnet (spreading-activation 'slipnet))
+               (of-class 'equation)
+               (start-from 4 5 15)])
      (splice-into 'ws eqn)))
 
-(define (run)
+(define spl-desideratum
+  '(find ([9′ (dragnet (crawl 'ws)) (build-from 9)]
+          [4′ (dragnet (crawl 'ws))]
+          [5′ (dragnet (crawl 'ws))]
+          [+′ (dragnet (crawl 'ws)) (build-from +)])
+     (bind 9 9′)
+     (bind 4 4′)
+     (bind 5 5′)
+     (bind + +′)))
 
-  (define g (m:make-empty-graph spec))
+;(define (run)
+;
+;  (define g (m:make-empty-graph spec))
+;
+;  ;(gdo make-scout eqn-desideratum)
+;
+;  g)
 
-  ;(gdo make-scout eqn-desideratum)
+;; REPL code (delete)
 
-  g)
+(require "shorthand.rkt"
+         "equations.rkt")
+
+(define (make-start-g)
+  (let*-values ([(g) (make-graph spec '(ws) '(slipnet))]
+               [(g) (add-memorized-equations g '((+ 2 3)))])
+    g))
+
+(define g (make-start-g))
 
 ;; ======================================================================
 ;;
@@ -112,6 +299,37 @@
 ;;
 
 (module+ test
+  (define d-eqn '(find ([eqn (of-class 'equation)])
+                   (splice-into 'ws eqn)))
+
+  (define d-spl
+    `(find ([9′ (in-ctx 'ws)]
+            [4′ (in-ctx 'ws)]
+            [5′ (in-ctx 'ws)]
+            [+′ (in-ctx 'ws)])
+       (bind 9′ 9)
+       (bind 4′ 4)
+       (bind 5′ 5)
+       (bind +′ +)))
+
+  (test-case "desideratum->items"
+    (check-equal? (desideratum->items d-eqn)
+                  '([eqn (of-class 'equation)]))
+    (check-equal? (desideratum->items d-spl)
+                  '([9′ (in-ctx 'ws)]
+                    [4′ (in-ctx 'ws)]
+                    [5′ (in-ctx 'ws)]
+                    [+′ (in-ctx 'ws)])))
+    
+  (test-case "desideratum->followup-definitions"
+    (check-equal? (desideratum->followup-definitions d-eqn)
+                  '((splice-into 'ws eqn)))
+    (check-equal? (desideratum->followup-definitions d-spl)
+                  '((bind 9′ 9)
+                    (bind 4′ 4)
+                    (bind 5′ 5)
+                    (bind +′ +))))
+
   (test-case "splice-into->desideratum"
     (define g (m:make-empty-graph spec))
     (gdo make-equation '5 '(+ 2 3))
@@ -126,4 +344,5 @@
                      (bind '3 3′)
                      (bind '5 5′)
                      (bind '2 2′)
-                     (bind '+ +′)))))
+                     (bind '+ +′)))
+    ))

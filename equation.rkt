@@ -30,7 +30,7 @@
                 [(g operator) (make-expr/in g equation expr)]
                 [(g) (g:add-edge g `((,operator result) (,result source)))])
     (values g equation)))
-                
+
 (define (make-expr/in g equation expr)
   (match-define `(,operator- . ,operands) expr)
   (let-values ([(g operator) (make-node/in g equation operator-)])
