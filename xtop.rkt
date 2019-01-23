@@ -123,7 +123,7 @@
         (sa:spread-activation sa:default-spreading-activation-params
                               dragnet 
                               node->neighbors
-                              (const 1.0)))]
+                              (const 1.0)))] ; TODO edge weight
     [`(crawl ,ctx)
       (λ (g dragnet)
         dragnet)])) ;STUB Should explore neighbors within ctx
@@ -134,6 +134,34 @@
 ;;
 
 (define empty-candidates empty-hash)
+
+;TODO has-candidate? add-candidate
+
+(define (ht-item->candidates->dragnet->candidates ht/item)
+  (let* ([salience-threshold (hash-ref ht/item 'salience-threshold)]
+         [classes (hash-ref ht/item 'of-class)]
+         [acceptable? (cond
+                        [(empty? classes) ; if no classes, then
+                         (const #t)]      ;   every node is acceptable
+                        [else
+                         (λ (g node)
+                           (for/or ([class classes])
+                             (m:node-is-a? g node class)))])])
+    (λ (old-candidates)
+      (λ (g dragnet)
+        (let loop ([dragnet-pairs (hash->list dragnet)] ;TODO pass the buck?
+                   [candidates old-candidates])
+          (cond
+            [(null? dragnet-pairs) candidates]
+            #:define pair (car dragnet-pairs)
+            #:define node (car pair)
+            #:define salience (cdr pair)
+            [(< salience salience-threshold) candidates]
+            [(has-candidate? candidates node)
+             (loop (cdr dragnet-pairs) candidates)]
+            [(acceptable? node)
+             (loop (cdr dragnet-pairs) (add-candidate candidates node))]
+            [else (loop (cdr dragnet-pairs) candidates)]))))))
 
 ;; ======================================================================
 ;;
@@ -216,7 +244,7 @@
 ;  (values (car info) (cdr info)))
 
 (define search-item-defaults
-  (hash 'dragnet '(spreading-activation slipnet)))
+  (hash 'dragnet '(spreading-activation 'slipnet)))
 
 ;(define (add-search-item-defaults ht)
 ;  (hash-merge search-item-defaults ht))
@@ -239,6 +267,10 @@
 ;                                 (initial-item-state g scout item))]
 ;                [(g) (m:set-node-attr g scout 'item-states item-states)])
 ;    (values g scout)))
+
+(define (scout->t+1 g scout)
+  ;TODO
+  )
 
 ;; ======================================================================
 ;;
