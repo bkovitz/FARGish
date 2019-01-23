@@ -2,7 +2,7 @@
 
 #lang debug at-exp racket
 
-(require "spreading-activation.rkt"
+(require (prefix-in sa: "spreading-activation.rkt")
          (prefix-in m: "model1.rkt")
          (prefix-in g: "graph1.rkt")
          (only-in "graph1.rkt"
@@ -95,11 +95,8 @@
 ;; Dragnets
 ;;
 
-;(define (start-dragnet g scout dragnet-spec)
-;  (define ht (parse-dragnet-spec dragnet-spec))
-;  (case dragnet-type
-;    [(spreading-activation)
-;     (
+; Returns (Listof (Cons node salience))
+(define dragnet->salience-pairs hash->list)
 
 (define (ht-item->scout->initial-dragnet ht/item)
   (match (hash-ref ht/item 'dragnet)
@@ -130,12 +127,63 @@
 
 ;; ======================================================================
 ;;
+;; Promisingness
+;;
+;; A promisingness is a number in 0.0..1.0, 'failed, 'succeeded, or void.
+
+(define (promisingness>=? p1 p2)
+  (let* ([orig-p1 p1]
+         [p1 (quantify-promisingness p1)]
+         [p2 (quantify-promisingness p2)])
+    (cond
+      [(void? p1) #f]
+      [(void? p2)
+         (not (eq? 'failed orig-p1))]
+      [else (>= p1 p2)])))
+
+(define (promisingness<? p1 p2)
+  (not (promisingness>=? p1 p2)))
+
+; Makes comparing promisingnesses easier. 'failed = -1.0, 'succeeded = +2.0.
+(define (quantify-promisingness p)
+  (cond
+    [(number? p) (unit-clamp p)]
+    [(eq? 'failed p) -1.0]
+    [(eq? 'succeeded p) +2.0]
+    [else p]))
+
+;; ======================================================================
+;;
 ;; Candidates
 ;;
 
 (define empty-candidates empty-hash)
 
-;TODO has-candidate? add-candidate
+(define (candidate->promisingness candidates node)
+  (hash-ref candidates node (void)))
+
+(define has-candidate? hash-has-key?)
+
+(define (add-candidate candidates node promisingness)
+  (hash-set candidates node (clamp 0.0 0.4 promisingness)))
+
+;TODO Address the hand-chosen constants here in a principled way.
+(define (candidates->advance-dragnet? candidates)
+  (let loop ([pairs (candidates->promisingness-pairs candidates)]
+             [num-ok 0]) ; number of candidates that are moderately promising
+    (cond
+      [(null? pairs) #t]
+      #:define pair (car pairs)
+      #:define node (car pair)
+      #:define promisingness (cdr pair)
+      [(promisingness>=? promisingness 0.8) #f]
+      [(promisingness<? promisingness 0.4)
+       (loop (cdr pairs) num-ok)]
+      [else
+        (let ([num-ok (add1 num-ok)])
+          (if (>= num-ok 2)
+            #f
+            (loop (cdr pairs) num-ok)))])))
 
 (define (ht-item->candidates->dragnet->candidates ht/item)
   (let* ([salience-threshold (hash-ref ht/item 'salience-threshold)]
@@ -149,17 +197,19 @@
                              (m:node-is-a? g node class)))])])
     (λ (old-candidates)
       (λ (g dragnet)
-        (let loop ([dragnet-pairs (hash->list dragnet)] ;TODO pass the buck?
+        (let loop ([dragnet-pairs (dragnet->salience-pairs dragnet)]
                    [candidates old-candidates])
           (cond
-            [(null? dragnet-pairs) candidates]
+            [(null? dragnet-pairs)
+             candidates]
             #:define pair (car dragnet-pairs)
             #:define node (car pair)
             #:define salience (cdr pair)
-            [(< salience salience-threshold) candidates]
+            [(< salience salience-threshold)
+             candidates]
             [(has-candidate? candidates node)
              (loop (cdr dragnet-pairs) candidates)]
-            [(acceptable? node)
+            [(acceptable? g node)
              (loop (cdr dragnet-pairs) (add-candidate candidates node))]
             [else (loop (cdr dragnet-pairs) candidates)]))))))
 

@@ -65,6 +65,8 @@
     [(> x ub) ub]
     [else x]))
 
+(define unit-clamp (curry clamp 0.0 1.0))
+
 ; Like the built-in take, but if lst has m < n elements, returns lst instead
 ; of throwing an exception.
 ; ECCH Won't override the standard take when (require "wheel.rkt").
