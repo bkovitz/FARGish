@@ -23,6 +23,7 @@
 ;; TODO: move these to a separate module when they work
 ;;
 
+;TODO Rename to desideratum->search-items
 (define (desideratum->items desideratum)
   (match desideratum
     [`(find (,items ...) ,body ...)
@@ -94,25 +95,32 @@
 ;;
 ;; Dragnets
 ;;
+;; A dragnet is a crude search, attracted by salience or activation,
+;; capable of finding nodes that have nothing to do with what you're
+;; looking for. It's the first stage in a parallel terraced scan,
+;; analogous to placing an ad for a job position, which is read by many
+;; people who shouldn't even apply.
+;;
+;; There are two types of dragnet: spreading activation and crawling.
 
 ; Returns (Listof (Cons node salience))
 (define dragnet->salience-pairs hash->list)
 
 (define (ht-item->scout->initial-dragnet ht/item)
-  (match (hash-ref ht/item 'dragnet)
+  (match (ht-item-ref ht/item 'dragnet)
     [`(spreading-activation ,root)
       (λ (g scout)
         ; TODO Get archetypes from 'start-from
         (hash) ;STUB
         )]
     [`(crawl ,ctx)
-      (let ([initial-nodes (hash-ref ht/item 'start-from '())])
+      (let ([initial-nodes (ht-item-ref ht/item 'start-from)])
         (λ (g scout)
           (for/hash ([node initial-nodes])
             (values node 1.0))))]))  ; TODO salience instead of 1.0
 
 (define (ht-item->dragnet->t+1 ht/item)
-  (match (hash-ref ht/item 'dragnet)
+  (match (ht-item-ref ht/item 'dragnet)
     [`(spreading-activation ,root)
       (λ (g dragnet)
         (define (node->neighbors node)
@@ -132,14 +140,12 @@
 ;; A promisingness is a number in 0.0..1.0, 'failed, 'succeeded, or void.
 
 (define (promisingness>=? p1 p2)
-  (let* ([orig-p1 p1]
-         [p1 (quantify-promisingness p1)]
-         [p2 (quantify-promisingness p2)])
-    (cond
-      [(void? p1) #f]
-      [(void? p2)
-         (not (eq? 'failed orig-p1))]
-      [else (>= p1 p2)])))
+  (cond
+    [(void? p1) #f]
+    [(void? p2)
+       (not (eq? 'failed p1))]
+    [else (>= (quantify-promisingness p1)
+              (quantify-promisingness p2))]))
 
 (define (promisingness<? p1 p2)
   (not (promisingness>=? p1 p2)))
@@ -152,10 +158,29 @@
     [(eq? 'succeeded p) +2.0]
     [else p]))
 
+(define (clamp-promisingness p)
+  (cond
+    [(number? p) (unit-clamp p)]
+    [else p]))
+
+(define (clamp-initial-promisingness p)
+  (cond
+    [(number? p) (clamp 0.0 0.4 p)]
+    [else p]))
+
+(define (decay-promisingness p)
+  (cond
+    [(number? p) (* 0.9 p)]
+    [else p]))
+
 ;; ======================================================================
 ;;
 ;; Candidates
 ;;
+;; A set of candidates is the reasonable nodes culled from a dragnet.
+;; The promisingness of candidates is judged based on the promisingness
+;; of the follow-ups that depend on them, and decays without promising
+;; follow-ups.
 
 (define empty-candidates empty-hash)
 
@@ -165,8 +190,13 @@
 (define has-candidate? hash-has-key?)
 
 (define (add-candidate candidates node promisingness)
-  (hash-set candidates node (clamp 0.0 0.4 promisingness)))
+  (hash-set candidates node (clamp-initial-promisingness promisingness)))
 
+(define (set-candidate-promisingness candidates node promisingness)
+  (hash-set candidates node (clamp-promisingness promisingness)))
+
+; Don't advance the dragnet if either one candidate looks very promising
+; or at least two candidates look moderately promising.
 ;TODO Address the hand-chosen constants here in a principled way.
 (define (candidates->advance-dragnet? candidates)
   (let loop ([pairs (candidates->promisingness-pairs candidates)]
@@ -179,15 +209,16 @@
       [(promisingness>=? promisingness 0.8) #f]
       [(promisingness<? promisingness 0.4)
        (loop (cdr pairs) num-ok)]
-      [else
-        (let ([num-ok (add1 num-ok)])
-          (if (>= num-ok 2)
-            #f
-            (loop (cdr pairs) num-ok)))])))
+      [else (let ([num-ok (add1 num-ok)])
+              (if (>= num-ok 2)
+                #f
+                (loop (cdr pairs) num-ok)))])))
 
+; Extracts new candidates from a dragnet and updates the current set of
+; candidates.
 (define (ht-item->candidates->dragnet->candidates ht/item)
-  (let* ([salience-threshold (hash-ref ht/item 'salience-threshold)]
-         [classes (hash-ref ht/item 'of-class)]
+  (let* ([salience-threshold (ht-item-ref ht/item 'salience-threshold)]
+         [classes (ht-item-ref ht/item 'of-class)]
          [acceptable? (cond
                         [(empty? classes) ; if no classes, then
                          (const #t)]      ;   every node is acceptable
@@ -210,29 +241,61 @@
             [(has-candidate? candidates node)
              (loop (cdr dragnet-pairs) candidates)]
             [(acceptable? g node)
-             (loop (cdr dragnet-pairs) (add-candidate candidates node))]
+             (loop (cdr dragnet-pairs)
+                   (add-candidate candidates node salience))]
             [else (loop (cdr dragnet-pairs) candidates)]))))))
+
+; Returns promisingness of candidate on current timestep
+(define (ht-item->follow-ups->candidate->promisingness ht-item)
+  (let* ([
+  (λ (follow-ups)
+    (λ (candidate+promisingness) ; a pair
+      (match-define `(,candidate . ,promisingness) candidate+promisingness)
+  
 
 ;; ======================================================================
 ;;
 ;; Search-items
 ;;
+;; A search-item (usually just "item") is something that a scout is
+;; looking for. It has a name, some criteria for choosing among nodes,
+;; and a way of searching the graph for it. The scout might build a
+;; node to fulfill the search-item if necessary.
+;;
+;; Each search-item has an item-state, which is updated each timestep.
+;; The item-state has a dragnet and a current list of candidates.
 
-(struct item-state* (name dragnet candidates dragnet->t+1
-                     candidates->dragnet->candidates) #:prefab)
+(struct item-state* (name dragnet candidates follow-ups->item-state->t+1)
+                    #:prefab)
+;                     follow-ups->candidate->promisingness
+;                     dragnet->t+1
+;                     candidates->dragnet->candidates) #:prefab)
 
-(define (initial-item-state g scout item)
+;(define (initial-item-state g scout item)
+;  (let* ([ht/item (parse-search-item item)]
+;         ;;; Make closures from ht/item
+;         [scout->initial-dragnet (ht-item->scout->initial-dragnet ht/item)]
+;         [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
+;         [candidates->dragnet->candidates
+;           (ht-item->candidates->dragnet->candidates ht/item)]
+;         ;;; Make data elements of item-state*
+;         [name (hash-ref ht/item 'name)]
+;         [dragnet (scout->initial-dragnet g scout)])
+;    (item-state* name dragnet empty-candidates dragnet->t+1
+;                 candidates->dragnet->candidates)))
+
+(define (item->scout->initial-state item)
   (let* ([ht/item (parse-search-item item)]
+         [name (hash-ref ht/item 'name)]
          ;;; Make closures from ht/item
          [scout->initial-dragnet (ht-item->scout->initial-dragnet ht/item)]
          [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
          [candidates->dragnet->candidates
-           (ht-item->candidates->dragnet->candidates ht/item)]
-         ;;; Make data elements of item-state*
-         [name (hash-ref ht/item 'name)]
-         [dragnet (scout->initial-dragnet g scout)])
-    (item-state* name dragnet empty-candidates dragnet->t+1
-                 candidates->dragnet->candidates)))
+           (ht-item->candidates->dragnet->candidates ht/item)])
+    (λ (g scout)
+      (let ([dragnet (scout->initial-dragnet g scout)])
+        (item-state* name dragnet empty-candidates dragnet->t+1
+                     candidates->dragnet->candidates)))))
 
 (define (item-state->t+1 g item-state)
   (define dragnet (item-state*-dragnet item-state))
@@ -249,22 +312,19 @@
                                [candidates candidates]))
     item-state))
 
-; Returns (Hashof symbol Any), with defaults filled in.
-;TODO UT
-;(define (parse-search-item item)
-;  (match item
-;    [`(,name ,infos ...)
-;      (for/fold ([ht (hash 'name name)] #:result (add-search-item-defaults ht))
-;                ([info infos])
-;        (let-values ([(k v) (parse-search-item-info info)])
-;          (if (hash-has-key? ht k)
-;            ht   ; Only first definition of a key is saved
-;            (hash-set ht k v))))]
-;    [else (raise-arguments-error 'parse-search-item
-;            @~a{Invalid search item: @item})]))
+;NEXT Include the follow-up definitions in ht/item.
+(define (ht-item->follow-ups->item-state->t+1 ht/item)
+  (let* ([
+         [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
+         [candidates->dragnet->candidates
+           (ht-item->candidates->dragnet->candidates ht/item)])
+    (λ (follow-ups)
+      (λ (item-state)
+        (struct-copy item-state* [dragnet dragnet]
+                                 [candidates candidates])))))
 
-;NEXT Make start-dragnet closure from whole desideratum
 
+;TODO Rename to search-item->ht
 ; Returns (Hashof symbol Any), with defaults filled in.
 (define (parse-search-item item)
   (match item
@@ -273,6 +333,10 @@
       (hash-set ht 'name name)]
     [else (raise-arguments-error 'parse-search-item
             @~a{Invalid search item: @item})]))
+
+; Looks up a key in a hash table returned by parse-search-item. Undefined
+; keys default to a value of '().
+(define ht-item-ref (curryr hash-ref '()))
 
 (define (info->kv info)
   (cond
@@ -289,26 +353,15 @@
         ht   ; Only first definition of a key is saved
         (hash-set ht k v)))))
 
-; TODO Check validity?
-;(define (parse-search-item-info info)
-;  (values (car info) (cdr info)))
-
 (define search-item-defaults
   (hash 'dragnet '(spreading-activation 'slipnet)))
 
-;(define (add-search-item-defaults ht)
-;  (hash-merge search-item-defaults ht))
-
-;(define (initial-item-state g scout item)
-;  (define ht (parse-search-item item))
-;  (define name (hash-ref ht 'name))
-;  (define dragnet-spec (hash-ref ht 'dragnet))
-;  (item-state* name (start-dragnet g scout dragnet-spec) (set)))
-
 ;; ======================================================================
 ;;
-;; Scout code
+;; Scouts
 ;;
+;; A scout is a node that searches for and possibly builds other nodes,
+;; seeking to fulfill a desideratum.
 
 ;(define (make-scout g desideratum)
 ;  (let*-values ([(g scout) (m:make-node/in g 'ws 'scout desideratum)]
@@ -318,9 +371,66 @@
 ;                [(g) (m:set-node-attr g scout 'item-states item-states)])
 ;    (values g scout)))
 
+(define (make-scout g desideratum)
+  (let* ([items (desideratum->items desideratum)]
+         [ls/scout->initial-state (map item->scout->initial-state items)])
+    (let*-values ([(g scout) (m:make-node/in g 'ws 'scout desideratum)]
+                  [(item-states)
+                     (for/list ([scout->initial-state ls/scout->initial-state])
+                       (scout->initial-state g scout))]
+                  [(g) (m:set-node-attr g scout 'item-states item-states)])
+      (values g scout))))
+
 (define (scout->t+1 g scout)
-  ;TODO
-  )
+  (let* ([item-states
+           (for/list ([item-state (m:get-node-attr g scout 'item-states)])
+             (item-state->t+1 g item-state))]
+         ;NEXT Start new follow-ups
+         [
+    ;TODO
+    (m:set-node-attr g scout 'item-states item-states)))
+
+; THE RIGHT WAY
+; Each timestep, a scout needs to:
+;   Update its item-states, i.e. dragnets, candidates, promisingness
+;   Start new follow-ups if new candidates necessitate them
+;   Build new nodes for any search-items that need them
+;   Give support to other nodes
+; The closure below does all this by returning a list of actions, not by
+; returning an updated graph.
+(define (desideratum->scout->actions desideratum)
+  (let* (;;; parse
+         [items (desideratum->search-items desideratum)]
+         [followup-definitions (desideratum->followup-definitions desideratum)]
+         [ls/ht/item (map search-item->ht items)]
+         ;;; make closures
+         [ls/follow-ups->item-state->t+1
+           (for/list ([ht/item ls/ht/item])
+             (ht-item->follow-ups->item-state->t+1 ht/item))]
+         [ls/follow-ups->item-states->starts
+           (for/list ([followup-definition followup-definitions])
+             (followup-definition->follow-ups->item-states->starts
+               followup-definition))])
+    (λ (g scout)
+      (let* ([old-item-states (m:get-node-attr g scout 'item-states)]
+             [old-follow-upss (m:get-node-attr g scout 'follow-upss)]
+             [ls/item-states->starts
+               (for/list ([f->i->starts ls/follow-ups->item-states->starts]
+                          [old-follow-ups old-follow-upss])
+                 (f->i->starts old-follow-ups))]
+             [new-item-states
+               (for/list ([old-item-state old-item-states]
+                          [f->i->t+1 ls/follow-ups->item-state->t+1])
+                 (let ([item-state->t+1 (f->i->t+1 old-follow-ups)])
+                   (item-state->t+1 g old-item-state)))]
+             [starts  ; actions to start new follow-ups
+               (apply append
+                 (for/list ([item-states->starts ls/item-states->starts])
+                   (item-states->starts new-item-states)))])
+        (list* `(set-attr ,scout item-states ,new-item-states)
+               starts)
+        ;TODO builds
+        ;TODO giving support
 
 ;; ======================================================================
 ;;
@@ -360,6 +470,9 @@
 ;  (define g (m:make-empty-graph spec))
 ;
 ;  ;(gdo make-scout eqn-desideratum)
+;
+;  Each timestep, query each node for actions, the coalesce the actions and
+;  run them.
 ;
 ;  g)
 
