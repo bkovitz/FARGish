@@ -158,6 +158,17 @@
     [(eq? 'succeeded p) +2.0]
     [else p]))
 
+(define (min-promisingness . ps)
+  (cond
+    [(null? ps) (void)]
+    [else (let loop ([min-so-far (car ps)] [ps (cdr ps)])
+            (cond
+              [(null? ps) min-so-far]
+              #:define p1 (car ps)
+              [(promisingness<? p1 min-so-far)
+               (loop p1 (cdr ps))]
+              [else (loop min-so-far (cdr ps))]))]))
+
 (define (clamp-promisingness p)
   (cond
     [(number? p) (unit-clamp p)]
@@ -182,6 +193,7 @@
 ;; of the follow-ups that depend on them, and decays without promising
 ;; follow-ups.
 
+; A set of candidates is stored as a (Hashof node promisingness).
 (define empty-candidates empty-hash)
 
 (define (candidate->promisingness candidates node)
@@ -194,6 +206,11 @@
 
 (define (set-candidate-promisingness candidates node promisingness)
   (hash-set candidates node (clamp-promisingness promisingness)))
+
+; f : (-> graph node old-promisingness new-promisingness)
+(define (map-promisingness f g candidates)
+  (for/hash ([(node old-promisingness) candidates])
+    (values node (f g node old-promisingness))))
 
 ; Don't advance the dragnet if either one candidate looks very promising
 ; or at least two candidates look moderately promising.
@@ -252,6 +269,22 @@
     (λ (candidate+promisingness) ; a pair
       (match-define `(,candidate . ,promisingness) candidate+promisingness)
   
+;; ======================================================================
+;;
+;; Follow-ups
+;;
+;; A follow-up is a node built on behalf of a scout, specified in the body
+;; of the scout's desideratum. A follow-up usually takes arguments that
+;; are specified by one or more search-items in the desideratum. Each
+;; argument is filled in by a candidate found by the scout.
+
+(struct follow-up* (definition args node) #:prefab)
+
+(define follow-up->node follow-up*-node)
+
+(define (follow-ups-with-arg name follow-ups)
+  (let ([has-arg? (λ (follow-up) (member name (follow-up*-args)))])
+    (filter has-arg? follow-ups)))
 
 ;; ======================================================================
 ;;
@@ -265,7 +298,7 @@
 ;; Each search-item has an item-state, which is updated each timestep.
 ;; The item-state has a dragnet and a current list of candidates.
 
-(struct item-state* (name dragnet candidates follow-ups->item-state->t+1)
+(struct item-state* (name dragnet candidates)
                     #:prefab)
 ;                     follow-ups->candidate->promisingness
 ;                     dragnet->t+1
@@ -297,32 +330,62 @@
         (item-state* name dragnet empty-candidates dragnet->t+1
                      candidates->dragnet->candidates)))))
 
-(define (item-state->t+1 g item-state)
-  (define dragnet (item-state*-dragnet item-state))
-  (define old-candidates (item-state*-candidates item-state))
-  (define dragnet->t+1 (item-state*-dragnet->t+1 item-state))
-  (define candidates->dragnet->candidates
-    (item-state*-candidates->dragnet->candidates item-state))
-  (if (candidates->advance-dragnet? old-candidates)
-    (let* ([dragnet->candidates (candidates->dragnet->candidates
-                                  old-candidates)]
-           [dragnet (dragnet->t+1 g dragnet)]
-           [candidates (dragnet->candidates g dragnet)])
-      (struct-copy item-state* [dragnet dragnet]
-                               [candidates candidates]))
-    item-state))
+;(define (item-state->t+1 g item-state)
+;  (define dragnet (item-state*-dragnet item-state))
+;  (define old-candidates (item-state*-candidates item-state))
+;  (define dragnet->t+1 (item-state*-dragnet->t+1 item-state))
+;  (define candidates->dragnet->candidates
+;    (item-state*-candidates->dragnet->candidates item-state))
+;  (if (candidates->advance-dragnet? old-candidates)
+;    (let* ([dragnet->candidates (candidates->dragnet->candidates
+;                                  old-candidates)]
+;           [dragnet (dragnet->t+1 g dragnet)]
+;           [candidates (dragnet->candidates g dragnet)])
+;      (struct-copy item-state* [dragnet dragnet]
+;                               [candidates candidates]))
+;    item-state))
 
-;NEXT Include the follow-up definitions in ht/item.
+; Updates the promisingness of a candidate.
+; Assumes that all the follow-ups passed are relevant to the candidate
+; whose promisingness is being updated.
+(define (follow-ups->promisingness->t+1 follow-ups)
+  (λ (follow-ups)
+    (let* ([follow-up-nodes (map follow-up->node follow-ups)])
+      (λ (g candidate old-promisingness)
+        (let* ([node->promisingness
+                 (λ (node) (m:get-node-attr g node 'promisingness))]
+               [decayed (decay-promisingness old-promisingness)])
+               [min-follow-up
+                 (apply min-promisingness
+                        (map node->promisingness follow-up-nodes))])
+          (min-promisingness decayed min-follow-up)))))
+
 (define (ht-item->follow-ups->item-state->t+1 ht/item)
-  (let* ([
+  (let* ([name (hash-ref ht/item 'name)]
+         [follow-ups->promisingness->t+1
+           (ht-item->follow-ups->promisingness->t+1 ht/item)]
          [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
          [candidates->dragnet->candidates
            (ht-item->candidates->dragnet->candidates ht/item)])
     (λ (follow-ups)
-      (λ (item-state)
-        (struct-copy item-state* [dragnet dragnet]
-                                 [candidates candidates])))))
-
+      (let* ([relevant-follow-ups (follow-ups-with-arg name follow-ups)]
+             [candidate+promisingness->t+1
+               (follow-ups->candidate+promisingness->t+1 relevant-follow-ups)])
+        (λ (g item-state)
+          (let* ([old-dragnet (item-state*-dragnet item-state)]
+                 [old-candidates (item-state*-candidates item-state)]
+                 [candidates (map-promisingness candidate+promisingness->t+1
+                                                g old-candidates)])
+            (cond
+              [(candidates->advance-dragnet? candidates)
+               (let* ([dragnet->candidates (candidates->dragnet->candidates
+                                             candidates)]
+                      [dragnet (dragnet->t+1 g dragnet)]
+                      [candidates (dragnet->candidates g dragnet)])
+                 (struct-copy item-state* [dragnet dragnet]
+                                          [candidates candidates]))]
+              [else
+                (struct-copy item-state* [candidates candidates])])))))))
 
 ;TODO Rename to search-item->ht
 ; Returns (Hashof symbol Any), with defaults filled in.
@@ -428,9 +491,12 @@
                  (for/list ([item-states->starts ls/item-states->starts])
                    (item-states->starts new-item-states)))])
         (list* `(set-attr ,scout item-states ,new-item-states)
-               starts)
+               starts)))))
         ;TODO builds
         ;TODO giving support
+
+;NEXT Write the ht-item->follow-ups->item-state->t+1 code to update
+;promisingness.
 
 ;; ======================================================================
 ;;
