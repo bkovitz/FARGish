@@ -10,6 +10,7 @@
 
 (define empty-set (set))
 (define empty-hash (hash))
+(define empty-hasheq (hasheq))
 
 ; Useful in (map appl list-of-funcs list-of-args)
 (define (appl f . args) (apply f args))

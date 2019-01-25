@@ -105,11 +105,19 @@
 ; Returns (Listof (Cons node salience))
 (define dragnet->salience-pairs hash->list)
 
+(define (dragnet-type? x)
+  (and (pair? x)
+       (or (eq? 'spreading-activation (car x))
+           (eq? 'crawl (car x)))))
+
+(define (ht-item->dragnet-type ht/item)
+  (findf dragnet-type? (ht-item-ref ht/item 'dragnet)))
+  
 (define (ht-item->scout->initial-dragnet ht/item)
-  (match (ht-item-ref ht/item 'dragnet)
+  (match (ht-item->dragnet-type ht/item)
     [`(spreading-activation ,root)
       (λ (g scout)
-        ; TODO Get archetypes from 'start-from
+        ; NEXT Get archetypes from 'start-from
         (hash) ;STUB
         )]
     [`(crawl ,ctx)
@@ -119,7 +127,7 @@
             (values node 1.0))))]))  ; TODO salience instead of 1.0
 
 (define (ht-item->dragnet->t+1 ht/item)
-  (match (ht-item-ref ht/item 'dragnet)
+  (match (ht-item->dragnet-type ht/item)
     [`(spreading-activation ,root)
       (λ (g dragnet)
         (define (node->neighbors node)
@@ -332,12 +340,12 @@
                           [ac->arg-alists-needed ls/ac->arg-alists-needed])
                  (λ (arg-name->candidates)
                    (let* ([arg-alists-needed
-                            (ac->arg-alists-needed arg-name->candidates)]
+                            (ac->arg-alists-needed arg-name->candidates)])
                      (for/list ([arg-alist arg-alists-needed]
                                 #:when (not (follow-up-exists-for?
                                               followup-definition arg-alist)))
                        `(start-follow-up
-                          ,scout ,followup-definition ,arg-alist))))))])
+                          ,scout ,followup-definition ,arg-alist)))))])
         (λ (item-states)
           (let* ([arg-name->candidates
                    (item-states->arg-name->candidates item-states)])
@@ -397,8 +405,7 @@
            (ht-item->candidates->dragnet->candidates ht/item)])
     (λ (g scout)
       (let ([dragnet (scout->initial-dragnet g scout)])
-        (item-state* name dragnet empty-candidates dragnet->t+1
-                     candidates->dragnet->candidates)))))
+        (item-state* name dragnet empty-candidates)))))
 
 ;(define (item-state->t+1 g item-state)
 ;  (define dragnet (item-state*-dragnet item-state))
@@ -450,10 +457,12 @@
                                              candidates)]
                       [dragnet (dragnet->t+1 g old-dragnet)]
                       [candidates (dragnet->candidates g dragnet)])
-                 (struct-copy item-state* [dragnet dragnet]
-                                          [candidates candidates]))]
+                 (struct-copy item-state* item-state
+                   [dragnet dragnet]
+                   [candidates candidates]))]
               [else
-                (struct-copy item-state* [candidates candidates])])))))))
+                (struct-copy item-state* item-state
+                   [candidates candidates])])))))))
 
 ; Returns (Hashof symbol Any), with defaults filled in. Each key is the name
 ; of an element in the item definition.
@@ -509,7 +518,8 @@
                   [(item-states)
                      (for/list ([scout->initial-state ls/scout->initial-state])
                        (scout->initial-state g scout))]
-                  [(g) (m:set-node-attr g scout 'item-states item-states)])
+                  [(g) (m:set-node-attr g scout 'item-states item-states)]
+                  [(g) (m:set-node-attr g scout 'follow-ups '())])
       (values g scout))))
 
 ;(define (scout->t+1 g scout)
@@ -537,38 +547,27 @@
          ;;; make closures
          [ls/follow-ups->item-state->t+1      ; 1 per item
            (map ht-item->follow-ups->item-state->t+1 ls/ht/item)]
-;         [ls/follow-ups->item-states->starts  ; 1 per followup-definition
-;           (map followup-definition->follow-ups->item-states->starts
-;                followup-definitions)]
          [follow-ups->item-states->starts
            (followup-definitions->follow-ups->item-states->starts
-             followup-definitions)]
-    ;NEXT Just make and pass follow-up-exists-for?
+             followup-definitions)])
     (λ (g scout)
       (let* ([old-item-states (m:get-node-attr g scout 'item-states)]
              [old-follow-ups (m:get-node-attr g scout 'follow-ups)]
              [ls/item-state->t+1     ; 1 per item
                (map (apply-to/ old-follow-ups)
                     ls/follow-ups->item-state->t+1)]
-;             [ls/item-states->starts
-;               (map (apply-to/ old-follow-ups)
-;                    ls/follow-ups->item-states->starts)]
              [item-states->starts
-               (follow-ups->item-states->starts old-follow-ups)]
+               (follow-ups->item-states->starts scout old-follow-ups)]
              [new-item-states
-               (map appl ls/item-state->t+1 old-item-states)]
+               (for/list ([old-item-state old-item-states]
+                          [item-state->t+1 ls/item-state->t+1])
+                 (item-state->t+1 g old-item-state))]
              [starts  ; actions to start new follow-ups
                (item-states->starts new-item-states)])
-;             [starts  ; actions to start new follow-ups
-;               (append-map (apply-to/ new-item-states)
-;                           ls/item-states->starts)])
         (list* `(set-attr ,scout item-states ,new-item-states)
                starts)))))
         ;TODO builds
         ;TODO giving support
-
-;NEXT Write the ht-item->follow-ups->item-state->t+1 code to update
-;promisingness.
 
 ;; ======================================================================
 ;;
@@ -625,6 +624,11 @@
     g))
 
 (define g (make-start-g))
+
+(define sc (gdo make-scout eqn-desideratum))
+(define c (desideratum->scout->actions eqn-desideratum))
+
+(c g sc)
 
 ;; ======================================================================
 ;;
