@@ -3,6 +3,7 @@
 #lang debug at-exp racket
 
 (require (prefix-in sa: "spreading-activation.rkt")
+         (prefix-in sl: "make-slipnet.rkt")
          (prefix-in m: "model1.rkt")
          (prefix-in g: "graph1.rkt")
          (only-in "graph1.rkt"
@@ -15,6 +16,8 @@
            make-equation))
 (require "wheel.rkt" racket/hash predicates sugar)
 (require expect/rackunit (only-in rackunit test-case))
+
+(define node->salience m:salience-of)
 
 ;; ======================================================================
 ;;
@@ -112,13 +115,19 @@
 
 (define (ht-item->dragnet-type ht/item)
   (findf dragnet-type? (ht-item-ref ht/item 'dragnet)))
+
+(define (ht-item->start-from-nodes ht/item)
+  (ht-item-ref ht/item 'start-from))
   
 (define (ht-item->scout->initial-dragnet ht/item)
   (match (ht-item->dragnet-type ht/item)
     [`(spreading-activation ,root)
       (λ (g scout)
         ; NEXT Get archetypes from 'start-from
-        (hash) ;STUB
+        ;(hash) ;STUB
+        (let* ([start-from-nodes #R (ht-item->start-from-nodes #R ht/item)])
+          (for/hash ([node start-from-nodes])
+            (values node (node->salience g node))))
         )]
     [`(crawl ,ctx)
       (let ([initial-nodes (ht-item-ref ht/item 'start-from)])

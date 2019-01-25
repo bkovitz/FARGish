@@ -15,6 +15,17 @@
 ; Useful in (map appl list-of-funcs list-of-args)
 (define (appl f . args) (apply f args))
 
+; Useful for SACC?
+; MAYBE Support procedures with variable arity. This might run slowly, though.
+(define (apply/curried f . args)
+  (let*-values ([(f-args more-args) (split-at args (procedure-arity f))]
+                [(g) (apply f f-args)])
+    (cond
+      [(null? more-args) g]
+      [else (apply apply/curried g more-args)])))
+; MAYBE Make a define/curried macro that does the above automatically so
+; that the caller doesn't need to care.
+
 ; Quick curries
 
 (define (cons/ a)
@@ -36,6 +47,9 @@
      (raise-arguments-error 'cond "all clauses failed")]
     [(_ #:define name expr more ...)
      (let* ([name expr])
+       (begin (cond more ...)))]
+    [(_ #:match-define pat expr more ...)
+     (match-let ([pat expr])
        (begin (cond more ...)))]
     [(_ [c => func] more ...)
      (let ([c-value c])
