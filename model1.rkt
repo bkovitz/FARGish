@@ -98,6 +98,7 @@
 (define members-of g:members-of)
 (define member-of? g:member-of?)
 (define copy-graph g:copy-graph)
+(define port->neighbors g:port->neighbors)
 (define port->neighboring-ports g:port->neighboring-ports)
 
 (define as-member f:as-member)

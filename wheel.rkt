@@ -20,6 +20,14 @@
   (λ (d)
     (cons a d)))
 
+(define (apply-to/ . args)
+  (λ (f)
+    (apply f args)))
+
+(define (set-add/ . args)
+  (λ (st)
+    (foldl set-add st args)))
+
 ; cond with #:define
 (define-syntax cond
   (syntax-rules (else =>)
@@ -136,6 +144,10 @@
   (begin
     (define-singleton name) ...))
 
+(define (index-by f xs)
+  (for/hash ([x xs])
+    (values (f x) x)))
+
 (define hash->f 
   (case-lambda
     [(ht)
@@ -168,6 +180,11 @@
   (for/fold ([ht empty-hash] #:result (hash-map-values ht reverse))
             ([x xs])
     (hash-update ht (equiv-class x) (λ (lst) (cons x lst)) '())))
+
+(define (hasheq-by/set ->key ->value xs)
+  (for/fold ([ht empty-hasheq])
+            ([x xs])
+    (hash-update ht (->key x) (set-add/ (->value x)) empty-set)))
 
 (define (zip-hash ks vs)
   (for/hash ([k ks] [v vs])
