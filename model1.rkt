@@ -135,7 +135,7 @@
 (define (nodeclass*-of g node)
   (hash-ref (get-nodeclasses g) (class-of g node)
             (λ () (raise-arguments-error 'nodeclass*-of
-                    @~a{No such class: @(class-of g node)}))))
+                    @~a{Node @node has undefined class: @(class-of g node)}))))
 
 (define (get-links-into g node ctx)
   (define nc (nodeclass*-of g node))

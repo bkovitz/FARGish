@@ -4,6 +4,8 @@
 
 (require (prefix-in sa: "spreading-activation.rkt")
          (prefix-in sl: "make-slipnet.rkt")
+         (only-in "make-slipnet.rkt"
+           no-archetype is-node is-value is-class)
          (prefix-in m: "model1.rkt")
          (prefix-in g: "graph1.rkt")
          (only-in "graph1.rkt"
@@ -15,9 +17,11 @@
          (only-in "equation.rkt"
            make-equation))
 (require "wheel.rkt" racket/hash predicates sugar)
+(require racket/pretty describe)
 (require expect/rackunit (only-in rackunit test-case))
 
 (define node->salience m:salience-of)
+(define node->archetype sl:archetype-of-node)
 
 ;; ======================================================================
 ;;
@@ -106,7 +110,10 @@
 ;; There are two types of dragnet: spreading activation and crawling.
 
 ; Returns (Listof (Cons node salience))
-(define dragnet->salience-pairs hash->list)
+(define (dragnet->salience-pairs dragnet)
+  (sort (hash->list dragnet)
+        >
+        #:key cdr))
 
 (define (dragnet-type? x)
   (and (pair? x)
@@ -125,10 +132,13 @@
       (λ (g scout)
         ; NEXT Get archetypes from 'start-from
         ;(hash) ;STUB
-        (let* ([start-from-nodes #R (ht-item->start-from-nodes #R ht/item)])
-          (for/hash ([node start-from-nodes])
-            (values node (node->salience g node))))
-        )]
+        (let* ([start-from-nodes (ht-item->start-from-nodes ht/item)])
+          (for/fold ([ht empty-hash])
+                    ([node start-from-nodes])
+            (let ([archetype (node->archetype g node)])
+              (if (void? archetype)
+                ht
+                (hash-set ht archetype (node->salience g node)))))))]
     [`(crawl ,ctx)
       (let ([initial-nodes (ht-item-ref ht/item 'start-from)])
         (λ (g scout)
@@ -210,20 +220,20 @@
 ;; follow-ups.
 
 ; A set of candidates is stored as a (Hashof node promisingness).
-(define empty-candidates empty-hash)
+(define empty-ht/candidates empty-hash)
 
-(define (candidate->promisingness candidates node)
-  (hash-ref candidates node (void)))
+(define (candidate->promisingness ht/candidates node)
+  (hash-ref ht/candidates node (void)))
 
 (define has-candidate? hash-has-key?)
 
-(define candidates->promisingness-pairs hash->list)
+(define ht-candidates->promisingness-pairs hash->list)
 
-(define (add-candidate candidates node promisingness)
-  (hash-set candidates node (clamp-initial-promisingness promisingness)))
+(define (add-candidate ht/candidates node promisingness)
+  (hash-set ht/candidates node (clamp-initial-promisingness promisingness)))
 
-(define (set-candidate-promisingness candidates node promisingness)
-  (hash-set candidates node (clamp-promisingness promisingness)))
+(define (set-candidate-promisingness ht/candidates node promisingness)
+  (hash-set ht/candidates node (clamp-promisingness promisingness)))
 
 ; f : (-> graph node old-promisingness new-promisingness)
 (define (map-promisingness f g candidates)
@@ -233,8 +243,8 @@
 ; Don't advance the dragnet if either one candidate looks very promising
 ; or at least two candidates look moderately promising.
 ;TODO Address the hand-chosen constants here in a principled way.
-(define (candidates->advance-dragnet? candidates)
-  (let loop ([pairs (candidates->promisingness-pairs candidates)]
+(define (ht-candidates->advance-dragnet? ht/candidates)
+  (let loop ([pairs (ht-candidates->promisingness-pairs ht/candidates)]
              [num-ok 0]) ; number of candidates that are moderately promising
     (cond
       [(null? pairs) #t]
@@ -251,7 +261,7 @@
 
 ; Extracts new candidates from a dragnet and updates the current set of
 ; candidates.
-(define (ht-item->candidates->dragnet->candidates ht/item)
+(define (ht-item->ht-candidates->dragnet->ht-candidates ht/item)
   (let* ([salience-threshold (ht-item-ref ht/item 'salience-threshold)]
          [classes (ht-item-ref ht/item 'of-class)]
          [acceptable? (cond
@@ -259,26 +269,26 @@
                          (const #t)]      ;   every node is acceptable
                         [else
                          (λ (g node)
-                           (for/or ([class classes])
-                             (m:node-is-a? g node class)))])])
-    (λ (old-candidates)
+                           (for/or ([class #R classes])
+                             (m:node-is-a? g #R node #R class)))])])
+    (λ (old-ht/candidates)
       (λ (g dragnet)
-        (let loop ([dragnet-pairs (dragnet->salience-pairs dragnet)]
-                   [candidates old-candidates])
+        (let loop ([dragnet-pairs #R (dragnet->salience-pairs dragnet)]
+                   [ht/candidates old-ht/candidates])
           (cond
             [(null? dragnet-pairs)
-             candidates]
+             ht/candidates]
             #:define pair (car dragnet-pairs)
             #:define node (car pair)
             #:define salience (cdr pair)
             [(< salience salience-threshold)
-             candidates]
-            [(has-candidate? candidates node)
-             (loop (cdr dragnet-pairs) candidates)]
+             ht/candidates]
+            [(has-candidate? ht/candidates node)
+             (loop (cdr dragnet-pairs) ht/candidates)]
             [(acceptable? g node)
              (loop (cdr dragnet-pairs)
-                   (add-candidate candidates node salience))]
-            [else (loop (cdr dragnet-pairs) candidates)]))))))
+                   (add-candidate ht/candidates node salience))]
+            [else (loop (cdr dragnet-pairs) ht/candidates)]))))))
 
 ;; Returns promisingness of candidate on current timestep
 ;(define (ht-item->follow-ups->candidate->promisingness ht-item)
@@ -321,9 +331,10 @@
 (define (followup-definition->ac->arg-alists-needed followup-definition)
   (let* ([arg-names (followup-definition->arg-names followup-definition)])
     (λ (arg-name->candidates)
+      (describe arg-name->candidates) ;DEBUG
       (apply cartesian-product
              (for/list ([arg-name arg-names])
-               (for/list ([candidate (arg-name->candidates arg-name)])
+               (for/list ([candidate #R (arg-name->candidates #R arg-name)])
                  (cons arg-name candidate)))))))
 
 (define (follow-ups->follow-up-exists-for? follow-ups)
@@ -331,8 +342,10 @@
                                               follow-up->arg-alist
                                               follow-ups)])
     (λ (followup-definition arg-alist)
-      (set-member? (hash-ref ht/arg-alists-started followup-definition)
-                   arg-alist))))
+      (cond
+        #:define st (hash-ref ht/arg-alists-started followup-definition (void))
+        [(void? st) #f]
+        [else (set-member? st arg-alist)]))))
 
 ; Final closure returns list of actions to start follow-ups for all candidates
 ; in all search-items that don't have a follow-up yet.
@@ -357,7 +370,7 @@
                           ,scout ,followup-definition ,arg-alist)))))])
         (λ (item-states)
           (let* ([arg-name->candidates
-                   (item-states->arg-name->candidates item-states)])
+                   (item-states->arg-name->candidates #R item-states)])
             (append-map (apply-to/ arg-name->candidates)
                         ls/ac->starts)))))))
 
@@ -373,7 +386,7 @@
 ;; Each search-item has an item-state, which is updated each timestep.
 ;; The item-state has a dragnet and a current list of candidates.
 
-(struct item-state* (name dragnet candidates)
+(struct item-state* (name dragnet ht/candidates)
                     #:prefab)
 ;                     follow-ups->candidate->promisingness
 ;                     dragnet->t+1
@@ -381,9 +394,11 @@
 
 ;TODO rm first 2
 (define search-item->name item-state*-name)
-(define search-item->candidates item-state*-candidates)
+(define search-item->candidates item-state*-ht/candidates)
+(define item-state->dragnet item-state*-dragnet)
 (define item-state->name item-state*-name)
-(define item-state->candidates item-state*-candidates)
+(define item-state->ht/candidates item-state*-ht/candidates)
+(define item-state->candidates (compose1 hash-keys item-state*-ht/candidates))
 
 (define (item-states->arg-name->candidates item-states)
   (hash->f
@@ -411,10 +426,10 @@
          [scout->initial-dragnet (ht-item->scout->initial-dragnet ht/item)]
          [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
          [candidates->dragnet->candidates
-           (ht-item->candidates->dragnet->candidates ht/item)])
+           (ht-item->ht-candidates->dragnet->ht-candidates ht/item)])
     (λ (g scout)
       (let ([dragnet (scout->initial-dragnet g scout)])
-        (item-state* name dragnet empty-candidates)))))
+        (item-state* name dragnet empty-ht/candidates)))))
 
 ;(define (item-state->t+1 g item-state)
 ;  (define dragnet (item-state*-dragnet item-state))
@@ -449,29 +464,29 @@
 (define (ht-item->follow-ups->item-state->t+1 ht/item)
   (let* ([name (hash-ref ht/item 'name)]
          [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
-         [candidates->dragnet->candidates
-           (ht-item->candidates->dragnet->candidates ht/item)])
+         [ht-candidates->dragnet->ht-candidates
+           (ht-item->ht-candidates->dragnet->ht-candidates ht/item)])
     (λ (follow-ups)
       (let* ([relevant-follow-ups (follow-ups-with-arg-name name follow-ups)]
              [candidate+promisingness->t+1
                (follow-ups->candidate+promisingness->t+1 relevant-follow-ups)])
         (λ (g item-state)
-          (let* ([old-dragnet (item-state*-dragnet item-state)]
-                 [old-candidates (item-state*-candidates item-state)]
-                 [candidates (map-promisingness candidate+promisingness->t+1
-                                                g old-candidates)])
+          (let* ([old-dragnet (item-state->dragnet item-state)]
+                 [old-ht/candidates (item-state->ht/candidates item-state)]
+                 [ht/candidates (map-promisingness candidate+promisingness->t+1
+                                                   g old-ht/candidates)])
             (cond
-              [(candidates->advance-dragnet? candidates)
-               (let* ([dragnet->candidates (candidates->dragnet->candidates
-                                             candidates)]
+              [(ht-candidates->advance-dragnet? ht/candidates)
+               (let* ([dragnet->ht-candidates
+                        (ht-candidates->dragnet->ht-candidates ht/candidates)]
                       [dragnet (dragnet->t+1 g old-dragnet)]
-                      [candidates (dragnet->candidates g dragnet)])
+                      [ht/candidates (dragnet->ht-candidates g dragnet)])
                  (struct-copy item-state* item-state
                    [dragnet dragnet]
-                   [candidates candidates]))]
+                   [ht/candidates ht/candidates]))]
               [else
                 (struct-copy item-state* item-state
-                   [candidates candidates])])))))))
+                   [ht/candidates ht/candidates])])))))))
 
 ; Returns (Hashof symbol Any), with defaults filled in. Each key is the name
 ; of an element in the item definition.
@@ -503,7 +518,8 @@
         (hash-set ht k v)))))
 
 (define search-item-defaults
-  (hash 'dragnet '(spreading-activation 'slipnet)))
+  (hash 'dragnet '(spreading-activation 'slipnet)
+        'salience-threshold 0.1))
 
 ;; ======================================================================
 ;;
@@ -580,24 +596,68 @@
 
 ;; ======================================================================
 ;;
+;; Actions
+;;
+
+(define (do-action g action)
+  (match action
+    [`(set-attr ,node ,k ,v)
+      (m:set-node-attr g node k v)]
+    [`(start-follow-up ,scout ,followup-definition ,arg-alist)
+      ;NEXT d-subst arg-alist into followup-definition;
+      ;     create the scout->actions closure
+      ;     store it in the scout
+      (make-scout g followup-definition)
+    [else
+      (raise-arguments-error 'do-action
+        @~a{Invalid action: @action})]))
+
+(define (do-actions g actions)
+  (for/fold ([g g])
+            ([action actions])
+    (do-action g action)))
+
+;; ======================================================================
+;;
 ;; The top-level code
 ;;
 
+;(define spec
+;  (farg-model-spec
+;    (nodeclass (number n)
+;      (name n)
+;      (value n))
+;    (nodeclass (equation nm)
+;      (is-a 'ctx)
+;      (name nm))
+;    (nodeclass +)
+;    (nodeclass (scout desideratum))
+;    ))
 (define spec
   (farg-model-spec
-    (nodeclass (number n)
-      (name n)
-      (value n))
+    (nodeclass (scout desideratum))
     (nodeclass (equation nm)
       (is-a 'ctx)
-      (name nm))
-    (nodeclass +)
-    (nodeclass (scout desideratum))
-    ))
+      (name nm)
+      (archetype is-node))
+    (nodeclass (number n)
+      (name n)
+      (value n)
+      (archetype n))
+    (nodeclass operator
+      (archetype is-class))
+    (nodeclass +
+      (is-a 'operator))
+    (nodeclass -
+      (is-a 'operator))
+    (nodeclass *
+      (is-a 'operator))
+    (nodeclass /
+      (is-a 'operator))))
 
 (define eqn-desideratum
   '(find ([eqn (dragnet (spreading-activation 'slipnet))
-               (of-class 'equation)
+               (of-class equation)
                (start-from 4 5 15)])
      (splice-into 'ws eqn)))
 
@@ -633,11 +693,16 @@
     g))
 
 (define g (make-start-g))
+(gdo do-graph-edits '(:in ws (number 4) (number 5) (number 15)))
+;TODO Make custom desideratum
 
 (define sc (gdo make-scout eqn-desideratum))
 (define c (desideratum->scout->actions eqn-desideratum))
 
-(c g sc)
+(for ([t 3])
+  #R t
+  (define as (c g sc))
+  (gdo do-actions #R as))
 
 ;; ======================================================================
 ;;
@@ -685,10 +750,10 @@
     (check-equal? result
                   '(find ([3′ (crawl 'ws)]  ; the order is insignificant
                           [5′ (crawl 'ws)]
-                          [2′ (crawl 'ws)]
-                          [+′ (crawl 'ws)])
+                          [+′ (crawl 'ws)]
+                          [2′ (crawl 'ws)])
                      (bind '3 3′)
                      (bind '5 5′)
-                     (bind '2 2′)
-                     (bind '+ +′)))
+                     (bind '+ +′)
+                     (bind '2 2′)))
     ))
