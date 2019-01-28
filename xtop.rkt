@@ -17,7 +17,7 @@
          (only-in "equation.rkt"
            make-equation))
 (require "wheel.rkt" racket/hash predicates sugar)
-(require racket/pretty describe)
+(require debug/repl racket/pretty describe)
 (require expect/rackunit (only-in rackunit test-case))
 
 (define node->salience m:salience-of)
@@ -52,13 +52,17 @@
             [source-nodes (proper-members g source-ctx)]
             [target-node-names (map add-prime source-nodes)]
             [make-target-item (λ (name)
-                                `(,name (crawl ,target-ctx)))])
+                                `(,name (dragnet (crawl ,target-ctx))))])
        `(find ,(map make-target-item target-node-names)
           ,@(for/list ([bind-from source-nodes]
                        [bind-to target-node-names])
               `(bind ',bind-from ,bind-to))))]
     [else (raise-arguments-error 'splice-into->desideratum
             @~a{Invalid splice-into: @spec/splice-into})]))
+
+(define (follow-up->desideratum followup-definition env g)
+  ;Will need to dispatch for different kinds of follow-up
+  (splice-into->desideratum followup-definition env g))
 
 ; List of the members of ctx that should be bound from when splicing ctx into
 ; another ctx. So, probably not tags.
@@ -80,7 +84,7 @@
       (cond
         [(void? d-expr) d-expr]
         [(null? d-expr) d-expr]
-        [(quote? d-expr) d-expr]
+        [(quote? d-expr) (cadr d-expr)]
         [(desideratum-keyword? d-expr) d-expr]
         [(pair? d-expr) (map (curryr d-subst env) d-expr)]
         [else (raise-arguments-error 'd-subst
@@ -121,7 +125,7 @@
            (eq? 'crawl (car x)))))
 
 (define (ht-item->dragnet-type ht/item)
-  (findf dragnet-type? (ht-item-ref ht/item 'dragnet)))
+  (findf dragnet-type? #R (ht-item-ref #R ht/item 'dragnet)))
 
 (define (ht-item->start-from-nodes ht/item)
   (ht-item-ref ht/item 'start-from))
@@ -450,16 +454,15 @@
 ; Assumes that all the follow-ups passed are relevant to the candidate
 ; whose promisingness is being updated.
 (define (follow-ups->candidate+promisingness->t+1 follow-ups)
-  (λ (follow-ups)
-    (let* ([follow-up-nodes (map follow-up->node follow-ups)])
-      (λ (g candidate old-promisingness)
-        (let* ([node->promisingness
-                 (λ (node) (m:get-node-attr g node 'promisingness))]
-               [decayed (decay-promisingness old-promisingness)]
-               [min-follow-up
-                 (apply min-promisingness
-                        (map node->promisingness follow-up-nodes))])
-          (min-promisingness decayed min-follow-up))))))
+  (let* ([follow-up-nodes (map follow-up->node follow-ups)])
+    (λ (g candidate old-promisingness)
+      (let* ([node->promisingness
+               (λ (node) (m:get-node-attr g node 'promisingness))]
+             [decayed (decay-promisingness old-promisingness)]
+             [min-follow-up
+               (apply min-promisingness
+                      (map node->promisingness follow-up-nodes))])
+        (min-promisingness decayed min-follow-up)))))
 
 (define (ht-item->follow-ups->item-state->t+1 ht/item)
   (let* ([name (hash-ref ht/item 'name)]
@@ -467,7 +470,7 @@
          [ht-candidates->dragnet->ht-candidates
            (ht-item->ht-candidates->dragnet->ht-candidates ht/item)])
     (λ (follow-ups)
-      (let* ([relevant-follow-ups (follow-ups-with-arg-name name follow-ups)]
+      (let* ([relevant-follow-ups (follow-ups-with-arg-name name #R follow-ups)]
              [candidate+promisingness->t+1
                (follow-ups->candidate+promisingness->t+1 relevant-follow-ups)])
         (λ (g item-state)
@@ -491,7 +494,7 @@
 ; Returns (Hashof symbol Any), with defaults filled in. Each key is the name
 ; of an element in the item definition.
 (define (search-item->ht item)
-  (match item
+  (match #R item
     [`(,name ,infos ...)
       (define ht (infos->ht infos search-item-defaults))
       (hash-set ht 'name name)]
@@ -546,6 +549,10 @@
                   [(g) (m:set-node-attr g scout 'item-states item-states)]
                   [(g) (m:set-node-attr g scout 'follow-ups '())])
       (values g scout))))
+
+(define (add-follow-up g scout followup-definition arg-alist followup-scout)
+  (let ([follow-up (follow-up* followup-definition arg-alist followup-scout)])
+    (m:update-node-attr g scout 'follow-ups (cons/ follow-up) '())))
 
 ;(define (scout->t+1 g scout)
 ;  (let* ([item-states
@@ -604,10 +611,16 @@
     [`(set-attr ,node ,k ,v)
       (m:set-node-attr g node k v)]
     [`(start-follow-up ,scout ,followup-definition ,arg-alist)
-      ;NEXT d-subst arg-alist into followup-definition;
-      ;     create the scout->actions closure
-      ;     store it in the scout
-      (make-scout g followup-definition)
+      (let*-values ([(env) (make-immutable-hash arg-alist)]
+                    [(desideratum)
+                       (follow-up->desideratum followup-definition env g)]
+                    [(scout->actions) (desideratum->scout->actions desideratum)]
+                    [(g followup-scout) (make-scout g desideratum)]
+                    [(g) (m:set-node-attr g
+                           followup-scout 'action-f scout->actions)]
+                    [(g) (add-follow-up g
+                           scout followup-definition arg-alist followup-scout)])
+        g)]
     [else
       (raise-arguments-error 'do-action
         @~a{Invalid action: @action})]))
@@ -704,6 +717,9 @@
   (define as (c g sc))
   (gdo do-actions #R as))
 
+; The follow-up scouts for the splicer are running (I think).
+; NEXT See how they're doing.
+
 ;; ======================================================================
 ;;
 ;; Unit tests
@@ -741,7 +757,7 @@
                     (bind 5′ 5)
                     (bind +′ +))))
 
-  (test-case "splice-into->desideratum"
+  #;(test-case "splice-into->desideratum"
     (define g (m:make-empty-graph spec))
     (gdo make-equation '5 '(+ 2 3))
     (define env (hash 'eqn '2+3=5))
