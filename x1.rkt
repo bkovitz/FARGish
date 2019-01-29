@@ -19,8 +19,8 @@
      (displayln expanded-lam)
      (syntax-parse expanded-lam
        #:literals (#%plain-lambda)
-       [(#%plain-lambda (arg ...) body)
-        (displayln (free-vars #'expanded-lam))
+       [(~and whole (#%plain-lambda (arg ...) body))
+        (displayln (free-vars #'whole))
         expanded-lam])]))
 
 (lambda (x) (cλ (a) (list a x)))
