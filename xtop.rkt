@@ -51,9 +51,12 @@
             [source-ctx (d-subst source-ctx env)]
             [source-nodes (proper-members g source-ctx)]
             [target-node-names (map add-prime source-nodes)]
-            [make-target-item (λ (name)
-                                `(,name (dragnet (crawl ,target-ctx))))])
-       `(find ,(map make-target-item target-node-names)
+            [make-target-item
+              (λ (source-node name)
+                (let* ([source-class (m:class-of g source-node)])
+                  `(,name (dragnet (crawl ,target-ctx))
+                          (such-that (of-class ,source-class)))))])
+       `(find ,(map make-target-item source-nodes target-node-names)
           ,@(for/list ([bind-from source-nodes]
                        [bind-to target-node-names])
               `(bind ',bind-from ,bind-to))))]
@@ -694,17 +697,6 @@
 ;; The top-level code
 ;;
 
-;(define spec
-;  (farg-model-spec
-;    (nodeclass (number n)
-;      (name n)
-;      (value n))
-;    (nodeclass (equation nm)
-;      (is-a 'ctx)
-;      (name nm))
-;    (nodeclass +)
-;    (nodeclass (scout desideratum))
-;    ))
 (define spec
   (farg-model-spec
     (nodeclass (scout desideratum))
@@ -771,7 +763,7 @@
     g))
 
 (define g (make-start-g))
-(gdo do-graph-edits '(:in ws (number 4) (number 5) (number 15)))
+(gdo do-graph-edit '(:in ws (number 4) (number 5) (number 15)))
 ;TODO Make custom desideratum
 
 (define sc (gdo make-scout eqn-desideratum))
