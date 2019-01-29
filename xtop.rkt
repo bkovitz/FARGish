@@ -64,6 +64,22 @@
   ;Will need to dispatch for different kinds of follow-up
   (splice-into->desideratum followup-definition env g))
 
+(define bind-exists? (const #f))
+
+(define (bind->desideratum bind-definition env g)
+  (void)) ;STUB
+;  (match bind-definition
+;    [`(bind ,from-node ,to-node)
+;      (let* ([from-node (d-subst from-node env)]
+;             [to-node (d-subst to-node env)]
+;             [roles (
+;             [mate-names 
+;             )
+;        `(find ,(map item-for-role mate-names roles)
+;           (success ,@mate-names)))]
+;    [else (raise-arguments-error 'bind->desideratum
+;            @~a{Invalid bind specification: @followup-definition})]))
+
 ; List of the members of ctx that should be bound from when splicing ctx into
 ; another ctx. So, probably not tags.
 (define (proper-members g ctx)
@@ -134,8 +150,6 @@
   (match (ht-item->dragnet-type ht/item)
     [`(spreading-activation ,root)
       (λ (g scout)
-        ; NEXT Get archetypes from 'start-from
-        ;(hash) ;STUB
         (let* ([start-from-nodes (ht-item->start-from-nodes ht/item)])
           (for/fold ([ht empty-hash])
                     ([node start-from-nodes])
@@ -145,8 +159,10 @@
                 (hash-set ht archetype (node->salience g node)))))))]
     [`(crawl ,ctx)
       (let ([initial-nodes (ht-item-ref ht/item 'start-from)])
+        ;TODO initial-nodes is ignored for now; should start at initial-nodes
+        ;and expand. Current version just looks once at all of ctx.
         (λ (g scout)
-          (for/hash ([node initial-nodes])
+          (for/hash ([node (m:members-of g ctx)])
             (values node 1.0))))]))  ; TODO salience instead of 1.0
 
 (define (ht-item->dragnet->t+1 ht/item)
@@ -267,18 +283,27 @@
                 #f
                 (loop (cdr pairs) num-ok)))])))
 
+(define (such-that->acceptable? such-that)
+  (let* ([preds (for/list ([(key args) (infos->ht such-that)])
+                  (case key
+                    [(of-class)
+                     (λ (g node)
+                       (or (null? args)
+                           (for/or ([class args])
+                             (m:node-is-a? g node class))))]
+                    [(binding-mate)
+                     (λ (g node)
+                       #f)]))]) ;STUB
+    (λ (g node)
+      (for/and ([pred? preds])
+        (pred? g node)))))
+
 ; Extracts new candidates from a dragnet and updates the current set of
 ; candidates.
 (define (ht-item->ht-candidates->dragnet->ht-candidates ht/item)
   (let* ([salience-threshold (ht-item-ref ht/item 'salience-threshold)]
-         [classes (ht-item-ref ht/item 'of-class)]
-         [acceptable? (cond
-                        [(empty? classes) ; if no classes, then
-                         (const #t)]      ;   every node is acceptable
-                        [else
-                         (λ (g node)
-                           (for/or ([class classes])
-                             (m:node-is-a? g node class)))])])
+         [acceptable?
+           (such-that->acceptable? (ht-item-ref ht/item 'such-that))])
     (λ (old-ht/candidates)
       (λ (g dragnet)
         (let loop ([dragnet-pairs (dragnet->salience-pairs dragnet)]
@@ -339,7 +364,6 @@
 (define (followup-definition->ac->arg-alists-needed followup-definition)
   (let* ([arg-names (followup-definition->arg-names followup-definition)])
     (λ (arg-name->candidates)
-      (describe arg-name->candidates) ;DEBUG
       (apply cartesian-product
              (for/list ([arg-name arg-names])
                (for/list ([candidate (arg-name->candidates arg-name)])
@@ -485,8 +509,7 @@
           (let* ([old-dragnet (item-state->dragnet item-state)]
                  [old-ht/candidates (item-state->ht/candidates item-state)]
                  [ht/candidates (map-promisingness candidate+promisingness->t+1
-                                                   g old-ht/candidates)]
-                 [_ (debug-repl)])
+                                                   g old-ht/candidates)])
             (cond
               [(ht-candidates->advance-dragnet? ht/candidates)
                (let* ([dragnet->ht-candidates
@@ -550,13 +573,15 @@
 
 (define (make-scout g desideratum)
   (let* ([items (desideratum->search-items desideratum)]
-         [ls/scout->initial-state (map item->scout->initial-state items)])
+         [ls/scout->initial-state (map item->scout->initial-state items)]
+         [scout->actions (desideratum->scout->actions desideratum)])
     (let*-values ([(g scout) (m:make-node/in g 'ws 'scout desideratum)]
                   [(item-states)
                      (for/list ([scout->initial-state ls/scout->initial-state])
                        (scout->initial-state g scout))]
                   [(g) (m:set-node-attr g scout 'item-states item-states)]
-                  [(g) (m:set-node-attr g scout 'follow-ups '())])
+                  [(g) (m:set-node-attr g scout 'follow-ups '())]
+                  [(g) (m:set-node-attr g scout 'node->actions scout->actions)])
       (values g scout))))
 
 (define (add-follow-up g scout followup-definition arg-alist followup-scout)
@@ -591,7 +616,7 @@
          [follow-ups->item-states->starts
            (followup-definitions->follow-ups->item-states->starts
              followup-definitions)])
-    (λ (g scout)
+    (cλ (g scout)
       (let* ([old-item-states (m:get-node-attr g scout 'item-states)]
              [old-follow-ups (m:get-node-attr g scout 'follow-ups)]
              [ls/item-state->t+1     ; 1 per item
@@ -620,24 +645,49 @@
     [`(set-attr ,node ,k ,v)
       (m:set-node-attr g node k v)]
     [`(start-follow-up ,scout ,followup-definition ,arg-alist)
-      (let*-values ([(env) (make-immutable-hash arg-alist)]
-                    [(desideratum)
-                       (follow-up->desideratum followup-definition env g)]
-                    [(scout->actions) (desideratum->scout->actions desideratum)]
-                    [(g followup-scout) (make-scout g desideratum)]
-                    [(g) (m:set-node-attr g
-                           followup-scout 'action-f scout->actions)]
-                    [(g) (add-follow-up g
-                           scout followup-definition arg-alist followup-scout)])
-        g)]
+      (cond
+        [(follow-up-is-bind? followup-definition)
+         (cond
+           [(bind-exists? g followup-definition) g]
+           [else
+             (let*-values ([(env) (make-immutable-hash arg-alist)]
+                           [(desideratum)
+                              (bind->desideratum followup-definition env g)]
+                           [(g bind) (m:make-node/in g 'ws 'bind desideratum)]
+                           [(g) (add-follow-up g scout
+                                                 followup-definition
+                                                 arg-alist
+                                                 bind)])
+               g)])]
+        [else
+          (let*-values ([(env) (make-immutable-hash arg-alist)]
+                        [(desideratum)
+                           (follow-up->desideratum followup-definition env g)]
+                        [(g followup-scout) (make-scout g desideratum)]
+                        [(g) (add-follow-up g scout
+                                              followup-definition
+                                              arg-alist followup-scout)])
+        g)])]
     [else
       (raise-arguments-error 'do-action
         @~a{Invalid action: @action})]))
+
+(define (follow-up-is-bind? followup-definition)
+  (eq? 'bind (safe-car followup-definition)))
 
 (define (do-actions g actions)
   (for/fold ([g g])
             ([action actions])
     (do-action g action)))
+
+; All actions for all nodes
+(define (g->actions g)
+  (let* ([node->actions (λ (node)
+                          (let ([f (m:get-node-attr g node 'node->actions)])
+                            (cond
+                              [(void? f) '()]
+                              [else (f g node)])))])
+    (apply set (append-map node->actions (m:all-nodes g)))))
 
 ;; ======================================================================
 ;;
@@ -658,6 +708,7 @@
 (define spec
   (farg-model-spec
     (nodeclass (scout desideratum))
+    (nodeclass (bind desideratum))
     (nodeclass (equation nm)
       (is-a 'ctx)
       (name nm)
@@ -679,7 +730,7 @@
 
 (define eqn-desideratum
   '(find ([eqn (dragnet (spreading-activation 'slipnet))
-               (of-class equation)
+               (such-that (of-class equation))
                (start-from 4 5 15)])
      (splice-into 'ws eqn)))
 
@@ -692,6 +743,11 @@
      (bind 4 4′)
      (bind 5 5′)
      (bind + +′)))
+
+(define bind-desideratum
+  '(find ([mate (dragnet (crawl 'ws))
+                (binding-mate this)])
+     (success mate)))
 
 ;(define (run)
 ;
@@ -721,10 +777,16 @@
 (define sc (gdo make-scout eqn-desideratum))
 (define c (desideratum->scout->actions eqn-desideratum))
 
-(for ([t 3])
+;(for ([t 5])
+;  #R t
+;  (define as (c g sc))
+;  (gdo do-actions #R as))
+
+(for ([t 5])
   #R t
-  (define as (c g sc))
-  (gdo do-actions #R as))
+  (let* ([actions (g->actions g)])
+    #R actions
+    (gdo do-actions actions)))
 
 ; The follow-up scouts for the splicer are running (I think).
 ; NEXT See how they're doing.

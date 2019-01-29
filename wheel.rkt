@@ -2,7 +2,8 @@
 
 #lang debug at-exp racket
 
-(require (for-syntax racket/syntax) racket/syntax)
+(require racket/syntax syntax/parse syntax/parse/define syntax/free-vars
+         (for-syntax racket/syntax syntax/parse syntax/free-vars))
 (require racket/hash sugar)
 (require expect/rackunit (only-in rackunit test-case))
 
@@ -409,3 +410,44 @@
 ;; Doing this right looks very hard. The StackOverflow version doesn't call
 ;; dict-ref and consequently doesn't work for all values that support gen:dict.
 ;; It also doesn't match the whole dict analogously to hash-table.
+
+;; ======================================================================
+;;
+;; Transparent closure
+;;
+;; cλ returns a closure that you can inspect at run-time.
+
+(struct closure* (f ht/free-vars body)
+                 #:transparent
+                 #:property prop:procedure 0)
+
+(define (closure-value c name)
+  (hash-ref (closure*-ht/free-vars c) name (void)))
+(define (closure->free-vars c)
+  (hash-keys (closure*-ht/free-vars c)))
+(define closure->body closure*-body)
+
+(define-syntax (cλ stx)
+  (syntax-parse stx
+    [(_ args body0 body ...)
+     (define expanded-lam (local-expand #'(lambda args body0 body ...)
+                                         'expression
+                                         '()))
+     (syntax-parse expanded-lam
+       #:literals (#%plain-lambda)
+       [(~and whole (#%plain-lambda (arg ...) body))
+        (with-syntax ([(fv ...) (free-vars #'whole)])
+          #`(closure* #,expanded-lam
+                      (hash (~@ 'fv fv) ...)
+                      '#,stx))])]))
+
+(module+ test
+  (test-case "cλ"
+    (define (make-transparent-closure x)
+      (cλ (a) (list a x)))
+    (define f (make-transparent-closure 'xxx))
+    (check-equal? (f 'aaa) '(aaa xxx))
+    (check-equal? (list->set (closure->free-vars f)) (set 'x))
+    (check-equal? (closure-value f 'x) 'xxx)
+    (check-equal? (closure-value f 'undefined) (void))
+    (check-equal? (closure->body f) '(cλ (a) (list a x)))))
