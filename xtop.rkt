@@ -125,7 +125,7 @@
            (eq? 'crawl (car x)))))
 
 (define (ht-item->dragnet-type ht/item)
-  (findf dragnet-type? #R (ht-item-ref #R ht/item 'dragnet)))
+  (findf dragnet-type? (ht-item-ref ht/item 'dragnet)))
 
 (define (ht-item->start-from-nodes ht/item)
   (ht-item-ref ht/item 'start-from))
@@ -195,6 +195,10 @@
             (cond
               [(null? ps) min-so-far]
               #:define p1 (car ps)
+              [(void? min-so-far)
+               (loop p1 (cdr ps))]
+              [(void? p1)
+               (loop min-so-far (cdr ps))]
               [(promisingness<? p1 min-so-far)
                (loop p1 (cdr ps))]
               [else (loop min-so-far (cdr ps))]))]))
@@ -240,8 +244,8 @@
   (hash-set ht/candidates node (clamp-promisingness promisingness)))
 
 ; f : (-> graph node old-promisingness new-promisingness)
-(define (map-promisingness f g candidates)
-  (for/hash ([(node old-promisingness) candidates])
+(define (map-promisingness f g ht/candidates)
+  (for/hash ([(node old-promisingness) ht/candidates])
     (values node (f g node old-promisingness))))
 
 ; Don't advance the dragnet if either one candidate looks very promising
@@ -273,11 +277,11 @@
                          (const #t)]      ;   every node is acceptable
                         [else
                          (λ (g node)
-                           (for/or ([class #R classes])
-                             (m:node-is-a? g #R node #R class)))])])
+                           (for/or ([class classes])
+                             (m:node-is-a? g node class)))])])
     (λ (old-ht/candidates)
       (λ (g dragnet)
-        (let loop ([dragnet-pairs #R (dragnet->salience-pairs dragnet)]
+        (let loop ([dragnet-pairs (dragnet->salience-pairs dragnet)]
                    [ht/candidates old-ht/candidates])
           (cond
             [(null? dragnet-pairs)
@@ -338,7 +342,7 @@
       (describe arg-name->candidates) ;DEBUG
       (apply cartesian-product
              (for/list ([arg-name arg-names])
-               (for/list ([candidate #R (arg-name->candidates #R arg-name)])
+               (for/list ([candidate (arg-name->candidates arg-name)])
                  (cons arg-name candidate)))))))
 
 (define (follow-ups->follow-up-exists-for? follow-ups)
@@ -374,7 +378,7 @@
                           ,scout ,followup-definition ,arg-alist)))))])
         (λ (item-states)
           (let* ([arg-name->candidates
-                   (item-states->arg-name->candidates #R item-states)])
+                   (item-states->arg-name->candidates item-states)])
             (append-map (apply-to/ arg-name->candidates)
                         ls/ac->starts)))))))
 
@@ -464,20 +468,25 @@
                       (map node->promisingness follow-up-nodes))])
         (min-promisingness decayed min-follow-up)))))
 
+; Final closure returns item-state updated for next timestep. Update consists
+; of evaluating promisingness of all candidates, expanding dragnet if current
+; candidates aren't promising enough, and adding new candidates that the dragnet
+; found, if any.
 (define (ht-item->follow-ups->item-state->t+1 ht/item)
   (let* ([name (hash-ref ht/item 'name)]
          [dragnet->t+1 (ht-item->dragnet->t+1 ht/item)]
          [ht-candidates->dragnet->ht-candidates
            (ht-item->ht-candidates->dragnet->ht-candidates ht/item)])
     (λ (follow-ups)
-      (let* ([relevant-follow-ups (follow-ups-with-arg-name name #R follow-ups)]
+      (let* ([relevant-follow-ups (follow-ups-with-arg-name name follow-ups)]
              [candidate+promisingness->t+1
                (follow-ups->candidate+promisingness->t+1 relevant-follow-ups)])
         (λ (g item-state)
           (let* ([old-dragnet (item-state->dragnet item-state)]
                  [old-ht/candidates (item-state->ht/candidates item-state)]
                  [ht/candidates (map-promisingness candidate+promisingness->t+1
-                                                   g old-ht/candidates)])
+                                                   g old-ht/candidates)]
+                 [_ (debug-repl)])
             (cond
               [(ht-candidates->advance-dragnet? ht/candidates)
                (let* ([dragnet->ht-candidates
@@ -494,7 +503,7 @@
 ; Returns (Hashof symbol Any), with defaults filled in. Each key is the name
 ; of an element in the item definition.
 (define (search-item->ht item)
-  (match #R item
+  (match item
     [`(,name ,infos ...)
       (define ht (infos->ht infos search-item-defaults))
       (hash-set ht 'name name)]

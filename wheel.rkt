@@ -38,7 +38,9 @@
 
 (define (set-add/ . args)
   (λ (st)
-    (foldl set-add st args)))
+    (for/fold ([st st])
+              ([arg args])
+      (set-add st arg))))
 
 ; cond with #:define
 (define-syntax cond
