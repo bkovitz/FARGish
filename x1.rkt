@@ -6,22 +6,29 @@
          (for-syntax syntax/parse syntax/free-vars))
 (require racket/hash)
 (require "wheel.rkt")
-(require rackunit)
+(require rackunit describe debug/repl)
 
-(struct c* (f free-vars) #:prefab)
+(struct closure* (f free-vars body) #:transparent #:property prop:procedure 0)
 
-(define-syntax (cλ stx)
+(define (closure*-ref c name)
+  (hash-ref (closure*-free-vars c) name (void)))
+
+(define-syntax (λ stx)
   (syntax-parse stx
     [(_ args body0 body ...)
      (define expanded-lam (local-expand #'(lambda args body0 body ...)
                                          'expression
                                          '()))
-     (displayln expanded-lam)
      (syntax-parse expanded-lam
        #:literals (#%plain-lambda)
        [(~and whole (#%plain-lambda (arg ...) body))
-        (displayln (free-vars #'whole))
-        expanded-lam])]))
+        (with-syntax ([(fv ...) (free-vars #'whole)])
+          #`(closure* #,expanded-lam
+                      (hash (~@ 'fv fv) ...)
+                      '#,stx))])]))
 
-(lambda (x) (cλ (a) (list a x)))
-; ()   Why not (x)?
+(define (f x) (λ (a) (list a x)))
+(define g (f 'xxx))
+(closure*-body g)
+(closure*-free-vars g)
+(closure*-ref g 'x)
