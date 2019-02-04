@@ -14,8 +14,8 @@
          default-spreading-activation-params
          set-weight-noisef)
 
-(struct spreading-activation-params*
-        (decay-rate spread-rate max-activation weight-noisef) #:transparent)
+;(struct spreading-activation-params*
+;        (decay-rate spread-rate max-activation weight-noisef) #:transparent)
 ; decay-rate : flonum?
 ;   Each node's activation is multiplied by decay-rate at start of each
 ;   timestep.
@@ -26,25 +26,60 @@
 ; weight-noisef : edge-weight -> edge-weight
 ;   Function called to add randomness to edge-weights.
 
-(define default-spreading-activation-params
-  (spreading-activation-params*
-    0.9
-    0.1
-    10.0
-    (λ (w) (+ w (* 0.2 (- (random) 0.5))))))
+(module t typed/racket
+  (require racket/flonum racket/unsafe/ops)
+  (provide spread-activation
+           default-spreading-activation-params
+           set-weight-noisef
+           (struct-out spreading-activation-params*))
 
-(define (set-weight-noisef params f)
-  (struct-copy spreading-activation-params* params
-    [weight-noisef f]))
+  (define-type Node (U Symbol Integer))
+  (define-type Edge (Setof Node))  ; 2 elements
+  (define-type ATable (Immutable-HashTable Node Flonum)) ; activations table
+
+  ;(define empty-set : (Setof Any) (set))
+
+  (: hash-map-values (All (K V) (-> (HashTable K V)
+                                    (-> V V)
+                                    (Immutable-HashTable K V))))
+  (define (hash-map-values ht f)
+    (for/hash : (Immutable-HashTable K V) ([(k v) ht])
+      (values k (f v))))
+
+
+  (struct spreading-activation-params*
+          ([decay-rate : Flonum]
+           [spread-rate : Flonum]
+           [max-activation : Flonum]
+           [weight-noisef : (Flonum -> Flonum)])
+          #:transparent)
+
+  (define default-spreading-activation-params
+    (spreading-activation-params*
+      0.9
+      0.1
+      10.0
+      (λ (w) (+ w (* 0.2 (- (random) 0.5))))))
+
+  (: set-weight-noisef : spreading-activation-params* (Flonum -> Flonum)
+                         -> spreading-activation-params*)
+  (define (set-weight-noisef params f)
+    (struct-copy spreading-activation-params* params
+      [weight-noisef f]))
 
 ; sa-params : spreading-activation-params*
-; initial-activations : (Hashof node flonum?)
+; initial-activations : (HashTable node flonum?)
 ; node->neighbors : node -> (list node)
 ;   Function that returns all of a node's neighbors that activation should
 ;   spread to.
 ; edge->weight : (Setof2 node) -> flonum?
 ;   Function that returns the weight of edge between two nodes, for purposes
 ;   of spreading activation.
+(: spread-activation : spreading-activation-params*
+                       ATable
+                       (-> Node (Listof Node))
+                       (-> Edge Flonum)
+                       -> ATable)
 (define (spread-activation sa-params
                            initial-activations
                            node->neighbors
@@ -55,6 +90,7 @@
     (spreading-activation-params*-max-activation sa-params))
   (define weight-noisef (spreading-activation-params*-weight-noisef sa-params))
 
+  (: spread-activation-across-edge : ATable Edge -> ATable)
   (define (spread-activation-across-edge activations edge)
     (match-define `(,k1 ,k2) (set->list edge))
     (define weight (edge->weight edge))
@@ -62,27 +98,32 @@
            [activations (add-activation activations k2 k1 weight)])
       activations))
 
+  (: add-activation : ATable Node Node Flonum -> ATable)
   (define (add-activation activations from-node to-node edge-weight)
     (define delta (weight-noisef
                     (* spread-rate
-                       (hash-ref initial-activations from-node 0.0)
+                       (hash-ref initial-activations from-node (const 0.0))
                        edge-weight)))
     (hash-update activations
                  to-node
-                 (λ (old)
+                 (λ ([old : Flonum])
                    (min max-activation
                         (fl+ old delta)))
-                 0.0))
+                 (const 0.0)))
 
-  (define edges (for*/fold ([st empty-set])
+  (define edges (for*/fold ([st : (Setof Edge) (set)])
                            ([node (hash-keys initial-activations)]
                             [neighbor (node->neighbors node)])
                   (set-add st (set node neighbor))))
 
-  (for/fold ([activations (hash-map-values initial-activations
-                                           (curry * decay-rate))])
+  (define (decay [x : Flonum]) (* x decay-rate))
+  (for/fold ([activations : ATable (hash-map-values initial-activations decay)])
             ([edge edges])
     (spread-activation-across-edge activations edge)))
+
+  )
+
+(require 't)
 
 (module+ test
   (require (prefix-in g: "graph1.rkt")
