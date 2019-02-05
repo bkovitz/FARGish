@@ -19,12 +19,20 @@
   (or (eq? 'any k)
       (set-member? log-enabled k)))
 
-(define-syntax as-pairs
+(define-syntax equ-pairs
   (syntax-rules ()
     [(_) '()]
-    [(_ e more ...) (cons (cons 'e e) (as-pairs more ...))]))
+    [(_ e more ...) (cons @~a{@'e = @e} (equ-pairs more ...))]))
 
+; Log arbitrary expressions, showing both expression and its value.
 (define-syntax-rule (log/e k exprs ...)
   (when (log-enabled? k)
-    (let ([es (string-join (map ~a (as-pairs exprs ...)))])
-      (displayln @~a{@k @es}))))
+    (let ([es (string-join (equ-pairs exprs ...) ", ")])
+      (displayln @~a{@|k|: @es}))))
+
+; Log arbitrary annotation.
+(define-syntax-rule (log/a k args ...)
+  (when (log-enabled? k)
+    (let ([as (string-join (map ~a (list args ...)))])
+      (displayln @~a{-- @as}))))
+    
