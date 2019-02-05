@@ -7,7 +7,8 @@
 (require expect/rackunit (only-in rackunit test-case))
 (require racket/pretty describe profile racket/enter racket/trace)
 
-(provide support-t+1 support-config default-support-config)
+(provide support-t+1 support-config default-support-config
+         normalize-by-reverse-sigmoid)
 
 ;; ======================================================================
 ;;

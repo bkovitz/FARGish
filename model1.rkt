@@ -101,6 +101,13 @@
 (define copy-graph g:copy-graph)
 (define port->neighbors g:port->neighbors)
 (define port->neighboring-ports g:port->neighboring-ports)
+(define graph-set-var g:graph-set-var)
+(define graph-get-var g:graph-get-var)
+(define graph-update-var g:graph-update-var)
+(define graph-remove-var g:graph-remove-var)
+(define graph-push-var g:graph-push-var)
+(define graph-push-and-set-var g:graph-push-and-set-var)
+(define graph-pop-var g:graph-pop-var)
 
 (define as-member f:as-member)
 (define by-ports f:by-ports)
@@ -581,6 +588,7 @@
   (pretty-print (f:realize-attrs (nodeclass*-of g nodeid)
                                  (args-of g nodeid))))
 
+; TODO Remove; replacing calling code with calls to log/a in logging.rkt.
 (define (log . args)
   (define as (string-join (for/list ([arg args])
                             (~a arg))))

@@ -124,13 +124,21 @@
        (round-all/ut x*))]
     [else x]))
 
-;Obsoleted by sugar
+;Rendered obsolete by sugar
 #;(define (->list x)
   (cond
     [(pair? x) x]
     [(hash? x) (hash->list x)]
     [(sequence? x) x]
     [else (list x)]))
+
+(define (->set x)
+  (cond
+    [(set? x) x]
+    [(list? x) (list->set x)]
+    [(sequence? x) (for/set ([x* x]) x)]
+    [else (raise-arguments-error '->set
+            @~a{Can't convert @x to set.})]))
 
 (define (sorted xs)
   (sort (->list xs) string<? #:key ~a))
@@ -162,8 +170,19 @@
   (begin
     (define-singleton name) ...))
 
+(define (hash-set-set ht k1 k2 v)
+  (hash-ref/sk ht k1
+    (λ (ht2) ;sk
+      (hash-set ht k1 (hash-set ht2 k2 v)))
+    (λ () ;fk
+      (hash-set ht k1 (hash k2 v)))))
+
 (define (index-by f xs)
   (for/hash ([x xs])
+    (values (f x) x)))
+
+(define (index-by/eq f xs)
+  (for/hasheq ([x xs])
     (values (f x) x)))
 
 (define hash->f 
@@ -198,6 +217,11 @@
   (for/fold ([ht empty-hash] #:result (hash-map-values ht reverse))
             ([x xs])
     (hash-update ht (equiv-class x) (λ (lst) (cons x lst)) '())))
+
+(define (hasheq-by equiv-class xs)
+  (for/fold ([ht empty-hasheq] #:result (hash-map-values ht reverse))
+            ([x xs])
+    (hash-update ht (equiv-class x) (cons/ x) '())))
 
 (define (hasheq-by/set ->key ->value xs)
   (for/fold ([ht empty-hasheq])

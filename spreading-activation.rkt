@@ -125,6 +125,20 @@
 
 (require 't)
 
+; Converting the unit test to Typed Racket looks like it will require a lot
+; of require/typed work
+;(module ttest typed/racket
+;  (require/typed "fargish1.rkt"
+;                 [#:struct farg-model-spec* 
+;                   ([nodeclasses : (Hashof Symbol nodeclass*)
+;
+;    (define spec
+;      (farg-model-spec
+;        (nodeclass (letter a)
+;          (value a)
+;          (name a))))
+;)
+
 (module+ test
   (require (prefix-in g: "graph1.rkt")
            "fargish1.rkt"

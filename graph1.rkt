@@ -85,6 +85,7 @@
          graph-set-var
          graph-get-var
          graph-update-var
+         graph-remove-var
          graph-push-var
          graph-push-and-set-var
          graph-pop-var
@@ -777,7 +778,8 @@
   (if (has-node? g nodeid)
     (begin
       (printf " ~a ~a\n" (~a nodeid #:min-width 12)
-                          (hash-remove (get-node-attrs g nodeid) 'id))
+                          (hash-remove* (get-node-attrs g nodeid)
+                                        'id 'node->actions))
       (for* ([port (node->ports g nodeid)]
              [neighboring-port (port->neighboring-ports g port)])
         (define weight (~r (graph-edge-weight g `(,port ,neighboring-port))

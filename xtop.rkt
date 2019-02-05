@@ -4,6 +4,7 @@
 
 (require (prefix-in sa: "spreading-activation.rkt")
          (prefix-in sl: "make-slipnet.rkt")
+         (prefix-in su: "support.rkt")
          (only-in "make-slipnet.rkt"
            no-archetype is-node is-value is-class)
          (prefix-in m: "model1.rkt")
@@ -16,7 +17,7 @@
            farg-model-spec nodeclass tagclass portclass)
          (only-in "equation.rkt"
            make-equation))
-(require "wheel.rkt" racket/hash predicates sugar)
+(require "wheel.rkt" "logging.rkt" racket/hash predicates sugar)
 (require debug/repl racket/pretty describe)
 (require expect/rackunit (only-in rackunit test-case))
 
@@ -188,6 +189,9 @@
 ;;
 ;; A promisingness is a number in 0.0..1.0, 'failed, 'succeeded, or void.
 
+(define (promisingness-of g node)
+  (m:get-node-attr g node 'promisingness))
+
 (define (promisingness>=? p1 p2)
   (cond
     [(void? p1) #f]
@@ -196,8 +200,19 @@
     [else (>= (quantify-promisingness p1)
               (quantify-promisingness p2))]))
 
+(define (promisingness>? p1 p2)
+  (cond
+    [(void? p1) #f]
+    [(void? p2)
+       (not (eq? 'failed p1))]
+    [else (> (quantify-promisingness p1)
+             (quantify-promisingness p2))]))
+
 (define (promisingness<? p1 p2)
   (not (promisingness>=? p1 p2)))
+
+(define (promisingness<=? p1 p2)
+  (not (promisingness>? p1 p2)))
 
 ; Makes comparing promisingnesses easier. 'failed = -1.0, 'succeeded = +2.0.
 (define (quantify-promisingness p)
@@ -266,6 +281,18 @@
 (define (map-promisingness f g ht/candidates)
   (for/hash ([(node old-promisingness) ht/candidates])
     (values node (f g node old-promisingness))))
+
+; All the candidates that the node is currently considering, with promisingness
+; > 0.0. The resulting list might have duplicates.
+(define (node->all-viable-candidates g node)
+  (let* ([item-states (m:get-node-attr g node 'item-states '())]
+         [is->viable-candidates
+           (λ (item-state)
+             (for/list ([(candidate promisingness)
+                           (item-state->ht/candidates item-state)]
+                        #:when (promisingness>? promisingness 0.0))
+               candidate))])
+    (append-map is->viable-candidates item-states)))
 
 ; Don't advance the dragnet if either one candidate looks very promising
 ; or at least two candidates look moderately promising.
@@ -363,6 +390,19 @@
 (define (followup-definition->arg-names followup-definition)
   (filter (not? desideratum-keyword?) 
           (flatten (remove-quoted followup-definition))))
+
+(define (follow-ups-of g node)
+  (m:get-node-attr g node 'follow-ups '()))
+
+; All the follow-ups currently running on behalf of node with promisingness
+; > 0.0. The list might contain duplicates.
+(define (node->all-viable-follow-ups g node)
+  (for*/list ([follow-up (follow-ups-of g node)]
+              [f-node (list (follow-up->node follow-up))]
+             ;TODO Restore this line when self-promisingness is done.
+             ;#:when (promisingness>? (promisingness-of g node) 0.0)
+             )
+    f-node))
 
 (define (followup-definition->ac->arg-alists-needed followup-definition)
   (let* ([arg-names (followup-definition->arg-names followup-definition)])
@@ -488,7 +528,7 @@
   (let* ([follow-up-nodes (map follow-up->node follow-ups)])
     (λ (g candidate old-promisingness)
       (let* ([node->promisingness
-               (λ (node) (m:get-node-attr g node 'promisingness))]
+               (λ (node) (promisingness-of g node))]
              [decayed (decay-promisingness old-promisingness)]
              [min-follow-up
                (apply min-promisingness
@@ -635,8 +675,114 @@
                (item-states->starts new-item-states)])
         (list* `(set-attr ,scout item-states ,new-item-states)
                starts)))))
+        ;TODO self-promisingness
         ;TODO builds
         ;TODO giving support
+
+;; ======================================================================
+;;
+;; Support
+;;
+
+; Sets the hash table for all total support for all nodes.
+(define (set-support-ht g ht/node->support)
+  (m:graph-set-var g 'ht/node->support ht/node->support))
+
+(define (get-support-ht g)
+  (m:graph-get-var g 'ht/node->support empty-hash))
+
+(define (support-for g node)
+  (hash-ref (get-support-ht g) node 0.0))
+
+; This is for REPL experimentation and debugging, not model code. Normally
+; support for all nodes should be set at once by calling set-support-ht.
+(define (set-support-for g node s)
+  (let* ([ht (get-support-ht g)]
+         [ht (hash-set ht node s)])
+    (set-support-ht g ht)))
+
+; Returns hash table of all support given by scout. key: node, value: support
+; Gives 1.0 support to each viable candidate and follow-up, scaled down so
+; that total support doesn't exceed 1.1 * support for scout.
+(define (scout->ht/support-given g scout support-for-scout)
+  ;TODO Don't support nodes in the slipnet.
+  (let* ([targets (set-union (->set (node->all-viable-candidates g scout))
+                             (->set (node->all-viable-follow-ups g scout)))]
+         [total-support-given (set-count targets)]
+         [support-ub (* 1.1 support-for-scout)]
+         [scaling-factor (if (<= total-support-given support-ub)
+                           1.0
+                           (/ support-ub total-support-given))])
+    (for/hash ([target targets])
+      (values target scaling-factor))))
+
+; HACK Only considers members of 'ws. It should look at some reasonably
+; defined set of nodes capable of giving support.
+(define (all-nodes-that-can-give-support g)
+  (m:members-of g 'ws))
+
+; HACK: The 3.0 should probably be a number proportional to something
+; about the state of the model.
+(define normalize-support (curry su:normalize-by-reverse-sigmoid 3.0))
+
+; Helper for support->t+1
+(define (^support->t+1 ht/all-given old-ht)
+  (let* ([node->targets (λ (node)
+                          (hash-ref/sk ht/all-given node
+                            hash-keys ;sk
+                            '()))] ;fk
+         [from-to->support-given (λ (from-node to-node)
+                                   (hash-ref/sk ht/all-given from-node
+                                     (λ (ht/given) ;sk
+                                       (hash-ref ht/given to-node 0.0))
+                                     (const 0.0)))] ;fk
+         [old-ht (for/fold ([old-ht old-ht])
+                           ([node (hash-keys ht/all-given)])
+                   (if (hash-has-key? old-ht node)
+                     old-ht
+                     (hash-set old-ht node 0.0)))])
+    (set-support-ht g (su:support-t+1 su:default-support-config
+                                      normalize-support
+                                      node->targets
+                                      from-to->support-given
+                                      old-ht))))
+
+; Updates support for all nodes.
+(define (support->t+1 g)
+  (let* ([old-ht (get-support-ht g)]
+         [support-for (λ (node) (hash-ref old-ht node 0.0))]
+         [nodes (all-nodes-that-can-give-support g)]
+         ; Find support given
+         [ht/all-given (for/fold ([ht empty-hash])  ; node -> node -> support
+                                 ([node nodes])
+                                 ;TODO Different support from scout and bind
+                         (let* ([node-ht (scout->ht/support-given
+                                            g node (support-for node))])
+                           (if (hash-empty? node-ht)
+                             ht
+                             (hash-set ht node node-ht))))]
+         ; Antipathies override support
+         [ht/all-given (for*/fold ([ht ht/all-given])
+                                  ([node nodes]
+                                   [antipathy (node->antipathies g node)])
+                         (let* ([from-node (first antipathy)]
+                                [to-node (second antipathy)]
+                                [s (support-for from-node)]
+                                [antipathy (if (< s 0.1)
+                                             (min (- s) 0.0)
+                                             -0.1)])
+                           (hash-set-set ht from-node to-node antipathy)))])
+    (^support->t+1 ht/all-given old-ht)))
+
+; Returns (Listof (Listof from-node to-node)), where from-node has antipathy to
+; to-node.  Note that from-node is likely not node. node is just the one that
+; knows about the relationships, such as competition to fill the same slot.
+(define (node->antipathies g node)
+  (let ([ht/definition->follow-ups
+          (hasheq-by follow-up->definition (follow-ups-of g node))])
+    (for*/list ([(definition follow-ups) ht/definition->follow-ups]
+                [antipathy (combinations (map follow-up->node follow-ups) 2)])
+      antipathy)))
 
 ;; ======================================================================
 ;;
@@ -653,6 +799,7 @@
          (cond
            [(bind-exists? g followup-definition) g]
            [else
+             (log/e 'bind followup-definition arg-alist)
              (let*-values ([(env) (make-immutable-hash arg-alist)]
                            [(desideratum)
                               (bind->desideratum followup-definition env g)]
@@ -759,6 +906,8 @@
 (require "shorthand.rkt"
          "equations.rkt")
 
+(displayln "START") ;DEBUG
+
 (define (make-start-g)
   (let*-values ([(g) (make-graph spec '(ws) '(slipnet))]
                [(g) (add-memorized-equations g '((+ 2 3)))])
@@ -769,6 +918,7 @@
 ;TODO Make custom desideratum
 
 (define sc (gdo make-scout eqn-desideratum))
+; NEXT Give sc permanent support
 (define c (desideratum->scout->actions eqn-desideratum))
 
 ;(for ([t 5])
@@ -776,10 +926,12 @@
 ;  (define as (c g sc))
 ;  (gdo do-actions #R as))
 
-(for ([t 5])
+(log-enable! 'bind)
+
+(for ([t 7])
   #R t
   (let* ([actions (g->actions g)])
-    #R actions
+    ;#R actions
     (gdo do-actions actions)))
 
 ; The follow-up scouts for the splicer are running (I think).
@@ -791,6 +943,7 @@
 ;;
 
 (module+ test
+  (displayln "UT") ;DEBUG
   (define d-eqn '(find ([eqn (of-class 'equation)])
                    (splice-into 'ws eqn)))
 
