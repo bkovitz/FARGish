@@ -741,11 +741,11 @@
                    (if (hash-has-key? old-ht node)
                      old-ht
                      (hash-set old-ht node 0.0)))])
-    (set-support-ht g (su:support-t+1 su:default-support-config
-                                      normalize-support
-                                      node->targets
-                                      from-to->support-given
-                                      old-ht))))
+    (su:support-t+1 su:default-support-config
+                    normalize-support
+                    node->targets
+                    from-to->support-given
+                    old-ht)))
 
 ; Updates support for all nodes.
 (define (support->t+1 g)
@@ -771,8 +771,10 @@
                                 [antipathy (if (< s 0.1)
                                              (min (- s) 0.0)
                                              -0.1)])
-                           (hash-set-set ht from-node to-node antipathy)))])
-    (^support->t+1 ht/all-given old-ht)))
+                           (hash-set-set ht from-node to-node antipathy)))]
+         [_ #R ht/all-given]
+         [new-ht (^support->t+1 ht/all-given old-ht)])
+    (set-support-ht g new-ht)))
 
 ; Returns (Listof (Listof from-node to-node)), where from-node has antipathy to
 ; to-node.  Note that from-node is likely not node. node is just the one that
@@ -838,6 +840,15 @@
                               [(void? f) '()]
                               [else (f g node)])))])
     (apply set (append-map node->actions (m:all-nodes g)))))
+
+; Do n whole timesteps
+(define (t+1 g [n 1])
+  (for/fold ([g g])
+            ([i n])
+    (let* ([actions (g->actions g)]
+           [g (do-actions g actions)]
+           [g (support->t+1 g)])
+      (m:bump-t g))))
 
 ;; ======================================================================
 ;;
@@ -918,6 +929,7 @@
 ;TODO Make custom desideratum
 
 (define sc (gdo make-scout eqn-desideratum))
+(gdo set-support-for sc 3.0)
 ; NEXT Give sc permanent support
 (define c (desideratum->scout->actions eqn-desideratum))
 
@@ -928,11 +940,13 @@
 
 (log-enable! 'bind)
 
-(for ([t 7])
-  #R t
-  (let* ([actions (g->actions g)])
-    ;#R actions
-    (gdo do-actions actions)))
+;(for ([t 7])
+;  #R t
+;  (let* ([actions (g->actions g)])
+;    ;#R actions
+;    (gdo do-actions actions)))
+
+(gdo t+1 10)
 
 ; The follow-up scouts for the splicer are running (I think).
 ; NEXT See how they're doing.
