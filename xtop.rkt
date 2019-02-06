@@ -68,22 +68,6 @@
   ;Will need to dispatch for different kinds of follow-up
   (splice-into->desideratum followup-definition env g))
 
-(define bind-exists? (const #f))
-
-(define (bind->desideratum bind-definition env g)
-  (void)) ;STUB
-;  (match bind-definition
-;    [`(bind ,from-node ,to-node)
-;      (let* ([from-node (d-subst from-node env)]
-;             [to-node (d-subst to-node env)]
-;             [roles (
-;             [mate-names 
-;             )
-;        `(find ,(map item-for-role mate-names roles)
-;           (success ,@mate-names)))]
-;    [else (raise-arguments-error 'bind->desideratum
-;            @~a{Invalid bind specification: @followup-definition})]))
-
 ; List of the members of ctx that should be bound from when splicing ctx into
 ; another ctx. So, probably not tags.
 (define (proper-members g ctx)
@@ -681,6 +665,115 @@
 
 ;; ======================================================================
 ;;
+;; Bindings
+;;
+
+(define bind-exists? (const #f)) ;STUB
+
+(define (pr-binds g)
+  (for ([node (m:all-nodes g)]
+              #:when (m:node-is-a? g node 'bind))
+    (displayln @~a{@node  @(m:args-of g node)})))
+
+; Returns (Listof hop) centered on node, limited to hops that lead to members
+; of ctx. Excludes hops that lead to bindings.
+(define (node->role-hops g ctx node)
+  (let* ([relevant? (λ (n) (and (not (m:node-is-a? g n 'bind))
+                                (m:member-of? g ctx n)))])
+    (for/fold ([hops '()])
+              ([hop (m:node->incident-hops g node)])
+      (match-define `((,_ ,neighbor-role) (,neighbor ,my-role)) hop)
+      (if (relevant? neighbor)
+        (cons hop hops)
+        hops))))
+
+(define (bind->to g bind)
+  (m:port->neighbor g `(,bind bind-to)))
+
+(define (bind->from g bind)
+  (m:port->neighbor g `(,bind bind-from)))
+
+; Returns list of outgoing bindings
+(define (node->bdx-from g node)
+  (m:port->neighbors g `(,node bound-from)))
+
+(define (node->bdx-to g node)
+  (m:port->neighbors g `(,node bound-to)))
+
+(define (node->bdx-into-ctx g ctx node)
+  (for/list ([bind (node->bdx-to g node)]
+             #:when (m:member-of? g ctx (bind->to g bind)))
+    bind))
+
+; Returns list of the port-labels on the edge between node1 and node2. node2's
+; port-label is listed first; it's node1's "role" in the edge. If there is no
+; edge between node1 and node2, returns void.
+(define (nodes->roles g node1 node2)
+  (cond
+    #:define hop (m:nodes->hop-between g node1 node2)
+    [(void? hop) (void)]
+    #:match-define `((,_ ,node2-role) (,_ ,node1-role)) hop
+    [else (list node1-role node2-role)]))
+
+; Returns list of bindings from 'bind's bind-from's role-neighbors into
+; the same ctxs that 'bind binds into.
+;(define (bind->parallel-bdx g bind)
+;  (let* ([bind-to (bind->to g bind)]
+;         [bind-from (bind->from g bind)]
+
+; Returns a closure that returns #t if a given binding preserves homomorphism
+; with respect to bind, #f if it contradicts homomorphism, and void if neither.
+(define (bind->bind->homomorphic? g bind)
+  (let* ([preimage (bind->from g bind)]
+         [preimage-ctx (safe-car (m:member-of g preimage))]
+         [preimage-node->roles ;returns (my-role neighbor-role) or void
+           (let* ([ht/roles
+                    (for/hash ([hop (node->role-hops g preimage-ctx preimage)])
+                      (match-let ([`((,_ ,neighbor-role) (,neighbor ,my-role))
+                                    hop])
+                        (values neighbor (list my-role neighbor-role))))])
+             (λ (node)
+               (hash-ref ht/roles node (void))))]
+         [image (bind->to g bind)])
+    (λ (b)
+      (cond
+        #:define b-preimage (bind->from g b)
+        #:define preimage-roles (preimage-node->roles b-preimage)
+        [(void? preimage-roles) (void)]
+        #:define b-image (bind->to g b)
+        #:define image-roles (nodes->roles g image b-image)
+        [(void? image-roles) (void)]
+        #:match-define `(,preimage-role ,b-preimage-role) preimage-roles
+        #:match-define `(,image-role ,b-image-role) image-roles
+        [else (and (equal? preimage-role image-role)
+                   (equal? b-preimage-role b-image-role))]))))
+
+;; WANT to select just the homomorphic bdx
+;(define (bind->homomorphic-bdx g bind)
+;  (let* ([preimage (bind->from g bind)]
+;         [preimage-ctx (safe-car (m:member-of g preimage))]
+;         [image (bind->to g bind)]
+;         [image-ctx (safe-car (m:member-of g image))]
+;         [preimage-hops (node->role-hops g preimage-ctx preimage)]
+
+(define (bind->desideratum bind-definition env g)
+  (void)) ;STUB
+;  (match bind-definition
+;    [`(bind ,from-node ,to-node)
+;      (let* ([from-node (d-subst from-node env)]
+;             [to-node (d-subst to-node env)]
+;             [roles (
+;             [mate-names 
+;             )
+;        `(find ,(map item-for-role mate-names roles)
+;           (success ,@mate-names)))]
+;    [else (raise-arguments-error 'bind->desideratum
+;            @~a{Invalid bind specification: @followup-definition})]))
+
+
+
+;; ======================================================================
+;;
 ;; Support
 ;;
 
@@ -803,9 +896,17 @@
            [else
              (log/e 'bind followup-definition arg-alist)
              (let*-values ([(env) (make-immutable-hash arg-alist)]
-                           [(desideratum)
-                              (bind->desideratum followup-definition env g)]
-                           [(g bind) (m:make-node/in g 'ws 'bind desideratum)]
+                           [(args) (cdr (d-subst followup-definition env))]
+                           ;TODO Make desideratum.
+;                           [(desideratum)
+;                              (bind->desideratum followup-definition env g)]
+                           [(g bind) (m:make-node/in g 'ws 'bind args)]
+                           [(from-node to-node) (apply values args)]
+                           ;HACK Spec should make these links via applies-to
+                           [(g) (m:add-edge g `((,bind bind-to)
+                                                (,to-node bound-from)))]
+                           [(g) (m:add-edge g `((,bind bind-from)
+                                                (,from-node bound-to)))]
                            [(g) (add-follow-up g scout
                                                  followup-definition
                                                  arg-alist
@@ -925,7 +1026,14 @@
     g))
 
 (define g (make-start-g))
-(gdo do-graph-edit '(:in ws (number 4) (number 5) (number 15)))
+(gdo do-graph-edit '(:in ws
+                      (:let ([4 (number 4)]
+                             [5 (number 5)]
+                             [9 (number 9)]
+                             [+ (+)]
+                             [15 (number 15)])
+                        (:edge 4 result + operands))))
+
 ;TODO Make custom desideratum
 
 (define sc (gdo make-scout eqn-desideratum))

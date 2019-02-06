@@ -96,11 +96,32 @@
 (define union-node-attrs g:union-node-attrs)
 (define node-attr? g:node-attr?)
 (define members-of g:members-of)
+(define member-of g:member-of)
 (define member-of? g:member-of?)
 (define all-nodes g:all-nodes)
 (define copy-graph g:copy-graph)
-(define port->neighbors g:port->neighbors)
 (define port->neighboring-ports g:port->neighboring-ports)
+(define port->neighbors g:port->neighbors)
+(define port->neighbor g:port->neighbor)
+(define port-has-neighbor? g:port-has-neighbor?)
+(define port-neighbor? g:port-neighbor?)
+(define port->port-label->nodes g:port->port-label->nodes)
+(define port->incident-edges g:port->incident-edges)
+(define port->incident-hops g:port->incident-hops)
+(define has-neighbor-from-port-label? g:has-neighbor-from-port-label?)
+(define node->neighbors g:node->neighbors)
+(define node->ports g:node->ports)
+(define node->incident-hops g:node->incident-hops)
+(define nodes->hop-between g:nodes->hop-between)
+(define other-node g:other-node)
+(define edge->set g:edge->set)
+(define edge->list g:edge->list)
+(define edge->nodes g:edge->nodes)
+(define port->node g:port->node)
+(define port->port-label g:port->port-label)
+(define hop->from-node g:hop->from-node)
+(define hop->to-node g:hop->to-node)
+
 (define graph-set-var g:graph-set-var)
 (define graph-get-var g:graph-get-var)
 (define graph-update-var g:graph-update-var)
@@ -111,7 +132,6 @@
 
 (define as-member f:as-member)
 (define by-ports f:by-ports)
-
 
 ;; ======================================================================
 ;;
