@@ -386,9 +386,10 @@
 ;Returns one hop between the nodes, or void if none. If there is more than one
 ;hop between the nodes, only returns one of them.
 (define (nodes->hop-between g node1 node2)
-  (for/first ([hop (node->incident-hops g node1)]
+  (or (for/first ([hop (node->incident-hops g node1)]
               #:when (equal? node2 (other-node hop)))
-    hop))
+        hop)
+      (void)))
 
 ;Returns set of nodes
 (define (node->neighbors g node)

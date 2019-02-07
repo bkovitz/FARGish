@@ -829,14 +829,32 @@
 (define (scout->ht/support-given g scout support-for-scout)
   ;TODO Don't support nodes in the slipnet.
   (let* ([targets (set-union (->set (node->all-viable-candidates g scout))
-                             (->set (node->all-viable-follow-ups g scout)))]
-         [total-support-given (set-count targets)]
-         [support-ub (* 1.1 support-for-scout)]
+                             (->set (node->all-viable-follow-ups g scout)))])
+    (targets->ht/support-given targets support-for-scout)))
+;         [total-support-given (set-count targets)]
+;         [support-ub (* 1.1 support-for-scout)]
+;         [scaling-factor (if (<= total-support-given support-ub)
+;                           1.0
+;                           (/ support-ub total-support-given))])
+;    (for/hash ([target targets])
+;      (values target scaling-factor))))
+
+(define (bind->ht/support-given g bind support-for-bind)
+  (let* ([homomorphic? (bind->bind->homomorphic? g bind)]
+         [other-binds (bind->parallel-bdx g bind)]
+         [targets (filter homomorphic? other-binds)])
+    (targets->ht/support-given targets support-for-bind)))
+
+(define (targets->ht/support-given targets support-for)
+  (let* ([total-support-given (set-count targets)]
+         [support-ub (* 1.1 support-for)]
          [scaling-factor (if (<= total-support-given support-ub)
                            1.0
                            (/ support-ub total-support-given))])
     (for/hash ([target targets])
       (values target scaling-factor))))
+
+         
 
 ; HACK Only considers members of 'ws. It should look at some reasonably
 ; defined set of nodes capable of giving support.
