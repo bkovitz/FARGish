@@ -270,13 +270,13 @@
 ; > 0.0. The resulting list might have duplicates.
 (define (node->all-viable-candidates g node)
   (let* ([item-states (m:get-node-attr g node 'item-states '())]
-         [is->viable-candidates
+         [item-state->viable-candidates
            (λ (item-state)
              (for/list ([(candidate promisingness)
                            (item-state->ht/candidates item-state)]
                         #:when (promisingness>? promisingness 0.0))
                candidate))])
-    (append-map is->viable-candidates item-states)))
+    (append-map item-state->viable-candidates item-states)))
 
 ; Don't advance the dragnet if either one candidate looks very promising
 ; or at least two candidates look moderately promising.
@@ -675,6 +675,15 @@
               #:when (m:node-is-a? g node 'bind))
     (displayln @~a{@node  @(m:args-of g node)})))
 
+; Makes a closure that returns true if a given node is a "relevant neighbor"
+; of node. "Relevant" means in the same ctx as node and not a 'bind.
+(define (node->neighbor->relevant? g node)
+  (let ([ctxs (list->set (m:member-of g node))])
+    (λ (neighbor)
+      (and (not (m:node-is-a? g neighbor 'bind))
+           (for/or ([neighbor-ctx (m:member-of g neighbor)])
+             (set-member? ctxs neighbor-ctx))))))
+
 ; Returns (Listof hop) centered on node, limited to hops that lead to members
 ; of ctx. Excludes hops that lead to bindings.
 (define (node->role-hops g ctx node)
@@ -687,6 +696,12 @@
         (cons hop hops)
         hops))))
 
+(define (role-neighbors g node)
+  (let ([relevant? (node->neighbor->relevant? g node)])
+    (for/list ([neighbor (m:node->neighbors g node)]
+               #:when (relevant? neighbor))
+      neighbor)))
+
 (define (bind->to g bind)
   (m:port->neighbor g `(,bind bind-to)))
 
@@ -695,10 +710,10 @@
 
 ; Returns list of outgoing bindings
 (define (node->bdx-from g node)
-  (m:port->neighbors g `(,node bound-from)))
+  (m:port->neighbors g `(,node bound-to)))
 
 (define (node->bdx-to g node)
-  (m:port->neighbors g `(,node bound-to)))
+  (m:port->neighbors g `(,node bound-from)))
 
 (define (node->bdx-into-ctx g ctx node)
   (for/list ([bind (node->bdx-to g node)]
@@ -716,13 +731,27 @@
     [else (list node1-role node2-role)]))
 
 ; Returns list of bindings from 'bind's bind-from's role-neighbors into
-; the same ctxs that 'bind binds into.
-;(define (bind->parallel-bdx g bind)
-;  (let* ([bind-to (bind->to g bind)]
-;         [bind-from (bind->from g bind)]
+; any of the same ctxs that 'bind binds into.
+(define (bind->parallel-bdx g bind)
+  (let* ([preimage (bind->from g bind)]
+         [into-my-ctxs?
+           (let* ([image (bind->to g bind)]
+                  [image-ctxs (list->set (m:member-of g image))])
+             (λ (other-bind)
+               (let ([other-bound-to (bind->to g other-bind)])
+                 (for/or ([other-ctx (m:member-of g other-bound-to)])
+                   (set-member? image-ctxs other-ctx)))))])
+    (for*/list ([neighbor (role-neighbors g preimage)]
+                [neighbor-bind (node->bdx-from g neighbor)]
+                #:when (into-my-ctxs? neighbor-bind))
+      neighbor-bind)))
+
+
 
 ; Returns a closure that returns #t if a given binding preserves homomorphism
 ; with respect to bind, #f if it contradicts homomorphism, and void if neither.
+; TODO Something needs to decide to make an edge when an edge *could* put
+; the nodes into appropriate roles in the image ctx.
 (define (bind->bind->homomorphic? g bind)
   (let* ([preimage (bind->from g bind)]
          [preimage-ctx (safe-car (m:member-of g preimage))]
