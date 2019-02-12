@@ -1,0 +1,46 @@
+#lang s-exp fargish
+
+(nodeclass (number n)
+  (name n)
+  (value n)
+  (archetype n))
+
+(nodeclass operator
+  (archetype is-class))
+
+(nodeclasses (+ - * /)
+  (is-a operator))
+
+(nodeclass placeholder
+  (value placeholder))
+
+(nodeclass tcell
+  (is-a placeholder))
+
+(nodeclass ttrace
+  (is-a ctx))  ; all members should be linked tcells
+
+(tagclass same
+  (port basis)
+  (applies-to ([nodes...])
+    (condition (same-by? (path THIS basis) nodes...))))
+
+(tagclass (fail tc)  ; tagclass tc fails to apply to nodes...
+  (port basis)
+  (applies-to ([nodes...])))
+
+(nodeclass consumes
+  (applies-to ([consumer (of-class? placeholder)]
+               [supply (of-class? ctx)]
+               [consumed (at-time-of consumer (member-of? supply))])
+    (condition (unconsumed-before? consumed consumer))))
+
+(tagclass pretty-close
+  (port scale)
+  (applies-to ([nodes...])
+    (condition (pretty-close? (path THIS scale) nodes...))))
+
+(tagclass correct-arithmetic
+  (applies-to ([nodes... equation-seq?])
+    (condition (correct-arithmetic? nodes...))))
+    

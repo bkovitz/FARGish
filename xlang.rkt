@@ -1,5 +1,7 @@
 #lang racket/base
 
+(require syntax/parse/define)
+
 ;(provide (all-from-out racket/base))
 
 ;(provide (except-out (all-from-out racket/base) #%app #%module-begin))
@@ -38,6 +40,7 @@
 
 (provide (rename-out [displayln d])
          h
+         provide
          )
 
 (provide (rename-out [xlang-app #%app]
@@ -54,5 +57,5 @@
 
 ;(define h hash)
 
-(define-syntax-rule (h name args ...)
+(define-simple-macro (h name:id args:expr ...)
   (define name (hash args ...)))
