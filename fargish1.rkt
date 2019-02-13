@@ -237,7 +237,7 @@
 (define (apply-class-attr value args)
   (define (apply-f f)
     (cond
-      [(procedure? f) (list f (procedure-arity f)) (apply f args)]
+      [(procedure? f) (apply f args)]
       [else f]))
   (cond
     [(void? value) (void)]

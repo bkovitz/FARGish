@@ -1,0 +1,89 @@
+; x32.rkt -- Experimenting with building up a graph to represent the temporal
+;            trace for the solved "32" problem
+
+#lang debug at-exp racket
+
+(require errortrace)
+(require "wheel.rkt"
+         "model1.rkt"
+         "shorthand.rkt"
+         (prefix-in f: "fargish1.rkt")
+         (only-in "fargish1.rkt"
+           farg-model-spec nodeclass tagclass portclass)
+         (only-in "graph1.rkt"
+           pr-graph pr-group pr-node
+           define/g gdo
+           no-neighbor-at-port?/g has-neighbor-at-port?/g))
+
+(define spec
+  (farg-model-spec
+    (nodeclass problem
+      (is-a 'ctx))
+    (nodeclass trace
+      (is-a 'ctx))
+    (nodeclass (t t)  ; a timestep
+      (value t)
+      (name (format "t~a" t))
+      (is-a 'ctx))
+    (nodeclass equation
+      (is-a 'ctx))
+    (nodeclass (number n)
+      (value n)
+      (name n))
+    (nodeclass *)
+    (nodeclass =)
+    (tagclass target
+      (applies-to ([node (by-ports 'tagged 'tags)])
+        (condition (const #t))))  ; BAD
+    (tagclass brick
+      (applies-to ([node (by-ports 'tagged 'tags)])
+        (condition (const #t))))  ; BAD
+    (tagclass consume
+      (applies-to ([consumer (by-ports 'consumer 'consumes)]
+                   [consumes (by-ports 'consumes 'consumed)])
+        (condition (const #t))))  ; BAD
+
+    ;(chain equation prev -> next ...)
+    ))
+
+(define g
+  (let*-values
+    ([(g) (make-empty-graph spec)]
+     ;temporal trace
+     [(g trace) (make-node g 'trace)]
+     ;t0
+     [(g t0) (make-node/in g trace 't 0)]
+     ; problem
+     [(g problem) (make-node/in g t0 'problem)]
+     [(g t32) (make-node/in g 'problem 'number 32)]
+     [(g) (add-tag g 'target t32)]
+     [(g b6) (make-node/in g 'problem 'number 6)]
+     [(g) (add-tag g 'brick b6)]
+     [(g b3) (make-node/in g 'problem 'number 3)]
+     [(g) (add-tag g 'brick b3)]
+     [(g b4) (make-node/in g 'problem 'number 4)]
+     [(g) (add-tag g 'brick b4)]
+     [(g b5) (make-node/in g 'problem 'number 5)]
+     [(g) (add-tag g 'brick b5)]
+
+     ;t1
+     [(g t1) (make-node/in g trace 't 1)]
+     [(g) (add-edge g `((,t0 next) (,t1 prev)))]
+     [(g eqn1) (make-node/in g t1 'equation)]
+     [(g e6) (make-node/in g eqn1 'number 6)]
+     [(g) (add-tag g 'consume e6 b6)]
+     [(g times) (make-node/in g eqn1 '*)]
+     [(g) (add-edge g `((,e6 next) (,times prev)))]
+     [(g e4) (make-node/in g eqn1 'number 4)]
+     [(g) (add-tag g 'consume e4 b4)]
+     [(g) (add-edge g `((,times next) (,e4 prev)))]
+     [(g equals1) (make-node/in g eqn1 '=)]
+     [(g) (add-edge g `((,e4 next) (,equals1 prev)))]
+     [(g e24) (make-node/in g eqn1 'number 24)]
+     [(g) (add-edge g `((,equals1 next) (,e24 prev)))]
+     )
+    g))
+
+(set! g g)
+
+(pr-graph g)
