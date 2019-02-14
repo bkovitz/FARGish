@@ -36,6 +36,7 @@
          set-edge-weight
 
          port->neighboring-ports
+         port->neighboring-port
          port->neighbors
          port->neighbor
          port-has-neighbor?
@@ -325,6 +326,10 @@
 (define (port->neighboring-ports g port)
   (define p->nps (graph-ht-port->neighboring-ports g))
   (hash-ref p->nps port '()))
+
+; Can return void
+(define (port->neighboring-port g port)
+  (safe-car (set->list (port->neighboring-ports g port))))
 
 (define (port->neighbors g port)
   (define p->nps (graph-ht-port->neighboring-ports g))

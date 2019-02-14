@@ -100,6 +100,7 @@
 (define all-nodes g:all-nodes)
 (define copy-graph g:copy-graph)
 (define port->neighboring-ports g:port->neighboring-ports)
+(define port->neighboring-port g:port->neighboring-port)
 (define port->neighbors g:port->neighbors)
 (define port->neighbor g:port->neighbor)
 (define port-has-neighbor? g:port-has-neighbor?)

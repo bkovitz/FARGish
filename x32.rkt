@@ -32,6 +32,7 @@
     (nodeclass (number n)
       (value n)
       (name n))
+    (nodeclass placeholder)
     (nodeclass *)
     (nodeclass =)
     ; Tags
@@ -151,6 +152,65 @@
 
 ;; ======================================================================
 ;;
+;; "Copying" a temporal trace
+;;
+
+; TODO This should be done by quick-matching, not hard-coded.
+(define (copy-trace g trace)
+  (let*-values ([(g new-trace) (make-node g 'trace)]
+                [(g) (mark-copying g trace new-trace)]
+                [(g) (let loop ([g g] [t (port->neighbor g `(,trace first))])
+                       (cond
+                         [(void? t) g]
+                         [else (loop (copy-t g t new-trace)
+                                     (port->neighbor g `(,t next)))]))])
+    (values g new-trace)))
+
+(define (copy-t g t into-trace)
+  (let*-values ([(g new-t) (make-node/in g into-trace 't (value-of g t))]
+                [(g) (mark-copying g t new-t)]
+                [(g) (add-parallel-edge g new-t t 'prev)])
+    g))
+
+(define (mark-copying g from-node to-node)
+  (add-edge g `((,from-node copying-to) (,to-node copying-from))))
+
+(define (copying-from g node)
+  (port->neighbor g `(,node copying-from)))
+
+(define (copying-to g node)
+  (port->neighbor g `(,node copying-to)))
+
+(define (add-parallel-edge g new-node old-node port-label)
+  (cond
+    #:define old-nbr-port (port->neighboring-port g `(,old-node ,port-label))
+    [(void? #R old-nbr-port) g]
+    #:match-define `(,old-nbr ,old-nbr-port-label) old-nbr-port
+    #:define new-nbr (copying-to g old-nbr)
+    [(void? #R new-nbr) g]
+    [else (add-edge g `((,new-nbr ,old-nbr-port-label)
+                        (,new-node ,port-label)))]))
+
+(define (copy-members g old-ctx new-ctx)
+  (for/fold ([g g] #:result (copy-ordering-edges g old-ctx new-ctx))
+            ([old-member (members-of g old-ctx)])
+    (let*-values ([(g new-member) (apply make-node/in g new-ctx
+                                                        (class-of g old-member)
+                                                        (args-of g old-member))]
+                  [(g) (mark-copying g old-member new-member)])
+      g)))
+
+;TODO first-in
+(define (copy-ordering-edges g old-ctx new-ctx)
+  (for/fold ([g g])
+            ([new-member (members-of g new-ctx)])
+    (cond
+      #:define old-member #R (copying-from g new-member)
+      [(void? old-member) g]
+      [else (add-parallel-edge g new-member old-member 'next)])))
+
+;; ======================================================================
+;;
 ;; The solution to the "32" problem, as a stored temporal trace
 ;;
 
@@ -161,6 +221,7 @@
      [(g trace) (make-node g 'trace)]
      ;t0
      [(g t0) (make-node/in g trace 't 0)]
+     [(g) (add-edge g `((,trace first) (,t0 first-in)))]
      ; problem
      [(g problem) (make-node/in g t0 'problem)]
      [(g target) (make-node/in g 'problem 'number 32)]
@@ -179,6 +240,7 @@
      [(g) (add-edge g `((,t0 next) (,t1 prev)))]
      [(g eqn1) (make-node/in g t1 'equation)]
      [(g e6) (make-node/in g eqn1 'number 6)]
+     [(g) (add-edge g `((,eqn1 first) (,e6 first-in)))]
      [(g c1) (make-tag g 'consume e6 b6)]
      [(g times) (make-node/in g eqn1 '*)]
      [(g) (add-edge g `((,e6 next) (,times prev)))]
@@ -209,5 +271,8 @@
 ;(gdo support->t+1)
 
 (gdo step)
+(gdo step)
+(gdo copy-trace 'trace)
+(gdo copy-members 'equation 'equation2)
 
 (pr-graph g)
