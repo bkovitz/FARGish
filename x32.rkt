@@ -21,7 +21,7 @@
       (is-a 'ctx))
     (nodeclass trace
       (is-a 'ctx))
-    (nodeclass (t t)  ; a timestep
+    (nodeclass (t t)  ; a timestep in a trace
       (value t)
       (name (format "t~a" t))
       (is-a 'ctx))
@@ -33,11 +33,29 @@
     (nodeclass *)
     (nodeclass =)
     (tagclass target
-      (applies-to ([node (by-ports 'tagged 'tags)])
+      (applies-to ([node as-tag])
         (condition (const #t))))  ; BAD
     (tagclass brick
-      (applies-to ([node (by-ports 'tagged 'tags)])
+      (applies-to ([node as-tag])
         (condition (const #t))))  ; BAD
+    (tagclass greater-than
+      (applies-to ([greater (of-class 'number)
+                            (by-ports 'greater 'greater-than)]
+                   [lesser (of-class 'number) (by-ports 'lesser 'less-than)])
+        (condition (value-pred?/g > greater lesser))))
+    (tagclass same
+      (applies-to ([node1 as-tag] [node2 as-tag])
+        (condition (and?/g (same-class?/g node1 node2)
+                           (value-pred?/g equal? node1 node2)))))
+    (tagclass (num-digits n)
+      (value n)
+      (name (format "num-digits-~a" n))
+      (applies-to ([node (of-class 'number) as-tag])
+        (condition (value-pred?/g
+                     (λ (v) (safe-eqv? n
+                                       (safe-string-length
+                                         (safe-number->string node))))
+                     node))))
     (tagclass consume
       (applies-to ([consumer (by-ports 'consumer 'consumes)]
                    [consumes (by-ports 'consumes 'consumed)])

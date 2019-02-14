@@ -17,6 +17,7 @@
          realize-attrs
 
          as-member
+         as-tag
 
          get-nodeclass-attr
          get-nodeclass*
@@ -411,6 +412,7 @@
 ;;
 
 (define as-member (by-ports 'members 'member-of))
+(define as-tag (by-ports 'tagged 'tags))
 
 (define (archetype-name value)
   (string->symbol (string-append "archetype-"

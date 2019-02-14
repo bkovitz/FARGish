@@ -281,6 +281,21 @@
     [(pair? x) (last x)]
     [else (void)]))
 
+(define (safe-eqv? . args)
+  (cond
+    [(ormap void? args) #f]
+    [else (apply eqv? args)]))
+
+(define (safe-number->string n)
+  (cond
+    [(void? n) (void)]
+    [else (number->string n)]))
+
+(define (safe-string-length s)
+  (cond
+    [(void? s) (void)]
+    [else (string-length s)]))
+
 (define (safe-append . args)
   (cond
     [(null? args)

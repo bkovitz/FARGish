@@ -44,3 +44,11 @@
   (applies-to ([nodes... equation-seq?])
     (condition (correct-arithmetic? nodes...))))
     
+
+;;;;;;;;;;;;;;;;;;;
+
+(make-graph numbo2
+  (problem
+    (target 32)
+    (brick 6)
+    (brick 

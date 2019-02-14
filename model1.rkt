@@ -4,7 +4,7 @@
 
 #lang debug at-exp errortrace racket
 
-(require errortrace)
+(require debug/repl errortrace)
 (require "wheel.rkt"
          "xsusp3.rkt"
          (prefix-in f: "fargish1.rkt")
@@ -131,6 +131,7 @@
 (define graph-pop-var g:graph-pop-var)
 
 (define as-member f:as-member)
+(define as-tag f:as-tag)
 (define by-ports f:by-ports)
 
 ;; ======================================================================
@@ -310,14 +311,35 @@
 ;; Predicates
 ;;
 
+;TODO Deal correctly with arity of pred?. This version assumes arity 2.
+;(define/g (value-pred? g pred? . nodes)
+;  (values g
+;    (cond
+;      [(null? nodes) #t]
+;      [(null? (cdr nodes)) #t]  ; TODO Is this right?
+;      [else (let* ([node1 (car nodes)] [v (value-of g node1)])
+;              (for/and ([node (cdr nodes)])
+;                (pred? v (value-of g node))))])))
+
 (define/g (value-pred? g pred? . nodes)
   (values g
+    (let ([v-of (λ (node) (value-of g node))])
+      (apply pred? (map v-of nodes)))))
+
+(define/g (and? g . preds/g)
+  (values g
+    (for/and ([pred?/g preds/g])
+      (apply/ignore-g pred?/g g))))
+
+(define/g (same-class? g . nodes)
+  (values g
     (cond
-      [(null? nodes) #t]
+      [(null? nodes) #f]
       [(null? (cdr nodes)) #t]
-      [else (let* ([node1 (car nodes)] [v (value-of g node1)])
-              (for/and ([node (cdr nodes)])
-                (pred? v (value-of g node))))])))
+      [else
+        (let ([class-of-node1 (class-of g (car nodes))])
+          (for/and ([other-node (cdr nodes)])
+            (equal? class-of-node1 (class-of g other-node))))])))
 
 ;; ======================================================================
 ;;
@@ -401,6 +423,20 @@
       #t
       (for/or ([ofc of-classes])
         (f:nodeclass-is-a? spec nclass ofc)))))
+
+; Calls f. If f returns a single value, we return it. If f returns multiple
+; values, as many graph functions do, we return only the second value, ignoring
+; the first. (The first value, by convention, is an updated g.) This is
+; something of a HACK, since a caller should propagate an updated g, not
+; throw it away, but it's getting to be a pain to remember which functions
+; return an updated g and which don't. There are surely better ways to handle
+; this, like redefining #%app to handle gfuncs correctly, or static
+; type-checking.
+(define (apply/ignore-g f g . args)
+  (call-with-values (λ () (apply f g args))
+    (case-lambda
+      [(result) result]
+      [(g result . ignored) result])))
 
 ; The condition function c must be fully realized (no args needed).
 (define (condition-match? g c . nodes)
