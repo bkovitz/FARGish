@@ -346,9 +346,18 @@
 ;; Salience
 ;;
 
-(define (salience-of g node)
-  (let ([s (get-node-attr g node 'salience)])
-    (if (void? s) 0.0 s)))
+(define (node? x)
+  (or (symbol? x) (integer? x)))
+
+;(: salience-of : Graph Node/Edge -> Flonum)
+(define (salience-of g elem)
+  (cond
+    [(node? elem)
+     (let ([s (get-node-attr g elem 'salience)])
+       (if (void? s) 0.0 s))]
+    [else
+      (let ([sal (λ (node) (salience-of g node))])
+        (apply max (map sal (edge->nodes elem))))]))
 
 (define (boost-salience-of g node)
   (g:update-node-attr g node 'salience

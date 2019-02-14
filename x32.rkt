@@ -124,4 +124,8 @@
 
 (set! g g)
 
+(define a (qm/num-digits g 24))
+(gdo (car a))
+(gdo support->t+1)
+
 (pr-graph g)

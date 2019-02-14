@@ -34,7 +34,7 @@
 ; special handling for antipathy
 ; self-support
 
-; i and j are keys for node/edges/whatever that have or give support. The
+; i and j are keys for nodes/edges/whatever have or give support. The
 ; variable i refers to a node that is giving support; the variable j refers
 ; to a node that is receiving support.
 
@@ -48,10 +48,12 @@
 ; d-t : Any Any -> number?               Amount of support given from first
 ;                                        element to second (negative for
 ;                                        antipathy)
+; i->min : Any -> Flonum                 Minimum allowed support for i
+;                                        (before normalization)
 ; support-t : (Hashof Any number?)       Support levels at time t
 ;
 ; Returns (Hashof Any number?), the support levels at time t+1.
-(define (support-t+1 config normalize support-targets d-t support-t)
+(define (support-t+1 config normalize support-targets d-t i->min support-t)
   (define alpha (support-config*-continuity-constant config))
   (define positive-feedback-rate
     (support-config*-positive-feedback-rate config))
@@ -72,8 +74,9 @@
 
   (normalize
     (for/hash ([(j sj-t) support-t])
-      (values j (+ (* alpha sj-t)
-                   (* (- 1.0 alpha) (xj-t j)))))))
+      (values j (max (i->min j)
+                     (+ (* alpha sj-t)
+                        (* (- 1.0 alpha) (xj-t j))))))))
 
 ;; ======================================================================
 ;;
@@ -150,7 +153,8 @@
                                            'b '(c)
                                            'c '(a))))
     (define (next ss)  ; support levels for next timestep
-      (support-t+1 default-support-config identity support-targets d-t ss))
+      (support-t+1 default-support-config identity
+        support-targets d-t (const 0.0) ss))
 
     (let* ([t1 (next support-0)]
            [t2 (next t1)])
@@ -173,7 +177,8 @@
     (define normalize (curry normalize-by-reverse-sigmoid 3.0))
 
     (define (next ss)  ; support levels for next timestep
-      (support-t+1 default-support-config normalize support-targets d-t ss))
+      (support-t+1 default-support-config normalize
+        support-targets d-t (const 0.0) ss))
 
     (let* ([t1 (next support-0)])
       (check-equal? (round-all/ut t1)

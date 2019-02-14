@@ -10,6 +10,8 @@
            pr-graph pr-group pr-node
            define/g gdo))
 
+(provide (all-defined-out))
+
 ; from-elem : Node|Edge
 ; to-elem : Node|Edge
 (struct Support (from-elem to-elem) #:prefab)
@@ -20,15 +22,29 @@
 ;; Establishing support
 ;;
 
+; (: normalize-elem : Node/Edge -> (U Node EdgeSet)) ; TODO case->
+(define (normalize-elem elem)
+  (cond
+    [(or (symbol? elem) (integer? elem))
+     elem]
+    [else (m:edge->set elem)]))
+
 ;TODO Allow support weights to be specified; currently 1.0.
 ; (: add-mutual-support : Graph Node|Edge Node|Edge -> Graph)
 (define (add-mutual-support g elem1 elem2)
-  (m:graph-update-var g 'supporting
-    (λ (ht)  ; (Hashof Node/Edge (Hashof Node/Edge Flonum))
-      (let* ([ht (hash-set-set elem1 elem2 1.0)]
-             [ht (hash-set-set elem2 elem1 1.0)])
-        ht))
+  (m:graph-update-var g 'ht/supporting
+    (let ([elem1 (normalize-elem elem1)]
+          [elem2 (normalize-elem elem2)])
+      (λ (ht)  ; (Hashof Node/EdgeSet (Hashof Node/EdgeSet Flonum))
+        (let* ([ht (hash-set-set ht elem1 elem2 1.0)]
+               [ht (hash-set-set ht elem2 elem1 1.0)])
+          ht)))
     (hash)))
+
+;(define (add-self-support g elem [amount 0.5]) ;GLOBAL constant
+;  (m:graph-update-var g 'ht/elem->self-support
+;    (curry + amount)
+;    0.0))
 
 ;; ======================================================================
 ;;
@@ -61,7 +77,7 @@
 (define normalize-support (curry su:normalize-by-reverse-sigmoid 3.0))
 
 ; Helper for support->t+1
-(define (^support->t+1 ht/all-given old-ht)
+(define (^support->t+1 ht/all-given elem->perm-support old-ht)
   (let* ([node->targets (λ (node)
                           (hash-ref/sk ht/all-given node
                             hash-keys ;sk
@@ -71,22 +87,36 @@
                                      (λ (ht/given) ;sk
                                        (hash-ref ht/given to-node 0.0))
                                      (const 0.0)))] ;fk
-         [old-ht (for/fold ([old-ht old-ht])
-                           ([node (hash-keys ht/all-given)])
-                   (if (hash-has-key? old-ht node)
-                     old-ht
-                     (hash-set old-ht node 0.0)))])
+         )
     (su:support-t+1 su:default-support-config
                     normalize-support
                     node->targets
                     from-to->support-given
+                    elem->perm-support
                     old-ht)))
 
 ; Updates support for all nodes and edges.
 (define (support->t+1 g)
   (let* ([old-ht (get-support-ht g)]
          [ht/all-given (get-supporting-ht g)]
-         [new-ht (^support->t+1 ht/all-given old-ht)])
+         [old-ht (for/fold ([old-ht old-ht])
+                           ([node (hash-keys ht/all-given)])
+                   (if (hash-has-key? old-ht node)
+                     old-ht
+                     (hash-set old-ht node 0.0)))]
+         [old-ht (for/fold ([ht old-ht])
+                           ([(elem supp) old-ht])
+                   (let ([sal (m:salience-of g elem)])
+                     (if (< supp sal)
+                       (hash-set ht elem sal)
+                       ht)))]
+         [elem->perm-support
+           (λ (elem)
+             (cond
+               [(m:node? elem) (m:get-node-attr g elem 'permanent-support 0.0)]
+               [else 0.0]))]   ;TODO For edge, probably should take min of
+                               ;permanent support of incident nodes.
+         [new-ht (^support->t+1 ht/all-given elem->perm-support old-ht)])
     (set-support-ht g new-ht)))
 
 ;TODO Unit tests
