@@ -109,14 +109,15 @@
                    (~alt (of-class ~! of-class-expr:expr ...)
                          by-ports:expr) ...)))
 
-  ;TODO Allow any number of conditions: 0 or more. If 0, then always pass.
   (define-splicing-syntax-class a2-body
     #:description "body of applies-to"
     #:datum-literals [condition]
     ;#:attributes [(taggee 1) (condition-expr 1)]
     #:auto-nested-attributes
-    (pattern (~seq ([taggee:taggee-body] ...+)
-               (condition condition-expr:expr ...))))
+    (pattern 
+             (~seq ([taggee:taggee-body] ...+)
+               (~optional (condition condition-expr:expr ...)
+                          #:defaults ([(condition-expr 1) (list #'(const #t))])))))
 
   (define-splicing-syntax-class nodeclass-elems
     #:description "nodeclass elements"

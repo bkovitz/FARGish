@@ -17,6 +17,7 @@
 
 (define spec
   (farg-model-spec
+    ; Nodes
     (nodeclass problem
       (is-a 'ctx))
     (nodeclass trace
@@ -32,12 +33,11 @@
       (name n))
     (nodeclass *)
     (nodeclass =)
+    ; Tags
     (tagclass target
-      (applies-to ([node as-tag])
-        (condition (const #t))))  ; BAD
+      (applies-to ([node as-tag])))
     (tagclass brick
-      (applies-to ([node as-tag])
-        (condition (const #t))))  ; BAD
+      (applies-to ([node as-tag])))
     (tagclass greater-than
       (applies-to ([greater (of-class 'number)
                             (by-ports 'greater 'greater-than)]
@@ -58,8 +58,7 @@
                      node))))
     (tagclass consume
       (applies-to ([consumer (by-ports 'consumer 'consumes)]
-                   [consumes (by-ports 'consumes 'consumed)])
-        (condition (const #t))))  ; BAD
+                   [consumes (by-ports 'consumes 'consumed)])))
 
     ;(chain equation prev -> next ...)
     ))
