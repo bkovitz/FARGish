@@ -80,7 +80,7 @@
 
 ; HACK: max-support should probably be a number proportional to something
 ; about the state of the model.
-(define max-support 20.0) ;GLOBAL
+(define max-support 40.0) ;GLOBAL
 (define normalize-support (curry su:normalize-by-reverse-sigmoid max-support))
 
 ; Helper for support->t+1

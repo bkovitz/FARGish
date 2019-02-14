@@ -91,14 +91,14 @@
 
 ; Graph Node -> (List Action)
 (define (qm/num-digits g node)
-  (let ([nd (node->num-digits g node)])
-    (cond
-      [(void? nd) '()]
-      [else
-        (list (λ (g)
-          (let*-values ([(g tag) (make-tag g `(num-digits ,nd) node)]
-                        [(g) (add-tag-support g tag node)])
-            g)))])))
+  (cond
+    [(not (node-is-a? g node 'number)) '()]
+    #:define nd (node->num-digits g node)
+    [(void? nd) '()]
+    [else (list (λ (g)
+            (let*-values ([(g tag) (make-tag g `(num-digits ,nd) node)]
+                          [(g) (add-tag-support g tag node)])
+              g)))]))
 
 (define (qm/same g node1)
   (let* ([fi (λ (node2)
@@ -111,6 +111,43 @@
                              [(g) (add-tag-support g tag node2)])
                  g)))
        '())))
+
+(define (qm/greater-than g node1)
+  (let* ([fi (λ (node2)
+               (tagclass-applies-to? g 'greater-than node1 node2))]
+         [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
+    (if node2
+       (list (λ (g)
+               (let*-values ([(g tag) (make-tag g 'greater-than node1 node2)]
+                             [(g) (add-tag-support g tag node1)]
+                             [(g) (add-tag-support g tag node2)])
+                 g)))
+       '())))
+
+(define qms (list qm/num-digits qm/same qm/greater-than))
+
+; Very crude version. TODO: Choose qms via slipnet, or something to reflect
+; bias toward qms that attract attention right now. The code could be a lot
+; more efficient, too.
+(define (quick-match g)
+  (let* ([node->salience (g->node->salience g)]
+         [random-qm (let ([len (length qms)])
+                      (λ ()
+                        (list-ref qms (random len))))]
+         [nodes (for/list ([i 6])
+                  (weighted-choice-by node->salience (all-nodes g)))]
+         [actions (for*/list ([node nodes]
+                              [action ((random-qm) g node)])
+                    action)]
+         [g (for/fold ([g g])
+                      ([action actions])
+              (action g))])
+    g))
+
+(define (step g)
+  (let* ([g (quick-match g)]
+         [g (support->t+1 g)])
+    g))
 
 ;; ======================================================================
 ;;
@@ -161,10 +198,16 @@
 
 (set! g g)
 
-(define a (qm/num-digits g 24))
-(gdo (car a))
-(define b (qm/same g 6))
-(gdo (car b))
-(gdo support->t+1)
+;(define a (qm/num-digits g 24))
+;(gdo (car a))
+;(define b (qm/same g 6))
+;(gdo (car b))
+;(define c (qm/greater-than g 4))
+;(gdo (car c))
+
+;(gdo quick-match)
+;(gdo support->t+1)
+
+(gdo step)
 
 (pr-graph g)
