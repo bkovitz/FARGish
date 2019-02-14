@@ -35,31 +35,30 @@
 
 
 
-;TODO Can we get rid of reverse here?
 (define (make-choice-pairs f choices)
-  (for/fold ([pairs '()] [w 0.0] #:result (values (reverse pairs) w))
+  (for/fold ([pairs '()] [w 0.0])
             ([choice choices])
         (let ([delta (f choice)])
           (if (zero? delta)
             (values pairs w)
-            (values (cons `(,delta . ,choice) pairs)
+            (values (cons `(,w . ,choice) pairs)
                     (+ delta w))))))
 
 ;TODO Move this to another file
-;(define (weighted-choice-by f choices)
-;  (define-values (choice-pairs total) (make-choice-pairs f choices))
-;  (cond
-;    [(null? choice-pairs)
-;     (void)]
-;    [(null? (cdr choice-pairs))
-;     (cdar choice-pairs)]
-;    [else (let ([r (* (random) total)])
-;            (let loop ([choice-pairs choice-pairs])
-;              (let ([pair (car choice-pairs)])
-;                (cond
-;                  [(<= r (car pair))
-;                   (cdr pair)]
-;                  [else (loop (cdr choice-pairs))]))))]))
+(define (weighted-choice-by f choices)
+  (define-values (choice-pairs total) (make-choice-pairs f choices))
+  (cond
+    [(null? choice-pairs)
+     (void)]
+    [(null? (cdr choice-pairs))
+     (cdar choice-pairs)]
+    [else (let ([r (* (random) total)])
+            (let loop ([choice-pairs choice-pairs])
+              (let ([pair (car choice-pairs)])
+                (cond
+                  [(>= r (car pair))
+                   (cdr pair)]
+                  [else (loop (cdr choice-pairs))]))))]))
 
 (define (select-choice-pair r choice-pairs)
   (let ([first-item-weight (caar choice-pairs)])
@@ -385,6 +384,48 @@
   (seq-weighted-by (λ (node) (salience-of g node))
                    nodes))
 
+(define (g->node->neighbors g)
+  (λ (node) (node->neighbors g node)))
+
+; -> (Setof Node)
+(define (nearby-nodes g node #:num-hops [num-hops 2] #:filter [fi #f])
+  (if (zero? num-hops)
+    empty-set
+    (let* ([node->neighbors (g->node->neighbors g)]
+           [nodes->neighbors (λ (st)
+                               (for/fold ([result empty-set])
+                                         ([node (in-set st)])
+                                 (set-union result (node->neighbors node))))]
+           [accumulate (if fi
+                         (λ (result nodes)
+                           (for/fold ([result result])
+                                     ([node nodes]
+                                      #:when (fi node))
+                             (set-add result node)))
+                         set-union)])
+      (let loop ([result (accumulate empty-set (node->neighbors node))]
+                 [to-do (node->neighbors node)]
+                 [done (set node)]
+                 [num-hops (sub1 num-hops)])
+        (cond
+          [(zero? num-hops) result]
+          [else (loop (accumulate result (nodes->neighbors to-do))
+                      (set-subtract (nodes->neighbors to-do) to-do done)
+                      (set-union done to-do)
+                      (sub1 num-hops))])))))
+
+(define (g->node->salience g)
+  (λ (node) (salience-of g node)))
+
+; Returns Node or #f if no node found.
+(define (choose-nearby-node-by-salience g node #:num-hops [num-hops 2]
+                                               #:filter [fi (const #t)])
+  (let ([nodes (set->list (nearby-nodes g node #:num-hops num-hops
+                                               #:filter fi))])
+    (cond
+      [(null? nodes) #f]
+      [else (weighted-choice-by (g->node->salience g) nodes)])))
+
 (define (pr-saliences g)
   (for ([node (members-of g 'ws)])
     (displayln @~a{@node @(salience-of g node)})))
@@ -567,6 +608,8 @@
             ([ctx ctxs])
     (g:add-edge g `((,ctx members) (,node member-of)))))
 
+(struct Fizzle (tagclass nodes) #:prefab)
+
 ;TODO Make the tag a member of the nodes' least common ctx
 ;TODO Don't make the tag if it's already there
 (define/g (make-tag g tagspec . nodes)
@@ -583,7 +626,7 @@
                         ([taggee-info (f:applies-to*-taggee-infos applies-to)]
                          [node nodes])
                 (link-to g taggee-info tag node))))]
-      [else (raise 'fizzle)])))
+      [else (raise (Fizzle tagspec nodes))])))
 
 (define/g (add-tag g tagspec . nodes)
   (if (for/and ([node nodes])

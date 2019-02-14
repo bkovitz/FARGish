@@ -65,16 +65,23 @@
 (define (get-supporting-ht g)
   (m:graph-get-var g 'ht/supporting empty-hash))
 
-; This is for REPL experimentation and debugging, not model code. Normally
-; support for all nodes should be set at once by calling set-support-ht.
 (define (set-support-for g elem s)
   (let* ([ht (get-support-ht g)]
          [ht (hash-set ht elem s)])
     (set-support-ht g ht)))
 
-; HACK: The 3.0 should probably be a number proportional to something
+(define (make-permanent g . nodes)
+  (for/fold ([g g])
+            ([node nodes])
+    (let ([g (m:set-node-attr g node 'permanent-support 1.0)])
+      (if (< (support-for g node) 1.0)
+        (set-support-for g node 1.0)
+        g))))
+
+; HACK: max-support should probably be a number proportional to something
 ; about the state of the model.
-(define normalize-support (curry su:normalize-by-reverse-sigmoid 3.0))
+(define max-support 20.0) ;GLOBAL
+(define normalize-support (curry su:normalize-by-reverse-sigmoid max-support))
 
 ; Helper for support->t+1
 (define (^support->t+1 ht/all-given elem->perm-support old-ht)
@@ -118,5 +125,21 @@
                                ;permanent support of incident nodes.
          [new-ht (^support->t+1 ht/all-given elem->perm-support old-ht)])
     (set-support-ht g new-ht)))
+
+(define (^one-line elem supp)
+  (let ([lhs (cond
+               [(m:node? elem) elem]
+               [else (match (m:edge->list elem)
+                       ;TODO Alphabetize by port label
+                       [`(,port1 ,port2) @~a{@port1 -- @port2}])])])
+    (string-append (~a lhs #:align 'right
+                           #:min-width 35)
+                   "  "
+                   (~r supp #:precision (list '= 3)))))
+
+(define (pr-support g)
+  (for ([line (sorted (for/list ([(elem supp) (get-support-ht g)])
+                        (^one-line elem supp)))])
+    (displayln line)))
 
 ;TODO Unit tests
