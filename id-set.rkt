@@ -17,22 +17,20 @@
 
 (define-type (Hashof K V) (Immutable-HashTable K V))
 
-(struct id-set* ([ht/base->suffix : (Hashof Base Suffix)]
-                 [all-ids : (Setof Id)])
-                #:prefab)
+(struct IdSet ([ht/base->suffix : (Hashof Base Suffix)]
+               [all-ids : (Setof Id)])
+              #:prefab)
 
-(define-type IdSet id-set*)
-
-(define empty-id-set : IdSet (id-set* #hash() (set)))
+(define empty-id-set : IdSet (IdSet #hash() (set)))
 
 (: gen-id (IdSet Base -> (Values IdSet Id)))
 (define (gen-id id-set base)
-  (match-let ([(id-set* ht all-ids) id-set])
+  (match-let ([(IdSet ht all-ids) id-set])
     (letrec ([loop : ((Hashof Base Suffix) Id -> (Values IdSet Id))
                (λ (ht id)
                   (if (set-member? all-ids id)
                     (bump-base ht base loop)
-                    (values (id-set* ht (set-add all-ids id))
+                    (values (IdSet ht (set-add all-ids id))
                             id)))])
       (if (hash-has-key? ht base)
         (bump-base ht base loop)
@@ -40,11 +38,11 @@
 
 (: remove-id (IdSet Id -> IdSet))
 (define (remove-id id-set id)
-  (match-define (id-set* h all-ids) id-set)
-  (id-set* h (set-remove all-ids id)))
+  (match-define (IdSet h all-ids) id-set)
+  (IdSet h (set-remove all-ids id)))
 
 (: all-ids (IdSet -> (Setof Id)))
-(define all-ids id-set*-all-ids)
+(define all-ids IdSet-all-ids)
 
 (module+ test
   (test-case "id-set"

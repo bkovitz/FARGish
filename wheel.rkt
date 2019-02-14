@@ -82,6 +82,11 @@
   (for/list ([x seq] #:when (not (void? x)))
     x))
 
+(define (set-add* st . xs)
+  (for/fold ([st st])
+            ([x xs])
+    (set-add st x)))
+
 (define (.. lb ub [step 1])
   (range lb (add1 ub) step))
 
@@ -286,10 +291,11 @@
     [(ormap void? args) #f]
     [else (apply eqv? args)]))
 
-(define (safe-number->string n)
+(define (safe-integer->string n)
   (cond
     [(void? n) (void)]
-    [else (number->string n)]))
+    [(integer? n) (number->string n)]
+    [else (void)]))
 
 (define (safe-string-length s)
   (cond

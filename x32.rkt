@@ -6,6 +6,7 @@
 (require errortrace)
 (require "wheel.rkt"
          "model1.rkt"
+         "support.rkt"
          "shorthand.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
@@ -52,9 +53,7 @@
       (name (format "num-digits-~a" n))
       (applies-to ([node (of-class 'number) as-tag])
         (condition (value-pred?/g
-                     (λ (v) (safe-eqv? n
-                                       (safe-string-length
-                                         (safe-number->string node))))
+                     (λ (v) (safe-eqv? n (->num-digits v)))
                      node))))
     (tagclass consume
       (applies-to ([consumer (by-ports 'consumer 'consumes)]
@@ -62,6 +61,28 @@
 
     ;(chain equation prev -> next ...)
     ))
+
+(define (->num-digits x)
+  (safe-string-length (safe-integer->string x)))
+
+(define (tag->edges g tag node)
+  `((,tag tagged) (,node tags)))
+
+(define (node->num-digits g node)
+  (->num-digits (value-of g node)))
+
+; Graph Node -> (List Action)
+(define (qm/num-digits g node)
+  (let ([nd (node->num-digits g node)])
+    (cond
+      [(void? nd) '()]
+      [else
+        (list (λ (g)
+          (let*-values ([(g tag) (make-tag g `(num-digits ,nd) node)]
+                        [(e) (tag->edges g tag node)]
+                        [(g) (add-mutual-support g node e)]
+                        [(g) (add-mutual-support g tag e)])
+            g)))])))
 
 (define g
   (let*-values

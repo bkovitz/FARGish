@@ -4,7 +4,7 @@
 
 (require (prefix-in sa: "spreading-activation.rkt")
          (prefix-in sl: "make-slipnet.rkt")
-         (prefix-in su: "support.rkt")
+         (prefix-in su: "support-network.rkt")
          (only-in "make-slipnet.rkt"
            no-archetype is-node is-value is-class)
          (prefix-in m: "model1.rkt")
@@ -853,8 +853,6 @@
                            (/ support-ub total-support-given))])
     (for/hash ([target targets])
       (values target scaling-factor))))
-
-         
 
 ; HACK Only considers members of 'ws. It should look at some reasonably
 ; defined set of nodes capable of giving support.
