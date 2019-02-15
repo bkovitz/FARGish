@@ -33,11 +33,10 @@
                 #:property prop:equal+hash
                            (list upair=? upair-hash1 upair-hash2))
 
-(: upair=? (All (A B)
-          (-> (UnorderedPair A)
-              (UnorderedPair B)
-              (-> Any Any Boolean)
-              Any)))
+(: upair=? (All (A B) (-> (UnorderedPair A)
+                          (UnorderedPair B)
+                          (-> Any Any Boolean)
+                          Any)))
 (define (upair=? up1 up2 recursive=?)
   (let ([a1 (UnorderedPair-a up1)]
         [a2 (UnorderedPair-a up2)]
@@ -57,3 +56,11 @@
   (let ([a (UnorderedPair-a up)]
         [b (UnorderedPair-b up)])
     (unsafe-fxxor (equal-secondary-hash-code a) (equal-secondary-hash-code b))))
+
+(: upair->list (All (A) (-> (UnorderedPair A) (List A A))))
+(define (upair->list up)
+  (list (UnorderedPair-a up) (UnorderedPair-b up)))
+
+(: list->upair (All (A) (-> (List A A) (UnorderedPair A))))
+(define (list->upair lst)
+  (UnorderedPair (car lst) (cadr lst)))

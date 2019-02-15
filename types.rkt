@@ -1,5 +1,7 @@
 #lang typed/racket
 
+(require "typed-wheel.rkt")
+
 (provide (all-defined-out))
 
 (define-type (Hashof K V) (Immutable-HashTable K V))
@@ -7,10 +9,10 @@
 (define-type Node (U Symbol Integer))  ; a node's id
 (define-type Port-label (U Symbol Integer))
 (define-type Port (List Node Port-label))
-(define-type Edge/Set (Setof Port))  ; 2 ports
+(define-type Edge/UPair (UnorderedPair Port))  ; 2 ports
 (define-type Edge/List (List Port Port))
 (define-type Hop Edge/List)
-(define-type Edge (U Edge/Set Edge/List))
+(define-type Edge (U Edge/UPair Edge/List))
 (define-type Edge* (Setof Node))  ; 2 nodes
 (define-type EdgeWeight (U Flonum Void))
 
@@ -24,3 +26,4 @@
 
 (define integer? exact-integer?)
 
+(define-predicate edge/upair? Edge/UPair)

@@ -16,7 +16,7 @@
 
 (struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
-               [edges : (Hashof Edge/Set EdgeWeight)]
+               [edges : (Hashof Edge/UPair EdgeWeight)]
                [id-set : IdSet]
                ;[stacks : ??]
                [vars : (Hashof Symbol Any)])
@@ -26,6 +26,8 @@
   (Graph (hash) (hash) (hash) empty-id-set (hash)))
 
 (define empty-graph (make-empty-graph))
+
+(define empty-port-set : (Setof Port) (set))
 
 ;(define-struct/exec Gfunc () 
 
@@ -107,34 +109,32 @@
 ;; Making and removing edges
 ;;
 
-(: edge->set : Edge -> Edge/Set)
-(define (edge->set edge)
+(: edge->upair : Edge -> Edge/UPair)
+(define (edge->upair edge)
   (cond
-    [(set? edge) edge]
-    [(pair? edge) (list->set edge)]))
+    [(edge/upair? edge) edge]
+    [(list? edge) (list->upair edge)]))
 
 (: edge->list : Edge -> Edge/List)
 (define (edge->list edge)
   (cond
-    [(pair? edge) edge]
-    [(set? edge) (set->list edge)])) ;PROBLEM Type checker doesn't know what's
-                                     ;in the set. SOLUTION? Structs, not
-                                     ;sets, with a custom equality func.
+    [(list? edge) edge]
+    [(edge/upair? edge) (upair->list edge)]))
 
 (: remove-edge : Graph Edge -> Graph)
 (define (remove-edge g e)
   (define edge (edge->list e))
   (match-define `(,port1 ,port2) edge)
-  (define edge* (edge->set e))
+  (define edge* (edge->upair e))
   (let* ([p->nps (Graph-ht-port->neighboring-ports g)]
          [p->nps (hash-update p->nps
                               port1
-                              (λ (st) (set-remove st port2))
-                              (set))]
+                              (λ ([st : (Setof Port)]) (set-remove st port2))
+                              (const empty-port-set))]
          [p->nps (hash-update p->nps
                               port2
-                              (λ (st) (set-remove st port1))
-                              (set))])
+                              (λ ([st : (Setof Port)]) (set-remove st port1))
+                              (const empty-port-set))])
     (struct-copy Graph g
       [edges (hash-remove (Graph-edges g) edge*)]
       [ht-port->neighboring-ports p->nps])))
@@ -147,26 +147,27 @@
 (: port->neighboring-ports : Graph Port -> (Setof Port))
 (define (port->neighboring-ports g port)
   (define p->nps (Graph-ht-port->neighboring-ports g))
-  (hash-ref p->nps port (set)))
+  (hash-ref p->nps port (const empty-port-set)))
 
-(: node->edges : Graph Node -> (Listof Edge/Set))
+(: node->edges : Graph Node -> (Listof Edge/UPair))
 (define (node->edges g node)
-  (for*/list : (Listof Edge/Set)
-    ([port (node->ports g node)]
-     [nport (port->neighboring-ports g port)])
-      (set port nport)))
+  (for*/list : (Listof Edge/UPair)
+    ([port : Port (node->ports g node)]
+     [nport : Port (port->neighboring-ports g port)])
+      (UnorderedPair port nport)))
 
 ;TODO Inefficient
 (: node->ports : Graph Node -> (Listof Port))
 (define (node->ports g node)
-  (for/list ([port (hash-keys (Graph-ht-port->neighboring-ports g))]
-             #:when (equal? node (car port)))
-    port))
+  (for/list : (Listof Port)
+    ([port : Port (hash-keys (Graph-ht-port->neighboring-ports g))]
+     #:when (equal? node (car port)))
+      port))
 
 ; The first port of each hop is node's port.
 (: node->incident-hops : Graph Node -> (Listof Hop))
 (define (node->incident-hops g node)
   (for*/list : (Listof Hop)
-    ([port (node->ports g node)]
-     [nport (port->neighboring-ports g port)])
+    ([port : Port (node->ports g node)]
+     [nport : Port (port->neighboring-ports g port)])
       `(,port ,nport)))
