@@ -49,13 +49,13 @@
 (define (upair-hash1 up recursive-equal-hash)
   (let ([a (UnorderedPair-a up)]
         [b (UnorderedPair-b up)])
-    (unsafe-fxxor (equal-hash-code a) (equal-hash-code b))))
+    (unsafe-fx+ (equal-hash-code a) (equal-hash-code b))))
 
 (: upair-hash2 (All (A) (-> (UnorderedPair A) (-> Any Fixnum) Fixnum)))
 (define (upair-hash2 up recursive-equal-hash)
   (let ([a (UnorderedPair-a up)]
         [b (UnorderedPair-b up)])
-    (unsafe-fxxor (equal-secondary-hash-code a) (equal-secondary-hash-code b))))
+    (unsafe-fx+ (equal-secondary-hash-code a) (equal-secondary-hash-code b))))
 
 (: upair->list (All (A) (-> (UnorderedPair A) (List A A))))
 (define (upair->list up)

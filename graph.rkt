@@ -10,13 +10,13 @@
          "id-set.rkt")
 (require "typed-wheel.rkt")
 (require (for-syntax racket/syntax) racket/syntax)
-(module+ test (require rackunit))
+(module+ test (require typed/rackunit))
 
 (define-type Attrs (Hashof Any Any))
 
 (struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
-               [edges : (Hashof Edge/UPair EdgeWeight)]
+               [ht-edge->weight : (Hashof Edge/UPair EdgeWeight)]
                [id-set : IdSet]
                ;[stacks : ??]
                [vars : (Hashof Symbol Any)])
@@ -28,6 +28,10 @@
 (define empty-graph (make-empty-graph))
 
 (define empty-port-set : (Setof Port) (set))
+
+(: E : Port Port -> Edge/UPair)  ; Edge constructor
+(define E UnorderedPair)
+
 
 ;(define-struct/exec Gfunc () 
 
@@ -121,6 +125,24 @@
     [(list? edge) edge]
     [(edge/upair? edge) (upair->list edge)]))
 
+(: add-edge (->* (Graph Edge) (EdgeWeight) Graph))
+(define (add-edge g edge [weight 1.0])
+  (let ([edge (edge->list edge)])
+    (match-define `(,port1 ,port2) edge)
+    (define edges (Graph-ht-edge->weight g))
+    (let* ([p->nps (Graph-ht-port->neighboring-ports g)]
+           [p->nps (hash-update p->nps
+                                port1
+                                (λ ([st : (Setof Port)]) (set-add st port2))
+                                (const empty-port-set))]
+           [p->nps (hash-update p->nps
+                                port2
+                                (λ ([st : (Setof Port)]) (set-add st port1))
+                                (const empty-port-set))])
+      (struct-copy Graph g
+        [ht-edge->weight (hash-set edges (E port1 port2) weight)]
+        [ht-port->neighboring-ports p->nps]))))
+
 (: remove-edge : Graph Edge -> Graph)
 (define (remove-edge g e)
   (define edge (edge->list e))
@@ -136,8 +158,48 @@
                               (λ ([st : (Setof Port)]) (set-remove st port1))
                               (const empty-port-set))])
     (struct-copy Graph g
-      [edges (hash-remove (Graph-edges g) edge*)]
+      [ht-edge->weight (hash-remove (Graph-ht-edge->weight g) edge*)]
       [ht-port->neighboring-ports p->nps])))
+
+;; ======================================================================
+;;
+;; Querying existence of nodes and edges
+;;
+
+(: all-nodes : Graph -> (Listof Node))
+(define (all-nodes g)
+  (hash-keys (Graph-ht-node->attrs g)))
+
+(: all-edges : Graph -> (Listof Edge/UPair))
+(define (all-edges g)
+  (hash-keys (Graph-ht-edge->weight g)))
+
+(: has-node? : Graph Node -> Boolean)
+(define (has-node? g id)
+  (hash-has-key? (Graph-ht-node->attrs g) id))
+
+(: has-edge? : Graph Edge -> Boolean)
+(define (has-edge? g edge)
+  (hash-has-key? (Graph-ht-edge->weight g) (edge->upair edge)))
+
+;; ======================================================================
+;;
+;; Edge weight
+;;
+
+(: edge->weight (->* [Graph Edge] [EdgeWeight] EdgeWeight))
+(define (edge->weight g edge [weight-if-no-edge (void)])
+  (let ([edge (edge->upair edge)])
+    (hash-ref (Graph-ht-edge->weight g) edge (const weight-if-no-edge))))
+
+; If edge does not exist, we don't create it.
+(: set-edge-weight : Graph Edge EdgeWeight -> Graph)
+(define (set-edge-weight g edge weight)
+  (let ([edge (edge->upair edge)])
+    (if (has-edge? g edge)
+      (struct-copy Graph g
+        [ht-edge->weight (hash-set (Graph-ht-edge->weight g) edge weight)])
+      g)))
 
 ;; ======================================================================
 ;;
@@ -154,7 +216,7 @@
   (for*/list : (Listof Edge/UPair)
     ([port : Port (node->ports g node)]
      [nport : Port (port->neighboring-ports g port)])
-      (UnorderedPair port nport)))
+      (E port nport)))
 
 ;TODO Inefficient
 (: node->ports : Graph Node -> (Listof Port))
@@ -171,3 +233,69 @@
     ([port : Port (node->ports g node)]
      [nport : Port (port->neighboring-ports g port)])
       `(,port ,nport)))
+
+;; ======================================================================
+;;
+;; Unit tests
+;;
+
+(module+ test
+  (test-case "make-node"
+    (let*-values ([(g) empty-graph]
+                  [(_) (check-false (has-node? g 5))]
+                  [(_) (check-equal? (all-nodes g) '())]
+                  [(g id1) (make-node g #hash((value . 5)))]
+                  [(_) (check-equal? id1 5)]
+                  [(_) (check-true (has-node? g 5))]
+                  [(_) (check-equal? (all-nodes g) (list id1))]
+                  [(g id2) (make-node g #hash((value . 5)))]
+                  [(_) (check-not-equal? id1 id2)]
+                  [(_) (check-true (has-node? g id2))]
+                  [(_) (check-equal? (list->set (all-nodes g)) (set id1 id2))]
+                  [(g) (remove-node g id1)]
+                  [(_) (check-false (has-node? g id1))]
+                  [(_) (check-true (has-node? g id2))]
+                  [(_) (check-equal? (all-nodes g) (list id2))])
+      (void)))
+
+  (test-case "add-edge and remove-edge"
+    (let* ([g (add-node empty-graph #hash((class . number) (name . source9)))]
+           [g (add-node g #hash((class . plus)))]
+           [g (add-edge g '((source9 output) (plus operand)))])
+      (check-true (has-edge? g '((source9 output) (plus operand))))
+      (check-true (has-edge? g '((plus operand) (source9 output))))
+      (check-equal? (edge->weight g '((plus operand) (source9 output)))
+                    1.0)
+      (let* ([g (remove-edge g '((plus operand) (source9 output)))])
+        (check-false (has-edge? g '((source9 output) (plus operand)))))))
+
+  (let* ([ab-graph (add-node empty-graph #hash((class . letter) (name . a)))]
+         [ab-graph (add-node ab-graph #hash((class . letter) (name . b)))])
+    (test-case "add-edge with weight"
+      (let ([g (add-edge ab-graph '((a out) (b in)) 0.62)])
+        (check-equal? (edge->weight g '((a out) (b in)))
+                      0.62)))
+    (test-case "add-edge twice"
+      (let* ([g (add-edge ab-graph '((a out) (b in)) 0.51)]
+             [g (add-edge g '((a out) (b in)))])
+        (check-equal? (list (E '(a out) '(b in)))
+                      (all-edges g))
+        (check-equal? (edge->weight g `((a out) (b in)))
+                      1.00)))
+    (test-case "add-edge twice with weight"
+      (let* ([g (add-edge ab-graph '((a out) (b in)) 0.75)]
+             [g (add-edge g '((a out) (b in)) 0.22)])
+        (check-equal? (list (E '(a out) '(b in)))
+                      (all-edges g))
+        (check-equal? (edge->weight g `((a out) (b in)))
+                      0.22)))
+    (test-case "set-edge-weight"
+      (let* ([_ (check-pred void? (edge->weight g '((a out) (b in))))]
+             [g (set-edge-weight g '((a out) (b in)) 0.4)]
+             ; edge does not exist, so no effect
+             [_ (check-pred void? (edge->weight g '((a out) (b in))))]
+             [g (add-edge g '((a out) (b in)) 0.6)]
+             [_ (check-equal? (edge->weight g '((a out) (b in))) 0.6)]
+             [g (set-edge-weight g '((a out) (b in)) 0.4)]
+             [_ (check-equal? (edge->weight g '((a out) (b in))) 0.4)])
+        (void)))))
