@@ -16,12 +16,12 @@
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
                [ht-edge->weight : (Hashof Edge/UPair EdgeWeight)]
                [id-set : IdSet]
-               ;[stacks : ??]
+               [stacks : (Hashof Symbol (Listof Any))]
                [vars : (Hashof Symbol Any)])
               #:prefab)
 
 (define (make-empty-graph)  ; TODO spec
-  (Graph (hash) (hash) (hash) empty-id-set (hash)))
+  (Graph (hash) (hash) (hash) empty-id-set (hash) (hash)))
 
 (define empty-graph (make-empty-graph))
 
@@ -565,3 +565,161 @@
                                  (tob . 10)))])
         (void)))))
 
+;; ======================================================================
+;;
+;; Graph variables
+;; 
+;; Graph variables are variables associated with the graph as a whole.
+;; Each variable has its own stack, manipulable by graph-push-var and
+;; graph-pop-var.
+;;
+;; It's not an error to pop an empty stack.
+;;
+
+(module+ test
+  (test-case "graph variables"
+    (: add1/any : Any -> Any)
+    (define (add1/any x)
+      (add1 (cast x Number)))
+
+    (let* ([g empty-graph]
+           ; Setting, getting, and updating
+           [g (graph-set-var g 'abc 5)]
+           [_ (check-equal? (graph-get-var g 'abc) 5)]
+           [_ (check-equal? (graph-get-var g 'undefined 86) 86)]
+           [g (graph-update-var g 'abc add1/any 0)]
+           [_ (check-equal? (graph-get-var g 'abc) 6)]
+           ; Pushing and popping
+           [g (graph-push-var g 'abc)]
+           [_ (check-equal? (graph-get-var g 'abc) 6)]
+           [g (graph-set-var g 'abc 'new-value)]
+           [_ (check-equal? (graph-get-var g 'abc) 'new-value)]
+           [g (graph-pop-var g 'abc)]
+           [_ (check-equal? (graph-get-var g 'abc) 6)]
+           ; Push and set at the same time
+           [g (graph-push-and-set-var g 'xyz 123)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) 123)]
+           [g (graph-push-and-set-var g 'xyz 456)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) 456)]
+           [g (graph-pop-var g 'xyz)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) 123)]
+           [g (graph-pop-var g 'xyz)]
+           [_ (check-equal? (graph-get-var g 'xyz (void)) (void))])
+      (void))))
+
+(: graph-set-var : Graph Symbol Any -> Graph)
+(define (graph-set-var g name value)
+  (let ([ht (hash-set (Graph-vars g) name value)])
+    (struct-copy Graph g [vars ht])))
+
+(: graph-get-var (case-> (Graph Symbol -> Any)
+                         (Graph Symbol Any -> Any)))
+(define graph-get-var
+  (case-lambda
+    [(g name)
+     (hash-ref (Graph-vars g) name)]
+    [(g name failure-result)
+     (hash-ref (Graph-vars g) name (const failure-result))]))
+
+(: graph-update-var : Graph Symbol (Any -> Any) Any -> Graph)
+(define graph-update-var
+  (case-lambda
+    [(g name f failure-result)
+     (let ([ht (hash-update (Graph-vars g) name f (const failure-result))])
+       (struct-copy Graph g [vars ht]))]))
+
+(: graph-remove-var : Graph Symbol -> Graph)
+(define (graph-remove-var g name)
+  (let ([vars (hash-remove (Graph-vars g) name)])
+    (struct-copy Graph g [vars vars])))
+
+(: graph-push-var : Graph Symbol -> Graph)
+(define (graph-push-var g name)
+  (let ([vars (Graph-vars g)])
+    (if (hash-has-key? vars name)
+      (let* ([value (hash-ref vars name)]
+             [stacks (hash-update (Graph-stacks g)
+                                  name
+                                  (λ ([stack : (Listof Any)])
+                                    (cons value stack))
+                                  (λ () '()))])
+        (struct-copy Graph g [stacks stacks]))
+      g)))
+
+(: graph-push-and-set-var : Graph Symbol Any -> Graph)
+(define (graph-push-and-set-var g name value)
+  (let ([g (graph-push-var g name)])
+    (graph-set-var g name value)))
+
+(: graph-pop-var : Graph Symbol -> Graph)
+(define (graph-pop-var g name)
+  (let ([stacks (Graph-stacks g)])
+    (cond
+      [(not (hash-has-key? stacks name))
+       (graph-remove-var g name)]
+      [else
+       (let* ([stack (hash-ref stacks name)]
+              [value (car stack)]
+              [stack (cdr stack)]
+              [stacks (if (null? stack)
+                        (hash-remove stacks name)
+                        (hash-set stacks name stack))]
+              [vars (hash-set (Graph-vars g) name value)])
+         (struct-copy Graph g [stacks stacks] [vars vars]))])))
+
+;; ======================================================================
+;;
+;; Copying one graph into another
+;; 
+
+(: map-edge : (Hashof Node Node) Edge/List -> Edge/List)
+(define (map-edge node-map edge)
+  (match-define `((,node1 ,port-label1) (,node2 ,port-label2)) edge)
+  (define new-node1 (hash-ref node-map node1))
+  (define new-node2 (hash-ref node-map node2))
+  `((,new-node1 ,port-label1) (,new-node2 ,port-label2)))
+
+(: copy-nodes : Graph Graph -> (Values Graph (Hashof Node Node)))
+(define (copy-nodes g g1)  ; copies from g1 into g
+  (for/fold : (Values Graph (Hashof Node Node))
+            ([g g] [node-map : (Hashof Node Node) #hash()])
+            ([node (all-nodes g1)])
+    (let-values ([(g nodeid) (make-node g
+                               (cast (get-node-attrs g1 node) Attrs))])
+      (values g (hash-set node-map node nodeid)))))
+
+(: copy-edges : Graph Graph (Hashof Node Node) -> Graph)
+(define (copy-edges g g1 node-map)  ; copies from g1 into g
+  (for/fold : Graph
+            ([g g])
+            ([edge (all-edges g1)])
+    (let ([g-edge (map-edge node-map (edge->list edge))])
+      (if (has-edge? g g-edge)
+        g
+        (add-edge g g-edge (edge->weight g1 edge))))))
+
+; Returns two values: g, node-map
+(: copy-graph-into-graph : Graph Graph -> (Values Graph (Hashof Node Node)))
+(define (copy-graph-into-graph g g1)
+  (let*-values ([(g node-map) (copy-nodes g g1)]
+                [(g) (copy-edges g g1 node-map)])
+    (values g node-map)))
+
+(: copy-graph : Graph -> Graph)
+(define (copy-graph g)
+  (first-value (copy-graph-into-graph (make-empty-graph #;(graph-spec g))
+                                      g)))
+
+(module+ test
+  (test-case "copy-graph-into-graph"
+    (let*-values ([(g) (add-node empty-graph
+                                 #hash((class . letter) (name . a)))]
+                  [(g) (add-node g #hash((class . letter) (name . b)))]
+                  [(g) (add-edge g '((a out) (b in)))]
+                  [(g* node-map) (copy-graph-into-graph empty-graph g)]
+                  [(g** node-map2) (copy-graph-into-graph g* g)])
+      (check-equal? (list->set (all-nodes g**))
+                    (set 'a 'b 'a2 'b2))
+      (check-equal? (list->set (all-edges g**))
+                    (set (E '(a out) '(b in))
+                         (E '(a2 out) '(b2 in)))))))

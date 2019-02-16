@@ -14,3 +14,23 @@ same type? What about (apply f a b c lst)?
 ;;     (for/fold ([ht h0])
 ;;               ([(k v) : (Values K V) h1])  ; HOW to do this in typed/racket?
 ;;       (hash-set ht k v))]
+
+----------
+
+(cast add1 (Any -> Any))
+
+/Applications/Racket v7.0/share/pkgs/typed-racket-lib/typed-racket/base-env/prims-contract.rkt:292:15: Type Checker: Error in macro expansion -- Type (case-> (-> Zero One) (-> One Positive-Byte) (-> Byte Positive-Index) (-> Index Positive-Fixnum) (-> Negative-Fixnum Nonpositive-Fixnum) (-> Nonpositive-Fixnum Fixnum) (-> Nonnegative-Integer Positive-Integer) (-> Negative-Integer Nonpositive-Integer) (-> Integer Integer) (-> Nonnegative-Exact-Rational Positive-Exact-Rational) (-> Exact-Rational Exact-Rational) (-> Nonnegative-Flonum Positive-Flonum) (-> Flonum Flonum) (-> Nonnegative-Single-Flonum Positive-Single-Flonum) (-> Single-Flonum Single-Flonum) (-> Nonnegative-Inexact-Real Positive-Inexact-Real) (-> Inexact-Real Inexact-Real) (-> Nonnegative-Real Positive-Real) (-> Real Real) (-> Float-Complex Float-Complex) (-> Single-Flonum-Complex Single-Flonum-Complex) (-> Inexact-Complex Inexact-Complex) (-> Number Number)) could not be converted to a contract: function type has two cases of arity 1
+  in: (U (case-> (-> Zero One) (-> One Positive-Byte) (-> Byte Positive-Index) (-> Index Positive-Fixnum) (-> Negative-Fixnum Nonpositive-Fixnum) (-> Nonpositive-Fixnum Fixnum) (-> Nonnegative-Integer Positive-Integer) (-> Negative-Integer Nonpositive-Integer...
+
+----------
+
+Unnecessary type annotations needed in for/fold.
+
+(: copy-nodes : Graph Graph -> (Values Graph (Hashof Node Node)))
+(define (copy-nodes g g1)  ; copies from g1 into g
+  (for/fold : (Values Graph (Hashof Node Node))
+            ([g g] [node-map : (Hashof Node Node) #hash()])
+            ([node (all-nodes g1)])
+    (let-values ([(g nodeid) (make-node g
+                               (cast (get-node-attrs g1 node) Attrs))])
+      (values g (hash-set node-map node nodeid)))))
