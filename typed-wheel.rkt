@@ -100,6 +100,12 @@
 ;; Collection utilities
 ;;
 
+(: hash-remove* (All (K V) (Hashof K V) K * -> (Hashof K V)))
+(define (hash-remove* h . keys)
+  (for/fold ([h : (Hashof K V) h])
+            ([key keys])
+    (hash-remove h key)))
+
 (: hash-merge (All (K V) (-> (Hashof K V) * (Hashof K V))))
 (define (hash-merge . hts)
   (cond

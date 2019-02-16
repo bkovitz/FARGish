@@ -12,6 +12,61 @@
 (require (for-syntax racket/syntax) racket/syntax)
 (module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
+(provide Graph
+         make-empty-graph
+         copy-graph
+         copy-graph-into-graph
+
+         gdo
+
+         make-node
+         add-node
+         add-edge
+         remove-node
+         remove-edge
+
+         has-node?
+         has-edge?
+         all-nodes
+         all-edges
+
+         edge->weight
+         set-edge-weight
+
+         port->neighboring-ports
+         port->neighboring-port
+         port->neighbors
+         port->neighbor
+         port-neighbor?
+         port-has-neighbor?
+         port->neighbors/role
+         no-neighbor-at-port?
+         has-neighbor-at-port?
+         port->incident-edges
+         port->incident-hops
+         other-node
+         node->neighbors
+         node->edges
+         node->ports
+         node->incident-hops
+
+         get-node-attrs
+         get-node-attr
+         set-node-attr
+         update-node-attr
+         merge-node-attrs
+         node-attr?
+
+         graph-set-var
+         graph-update-var
+         graph-remove-var
+         graph-push-var
+         graph-push-and-set-var
+         graph-pop-var
+
+         pr-graph
+         pr-node)
+
 (struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
                [ht-edge->weight : (Hashof Edge/UPair EdgeWeight)]
@@ -53,7 +108,11 @@
 (define g (make-empty-graph))
 (set! g g)
 
-; TODO Copy over test cases from graph1.rkt
+(module+ test
+  (test-case "gdo"
+    (define g (make-empty-graph))
+    (gdo make-node #hash((name . this-node)))
+    (check-equal? (all-nodes g) '(this-node))))
 
 ;; ======================================================================
 ;;
@@ -187,7 +246,7 @@
 ;;
 
 (: edge->weight (->* [Graph Edge] [EdgeWeight] EdgeWeight))
-(define (edge->weight g edge [weight-if-no-edge (void)])
+(define (edge->weight g edge [weight-if-no-edge 0.0])
   (let ([edge (edge->upair edge)])
     (hash-ref (Graph-ht-edge->weight g) edge (const weight-if-no-edge))))
 
@@ -280,12 +339,19 @@
         (set-add nodes nnode)
         nodes))))
 
+(: no-neighbor-at-port? : Graph Port-label Node -> Boolean)
+(define (no-neighbor-at-port? g port-label node)
+  (null? (port->neighbors g `(,node ,port-label))))
+
+(: has-neighbor-at-port? : Graph Port-label Node -> Boolean)
+(define (has-neighbor-at-port? g port-label node)
+  (not (no-neighbor-at-port? g port-label node)))
+
 (: port->incident-edges : Graph Port -> (Listof Edge/UPair))
 (define (port->incident-edges g port)
   (for/list ([nport : Port (port->neighboring-ports g port)])
     (E port nport)))
 
-;TODO UT
 ;Returns a list of edges, each edge represented as a list, with port first
 (: port->incident-hops : Graph Port -> (Listof Hop))
 (define (port->incident-hops g port)
@@ -381,10 +447,10 @@
         (check-equal? (edge->weight g `((a out) (b in)))
                       0.22)))
     (test-case "set-edge-weight"
-      (let* ([_ (check-pred void? (edge->weight g '((a out) (b in))))]
+      (let* ([_ (check-equal? (edge->weight g '((a out) (b in))) 0.0)]
              [g (set-edge-weight g '((a out) (b in)) 0.4)]
              ; edge does not exist, so no effect
-             [_ (check-pred void? (edge->weight g '((a out) (b in))))]
+             [_ (check-equal? (edge->weight g '((a out) (b in))) 0.0)]
              [g (add-edge g '((a out) (b in)) 0.6)]
              [_ (check-equal? (edge->weight g '((a out) (b in))) 0.6)]
              [g (set-edge-weight g '((a out) (b in)) 0.4)]
@@ -494,8 +560,6 @@
             [ht-node->attrs ht-node->attrs]))])))
 
 ; No effect if node does not exist; node is not created.
-;(: update-node-attr (->* [Graph Node Any (Any -> Any)] [(-> Any)] Graph))
-;(: update-node-attr (All (V) Graph Node Any (V -> V) (-> V) -> Graph))
 (: update-node-attr : Graph Node Any (Any -> Any) (-> Any) -> Graph)
 (define (update-node-attr g node k f failure-result)
   (cond
@@ -723,3 +787,39 @@
       (check-equal? (list->set (all-edges g**))
                     (set (E '(a out) '(b in))
                          (E '(a2 out) '(b2 in)))))))
+
+;; ======================================================================
+;;
+;; Printing a graph
+;; 
+
+(: pr-node : Graph Node -> Void)
+(define (pr-node g nodeid)
+  (if (has-node? g nodeid)
+    (begin
+      (printf " ~a ~a\n" (~a nodeid #:min-width 12)
+                         (hash-remove* (cast (get-node-attrs g nodeid)
+                                             (Hashof Any Any))
+                                       'id 'node->actions))
+      (for* ([port : Port (node->ports g nodeid)]
+             [neighboring-port : Port (port->neighboring-ports g port)])
+        (define weight (~r (edge->weight g `(,port ,neighboring-port))
+                           #:precision '(= 1)))
+        (printf "  ~a -- ~a ~a\n" port neighboring-port weight)))
+    (printf "No such node: ~a\n" nodeid))) 
+
+(: pr-graph : Graph -> Void)
+(define (pr-graph g)
+  (displayln "nodes:")
+  (for ([nodeid (sort (all-nodes g)
+                      (λ (id1 id2) (string<? (~a id1) (~a id2))))])
+    (pr-node g nodeid)))
+
+; TODO Move this to model.rkt
+;(: pr-group : Graph Node -> Void)
+;(define (pr-group g groupid)
+;  (displayln "nodes:")
+;  (for ([nodeid (cons groupid
+;                      (sort (members-of g groupid)
+;                            (λ (id1 id2) (string<? (~a id1) (~a id2)))))])
+;    (pr-node g nodeid)))

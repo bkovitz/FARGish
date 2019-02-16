@@ -12,7 +12,7 @@
 (define-type Hop Edge/List)
 (define-type Edge (U Edge/UPair Edge/List))
 (define-type Edge* (Setof Node))  ; 2 nodes
-(define-type EdgeWeight (U Flonum Void))
+(define-type EdgeWeight Flonum)
 
 ; Name to show in visualization of a graph in place of node's id
 (define-type DisplayName (U Symbol Integer String))
