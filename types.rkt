@@ -4,12 +4,10 @@
 
 (provide (all-defined-out))
 
-(define-type (Hashof K V) (Immutable-HashTable K V))
-
 (define-type Node (U Symbol Integer))  ; a node's id
 (define-type Port-label (U Symbol Integer))
 (define-type Port (List Node Port-label))
-(define-type Edge/UPair (UnorderedPair Port))  ; 2 ports
+(define-type Edge/UPair (UnorderedPair Port))
 (define-type Edge/List (List Port Port))
 (define-type Hop Edge/List)
 (define-type Edge (U Edge/UPair Edge/List))
@@ -19,6 +17,7 @@
 ; Name to show in visualization of a graph in place of node's id
 (define-type DisplayName (U Symbol Integer String))
 
+(define-type Attrs (Hashof Any Any)) ; attributes (of a Node, or anything)
 (define-type ATable (Hashof Node Flonum)) ; activations table
 
 (: atable (->* () #:rest-star (Node Flonum) ATable))

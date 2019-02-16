@@ -8,6 +8,27 @@
 
 (provide (all-defined-out))
 
+(define-type (Hashof K V) (Immutable-HashTable K V))
+
+; cond with #:define
+(define-syntax cond
+  (syntax-rules (else =>)
+    [(_)
+     (raise-arguments-error 'cond "all clauses failed")]
+    [(_ #:define name expr more ...)
+     (let* ([name expr])
+       (begin (cond more ...)))]
+    [(_ #:match-define pat expr more ...)
+     (match-let ([pat expr])
+       (begin (cond more ...)))]
+    [(_ [c => func] more ...)
+     (let ([c-value c])
+       (if c-value (func c-value) (cond more ...)))]
+    [(_ [else body0 body ...])
+     (let () body0 body ...)]
+    [(_ [c body0 body ...] more ...)
+     (if c (let () body0 body ...) (cond more ...))]))
+
 (define-syntax-rule (first-value expr)
   (call-with-values (λ () expr)
     (λ (result . ignored) result)))
@@ -21,6 +42,15 @@
 ;    (call-with-values (λ () (apply f args))
 ;      (λ ([result : rng0] . ignored) result))))
 
+;; ======================================================================
+;;
+;; Currying
+;;
+
+(: curry+ : Number * -> (-> Number * Number))
+(define (curry+ . args)
+  (let ([sum (apply + args)])
+    (λ args (apply + sum args))))
 
 ;; ======================================================================
 ;;
@@ -64,3 +94,24 @@
 (: list->upair (All (A) (-> (List A A) (UnorderedPair A))))
 (define (list->upair lst)
   (UnorderedPair (car lst) (cadr lst)))
+
+;; ======================================================================
+;;
+;; Collection utilities
+;;
+
+(: hash-merge (All (K V) (-> (Hashof K V) * (Hashof K V))))
+(define (hash-merge . hts)
+  (cond
+    [(null? hts) ((inst hash K V))]
+    #:define h0 (car hts)
+    [(null? (cdr hts)) h0]
+    #:define h1 (cadr hts)
+    [else
+      (let loop ([h0 : (Hashof K V) h0]
+                 [pos (hash-iterate-first h1)])
+        (cond
+          [(not pos) (apply hash-merge h0 (cddr hts))]
+          [else (let-values ([(k v) (hash-iterate-key+value h1 pos)])
+                  (loop (hash-set h0 k v)
+                        (hash-iterate-next h1 pos)))]))]))

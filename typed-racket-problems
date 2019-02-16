@@ -1,0 +1,16 @@
+> apply
+- : (All (a b) (-> (-> a * b) (Listof a) b))
+#<procedure:apply>
+
+(apply f args) is the only form, and it requires that all of f's args be the
+same type? What about (apply f a b c lst)?
+
+----------
+
+;  (case-lambda
+;    [() ]
+;    [(h0) h0]
+;    [([h0 : (Hashof K V)] [h1 : (Hashof K V)])
+;;     (for/fold ([ht h0])
+;;               ([(k v) : (Values K V) h1])  ; HOW to do this in typed/racket?
+;;       (hash-set ht k v))]
