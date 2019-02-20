@@ -291,6 +291,9 @@
 (define (tag? g node)
   (g:node-attr? g node 'tag?))
 
+(define (non-tag? g node)
+  (not (tag? g node)))
+
 (define (node-is-a? g node ancestor)
   (f:nodeclass-is-a? (get-spec g) (nodeclass*-of g node) ancestor))
 
@@ -306,6 +309,8 @@
       [(node-is-a? g (car nodes) nodeclass-name) (car nodes)]
       [else (loop (cdr nodes))])))
 
+; Returns a set of all nodes reachable from start-node's port named port-label,
+; and all nodes reachable from those nodes' port named port-label, and so on.
 ;(: follow-port-label/rec : Graph Node Port-label)
 (define (follow-port-label/rec g start-node port-label)
   (let loop ([result (set)]
@@ -329,6 +334,12 @@
 (define (members-of/rec g node)
   (follow-port-label/rec g node 'members))
 
+;(: filter/g : Graph
+(define (filter/g g pred?/g nodes)
+  (for/list ([node nodes]
+             #:when (pred?/g g node))
+    node))
+
 (module+ test
   (test-case "members-of/rec"
     (define spec
@@ -348,6 +359,31 @@
                              (set c4))]
           [(_) (check-equal? (members-of/rec g c3)
                              (set))])
+      (void)))
+  
+  (test-case "filter/g"
+    (define spec
+      (farg-model-spec
+        (nodeclass (number n)
+          (name n)
+          (value n))
+        ;(tagclass a-tag)  TODO This is all that should be necessary
+        (tagclass a-tag
+          (applies-to ([node])
+            (condition (const #t))))
+        ))
+    (let ([g (make-empty-graph spec)]
+          [(g n1) (make-node g 'number 1)]
+          [(g n2) (make-node g 'number 2)]
+          [(g n3) (make-node g 'number 3)]
+          [(g n4) (make-node g 'number 4)]
+          [(g t1) (make-tag g '(a-tag) n1)]  ; TODO Just 'a-tag, not '(a-tag)
+          [(g t2) (make-tag g '(a-tag) n2)]
+          [(g t4) (make-tag g '(a-tag) n4)]
+          [_ (check-equal? (list->set (filter/g g non-tag? (all-nodes g)))
+                           (set n1 n2 n3 n4))]
+          [_ (check-equal? (list->set (filter/g g tag? (all-nodes g)))
+                           (set t1 t2 t4))])
       (void))))
 
 ;; ======================================================================
