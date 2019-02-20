@@ -2,7 +2,7 @@
 ;
 ; Goes with numbo1.rkt. Probably will be obsolete soon after numbo1.rkt is done.
 
-#lang debug at-exp errortrace racket
+#lang debug at-exp racket
 
 (require debug/repl errortrace)
 (require "wheel.rkt"
@@ -305,6 +305,44 @@
       [(null? nodes) (void)]
       [(node-is-a? g (car nodes) nodeclass-name) (car nodes)]
       [else (loop (cdr nodes))])))
+
+;(: members-of/rec : Graph Node -> (Setof Node))
+(define (members-of/rec g node)
+  (let loop ([result (set)]
+             [already-visited (set)]
+             [to-visit (list node)])
+    (cond
+      [(null? to-visit) result]
+      [else
+        (let ([n (car to-visit)]
+              [ms (members-of g n)]
+              [already-visited (set-add already-visited n)])
+          (loop (apply set-add* result ms)
+                already-visited
+                (append (filter-not (set-member?/ already-visited)
+                                    ms)
+                        (cdr to-visit))))])))
+
+(module+ test
+  (test-case "members-of/rec"
+    (define spec
+      (farg-model-spec
+        (nodeclass container
+          (is-a 'ctx))))
+    (let ([g (make-empty-graph spec)]
+          [(g c1) (make-node g 'container)]
+          [(g c2) (make-node/in g c1 'container)]
+          [(g c3) (make-node/in g c1 'container)]
+          [(_) (check-equal? (members-of/rec g c1)
+                             (set c2 c3))]
+          [(g c4) (make-node/in g c2 'container)]
+          [(_) (check-equal? (members-of/rec g c1)
+                             (set c2 c3 c4))]
+          [(_) (check-equal? (members-of/rec g c2)
+                             (set c4))]
+          [(_) (check-equal? (members-of/rec g c3)
+                             (set))])
+      (void))))
 
 ;; ======================================================================
 ;;

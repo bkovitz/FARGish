@@ -13,35 +13,20 @@
 (define empty-hash (hash))
 (define empty-hasheq (hasheq))
 
-; Useful in (map appl list-of-funcs list-of-args)
-(define (appl f . args) (apply f args))
-
-; Useful for SACC?
-; MAYBE Support procedures with variable arity. This might run slowly, though.
-(define (apply/curried f . args)
-  (let*-values ([(f-args more-args) (split-at args (procedure-arity f))]
-                [(g) (apply f f-args)])
-    (cond
-      [(null? more-args) g]
-      [else (apply apply/curried g more-args)])))
-; MAYBE Make a define/curried macro that does the above automatically so
-; that the caller doesn't need to care.
-
-; Quick curries
-
-(define (cons/ a)
-  (λ (d)
-    (cons a d)))
-
-(define (apply-to/ . args)
-  (λ (f)
-    (apply f args)))
-
-(define (set-add/ . args)
-  (λ (st)
-    (for/fold ([st st])
-              ([arg args])
-      (set-add st arg))))
+; 'let' that works like let* and let*-values depending on whether you put
+; parentheses around the variables to bind to. The same form allows named
+; 'let', though without multiple values. You must put something in the body.
+; TODO Make this work with Typed Racket.
+(define-syntax (let stx)
+  (syntax-parse stx
+    [(_ () body:expr ...+)
+     #'(begin body ...)]
+    [(_ ([name:id e:expr] more ...) body:expr ...+)
+     #'((λ (name) (let (more ...) body ...)) e)]
+    [(_ ([(name:id ...+) e:expr] more ...) body:expr ...+)
+     #'(call-with-values (λ () e) (λ (name ...) (let (more ...) body ...)))]
+    [(_ letname:id ([name:id e:expr] ...) body:expr ...+)
+     #'(letrec ([letname (λ (name ...) body ...)]) (letname e ...))]))
 
 ; cond with #:define
 (define-syntax cond
@@ -77,6 +62,42 @@
      (~>> (f args ... x) more ...)]
     [(_ x f more ...)
      (~>> (f x) more ...)]))
+
+; Useful in (map appl list-of-funcs list-of-args)
+(define (appl f . args) (apply f args))
+
+; Useful for SACC?
+; MAYBE Support procedures with variable arity. This might run slowly, though.
+(define (apply/curried f . args)
+  (let*-values ([(f-args more-args) (split-at args (procedure-arity f))]
+                [(g) (apply f f-args)])
+    (cond
+      [(null? more-args) g]
+      [else (apply apply/curried g more-args)])))
+; MAYBE Make a define/curried macro that does the above automatically so
+; that the caller doesn't need to care.
+
+; Quick curries
+
+(define (not/ f)
+  (compose1 not f))
+
+(define (cons/ a)
+  (λ (d)
+    (cons a d)))
+
+(define (set-member?/ st)
+  (curry set-member? st))
+
+(define (apply-to/ . args)
+  (λ (f)
+    (apply f args)))
+
+(define (set-add/ . args)
+  (λ (st)
+    (for/fold ([st st])
+              ([arg args])
+      (set-add st arg))))
 
 (define (without-voids seq)
   (for/list ([x seq] #:when (not (void? x)))

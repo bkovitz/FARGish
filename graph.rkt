@@ -9,6 +9,7 @@
 (require "types.rkt"
          "id-set.rkt")
 (require "typed-wheel.rkt")
+(require racket/performance-hint)
 (require (for-syntax racket/syntax) racket/syntax)
 (module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
@@ -66,6 +67,8 @@
 
          pr-graph
          pr-node)
+
+(begin-encourage-inline
 
 (struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
@@ -203,10 +206,12 @@
 
 (: remove-edge : Graph Edge -> Graph)
 (define (remove-edge g e)
-  (define edge (edge->list e))
-  (match-define `(,port1 ,port2) edge)
-  (define edge* (edge->upair e))
-  (let* ([p->nps (Graph-ht-port->neighboring-ports g)]
+;  (define edge (edge->list e))
+;  (match-define `(,port1 ,port2) edge)
+;  (define edge* (edge->upair e))
+  (define-values (port1 port2) (edge->ports e))
+  (let* ([edge* (edge->upair e)]
+         [p->nps (Graph-ht-port->neighboring-ports g)]
          [p->nps (hash-update p->nps
                               port1
                               (λ ([st : (Setof Port)]) (set-remove st port2))
@@ -279,6 +284,11 @@
   (let ([edge (edge->list edge)])
     (list (port->node (first edge)) (port->node (second edge)))))
 
+(: edge->ports : Edge -> (Values Port Port))
+(define (edge->ports edge)
+  (let ([edge (edge->list edge)])
+    (values (first edge) (second edge))))
+
 (: hop->to-node : Hop -> Node)
 (define hop->to-node caadr)
 
@@ -300,12 +310,12 @@
 (define (port->neighboring-port g port)
   (let ([nports (port->neighboring-ports g port)])
     (cond
-      [(null? nports) (void)]
+      [(set-empty? nports) (void)]
       [else (car (set->list nports))])))
 
 (: port->neighbors : Graph Port -> (Listof Node))
 (define (port->neighbors g port)
-  (for/list ([nport : Port (port->neighboring-ports g port)])
+  (for/list ([nport : Port (in-set (port->neighboring-ports g port))])
     (port->node nport)))
 
 ; Returns up to one neighbor of port, chosen arbitrarily.
@@ -761,6 +771,8 @@
       (if (has-edge? g g-edge)
         g
         (add-edge g g-edge (edge->weight g1 edge))))))
+
+) ; begin-encourage-inline
 
 ; Returns two values: g, node-map
 (: copy-graph-into-graph : Graph Graph -> (Values Graph (Hashof Node Node)))

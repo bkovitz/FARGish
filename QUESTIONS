@@ -16,3 +16,28 @@ Why is scrolling so slow in DrRacket? How to speed it up?
 Way to get decent data visualization without writing lots of code.
 
 How to grab and move edge in graph visualization.
+
+--
+
+How do you do polymorphism in Racket? Generic interfaces: 30x slower, and not
+much used? Go to OO (classes)?
+
+How do you write readable code in Racket? All I ever seem to write is a sprawl
+of functions. That's pretty much all I've seen. Do you just put up with that?
+How do you write code so you can get the gist of it without reading it very
+carefully?
+
+How do you use the GUI library as it's meant to be used? How would you make a
+graph where the user can move nodes around on the screen?
+
+How do you get good use out of the REPL?
+
+If you run the Racket REPL from the command line (as with XREPL), how do you
+make all your modified code reload?
+
+How do you run unit tests with Typed Racket? (rackunit doesn't show the line
+number of a failing assertion; 'expect' doesn't work with Typed Racket.)
+
+Is it normal for DrRacket to run so slowly? Are there things I can do to speed
+up compilation and unit-testing?
+
