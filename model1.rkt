@@ -306,22 +306,28 @@
       [(node-is-a? g (car nodes) nodeclass-name) (car nodes)]
       [else (loop (cdr nodes))])))
 
-;(: members-of/rec : Graph Node -> (Setof Node))
-(define (members-of/rec g node)
+;(: follow-port-label/rec : Graph Node Port-label)
+(define (follow-port-label/rec g start-node port-label)
   (let loop ([result (set)]
              [already-visited (set)]
-             [to-visit (list node)])
+             [to-visit (list start-node)])
     (cond
       [(null? to-visit) result]
       [else
-        (let ([n (car to-visit)]
-              [ms (members-of g n)]
-              [already-visited (set-add already-visited n)])
-          (loop (apply set-add* result ms)
+        (let ([node (car to-visit)]
+              [next-nodes (port->neighbors g `(,node ,port-label))]
+              [already-visited (set-add already-visited node)]
+              [old-nodes (set-union already-visited (list->set (cdr to-visit)))]
+              [to-visit (append (filter-not (set-member?/ old-nodes)
+                                            next-nodes)
+                                (cdr to-visit))])
+          (loop (apply set-add* result next-nodes)
                 already-visited
-                (append (filter-not (set-member?/ already-visited)
-                                    ms)
-                        (cdr to-visit))))])))
+                to-visit))])))
+
+;(: members-of/rec : Graph Node -> (Setof Node))
+(define (members-of/rec g node)
+  (follow-port-label/rec g node 'members))
 
 (module+ test
   (test-case "members-of/rec"
