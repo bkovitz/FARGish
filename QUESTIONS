@@ -41,3 +41,6 @@ number of a failing assertion; 'expect' doesn't work with Typed Racket.)
 Is it normal for DrRacket to run so slowly? Are there things I can do to speed
 up compilation and unit-testing?
 
+How do you debug in Racket? How do you see what's going in a program? #r and
+displayln don't seem to be enough. Stack traces in DrRacket usually omit much
+of the stack, including the relevant parts.

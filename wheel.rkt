@@ -86,8 +86,11 @@
   (λ (d)
     (cons a d)))
 
-(define (set-member?/ st)
+(define (set->pred st)
   (curry set-member? st))
+
+(define (hash->pred ht)
+  (curry hash-has-key? ht))
 
 (define (apply-to/ . args)
   (λ (f)

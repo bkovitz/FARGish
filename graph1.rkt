@@ -51,6 +51,7 @@
          node->incident-hops
          nodes->hop-between 
          other-node
+         other-port-label
 
          edge->set
          edge->list
@@ -387,6 +388,11 @@
   (match hop
     [`((,_ ,_) (,node ,_))
       node]))
+
+(define (other-port-label hop)
+  (match hop
+    [`((,_ ,_) (,_ ,label))
+      label]))
 
 ;Returns one hop between the nodes, or void if none. If there is more than one
 ;hop between the nodes, only returns one of them.

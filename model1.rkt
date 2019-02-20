@@ -33,8 +33,6 @@
 (define (make-empty-graph spec)
   (struct-copy g:graph g:empty-graph [spec spec]))
 
-
-
 (define (make-choice-pairs f choices)
   (for/fold ([pairs '()] [w 0.0])
             ([choice choices])
@@ -109,11 +107,14 @@
 (define port->incident-edges g:port->incident-edges)
 (define port->incident-hops g:port->incident-hops)
 (define has-neighbor-from-port-label? g:has-neighbor-from-port-label?)
+(define has-node? g:has-node?)
+(define has-edge? g:has-edge?)
 (define node->neighbors g:node->neighbors)
 (define node->ports g:node->ports)
 (define node->incident-hops g:node->incident-hops)
 (define nodes->hop-between g:nodes->hop-between)
 (define other-node g:other-node)
+(define other-port-label g:other-port-label)
 (define edge->set g:edge->set)
 (define edge->list g:edge->list)
 (define edge->nodes g:edge->nodes)
@@ -202,9 +203,12 @@
                          @~a{No such class: @classname
                              args = @args}))]
                 [(attrs) (f:args->node-attrs nodeclass args)]
-                [(g node) (g:make-node g attrs)]
-                [(g) (record-new-node g node)]
-                [(g) (boost-salience-of g node)])
+                [(g node) (g:make-node g attrs)])
+    (post-make-node g node)))
+
+(define (post-make-node g node)
+  (let ([g (record-new-node g node)]
+        [g (boost-salience-of g node)])
     (values g node)))
 
 (define/g (add-node g . args)
@@ -226,6 +230,12 @@
   (for/fold ([g g])
             ([value vs])
     (add-node/in g ctx classname value)))
+
+; A placeholder's ctor is not called. It gets a class and no other attributes
+; except 'placeholder? = #t.
+(define (make-placeholder g classname)
+  (let ([(g node) (g:make-node g (hash 'class classname 'placeholder? #t))])
+    (post-make-node g node)))
 
 (define/g (remove-nodes/in g ctx)
   (for/fold ([g g])
@@ -311,7 +321,7 @@
 
 ; Returns a set of all nodes reachable from start-node's port named port-label,
 ; and all nodes reachable from those nodes' port named port-label, and so on.
-;(: follow-port-label/rec : Graph Node Port-label)
+;(: follow-port-label/rec : Graph Node Port-label -> Graph)
 (define (follow-port-label/rec g start-node port-label)
   (let loop ([result (set)]
              [already-visited (set)]
@@ -323,7 +333,7 @@
               [next-nodes (port->neighbors g `(,node ,port-label))]
               [already-visited (set-add already-visited node)]
               [old-nodes (set-union already-visited (list->set (cdr to-visit)))]
-              [to-visit (append (filter-not (set-member?/ old-nodes)
+              [to-visit (append (filter-not (set->pred old-nodes)
                                             next-nodes)
                                 (cdr to-visit))])
           (loop (apply set-add* result next-nodes)
@@ -384,6 +394,90 @@
                            (set n1 n2 n3 n4))]
           [_ (check-equal? (list->set (filter/g g tag? (all-nodes g)))
                            (set t1 t2 t4))])
+      (void))))
+
+;; ======================================================================
+;;
+;; Copying nodes
+;;
+
+; Makes a placeholder in new-ctx for each of orig-nodes, calls (after-copy g
+; orig-node new-node) after making each node, and makes edges among new-nodes
+; and new-ctx corresponding to relevant-port-labels among orig-nodes and
+; orig-ctx.
+;(: copy-into/as-placeholders : Graph Node Node (Listof Node) (Listof Port-label)
+;                               (Graph Node Node -> Graph) -> Graph)
+(define (copy-into/as-placeholders
+          g orig-ctx new-ctx orig-nodes relevant-port-labels after-copy)
+  (define (make-placeholders)
+    (for/fold ([g g] [nodemap (hash orig-ctx new-ctx)])
+              ([orig-node orig-nodes])
+      (let ([(g new-node) (make-placeholder g (class-of g orig-node))]
+            [g (after-copy g orig-node new-node)])
+        (values g (hash-set nodemap orig-node new-node)))))
+  (define (make-edges g nodemap)
+    (let ([orig-node? (hash->pred nodemap)]
+          [relevant-port-label? (set->pred (list->set relevant-port-labels))])
+      (for*/fold ([g g])
+                 ([(orig-node new-node) nodemap]
+                  [port-label relevant-port-labels]
+                  [orig-hop (port->incident-hops g `(,orig-node ,port-label))])
+        (cond
+          #:define neighbor-label (other-port-label orig-hop)
+          [(not (relevant-port-label? neighbor-label))
+           g]
+          #:define orig-neighbor (other-node orig-hop)
+          [(not (orig-node? orig-neighbor))
+           g]
+          #:define new-neighbor (hash-ref nodemap orig-neighbor)
+          [else (add-edge g `((,new-node ,port-label)
+                              (,new-neighbor ,neighbor-label)))]))))
+  (let ([(g nodemap) (make-placeholders)]
+        [g (make-edges g nodemap)])
+    g))
+
+;(: mark-copying : Graph Node Node -> Graph)
+(define (mark-copying g from-node to-node)
+  (add-edge g `((,from-node copying-to) (,to-node copying-from))))
+
+(define (copying-from g node)
+  (port->neighbor g `(,node copying-from)))
+
+(define (copying-to g node)
+  (port->neighbor g `(,node copying-to)))
+
+(module+ test
+  (test-case "copy-into/as-placeholders"
+    (define spec
+      (farg-model-spec
+        (nodeclass (number n)
+          (name n)
+          (value n))
+        (nodeclass c
+          (is-a 'ctx))))
+
+    (let ([g (make-empty-graph spec)]
+          [(g c1) (make-node g 'c)]
+          [(g c2) (make-node g 'c)]
+          [g (add-nodes/in g c1 'number '(1 2 3))]
+          [g (add-edge g `((1 next) (2 prev)))]
+          [g (add-edge g `((2 next) (3 prev)))]
+          [g (add-edge g `((1 next) (3 ignore)))]
+          [g (copy-into/as-placeholders g
+                                        c1 c2
+                                        (list 1 2 3)
+                                        '(members member-of prev next)
+                                        mark-copying)]
+          [(n1 n2 n3) (values (copying-to g 1)
+                              (copying-to g 2)
+                              (copying-to g 3))]
+          [member-of-c2? (λ (n) (member-of? g c2 n))]
+          [_ (check-pred member-of-c2? n1)]
+          [_ (check-pred member-of-c2? n2)]
+          [_ (check-pred member-of-c2? n3)]
+          [_ (check-true (has-edge? g `((,n1 next) (,n2 prev))))]
+          [_ (check-true (has-edge? g `((,n2 next) (,n3 prev))))]
+          [_ (check-true (not (has-edge? g `((,n1 next) (,n3 ignore)))))])
       (void))))
 
 ;; ======================================================================
