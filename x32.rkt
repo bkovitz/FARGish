@@ -33,7 +33,7 @@
     (nodeclass (number n)
       (value n)
       (name n))
-    (nodeclass placeholder)
+    ;(nodeclass placeholder)
     (nodeclass *)
     (nodeclass =)
     ; Tags
@@ -80,6 +80,27 @@
 (define (node->num-digits g node)
   (->num-digits (value-of g node)))
 
+(define (node-is-placeholder? g node)
+  (and (node-attr? g node 'placeholder?)
+       (void? (value-of g node))))
+
+;; ======================================================================
+;;
+;; Problems (that is, numbles)
+;;
+
+(define (make-numble g target . bricks)
+  (let ([(g numble) (make-node g 'problem)]
+        [(g target-node) (make-node/in g numble 'number target)]
+        [g (add-tag g 'target target-node)]
+        [g (make-permanent g target-node)])
+    (for/fold ([g g])
+              ([brick bricks])
+      (let ([(g brick-node) (make-node/in g numble 'number brick)]
+            [g (add-tag g 'brick brick-node)]
+            [g (make-permanent g brick-node)])
+        g))))
+
 ;; ======================================================================
 ;;
 ;; Quick matches
@@ -109,7 +130,7 @@
          [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
     (if node2
        (list (λ (g)
-               (let*-values ([(g tag) (make-tag g 'same #R node1 #R node2)]
+               (let*-values ([(g tag) (make-tag g 'same node1 node2)]
                              [(g) (add-tag-support g tag node1)]
                              [(g) (add-tag-support g tag node2)])
                  g)))
@@ -126,6 +147,12 @@
                              [(g) (add-tag-support g tag node2)])
                  g)))
        '())))
+
+;TODO Find something to fill node with: 'consume or 'fill
+;(define (qm/fill g node)
+;  (if (not (node-is-placeholder? g node))
+;    g
+;    (
 
 (define qms (list qm/num-digits qm/same qm/greater-than))
 
@@ -148,7 +175,8 @@
     g))
 
 (define (step g)
-  (let* ([g (quick-match g)]
+  (let* ([g (decay-salience/all g)]
+         [g (quick-match g)]
          [g (support->t+1 g)])
     g))
 
@@ -158,9 +186,9 @@
 ;;
 
 (define g
-  (let*-values
+  (let
     ([(g) (make-empty-graph spec)]
-     ;temporal trace
+     ;old temporal trace
      [(g trace) (make-node g 'trace)]
      ;t0
      [(g t0) (make-node/in g trace 't 0)]
@@ -215,7 +243,11 @@
 
 (gdo step)
 (gdo step)
-(gdo copy-trace 'trace)
+(define new-trace (gdo copy-trace 'trace))
+(define new-numble (gdo make-numble 100 9 10 7 3))
+(gdo make-member-of (path->node g new-trace 'first) new-numble)
+(gdo step)
+(gdo step)
 ;(gdo copy-members 'equation 'equation2)
 
 (pr-graph g)

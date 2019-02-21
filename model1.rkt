@@ -309,6 +309,20 @@
 
 ;; ======================================================================
 ;;
+;; Path
+;;
+
+;(: path->node : Graph Node Port-label * -> (U Void Node))
+(define (path->node g node . port-labels)
+  (let loop ([node node] [port-labels port-labels])
+    (cond
+      [(null? port-labels) node]
+      #:define next-node (port->neighbor g `(,node ,(car port-labels)))
+      [(void? next-node) (void)]
+      [else (loop next-node (cdr port-labels))])))
+
+;; ======================================================================
+;;
 ;; Functions to search for nodes
 ;;
 
@@ -492,6 +506,17 @@
 
 ;; ======================================================================
 ;;
+;; Miscellaneous node functions
+;;
+
+;(: make-member-of : Graph Node Node * -> Graph)
+(define (make-member-of g ctx . nodes)
+  (for/fold ([g g])
+            ([node nodes])
+    (add-edge g `((,ctx members) (,node member-of)))))
+
+;; ======================================================================
+;;
 ;; Predicates
 ;;
 
@@ -561,9 +586,18 @@
 (define (decay-saliences-in g ctx)
   (for/fold ([g g])
             ([node (members-of g ctx)])
-    (g:update-node-attr g node 'salience
+    (decay-salience-of g node)))
+
+(define (decay-salience-of g node)
+  (g:update-node-attr g node 'salience
       (curry * salience-decay)
-      0.0)))
+      0.0))
+
+;(: decay-salience : Graph -> Graph)
+(define (decay-salience/all g)
+  (for/fold ([g g])
+            ([node (all-nodes g)])
+    (decay-salience-of g node)))
 
 (define (seq-weighted-by-salience g nodes)
   (seq-weighted-by (λ (node) (salience-of g node))

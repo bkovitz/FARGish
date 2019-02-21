@@ -28,10 +28,17 @@
 ; (: Graph Node -> (Values Graph Node))
 (define (copy-trace g old-trace)
   (let ([(g new-trace) (make-node g 'trace)]
-        [old-nodes (filter/g g non-tag? (members-of/rec g old-trace))]
+        ;[old-nodes (filter/g g non-tag? (members-of/rec g old-trace))]
+        [old-nodes (walk g old-trace node->neighbors/trace)]
         [g (copy-into/as-placeholders g old-trace
                                         new-trace
                                         old-nodes
                                         ground-structure-port-labels
                                         mark-copying)])
     (values g new-trace)))
+
+(define (node->neighbors/trace g node)
+  (for/list ([next-node (port->neighbors g `(,node members))]
+             #:when (and (non-tag? g next-node)
+                         (not (node-is-a? g next-node 'problem))))
+    next-node))
