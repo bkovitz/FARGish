@@ -319,10 +319,8 @@
       [(node-is-a? g (car nodes) nodeclass-name) (car nodes)]
       [else (loop (cdr nodes))])))
 
-; Returns a set of all nodes reachable from start-node's port named port-label,
-; and all nodes reachable from those nodes' port named port-label, and so on.
-;(: follow-port-label/rec : Graph Node Port-label -> Graph)
-(define (follow-port-label/rec g start-node port-label)
+;(: walk : Graph Node (-> Graph Node (Listof Node)) -> (Setof Node))
+(define (walk g start-node node->next-nodes)
   (let loop ([result (set)]
              [already-visited (set)]
              [to-visit (list start-node)])
@@ -330,7 +328,7 @@
       [(null? to-visit) result]
       [else
         (let ([node (car to-visit)]
-              [next-nodes (port->neighbors g `(,node ,port-label))]
+              [next-nodes (node->next-nodes g node)]
               [already-visited (set-add already-visited node)]
               [old-nodes (set-union already-visited (list->set (cdr to-visit)))]
               [to-visit (append (filter-not (set->pred old-nodes)
@@ -340,11 +338,23 @@
                 already-visited
                 to-visit))])))
 
+;A "stepper" for the 'walk' function.
+;(: node->neighbors/port-label/ Port-label -> (-> Graph Node -> (Listof ;Node)))
+(define (node->neighbors/port-label/ port-label)
+  (λ (g node)
+    (port->neighbors g `(,node ,port-label))))
+
+; Returns a set of all nodes reachable from start-node's port named port-label,
+; and all nodes reachable from those nodes' port named port-label, and so on.
+;(: follow-port-label/rec : Graph Node Port-label -> Graph)
+(define (follow-port-label/rec g start-node port-label)
+  (walk g start-node (node->neighbors/port-label/ port-label)))
+
 ;(: members-of/rec : Graph Node -> (Setof Node))
 (define (members-of/rec g node)
   (follow-port-label/rec g node 'members))
 
-;(: filter/g : Graph
+;(: filter/g : Graph (-> Graph Node Boolean) (Listof Node) -> (Listof Node))
 (define (filter/g g pred?/g nodes)
   (for/list ([node nodes]
              #:when (pred?/g g node))

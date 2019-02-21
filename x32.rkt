@@ -8,6 +8,7 @@
          "model1.rkt"
          "support.rkt"
          "shorthand.rkt"
+         "trace.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass portclass)
@@ -46,7 +47,7 @@
                    [lesser (of-class 'number) (by-ports 'lesser 'less-than)])
         (condition (value-pred?/g > greater lesser))))
     (tagclass same
-      (applies-to ([node1 as-tag] [node2 as-tag])
+      (applies-to ([node1 as-tag] [node2 as-tag]) ;TODO not same node
         (condition (and?/g (same-class?/g node1 node2)
                            (value-pred?/g equal? node1 node2)))))
     (tagclass (num-digits n)
@@ -103,11 +104,12 @@
 
 (define (qm/same g node1)
   (let* ([fi (λ (node2)
-               (tagclass-applies-to? g 'same node1 node2))]
+               (and (not (eq? node1 node2))
+                    (tagclass-applies-to? g 'same node1 node2)))]
          [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
     (if node2
        (list (λ (g)
-               (let*-values ([(g tag) (make-tag g 'same node1 node2)]
+               (let*-values ([(g tag) (make-tag g 'same #R node1 #R node2)]
                              [(g) (add-tag-support g tag node1)]
                              [(g) (add-tag-support g tag node2)])
                  g)))
@@ -149,65 +151,6 @@
   (let* ([g (quick-match g)]
          [g (support->t+1 g)])
     g))
-
-;; ======================================================================
-;;
-;; "Copying" a temporal trace
-;;
-
-; TODO This should be done by quick-matching, not hard-coded.
-(define (copy-trace g trace)
-  (let*-values ([(g new-trace) (make-node g 'trace)]
-                [(g) (mark-copying g trace new-trace)]
-                [(g) (let loop ([g g] [t (port->neighbor g `(,trace first))])
-                       (cond
-                         [(void? t) g]
-                         [else (loop (copy-t g t new-trace)
-                                     (port->neighbor g `(,t next)))]))])
-    (values g new-trace)))
-
-(define (copy-t g t into-trace)
-  (let*-values ([(g new-t) (make-node/in g into-trace 't (value-of g t))]
-                [(g) (mark-copying g t new-t)]
-                [(g) (add-parallel-edge g new-t t 'prev)])
-    g))
-
-(define (mark-copying g from-node to-node)
-  (add-edge g `((,from-node copying-to) (,to-node copying-from))))
-
-(define (copying-from g node)
-  (port->neighbor g `(,node copying-from)))
-
-(define (copying-to g node)
-  (port->neighbor g `(,node copying-to)))
-
-(define (add-parallel-edge g new-node old-node port-label)
-  (cond
-    #:define old-nbr-port (port->neighboring-port g `(,old-node ,port-label))
-    [(void? #R old-nbr-port) g]
-    #:match-define `(,old-nbr ,old-nbr-port-label) old-nbr-port
-    #:define new-nbr (copying-to g old-nbr)
-    [(void? #R new-nbr) g]
-    [else (add-edge g `((,new-nbr ,old-nbr-port-label)
-                        (,new-node ,port-label)))]))
-
-(define (copy-members g old-ctx new-ctx)
-  (for/fold ([g g] #:result (copy-ordering-edges g old-ctx new-ctx))
-            ([old-member (members-of g old-ctx)])
-    (let*-values ([(g new-member) (apply make-node/in g new-ctx
-                                                        (class-of g old-member)
-                                                        (args-of g old-member))]
-                  [(g) (mark-copying g old-member new-member)])
-      g)))
-
-;TODO first-in
-(define (copy-ordering-edges g old-ctx new-ctx)
-  (for/fold ([g g])
-            ([new-member (members-of g new-ctx)])
-    (cond
-      #:define old-member #R (copying-from g new-member)
-      [(void? old-member) g]
-      [else (add-parallel-edge g new-member old-member 'next)])))
 
 ;; ======================================================================
 ;;
@@ -273,6 +216,6 @@
 (gdo step)
 (gdo step)
 (gdo copy-trace 'trace)
-(gdo copy-members 'equation 'equation2)
+;(gdo copy-members 'equation 'equation2)
 
 (pr-graph g)
