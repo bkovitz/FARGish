@@ -33,8 +33,7 @@
         [g (copy-into/as-placeholders g old-trace
                                         new-trace
                                         old-nodes
-                                        ground-structure-port-labels
-                                        mark-copying)])
+                                        ground-structure-port-labels)])
     (values g new-trace)))
 
 (define (node->neighbors/trace g node)

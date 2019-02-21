@@ -9,6 +9,7 @@
 (require racket/pretty describe debug/repl racket/enter)
 
 (provide (struct-out graph)
+         graph?
          empty-graph
          ;add-spec
          ;copy-graph-into-graph
@@ -155,11 +156,14 @@
                                  #:source #'gdo #:props #'f)])
        #'(call-with-values (λ () (gfunc g args ...))
            (λ (new-g . results)
-             (set! g new-g)
-             (cond
-               [(null? results) (void)]
-               [(null? (cdr results)) (car results)]
-               [else results]))))]))
+             (if (graph? new-g)
+               (begin
+                 (set! g new-g)
+                 (cond
+                   [(null? results) (void)]
+                   [(null? (cdr results)) (car results)]
+                   [else results]))
+               (apply values new-g results)))))]))
 
 (module+ test
   (test-case "define/g"

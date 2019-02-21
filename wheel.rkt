@@ -315,6 +315,13 @@
     [(ormap void? args) #f]
     [else (apply eqv? args)]))
 
+(define (safe->? . args)
+  (let ([args (without-voids args)])
+    (cond
+      [(null? args) #f]
+      [else (apply > args)])))
+
+
 (define (safe-integer->string n)
   (cond
     [(void? n) (void)]

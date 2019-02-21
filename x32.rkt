@@ -45,7 +45,7 @@
       (applies-to ([greater (of-class 'number)
                             (by-ports 'greater 'greater-than)]
                    [lesser (of-class 'number) (by-ports 'lesser 'less-than)])
-        (condition (value-pred?/g > greater lesser))))
+        (condition (value-pred?/g safe->? greater lesser))))
     (tagclass same
       (applies-to ([node1 as-tag] [node2 as-tag]) ;TODO not same node
         (condition (and?/g (same-class?/g node1 node2)
@@ -93,8 +93,8 @@
   (let ([(g numble) (make-node g 'problem)]
         [(g target-node) (make-node/in g numble 'number target)]
         [g (add-tag g 'target target-node)]
-        [g (make-permanent g target-node)])
-    (for/fold ([g g])
+        [g (make-permanent g numble target-node)])
+    (for/fold ([g g] #:result (values g numble))
               ([brick bricks])
       (let ([(g brick-node) (make-node/in g numble 'number brick)]
             [g (add-tag g 'brick brick-node)]
@@ -177,7 +177,9 @@
 (define (step g)
   (let* ([g (decay-salience/all g)]
          [g (quick-match g)]
-         [g (support->t+1 g)])
+         [g (boost-salience-of-touched-nodes g)]
+         [g (support->t+1 g)]
+         [g (clear-touched-nodes g)])
     g))
 
 ;; ======================================================================
@@ -228,6 +230,13 @@
                           t1 eqn1 e6 times e4 equals1 e24)]
      )
     g))
+
+(define (pr-saliences g)
+  (let ([pairs (for/list ([node (all-nodes g)])
+                 (cons node (salience-of g node)))]
+        [pairs (sorted-by-cdr pairs)])
+    (for ([pair pairs])
+      (display-salience g (car pair) (cdr pair)))))
 
 (set! g g)
 

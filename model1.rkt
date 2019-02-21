@@ -86,6 +86,7 @@
 ;; Access to a few things without a prefix
 ;;
 
+(define graph? g:graph?)
 (define get-node-attr g:get-node-attr)
 (define set-node-attr g:set-node-attr)
 (define update-node-attr g:update-node-attr)
@@ -431,13 +432,41 @@
 ; orig-ctx.
 ;(: copy-into/as-placeholders : Graph Node Node (Listof Node) (Listof Port-label)
 ;                               (Graph Node Node -> Graph) -> Graph)
-(define (copy-into/as-placeholders
-          g orig-ctx new-ctx orig-nodes relevant-port-labels after-copy)
-  (define (make-placeholders)
+;(define (copy-into/as-placeholders
+;          g orig-ctx new-ctx orig-nodes relevant-port-labels after-copy)
+;  (define (make-placeholders)
+;    (for/fold ([g g] [nodemap (hash orig-ctx new-ctx)])
+;              ([orig-node orig-nodes])
+;      (let ([(g new-node) (make-placeholder g (class-of g orig-node))]
+;            [g (after-copy g orig-node new-node)])
+;        (values g (hash-set nodemap orig-node new-node)))))
+;  (define (make-edges g nodemap)
+;    (let ([orig-node? (hash->pred nodemap)]
+;          [relevant-port-label? (set->pred (list->set relevant-port-labels))])
+;      (for*/fold ([g g])
+;                 ([(orig-node new-node) nodemap]
+;                  [port-label relevant-port-labels]
+;                  [orig-hop (port->incident-hops g `(,orig-node ,port-label))])
+;        (cond
+;          #:define neighbor-label (other-port-label orig-hop)
+;          [(not (relevant-port-label? neighbor-label))
+;           g]
+;          #:define orig-neighbor (other-node orig-hop)
+;          [(not (orig-node? orig-neighbor))
+;           g]
+;          #:define new-neighbor (hash-ref nodemap orig-neighbor)
+;          [else (add-edge g `((,new-node ,port-label)
+;                              (,new-neighbor ,neighbor-label)))]))))
+;  (let ([(g nodemap) (make-placeholders)]
+;        [g (make-edges g nodemap)])
+;    g))
+
+(define (copy-into/as
+          g orig-ctx new-ctx orig-nodes relevant-port-labels copy-node)
+  (define (make-nodes)
     (for/fold ([g g] [nodemap (hash orig-ctx new-ctx)])
               ([orig-node orig-nodes])
-      (let ([(g new-node) (make-placeholder g (class-of g orig-node))]
-            [g (after-copy g orig-node new-node)])
+      (let ([(g new-node) (copy-node g orig-node)])
         (values g (hash-set nodemap orig-node new-node)))))
   (define (make-edges g nodemap)
     (let ([orig-node? (hash->pred nodemap)]
@@ -456,9 +485,25 @@
           #:define new-neighbor (hash-ref nodemap orig-neighbor)
           [else (add-edge g `((,new-node ,port-label)
                               (,new-neighbor ,neighbor-label)))]))))
-  (let ([(g nodemap) (make-placeholders)]
+  (let ([(g nodemap) (make-nodes)]
         [g (make-edges g nodemap)])
     g))
+
+(define (copy-as-placeholder-or-t g orig-node)
+  (let ([(g new-node) (cond
+                        [(node-is-a? g orig-node 't)
+                         (apply make-node g 't (args-of g orig-node))]
+                        [else (make-placeholder g (class-of g orig-node))])]
+        [g (mark-copying g orig-node new-node)])
+    (values g new-node)))
+
+(define (copy-into/as-placeholders
+          g orig-ctx new-ctx orig-nodes relevant-port-labels)
+  (copy-into/as g orig-ctx
+                new-ctx
+                orig-nodes
+                relevant-port-labels
+                copy-as-placeholder-or-t))
 
 ;(: mark-copying : Graph Node Node -> Graph)
 (define (mark-copying g from-node to-node)
@@ -645,9 +690,15 @@
       [(null? nodes) #f]
       [else (weighted-choice-by (g->node->salience g) nodes)])))
 
+(define (display-salience g node [salience (void)])
+  (let ([salience (if (void? salience) (salience-of g node) salience)]
+        [s-node (~a (~a node #:min-width 15))]
+        [s-salience (~r salience #:precision '(= 3))])
+    (displayln (string-append s-node " " s-salience))))
+
 (define (pr-saliences g)
   (for ([node (members-of g 'ws)])
-    (displayln @~a{@node @(salience-of g node)})))
+    (display-salience g node)))
 
 (define (saliences-ht g)
   (for/hash ([node (members-of g 'ws)])
