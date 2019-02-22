@@ -319,8 +319,8 @@
   (let ([args (without-voids args)])
     (cond
       [(null? args) #f]
+      [(null? (cdr args)) #f]
       [else (apply > args)])))
-
 
 (define (safe-integer->string n)
   (cond

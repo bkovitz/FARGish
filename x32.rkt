@@ -57,9 +57,14 @@
         (condition (value-pred?/g
                      (λ (v) (safe-eqv? n (->num-digits v)))
                      node))))
+    (tagclass fill
+      (applies-to ([node-to-fill (by-ports 'fill 'filled-by)]
+                   ;TODO Make sure node-to-fill can be filled
+                   [filler-node (by-ports 'filled-by 'fill)])
+        (condition (const #t))))
     (tagclass consume
-      (applies-to ([consumer (by-ports 'consumer 'consumes)]
-                   [consumes (by-ports 'consumes 'consumed)])))
+      (applies-to ([consumer (by-ports 'consumer 'filled-by)]
+                   [consumes (by-ports 'consumes 'fill)])))
 
     ;(chain equation prev -> next ...)
     ))
@@ -84,6 +89,25 @@
   (and (node-attr? g node 'placeholder?)
        (void? (value-of g node))))
 
+; TODO Better class-matching. E.g. * should be able to fill +.
+(define (could-fill? g node-to-fill filler-node)
+  (and (not (void? (value-of g filler-node)))
+       (node-is-a? g filler-node (class-of g node-to-fill))))
+
+(define (could-fill?/ g node-to-fill)
+  (λ (filler-node)
+    (could-fill? g node-to-fill filler-node)))
+
+(define (tag-and-support g tagspec . nodes)
+  (let ([(g tag) (apply make-tag g tagspec nodes)]
+        [g (for/fold ([g g])
+                     ([node nodes])
+             (add-tag-support g tag node))])
+    g))
+
+(define (tag-and-support/ tagspec . nodes)
+  (λ (g) (apply tag-and-support g tagspec nodes)))
+
 ;; ======================================================================
 ;;
 ;; Problems (that is, numbles)
@@ -106,77 +130,96 @@
 ;; Quick matches
 ;;
 
+; (define-type Action (-> Graph Graph))
+
+; g->node1-candidates : Graph -> (Listof Node)
+; node1->actions : Graph Node -> (Listof Action)
+(struct QuickMatch (g->node1-candidates node1->actions)
+                   #:prefab)
+
+(define (qm->candidates g qm)
+  ((QuickMatch-g->node1-candidates qm) g))
+
+(define (qm+node1->actions g qm node1)
+  ((QuickMatch-node1->actions qm) g node1))
+
 (define (add-tag-support g tag node)
-  (let*-values ([(e) (tag->edges g tag node)]
-                [(g) (add-mutual-support g node e)]
-                [(g) (add-mutual-support g tag e)])
+  (let ([e (tag->edges g tag node)]
+        [g (add-mutual-support g node e)]
+        [g (add-mutual-support g tag e)])
     g))
 
-; Graph Node -> (List Action)
-(define (qm/num-digits g node)
+(define (node-is-a-number? g node)
+  (and (node-is-a? g node 'number)
+       (has-value? g node)))
+
+(define qm/num-digits
+  (QuickMatch (λ (g) (filter/g g node-is-a-number? (all-nodes g)))
+              (λ (g node1)
+                (cond
+                  #:define nd (node->num-digits g node1)
+                  [(void? nd) '()]
+                  [else (list (tag-and-support/ `(num-digits ,nd) node1))]))))
+
+(define qm/same
+  (QuickMatch
+    (λ (g) (all-nodes g))
+    (λ (g node1)
+      (let ([fi (λ (node2)
+                  (and (not (eq? node1 node2))
+                       (tagclass-applies-to? g 'same node1 node2)))]
+            [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
+        (cond
+          [node2 (list (tag-and-support/ 'same node1 node2))]
+          [else '()])))))
+
+(define qm/greater-than
+  (QuickMatch
+    (λ (g) (filter/g g node-is-a-number? (all-nodes g)))
+    (λ (g node1)
+      (let ([fi (λ (node2)
+                  (tagclass-applies-to? g 'greater-than node1 node2))]
+            [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
+        (cond
+          [node2 (list (tag-and-support/ 'greater-than node1 node2))]
+          [else '()])))))
+
+(define qm/fill
+  (QuickMatch
+    (λ (g) (filter/g g node-is-placeholder? (all-nodes g)))
+    (λ (g node-to-fill)
+      (let ([fi (could-fill?/ g node-to-fill)]
+            [filler-node (choose-nearby-node-by-salience
+                           g node-to-fill #:filter fi)])
+        (cond
+          [filler-node (list (tag-and-support/ 'fill node-to-fill filler-node))]
+          [else '()])))))
+
+(define qms (list qm/num-digits qm/same qm/greater-than qm/fill))
+
+(define random-qm
+  (let ([len (length qms)])
+    (λ ()
+      (list-ref qms (random len)))))
+
+(define (qm->actions g qm)
   (cond
-    [(not (node-is-a? g node 'number)) '()]
-    #:define nd (node->num-digits g node)
-    [(void? nd) '()]
-    [else (list (λ (g)
-            (let*-values ([(g tag) (make-tag g `(num-digits ,nd) node)]
-                          [(g) (add-tag-support g tag node)])
-              g)))]))
+    #:define node1 (weighted-choice-by (λ (node) (salience-of g node))
+                                       (qm->candidates g qm))
+    [(void? node1) '()]
+    [else (qm+node1->actions g qm node1)]))
 
-(define (qm/same g node1)
-  (let* ([fi (λ (node2)
-               (and (not (eq? node1 node2))
-                    (tagclass-applies-to? g 'same node1 node2)))]
-         [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
-    (if node2
-       (list (λ (g)
-               (let*-values ([(g tag) (make-tag g 'same node1 node2)]
-                             [(g) (add-tag-support g tag node1)]
-                             [(g) (add-tag-support g tag node2)])
-                 g)))
-       '())))
-
-(define (qm/greater-than g node1)
-  (let* ([fi (λ (node2)
-               (tagclass-applies-to? g 'greater-than node1 node2))]
-         [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
-    (if node2
-       (list (λ (g)
-               (let*-values ([(g tag) (make-tag g 'greater-than node1 node2)]
-                             [(g) (add-tag-support g tag node1)]
-                             [(g) (add-tag-support g tag node2)])
-                 g)))
-       '())))
-
-;TODO Find something to fill node with: 'consume or 'fill
-;(define (qm/fill g node)
-;  (if (not (node-is-placeholder? g node))
-;    g
-;    (
-
-(define qms (list qm/num-digits qm/same qm/greater-than))
-
-; Very crude version. TODO: Choose qms via slipnet, or something to reflect
-; bias toward qms that attract attention right now. The code could be a lot
-; more efficient, too.
-(define (quick-match g)
-  (let* ([node->salience (g->node->salience g)]
-         [random-qm (let ([len (length qms)])
-                      (λ ()
-                        (list-ref qms (random len))))]
-         [nodes (for/list ([i 6])
-                  (weighted-choice-by node->salience (all-nodes g)))]
-         [actions (for*/list ([node nodes]
-                              [action ((random-qm) g node)])
-                    action)]
-         [g (for/fold ([g g])
-                      ([action actions])
-              (action g))])
-    g))
+(define (do-quick-matches g)
+  (let ([actions (for/fold ([actions '()])
+                           ([i 6])
+                   (append (qm->actions g (random-qm))))])
+    (for/fold ([g g])
+              ([action actions])
+      (action g))))
 
 (define (step g)
   (let* ([g (decay-salience/all g)]
-         [g (quick-match g)]
+         [g (do-quick-matches g)]
          [g (boost-salience-of-touched-nodes g)]
          [g (support->t+1 g)]
          [g (clear-touched-nodes g)])
@@ -257,6 +300,5 @@
 (gdo make-member-of (path->node g new-trace 'first) new-numble)
 (gdo step)
 (gdo step)
-;(gdo copy-members 'equation 'equation2)
 
 (pr-graph g)

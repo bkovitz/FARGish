@@ -299,6 +299,9 @@
   (define node-value (value-of g node))
   (and (not (void? node-value)) (equal? v node-value)))
 
+(define (has-value? g node)
+  (not (void? (value-of g node))))
+
 (define (tag? g node)
   (g:node-attr? g node 'tag?))
 
