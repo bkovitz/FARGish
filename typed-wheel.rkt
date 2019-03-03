@@ -121,3 +121,37 @@
           [else (let-values ([(k v) (hash-iterate-key+value h1 pos)])
                   (loop (hash-set h0 k v)
                         (hash-iterate-next h1 pos)))]))]))
+
+;; ======================================================================
+;;
+;; Randomness
+;;
+
+(: weighted-choice-by (All (A) (-> A Real) (Listof A) -> (U Void A)))
+(define (weighted-choice-by f choices)
+  (define-values (choice-pairs total) (make-choice-pairs f choices))
+  (cond
+    [(null? choice-pairs)
+     (void)]
+    [(null? (cdr choice-pairs))
+     (cdar choice-pairs)]
+    [else (let ([r (* (random) total)])
+            (let loop ([choice-pairs choice-pairs])
+              (let ([pair (car choice-pairs)])
+                (cond
+                  [(>= r (car pair))
+                   (cdr pair)]
+                  [else (loop (cdr choice-pairs))]))))]))
+  
+(: make-choice-pairs (All (A)
+                       (-> A Real) (Listof A) -> (Values (Listof (Pair Real A))
+                                                         Real)))
+(define (make-choice-pairs f choices)
+  (for/fold ([pairs : (Listof (Pair Real A)) '()] [w 0.0])
+            ([choice choices])
+        (let ([delta (f choice)])
+          (if (zero? delta)
+            (values pairs w)
+            (values (cons `(,w . ,choice) pairs)
+                    (+ delta w))))))
+

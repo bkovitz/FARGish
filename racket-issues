@@ -2,3 +2,53 @@
 
 (#%app f arg . optarg) won't compile. This makes it hard to write a macro
 that forwards arguments to a function definition.
+
+
+
+Why I've usually found Racket agonizing to program in, even though it's really
+good and I get results:
+
+1. The documentation. It's great about syntax, but it's missing how to *use*
+libraries (so using them is like solving a jigsaw puzzle without the picture)
+and semantics are often not spelled out clearly and directly. I'm constantly
+guessing and doing "primary research" on the libraries.
+
+2. Debugging. How do you find out what's happening in a program? Half the time
+I'm guessing what the semantics and intended way of use is, so I have to
+debug. Stacktraces are often hard to get; line-number information is often
+missing. What function called what? What arguments were on the stack?
+
+3. SLOW. The frequent, unpredictable pauses interfere with my train of
+thought.
+
+
+An example of an error message that omits crucial information:
+. Type Checker: type mismatch
+  expected: srcloc
+  given: Any in: (quote blah)
+
+What thing was supposed to be of type srcloc?
+
+
+Stuff to go into a Racket cookbook
+----------------------------------
+
+Suppose that you have a syntax-parse macro with a #:with. How do you move the
+#:with to a function (or something) so you can call it from two macros? (See
+fizzle.rkt.)
+
+For example, I started with this:
+     #:with srcloc-expr (quasisyntax/loc #'nodeclass
+                          (srcloc '#,(syntax-source #'nodeclass)
+                                  '#,(syntax-line #'nodeclass)
+                                  '#,(syntax-column #'nodeclass)
+                                  '#,(syntax-position #'nodeclass)
+                                  '#,(syntax-span #'nodeclass)))
+and changed it to this (inside begin-for-syntax) after a few attempts:
+  (define (srcloc-expr stx)
+    #`(srcloc '#,(syntax-source stx)
+              '#,(syntax-line stx)
+              '#,(syntax-column stx)
+              '#,(syntax-position stx)
+              '#,(syntax-span stx)))
+Am I missing an obviously right way to do it?

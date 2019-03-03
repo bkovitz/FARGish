@@ -60,8 +60,7 @@
     (tagclass fill
       (applies-to ([node-to-fill (by-ports 'fill 'filled-by)]
                    ;TODO Make sure node-to-fill can be filled
-                   [filler-node (by-ports 'filled-by 'fill)])
-        (condition (const #t))))
+                   [filler-node (by-ports 'filled-by 'fill)])))
     (tagclass consume
       (applies-to ([consumer (by-ports 'consumer 'filled-by)]
                    [consumes (by-ports 'consumes 'fill)])))
@@ -97,6 +96,9 @@
 (define (could-fill?/ g node-to-fill)
   (λ (filler-node)
     (could-fill? g node-to-fill filler-node)))
+
+(define (can-be-consumed? g node)
+  (tagged-with? g 'can-be-consumed node))
 
 (define (tag-and-support g tagspec . nodes)
   (let ([(g tag) (apply make-tag g tagspec nodes)]
@@ -193,6 +195,21 @@
                            g node-to-fill #:filter fi)])
         (cond
           [filler-node (list (tag-and-support/ 'fill node-to-fill filler-node))]
+          [else '()])))))
+
+(define qm/consume
+  (QuickMatch
+    (λ (g) (filter/g g node-is-placeholder? (all-nodes g)))
+    (λ (g node-to-fill)
+      (let ([fi (λ (node)
+                  (and (can-be-consumed? g node)
+                       (could-fill? g node-to-fill node)))]
+            [node-to-consume (choose-nearby-node-by-salience
+                               g node-to-fill #:filter fi)])
+        (cond
+          [node-to-consume (list (tag-and-support/ 'consume
+                                                   node-to-fill
+                                                   node-to-consume))]
           [else '()])))))
 
 (define qms (list qm/num-digits qm/same qm/greater-than qm/fill))

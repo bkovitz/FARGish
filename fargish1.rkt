@@ -6,7 +6,7 @@
          (for-syntax syntax/parse))
 (require racket/hash)
 (require "wheel.rkt")
-(require rackunit)
+(module+ test (require rackunit))
 
 (provide farg-model-spec
          nodeclass

@@ -5,8 +5,10 @@
 #lang debug at-exp racket
 
 (require debug/repl errortrace)
+(require (only-in typed/racket with-type Nothing Any))
 (require "wheel.rkt"
          "xsusp3.rkt"
+         "fizzle.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass)
@@ -720,10 +722,14 @@
 (define (realize-nodespec g nodespec)
   (match nodespec
     [`(,class-name . ,args)
-     (list class-name args)
      (f:realize-attrs (get-nodeclass* g class-name) args)]
     [(? symbol?)
-     (f:realize-attrs (get-nodeclass* g nodespec) '())]
+     (let ([nc (get-nodeclass* g nodespec)])
+       (cond
+         [(void? nc) (with-type #:result Nothing
+                                #:freevars ([nodespec Any])
+                                (fizzle:nodeclass nodespec))]
+         [else (f:realize-attrs nc '())]))]
     [else (raise-arguments-error 'realize-nodespec
                                  @~a{Invalid nodespec: @|nodespec|.})]))
 
@@ -881,7 +887,7 @@
             ([ctx ctxs])
     (g:add-edge g `((,ctx members) (,node member-of)))))
 
-(struct Fizzle (tagclass nodes) #:prefab)
+;(struct Fizzle (tagclass nodes) #:prefab)
 
 ;TODO Make the tag a member of the nodes' least common ctx
 ;TODO Don't make the tag if it's already there
@@ -899,7 +905,10 @@
                         ([taggee-info (f:applies-to*-taggee-infos applies-to)]
                          [node nodes])
                 (link-to g taggee-info tag node))))]
-      [else (raise (Fizzle tagspec nodes))])))
+      [else (with-type #:result Nothing
+                       #:freevars ([tagspec Any]
+                                   [nodes Any])
+                       (fizzle:tag-failed tagspec nodes))])))
 
 (define/g (add-tag g tagspec . nodes)
   (if (for/and ([node nodes])
