@@ -695,6 +695,14 @@
       [(null? nodes) #f]
       [else (weighted-choice-by (g->node->salience g) nodes)])))
 
+; Randomly chooses member of ctx.
+; Returns Node or void is no node found.
+(define (choose-node-by-salience/in g ctx #:filter [fi (const #t)])
+  (cond
+    [(void? ctx) (void)]
+    [else (weighted-choice-by (g->node->salience g)
+                              (filter fi (members-of g ctx)))]))
+
 (define (display-salience g node [salience (void)])
   (let ([salience (if (void? salience) (salience-of g node) salience)]
         [s-node (~a (~a node #:min-width 15))]

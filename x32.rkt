@@ -61,6 +61,8 @@
       (applies-to ([node-to-fill (by-ports 'fill 'filled-by)]
                    ;TODO Make sure node-to-fill can be filled
                    [filler-node (by-ports 'filled-by 'fill)])))
+    (tagclass can-be-consumed
+      (applies-to ([node as-tag])))
     (tagclass consume
       (applies-to ([consumer (by-ports 'consumer 'filled-by)]
                    [consumes (by-ports 'consumes 'fill)])))
@@ -98,7 +100,7 @@
     (could-fill? g node-to-fill filler-node)))
 
 (define (can-be-consumed? g node)
-  (tagged-with? g 'can-be-consumed node))
+  (has-tag? g 'can-be-consumed node))
 
 (define (tag-and-support g tagspec . nodes)
   (let ([(g tag) (apply make-tag g tagspec nodes)]
@@ -108,7 +110,7 @@
     g))
 
 (define (tag-and-support/ tagspec . nodes)
-  (λ (g) (apply tag-and-support g tagspec nodes)))
+  (cλ (g) (apply tag-and-support g tagspec nodes)))
 
 ;; ======================================================================
 ;;
@@ -124,7 +126,8 @@
               ([brick bricks])
       (let ([(g brick-node) (make-node/in g numble 'number brick)]
             [g (add-tag g 'brick brick-node)]
-            [g (make-permanent g brick-node)])
+            [g (make-permanent g brick-node)]
+            [g (add-tag g 'can-be-consumed brick-node)])
         g))))
 
 ;; ======================================================================
@@ -205,12 +208,31 @@
                   (and (can-be-consumed? g node)
                        (could-fill? g node-to-fill node)))]
             [node-to-consume (choose-nearby-node-by-salience
-                               g node-to-fill #:filter fi)])
+                               g node-to-fill #:num-hops 6 #:filter fi)])
         (cond
           [node-to-consume (list (tag-and-support/ 'consume
                                                    node-to-fill
                                                    node-to-consume))]
           [else '()])))))
+
+; For debugging and trying things in the REPL. Does one quick-match.
+(define (do-qm g qm [node1 (void)])
+  (cond
+    #:define node1 (if (void? node1)
+                     (weighted-choice-by (λ (node) (salience-of g node))
+                                           (qm->candidates g qm))
+                     node1)
+    [(void? node1) (printf "No first node found.\n")
+                   g]
+    #:do (printf "First node: ~a\n" node1)
+    #:define actions (qm+node1->actions g qm node1)
+    [(null? actions) (printf "No actions\n")
+                     g]
+    #:do (printf "Actions: ~a\n" actions)
+    [else
+      (for/fold ([g g])
+                ([action actions])
+        (action g))]))
 
 (define qms (list qm/num-digits qm/same qm/greater-than qm/fill))
 

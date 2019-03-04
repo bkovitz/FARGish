@@ -21,6 +21,8 @@
     [(_ #:match-define pat expr more ...)
      (match-let ([pat expr])
        (begin (cond more ...)))]
+    [(_ #:do expr more ...) ;UNTESTED
+     (begin expr (cond more ...))]
     [(_ [c => func] more ...)
      (let ([c-value c])
        (if c-value (func c-value) (cond more ...)))]

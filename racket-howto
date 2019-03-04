@@ -1,0 +1,5 @@
+How to do things in Racket
+
+
+Make a custom format for how a struct is printed. How do you change the format
+for display while keeping the default format for print?
