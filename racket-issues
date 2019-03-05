@@ -30,6 +30,18 @@ An example of an error message that omits crucial information:
 What thing was supposed to be of type srcloc?
 
 
+Missing documentation: ~optional as an H-pattern defaults to #f if no
+#:defaults clause is specified.
+
+Missing documentation: If an ~optional returns #f, and the #f gets bound to
+a pattern variable, how do you ever look at the pattern variable?
+#'name gets an error because 'name' is not a syntax object; 'name' by itself
+gets an error because it's a pattern variable.
+
+Unclear documentation: parse-define-struct "Parses stx as a define-struct
+form". What does that mean?
+
+
 Stuff to go into a Racket cookbook
 ----------------------------------
 
