@@ -124,11 +124,22 @@
                   (loop (hash-set h0 k v)
                         (hash-iterate-next h1 pos)))]))]))
 
+(: hash->f : (All (K V D) (case->
+                            [-> (Hashof K V) (-> K V)]
+                            [-> (Hashof K V) D (-> K (U V D))])))
+(define hash->f
+  (case-lambda
+    [(ht)
+     (λ (k) (hash-ref ht k))]
+    [(ht default)
+     (λ (k) (hash-ref ht k (const default)))]))
+
 ;; ======================================================================
 ;;
 ;; Randomness
 ;;
 
+;TODO Remove this or replace it with a wrapper around discrete-dist.
 (: weighted-choice-by (All (A) (-> A Real) (Listof A) -> (U Void A)))
 (define (weighted-choice-by f choices)
   (define-values (choice-pairs total) (make-choice-pairs f choices))
