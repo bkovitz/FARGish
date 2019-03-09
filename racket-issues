@@ -30,6 +30,16 @@ An example of an error message that omits crucial information:
 What thing was supposed to be of type srcloc?
 
 
+Error message:
+../../../../Applications/Racket v7.0/share/pkgs/typed-racket-lib/typed-racket/tc-setup.rkt:94:0: result arity mismatch;
+ expected number of values not received
+  expected: 2
+  received: 1
+  in: local-binding form
+  values...:
+There's no info here that points to the error in my program.
+
+
 Missing documentation: ~optional as an H-pattern defaults to #f if no
 #:defaults clause is specified.
 

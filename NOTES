@@ -143,3 +143,6 @@ What properties do we think make a search reasonable?
 - Some mapping to traditional logic and heuristic.
 
 
+
+
+A ripple principle: For easy evolvability, a small change to one element should leave the system working even if it would be better accompanied by other, coordinated changes. Small changes should not produce catastrophes (too often).
