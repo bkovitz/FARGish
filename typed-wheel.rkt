@@ -190,3 +190,5 @@
             (values (cons `(,w . ,choice) pairs)
                     (+ delta w))))))
 
+;(displayln "TYPED-WHEEL") ;WHY does this get printed 5 or more times when I
+;recompile test-fargish.rkt in DrRacket?

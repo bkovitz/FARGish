@@ -8,6 +8,9 @@
                      (only-in "typed-wheel.rkt" merge-from-ancestors)
                      (only-in sugar slice-at) mischief/sort))
 (require "types.rkt" "typed-wheel.rkt")
+;(module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
+
+(provide define-spec)
 
 ; Generate make-node in the main macro?
 
@@ -20,9 +23,6 @@
                     #:transparent)
 
 (begin-for-syntax
-  (define (attr-hash . args)
-    (apply hasheq args))
-
   (define (maybe-missing stx)
     (if stx
       stx
@@ -56,7 +56,7 @@
                                  #:when (not (missing? (cadr kv))))
                         kv)])
       (CNodeclass name
-                  #R args
+                  args
                   parents
                   (items->free-id-table car cadr attr-pairs))))
 
@@ -82,8 +82,7 @@
                         [((attr-name attr-expr) ...) (free-id-table-map
                                                        (CNodeclass-attrs cn)
                                                        (λ kv kv))])
-            #'(name args parents ((attr-name attr-expr) ...)))))))
-  )
+            #'(name args parents ((attr-name attr-expr) ...))))))))
 
 ;(define-syntax (farg-model-spec stx)
 (define-syntax (define-spec stx)
@@ -126,8 +125,7 @@
             (~optional applies-to-expr:applies-to
                        #:too-many "'applies-to' specified more than once"
                        )
-            ) ...)
-       #:do [(println #'(~? (parent ... ...) #f))]))
+            ) ...)))
 
   (define-syntax-class nodeclass
     #:attributes [cnodeclass]
@@ -178,15 +176,3 @@
 ;    (applies-to ())))
 ;(number 17)
 
-(define-spec spec
-  (tagclass (number [n : Integer])
-    (value n))
-  (nodeclass A
-    (display-name 'this-is-A))
-  (nodeclass B
-    (is-a A))
-  (nodeclass C
-    (is-a A)
-    (display-name 'this-is-C))
-  (nodeclass (D [x : Any])
-    (is-a C)))
