@@ -3,6 +3,11 @@
 #lang debug at-exp typed/racket
 
 (require typed-struct-props racket/unsafe/ops)
+(require/typed mischief/sort
+   [topological-sort (All (A)
+                       (->* [(Listof A) (-> A (Listof A))]
+                            (#:cycle (-> (Listof A) Nothing))
+                            (Listof A)))])
 (require racket/syntax syntax/parse syntax/parse/define syntax/free-vars
          (for-syntax racket/syntax syntax/parse syntax/free-vars))
 
@@ -133,6 +138,23 @@
      (λ (k) (hash-ref ht k))]
     [(ht default)
      (λ (k) (hash-ref ht k (const default)))]))
+
+;; ======================================================================
+;;
+;; Inheritance
+;;
+
+(: merge-from-ancestors (All (A) A (-> A (Listof A)) (-> A A A) -> A))
+(define (merge-from-ancestors item item->parents parent+item->item)
+  (let ([ancestor-seq (topological-sort (list item) item->parents)])
+    (cond
+      [(null? ancestor-seq) item]
+      [else (let loop ([parent (car ancestor-seq)]
+                       [ancestor-seq (cdr ancestor-seq)])
+              (cond
+                [(null? ancestor-seq) parent]
+                [else (loop (parent+item->item parent (car ancestor-seq))
+                            (cdr ancestor-seq))]))])))
 
 ;; ======================================================================
 ;;
