@@ -11,7 +11,8 @@
          "fargish.rkt")
 (require "typed-wheel.rkt")
 (require racket/performance-hint)
-(require (for-syntax racket/syntax) racket/syntax)
+(require syntax/parse)
+(require (for-syntax racket/syntax syntax/parse) racket/syntax)
 (module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
 (provide Graph
@@ -108,24 +109,47 @@
 
 ;(define-struct/exec Gfunc () 
 
+(define g (make-empty-graph empty-spec))
+(set! g g)
+
 ; A little hack to make it easier to work on graphs in the REPL.
 ; (gdo makenode 'ws) operates on a variable in the local context called g,
 ; set!s g to the new graph, and returns the nodeid of the created node.
-(define-syntax (gdo stx)
-  (syntax-case stx ()
-    [(gdo gfunc args ...)
-     (with-syntax ([g (format-id #'gdo "g"
-                                 #:source #'gdo #:props #'f)])
-       #'(call-with-values (λ () (gfunc g args ...))
-           (λ ([new-g : Graph] . results)
-             (set! g new-g)
-             (cond
-               [(null? results) (void)]
-               [(null? (cdr results)) (car results)]
-               [else results]))))]))
+;(define-syntax (gdo stx)
+;  (syntax-case stx ()
+;    [(gdo gfunc args ...)
+;     (with-syntax ([g (format-id #'gdo "g"
+;                                 #:source #'gdo #:props #'f)])
+;       #'(call-with-values (λ () (gfunc g args ...))
+;           (λ ([new-g : Graph] . results)
+;             (set! g new-g)
+;             (cond
+;               [(null? results) (void)]
+;               [(null? (cdr results)) (car results)]
+;               [else results]))))]))
+;
+;(: gd-impl (All (b a ...) (-> Graph a ... (Values Graph b)) a ... -> b))
+;(define (gd-impl gfunc g . args)
+;  (let ([(g result) (apply gfunc g args)])
+;    result))
 
-(define g (make-empty-graph empty-spec))
-(set! g g)
+; So far, the best Typed gdo I've been able to come up with is much less
+; convenient than Untyped gdo. You can only pass it functions that return
+; a Graph and a result, not functions that return a Graph with no other result.
+; BEN 10-Mar-2019
+(define-syntax (gdo stx)
+  (syntax-parse stx
+    [(_ gfunc:expr arg:expr ...)
+     #:with g (format-id stx "g" #:source stx)
+     #:with (A ...) (generate-temporaries #'(arg ...))
+     #:with (a ...) (generate-temporaries #'(arg ...))
+     #'(let ([gdo-impl : (All (b A ...)
+                           (-> Graph A ... (Values Graph b)) Graph A ... -> b)
+               (λ (gf graph a ...)
+                 (let*-values ([(new-g result) (gf graph a ...)])
+                   (set! g new-g)
+                   result))])
+         (gdo-impl gfunc g arg ...))]))
 
 (module+ test
   (test-case "gdo"
