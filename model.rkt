@@ -114,3 +114,5 @@
      (cast (get-node-attr g elem 'salience 0.0) Flonum)]
     [else
      (apply max (map/g g salience-of (edge->nodes elem)))]))
+
+;NEXT Copying a trace, and all its supporting functions
