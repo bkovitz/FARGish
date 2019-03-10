@@ -51,6 +51,13 @@ gets an error because it's a pattern variable.
 Unclear documentation: parse-define-struct "Parses stx as a define-struct
 form". What does that mean?
 
+Unclear documentation: let*-values in Typed Racket:
+(let*-values ([(var+type ...) e] ...) . body)
+What is var+type? Should the user write (let*-values ([(a : Symbol) 'x]) a)
+or (let*-values ([([a : Symbol]) 'x]) a)? You can only tell by primary
+research that it's the latter. If it's too tedious to spell out what var+type
+means, an example would clarify it easily.
+
 
 Stuff to go into a Racket cookbook
 ----------------------------------

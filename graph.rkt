@@ -7,13 +7,16 @@
 #lang debug at-exp typed/racket
 
 (require "types.rkt"
-         "id-set.rkt")
+         "id-set.rkt"
+         "fargish.rkt")
 (require "typed-wheel.rkt")
 (require racket/performance-hint)
 (require (for-syntax racket/syntax) racket/syntax)
 (module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
 (provide Graph
+         Graph-spec
+         (struct-out Graph)
          make-empty-graph
          copy-graph
          copy-graph-into-graph
@@ -51,6 +54,14 @@
          node->ports
          node->incident-hops
 
+         port->node
+         port->port-label
+         port->values
+         edge->nodes
+         edge->ports
+         hop->to-node
+         hop->from-node
+
          get-node-attrs
          get-node-attr
          set-node-attr
@@ -65,6 +76,9 @@
          graph-push-and-set-var
          graph-pop-var
 
+         filter/g
+         map/g
+
          pr-graph
          pr-node)
 
@@ -75,13 +89,15 @@
                [ht-edge->weight : (Hashof Edge/UPair EdgeWeight)]
                [id-set : IdSet]
                [stacks : (Hashof Symbol (Listof Any))]
-               [vars : (Hashof Symbol Any)])
+               [vars : (Hashof Symbol Any)]
+               [spec : FARGishSpec])
               #:prefab)
 
-(define (make-empty-graph)  ; TODO spec
-  (Graph (hash) (hash) (hash) empty-id-set (hash) (hash)))
+(: make-empty-graph : FARGishSpec -> Graph)
+(define (make-empty-graph spec)
+  (Graph (hash) (hash) (hash) empty-id-set (hash) (hash) spec))
 
-(define empty-graph (make-empty-graph))
+(define empty-graph (make-empty-graph empty-spec))
 
 (define empty-port-set : (Setof Port) (set))
 (define empty-node-set : (Setof Node) (set))
@@ -108,12 +124,12 @@
                [(null? (cdr results)) (car results)]
                [else results]))))]))
 
-(define g (make-empty-graph))
+(define g (make-empty-graph empty-spec))
 (set! g g)
 
 (module+ test
   (test-case "gdo"
-    (define g (make-empty-graph))
+    (define g (make-empty-graph empty-spec))
     (gdo make-node #hash((name . this-node)))
     (check-equal? (all-nodes g) '(this-node))))
 
@@ -546,11 +562,11 @@
 ;; Node attributes
 ;;
 
-(: get-node-attrs : Graph Node -> (U Attrs Void))
+(: get-node-attrs : Graph (U Node Void) -> (U Attrs Void))
 (define (get-node-attrs g id)
   (hash-ref (Graph-ht-node->attrs g) id (const (void))))
 
-(: get-node-attr (->* [Graph Node Any] [Any] (U Any Void)))
+(: get-node-attr (->* [Graph (U Node Void) Any] [Any] (U Any Void)))
 (define (get-node-attr g id k [failure-result (void)])
   (let ([ht (get-node-attrs g id)])
     (if (void? ht)
@@ -558,7 +574,7 @@
       (hash-ref ht k (const failure-result)))))
 
 ; No effect if node does not exist; node is not created.
-(: set-node-attr : Graph Node Any Any -> Graph)
+(: set-node-attr : Graph Node Symbol Any -> Graph)
 (define (set-node-attr g node k v)
   (let ([attrs (get-node-attrs g node)])
     (cond
@@ -570,7 +586,7 @@
             [ht-node->attrs ht-node->attrs]))])))
 
 ; No effect if node does not exist; node is not created.
-(: update-node-attr : Graph Node Any (Any -> Any) (-> Any) -> Graph)
+(: update-node-attr : Graph Node Symbol (Any -> Any) (-> Any) -> Graph)
 (define (update-node-attr g node k f failure-result)
   (cond
     #:define attrs (get-node-attrs g node)
@@ -743,6 +759,22 @@
 
 ;; ======================================================================
 ;;
+;; map and filter
+;;
+
+(: filter/g : Graph (-> Graph Node Any) (Listof Node) -> (Listof Node))
+(define (filter/g g pred?/g nodes)
+  (for/list ([node nodes]
+             #:when (pred?/g g node))
+    node))
+
+(: map/g : (All (A) Graph (-> Graph Node A) (Listof Node) -> (Listof A)))
+(define (map/g g f/g nodes)
+  (for/list ([node nodes])
+    (f/g g node)))
+
+;; ======================================================================
+;;
 ;; Copying one graph into another
 ;; 
 
@@ -783,7 +815,7 @@
 
 (: copy-graph : Graph -> Graph)
 (define (copy-graph g)
-  (first-value (copy-graph-into-graph (make-empty-graph #;(graph-spec g))
+  (first-value (copy-graph-into-graph (make-empty-graph (Graph-spec g))
                                       g)))
 
 (module+ test

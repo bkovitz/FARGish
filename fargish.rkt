@@ -10,7 +10,7 @@
 (require "types.rkt" "typed-wheel.rkt")
 ;(module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
-(provide define-spec)
+(provide define-spec empty-spec nodeclass-is-a? FARGishSpec)
 
 ; Generate make-node in the main macro?
 
@@ -21,6 +21,8 @@
 
 (struct FARGishSpec ([class->parents : (Hashof Symbol (Setof Symbol))])
                     #:transparent)
+
+(define empty-spec (FARGishSpec (hash)))
 
 (begin-for-syntax
   (define (maybe-missing stx)
@@ -146,7 +148,7 @@
             (nodeclass-inheritance (attribute nc0.cnodeclass))
      #`(begin
          (begin
-           (: nc.name : nc.arg.type ... -> (Hashof Symbol Any))
+           (: nc.name : nc.arg.type ... -> Attrs)
            (define (nc.name nc.arg.name ...)
              (hash 'class 'nc.name
                    (~@ 'args (list nc.arg.name ...))
@@ -156,6 +158,17 @@
          (define spec-name
            (FARGishSpec
              (hash (~@ 'nc.name (set 'nc.name 'nc.parent ...)) ...))))]))
+
+(: nodeclass-is-a? : FARGishSpec (U Symbol Void) (U Symbol Void) -> Boolean)
+(define (nodeclass-is-a? spec nc ancestor)
+  (cond
+    [(or (void? nc) (void? ancestor)) #f]
+    [(eq? nc ancestor) #t]
+    #:define ancestors (hash-ref (FARGishSpec-class->parents spec)
+                                 nc
+                                 (const (void)))
+    [(void? ancestors) #f]
+    [else (set-member? ancestors ancestor)]))
 
 ;(spec (nodeclass (blah a b c)))
 ;

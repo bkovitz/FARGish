@@ -17,7 +17,7 @@
 ; Name to show in visualization of a graph in place of node's id
 (define-type DisplayName (U Symbol Integer String))
 
-(define-type Attrs (Hashof Any Any)) ; attributes (of a Node, or anything)
+(define-type Attrs (Hashof Symbol Any)) ; attributes (of a Node, or anything)
 (define-type ATable (Hashof Node Flonum)) ; activations table
 
 (: atable (->* () #:rest-star (Node Flonum) ATable))
@@ -26,3 +26,5 @@
 (define integer? exact-integer?)
 
 (define-predicate edge/upair? Edge/UPair)
+
+(define-predicate Node? Node)
