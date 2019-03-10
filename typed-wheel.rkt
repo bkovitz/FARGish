@@ -10,6 +10,7 @@
                             (Listof A)))])
 (require racket/syntax syntax/parse syntax/parse/define syntax/free-vars
          (for-syntax racket/syntax syntax/parse syntax/free-vars))
+(require (only-in typed/racket [let let/TR]))
 
 (provide (all-defined-out))
 
@@ -35,6 +36,31 @@
      (let () body0 body ...)]
     [(_ [c body0 body ...] more ...)
      (if c (let () body0 body ...) (cond more ...))]))
+
+; 'let' that works like let* and let*-values depending on whether you put
+; parentheses around the variables to bind to. The same form allows named
+; 'let', though without multiple values. You must put something in the body.
+(define-syntax (let stx)
+  (define-syntax-class binding
+    #:datum-literals [:]
+    #:attributes [lhs rhs]
+    ; Returns lhs in form suitable for splicing into a let*-values form.
+    (pattern [name:id rhs:expr]   ; (let ([a 'x] ....
+             #:with lhs #'(name))
+    (pattern [name:id : type:expr rhs:expr]  ; (let ([a : Symbol 'x] ....
+             #:with lhs #'([name : type]))
+    (pattern [(name:id ...) rhs:expr]        ; (let ([(a b) (values 'x 2)] ....
+             #:with lhs #'(name ...))
+    (pattern [([name:id : type:expr] ...) rhs:expr]
+                ; (let ([([a : Symbol] [b : Integer]) (values 'x 2)] ....
+             #:with lhs #'([name : type] ...)))
+
+  (syntax-parse stx
+    #:datum-literals [:]
+    [(_ (b:binding ...) body:expr ...+)
+     #'(let*-values ([(~@ b.lhs) b.rhs] ...) body ...)]
+    [(_ whatever ...)
+     #'(let/TR whatever ...)]))
 
 (define-syntax-rule (first-value expr)
   (call-with-values (λ () expr)
