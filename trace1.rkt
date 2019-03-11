@@ -1,3 +1,4 @@
+;UNTYPED VERSION, soon to be obsolete 10-Mar-2019
 ; trace.rkt -- Code for temporal traces
 ;
 ; A temporal trace is a node whose members include a sequence of timesteps.
