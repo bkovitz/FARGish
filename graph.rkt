@@ -17,6 +17,7 @@
 
 (provide Graph
          Graph-spec
+         ->spec
          (struct-out Graph)
          make-empty-graph
          copy-graph
@@ -97,6 +98,12 @@
 
 (: E : Port Port -> Edge/UPair)  ; Edge constructor
 (define E UnorderedPair)
+
+(: ->spec : (U Graph FARGishSpec) -> FARGishSpec)
+(define (->spec g-or-spec)
+  (cond
+    [(FARGishSpec? g-or-spec) g-or-spec]
+    [else (Graph-spec g-or-spec)]))
 
 
 ;(define-struct/exec Gfunc () 

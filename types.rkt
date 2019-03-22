@@ -14,6 +14,8 @@
 (define-type Edge* (Setof Node))  ; 2 nodes
 (define-type EdgeWeight Flonum)
 
+(define-type Salience Flonum)
+
 ; Name to show in visualization of a graph in place of node's id
 (define-type DisplayName (U Symbol Integer String))
 

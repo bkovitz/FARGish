@@ -18,6 +18,9 @@
 (provide (all-from-out "graph.rkt")
          (all-defined-out))
 
+;TODO Global constants should be stored as variables in the graph.
+(define salience-decay 0.8)
+
 ;; ======================================================================
 ;;
 ;; Functions to make and remove nodes and edges
@@ -55,6 +58,11 @@
             ([node (members-of g ctx)])
     (remove-node g node)))
 
+;; ======================================================================
+;;
+;; Tagging
+;;
+
 ;TODO Don't make the tag if it's already there
 (: make-tag : Graph Attrs (U Node (Listof Node)) -> (Values Graph Node))
 (define (make-tag g attrs node/s)
@@ -73,20 +81,6 @@
 (define (add-tag g tag-attrs node/s)
   (first-value (make-tag g tag-attrs node/s)))
 
-;TODO Move these functions to appropriate places.
-
-(: common-ctxs : Graph (Listof Node) -> (Setof Node))
-(define (common-ctxs g nodes)
-  (for/fold ([st : (Setof Node) (set)])
-            ([node nodes])
-    (set-intersect st (list->set (member-of g node)))))
-
-(: ->nodelist : (U Node (Listof Node)) -> (Listof Node))
-(define (->nodelist node/s)
-  (cond
-    [(list? node/s) node/s]
-    [else (list node/s)]))
-
 (: nodeclass->apply-tag : (U Graph FARGishSpec) (U Void Symbol)
                           -> (U Void ApplyTag))
 (define (nodeclass->apply-tag g nodeclass)
@@ -96,12 +90,6 @@
     [else (hash-ref (FARGishSpec-ht/class->apply-tag spec)
                     nodeclass
                     (const (void)))]))
-
-(: ->spec : (U Graph FARGishSpec) -> FARGishSpec)
-(define (->spec g-or-spec)
-  (cond
-    [(FARGishSpec? g-or-spec) g-or-spec]
-    [else (Graph-spec g-or-spec)]))
 
 ;; ======================================================================
 ;;
@@ -115,6 +103,10 @@
   (graph-update-var g 'touched-nodes
     (λ (touched-so-far) (set-add (cast touched-so-far (Setof Node)) node))
     empty-set))
+
+(: touched-nodes : Graph -> (Setof Node))
+(define (touched-nodes g)
+  (cast (graph-get-var g 'touched-nodes empty-set) (Setof Node)))
 
 (: clear-touched-nodes : Graph -> Graph)
 (define (clear-touched-nodes g)
@@ -202,6 +194,12 @@
 (define (member-edge ctx member)
   `((,ctx members) (,member member-of)))
 
+(: common-ctxs : Graph (Listof Node) -> (Setof Node))
+(define (common-ctxs g nodes)
+  (for/fold ([st : (Setof Node) (set)])
+            ([node nodes])
+    (set-intersect st (list->set (member-of g node)))))
+
 (: walk : Graph Node (-> Graph Node (Listof Node)) -> (Setof Node))
 (define (walk g start-node node->next-nodes)
   (let loop ([result empty-set]
@@ -237,6 +235,54 @@
 (define (members-of/rec g node)
   (follow-port-label/rec g node 'members))
 
+(: g->node->neighbors : Graph -> (-> Node (Setof Node)))
+(define (g->node->neighbors g)
+  (λ (node) (node->neighbors g node)))
+
+(: g->node->salience : Graph -> (-> Node Salience))
+(define (g->node->salience g)
+  (λ (node) (salience-of g node)))
+
+(: nearby-nodes
+   (->* [Graph Node] [#:num-hops Integer #:filter (U #f (Node -> Boolean))]
+        (Setof Node)))
+(define (nearby-nodes g node #:num-hops [num-hops 2] #:filter [fi #f])
+  (if (zero? num-hops)
+    empty-set
+    (let ([node->neighbors (g->node->neighbors g)]
+          [nodes->neighbors (λ ([st : (Setof Node)]) : (Setof Node)
+                              (for/fold ([result empty-set])
+                                        ([node (in-set st)])
+                                (set-union result (node->neighbors node))))]
+          [accumulate (if fi
+                        (λ ([result : (Setof Node)] [nodes : (Setof Node)])
+                          (for/fold ([result : (Setof Node) result])
+                                    ([node nodes]
+                                     #:when (fi node))
+                            (set-add result node)))
+                        set-union)])
+      (let loop ([result (accumulate empty-set (node->neighbors node))]
+                 [to-do (node->neighbors node)]
+                 [done (set node)]
+                 [num-hops (sub1 num-hops)])
+        (cond
+          [(zero? num-hops) result]
+          [else (loop (accumulate result (nodes->neighbors to-do))
+                      (set-subtract (nodes->neighbors to-do) to-do done)
+                      (set-union done to-do)
+                      (sub1 num-hops))])))))
+
+;; ======================================================================
+;;
+;; Convenience functions for overloaded arguments
+;;
+
+(: ->nodelist : (U Node (Listof Node)) -> (Listof Node))
+(define (->nodelist node/s)
+  (cond
+    [(list? node/s) node/s]
+    [else (list node/s)]))
+
 ;; ======================================================================
 ;;
 ;; Salience
@@ -251,5 +297,87 @@
      (cast (get-node-attr g elem 'salience 0.0) Flonum)]
     [else
      (apply max (map/g g salience-of (edge->nodes elem)))]))
+
+(: boost-salience-of : Graph Node -> Graph)
+(define (boost-salience-of g node)
+  (update-node-attr g node 'salience
+    (cast (curry+ 1.0) (Any -> Any))
+    (const 0.0)))
+
+(: boost-salience-of-touched-nodes : Graph -> Graph)
+(define (boost-salience-of-touched-nodes g)
+  (for/fold ([g g])
+            ([node (touched-nodes g)])
+    (boost-salience-of g node)))
+
+(: reduce-salience-of : Graph Node -> Graph)
+(define (reduce-salience-of g node)
+  (update-node-attr g node 'salience
+    (cast (curry * 0.5) (Any -> Any))
+    (const 0.0)))
+
+(: decay-saliences-in : Graph Node -> Graph)
+(define (decay-saliences-in g ctx)
+  (for/fold ([g g])
+            ([node (in-set (members-of/rec g ctx))])
+    (decay-salience-of g node)))
+
+(: decay-salience-of : Graph Node -> Graph)
+(define (decay-salience-of g node)
+  (update-node-attr g node 'salience
+    (cast (curry * salience-decay) (Any -> Any))
+    (const 0.0)))
+
+(: decay-salience/all : Graph -> Graph)
+(define (decay-salience/all g)
+  (for/fold ([g g])
+            ([node (all-nodes g)])
+    (decay-salience-of g node)))
+
+;(: seq-weighted-by-salience Graph 
+
+; Returns Node or void if no node found. If #:filter is #f, then no nodes
+; are filtered from the nearby nodes.
+(: choose-nearby-node-by-salience
+   (->* [Graph Node] [#:num-hops Integer #:filter (U #f (-> Node Boolean))]
+        (U Node Void)))
+(define (choose-nearby-node-by-salience g node #:num-hops [num-hops 2]
+                                               #:filter [fi #f])
+  (let ([nodes (set->list (nearby-nodes g node #:num-hops num-hops
+                                               #:filter fi))])
+    (cond
+      [(null? nodes) (void)]
+      [else (weighted-choice-by (g->node->salience g) nodes)])))
+
+; Randomly chooses member of ctx.
+; Returns Node or void is no node found.
+; If #:filter is #f, then no nodes are filtered from the members of ctx.
+(: choose-node-by-salience/in 
+   (->* [Graph (U Node Void)] [#:filter (U #f (-> Node Boolean))]
+        (U Node Void)))
+(define (choose-node-by-salience/in g ctx #:filter [fi #f])
+  (cond
+    [(void? ctx) (void)]
+    [else (weighted-choice-by (g->node->salience g)
+                              (if fi
+                                (filter fi (members-of g ctx))
+                                (members-of g ctx)))]))
+
+(: display-salience (->* [Graph Node] [(U Salience Void)] Void))
+(define (display-salience g node [salience (void)])
+  (let ([salience (if (void? salience) (salience-of g node) salience)]
+        [s-node (~a (~a node #:min-width 15))]
+        [s-salience (~r salience #:precision '(= 3))])
+    (displayln (string-append s-node " " s-salience))))
+
+(: pr-saliences : Graph -> Void)
+(define (pr-saliences g)
+  (for ([node (members-of g 'ws)])
+    (display-salience g node)))
+
+(: saliences-ht : Graph -> (Hashof Node Salience))
+(define (saliences-ht g)
+  (for/hash ([node (members-of g 'ws)]) : (Hashof Node Salience)
+    (values node (salience-of g node))))
 
 ;NEXT Copying a trace, and all its supporting functions
