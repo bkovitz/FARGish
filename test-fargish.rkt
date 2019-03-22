@@ -3,10 +3,11 @@
 
 #lang errortrace typed/racket
 
-(module+ test
-  (require "fargish.rkt")
-  (require typed/rackunit phc-toolkit/typed-rackunit)
+(require "typed-wheel.rkt")
+(require "fargish.rkt" "model.rkt")
+(require typed/rackunit phc-toolkit/typed-rackunit)
 
+(module+ test
   (test-case "nodeclass inheritance"
     (define-spec spec
       (nodeclass (number [n : Integer])
@@ -54,4 +55,19 @@
     (check-equal? (hash-ref d 'args) '(eks))
     (check-equal? (hash-ref d 'display-name) 'this-is-C)
     (check-equal? (hash-ref d 'value (const (void))) (void))
-    (check-equal? (hash-ref d 'tag?) #t)))
+    (check-equal? (hash-ref d 'tag?) #t))
+  
+  (test-case "apply-tag"
+    (define-spec spec
+      (nodeclass A)
+      (tagclass B
+        (applies-to ([node])))
+      (tagclass C
+        (applies-to ([node1 (by-ports descriptee descriptor)]))))
+    (define g (make-empty-graph spec))
+    (let ([(g a) (make-node g (A))]
+          [(g b) (make-tag g (B) a)]
+          [(g c) (make-tag g (C) a)])
+      (check-true (has-edge? g `((,b tagged) (,a tags))))
+      (check-true (has-edge? g `((,c descriptee) (,a descriptor))))))
+  )

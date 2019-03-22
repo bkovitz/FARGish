@@ -11,7 +11,8 @@
 (require (only-in "graph.rkt" [make-node g:make-node]
                               [add-edge g:add-edge])
          (except-in "graph.rkt" make-node add-node add-edge)
-         "fargish.rkt")
+         "fargish.rkt"
+         "fizzle.rkt")
 (module+ test (require typed/rackunit))
 
 (provide (all-from-out "graph.rkt")
@@ -53,6 +54,40 @@
   (for/fold ([g g])
             ([node (members-of g ctx)])
     (remove-node g node)))
+
+(: make-tag : Graph Attrs (U Node (Listof Node)) -> (Values Graph Node))
+(define (make-tag g attrs node/s)
+  (let ([(g tag) (make-node g attrs)]
+        [nodes (->nodelist node/s)]
+        [apply-tag (nodeclass->apply-tag g (class-of g tag))])
+    (cond
+      [(void? apply-tag) (fizzle:tagclass attrs)]
+      [else (let ([g (apply-tag g tag nodes)])
+              (values g tag))])))
+
+;TODO Move these functions to appropriate places.
+
+(: ->nodelist : (U Node (Listof Node)) -> (Listof Node))
+(define (->nodelist node/s)
+  (cond
+    [(list? node/s) node/s]
+    [else (list node/s)]))
+
+(: nodeclass->apply-tag : (U Graph FARGishSpec) (U Void Symbol)
+                          -> (U Void ApplyTag))
+(define (nodeclass->apply-tag g nodeclass)
+  (cond
+    [(void? nodeclass) (void)]
+    #:define spec (->spec g)
+    [else (hash-ref (FARGishSpec-ht/class->apply-tag spec)
+                    nodeclass
+                    (const (void)))]))
+
+(: ->spec : (U Graph FARGishSpec) -> FARGishSpec)
+(define (->spec g-or-spec)
+  (cond
+    [(FARGishSpec? g-or-spec) g-or-spec]
+    [else (Graph-spec g-or-spec)]))
 
 ;; ======================================================================
 ;;

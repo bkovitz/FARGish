@@ -86,4 +86,7 @@
 (define-fizzle fizzle:tag-failed (tagspec nodes)
   (format "tagspec ~a does not apply to nodes ~a" tagspec nodes))
 
+(define-fizzle fizzle:tagclass (tagclass)
+  (format "unknown tagclass: ~a" tagclass))
+
 ;TODO UT

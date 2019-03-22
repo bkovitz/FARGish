@@ -133,7 +133,7 @@
                           #:defaults ([from-port-label #'tagged]
                                       [to-port-label #'tags])))))
 
-  ;NEXT I think apply-tag will need to be rewritten so that it applies only
+  ;TODO I think apply-tag will need to be rewritten so that it applies only
   ;one tag at a time, with the name of the taggee specified. The make-tag
   ;function will have to call apply-tag multiple times. Other code can
   ;add on taggees. tag-info will have to allow specifying multiplicity.
