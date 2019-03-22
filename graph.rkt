@@ -71,6 +71,7 @@
          node-attr?
 
          graph-set-var
+         graph-get-var
          graph-update-var
          graph-remove-var
          graph-push-var
@@ -84,15 +85,6 @@
          pr-node)
 
 (begin-encourage-inline
-
-(struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
-               [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
-               [ht-edge->weight : (Hashof Edge/UPair EdgeWeight)]
-               [id-set : IdSet]
-               [stacks : (Hashof Symbol (Listof Any))]
-               [vars : (Hashof Symbol Any)]
-               [spec : FARGishSpec])
-              #:prefab)
 
 (: make-empty-graph : FARGishSpec -> Graph)
 (define (make-empty-graph spec)

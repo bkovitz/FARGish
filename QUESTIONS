@@ -44,3 +44,16 @@ up compilation and unit-testing?
 How do you debug in Racket? How do you see what's going in a program? #r and
 displayln don't seem to be enough. Stack traces in DrRacket usually omit much
 of the stack, including the relevant parts.
+
+
+BROADLY How do you write code in Racket that is easy to modify, when you don't
+fully understand the whole problem? In OO languages, writing code in order to
+understand the problem better, and then modifying it when you see a better way
+to do it, is pretty easy if you follow heuristics like the Law of Demeter,
+which put boundaries around "ripple" from new changes. I haven't found
+comparable heuristics for Racket.
+
+It seems that 'match' is a very easy way to get into trouble, because it makes
+ripple that's unbounded, subtle, and invisible. When you modify code in one
+place, it's not obvious that you need to modify a bunch of 'match' statements
+throughout the code.

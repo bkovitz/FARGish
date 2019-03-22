@@ -8,7 +8,7 @@
          "model1.rkt"
          "support.rkt"
          "shorthand.rkt"
-         "trace.rkt"
+         "trace1.rkt"
          (prefix-in f: "fargish1.rkt")
          (only-in "fargish1.rkt"
            farg-model-spec nodeclass tagclass portclass)

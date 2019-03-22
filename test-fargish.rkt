@@ -1,7 +1,7 @@
 ; test-fargish.rkt -- Unit tests for fargish.rkt, since (module+ test) doesn't
 ;                     seem to work with Typed Racket (in Racket 7.0)
 
-#lang typed/racket
+#lang errortrace typed/racket
 
 (module+ test
   (require "fargish.rkt")

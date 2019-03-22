@@ -8,8 +8,9 @@
 
 (require debug/repl errortrace)
 (require "types.rkt" "typed-wheel.rkt")
-(require (only-in "graph.rkt" [make-node g:make-node])
-         (except-in "graph.rkt" make-node add-node)
+(require (only-in "graph.rkt" [make-node g:make-node]
+                              [add-edge g:add-edge])
+         (except-in "graph.rkt" make-node add-node add-edge)
          "fargish.rkt")
 (module+ test (require typed/rackunit))
 
@@ -18,12 +19,13 @@
 
 ;; ======================================================================
 ;;
-;; Functions to make nodes and edges
+;; Functions to make and remove nodes and edges
 ;;
 
 (: make-node : Graph Attrs -> (Values Graph Node))
 (define (make-node g attrs)
   (let ([(g node) (g:make-node g attrs)])
+    ; TODO post-make-node
     (values g node)))
 
 (: add-node : Graph Attrs -> Graph)
@@ -33,12 +35,59 @@
 (: make-node/in : Graph Node Attrs -> (Values Graph Node))
 (define (make-node/in g ctx attrs)
   (let ([(g node) (make-node g attrs)]
-        [(g) (add-edge g `((,ctx members) (,node member-of)))])
+        [(g) (add-edge g (member-edge ctx node))])
     (values g node)))
 
 (: add-node/in : Graph Node Attrs -> Graph)
 (define (add-node/in g ctx attrs)
   (first-value (make-node/in g ctx attrs)))
+
+(: add-edge (->* (Graph Edge) (EdgeWeight) Graph))
+(define (add-edge g edge [weight 1.0])
+  (for/fold ([g (g:add-edge g edge weight)])
+            ([node (edge->nodes edge)])
+    (touch-node g node)))
+
+(: remove-nodes/in : Graph Node -> Graph)
+(define (remove-nodes/in g ctx)
+  (for/fold ([g g])
+            ([node (members-of g ctx)])
+    (remove-node g node)))
+
+;; ======================================================================
+;;
+;; Tracking done after adding a node or edge
+;;
+
+(define empty-set : (Setof Node) (set))
+
+(: touch-node : Graph Node -> Graph)
+(define (touch-node g node)
+  (graph-update-var g 'touched-nodes
+    (λ (touched-so-far) (set-add (cast touched-so-far (Setof Node)) node))
+    empty-set))
+
+(: clear-touched-nodes : Graph -> Graph)
+(define (clear-touched-nodes g)
+  (graph-set-var g 'touched-nodes empty-set))
+
+(: record-new-node : Graph Node -> Graph)
+(define (record-new-node g node)
+  (graph-update-var g 'new-nodes
+    (λ (so-far) (set-add (cast so-far (Setof Node)) node))
+    empty-set))
+
+(: new-nodes : Graph -> (Setof Node))
+(define (new-nodes g)
+  (cast (graph-get-var g 'new-nodes empty-set) (Setof Node)))
+
+(: clear-new-nodes : Graph -> Graph)
+(define (clear-new-nodes g)
+  (graph-set-var g 'new-nodes empty-set))
+
+(: new-node? : Graph Node -> Boolean)
+(define (new-node? g node)
+  (set-member? (new-nodes g) node))
 
 ;; ======================================================================
 ;;
@@ -99,6 +148,45 @@
 (: member-of? : Graph Node Node -> (U (Listof Node) False))
 (define (member-of? g ctx node)
   (member ctx (member-of g node)))
+
+(: member-edge : Node Node -> Edge/List)
+(define (member-edge ctx member)
+  `((,ctx members) (,member member-of)))
+
+(: walk : Graph Node (-> Graph Node (Listof Node)) -> (Setof Node))
+(define (walk g start-node node->next-nodes)
+  (let loop ([result empty-set]
+             [already-visited (set)]
+             [to-visit (list start-node)])
+    (cond
+      [(null? to-visit) result]
+      [else
+        (let ([node (car to-visit)]
+              [next-nodes (node->next-nodes g node)]
+              [already-visited (set-add already-visited node)]
+              [old-nodes (set-union already-visited (list->set (cdr to-visit)))]
+              [to-visit (append (filter-not (set->pred old-nodes)
+                                            next-nodes)
+                                (cdr to-visit))])
+          (loop (apply set-add* result next-nodes)
+                already-visited
+                to-visit))])))
+
+;A "stepper" for the 'walk' function.
+(: node->neighbors/port-label/ : Port-label -> (-> Graph Node (Listof Node)))
+(define (node->neighbors/port-label/ port-label)
+  (λ (g node)
+    (port->neighbors g `(,node ,port-label))))
+
+; Returns a set of all nodes reachable from start-node's port named port-label,
+; and all nodes reachable from those nodes' port named port-label, and so on.
+(: follow-port-label/rec : Graph Node Port-label -> (Setof Node))
+(define (follow-port-label/rec g start-node port-label)
+  (walk g start-node (node->neighbors/port-label/ port-label)))
+
+(: members-of/rec : Graph Node -> (Setof Node))
+(define (members-of/rec g node)
+  (follow-port-label/rec g node 'members))
 
 ;; ======================================================================
 ;;

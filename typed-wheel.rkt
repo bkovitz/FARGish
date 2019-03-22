@@ -85,6 +85,10 @@
   (let ([sum (apply + args)])
     (λ args (apply + sum args))))
 
+(: set->pred (All (A) (Setof A) -> (-> Any Boolean)))
+(define (set->pred st)
+  (λ (x) (set-member? st x)))
+
 ;; ======================================================================
 ;;
 ;; Generic UnorderedPair
@@ -132,6 +136,12 @@
 ;;
 ;; Collection utilities
 ;;
+
+(: set-add* (All (A) (-> (Setof A) A * (Setof A))))
+(define (set-add* st . xs)
+  (for/fold ([st st])
+            ([x xs])
+    (set-add st x)))
 
 (: hash-remove* (All (K V) (Hashof K V) K * -> (Hashof K V)))
 (define (hash-remove* h . keys)

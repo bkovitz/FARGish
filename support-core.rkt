@@ -1,4 +1,4 @@
-; supp.rkt -- Typed Racket version of support-network.rkt
+; support-core.rkt -- Core functions for support network
 ;
 ; Redesigned a bit, too.
 ; TODO Replace support-network.rkt.
@@ -6,6 +6,8 @@
 #lang typed/racket
 
 (require "typed-wheel.rkt")
+
+(provide support-ht-t+1)
 
 (: sum-deltas
    (All (A)
@@ -65,3 +67,5 @@
                         i->support-t is)
   (post-proc alpha normalize is i->min-support i->support-t
              (sum-deltas i->js i-j->give-support is)))
+
+;TODO UT
