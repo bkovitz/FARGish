@@ -57,7 +57,7 @@
     (check-equal? (hash-ref d 'value (const (void))) (void))
     (check-equal? (hash-ref d 'tag?) #t))
   
-  (test-case "apply-tag"
+  (test-case "make-tag"
     (define-spec spec
       (nodeclass A)
       (tagclass B

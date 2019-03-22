@@ -55,6 +55,7 @@
             ([node (members-of g ctx)])
     (remove-node g node)))
 
+;TODO Don't make the tag if it's already there
 (: make-tag : Graph Attrs (U Node (Listof Node)) -> (Values Graph Node))
 (define (make-tag g attrs node/s)
   (let ([(g tag) (make-node g attrs)]
@@ -62,10 +63,23 @@
         [apply-tag (nodeclass->apply-tag g (class-of g tag))])
     (cond
       [(void? apply-tag) (fizzle:tagclass attrs)]
-      [else (let ([g (apply-tag g tag nodes)])
+      [else (let ([g (apply-tag g tag nodes)]
+                  [g (for/fold ([g : Graph g])
+                               ([ctx (common-ctxs g nodes)])
+                       (add-edge g (member-edge ctx tag)))])
               (values g tag))])))
 
+(: add-tag : Graph Attrs (U Node (Listof Node)) -> Graph)
+(define (add-tag g tag-attrs node/s)
+  (first-value (make-tag g tag-attrs node/s)))
+
 ;TODO Move these functions to appropriate places.
+
+(: common-ctxs : Graph (Listof Node) -> (Setof Node))
+(define (common-ctxs g nodes)
+  (for/fold ([st : (Setof Node) (set)])
+            ([node nodes])
+    (set-intersect st (list->set (member-of g node)))))
 
 (: ->nodelist : (U Node (Listof Node)) -> (Listof Node))
 (define (->nodelist node/s)
