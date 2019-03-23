@@ -334,8 +334,6 @@
             ([node (all-nodes g)])
     (decay-salience-of g node)))
 
-;(: seq-weighted-by-salience Graph 
-
 ; Returns Node or void if no node found. If #:filter is #f, then no nodes
 ; are filtered from the nearby nodes.
 (: choose-nearby-node-by-salience
@@ -380,4 +378,45 @@
   (for/hash ([node (members-of g 'ws)]) : (Hashof Node Salience)
     (values node (salience-of g node))))
 
-;NEXT Copying a trace, and all its supporting functions
+;; ======================================================================
+;;
+;; Copying bunches of nodes
+;;
+
+(: copy-into : Graph Node Node (Listof Node) (Setof Port-label)
+               (-> Graph Node (Values Graph Node))
+               -> Graph)
+(define (copy-into g
+                   orig-ctx             ; Link this...
+                   new-ctx              ; ...to this
+                   orig-nodes       ; and propagate links among copies of these
+                   relevant-port-labels ; that involve these port-labels.
+                   copy-node)           ; Node-copying function
+  (: make-nodes : -> (Values Graph (Hashof Node Node)))
+  (define (make-nodes)
+    (for/fold ([g g] [nodemap : (Hashof Node Node) (hash orig-ctx new-ctx)])
+              ([orig-node orig-nodes])
+      (let ([(g new-node) (copy-node g orig-node)])
+        (values g (hash-set nodemap orig-node new-node)))))
+
+  (: make-edges : Graph (Hashof Node Node) -> Graph)
+  (define (make-edges g nodemap)
+    (let ([orig-node? (hash->pred nodemap)]
+          [relevant-port-label? (set->pred relevant-port-labels)])
+      (for*/fold ([g : Graph g])
+                 ([(orig-node new-node) nodemap]
+                  [port-label relevant-port-labels]
+                  [orig-hop : Hop (port->incident-hops g `(,orig-node ,port-label))])
+        (cond
+          #:define neighbor-label (other-port-label orig-hop)
+          [(not (relevant-port-label? neighbor-label))
+           g]
+          #:define orig-neighbor (other-node orig-hop)
+          [(not (orig-node? orig-neighbor))
+           g]
+          #:define new-neighbor (hash-ref nodemap orig-neighbor)
+          [else (add-edge g `((,new-node ,port-label)
+                              (,new-neighbor ,neighbor-label)))]))))
+  (let ([(g nodemap) (make-nodes)]
+        [g (make-edges g nodemap)])
+    g))

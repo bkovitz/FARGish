@@ -51,6 +51,7 @@
          port->incident-edges
          port->incident-hops
          other-node
+         other-port-label
          node->neighbors
          node->edges
          node->ports
@@ -401,7 +402,6 @@
   (for/list ([nport : Port (port->neighboring-ports g port)])
     (E port nport)))
 
-;Returns a list of edges, each edge represented as a list, with port first
 (: port->incident-hops : Graph Port -> (Listof Hop))
 (define (port->incident-hops g port)
   (for/list ([nport : Port (port->neighboring-ports g port)])
@@ -409,6 +409,9 @@
 
 (: other-node : Hop -> Node)
 (define other-node caadr)
+
+(: other-port-label : Hop -> Port-label)
+(define other-port-label cadadr)
 
 (: node->neighbors : Graph Node -> (Setof Node))
 (define (node->neighbors g node)

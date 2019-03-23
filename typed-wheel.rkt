@@ -89,6 +89,10 @@
 (define (set->pred st)
   (λ (x) (set-member? st x)))
 
+(: hash->pred (All (K V) (Hashof K V) -> (-> K Boolean)))
+(define (hash->pred ht)
+  (curry hash-has-key? ht))
+
 ;; ======================================================================
 ;;
 ;; Generic UnorderedPair
