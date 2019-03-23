@@ -89,4 +89,7 @@
 (define-fizzle fizzle:tagclass (tagclass)
   (format "unknown tagclass: ~a" tagclass))
 
+(define-fizzle fizzle:not-a-tag (nodeclass)
+  (format "Nodeclass ~a is not a tag and does not apply to other nodes."))
+
 ;TODO UT

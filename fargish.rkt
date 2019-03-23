@@ -161,9 +161,10 @@
 
   (define-splicing-syntax-class nodeclass-body
     #:datum-literals [is-a archetype value links-into display-name]
-    #:attributes [(parent 2) value-expr display-name-expr apply-tag]
+    #:attributes [(parent 2) value-expr display-name-expr apply-tag
+                  applies-to-expr]
     (pattern (~seq
-      (~alt (is-a ~! parent:expr ...+)
+      (~alt (is-a ~! parent:id ...+)
             (~optional (value ~! value-expr:expr)
                        #:too-many "'value' specified more than once"
                        #:defaults ([value-expr missing]))
@@ -171,24 +172,30 @@
                        #:too-many "'display-name' specified more than once"
                        #:defaults ([display-name-expr missing]))
             (~optional applies-to-expr:applies-to
-                       #:too-many "'applies-to' specified more than once")
+                       #:too-many "'applies-to' specified more than once"
+                       #:defaults ([applies-to-expr missing]))
             ) ... )
-      #:with apply-tag 
-             #'(~? applies-to-expr.apply-tag
-                   (λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
-                      : Graph
-                     (cond
-                       [(null? nodes) g]
-                       [else (assert #f)]))))) ;TODO fizzle
+        #:with apply-tag #`(~? applies-to-expr.apply-tag #,missing)))
+
+;  (define-syntax-class compile-atag
+;    (pattern 
 
   (define-syntax-class nodeclass
     #:attributes [cnodeclass]
     (pattern (head:nodeclass-head ~! decl:name+args body:nodeclass-body)
+      #:with apply-tag
+             (if (missing? #'body.apply-tag)
+               #'(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
+                    : Graph
+                   (cond
+                     [(null? nodes) g]
+                     [else (fizzle:not-a-tag 'decl.name)]))
+               #'body.apply-tag)
       #:attr cnodeclass
              (make-CNodeclass #'decl.name
                               #'(decl.arg ...)
                               #'(body.parent ... ...)
-                              #'body.apply-tag
+                              #'apply-tag
                               #'value #'body.value-expr
                               #'display-name #'body.display-name-expr
                               #'tag? #'head.tag?)))
