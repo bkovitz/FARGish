@@ -36,6 +36,12 @@
 (define (add-node g attrs)
   (first-value (make-node g attrs)))
 
+(: add-nodes : Graph Attrs * -> Graph)
+(define (add-nodes g . attrss)
+  (for/fold ([g g])
+            ([attrs : Attrs attrss])
+    (add-node g attrs)))
+
 (: make-node/in : Graph Node Attrs -> (Values Graph Node))
 (define (make-node/in g ctx attrs)
   (let ([(g node) (make-node g attrs)]
@@ -45,6 +51,12 @@
 (: add-node/in : Graph Node Attrs -> Graph)
 (define (add-node/in g ctx attrs)
   (first-value (make-node/in g ctx attrs)))
+
+(: add-nodes/in : Graph Node Attrs * -> Graph)
+(define (add-nodes/in g ctx . attrss)
+  (for/fold ([g g])
+            ([attrs : Attrs attrss])
+    (add-node/in g ctx attrs)))
 
 (: add-edge (->* (Graph Edge) (EdgeWeight) Graph))
 (define (add-edge g edge [weight 1.0])
@@ -138,6 +150,8 @@
 (: args-of : Graph Node -> (Listof Any))
 (define (args-of g node)
   (cast (get-node-attr g node 'args) (Listof Any)))
+
+(define attrs-of get-node-attrs)
 
 (: display-name-of : Graph Node -> Any)
 (define (display-name-of g node)
@@ -406,7 +420,8 @@
       (for*/fold ([g : Graph g])
                  ([(orig-node new-node) nodemap]
                   [port-label relevant-port-labels]
-                  [orig-hop : Hop (port->incident-hops g `(,orig-node ,port-label))])
+                  [orig-hop : Hop
+                    (port->incident-hops g `(,orig-node ,port-label))])
         (cond
           #:define neighbor-label (other-port-label orig-hop)
           [(not (relevant-port-label? neighbor-label))
@@ -420,3 +435,42 @@
   (let ([(g nodemap) (make-nodes)]
         [g (make-edges g nodemap)])
     g))
+
+(: copy-as-placeholder-or-t : Graph Node -> (Values Graph Node))
+(define (copy-as-placeholder-or-t g orig-node)
+  (let ([(g new-node) (cond
+                        [(node-is-a? g orig-node 't)
+                         (make-node g (cast (attrs-of g orig-node) Attrs))]
+                        [else (make-placeholder g
+                                (cast (class-of g orig-node) Symbol))])]
+        [g (mark-copying g orig-node new-node)])
+    (values g new-node)))
+
+(: copy-into/as-placeholders : Graph Node Node (Listof Node) (Setof Port-label)
+                               -> Graph)
+(define (copy-into/as-placeholders
+          g orig-ctx new-ctx orig-nodes relevant-port-labels)
+  (copy-into g orig-ctx
+               new-ctx
+               orig-nodes
+               relevant-port-labels
+               copy-as-placeholder-or-t))
+
+;TODO Move this under node-creation
+; A placeholder's ctor is not called. It gets a class and no other attributes
+; except 'placeholder? = #t.
+(: make-placeholder : Graph Symbol -> (Values Graph Node))
+(define (make-placeholder g classname)
+  (make-node g (hash 'class classname 'placeholder? #t)))
+
+(: mark-copying : Graph Node Node -> Graph)
+(define (mark-copying g from-node to-node)
+  (add-edge g `((,from-node copying-to) (,to-node copying-from))))
+
+(: copying-from : Graph Node -> (U Node Void))
+(define (copying-from g node)
+  (port->neighbor g `(,node copying-from)))
+
+(: copying-to : Graph Node -> (U Node Void))
+(define (copying-to g node)
+  (port->neighbor g `(,node copying-to)))

@@ -4,7 +4,8 @@
 (require typed/debug/report)
 
 (module+ test
-  (require "model.rkt"
+  (require "types.h"
+           "model.rkt"
            "fargish.rkt"
            "typed-wheel.rkt"
            typed/rackunit)
@@ -68,20 +69,51 @@
       (nodeclass (number [n : Integer])
         (display-name n)
         (value n))
-      (tagclass a-tag))
+      (tagclass a-tag
+        (applies-to ([node]))))
     (let ([g (make-empty-graph spec)]
-          [(g n1) (make-node g 'number 1)]
-          [(g n2) (make-node g 'number 2)]
-          [(g n3) (make-node g 'number 3)]
-          [(g n4) (make-node g 'number 4)]
-          [(g t1) (make-tag g '(a-tag) n1)]  ; TODO Just 'a-tag, not '(a-tag)
-          [(g t2) (make-tag g '(a-tag) n2)]
-          [(g t4) (make-tag g '(a-tag) n4)]
-          [_ (check-equal? (list->set (filter/g g non-tag? (all-nodes g)))
+          [(g n1) (make-node g (number 1))]
+          [(g n2) (make-node g (number 2))]
+          [(g n3) (make-node g (number 3))]
+          [(g n4) (make-node g (number 4))]
+          [(g t1) (make-tag g (a-tag) n1)]  ; TODO Just 'a-tag, not '(a-tag)
+          [(g t2) (make-tag g (a-tag) n2)]
+          [(g t4) (make-tag g (a-tag) n4)]
+          [_ (check-equal? (list->set (filter/g g (not/ tag?) (all-nodes g)))
                            (set n1 n2 n3 n4))]
           [_ (check-equal? (list->set (filter/g g tag? (all-nodes g)))
                            (set t1 t2 t4))])
       (void)))
   
+  (test-case "copy-into/as-placeholders"
+    (define-spec spec
+      (nodeclass (number [n : Integer])
+        (display-name n)
+        (value n))
+      (nodeclass c))
+
+    (let ([g (make-empty-graph spec)]
+          [(g c1) (make-node g (c))]
+          [(g c2) (make-node g (c))]
+          ;[g (add-nodes/in g c1 'number '(1 2 3))]
+          [g (apply add-nodes/in g c1 (map number '(1 2 3)))]
+          [g (add-edge g `((1 next) (2 prev)))]
+          [g (add-edge g `((2 next) (3 prev)))]
+          [g (add-edge g `((1 next) (3 ignore)))]
+          [g (copy-into/as-placeholders g
+                                        c1 c2
+                                        (list 1 2 3)
+                                        (set 'members 'member-of 'prev 'next))]
+          [(n1 n2 n3) (values (copying-to g 1)
+                              (copying-to g 2)
+                              (copying-to g 3))]
+          [member-of-c2? (λ ([n : Node]) : Boolean (member-of? g c2 n))]
+          [_ (check-pred member-of-c2? n1)]
+          [_ (check-pred member-of-c2? n2)]
+          [_ (check-pred member-of-c2? n3)]
+          [_ (check-true (has-edge? g `((,n1 next) (,n2 prev))))]
+          [_ (check-true (has-edge? g `((,n2 next) (,n3 prev))))]
+          [_ (check-true (not (has-edge? g `((,n1 next) (,n3 ignore)))))])
+      (void)))
   
   )

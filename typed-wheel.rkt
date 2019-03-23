@@ -80,6 +80,10 @@
 ;; Currying
 ;;
 
+(: not/ : (All (a ...) (-> a ... a Any) -> (-> a ... a Boolean)))
+(define (not/ f)
+  (λ args (not (apply f args))))
+
 (: curry+ : Number * -> (-> Number * Number))
 (define (curry+ . args)
   (let ([sum (apply + args)])
