@@ -26,9 +26,12 @@
 ;; Functions to make and remove nodes and edges
 ;;
 
-(: make-node : Graph Attrs -> (Values Graph Node))
+(: make-node : Graph (U Attrs Symbol) -> (Values Graph Node))
 (define (make-node g attrs)
-  (let ([(g node) (g:make-node g attrs)])
+  (let ([attrs (if (symbol? attrs)
+                 (hash 'class attrs)
+                 attrs)]
+        [(g node) (g:make-node g attrs)])
     ; TODO post-make-node
     (values g node)))
 
@@ -397,7 +400,7 @@
 ;; Copying bunches of nodes
 ;;
 
-(: copy-into : Graph Node Node (Listof Node) (Setof Port-label)
+(: copy-into : Graph Node Node (U (Listof Node) (Setof Node)) (Setof Port-label)
                (-> Graph Node (Values Graph Node))
                -> Graph)
 (define (copy-into g
@@ -446,8 +449,9 @@
         [g (mark-copying g orig-node new-node)])
     (values g new-node)))
 
-(: copy-into/as-placeholders : Graph Node Node (Listof Node) (Setof Port-label)
-                               -> Graph)
+(: copy-into/as-placeholders :
+   Graph Node Node (U (Listof Node) (Setof Node)) (Setof Port-label)
+   -> Graph)
 (define (copy-into/as-placeholders
           g orig-ctx new-ctx orig-nodes relevant-port-labels)
   (copy-into g orig-ctx

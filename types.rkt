@@ -16,6 +16,8 @@
 
 (define-type Salience Flonum)
 
+(define-type Nodes (U Node (Listof Node) (Setof Node)))
+
 ; Name to show in visualization of a graph in place of node's id
 (define-type DisplayName (U Symbol Integer String))
 

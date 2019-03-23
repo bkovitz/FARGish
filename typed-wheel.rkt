@@ -183,6 +183,13 @@
     [(ht default)
      (λ (k) (hash-ref ht k (const default)))]))
 
+;(: ->list : (All (A) (U A (Listof A) (Setof A)) -> (Listof A)))
+(define-syntax-rule (->list x)
+  (cond
+    [(list? x) x]
+    [(set? x) (set->list x)]
+    [else (list x)]))
+
 ;; ======================================================================
 ;;
 ;; Inheritance
