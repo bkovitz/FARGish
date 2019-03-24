@@ -69,5 +69,9 @@
           [(g b) (make-tag g (B) a)]
           [(g c) (make-tag g (C) a)])
       (check-true (has-edge? g `((,b tagged) (,a tags))))
-      (check-true (has-edge? g `((,c descriptee) (,a descriptor))))))
+      (check-true (has-edge? g `((,c descriptee) (,a descriptor))))
+      (check-true (has-tag? g 'B a))
+      (check-true (has-tag? g 'C a))
+      (check-false (has-tag? g 'A b))
+      ))
   )

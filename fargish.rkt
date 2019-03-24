@@ -7,12 +7,12 @@
                      syntax/id-table racket/function
                      (only-in "typed-wheel.rkt" merge-from-ancestors)
                      (only-in sugar slice-at) mischief/sort))
-(require "types.rkt" "typed-wheel.rkt")
-(require "id-set.rkt")
+(require "typed-wheel.rkt")
+(require "types.rkt" "id-set.rkt" "fizzle.rkt")
 ;(module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
 (provide define-spec empty-spec nodeclass-is-a? (struct-out FARGishSpec)
-         (struct-out Graph) ApplyTag)
+         (struct-out Graph) ApplyTag (struct-out TaggeeInfo))
 
 (struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
@@ -27,16 +27,26 @@
 (define-type ApplyTag (-> Graph Node (Listof Node) Graph))
 ; (apply-tag g tag (list taggee1 taggee2 ...))
 
+(define-type HasTag? (-> Graph Node Boolean))
+; (has-tag? g node)
+
 (struct Nodeclass ([name : Symbol]
                    ;[args : (Listof Symbol)]
                    [parents : (Listof Symbol)])
                   #:transparent)
 
+(struct TaggeeInfo ([name : Symbol]
+                    [from-port-label : Port-label]
+                    [to-port-label : Port-label])
+                   #:transparent)
+
 (struct FARGishSpec ([ht/class->parents : (Hashof Symbol (Setof Symbol))]
-                     [ht/class->apply-tag : (Hashof Symbol ApplyTag)])
+                     [ht/class->apply-tag : (Hashof Symbol ApplyTag)]
+                     [ht/class->taggee-infos :
+                       (Hashof Symbol (Listof TaggeeInfo))])
                     #:transparent)
 
-(define empty-spec (FARGishSpec (hash) (hash)))
+(define empty-spec (FARGishSpec (hash) (hash) (hash)))
 
 (begin-for-syntax
   (define (maybe-missing stx)
@@ -51,7 +61,8 @@
     (syntax-property stx 'missing?))
 
   ; Compile-time Nodeclass
-  (struct CNodeclass (name args parents apply-tag attrs) #:transparent)
+  (struct CNodeclass (name args parents taggee-infos apply-tag attrs)
+                     #:transparent)
   ; name : Symbol
   ; args : (Listof ??)
   ; parents : (Listof Symbol)
@@ -67,13 +78,14 @@
               ([k (free-id-table-keys ft1)])
       (free-id-table-set ft0 k (free-id-table-ref ft1 k))))
 
-  (define (make-CNodeclass name args parents apply-tag . attrs)
+  (define (make-CNodeclass name args parents taggee-infos apply-tag . attrs)
     (let ([attr-pairs (for/list ([kv (slice-at attrs 2)]
                                  #:when (not (missing? (cadr kv))))
                         kv)])
       (CNodeclass name
                   args
                   parents
+                  taggee-infos
                   apply-tag
                   (items->free-id-table car cadr attr-pairs))))
 
@@ -96,11 +108,13 @@
           (with-syntax ([name (CNodeclass-name cn)]
                         [args (CNodeclass-args cn)]
                         [parents (CNodeclass-parents cn)]
+                        [taggee-infos (CNodeclass-taggee-infos cn)]
                         [apply-tag (CNodeclass-apply-tag cn)]
                         [((attr-name attr-expr) ...) (free-id-table-map
                                                        (CNodeclass-attrs cn)
                                                        (λ kv kv))])
-            #'(name args parents apply-tag ((attr-name attr-expr) ...))))))))
+            #'(name args parents taggee-infos apply-tag
+                    ((attr-name attr-expr) ...))))))))
 
 ;(define-syntax (farg-model-spec stx)
 (define-syntax (define-spec stx)
@@ -139,9 +153,13 @@
   ;add on taggees. tag-info will have to allow specifying multiplicity.
   (define-syntax-class applies-to
     #:datum-literals [applies-to]
-    #:attributes [apply-tag]
-    (pattern (applies-to ~! ([taggee t-info:taggee-info] ...)
+    #:attributes [apply-tag taggee-infos]
+    (pattern (applies-to ~! ([taggee:id t-info:taggee-info] ...)
                          )
+             #:with taggee-infos
+                    #'(list (TaggeeInfo 'taggee
+                                        't-info.from-port-label
+                                        't-info.to-port-label) ...)
              #:with tag-arity #`#,(length (stx->list #'(taggee ...)))
              #:with apply-tag
              #'(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
@@ -157,12 +175,13 @@
                                       (,node t-info.to-port-label)))]) ...)
                             g)]))
              #:do [(displayln (syntax->datum #'apply-tag))]
+             #:do [(displayln (attribute t-info))]
              ))
 
   (define-splicing-syntax-class nodeclass-body
     #:datum-literals [is-a archetype value links-into display-name]
     #:attributes [(parent 2) value-expr display-name-expr apply-tag
-                  applies-to-expr]
+                  applies-to-expr taggee-infos]
     (pattern (~seq
       (~alt (is-a ~! parent:id ...+)
             (~optional (value ~! value-expr:expr)
@@ -175,7 +194,9 @@
                        #:too-many "'applies-to' specified more than once"
                        #:defaults ([applies-to-expr missing]))
             ) ... )
-        #:with apply-tag #`(~? applies-to-expr.apply-tag #,missing)))
+        #:with apply-tag #`(~? applies-to-expr.apply-tag #,missing)
+        #:with taggee-infos #`(~? applies-to-expr.taggee-infos '())
+        ))
 
 ;  (define-syntax-class compile-atag
 ;    (pattern 
@@ -195,6 +216,7 @@
              (make-CNodeclass #'decl.name
                               #'(decl.arg ...)
                               #'(body.parent ... ...)
+                              #'body.taggee-infos
                               #'apply-tag
                               #'value #'body.value-expr
                               #'display-name #'body.display-name-expr
@@ -204,6 +226,7 @@
     [(_ spec-name:id nc0:nodeclass ...)
      #:with ((nc.name ((nc.arg.name (~literal :) nc.arg.type) ...)
                        (nc.parent ...)
+                       nc.taggee-infos
                        nc.apply-tag
                        ((nc.attr.name nc.attr.expr) ...)) ...)
             (nodeclass-inheritance (attribute nc0.cnodeclass))
@@ -221,8 +244,12 @@
            (let ([ht/class->parents
                    (hash (~@ 'nc.name (set 'nc.name 'nc.parent ...)) ...)]
                  [ht/class->apply-tag
-                   (hash (~@ 'nc.name nc.apply-tag) ...)])
-            (FARGishSpec ht/class->parents ht/class->apply-tag))))]))
+                   (hash (~@ 'nc.name nc.apply-tag) ...)]
+                 [ht/class->taggee-infos : (Hashof Symbol (Listof TaggeeInfo))
+                   (hash (~@ 'nc.name nc.taggee-infos) ...)])
+            (FARGishSpec ht/class->parents
+                         ht/class->apply-tag
+                         ht/class->taggee-infos))))]))
 
 (: nodeclass-is-a? : FARGishSpec (U Symbol Void) (U Symbol Void) -> Boolean)
 (define (nodeclass-is-a? spec nc ancestor)

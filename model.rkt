@@ -5,6 +5,7 @@
 ; some more.
 
 #lang debug at-exp typed/racket
+(require typed/debug/report)
 
 (require debug/repl errortrace)
 (require "types.rkt" "typed-wheel.rkt")
@@ -105,6 +106,19 @@
     [else (hash-ref (FARGishSpec-ht/class->apply-tag spec)
                     nodeclass
                     (const (void)))]))
+
+(: has-tag? : Graph Symbol Node -> Boolean)
+(define (has-tag? g tagclass node)
+  (let ([spec (Graph-spec g)]
+        [taggee-infos (hash-ref (FARGishSpec-ht/class->taggee-infos spec)
+                                  tagclass
+                                  (const '()))])
+    (for/or ([info taggee-infos])
+      (let ([from-label (TaggeeInfo-from-port-label info)]
+            [to-label (TaggeeInfo-to-port-label info)])
+        (for/or ([neighbor (port->neighbors g `(,node ,to-label))]) : Boolean
+          (and (node-is-a? g neighbor tagclass)
+               (has-edge? g `((,neighbor ,from-label) (,node ,to-label)))))))))
 
 ;; ======================================================================
 ;;
