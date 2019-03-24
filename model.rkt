@@ -121,6 +121,19 @@
           (and (node-is-a? g neighbor tagclass)
                (has-edge? g `((,neighbor ,from-label) (,node ,to-label)))))))))
 
+; Returns #t iff the nodes meet the TaggeeInfo criteria to be tagged by
+; tagclass.
+(: could-apply-to? : Graph Symbol Nodes -> Boolean)
+(define (could-apply-to? g tagclass nodes)
+  (for/and ([node (->nodes nodes)]
+            [info (class->taggee-infos g tagclass)])
+            ;TODO WRONG: Need to pad the shorter list
+    (let ([nodeclass (class-of g node)]
+          [of-classes (TaggeeInfo-of-classes info)])
+      (or (null? of-classes)
+          (for/or ([of-class of-classes]) : Boolean
+            (nodeclass-is-a? g nodeclass of-class))))))
+
 ;; ======================================================================
 ;;
 ;; Tracking done after adding a node or edge
@@ -314,6 +327,13 @@
   (cond
     [(list? node/s) node/s]
     [else (list node/s)]))
+
+(: ->nodes : (U Node (Listof Node) (Setof Node))
+   -> (U (Listof Node) (Setof Node)))
+(define (->nodes node/s)
+  (cond
+    [(Node? node/s) (list node/s)]
+    [else node/s]))
 
 ;; ======================================================================
 ;;

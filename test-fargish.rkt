@@ -72,6 +72,22 @@
       (check-true (has-edge? g `((,c descriptee) (,a descriptor))))
       (check-true (has-tag? g 'B a))
       (check-true (has-tag? g 'C a))
-      (check-false (has-tag? g 'A b))
-      ))
+      (check-false (has-tag? g 'A b))))
+
+  (test-case "could-apply-to?"
+    (define-spec spec
+      (nodeclass (number [n : Integer])
+        (value n)
+        (display-name n))
+      (nodeclass (letter [l : Char])
+        (value l)
+        (display-name l))
+      (tagclass odd
+        (applies-to ([node (of-class number)]))))
+    (define g (make-empty-graph spec))
+    (let ([(g n) (make-node g (number 1))]
+          [(g l) (make-node g (letter #\a))])
+      (check-true (could-apply-to? g 'odd n))
+      (check-false (could-apply-to? g 'odd l)))
+  )
   )

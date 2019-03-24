@@ -11,8 +11,15 @@
 (require "types.rkt" "id-set.rkt" "fizzle.rkt")
 ;(module+ test (require typed/rackunit phc-toolkit/typed-rackunit))
 
-(provide define-spec empty-spec nodeclass-is-a? (struct-out FARGishSpec)
-         (struct-out Graph) ApplyTag (struct-out TaggeeInfo))
+(provide define-spec
+         empty-spec
+         nodeclass-is-a?
+         ->spec
+         class->taggee-infos
+         (struct-out FARGishSpec)
+         (struct-out Graph)
+         (struct-out TaggeeInfo)
+         ApplyTag)
 
 (struct Graph ([ht-node->attrs : (Hashof Node Attrs)]
                [ht-port->neighboring-ports : (Hashof Port (Setof Port))]
@@ -37,7 +44,8 @@
 
 (struct TaggeeInfo ([name : Symbol]
                     [from-port-label : Port-label]
-                    [to-port-label : Port-label])
+                    [to-port-label : Port-label]
+                    [of-classes : (Listof Symbol)])
                    #:transparent)
 
 (struct FARGishSpec ([ht/class->parents : (Hashof Symbol (Setof Symbol))]
@@ -139,13 +147,17 @@
              #:with tag? #'#t))
 
   (define-splicing-syntax-class taggee-info
-    #:datum-literals [by-ports]
-    #:attributes [from-port-label to-port-label]
+    #:datum-literals [by-ports of-class]
+    #:attributes [from-port-label to-port-label of-classes]
     (pattern (~seq
                (~optional (by-ports ~! from-port-label:id to-port-label:id)
                           ;#:too-many "by-ports' specified more than once"
                           #:defaults ([from-port-label #'tagged]
-                                      [to-port-label #'tags])))))
+                                      [to-port-label #'tags]))
+               (~optional (of-class ~! class:id ...+))
+               )
+      #:with of-classes #'(~? (list 'class ...)
+                              '())))
 
   ;TODO I think apply-tag will need to be rewritten so that it applies only
   ;one tag at a time, with the name of the taggee specified. The make-tag
@@ -159,7 +171,8 @@
              #:with taggee-infos
                     #'(list (TaggeeInfo 'taggee
                                         't-info.from-port-label
-                                        't-info.to-port-label) ...)
+                                        't-info.to-port-label
+                                        t-info.of-classes) ...)
              #:with tag-arity #`#,(length (stx->list #'(taggee ...)))
              #:with apply-tag
              #'(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
@@ -251,16 +264,30 @@
                          ht/class->apply-tag
                          ht/class->taggee-infos))))]))
 
-(: nodeclass-is-a? : FARGishSpec (U Symbol Void) (U Symbol Void) -> Boolean)
-(define (nodeclass-is-a? spec nc ancestor)
+(: ->spec : (U Graph FARGishSpec) -> FARGishSpec)
+(define (->spec g-or-spec)
+  (cond
+    [(FARGishSpec? g-or-spec) g-or-spec]
+    [else (Graph-spec g-or-spec)]))
+
+(: nodeclass-is-a? :
+  (U FARGishSpec Graph) (U Symbol Void) (U Symbol Void) -> Boolean)
+(define (nodeclass-is-a? g-or-spec nc ancestor)
   (cond
     [(or (void? nc) (void? ancestor)) #f]
     [(eq? nc ancestor) #t]
-    #:define ancestors (hash-ref (FARGishSpec-ht/class->parents spec)
+    #:define ancestors (hash-ref (FARGishSpec-ht/class->parents
+                                   (->spec g-or-spec))
                                  nc
                                  (const (void)))
     [(void? ancestors) #f]
     [else (set-member? ancestors ancestor)]))
+
+(: class->taggee-infos : (U Graph FARGishSpec) Symbol -> (Listof TaggeeInfo))
+(define (class->taggee-infos g-or-spec class)
+  (hash-ref (FARGishSpec-ht/class->taggee-infos (->spec g-or-spec))
+            class
+            (const '())))
 
 ;(spec (nodeclass (blah a b c)))
 ;
