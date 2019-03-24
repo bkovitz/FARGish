@@ -174,8 +174,8 @@
                                     `((,tag t-info.from-port-label)
                                       (,node t-info.to-port-label)))]) ...)
                             g)]))
-             #:do [(displayln (syntax->datum #'apply-tag))]
-             #:do [(displayln (attribute t-info))]
+             ;#:do [(displayln (syntax->datum #'apply-tag))]
+             ;#:do [(displayln (attribute t-info))]
              ))
 
   (define-splicing-syntax-class nodeclass-body

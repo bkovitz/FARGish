@@ -46,7 +46,7 @@
             ([attrs : Attrs attrss])
     (add-node g attrs)))
 
-(: make-node/in : Graph Node Attrs -> (Values Graph Node))
+(: make-node/in : Graph Node (U Attrs Symbol) -> (Values Graph Node))
 (define (make-node/in g ctx attrs)
   (let ([(g node) (make-node g attrs)]
         [(g) (add-edge g (member-edge ctx node))])
@@ -80,7 +80,8 @@
 ;;
 
 ;TODO Don't make the tag if it's already there
-(: make-tag : Graph Attrs (U Node (Listof Node)) -> (Values Graph Node))
+(: make-tag : Graph (U Attrs Symbol) (U Node (Listof Node))
+              -> (Values Graph Node))
 (define (make-tag g attrs node/s)
   (let ([(g tag) (make-node g attrs)]
         [nodes (->nodelist node/s)]
@@ -93,7 +94,7 @@
                        (add-edge g (member-edge ctx tag)))])
               (values g tag))])))
 
-(: add-tag : Graph Attrs (U Node (Listof Node)) -> Graph)
+(: add-tag : Graph (U Attrs Symbol) (U Node (Listof Node)) -> Graph)
 (define (add-tag g tag-attrs node/s)
   (first-value (make-tag g tag-attrs node/s)))
 
