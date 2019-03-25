@@ -169,24 +169,6 @@
     (pattern (~or* n:exact-positive-integer
                    (~literal any))))
 
-  ;TODO rm
-  (define-splicing-syntax-class taggee-info
-    #:datum-literals [by-ports of-class]
-    #:attributes [from-port-label to-port-label of-classes multiplicity]
-    (pattern (~seq
-               (~optional (by-ports ~! from-port-label:id to-port-label:id)
-                          ;#:too-many "by-ports' specified more than once"
-                          #:defaults ([from-port-label #'tagged]
-                                      [to-port-label #'tags]))
-               (~optional (of-class ~! class:id ...+))
-               (~optional ((~literal multiplicity) mult:multiplicity-value)
-                          #:defaults ([mult #'1]))
-               )
-      #:with of-classes #'(~? (list 'class ...)
-                              '())
-      #:attr multiplicity (syntax->datum #'mult)
-      ))
-
   ; Example:
   ;  [node1 (by-ports lesser greater) (of-class number) (multiplicity 1)]
   (define-syntax-class taggee-spec
@@ -198,7 +180,7 @@
                  (~optional (by-ports ~! from-port-label:id to-port-label:id)
                    #:too-many "'by-ports' specified more than once"
                    #:defaults ([from-port-label #'tagged]
-                                        [to-port-label #'tags]))
+                               [to-port-label #'tags]))
                  (~optional ((~literal of-class) ~! of-class:id ...+)
                    #:too-many "'of-class' specified more than once")
                  (~optional ((~literal multiplicity) ~!
@@ -258,8 +240,6 @@
                    #,tag-condition-always-true)
 
       ;#:do [(displayln (syntax->datum #'condition))]
-      ;#:do [(displayln (syntax->datum #'apply-tag))]
-      ;#:do [(displayln (attribute t-info))]
       ))
 
   (define-splicing-syntax-class nodeclass-body
@@ -277,7 +257,6 @@
             (~optional applies-to-expr:applies-to
                        #:too-many "'applies-to' specified more than once")
             ) ... )
-        ;#:do [(displayln (attribute applies-to-expr.mk/apply-tag))]
         #:attr mk/apply-tag
                (or (attribute applies-to-expr.mk/apply-tag)
                    (λ (classname)
