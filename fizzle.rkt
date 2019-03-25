@@ -98,4 +98,8 @@
 (define-fizzle fizzle:class-not-symbol (attrs)
   (format "Value of 'class key is not a Symbol in ~a" attrs))
 
+(define-fizzle fizzle:tag-arity (tagclass arity nodes)
+  (format "Tagclass ~a has arity ~a but was applied to ~a."
+          tagclass arity nodes))
+
 ;TODO UT

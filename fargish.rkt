@@ -201,7 +201,7 @@
                                         [to-port-label #'tags]))
                  (~optional ((~literal of-class) ~! of-class:id ...+)
                    #:too-many "'of-class' specified more than once")
-                 (~optional ((~literal multiplicity)
+                 (~optional ((~literal multiplicity) ~!
                               multiplicity:multiplicity-value)
                    #:too-many "'multiplicity' specified more than once"
                    #:defaults ([multiplicity #'1]))
@@ -220,7 +220,7 @@
   ;add on taggees. tag-info will have to allow specifying multiplicity.
   (define-syntax-class applies-to
     #:datum-literals [applies-to]
-    #:attributes [apply-tag taggee-infos condition]
+    #:attributes [taggee-infos condition mk/apply-tag]
     (pattern (applies-to ~! (taggee:taggee-spec ...)
                (~optional ((~literal condition) c:expr ...+)))
       #:with taggee-infos
@@ -230,19 +230,20 @@
                                  'taggee.of-classes
                                  'taggee.multiplicity) ...)
       #:with tag-arity #`#,(length (stx->list #'(taggee ...)))
-      #:with apply-tag
-             #'(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
-                  : Graph
-                 (cond
-                   [(not (= tag-arity (length nodes)))
-                    (assert #f)] ;TODO fizzle
-                   [else
-                    (let* ((~@ [node (car nodes)]
-                               [nodes (cdr nodes)]
-                               [g (add-edge g
-                                    `((,tag taggee.from-port-label)
-                                      (,node taggee.to-port-label)))]) ...)
-                            g)]))
+      #:attr mk/apply-tag
+             (λ (classname)
+               #`(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
+                    : Graph
+                   (cond
+                     [(not (= tag-arity (length nodes)))
+                      (fizzle:tag-arity #,classname tag-arity 'nodes)]
+                     [else
+                      (let* ((~@ [node (car nodes)]
+                                 [nodes (cdr nodes)]
+                                 [g (add-edge g
+                                      `((,tag taggee.from-port-label)
+                                        (,node taggee.to-port-label)))]) ...)
+                              g)])))
       #:with g (format-id this-syntax "g" #:source #'this-syntax)
       #:with this (format-id this-syntax "this" #:source #'this-syntax)
       ;NICE It would be nice if the syntax were defined so that references to
@@ -263,8 +264,8 @@
 
   (define-splicing-syntax-class nodeclass-body
     #:datum-literals [is-a archetype value links-into display-name]
-    #:attributes [(parent 2) value-expr display-name-expr apply-tag
-                  applies-to-expr taggee-infos condition]
+    #:attributes [(parent 2) value-expr display-name-expr mk/apply-tag
+                  taggee-infos condition]
     (pattern (~seq
       (~alt (is-a ~! parent:id ...+)
             (~optional (value ~! value-expr:expr)
@@ -274,38 +275,33 @@
                        #:too-many "'display-name' specified more than once"
                        #:defaults ([display-name-expr missing]))
             (~optional applies-to-expr:applies-to
-                       #:too-many "'applies-to' specified more than once"
-                       #:defaults ([applies-to-expr missing]))
+                       #:too-many "'applies-to' specified more than once")
             ) ... )
-        #:with apply-tag #`(~? applies-to-expr.apply-tag #,missing)
+        ;#:do [(displayln (attribute applies-to-expr.mk/apply-tag))]
+        #:attr mk/apply-tag
+               (or (attribute applies-to-expr.mk/apply-tag)
+                   (λ (classname)
+                     #`(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
+                          : Graph
+                         (cond
+                           [(null? nodes) g]
+                           [else (fizzle:not-a-tag #,classname)]))))
         #:with taggee-infos #`(~? applies-to-expr.taggee-infos '())
         #:with condition
-               (if (missing? #'applies-to-expr)
-                 tag-condition-always-true
-                 #'applies-to-expr.condition)
+               (or (attribute applies-to-expr.condition)
+                   tag-condition-always-true)
         ))
-
-;  (define-syntax-class compile-atag
-;    (pattern 
 
   (define-syntax-class nodeclass
     #:attributes [cnodeclass]
     (pattern (head:nodeclass-head ~! decl:name+args body:nodeclass-body)
-      #:with apply-tag
-             (if (missing? #'body.apply-tag)
-               #'(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
-                    : Graph
-                   (cond
-                     [(null? nodes) g]
-                     [else (fizzle:not-a-tag 'decl.name)]))
-               #'body.apply-tag)
       #:attr cnodeclass
              (make-CNodeclass #'decl.name
                               #'(decl.arg ...)
                               #'(body.parent ... ...)
                               #'body.taggee-infos
                               #'body.condition
-                              #'apply-tag
+                              ((attribute body.mk/apply-tag) #'decl.name)
                               #'value #'body.value-expr
                               #'display-name #'body.display-name-expr
                               #'tag? #'head.tag?)))
