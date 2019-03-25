@@ -190,6 +190,24 @@
     [(set? x) (set->list x)]
     [else (list x)]))
 
+(: first-non-void (All (a) (Listof (U a Void)) -> (U a Void)))
+(define (first-non-void ls)
+  (cond
+    [(null? ls) (void)]
+    #:define a (car ls)
+    [(void? a) (first-non-void (cdr ls))]
+    [else a]))
+
+(: non-voids (All (a) (U (Listof (U a Void)) Void) -> (Listof a)))
+(define (non-voids ls)
+  (cond
+    [(void? ls) '()]
+    [else (for/list ([x ls]
+                     #:when (not (void? x))) : (Listof a)
+            x)]))
+
+    ;[else (filter (not/ void?) ls)]))
+
 ;; ======================================================================
 ;;
 ;; Inheritance

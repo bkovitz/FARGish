@@ -268,13 +268,18 @@
 (define (all-edges g)
   (hash-keys (Graph-ht-edge->weight g)))
 
-(: has-node? : Graph Node -> Boolean)
+(: has-node? : Graph (Maybe Node) -> Boolean)
 (define (has-node? g id)
-  (hash-has-key? (Graph-ht-node->attrs g) id))
+  (cond
+    [(void? id) #f]
+    [else (hash-has-key? (Graph-ht-node->attrs g) id)]))
 
-(: has-edge? : Graph Edge -> Boolean)
+(: has-edge? : Graph MEdge -> Boolean)
 (define (has-edge? g edge)
-  (hash-has-key? (Graph-ht-edge->weight g) (edge->upair edge)))
+  (cond
+    [(Edge? edge)
+     (hash-has-key? (Graph-ht-edge->weight g) (edge->upair edge))]
+    [else #f]))
 
 ;; ======================================================================
 ;;

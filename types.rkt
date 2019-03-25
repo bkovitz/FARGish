@@ -4,6 +4,8 @@
 
 (provide (all-defined-out))
 
+(define-type (Maybe a) (U Void a))
+
 (define-type Node (U Symbol Integer))  ; a node's id
 (define-type Port-label (U Symbol Integer))
 (define-type Port (List Node Port-label))
@@ -14,9 +16,18 @@
 (define-type Edge* (Setof Node))  ; 2 nodes
 (define-type EdgeWeight Flonum)
 
+; Nodes, Edges, etc. possibly with elements missing, i.e. Void.
+(define-type MPort (Maybe (List (Maybe Node) (Maybe Port-label))))
+(define-type MEdge/UPair (Maybe (UnorderedPair (Maybe MPort))))
+(define-type MEdge/List (Maybe (List MPort MPort)))
+(define-type MHop MEdge/List)
+(define-type MEdge (U MEdge/UPair MEdge/List))
+(define-type MEdge* (Setof (Maybe Node)))  ; 2 nodes
+
 (define-type Salience Flonum)
 
 (define-type Nodes (U Node (Listof Node) (Setof Node)))
+(define-type MaybeNodes (U (Maybe Node) (Listof (Maybe Node))))
 
 ; Name to show in visualization of a graph in place of node's id
 (define-type DisplayName (U Symbol Integer String))
@@ -32,3 +43,4 @@
 (define-predicate edge/upair? Edge/UPair)
 
 (define-predicate Node? Node)
+(define-predicate Edge? Edge)

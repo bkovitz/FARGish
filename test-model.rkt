@@ -4,7 +4,7 @@
 (require typed/debug/report)
 
 (module+ test
-  (require "types.h"
+  (require "types.rkt"
            "model.rkt"
            "fargish.rkt"
            "typed-wheel.rkt"
@@ -107,10 +107,11 @@
           [(n1 n2 n3) (values (copying-to g 1)
                               (copying-to g 2)
                               (copying-to g 3))]
-          [member-of-c2? (λ ([n : Node]) : Boolean (member-of? g c2 n))]
-          [_ (check-pred member-of-c2? n1)]
-          [_ (check-pred member-of-c2? n2)]
-          [_ (check-pred member-of-c2? n3)]
+          [member-of-c2? (λ ([n : (U Node Void)]) : (U Any #f)
+                           (member-of? g c2 n))]
+          [_ (check-not-false (member-of-c2? n1))]
+          [_ (check-not-false (member-of-c2? n2))]
+          [_ (check-not-false (member-of-c2? n3))]
           [_ (check-true (has-edge? g `((,n1 next) (,n2 prev))))]
           [_ (check-true (has-edge? g `((,n2 next) (,n3 prev))))]
           [_ (check-true (not (has-edge? g `((,n1 next) (,n3 ignore)))))])

@@ -16,6 +16,7 @@
          nodeclass-is-a?
          ->spec
          class->taggee-infos
+         class->condition
          (struct-out FARGishSpec)
          (struct-out Graph)
          (struct-out TaggeeInfo)
@@ -37,6 +38,13 @@
 (define-type HasTag? (-> Graph Node Boolean))
 ; (has-tag? g node)
 
+(define-type TaggeeMultiplicity (U Exact-Positive-Integer 'any))
+
+;(define-type TagCondition (-> Graph (U Node Void) (U Any #f)))
+(define-type TagCondition
+  (-> Graph (Maybe Node) (Hashof Symbol MaybeNodes) (U Any #f)))
+; The third argument of a TagCondition maps the taggee names to the taggees.
+
 (struct Nodeclass ([name : Symbol]
                    ;[args : (Listof Symbol)]
                    [parents : (Listof Symbol)])
@@ -45,16 +53,18 @@
 (struct TaggeeInfo ([name : Symbol]
                     [from-port-label : Port-label]
                     [to-port-label : Port-label]
-                    [of-classes : (Listof Symbol)])
+                    [of-classes : (Listof Symbol)]
+                    [multiplicity : TaggeeMultiplicity])
                    #:transparent)
 
 (struct FARGishSpec ([ht/class->parents : (Hashof Symbol (Setof Symbol))]
                      [ht/class->apply-tag : (Hashof Symbol ApplyTag)]
                      [ht/class->taggee-infos :
-                       (Hashof Symbol (Listof TaggeeInfo))])
+                       (Hashof Symbol (Listof TaggeeInfo))]
+                     [ht/class->condition : (Hashof Symbol TagCondition)])
                     #:transparent)
 
-(define empty-spec (FARGishSpec (hash) (hash) (hash)))
+(define empty-spec (FARGishSpec (hash) (hash) (hash) (hash)))
 
 (begin-for-syntax
   (define (maybe-missing stx)
@@ -69,12 +79,17 @@
     (syntax-property stx 'missing?))
 
   ; Compile-time Nodeclass
-  (struct CNodeclass (name args parents taggee-infos apply-tag attrs)
+  (struct CNodeclass (name args parents taggee-infos condition apply-tag attrs)
                      #:transparent)
   ; name : Symbol
   ; args : (Listof ??)
   ; parents : (Listof Symbol)
+  ; taggee-infos : (Listof TaggeeInfo)
+  ; condition : TagCondition
+  ; apply-tag : ApplyTag
   ; attrs : (Listof Syntax)
+
+  (define tag-condition-always-true #'(ann (const #t) TagCondition))
 
   (define (items->free-id-table ->k ->v items)
     (for/fold ([ft (make-immutable-free-id-table)])
@@ -86,7 +101,8 @@
               ([k (free-id-table-keys ft1)])
       (free-id-table-set ft0 k (free-id-table-ref ft1 k))))
 
-  (define (make-CNodeclass name args parents taggee-infos apply-tag . attrs)
+  (define (make-CNodeclass
+            name args parents taggee-infos condition apply-tag . attrs)
     (let ([attr-pairs (for/list ([kv (slice-at attrs 2)]
                                  #:when (not (missing? (cadr kv))))
                         kv)])
@@ -94,6 +110,7 @@
                   args
                   parents
                   taggee-infos
+                  condition
                   apply-tag
                   (items->free-id-table car cadr attr-pairs))))
 
@@ -117,11 +134,12 @@
                         [args (CNodeclass-args cn)]
                         [parents (CNodeclass-parents cn)]
                         [taggee-infos (CNodeclass-taggee-infos cn)]
+                        [condition (CNodeclass-condition cn)]
                         [apply-tag (CNodeclass-apply-tag cn)]
                         [((attr-name attr-expr) ...) (free-id-table-map
                                                        (CNodeclass-attrs cn)
                                                        (λ kv kv))])
-            #'(name args parents taggee-infos apply-tag
+            #'(name args parents taggee-infos condition apply-tag
                     ((attr-name attr-expr) ...))))))))
 
 ;(define-syntax (farg-model-spec stx)
@@ -146,18 +164,55 @@
     (pattern tagclass
              #:with tag? #'#t))
 
+  (define-syntax-class multiplicity-value
+    #:description "multiplicity"
+    (pattern (~or* n:exact-positive-integer
+                   (~literal any))))
+
+  ;TODO rm
   (define-splicing-syntax-class taggee-info
     #:datum-literals [by-ports of-class]
-    #:attributes [from-port-label to-port-label of-classes]
+    #:attributes [from-port-label to-port-label of-classes multiplicity]
     (pattern (~seq
                (~optional (by-ports ~! from-port-label:id to-port-label:id)
                           ;#:too-many "by-ports' specified more than once"
                           #:defaults ([from-port-label #'tagged]
                                       [to-port-label #'tags]))
                (~optional (of-class ~! class:id ...+))
+               (~optional ((~literal multiplicity) mult:multiplicity-value)
+                          #:defaults ([mult #'1]))
                )
       #:with of-classes #'(~? (list 'class ...)
-                              '())))
+                              '())
+      #:attr multiplicity (syntax->datum #'mult)
+      ))
+
+  ; Example:
+  ;  [node1 (by-ports lesser greater) (of-class number) (multiplicity 1)]
+  (define-syntax-class taggee-spec
+    #:datum-literals [by-ports]
+    #:attributes [name from-port-label to-port-label of-classes multiplicity
+                  let-binding]
+    (pattern
+      [name:id (~seq (~alt
+                 (~optional (by-ports ~! from-port-label:id to-port-label:id)
+                   #:too-many "'by-ports' specified more than once"
+                   #:defaults ([from-port-label #'tagged]
+                                        [to-port-label #'tags]))
+                 (~optional ((~literal of-class) ~! of-class:id ...+)
+                   #:too-many "'of-class' specified more than once")
+                 (~optional ((~literal multiplicity)
+                              multiplicity:multiplicity-value)
+                   #:too-many "'multiplicity' specified more than once"
+                   #:defaults ([multiplicity #'1]))
+                 ) ...)]
+      #:with of-classes #'(~? (of-class ...)
+                              ())
+      #:with let-binding
+             #`[name #,(if (equal? 1 (syntax->datum #'multiplicity))
+                         #'(ht->node ht/nodes 'name)
+                         #'(ht->node/s ht/nodes 'name))]
+      ))
 
   ;TODO I think apply-tag will need to be rewritten so that it applies only
   ;one tag at a time, with the name of the taggee specified. The make-tag
@@ -165,16 +220,17 @@
   ;add on taggees. tag-info will have to allow specifying multiplicity.
   (define-syntax-class applies-to
     #:datum-literals [applies-to]
-    #:attributes [apply-tag taggee-infos]
-    (pattern (applies-to ~! ([taggee:id t-info:taggee-info] ...)
-                         )
-             #:with taggee-infos
-                    #'(list (TaggeeInfo 'taggee
-                                        't-info.from-port-label
-                                        't-info.to-port-label
-                                        t-info.of-classes) ...)
-             #:with tag-arity #`#,(length (stx->list #'(taggee ...)))
-             #:with apply-tag
+    #:attributes [apply-tag taggee-infos condition]
+    (pattern (applies-to ~! (taggee:taggee-spec ...)
+               (~optional ((~literal condition) c:expr ...+)))
+      #:with taggee-infos
+             #'(list (TaggeeInfo 'taggee.name
+                                 'taggee.from-port-label
+                                 'taggee.to-port-label
+                                 'taggee.of-classes
+                                 'taggee.multiplicity) ...)
+      #:with tag-arity #`#,(length (stx->list #'(taggee ...)))
+      #:with apply-tag
              #'(λ ([g : Graph] [tag : Node] [nodes : (Listof Node)])
                   : Graph
                  (cond
@@ -184,17 +240,31 @@
                     (let* ((~@ [node (car nodes)]
                                [nodes (cdr nodes)]
                                [g (add-edge g
-                                    `((,tag t-info.from-port-label)
-                                      (,node t-info.to-port-label)))]) ...)
+                                    `((,tag taggee.from-port-label)
+                                      (,node taggee.to-port-label)))]) ...)
                             g)]))
-             ;#:do [(displayln (syntax->datum #'apply-tag))]
-             ;#:do [(displayln (attribute t-info))]
-             ))
+      #:with g (format-id this-syntax "g" #:source #'this-syntax)
+      #:with this (format-id this-syntax "this" #:source #'this-syntax)
+      ;NICE It would be nice if the syntax were defined so that references to
+      ;g happened automatically and the condition code didn't have to look
+      ;up its own attributes by explicitly going through 'this'.
+      #:with condition
+             #`(~? (λ ([g : Graph]
+                       [this : (U Node Void)]
+                       [ht/nodes : (Hashof Symbol MaybeNodes)]) : (U Any #f)
+                     (let* (taggee.let-binding ...)
+                       c ...))
+                   #,tag-condition-always-true)
+
+      ;#:do [(displayln (syntax->datum #'condition))]
+      ;#:do [(displayln (syntax->datum #'apply-tag))]
+      ;#:do [(displayln (attribute t-info))]
+      ))
 
   (define-splicing-syntax-class nodeclass-body
     #:datum-literals [is-a archetype value links-into display-name]
     #:attributes [(parent 2) value-expr display-name-expr apply-tag
-                  applies-to-expr taggee-infos]
+                  applies-to-expr taggee-infos condition]
     (pattern (~seq
       (~alt (is-a ~! parent:id ...+)
             (~optional (value ~! value-expr:expr)
@@ -209,6 +279,10 @@
             ) ... )
         #:with apply-tag #`(~? applies-to-expr.apply-tag #,missing)
         #:with taggee-infos #`(~? applies-to-expr.taggee-infos '())
+        #:with condition
+               (if (missing? #'applies-to-expr)
+                 tag-condition-always-true
+                 #'applies-to-expr.condition)
         ))
 
 ;  (define-syntax-class compile-atag
@@ -230,6 +304,7 @@
                               #'(decl.arg ...)
                               #'(body.parent ... ...)
                               #'body.taggee-infos
+                              #'body.condition
                               #'apply-tag
                               #'value #'body.value-expr
                               #'display-name #'body.display-name-expr
@@ -240,6 +315,7 @@
      #:with ((nc.name ((nc.arg.name (~literal :) nc.arg.type) ...)
                        (nc.parent ...)
                        nc.taggee-infos
+                       nc.condition
                        nc.apply-tag
                        ((nc.attr.name nc.attr.expr) ...)) ...)
             (nodeclass-inheritance (attribute nc0.cnodeclass))
@@ -259,10 +335,13 @@
                  [ht/class->apply-tag
                    (hash (~@ 'nc.name nc.apply-tag) ...)]
                  [ht/class->taggee-infos : (Hashof Symbol (Listof TaggeeInfo))
-                   (hash (~@ 'nc.name nc.taggee-infos) ...)])
+                   (hash (~@ 'nc.name nc.taggee-infos) ...)]
+                 [ht/class->condition : (Hashof Symbol TagCondition)
+                   (hash (~@ 'nc.name nc.condition) ...)])
             (FARGishSpec ht/class->parents
                          ht/class->apply-tag
-                         ht/class->taggee-infos))))]))
+                         ht/class->taggee-infos
+                         ht/class->condition))))]))
 
 (: ->spec : (U Graph FARGishSpec) -> FARGishSpec)
 (define (->spec g-or-spec)
@@ -283,11 +362,18 @@
     [(void? ancestors) #f]
     [else (set-member? ancestors ancestor)]))
 
-(: class->taggee-infos : (U Graph FARGishSpec) Symbol -> (Listof TaggeeInfo))
+(: class->taggee-infos : (U Graph FARGishSpec) Symbol
+                         -> (U (Listof TaggeeInfo) Void))
 (define (class->taggee-infos g-or-spec class)
   (hash-ref (FARGishSpec-ht/class->taggee-infos (->spec g-or-spec))
             class
-            (const '())))
+            (const (void))))
+
+(: class->condition : (U Graph FARGishSpec) Symbol -> (U Void TagCondition))
+(define (class->condition g-or-spec class)
+  (hash-ref (FARGishSpec-ht/class->condition (->spec g-or-spec))
+            class
+            (const (void))))
 
 ;(spec (nodeclass (blah a b c)))
 ;

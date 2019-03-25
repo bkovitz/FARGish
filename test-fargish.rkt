@@ -1,10 +1,11 @@
 ; test-fargish.rkt -- Unit tests for fargish.rkt, since (module+ test) doesn't
 ;                     seem to work with Typed Racket (in Racket 7.0)
 
-#lang errortrace typed/racket
+#lang errortrace debug typed/racket
+(require typed/debug/report)
 
 (require "typed-wheel.rkt")
-(require "fargish.rkt" "model.rkt")
+(require "types.rkt" "fargish.rkt" "model.rkt")
 (require typed/rackunit phc-toolkit/typed-rackunit)
 
 (module+ test
@@ -74,7 +75,7 @@
       (check-true (has-tag? g 'C a))
       (check-false (has-tag? g 'A b))))
 
-  (test-case "could-apply-to?"
+  (test-case "could-apply-to? and applies-to?"
     (define-spec spec
       (nodeclass (number [n : Integer])
         (value n)
@@ -82,12 +83,24 @@
       (nodeclass (letter [l : Char])
         (value l)
         (display-name l))
+      (tagclass TODO
+        (applies-to ([nodes (multiplicity any)])))
       (tagclass odd
-        (applies-to ([node (of-class number)]))))
+        (applies-to ([node (of-class number) (multiplicity 1)])
+          ; TODO The code that you have to write to specify a condition is
+          ; pretty ugly, but it'll have to do for now. 24-Mar-2019
+          (condition (let ([n (value-of g node)])
+                       (and (not (void? n))
+                            (odd? (cast n Integer))))))))
+
     (define g (make-empty-graph spec))
-    (let ([(g n) (make-node g (number 1))]
+    (let ([(g n1) (make-node g (number 1))]
+          [(g n2) (make-node g (number 2))]
           [(g l) (make-node g (letter #\a))])
-      (check-true (could-apply-to? g 'odd n))
-      (check-false (could-apply-to? g 'odd l)))
+      (check-true (could-apply-to? g 'odd n1))
+      (check-false (could-apply-to? g 'odd l))
+      (check-true (tagclass-applies-to? g 'odd n1))
+      (check-false (tagclass-applies-to? g 'odd n2))
+      (check-false (tagclass-applies-to? g 'odd l)))
   )
   )

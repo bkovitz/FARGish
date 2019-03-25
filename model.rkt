@@ -123,16 +123,55 @@
 
 ; Returns #t iff the nodes meet the TaggeeInfo criteria to be tagged by
 ; tagclass.
-(: could-apply-to? : Graph Symbol Nodes -> Boolean)
-(define (could-apply-to? g tagclass nodes)
-  (for/and ([node (->nodes nodes)]
-            [info (class->taggee-infos g tagclass)])
-            ;TODO WRONG: Need to pad the shorter list
-    (let ([nodeclass (class-of g node)]
-          [of-classes (TaggeeInfo-of-classes info)])
-      (or (null? of-classes)
-          (for/or ([of-class of-classes]) : Boolean
-            (nodeclass-is-a? g nodeclass of-class))))))
+(: could-apply-to? : Graph Symbol MaybeNodes -> Boolean)
+(define (could-apply-to? g tagclass maybe-nodes)
+  (let ([infos (class->taggee-infos g tagclass)])
+    (cond
+      [(void? infos) #f]  ; BAD? Should we fizzle:tagclass ?
+      [else
+        (for/and ([node (->nodelist maybe-nodes)]
+                  [info infos])
+                  ;TODO WRONG: Need to pad the shorter list
+          (let ([nodeclass (class-of g node)]
+                [of-classes (TaggeeInfo-of-classes info)])
+            (or (null? of-classes)
+                (for/or ([of-class of-classes]) : Boolean
+                  (nodeclass-is-a? g nodeclass of-class)))))])))
+
+(: tagclass-applies-to? : Graph (U Symbol Attrs) MaybeNodes -> (U Any #f))
+(define (tagclass-applies-to? g class-or-attrs node/s)
+  (let ([tagclass : Symbol
+          (cond
+            [(symbol? class-or-attrs) class-or-attrs]
+            #:define cl (hash-ref class-or-attrs 'class (const (void)))
+            [(void? cl) (fizzle:no-class class-or-attrs)]
+            [(symbol? cl) cl]
+            [else (fizzle:class-not-symbol class-or-attrs)])])
+    (cond
+      [(not (could-apply-to? g tagclass node/s)) #f]
+      #:define cfunc (class->condition g tagclass)
+      [(void? cfunc) #f]  ; BAD? Should we fizzle:tagclass ?
+      #:define ht/taggees (nodes->ht/taggees g tagclass node/s)
+      [(void? ht/taggees) #f]
+      [else (cfunc g (void) ht/taggees)])))
+
+; Prepares third argument to a tagclass's condition function: a hash table
+; mapping taggee names to nodes.
+(: nodes->ht/taggees : Graph Symbol MaybeNodes
+                       -> (Maybe (Hashof Symbol MaybeNodes)))
+(define (nodes->ht/taggees g tagclass node/s)
+  (cond
+    [(void? node/s) (hash)]
+    [(null? node/s) (hash)]
+    #:define node/s (if (Node? node/s) (list node/s) node/s)
+    #:define infos (class->taggee-infos g tagclass)
+    [(void? infos) (void)]
+    [(< (length infos) (length node/s)) (void)]
+    [else (for/fold ([ht : (Hashof Symbol MaybeNodes) (hash)])
+                    ([maybe-node (->nodelist node/s)] [info infos])
+            (cond
+              [(void? maybe-node) ht]
+              [else (hash-set ht (TaggeeInfo-name info) maybe-node)]))]))
 
 ;; ======================================================================
 ;;
@@ -196,7 +235,7 @@
     [(void? c) (void)]
     [else (cast c Symbol)]))
 
-(: value-of : Graph Node -> Any)
+(: value-of : Graph (Maybe Node) -> (Maybe Any))
 (define (value-of g node)
   (get-node-attr g node 'value))
 
@@ -231,9 +270,12 @@
 (define (member-of g node)
   (port->neighbors g `(,node member-of)))
 
-(: member-of? : Graph Node Node -> (U (Listof Node) False))
+(: member-of? : Graph (U Node Void) (U Node Void) -> (U (Listof Node) False))
 (define (member-of? g ctx node)
-  (member ctx (member-of g node)))
+  (cond
+    [(void? node) #f]
+    [(void? ctx) #f]
+    [else (member ctx (member-of g node))]))
 
 (: member-edge : Node Node -> Edge/List)
 (define (member-edge ctx member)
@@ -322,18 +364,41 @@
 ;; Convenience functions for overloaded arguments
 ;;
 
-(: ->nodelist : (U Node (Listof Node)) -> (Listof Node))
+(: ->nodelist : (U Node Void (Listof (U Node Void))) -> (Listof Node))
 (define (->nodelist node/s)
   (cond
-    [(list? node/s) node/s]
-    [else (list node/s)]))
+    [(void? node/s) '()]
+    [(Node? node/s) (list node/s)]
+    [else (non-voids node/s)]))
 
-(: ->nodes : (U Node (Listof Node) (Setof Node))
+(: ->nodes : (U Node Void (Listof Node) (Setof Node))
    -> (U (Listof Node) (Setof Node)))
 (define (->nodes node/s)
   (cond
+    [(void? node/s) '()]
     [(Node? node/s) (list node/s)]
     [else node/s]))
+
+; Forces result to be one Node (or Void) even if name corresponds to
+; many nodes in the hash table.
+(: ht->node : (Hashof Symbol (U Node Void (Listof (U Node Void))))
+              Symbol
+              -> (U Node Void))
+(define (ht->node ht name)
+  (let ([x (hash-ref ht name (const (void)))])
+    (cond
+      [(void? x) x]
+      [(Node? x) x]
+      [else (first-non-void x)])))
+
+(: ht->node/s : (Hashof Symbol (U Node Void (Listof (U Node Void))))
+                Symbol
+                -> (U (Listof Node) Void))
+(define (ht->node/s ht name)
+  (let ([x (hash-ref ht name (const (void)))])
+    (cond
+      [(Node? x) (list x)]
+      [else (non-voids x)])))
 
 ;; ======================================================================
 ;;

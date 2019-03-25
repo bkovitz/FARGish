@@ -92,4 +92,10 @@
 (define-fizzle fizzle:not-a-tag (nodeclass)
   (format "Nodeclass ~a is not a tag and does not apply to other nodes."))
 
+(define-fizzle fizzle:no-class (attrs)
+  (format "No 'class provided in ~a" attrs))
+
+(define-fizzle fizzle:class-not-symbol (attrs)
+  (format "Value of 'class key is not a Symbol in ~a" attrs))
+
 ;TODO UT
