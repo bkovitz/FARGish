@@ -77,6 +77,31 @@
 
 ;; ======================================================================
 ;;
+;; Wrapper functions that accept void
+;;
+
+(: safe-string-length : (U String Void) -> (U Integer Void))
+(define (safe-string-length s)
+  (cond
+    [(void? s) (void)]
+    [else (string-length s)]))
+
+(: safe-integer->string : (U Number Void) -> (U String Void))
+(define (safe-integer->string n)
+  (cond
+    [(void? n) (void)]
+    [(integer? n) (number->string n)]
+    [else (void)]))
+
+(: safe-eqv? : Any Any -> Boolean)
+(define (safe-eqv? x1 x2)
+  (cond
+    [(or (void? x1) (void? x2))
+     #f]
+    [else (eqv? x1 x2)]))
+
+;; ======================================================================
+;;
 ;; Currying
 ;;
 

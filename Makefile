@@ -4,11 +4,17 @@ UNTYPED_SRCFILES = wheel.rkt id-set.rkt graph1.rkt fargish1.rkt model1.rkt \
 	graph.rkt
 UT_FILES = test-fargish.rkt test-model.rkt
 SRCFILES = typed-wheel.rkt types.rkt id-set.rkt graph.rkt fargish.rkt \
-	model.rkt fizzle.rkt $(UT_FILES)
+	model.rkt fizzle.rkt support-core.rkt trace.rkt x32.rkt $(UT_FILES)
+
+all:
+	raco make -j 2 -v $(UT_FILES)
 
 ut:
 	raco make -j 2 --vv $(UT_FILES)
 	raco test -j 2 $(UT_FILES)
+
+wc:
+	wc -l $(SRCFILES)
 
 tags:
 	ctags --language-force=Scheme *.rkt

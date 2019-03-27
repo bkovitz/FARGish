@@ -8,6 +8,10 @@
 (require "typed-wheel.rkt")
 (require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt")
 
+(: ->num-digits : (U Integer Void) -> (U Integer Void))
+(define (->num-digits x)
+  (safe-string-length (safe-integer->string x)))
+
 (define-spec spec
   ; Nodes
   (nodeclass problem)
@@ -36,10 +40,12 @@
 ;    (applies-to ([node1 as-tag] [node2 as-tag]) ;TODO not same node
 ;      (condition (and?/g (same-class?/g node1 node2)
 ;                         (value-pred?/g equal? node1 node2)))))
-;  (tagclass (num-digits [n : Integer])
-;    (value n)
-;    (display-name (format "num-digits-~a" n))
-;    (applies-to ([node (of-class 'number) as-tag])
+  (tagclass (num-digits [n : Integer])
+    (value n)
+    (display-name (format "num-digits-~a" n))
+    (applies-to ([node (of-class number)])
+      (condition (safe-eqv? (cast (value-of g this) (U Integer Void))
+                            (->num-digits (cast (value-of g node) (U Integer Void)))))))
 ;      (condition (value-pred?/g
 ;                   (λ (v) (safe-eqv? n (->num-digits v)))
 ;                   node))))
