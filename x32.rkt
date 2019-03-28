@@ -44,6 +44,7 @@
     (value n)
     (display-name (format "num-digits-~a" n))
     (applies-to ([node (of-class number)])
+      (condition (= n (->num-digits node))) ; IDEAL
       (condition (safe-eqv? (cast (value-of g this) (U Integer Void))
                             (->num-digits (cast (value-of g node) (U Integer Void)))))))
 ;      (condition (value-pred?/g
