@@ -37,7 +37,7 @@ text {
               (svg ((width "960") (height "600")))
               (script ((src "jquery.js")))
               (script ((src "https://d3js.org/d3.v4.min.js")))
-              (script ((type "text/javascript") (src "forcedirected2.js")))
+              (script ((type "text/javascript") (src "force-directed2.js")))
               (script ((type "text/javascript"))
                 "function do_button() {
                    $.get(\"count\",
