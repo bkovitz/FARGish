@@ -63,6 +63,9 @@
   ;(chain equation prev -> next ...)
   )
 
+(define (graph->json g)
+
+
 ;; ======================================================================
 ;;
 ;; The solution to the "32" problem, as a stored temporal trace
