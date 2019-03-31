@@ -2,7 +2,7 @@
 
 (require web-server/servlet
          web-server/servlet-env
-         txexpr)
+         txexpr data/collection data/pvector (except-in sugar repeat))
  
 (define count 0)
 
@@ -12,6 +12,18 @@
   (response/output (λ (output-port)
                      (write-string (xexpr->html xexpr) output-port)
                      (void))))
+
+(define (left-to-right ls)
+  (for/fold ([pv (pvector)]
+             [x 0]
+             #:result (sequence->list pv))
+            ([elem ls])
+    (values (conj pv (attr-set elem 'x x))
+            (+ x 2 (->int (attr-ref elem 'width 10))))))
+
+(define my-svg
+  `(svg
+     ,@(left-to-right (make-list 10 `(rect ((width "20") (height "20")))))))
 
 (define (my-app req)
   (set! count (add1 count))
@@ -25,7 +37,7 @@
   stroke-opacity: 0.6;
 }
 
-.nodes circle {
+.nodes circle,rect {
   stroke: #fff;
   stroke-width: 1.5px;
 }

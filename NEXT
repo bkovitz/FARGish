@@ -1,0 +1,21 @@
+Static force-directed.html page
+
+  Figure out how to render adding a node or edge
+
+  Figure out how to pin a node
+
+Lay out traces vertically and timesteps horizontally, pinned
+
+Render the x32 problem
+
+Single-step the model from the browser
+
+Invent local matches
+
+Render support edges
+
+Render salience
+
+Render support
+
+
