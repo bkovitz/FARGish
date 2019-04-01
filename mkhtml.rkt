@@ -4,15 +4,37 @@
 
 (require txexpr data/collection data/pvector (except-in sugar repeat))
 
+(define left-to-right
+  (case-lambda
+    [(ls)
+       (for/fold ([pv (pvector)]
+                  [x 0]
+                  #:result (sequence->list pv))
+                 ([elem ls])
+         (values (conj pv (attr-set elem 'x x))
+                 (+ x (->int (attr-ref elem 'width 10)))))]
+    [(count item)
+     (left-to-right (make-list count item))]))
+
+(define temporal-trace
+  `((rect ((class "trace") (width "600") (height "25") (rx "3") (ry "3")))
+    ,@(left-to-right 10 `(rect ((class "tstep") (width "20") (height "20"))))))
+
 (define html
   `(html
      (head (title "FARG model")
            (link ((rel "stylesheet") (type "text/css") (href "fargish.css"))))
      (body
-       (svg ((id "ws") (width "960") (height "600")))
+       (svg ((id "ws") (width "960") (height "600"))
+         ,@temporal-trace
+         )
        (script ((src "jquery.js")))
        (script ((src "https://d3js.org/d3.v4.min.js")))
-       (script ((src "force-directed3.js"))))))
+       ;(script ((src "force-directed3.js")))
+       
+       )))
 
 (with-output-to-file "fargish.html" #:mode 'text #:exists 'replace
-  (λ () (displayln (xexpr->html html))))
+  (λ ()
+    (displayln "<!DOCTYPE HTML plus SVG>")
+    (displayln (xexpr->html html))))

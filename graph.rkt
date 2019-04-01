@@ -10,6 +10,8 @@
          "id-set.rkt"
          "fargish.rkt")
 (require "typed-wheel.rkt")
+(require typed/json)
+(require/typed sugar [->symbol (-> Any Symbol)])
 (require racket/performance-hint)
 (require syntax/parse)
 (require (for-syntax racket/syntax syntax/parse) racket/syntax)
@@ -79,6 +81,9 @@
 
          filter/g
          map/g
+
+         graph->json
+         graph->jsexpr
 
          pr-graph
          pr-node)
@@ -853,6 +858,41 @@
       (check-equal? (list->set (all-edges g**))
                     (set (E '(a out) '(b in))
                          (E '(a2 out) '(b2 in)))))))
+;; ======================================================================
+;;
+;; JSON
+;;
+
+(define empty-hash : JSExpr (hash))
+
+(: ->jsexpr : Any -> JSExpr)
+(define (->jsexpr x)
+  (cond
+    [(boolean? x) x]
+    [(string? x) x]
+    [(exact-integer? x) x]
+    [(and (inexact-real? x) (rational? x)) x]
+    [(list? x) (map ->jsexpr x)]
+    [(hash? x) (for/hash ([(k v) (in-hash x)]) : (Hashof Symbol JSExpr)
+                 (values (->symbol k) (->jsexpr v)))]
+    [(void? x) 'null]
+    [else (format "~a" x)]))
+
+(: graph->jsexpr : Graph -> JSExpr)
+(define (graph->jsexpr g)
+  (let ([node->jsexpr (λ ([node : Node]) (->jsexpr (get-node-attrs g node)))]
+        [edge->jsexpr (λ ([edge : Edge/UPair])
+                        (match (edge->list edge)
+                          [`((,source ,_) (,target ,_))
+                           (hash 'source (->jsexpr source)
+                                 'target (->jsexpr target)
+                                 'weight (->jsexpr (edge->weight g edge)))]))])
+    (hash 'nodes (map node->jsexpr (all-nodes g))
+          'links (map edge->jsexpr (all-edges g)))))
+
+(: graph->json : Graph -> String)
+(define (graph->json g)
+  (jsexpr->string (graph->jsexpr g)))
 
 ;; ======================================================================
 ;;

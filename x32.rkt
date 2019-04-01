@@ -5,6 +5,7 @@
 (require typed/debug/report)
 
 (require errortrace)
+(require typed/json)
 (require "typed-wheel.rkt")
 (require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt")
 
@@ -44,7 +45,7 @@
     (value n)
     (display-name (format "num-digits-~a" n))
     (applies-to ([node (of-class number)])
-      (condition (= n (->num-digits node))) ; IDEAL
+      ;(condition (= n (->num-digits node))) ; IDEAL
       (condition (safe-eqv? (cast (value-of g this) (U Integer Void))
                             (->num-digits (cast (value-of g node) (U Integer Void)))))))
 ;      (condition (value-pred?/g
@@ -62,8 +63,6 @@
 
   ;(chain equation prev -> next ...)
   )
-
-(define (graph->json g)
 
 
 ;; ======================================================================
@@ -116,3 +115,5 @@
     g))
 
 (pr-graph g)
+
+(write-json (graph->jsexpr g))
