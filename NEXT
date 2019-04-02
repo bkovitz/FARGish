@@ -8,6 +8,10 @@ Lay out traces vertically and timesteps horizontally, pinned
 
 Render the x32 problem
 
+  Just force-directed nodes  DONE
+
+  With containers
+
 Single-step the model from the browser
 
 Invent local matches

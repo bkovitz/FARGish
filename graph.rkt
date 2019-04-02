@@ -863,21 +863,6 @@
 ;; JSON
 ;;
 
-(define empty-hash : JSExpr (hash))
-
-(: ->jsexpr : Any -> JSExpr)
-(define (->jsexpr x)
-  (cond
-    [(boolean? x) x]
-    [(string? x) x]
-    [(exact-integer? x) x]
-    [(and (inexact-real? x) (rational? x)) x]
-    [(list? x) (map ->jsexpr x)]
-    [(hash? x) (for/hash ([(k v) (in-hash x)]) : (Hashof Symbol JSExpr)
-                 (values (->symbol k) (->jsexpr v)))]
-    [(void? x) 'null]
-    [else (format "~a" x)]))
-
 (: graph->jsexpr : Graph -> JSExpr)
 (define (graph->jsexpr g)
   (let ([node->jsexpr (λ ([node : Node]) (->jsexpr (get-node-attrs g node)))]

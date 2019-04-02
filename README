@@ -3,13 +3,19 @@ This directory contains v22 of FARGish, written in Racket.
 The clojure/ directory contains v21.4, the last Clojure version.
 
 
-To run very simple demo of the force-directed graph:
+To run a very simple demo of the force-directed graph:
 
 1. In one terminal window, run:
 
    $ racket web.rkt
 
-2. 
+2. In a web browser, open:
+
+   http://localhost:8080/force-demo.html
+
+To stop the web browser, hit Ctrl-C in the terminal window.
+
+1-Apr-2019: The above will probably become obsolete soon.
 
 
 ; NEXT
