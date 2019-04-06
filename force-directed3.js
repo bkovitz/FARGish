@@ -37,7 +37,7 @@ d3.json("g.json", function(error, graph) {
       .attr('width', 30)
       .attr('height', 20)
       .attr("fill", function(d) { return color(d.group); })
-      .classed(function(d) { console.log(d.id, d.class); return d.class; }, true)
+      .each(function(d) { this.classList.add(d.class); })
       .call(d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
@@ -58,7 +58,7 @@ d3.json("g.json", function(error, graph) {
       .on("tick", ticked);
 
   simulation.force("link")
-      .linkDistance(10)
+      .distance(10)
       .links(graph.links);
 
   function ticked() {
