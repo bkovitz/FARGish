@@ -25,8 +25,10 @@
     (value n)
     (display-name n))
   ;(nodeclass placeholder)
-  (nodeclass *)
-  (nodeclass =)
+  (nodeclass times
+    (display-name "*"))
+  (nodeclass equals
+    (display-name "="))
   ; Tags
   (tagclass target
     (applies-to ([node])))
@@ -98,12 +100,12 @@
      [(g e6) (make-node/in g eqn1 (number 6))]
      [(g) (add-edge g `((,eqn1 first) (,e6 first-in)))]
      [(g c1) (make-tag g 'consume (list e6 b6))]
-     [(g times) (make-node/in g eqn1 '*)]
+     [(g times) (make-node/in g eqn1 'times)]
      [(g) (add-edge g `((,e6 next) (,times prev)))]
      [(g e4) (make-node/in g eqn1 (number 4))]
      [(g c2) (make-tag g 'consume (list e4 b4))]
      [(g) (add-edge g `((,times next) (,e4 prev)))]
-     [(g equals1) (make-node/in g eqn1 '=)]
+     [(g equals1) (make-node/in g eqn1 'equals)]
      [(g) (add-edge g `((,e4 next) (,equals1 prev)))]
      [(g e24) (make-node/in g eqn1 (number 24))]
      [(g) (add-edge g `((,equals1 next) (,e24 prev)))]

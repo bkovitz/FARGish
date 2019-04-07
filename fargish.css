@@ -50,10 +50,38 @@ text {
   stroke: #999;
 }
 
+svg .trace {
+  fill: PaleGoldenRod;
+}
+
+svg .t {
+  fill: LightGoldenRodYellow;
+}
+
 svg .problem {
-  fill: MediumAquaMarine;
+  fill: PapayaWhip;
 }
 
 svg .number {
   fill: SteelBlue;
+}
+
+svg .brick {
+  fill: FireBrick;
+}
+
+svg .target {
+  fill: Salmon;
+}
+
+svg .equals, svg .times {
+  fill: Gold;
+}
+
+svg .consume {
+  fill: OliveDrab;
+}
+
+svg .equation {
+  fill: Green;
 }

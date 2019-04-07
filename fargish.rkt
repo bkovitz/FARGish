@@ -1,6 +1,7 @@
 ; fargish.rkt  --  FARGish as a #lang? Implemented in Typed Racket?
 
 #lang debug typed/racket
+(require typed/debug/report)
 
 (require syntax/parse syntax/parse/define syntax/stx
          (for-syntax "wheel.rkt" racket/syntax syntax/parse syntax/stx
