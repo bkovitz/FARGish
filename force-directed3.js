@@ -4,6 +4,9 @@ var svg = d3.select("#ws"),
 
 var color = d3.scaleOrdinal(d3.schemeCategory10);
 
+const nodeWidth = 60;
+const nodeHeight = 40;
+
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(function(d) { return d.id; }))
     .force("charge", d3.forceManyBody())
@@ -11,9 +14,7 @@ var simulation = d3.forceSimulation()
 
 var graph = {}
 
-//d3.json("miserables.json", function(error, graph) {
 d3.json("g.json").then(function(g) {
-  //if (error) throw error;
   graph = g
 
   var link = svg.append("g")
@@ -30,10 +31,13 @@ d3.json("g.json").then(function(g) {
     .enter().append("g")
     
   node.append("rect")
-      .attr('width', 30)
-      .attr('height', 20)
-      .attr("fill", function(d) { return color(d.group); })
-      .each(function(d) { this.classList.add(d.class); })
+      .attr('width', nodeWidth)
+      .attr('height', nodeHeight)
+      .attr('rx', 1.5)
+      .attr('ry', 1.5)
+      .attr('transform', 'translate=(-15,-10)')
+      //.attr("fill", function(d) { return color(d.group); })
+      .each(function(d) { this.classList.add("node", d.class); })
       .call(d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
@@ -44,26 +48,29 @@ d3.json("g.json").then(function(g) {
         console.log(d);
         return d["display-name"] + "";
       })
-      .attr('x', 6)
-      .attr('y', 3);
+      .style("text-anchor", "middle")
+      .classed('svgText', true)
+      .attr('x', nodeWidth / 2)
+      .attr('y', nodeHeight / 2)
 
-  node.append("title")
-      .text(function(d) { return d.id; });
+//  //This makes a tool-tip
+//  node.append("title")
+//      .text(function(d) { return d.id; });
 
   simulation
       .nodes(graph.nodes)
       .on("tick", ticked);
 
   simulation.force("link")
-      .distance(40)
+      .distance(80)
       .links(graph.links);
 
   function ticked() {
     link
-        .attr("x1", function(d) { return d.source.x; })
-        .attr("y1", function(d) { return d.source.y; })
-        .attr("x2", function(d) { return d.target.x; })
-        .attr("y2", function(d) { return d.target.y; });
+        .attr("x1", function(d) { return d.source.x + nodeWidth / 2; })
+        .attr("y1", function(d) { return d.source.y + nodeHeight / 2; })
+        .attr("x2", function(d) { return d.target.x + nodeWidth / 2; })
+        .attr("y2", function(d) { return d.target.y + nodeHeight / 2; });
 
     node
         .attr("transform", function(d) {

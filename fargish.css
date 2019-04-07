@@ -33,6 +33,8 @@ text {
 
 .node {
   fill: DarkSeaGreen;
+  //stroke-width: 1px;
+  //stroke: Black;
 }
 
 .links line {
@@ -43,6 +45,10 @@ text {
 .cursor {
   fill: none;
   stroke: brown;
+  pointer-events: none;
+}
+
+.svgText {
   pointer-events: none;
 }
 
