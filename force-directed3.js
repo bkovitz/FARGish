@@ -9,9 +9,12 @@ var simulation = d3.forceSimulation()
     .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2));
 
+var graph = {}
+
 //d3.json("miserables.json", function(error, graph) {
-d3.json("g.json").then(function(graph) {
+d3.json("g.json").then(function(g) {
   //if (error) throw error;
+  graph = g
 
   var link = svg.append("g")
       .attr("class", "links")
@@ -38,7 +41,8 @@ d3.json("g.json").then(function(graph) {
 
   node.append("text")
       .text(function(d) {
-        return d.id;
+        console.log(d);
+        return d["display-name"] + "";
       })
       .attr('x', 6)
       .attr('y', 3);

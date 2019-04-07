@@ -50,6 +50,10 @@ text {
   stroke: #999;
 }
 
-.problem {
+svg .problem {
   fill: MediumAquaMarine;
+}
+
+svg .number {
+  fill: SteelBlue;
 }

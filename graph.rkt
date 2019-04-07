@@ -150,7 +150,7 @@
 (module+ test
   (test-case "gdo"
     (define g (make-empty-graph empty-spec))
-    (gdo make-node #hash((name . this-node)))
+    (gdo make-node #hash((display-name . this-node)))
     (check-equal? (all-nodes g) '(this-node))))
 
 ;; ======================================================================
@@ -160,8 +160,8 @@
 
 (: make-node : Graph Attrs -> (Values Graph Node))
 (define (make-node g attrs)
-  (let*-values ([(attrs name) (ensure-node-has-name g attrs)]
-                [(id-set id) (gen-id (Graph-id-set g) name)]
+  (let*-values ([(attrs display-name) (ensure-node-has-name g attrs)]
+                [(id-set id) (gen-id (Graph-id-set g) display-name)]
                 [(attrs) (hash-set attrs 'id id)]
                 [(g) (let ([ht (Graph-ht-node->attrs g)])
                        (struct-copy Graph g
@@ -186,7 +186,7 @@
   (: set-name-and-return : Any -> (Values Attrs DisplayName))
   (define (set-name-and-return name)
     (let ([name (->display-name name)])
-      (values (hash-set attrs 'name name) name)))
+      (values (hash-set attrs 'display-name name) name)))
   (cond
     [(hash-ref attrs 'name #f)
      => (λ (name) (values attrs (->display-name name)))]

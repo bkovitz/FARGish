@@ -3,6 +3,8 @@
 #lang debug at-exp typed/racket
 
 (require typed-struct-props racket/unsafe/ops)
+(require typed/json)
+(require/typed sugar [->symbol (-> Any Symbol)])
 (require/typed mischief/sort
    [topological-sort (All (A)
                        (->* [(Listof A) (-> A (Listof A))]
