@@ -2,7 +2,7 @@ var svg = d3.select("#ws"),
     width = +svg.attr("width"),
     height = +svg.attr("height");
 
-var color = d3.scaleOrdinal(d3.schemeCategory20);
+var color = d3.scaleOrdinal(d3.schemeCategory10);
 
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink().id(function(d) { return d.id; }))
@@ -10,8 +10,8 @@ var simulation = d3.forceSimulation()
     .force("center", d3.forceCenter(width / 2, height / 2));
 
 //d3.json("miserables.json", function(error, graph) {
-d3.json("g.json", function(error, graph) {
-  if (error) throw error;
+d3.json("g.json").then(function(graph) {
+  //if (error) throw error;
 
   var link = svg.append("g")
       .attr("class", "links")
@@ -26,13 +26,6 @@ d3.json("g.json", function(error, graph) {
     .data(graph.nodes)
     .enter().append("g")
     
-//    node.append("circle")
-//        .attr("r", 5)
-//        .attr("fill", function(d) { return color(d.group); })
-//        .call(d3.drag()
-//            .on("start", dragstarted)
-//            .on("drag", dragged)
-//            .on("end", dragended));
   node.append("rect")
       .attr('width', 30)
       .attr('height', 20)
@@ -58,7 +51,7 @@ d3.json("g.json", function(error, graph) {
       .on("tick", ticked);
 
   simulation.force("link")
-      .distance(10)
+      .distance(40)
       .links(graph.links);
 
   function ticked() {

@@ -30,10 +30,11 @@
        (svg ((id "ws") (width "960") (height "600"))
          ;,@temporal-trace
          )
-       (button ((id "step") (onClick "step_button()")) "t+1")
+       (p
+         (button ((id "step") (onClick "step_button()")) "t+1"))
        (script ((src "jquery.js")))
        ;(script ((src "//d3js.org/d3.v3.min.js")))
-       (script ((src "https://d3js.org/d3.v4.min.js")))
+       (script ((src "https://d3js.org/d3.v5.min.js")))
        (script ((src "force-directed3.js")))
        ;(script ((src "farg-model.js")))
        )))
