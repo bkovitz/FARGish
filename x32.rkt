@@ -66,6 +66,102 @@
   ;(chain equation prev -> next ...)
   )
 
+;; ======================================================================
+;;
+;; Utility functions
+;;
+
+;TODO Look up appropriate port names from tag's nodeclass
+;Better yet, delete this function and add support automatically in make-tag
+(define (tag->edges g tag node)
+  `((,tag tagged) (,node tags)))
+
+(define (tag-and-support g tagspec . nodes)
+  (let ([(g tag) (apply make-tag g tagspec nodes)]
+        [g (for/fold ([g g])
+                     ([node nodes])
+             (add-tag-support g tag node))])
+    g))
+
+(define (tag-and-support/ tagspec . nodes)
+  (λ (g) (apply tag-and-support g tagspec nodes)))
+
+;TODO Write TR version of add-mutual-support
+(define (add-tag-support g tag node)
+  (let ([e (tag->edges g tag node)]
+        #;[g (add-mutual-support g node e)]
+        #;[g (add-mutual-support g tag e)])
+    g))
+
+(define (node-is-placeholder? g node)
+  (and (node-attr? g node 'placeholder?)
+       (void? (value-of g node))))
+
+; TODO Better class-matching. E.g. * should be able to fill +.
+(define (could-fill? g node-to-fill filler-node)
+  (and (not (void? (value-of g filler-node)))
+       (node-is-a? g filler-node (class-of g node-to-fill))))
+
+(define (could-fill?/ g node-to-fill)
+  (λ (filler-node)
+    (could-fill? g node-to-fill filler-node)))
+
+;; ======================================================================
+;;
+;; Local matches
+;;
+
+(define-type Action (-> Graph Graph))
+
+(struct LocalMatch
+  ([g->node1-candidates : (Graph (U Node Void) -> (Listof Node))]
+   [node1->actions : (Graph Node -> (Listof Action))])
+  #:prefab)
+
+(: lm->candidates : Graph LocalMatch (U Node Void) -> (Listof Node))
+(define (lm->candidates g lm start-node)
+  ((LocalMatch-g->node1-candidates lm) g start-node))
+
+(: lm+node1->actions : Graph LocalMatch Node -> (Listof Action))
+(define (lm+node1->actions g lm node1)
+  ((LocalMatch-node1->actions lm) g node1))
+
+(define lm/fill
+  (LocalMatch
+    (λ (g _) (filter/g node-is-placeholder? (all-nodes g)))
+    (λ (g node-to-fill)
+      (let ([fi (could-fill?/ g node-to-fill)]
+            [filler-node (choose-nearby-node-by-salience
+                           g node-to-fill #:filter fi)])
+        (cond
+          [filler-node (list (tag-and-support/ 'fill node-to-fill filler-node))]
+          [else '()])))))
+
+(define lms (list lm/fill))
+
+(: random-lm : -> LocalMatch)
+(define random-lm
+  (let ([len (length lms)])
+    (λ ()
+      (list-ref lms (random len)))))
+
+(: lm->actions : Graph LocalMatch -> (Listof Action))
+(define (lm->actions g lm)
+  (cond
+    #:define node1 (weighted-choice-by
+                     (λ ([node : Node]) (salience-of g node))
+                     (lm->candidates g lm (void)))
+    [(void? node1) '()]
+    [else (lm+node1->actions g lm node1)]))
+
+(: do-local-matches : Graph -> Graph)
+(define (do-local-matches g)
+  (let ([actions (for/fold ([actions '()])
+                           ([i 6])
+                   (append (lm->actions g (random-lm))))])
+    (for/fold ([g g])
+              ([action actions])
+      (action g))))
 
 ;; ======================================================================
 ;;
@@ -118,4 +214,4 @@
 
 (pr-graph g)
 
-(write-json (graph->jsexpr g))
+;(write-json (graph->jsexpr g))
