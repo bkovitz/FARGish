@@ -73,35 +73,42 @@
 
 ;TODO Look up appropriate port names from tag's nodeclass
 ;Better yet, delete this function and add support automatically in make-tag
+(: tag->edges : Graph Node Node -> Hop)
 (define (tag->edges g tag node)
   `((,tag tagged) (,node tags)))
 
+(: tag-and-support : Graph Attrs Node * -> Graph)
 (define (tag-and-support g tagspec . nodes)
-  (let ([(g tag) (apply make-tag g tagspec nodes)]
-        [g (for/fold ([g g])
+  (let ([(g tag) (make-tag g tagspec nodes)]
+        [g (for/fold ([g : Graph g])
                      ([node nodes])
              (add-tag-support g tag node))])
     g))
 
+(: tag-and-support/ : Attrs Node * -> (-> Graph Graph))
 (define (tag-and-support/ tagspec . nodes)
   (λ (g) (apply tag-and-support g tagspec nodes)))
 
 ;TODO Write TR version of add-mutual-support
+(: add-tag-support : Graph Node Node -> Graph)
 (define (add-tag-support g tag node)
   (let ([e (tag->edges g tag node)]
         #;[g (add-mutual-support g node e)]
         #;[g (add-mutual-support g tag e)])
     g))
 
+(: node-is-placeholder? : Graph Node -> Boolean)
 (define (node-is-placeholder? g node)
   (and (node-attr? g node 'placeholder?)
        (void? (value-of g node))))
 
 ; TODO Better class-matching. E.g. * should be able to fill +.
+(: could-fill? : Graph Node Node -> Boolean)
 (define (could-fill? g node-to-fill filler-node)
   (and (not (void? (value-of g filler-node)))
        (node-is-a? g filler-node (class-of g node-to-fill))))
 
+(: could-fill?/ : Graph Node -> (-> Node Boolean))
 (define (could-fill?/ g node-to-fill)
   (λ (filler-node)
     (could-fill? g node-to-fill filler-node)))
@@ -128,13 +135,14 @@
 
 (define lm/fill
   (LocalMatch
-    (λ (g _) (filter/g node-is-placeholder? (all-nodes g)))
-    (λ (g node-to-fill)
+    (λ ([g : Graph] _) (filter/g g node-is-placeholder? (all-nodes g)))
+    (λ ([g : Graph] [node-to-fill : Node])
       (let ([fi (could-fill?/ g node-to-fill)]
             [filler-node (choose-nearby-node-by-salience
                            g node-to-fill #:filter fi)])
         (cond
-          [filler-node (list (tag-and-support/ 'fill node-to-fill filler-node))]
+          [(not (void? filler-node))
+           (list (tag-and-support/ (fill) node-to-fill filler-node))]
           [else '()])))))
 
 (define lms (list lm/fill))
@@ -156,7 +164,7 @@
 
 (: do-local-matches : Graph -> Graph)
 (define (do-local-matches g)
-  (let ([actions (for/fold ([actions '()])
+  (let ([actions (for/fold ([actions : (Listof Action) '()])
                            ([i 6])
                    (append (lm->actions g (random-lm))))])
     (for/fold ([g g])

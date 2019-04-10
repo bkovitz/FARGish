@@ -4,7 +4,7 @@
 
 (provide (all-defined-out))
 
-(define-type (Maybe a) (U Void a))
+(define-type (Maybe a) (U a Void))
 
 (define-type Node (U Symbol Integer))  ; a node's id
 (define-type Port-label (U Symbol Integer))
@@ -17,6 +17,7 @@
 (define-type EdgeWeight Flonum)
 
 ; Nodes, Edges, etc. possibly with elements missing, i.e. Void.
+(define-type MaybeNode (Maybe Node))
 (define-type MPort (Maybe (List (Maybe Node) (Maybe Port-label))))
 (define-type MEdge/UPair (Maybe (UnorderedPair (Maybe MPort))))
 (define-type MEdge/List (Maybe (List MPort MPort)))
