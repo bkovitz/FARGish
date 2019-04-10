@@ -245,7 +245,7 @@
     [(void? v) #f]
     [else (equal? v (value-of g node))]))
 
-(: has-value? : Graph Node -> Boolean)
+(: has-value? : Graph MaybeNode -> Boolean)
 (define (has-value? g node)
   (not (void? (value-of g node))))
 
@@ -331,7 +331,7 @@
   (λ (node) (salience-of g node)))
 
 (: nearby-nodes
-   (->* [Graph Node] [#:num-hops Integer #:filter (U #f (Node -> Boolean))]
+   (->* [Graph Node] [#:num-hops Integer #:filter (U #f (Node -> (U Any #f)))]
         (Setof Node)))
 (define (nearby-nodes g node #:num-hops [num-hops 2] #:filter [fi #f])
   (if (zero? num-hops)
@@ -454,7 +454,7 @@
 ; Returns Node or void if no node found. If #:filter is #f, then no nodes
 ; are filtered from the nearby nodes.
 (: choose-nearby-node-by-salience
-   (->* [Graph Node] [#:num-hops Integer #:filter (U #f (-> Node Boolean))]
+   (->* [Graph Node] [#:num-hops Integer #:filter (U #f (-> Node (U Any #f)))]
         (U Node Void)))
 (define (choose-nearby-node-by-salience g node #:num-hops [num-hops 2]
                                                #:filter [fi #f])

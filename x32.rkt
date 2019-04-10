@@ -34,11 +34,11 @@
     (applies-to ([node])))
   (tagclass brick
     (applies-to ([node])))
-;  (tagclass greater-than
-;    (applies-to ([greater (of-class 'number)
-;                          (by-ports 'greater 'greater-than)]
-;                 [lesser (of-class 'number) (by-ports 'lesser 'less-than)])
-;      (condition (value-pred?/g safe->? greater lesser))))
+  (tagclass greater-than
+    (applies-to ([greater (of-class number)
+                          (by-ports greater greater-than)]
+                 [lesser (of-class number) (by-ports lesser less-than)])
+      (condition (safe->? (value-of g greater) (value-of g lesser)))))
 ;  (tagclass same
 ;    (applies-to ([node1 as-tag] [node2 as-tag]) ;TODO not same node
 ;      (condition (and?/g (same-class?/g node1 node2)
@@ -50,9 +50,6 @@
       ;(condition (= n (->num-digits node))) ; IDEAL
       (condition (safe-eqv? (cast (value-of g this) (U Integer Void))
                             (->num-digits (cast (value-of g node) (U Integer Void)))))))
-;      (condition (value-pred?/g
-;                   (λ (v) (safe-eqv? n (->num-digits v)))
-;                   node))))
   (tagclass fill
     (applies-to ([node-to-fill (by-ports fill filled-by)]
                  ;TODO Make sure node-to-fill can be filled
@@ -102,6 +99,11 @@
   (and (node-attr? g node 'placeholder?)
        (void? (value-of g node))))
 
+(: node-is-a-number? : Graph MaybeNode -> Boolean)
+(define (node-is-a-number? g node)
+  (and (node-is-a? g node 'number)
+       (has-value? g node)))
+
 ; TODO Better class-matching. E.g. * should be able to fill +.
 (: could-fill? : Graph Node Node -> Boolean)
 (define (could-fill? g node-to-fill filler-node)
@@ -145,7 +147,18 @@
            (list (tag-and-support/ (fill) node-to-fill filler-node))]
           [else '()])))))
 
-(define lms (list lm/fill))
+(define lm/greater-than
+  (LocalMatch
+    (λ ([g : Graph] _) (filter/g g node-is-a-number? (all-nodes g)))
+    (λ ([g : Graph] [node1 : Node])
+      (let ([fi (λ ([node2 : Node])
+                  (tagclass-applies-to? g 'greater-than (list node1 node2)))]
+            [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
+        (cond
+          [(void? node2) '()]
+          [else (list (tag-and-support/ (greater-than) node1 node2))])))))
+
+(define lms (list lm/fill lm/greater-than))
 
 (: random-lm : -> LocalMatch)
 (define random-lm

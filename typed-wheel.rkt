@@ -102,6 +102,19 @@
      #f]
     [else (eqv? x1 x2)]))
 
+(: without-voids (All (a) (Listof (U a Void)) -> (Listof a)))
+(define (without-voids seq)
+  (for/list ([x seq] #:when (not (void? x)))
+    x))
+
+(: safe->? : Any * -> Boolean)
+(define (safe->? . args)
+  (let ([args (filter real? args)])
+    (cond
+      [(null? args) #f]
+      [(null? (cdr args)) #f]
+      [else (apply > (car args) (cdr args))])))
+
 ;; ======================================================================
 ;;
 ;; Currying
