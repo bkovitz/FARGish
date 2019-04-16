@@ -23,6 +23,7 @@
          copy-graph-into-graph
 
          gdo
+         gd
 
          make-node
          add-node
@@ -90,68 +91,11 @@
 
 (begin-encourage-inline
 
-(: make-empty-graph : FARGishSpec -> Graph)
-(define (make-empty-graph spec)
-  (Graph (hash) (hash) (hash) empty-id-set (hash) (hash) spec))
-
-(define empty-graph (make-empty-graph empty-spec))
-
 (define empty-port-set : (Setof Port) (set))
 (define empty-node-set : (Setof Node) (set))
 
 (: E : Port Port -> Edge/UPair)  ; Edge constructor
 (define E UnorderedPair)
-
-
-;(define-struct/exec Gfunc () 
-
-(define g (make-empty-graph empty-spec))
-(set! g g)
-
-; A little hack to make it easier to work on graphs in the REPL.
-; (gdo makenode 'ws) operates on a variable in the local context called g,
-; set!s g to the new graph, and returns the nodeid of the created node.
-;(define-syntax (gdo stx)
-;  (syntax-case stx ()
-;    [(gdo gfunc args ...)
-;     (with-syntax ([g (format-id #'gdo "g"
-;                                 #:source #'gdo #:props #'f)])
-;       #'(call-with-values (λ () (gfunc g args ...))
-;           (λ ([new-g : Graph] . results)
-;             (set! g new-g)
-;             (cond
-;               [(null? results) (void)]
-;               [(null? (cdr results)) (car results)]
-;               [else results]))))]))
-;
-;(: gd-impl (All (b a ...) (-> Graph a ... (Values Graph b)) a ... -> b))
-;(define (gd-impl gfunc g . args)
-;  (let ([(g result) (apply gfunc g args)])
-;    result))
-
-; So far, the best Typed gdo I've been able to come up with is much less
-; convenient than Untyped gdo. You can only pass it functions that return
-; a Graph and a result, not functions that return a Graph with no other result.
-; BEN 10-Mar-2019
-(define-syntax (gdo stx)
-  (syntax-parse stx
-    [(_ gfunc:expr arg:expr ...)
-     #:with g (format-id stx "g" #:source stx)
-     #:with (A ...) (generate-temporaries #'(arg ...))
-     #:with (a ...) (generate-temporaries #'(arg ...))
-     #'(let ([gdo-impl : (All (b A ...)
-                           (-> Graph A ... (Values Graph b)) Graph A ... -> b)
-               (λ (gf graph a ...)
-                 (let*-values ([(new-g result) (gf graph a ...)])
-                   (set! g new-g)
-                   result))])
-         (gdo-impl gfunc g arg ...))]))
-
-(module+ test
-  (test-case "gdo"
-    (define g (make-empty-graph empty-spec))
-    (gdo make-node #hash((display-name . this-node)))
-    (check-equal? (all-nodes g) '(this-node))))
 
 ;; ======================================================================
 ;;
@@ -802,6 +746,80 @@
 
 ;; ======================================================================
 ;;
+;; Empty graph
+;;
+
+(: make-empty-graph : FARGishSpec -> Graph)
+(define (make-empty-graph spec)
+  (let ([g (Graph (hash) (hash) (hash) empty-id-set (hash) (hash) spec)]
+        [g (graph-set-var g 't 0)])
+    g))
+
+(define empty-graph (make-empty-graph empty-spec))
+
+(define g (make-empty-graph empty-spec))
+(set! g g)
+
+;; ======================================================================
+;;
+;; gdo
+;;
+
+; A little hack to make it easier to work on graphs in the REPL.
+; (gdo makenode 'ws) operates on a variable in the local context called g,
+; set!s g to the new graph, and returns the nodeid of the created node.
+;(define-syntax (gdo stx)
+;  (syntax-case stx ()
+;    [(gdo gfunc args ...)
+;     (with-syntax ([g (format-id #'gdo "g"
+;                                 #:source #'gdo #:props #'f)])
+;       #'(call-with-values (λ () (gfunc g args ...))
+;           (λ ([new-g : Graph] . results)
+;             (set! g new-g)
+;             (cond
+;               [(null? results) (void)]
+;               [(null? (cdr results)) (car results)]
+;               [else results]))))]))
+;
+;(: gd-impl (All (b a ...) (-> Graph a ... (Values Graph b)) a ... -> b))
+;(define (gd-impl gfunc g . args)
+;  (let ([(g result) (apply gfunc g args)])
+;    result))
+
+; So far, the best Typed gdo I've been able to come up with is much less
+; convenient than Untyped gdo. You can only pass it functions that return
+; a Graph and a result, not functions that return a Graph with no other result.
+; BEN 10-Mar-2019
+(define-syntax (gdo stx)
+  (syntax-parse stx
+    [(_ gfunc:expr arg:expr ...)
+     #:with g (format-id stx "g" #:source stx)
+     #:with (A ...) (generate-temporaries #'(arg ...))
+     #:with (a ...) (generate-temporaries #'(arg ...))
+     #'(let ([gdo-impl : (All (b A ...)
+                           (-> Graph A ... (Values Graph b)) Graph A ... -> b)
+               (λ (gf graph a ...)
+                 (let*-values ([(new-g result) (gf graph a ...)])
+                   (set! g new-g)
+                   result))])
+         (gdo-impl gfunc g arg ...))]))
+
+(module+ test
+  (test-case "gdo"
+    (define g (make-empty-graph empty-spec))
+    (gdo make-node #hash((display-name . this-node)))
+    (check-equal? (all-nodes g) '(this-node))))
+
+;This is ugly, but here's a way to call a function from the REPL
+;to update g, where the function returns only a new g and not a value.
+(define-syntax (gd stx)
+  (syntax-parse stx
+    [(_ gfunc:expr arg:expr ...)
+     #:with g (format-id stx "g" #:source stx)
+     #'(set! g (gfunc g arg ...))]))
+
+;; ======================================================================
+;;
 ;; Copying one graph into another
 ;; 
 
@@ -875,9 +893,11 @@
                   [`((,source ,_) (,target ,_))
                    (hash 'source (->jsexpr source)
                          'target (->jsexpr target)
-                         'weight (->jsexpr (edge->weight g edge)))]))])
+                         'weight (->jsexpr (edge->weight g edge)))]))]
+            [t (graph-get-var g 't "?")])
         (hash 'nodes (map/g g node->jsexpr (all-nodes g))
-              'links (map edge->jsexpr (all-edges g)))))))
+              'links (map edge->jsexpr (all-edges g))
+              't (->jsexpr t))))))
 
 (: graph->json : Graph -> String)
 (define (graph->json g)

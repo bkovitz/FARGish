@@ -9,7 +9,7 @@
 (require "typed-wheel.rkt")
 (require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt")
 
-(provide step write-graph/json)
+(provide step/web write-graph/json)
 
 ;(: ->num-digits : (U Integer Void) -> (U Integer Void))
 ;(define (->num-digits x)
@@ -269,13 +269,18 @@
 (define (write-graph/json g [output-port (current-output-port)])
   (write-json (graph->jsexpr g) output-port))
 
-(: step : (U Graph Void) -> Graph)
+(: step : Graph -> Graph)
 (define (step g)
-  (let ([g (cond
-             [(void? g) init-g]
-             [else (do-local-matches g)])])
+  (let ([g (bump-t g)]
+                  [g (do-local-matches g)])
     #R (list (length (all-nodes g)))
     g))
+
+(: step/web : (U Graph Void) -> Graph)
+(define (step/web g)
+  (cond
+    [(void? g) init-g]
+    [else (step g)]))
 
 (: step! : -> Void)
 (define (step!)

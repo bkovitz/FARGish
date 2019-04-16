@@ -510,6 +510,16 @@
 
 ;; ======================================================================
 ;;
+;; Global graph vars
+;;
+
+(: bump-t : Graph -> Graph)
+(define (bump-t g)
+  (let ([t (cast (graph-get-var g 't 0) Integer)])
+    (graph-set-var g 't (add1 t))))
+
+;; ======================================================================
+;;
 ;; Copying bunches of nodes
 ;;
 
