@@ -4,7 +4,8 @@ UNTYPED_SRCFILES = wheel.rkt id-set.rkt graph1.rkt fargish1.rkt model1.rkt \
 	graph.rkt
 UT_FILES = test-fargish.rkt test-model.rkt
 SRCFILES = typed-wheel.rkt types.rkt id-set.rkt graph.rkt fargish.rkt \
-	model.rkt fizzle.rkt support-core.rkt trace.rkt x32.rkt mkhtml.rkt $(UT_FILES)
+	model.rkt fizzle.rkt support-core.rkt trace.rkt x32.rkt mkhtml.rkt \
+	web.rkt $(UT_FILES)
 
 all:
 	raco make -j 2 -v $(SRCFILES)

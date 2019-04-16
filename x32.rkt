@@ -9,6 +9,8 @@
 (require "typed-wheel.rkt")
 (require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt")
 
+(provide step write-graph/json)
+
 ;(: ->num-digits : (U Integer Void) -> (U Integer Void))
 ;(define (->num-digits x)
 ;  (safe-string-length (safe-integer->string x)))
@@ -201,9 +203,9 @@
 (define (do-local-matches g)
   (let ([actions (for/fold ([actions : (Listof Action) '()])
                            ([i 6])
-                   (append (lm->actions g (random-lm))))])
+                   (append actions (lm->actions g (random-lm))))])
     (for/fold ([g g])
-              ([action actions])
+              ([action #R actions])
       (action g))))
 
 ;; ======================================================================
@@ -211,7 +213,7 @@
 ;; The solution to the "32" problem, as a stored temporal trace
 ;;
 
-(define g
+(define init-g : Graph
   (let
     ([(g) (make-empty-graph spec)]
      ;old temporal trace
@@ -252,11 +254,30 @@
 ;     [(g) (make-permanent g trace
 ;                          t0 problem target b6 b3 b4 b5 c1 c2
 ;                          t1 eqn1 e6 times e4 equals1 e24)]
+     [g (set-salience-of g (all-nodes g) 1.0)]
      )
     g))
 
+(define g : Graph init-g)
 (set! g g)
 
-(pr-graph g)
+;(pr-graph g)
+;
+;(write-json (graph->jsexpr g))
 
-(write-json (graph->jsexpr g))
+(: write-graph/json (->* [Graph] [Output-Port] Any))
+(define (write-graph/json g [output-port (current-output-port)])
+  (write-json (graph->jsexpr g) output-port))
+
+(: step : (U Graph Void) -> Graph)
+(define (step g)
+  (let ([g (cond
+             [(void? g) init-g]
+             [else (do-local-matches g)])])
+    #R (list (length (all-nodes g)))
+    g))
+
+(: step! : -> Void)
+(define (step!)
+  (set! g (step g)))
+

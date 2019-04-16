@@ -419,6 +419,15 @@
     [else
      (apply max (map/g g salience-of (edge->nodes elem)))]))
 
+(: set-salience-of : Graph (U Nodes Void) Flonum -> Graph)
+(define (set-salience-of g node s)
+  (cond
+    [(void? node) g]
+    [(Node? node) (set-node-attr g node 'salience s)]
+    [else (for/fold ([g g])
+                    ([n node])
+            (set-node-attr g n 'salience s))]))
+
 (: boost-salience-of : Graph Node -> Graph)
 (define (boost-salience-of g node)
   (update-node-attr g node 'salience

@@ -1,3 +1,7 @@
+function step_button() {
+  $.get("step", function(data) { graph = JSON.parse(data); restart(); });
+}
+
 // Set up known HTML elements
 var svg = d3.select("#ws"),
     width = +svg.attr("width"),
