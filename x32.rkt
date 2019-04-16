@@ -267,7 +267,7 @@
 
 (: write-graph/json (->* [Graph] [Output-Port] Any))
 (define (write-graph/json g [output-port (current-output-port)])
-  (write-json (graph->jsexpr g) output-port))
+  (write-json (graph->d3 g) output-port))
 
 (: step : Graph -> Graph)
 (define (step g)

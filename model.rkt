@@ -6,8 +6,9 @@
 
 #lang debug at-exp typed/racket
 (require typed/debug/report)
-
 (require debug/repl errortrace)
+
+(require typed/json)
 (require "types.rkt" "typed-wheel.rkt")
 (require (only-in "graph.rkt" [make-node g:make-node]
                               [add-edge g:add-edge])
@@ -17,7 +18,7 @@
 (module+ test (require typed/rackunit))
 
 (provide (all-from-out "graph.rkt")
-         (all-defined-out))
+         (except-out (all-defined-out) return/))
 
 ;TODO Global constants should be stored as variables in the graph.
 (define salience-decay 0.8)
@@ -607,26 +608,28 @@
 ;; JSON
 ;;
 
+;TODO Make a GraphForD3 type.
+
 ; Returns g in a JSON, in a form suitable for sending to the Javascript code
 ; that renders the graph by invoking D3.js.
-;(: graph->d3 : Graph -> JSExpr)
-;(define (graph->d3 g)
-;  (graph->jsexpr #:node->jsexpr
-;                  (λ ([g : Graph] [node : Node])
-;                    (let ([ht (get-node-attrs g node)]
-;                          [ht (add-container-info g ht node)])
-;                      (->jsexpr ht)))))
-;
-;(: add-container-info : Graph Attrs Node -> Attrs)
-;(define (add-container-info g ht node)
-;  (cond
-;    [(container? g node)
-;     (let ([members (members-of g node)])
-;       (~> ht (hash-set 'members members)
-;     (let ([ht (hash-set ht 'members (members-of g node))]
+(: graph->d3 : Graph -> JSExpr)
+(define (graph->d3 g)
+  (let ([ht/node->attrs
+          (for/fold : (Hashof Node Attrs)
+                    ([ht : (Hashof Node Attrs) (graph->ht/node->attrs g)])
+                    ([node (all-nodes g)])
+            (let ([(ht _) (d3width g ht node)]
+                  [(ht _) (d3height g ht node)])
+              ht))]
+         [t (graph-get-var g 't "?")])
+    (hash 'nodes (->jsexpr (hash-values ht/node->attrs))
+          'links (edges->jsexpr g)
+          't (->jsexpr t))))
 
 (define MIN-D3-WIDTH : Integer 2)
 (define MIN-D3-CONTAINER-WIDTH : Integer 3)
+(define MIN-D3-HEIGHT : Integer 2)
+(define MIN-D3-CONTAINER-HEIGHT : Integer 3)
 
 ; Figures out the width that node should get when rendered by D3. Returns
 ; a new attrs table, updated for the widths of all other nodes calculated
@@ -667,4 +670,44 @@
                        (values ht (+ w member-width))))])
        (return ht (max w MIN-D3-CONTAINER-WIDTH)))]
     [else (return ht/node->attrs MIN-D3-WIDTH)]))
+
+; Same as d3width but calculates height.
+(: d3height : Graph (Hashof Node Attrs) Node [#:in-progress (Setof Node)]
+              -> (Values (Hashof Node Attrs) Integer))
+(define (d3height g ht/node->attrs node #:in-progress [in-progress empty-set])
+  (: return : (Hashof Node Attrs) Integer
+              -> (Values (Hashof Node Attrs) Integer))
+  (define return (return/ node 'd3height))
+  (define existing-height : (U Integer #f)
+    (let ([attrs (hash-ref ht/node->attrs node (const #f))])
+      (and attrs (cast (hash-ref attrs 'd3height (const #f)) (U Integer #f)))))
+  (cond
+    [existing-height
+     (values ht/node->attrs existing-height)]
+    [(set-member? in-progress node) ; cyclic containment?
+     (values ht/node->attrs MIN-D3-HEIGHT)]
+    [(container? g node)
+     (let ([in-progress (set-add in-progress node)]
+           [(ht h) (for/fold : (Values (Hashof Node Attrs) Integer)
+                             ([ht : (Hashof Node Attrs) ht/node->attrs]
+                              [h 1])
+                             ([m (members-of g node)])
+                     (let ([(ht member-height)
+                            (d3height g ht m #:in-progress in-progress)])
+                       (values ht (+ h member-height))))])
+       (return ht/node->attrs (max h MIN-D3-CONTAINER-HEIGHT)))]
+     [else (return ht/node->attrs MIN-D3-HEIGHT)]))
+
+; Helper function for d3width and d3height.
+(: return/ : Node Symbol -> (-> (Hashof Node Attrs) Integer
+                                (Values (Hashof Node Attrs) Integer)))
+(define (return/ node key)
+  (λ ([ht : (Hashof Node Attrs)] [v : Integer])
+    (cond
+      [(hash-ref ht node (const #f))
+       => (λ ([attrs : Attrs])
+            (values (hash-set ht node (hash-set attrs key v))
+                    v))]
+      [else (values (hash-set ht node (hash key v))
+                    v)])))
 

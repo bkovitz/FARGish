@@ -71,6 +71,7 @@
          update-node-attr
          merge-node-attrs
          node-attr?
+         graph->ht/node->attrs
 
          graph-set-var
          graph-get-var
@@ -79,12 +80,14 @@
          graph-push-var
          graph-push-and-set-var
          graph-pop-var
+         graph-vars
 
          filter/g
          map/g
 
          graph->json
          graph->jsexpr
+         edges->jsexpr
 
          pr-graph
          pr-node)
@@ -585,6 +588,9 @@
   (let ([ht (get-node-attrs g node)])
     (if (void? ht) #f (hash-ref ht k #f))))
 
+(: graph->ht/node->attrs : Graph -> (Hashof Node Attrs))
+(define graph->ht/node->attrs Graph-ht-node->attrs)
+
 ;; ======================================================================
 ;;
 ;; Unit tests
@@ -727,6 +733,9 @@
                         (hash-set stacks name stack))]
               [vars (hash-set (Graph-vars g) name value)])
          (struct-copy Graph g [stacks stacks] [vars vars]))])))
+
+(: graph-vars : Graph -> (Hashof Symbol Any))
+(define graph-vars Graph-vars)
 
 ;; ======================================================================
 ;;
@@ -887,7 +896,7 @@
           (λ ([g : Graph] [node : Node])
             (->jsexpr (get-node-attrs g node)))])
     (λ (g #:node->jsexpr [node->jsexpr default-node->jsexpr])
-      (let ([edge->jsexpr
+      (let ([edge->jsexpr  ;TODO OAOO
               (λ ([edge : Edge/UPair])
                 (match (edge->list edge)
                   [`((,source ,_) (,target ,_))
@@ -898,6 +907,17 @@
         (hash 'nodes (map/g g node->jsexpr (all-nodes g))
               'links (map edge->jsexpr (all-edges g))
               't (->jsexpr t))))))
+
+(: edges->jsexpr : Graph -> JSExpr)
+(define (edges->jsexpr g)
+  (let ([edge->jsexpr
+          (λ ([edge : Edge/UPair])
+            (match (edge->list edge)
+              [`((,source ,_) (,target ,_))
+               (hash 'source (->jsexpr source)
+                     'target (->jsexpr target)
+                     'weight (->jsexpr (edge->weight g edge)))]))])
+    (map edge->jsexpr (all-edges g))))
 
 (: graph->json : Graph -> String)
 (define (graph->json g)

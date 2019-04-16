@@ -1,6 +1,6 @@
 var graph = {
   "nodes": {},
-  "links": [],
+  "links": [],  // TODO this right
   "t": undefined
 }
 
@@ -54,6 +54,9 @@ var node = nodeg.selectAll("g");
 const nodeWidth = 60;
 const nodeHeight = 40;
 
+const nodeWidthMultiplier = 30;
+const nodeHeightMultiplier = 20;
+
 var simulation = d3.forceSimulation()
     .force("link", d3.forceLink()
                        .distance(90)
@@ -84,8 +87,10 @@ function restart() {
   nodeEnter = node.enter().append("g")
     
   nodeEnter.append("rect")
-      .attr('width', nodeWidth)
-      .attr('height', nodeHeight)
+      //.attr('width', nodeWidth)
+      //.attr('height', nodeHeight)
+      .attr('width', function(d) { return d.d3width * nodeWidthMultiplier; })
+      .attr('height', function(d) { return d.d3height * nodeHeightMultiplier; })
       .attr('rx', 1.5)
       .attr('ry', 1.5)
       //.attr('transform', 'translate(-15,-10)')
