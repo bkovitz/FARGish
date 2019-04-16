@@ -1,5 +1,37 @@
+var graph = {
+  "nodes": {},
+  "links": [],
+  "t": undefined
+}
+
+var gg;
+
 function step_button() {
-  $.get("step", function(data) { graph = JSON.parse(data); restart(); });
+  $.get("step", function(data) {
+    update_graph(JSON.parse(data));
+    restart();
+  });
+}
+
+function reset_button() {
+  $.get("reset", function(data) {
+    update_graph(JSON.parse(data));
+    restart();
+  });
+}
+
+function update_graph(g) {
+  gg = g;
+  $('#t').text(g.t);
+  for (var i = 0; i < g.nodes.length; i++) {
+    const node = g.nodes[i];
+    console.log(node);
+    if (!graph.nodes.hasOwnProperty(node.id)) {
+      console.log("HERE", node.id);
+      graph.nodes[node.id] = node;
+    }
+  }
+  graph.links = g.links;
 }
 
 // Set up known HTML elements
@@ -26,20 +58,18 @@ var simulation = d3.forceSimulation()
     .force("link", d3.forceLink()
                        .distance(90)
                        .id(function(d) { return d.id; }))
-    .force("charge", d3.forceManyBody().strength(-10))
+    .force("charge", d3.forceManyBody())
     .force("center", d3.forceCenter(width / 2, height / 2))
     .stop()
     .on("tick", ticked);
 
 
-var graph = {}
-
 var forceLinks = []
 
-d3.json("g.json").then(function(g) {
-  graph = g
-  restart();
-})
+//d3.json("g.json").then(function(g) {
+//  graph = g
+//  restart();
+//})
 
 function restart() {
   
@@ -48,7 +78,8 @@ function restart() {
       .attr("stroke-width", function(d) { return Math.sqrt(d.value); })
       .merge(link);
 
-  node = nodeg.selectAll("g").data(graph.nodes, function(d) { return d.id; })
+  nodes_array = Object.values(graph.nodes)
+  node = nodeg.selectAll("g").data(nodes_array, function(d) { return d.id; })
 
   nodeEnter = node.enter().append("g")
     
@@ -84,7 +115,7 @@ function restart() {
 //  node.append("title")
 //      .text(function(d) { return d.id; });
 
-  simulation.nodes(graph.nodes);
+  simulation.nodes(nodes_array);
   //forceLinks = JSON.parse(JSON.stringify(graph.links))
   simulation.force("link").links(graph.links);
   simulation.alpha(1).restart();

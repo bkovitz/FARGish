@@ -27,11 +27,13 @@
            #;(link ((rel "stylesheet") (type "text/css") (href "force-interactive.css")))
            )
      (body
+       (p "t=" (span ((id "t")) "0"))
        (svg ((id "ws") (width "960") (height "600"))
          ;,@temporal-trace
          )
        (p
-         (button ((id "step") (onClick "step_button()")) "t+1"))
+         (button ((id "step") (onClick "step_button()")) "t+1")
+         (button ((is "reset") (onClick "reset_button()")) "reset"))
        (script ((src "jquery.js")))
        ;(script ((src "//d3js.org/d3.v3.min.js")))
        (script ((src "https://d3js.org/d3.v5.min.js")))

@@ -21,9 +21,14 @@
                      (write-graph/json g output-port)
                      (void))))
 
+(define (reset-app! req)
+  (set! g (void))
+  (step-app! req))
+
 (define-values (x-dispatch x-url)
   (dispatch-rules
-    [("step") step-app!]))
+    [("step") step-app!]
+    [("reset") reset-app!]))
 
 (serve/servlet x-dispatch
   #:port 8080
