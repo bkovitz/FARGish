@@ -102,6 +102,13 @@
      #f]
     [else (eqv? x1 x2)]))
 
+(: safe-equal? : Any Any -> Boolean)
+(define (safe-equal? x1 x2)
+  (cond
+    [(void? x1) #f]
+    [(void? x2) #f]
+    [else (equal? x1 x2)]))
+
 (: without-voids (All (a) (Listof (U a Void)) -> (Listof a)))
 (define (without-voids seq)
   (for/list ([x seq] #:when (not (void? x)))

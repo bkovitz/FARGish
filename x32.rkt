@@ -9,9 +9,15 @@
 (require "typed-wheel.rkt")
 (require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt")
 
-(: ->num-digits : (U Integer Void) -> (U Integer Void))
+;(: ->num-digits : (U Integer Void) -> (U Integer Void))
+;(define (->num-digits x)
+;  (safe-string-length (safe-integer->string x)))
+
+(: ->num-digits : Any -> (U Integer Void))
 (define (->num-digits x)
-  (safe-string-length (safe-integer->string x)))
+  (cond
+    [(integer? x) (safe-string-length (safe-integer->string x))]
+    [else (void)]))
 
 (define-spec spec
   ; Nodes
@@ -39,17 +45,17 @@
                           (by-ports greater greater-than)]
                  [lesser (of-class number) (by-ports lesser less-than)])
       (condition (safe->? (value-of g greater) (value-of g lesser)))))
-;  (tagclass same
-;    (applies-to ([node1 as-tag] [node2 as-tag]) ;TODO not same node
-;      (condition (and?/g (same-class?/g node1 node2)
-;                         (value-pred?/g equal? node1 node2)))))
+  (tagclass same
+    (applies-to ([node1] [node2]) ;TODO not same node
+      (condition (and (same-class? g node1 node2)
+                      (safe-equal? (value-of g node1)
+                                   (value-of g node2))))))
   (tagclass (num-digits [n : Integer])
     (value n)
     (display-name (format "num-digits-~a" n))
     (applies-to ([node (of-class number)])
-      ;(condition (= n (->num-digits node))) ; IDEAL
-      (condition (safe-eqv? (cast (value-of g this) (U Integer Void))
-                            (->num-digits (cast (value-of g node) (U Integer Void)))))))
+      (condition (safe-eqv? (value-of g this)
+                            (->num-digits (value-of g node))))))
   (tagclass fill
     (applies-to ([node-to-fill (by-ports fill filled-by)]
                  ;TODO Make sure node-to-fill can be filled
@@ -82,7 +88,7 @@
              (add-tag-support g tag node))])
     g))
 
-(: tag-and-support/ : Attrs Node * -> (-> Graph Graph))
+(: tag-and-support/ : Attrs Node * -> Action)
 (define (tag-and-support/ tagspec . nodes)
   (λ (g) (apply tag-and-support g tagspec nodes)))
 
@@ -103,6 +109,10 @@
 (define (node-is-a-number? g node)
   (and (node-is-a? g node 'number)
        (has-value? g node)))
+
+(: same-class? : Graph MaybeNode MaybeNode -> Boolean)
+(define (same-class? g node1 node2)
+  (safe-equal? (class-of g node1) (class-of g node2)))
 
 ; TODO Better class-matching. E.g. * should be able to fill +.
 (: could-fill? : Graph Node Node -> Boolean)
@@ -158,7 +168,19 @@
           [(void? node2) '()]
           [else (list (tag-and-support/ (greater-than) node1 node2))])))))
 
-(define lms (list lm/fill lm/greater-than))
+(define lm/same
+  (LocalMatch
+    (λ ([g : Graph] _) (all-nodes g))
+    (λ ([g : Graph] [node1 : Node])
+      (let ([fi (λ ([node2 : Node])
+                  (and (not (eq? node1 node2))
+                       (tagclass-applies-to? g 'same (list node1 node2))))]
+            [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
+        (cond
+          [(void? node2) '()]
+          [else (list (tag-and-support/ (same) node1 node2))])))))
+
+(define lms (list lm/fill lm/greater-than lm/same))
 
 (: random-lm : -> LocalMatch)
 (define random-lm
@@ -233,6 +255,8 @@
      )
     g))
 
+(set! g g)
+
 (pr-graph g)
 
-;(write-json (graph->jsexpr g))
+(write-json (graph->jsexpr g))

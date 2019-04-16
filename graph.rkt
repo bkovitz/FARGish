@@ -863,17 +863,21 @@
 ;; JSON
 ;;
 
-(: graph->jsexpr : Graph -> JSExpr)
-(define (graph->jsexpr g)
-  (let ([node->jsexpr (λ ([node : Node]) (->jsexpr (get-node-attrs g node)))]
-        [edge->jsexpr (λ ([edge : Edge/UPair])
-                        (match (edge->list edge)
-                          [`((,source ,_) (,target ,_))
-                           (hash 'source (->jsexpr source)
-                                 'target (->jsexpr target)
-                                 'weight (->jsexpr (edge->weight g edge)))]))])
-    (hash 'nodes (map node->jsexpr (all-nodes g))
-          'links (map edge->jsexpr (all-edges g)))))
+(: graph->jsexpr : Graph [#:node->jsexpr (-> Graph Node JSExpr)] -> JSExpr)
+(define graph->jsexpr
+  (let ([default-node->jsexpr
+          (λ ([g : Graph] [node : Node])
+            (->jsexpr (get-node-attrs g node)))])
+    (λ (g #:node->jsexpr [node->jsexpr default-node->jsexpr])
+      (let ([edge->jsexpr
+              (λ ([edge : Edge/UPair])
+                (match (edge->list edge)
+                  [`((,source ,_) (,target ,_))
+                   (hash 'source (->jsexpr source)
+                         'target (->jsexpr target)
+                         'weight (->jsexpr (edge->weight g edge)))]))])
+        (hash 'nodes (map/g g node->jsexpr (all-nodes g))
+              'links (map edge->jsexpr (all-edges g)))))))
 
 (: graph->json : Graph -> String)
 (define (graph->json g)

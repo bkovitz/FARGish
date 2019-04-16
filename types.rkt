@@ -13,7 +13,6 @@
 (define-type Edge/List (List Port Port))
 (define-type Hop Edge/List)
 (define-type Edge (U Edge/UPair Edge/List))
-(define-type Edge* (Setof Node))  ; 2 nodes
 (define-type EdgeWeight Flonum)
 
 ; Nodes, Edges, etc. possibly with elements missing, i.e. Void.
@@ -23,7 +22,6 @@
 (define-type MEdge/List (Maybe (List MPort MPort)))
 (define-type MHop MEdge/List)
 (define-type MEdge (U MEdge/UPair MEdge/List))
-(define-type MEdge* (Setof (Maybe Node)))  ; 2 nodes
 
 (define-type Salience Flonum)
 

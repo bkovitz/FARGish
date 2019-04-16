@@ -281,6 +281,10 @@
 (define (member-edge ctx member)
   `((,ctx members) (,member member-of)))
 
+(: container? : Graph Node -> Boolean)
+(define (container? g node)
+  (not (null? (members-of g node))))
+
 (: common-ctxs : Graph (Listof Node) -> (Setof Node))
 (define (common-ctxs g nodes)
   (for/fold ([st : (Setof Node) (set)])
@@ -578,3 +582,70 @@
 (: copying-to : Graph Node -> (U Node Void))
 (define (copying-to g node)
   (port->neighbor g `(,node copying-to)))
+
+;; ======================================================================
+;;
+;; JSON
+;;
+
+; Returns g in a JSON, in a form suitable for sending to the Javascript code
+; that renders the graph by invoking D3.js.
+;(: graph->d3 : Graph -> JSExpr)
+;(define (graph->d3 g)
+;  (graph->jsexpr #:node->jsexpr
+;                  (λ ([g : Graph] [node : Node])
+;                    (let ([ht (get-node-attrs g node)]
+;                          [ht (add-container-info g ht node)])
+;                      (->jsexpr ht)))))
+;
+;(: add-container-info : Graph Attrs Node -> Attrs)
+;(define (add-container-info g ht node)
+;  (cond
+;    [(container? g node)
+;     (let ([members (members-of g node)])
+;       (~> ht (hash-set 'members members)
+;     (let ([ht (hash-set ht 'members (members-of g node))]
+
+(define MIN-D3-WIDTH : Integer 2)
+(define MIN-D3-CONTAINER-WIDTH : Integer 3)
+
+; Figures out the width that node should get when rendered by D3. Returns
+; a new attrs table, updated for the widths of all other nodes calculated
+; along the way, and the width of node.
+;
+; The width of a node is MIN-D3-WIDTH if the node is not a container,
+; 1 + the sum of the widths of its members if it is a container, with a
+; lower bound of MIN-D3-CONTAINER-WIDTH.
+(: d3width : Graph (Hashof Node Attrs) Node [#:in-progress (Setof Node)]
+             -> (Values (Hashof Node Attrs) Integer))
+(define (d3width g ht/node->attrs node #:in-progress [in-progress empty-set])
+  (: return : (Hashof Node Attrs) Integer
+              -> (Values (Hashof Node Attrs) Integer))
+  (define (return ht/node->attrs w)
+    (cond
+      [(hash-ref ht/node->attrs node (const #f))
+       => (λ ([attrs : Attrs])
+            (values (hash-set ht/node->attrs node (hash-set attrs 'd3width w))
+                    w))]
+      [else (values (hash-set ht/node->attrs node (hash 'd3width w))
+                    w)]))
+  (define existing-width : (U Integer #f)
+    (let ([attrs (hash-ref ht/node->attrs node (const #f))])
+      (and attrs (cast (hash-ref attrs 'd3width (const #f)) (U Integer #f)))))
+  (cond
+    [existing-width
+     (values ht/node->attrs existing-width)]
+    [(set-member? in-progress node) ; cyclic containment?
+     (values ht/node->attrs MIN-D3-WIDTH)]
+    [(container? g node)
+     (let ([in-progress (set-add in-progress node)]
+           [(ht w) (for/fold : (Values (Hashof Node Attrs) Integer)
+                             ([ht : (Hashof Node Attrs) ht/node->attrs]
+                              [w 1])
+                             ([m (members-of g node)])
+                     (let ([(ht member-width)
+                            (d3width g ht m #:in-progress in-progress)])
+                       (values ht (+ w member-width))))])
+       (return ht (max w MIN-D3-CONTAINER-WIDTH)))]
+    [else (return ht/node->attrs MIN-D3-WIDTH)]))
+

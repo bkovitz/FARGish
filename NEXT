@@ -14,6 +14,10 @@ Render the x32 problem
 
 Single-step the model from the browser
 
+  Local matches in Typed Racket  DONE
+
+  Log (to display) local matches and actions
+
 Invent local matches
 
 Render support edges
