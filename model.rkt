@@ -18,7 +18,7 @@
 (module+ test (require typed/rackunit))
 
 (provide (all-from-out "graph.rkt")
-         (except-out (all-defined-out) return/))
+         (except-out (all-defined-out) return/ add-attr/members add-attr))
 
 ;TODO Global constants should be stored as variables in the graph.
 (define salience-decay 0.8)
@@ -281,6 +281,19 @@
 (: member-edge : Node Node -> Edge/List)
 (define (member-edge ctx member)
   `((,ctx members) (,member member-of)))
+
+; members-of/rec is simpler
+;(: members-of/recursive : Graph Node [#:in-progress (Setof Node)]
+;                          -> (Setof Node))
+;(define (members-of/recursive g node #:in-progress [in-progress empty-set])
+;  (cond
+;    #:define in-progress (set-add in-progress node)
+;    #:define ms (members-of g node)
+;    [(null? ms) empty-set]
+;    [else (for/fold ([result (list->set ms)])
+;                    ([m ms])
+;            (set-union result 
+;                       (members-of/recursive g m #:in-progress in-progress)))]))
 
 (: container? : Graph Node -> Boolean)
 (define (container? g node)
@@ -610,7 +623,7 @@
 
 ;TODO Make a GraphForD3 type.
 
-; Returns g in a JSON, in a form suitable for sending to the Javascript code
+; Returns g in JSON, in a form suitable for sending to the Javascript code
 ; that renders the graph by invoking D3.js.
 (: graph->d3 : Graph -> JSExpr)
 (define (graph->d3 g)
@@ -619,12 +632,31 @@
                     ([ht : (Hashof Node Attrs) (graph->ht/node->attrs g)])
                     ([node (all-nodes g)])
             (let ([(ht _) (d3width g ht node)]
-                  [(ht _) (d3height g ht node)])
+                  [(ht _) (d3height g ht node)]
+                  [ht (add-attr/members g ht node)]
+                  [ht (add-attr/members-recursive g ht node)])
               ht))]
          [t (graph-get-var g 't "?")])
     (hash 'nodes (->jsexpr (hash-values ht/node->attrs))
           'links (edges->jsexpr g)
           't (->jsexpr t))))
+
+(: add-attr/members : Graph (Hashof Node Attrs) Node -> (Hashof Node Attrs))
+(define (add-attr/members g ht node)
+  (add-attr ht node 'members (members-of g node)))
+
+(: add-attr/members-recursive : Graph (Hashof Node Attrs) Node
+                                -> (Hashof Node Attrs))
+(define (add-attr/members-recursive g ht node)
+  (add-attr ht node 'membersRecursive (set->list (members-of/rec g node))))
+
+(: add-attr : (Hashof Node Attrs) Node Symbol Any -> (Hashof Node Attrs))
+(define (add-attr ht node key val)
+  (let ([new-attrs (cond
+                     #:define attrs (hash-ref ht node)
+                     [attrs (hash-set attrs key val)]
+                     [else (hash key val)])])
+    (hash-set ht node new-attrs)))
 
 (define MIN-D3-WIDTH : Integer 2)
 (define MIN-D3-CONTAINER-WIDTH : Integer 3)

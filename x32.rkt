@@ -27,7 +27,8 @@
   (nodeclass trace)
   (nodeclass (t [t : Integer])  ; a timestep in a trace
     (value t)
-    (display-name (format "t~a" t)))
+    (display-name (format "t~a" t)))  ;TODO Why is the 't' omitted in the
+                                      ;actual display-name that comes out?
   (nodeclass equation)
   (nodeclass (number [n : Integer])
     (value n)
@@ -223,30 +224,30 @@
      [(g) (add-edge g `((,trace first) (,t0 first-in)))]
      ; problem
      [(g problem) (make-node/in g t0 'problem)]
-     [(g target) (make-node/in g problem (number 32))]
-     [(g) (add-tag g 'target target)]
+     [(g targ) (make-node/in g problem (number 32))]
+     [(g) (add-tag g (target) targ)]
      [(g b6) (make-node/in g problem (number 6))]
-     [(g) (add-tag g 'brick b6)]
+     [(g) (add-tag g (brick) b6)]
      [(g b3) (make-node/in g 'problem (number 3))]
-     [(g) (add-tag g 'brick b3)]
+     [(g) (add-tag g (brick) b3)]
      [(g b4) (make-node/in g 'problem (number 4))]
-     [(g) (add-tag g 'brick b4)]
+     [(g) (add-tag g (brick) b4)]
      [(g b5) (make-node/in g 'problem (number 5))]
-     [(g) (add-tag g 'brick b5)]
+     [(g) (add-tag g (brick) b5)]
 
      ;t1
      [(g t1) (make-node/in g trace (t 1))]
      [(g) (add-edge g `((,t0 next) (,t1 prev)))]
-     [(g eqn1) (make-node/in g t1 'equation)]
+     [(g eqn1) (make-node/in g t1 (equation))]
      [(g e6) (make-node/in g eqn1 (number 6))]
      [(g) (add-edge g `((,eqn1 first) (,e6 first-in)))]
-     [(g c1) (make-tag g 'consume (list e6 b6))]
-     [(g times) (make-node/in g eqn1 'times)]
+     [(g c1) (make-tag g (consume) (list e6 b6))]
+     [(g times) (make-node/in g eqn1 (times))]
      [(g) (add-edge g `((,e6 next) (,times prev)))]
      [(g e4) (make-node/in g eqn1 (number 4))]
-     [(g c2) (make-tag g 'consume (list e4 b4))]
+     [(g c2) (make-tag g (consume) (list e4 b4))]
      [(g) (add-edge g `((,times next) (,e4 prev)))]
-     [(g equals1) (make-node/in g eqn1 'equals)]
+     [(g equals1) (make-node/in g eqn1 (equals))]
      [(g) (add-edge g `((,e4 next) (,equals1 prev)))]
      [(g e24) (make-node/in g eqn1 (number 24))]
      [(g) (add-edge g `((,equals1 next) (,e24 prev)))]
@@ -285,4 +286,3 @@
 (: step! : -> Void)
 (define (step!)
   (set! g (step g)))
-

@@ -276,15 +276,17 @@
     #:attributes [cnodeclass]
     (pattern (head:nodeclass-head ~! decl:name+args body:nodeclass-body)
       #:attr cnodeclass
-             (make-CNodeclass #'decl.name
-                              #'(decl.arg ...)
-                              #'(body.parent ... ...)
-                              #'body.taggee-infos
-                              #'body.condition
-                              ((attribute body.mk/apply-tag) #'decl.name)
-                              #'value #'body.value-expr
-                              #'display-name #'body.display-name-expr
-                              #'tag? #'head.tag?)))
+             (begin
+               ;(displayln (list #'decl.name #'head.tag? (missing? #'head.tag?)))
+               (make-CNodeclass #'decl.name
+                                #'(decl.arg ...)
+                                #'(body.parent ... ...)
+                                #'body.taggee-infos
+                                #'body.condition
+                                ((attribute body.mk/apply-tag) #'decl.name)
+                                #'value #'body.value-expr
+                                #'display-name #'body.display-name-expr
+                                #'tag? #'head.tag?))))
 
   (syntax-parse stx
     [(_ spec-name:id nc0:nodeclass ...)

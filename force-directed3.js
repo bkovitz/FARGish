@@ -29,11 +29,38 @@ function update_graph(g) {
     if (!graph.nodes.hasOwnProperty(node.id)) {
       //console.log("HERE", node.id);
       graph.nodes[node.id] = 
-        Object.assign(node, { width: node.d3width * nodeWidthMultiplier,
-                              height: node.d3height * nodeHeightMultiplier });
+        Object.assign(node, {
+          width: node.d3width * nodeWidthMultiplier,
+          height: node.d3height * nodeHeightMultiplier,
+          members: new Set(node.members),
+          membersRecursive: new Set(node.membersRecursive)
+        });
     }
   }
-  graph.links = g.links;
+  graph.links = g.links.filter(l =>
+    !graph.nodes[l.source].members.has(l.target)
+    &&
+    !graph.nodes[l.target].members.has(l.source));
+}
+
+function compareLengthMembersRecursive(node1, node2) {
+  return node2.membersRecursive.size - node1.membersRecursive.size;
+}
+
+function containersFirst(node1, node2) {
+  if (node1.membersRecursive.has(node2))
+    return -1;
+  else if (node2.membersRecursive.has(node1))
+    return 1;
+  else return 0;
+}
+
+function makeNodesArray(graph) {
+  // Poor man's topological sort, putting containers first so they draw
+  // before, hence under, the nodes that they contain.
+  return Object.values(graph.nodes)
+               .sort(compareLengthMembersRecursive)
+               .sort(containersFirst);
 }
 
 // Set up known HTML elements
@@ -46,15 +73,19 @@ var svg = d3.select("#ws"),
 //    .attr('viewBox', '0 0 960 300')
 //    .attr('preserveAspectRatio', 'xMinYMin');
 
+var nodeg = svg.append("g")
+    .attr("class", "nodes");
+
+var node = nodeg.selectAll("g");
+
 var linkg = svg.append("g")
     .attr("class", "links");
 
 var link = linkg.selectAll("line");
 
-var nodeg = svg.append("g")
-    .attr("class", "nodes");
+// TODO Make three groups, in this order: container nodes, links, non-container
+// nodes. Then the lines should show up correctly on the screen.
 
-var node = nodeg.selectAll("g");
 
 //var color = d3.scaleOrdinal(d3.schemeCategory10);
 
@@ -66,11 +97,19 @@ const nodeHeightMultiplier = 20;
 
 var simulation = d3.forceSimulation()
     .force('link', d3.forceLink()
-                       .distance(400)  // 90
+                       .distance(function(l) {
+                         if (l.source["tag?"] || l.target["tag?"])
+                           return 70;
+                         else
+                           return 90;
+                       })
+                       .strength(0.5)
                        .id(function(d) { return d.id; }))
-    .force('charge', d3.forceManyBody())
+    .force('charge', d3.forceManyBody().strength(-2))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collide', forceRectCollide())
+    .force('containment', forceContainment())
+    .alphaDecay(1 - Math.pow(0.001, 1 / 200))
     .stop()
     .on('tick', ticked);
 
@@ -83,12 +122,8 @@ var forceLinks = []
 //})
 
 function restart() {
-  link = linkg.selectAll("line").data(graph.links)
-    .enter().append("line")
-      .attr("stroke-width", function(d) { return Math.sqrt(d.value); })
-      .merge(link);
-
-  var nodes_array = Object.values(graph.nodes);
+  //var nodes_array = Object.values(graph.nodes);
+  var nodes_array = makeNodesArray(graph);
   node = nodeg.selectAll("g").data(nodes_array, function(d) { return d.id; });
 
   nodeEnter = node.enter().append("g");
@@ -123,6 +158,11 @@ function restart() {
 
   node = nodeEnter.merge(node);
 
+  link = linkg.selectAll("line").data(graph.links)
+    .enter().append("line")
+      .attr("stroke-width", function(d) { return Math.sqrt(d.value); })
+      .merge(link);
+
   //node = node.merge(node);
   //link = link.merge(link);
 
@@ -148,18 +188,12 @@ function getX(d) { return d.x; }
 function getY(d) { return d.y; }
 
 function ticked() {
-  var nodes_array = Object.values(graph.nodes);
+  //var nodes_array = Object.values(graph.nodes);
   //var qtree = d3.quadtree(nodes_array, getX, getY);
 
 //  for (var i = 0; i < nodes_array.length; i++) {
 //    qtree.visit(collide(qtree, nodes_array[i]));
 //  }
-
-  link
-      .attr("x1", function(d) { return d.source.x; })
-      .attr("y1", function(d) { return d.source.y; })
-      .attr("x2", function(d) { return d.target.x; })
-      .attr("y2", function(d) { return d.target.y; });
 
   //node.attr('x', getX).attr('y', getY);
   node
@@ -167,6 +201,12 @@ function ticked() {
         //console.log(d);
         return "translate(" + (d.x - d.width/2) + "," + (d.y - d.height/2) + ")";
       })
+
+  link
+      .attr("x1", function(d) { return d.source.x; })
+      .attr("y1", function(d) { return d.source.y; })
+      .attr("x2", function(d) { return d.target.x; })
+      .attr("y2", function(d) { return d.target.y; });
 
   // Update size of SVG so scroll-bars appear when needed
   const ws = document.getElementById("ws")
@@ -199,9 +239,30 @@ function forceRectCollide() {
   var nodes;
 
   function force(alpha) {
-    var qtree = d3.quadtree(nodes, getX, getY);
-    for (var i = 0; i < nodes.length; i++) {
-      qtree.visit(collide(qtree, nodes[i]))
+    if (alpha < 1000) {
+      var qtree = d3.quadtree(nodes, getX, getY);
+      for (var i = 0; i < nodes.length; i++) {
+        qtree.visit(oldCollide(qtree, alpha, nodes[i]))
+      }
+    }
+  }
+
+  force.initialize = function(_) {
+    nodes = _;
+  }
+
+  return force;
+}
+
+function forceContainment() {
+  var nodes;
+
+  function force(alpha) {
+    if (alpha < 1000) {
+      var qtree = d3.quadtree(nodes, getX, getY);
+      for (var i = 0; i < nodes.length; i++) {
+        qtree.visit(containment(qtree, alpha, nodes[i]))
+      }
     }
   }
 
@@ -213,45 +274,127 @@ function forceRectCollide() {
 }
 
 // Based on http://bl.ocks.org/natebates/273b99ddf86e2e2e58ff
-function collide(qtree, node) {
+function oldCollide(qtree, alpha, node) {
   return function(quadnode, x1, y1, x2, y2) {
     var updated = false;
 
-    //console.log(quadnode);
     if (isLeafNode(quadnode) && quadnode.data !== node) {
       var qnode = quadnode.data;
-      var dx = node.x - qnode.x;
-      var dy = node.y - qnode.y;
-      var xSpacing = (qnode.width + node.width) / 2;
-      var ySpacing = (qnode.height + node.height) / 2;
-      var absDx = Math.abs(dx);
-      var absDy = Math.abs(dy);
-      var l, lx, ly;
+      if (!node["tag?"] &&
+          !qnode["tag?"] &&
+          !qnode.membersRecursive.has(node.id) &&
+          !node.membersRecursive.has(qnode.id)) {
+        var dx = node.x - qnode.x;
+        var dy = node.y - qnode.y;
+        var xSpacing = (qnode.width + node.width) / 2;
+        var ySpacing = (qnode.height + node.height) / 2;
+        var absDx = Math.abs(dx);
+        var absDy = Math.abs(dy);
+        var l, lx, ly;
 
-      if (absDx < xSpacing && absDy < ySpacing) {
-        // The lower bound here prevents collisions between nearly coincident
-        // nodes from causing them to be moved gigantic distances.
-        l = Math.max(10.0, Math.sqrt(dx * dx, dy * dy));
-        lx = (absDx - xSpacing) / l;
-        ly = (absDy - ySpacing) / l;
+        if (absDx < xSpacing && absDy < ySpacing) {
+          // The lower bound here prevents collisions between nearly coincident
+          // nodes from causing them to be moved gigantic distances.
+          l = Math.max(10.0, Math.sqrt(dx * dx, dy * dy));
+          lx = (absDx - xSpacing) / l;
+          ly = (absDy - ySpacing) / l;
 
-        // The one that's barely within the bounds probably triggered the
-        // collision.
-        if (Math.abs(lx) > Math.abs(ly)) {
-          lx = 0;
-        } else {
-          ly = 0;
+          // The axis that's barely within the bounds probably triggered the
+          // collision.
+          if (Math.abs(lx) > Math.abs(ly)) {
+            lx = 0;
+          } else {
+            ly = 0;
+          }
+
+          //console.log(node.id, qnode.id, l, lx, ly);
+
+          node.x -= dx *= lx;
+          node.y -= dy *= ly;
+
+          qtree.remove(qnode);
+          qnode.x += dx;
+          qnode.y += dy;
+          qtree.add(qnode);
+
+          updated = true;
+        }
+      }
+    }
+    return updated;
+  };
+}
+
+function collide(qtree, alpha, node) {
+  return function(quadnode, x1, y1, x2, y2) {
+    var updated = false;
+
+    if (isLeafNode(quadnode) && quadnode.data !== node) {
+      var qnode = quadnode.data;
+      if (!node["tag?"] &&
+          !qnode["tag?"] &&
+          !qnode.membersRecursive.has(node.id) &&
+          !node.membersRecursive.has(qnode.id)) {
+        var k = 200 * alpha;
+        var dx = node.x - qnode.x;
+        var dy = node.y - qnode.y;
+        var xSpacing = (qnode.width + node.width) / 2;
+        var ySpacing = (qnode.height + node.height) / 2;
+        var absDx = Math.abs(dx);
+        var absDy = Math.abs(dy);
+        var l, lx, ly;
+
+        if (absDx < xSpacing && absDy < ySpacing) { // collision!
+          if (node.x + xSpacing < qnode.x) {
+            node.vx -= k;
+            qnode.vx += k;
+          } else {
+            node.vx += k;
+            qnode.vx -= k;
+          }
+
+          if (node.y + ySpacing < qnode.y) {
+            node.vy -= k;
+            qnode.vy += k;
+          } else {
+            node.vy += k;
+            qnode.by -= k;
+          }
+          qtree.remove(qnode);
+          qtree.add(qnode);
+
+          updated = true;
+        }
+      }
+    }
+    return updated;
+  };
+}
+function containment(qtree, alpha, node) {
+  return function(quadnode, x1, y1, x2, y2) {
+    var updated = false;
+
+    if (isLeafNode(quadnode) && quadnode.data !== node) {
+      var k = 50 * alpha;
+      var qnode = quadnode.data;
+      if (!node["tag?"] &&
+          !qnode["tag?"] &&
+          node.members.has(qnode.id)) {
+        if (qnode.x - qnode.width/2 < node.x - node.width/2) {
+          qnode.x = node.x - node.width/2 + qnode.width/2;
+          //qnode.vx = Math.max(k, qnode.vx);
+        } else if (qnode.x + qnode.width/2 > node.x + node.width/2) {
+          qnode.x = node.x + node.width/2 - qnode.width/2;
+          //qnode.vx = Math.min(-k, qnode.vx);
         }
 
-        console.log(node.id, qnode.id, l, lx, ly);
-
-        node.x -= dx *= lx;
-        node.y -= dy *= ly;
-
-        qtree.remove(qnode);
-        qnode.x += dx;
-        qnode.y += dy;
-        qtree.add(qnode);
+        if (qnode.y - qnode.height/2 < node.y - node.height/2) {
+          qnode.y = node.y - node.height/2 + qnode.height/2;
+          //qnode.vy = Math.max(k, qnode.vy);
+        } else if (qnode.y + qnode.height/2 > node.y + node.height/2) {
+          qnode.y = node.y + node.height/2 - qnode.height/2;
+          //qnode.vy = Math.min(-k, qnode.vy);
+        }
 
         updated = true;
       }
