@@ -31,6 +31,17 @@ text {
   pointer-events: all;
 }
 
+#ws {
+}
+
+.svgContainer {
+  padding: 2%;
+  max-height: 600;
+  max-width: 960;
+  overflow: auto;
+  border: 1px solid gray;
+}
+
 .node {
   fill: DarkSeaGreen;
   //stroke-width: 1px;
