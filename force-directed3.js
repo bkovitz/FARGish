@@ -35,8 +35,6 @@ function reset_button() {
   clearGraph();
   node.remove();
   link.remove();
-  //nodeg.selectAll("*").remove();
-  //listg.selectAll("*").remove();
   get_model();
 }
 
@@ -122,13 +120,13 @@ var simulation = d3.forceSimulation()
                          else
                            return 90;
                        })
-                       .strength(0.2)
+                       .strength(0.05)
                        .id(function(d) { return d.id; }))
     .force('charge', d3.forceManyBody().strength(-2))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collide', forceRectCollide())
     .force('containment', forceContainment())
-    .alphaDecay(1 - Math.pow(0.001, 1 / 200))
+    .alphaDecay(1 - Math.pow(0.001, 1 / 100))
     .stop()
     .on('tick', ticked);
 
