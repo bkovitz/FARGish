@@ -7,7 +7,7 @@
 (require errortrace)
 (require typed/json)
 (require "typed-wheel.rkt")
-(require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt")
+(require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt" "support-typed.rkt")
 
 (provide step/web write-graph/json)
 
@@ -131,6 +131,26 @@
 
 ;; ======================================================================
 ;;
+;; Problems (that is, numbles)
+;;
+
+(: make-numble : Graph Integer Integer * -> (Values Graph Node))
+(define (make-numble g target . bricks)
+  (let ([(g numble) (make-node g 'problem)]
+        [(g target-node) (make-node/in g numble (number target))]
+        [g (add-tag g 'target target-node)]
+        [g : Graph (make-permanent g numble target-node)]
+        [g (for/fold ([g : Graph g])
+                     ([brick (in-list bricks)])
+             (let ([(g brick-node) (make-node/in g numble (number brick))]
+                   [g (add-tag g 'brick brick-node)]
+                   [g (make-permanent g brick-node)]
+                   [g (add-tag g 'can-be-consumed brick-node)])
+               g))])
+    (values g numble)))
+
+;; ======================================================================
+;;
 ;; Local matches
 ;;
 
@@ -239,6 +259,7 @@
     ([(g) (make-empty-graph spec)]
      ;old temporal trace
      [(g trace) (make-node g (trace))]
+     [g (set-node-attr g trace 'display-name "old trace")]
      ;t0
      [(g t0) (make-node/in g trace (t 0))]
      [(g) (add-edge g `((,trace first) (,t0 first-in)))]
@@ -293,7 +314,15 @@
 (: step : Graph -> Graph)
 (define (step g)
   (let ([g (bump-t g)]
-                  [g (do-local-matches g)])
+        [g (if (= 1 (current-t g))
+             (let ([(g new-trace) (copy-trace g 'trace)]
+                   [g (set-node-attr g new-trace 'display-name "new trace")]
+                   [(g new-numble) (make-numble g 100 9 10 7 3)]
+                   [g (make-member-of g (path->node g new-trace 'first)
+                                        new-numble)])
+               g)
+             g)]
+        [g (do-local-matches g)])
     #R (list (length (all-nodes g)))
     g))
 

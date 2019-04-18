@@ -75,6 +75,29 @@
             ([node (members-of g ctx)])
     (remove-node g node)))
 
+(: make-member-of : Graph MaybeNode MaybeNode * -> Graph)
+(define (make-member-of g ctx . nodes)
+  (cond
+    [(void? ctx) g]
+    #:define nodes (->nodelist nodes)
+    [else (for/fold ([g g])
+                    ([node nodes])
+            (add-edge g `((,ctx members) (,node member-of))))]))
+
+;; ======================================================================
+;;
+;; Path
+;;
+
+(: path->node : Graph Node Port-label * -> (U Void Node))
+(define (path->node g node . port-labels)
+  (let loop ([node node] [port-labels port-labels])
+    (cond
+      [(null? port-labels) node]
+      #:define next-node (port->neighbor g `(,node ,(car port-labels)))
+      [(void? next-node) (void)]
+      [else (loop next-node (cdr port-labels))])))
+
 ;; ======================================================================
 ;;
 ;; Tagging
@@ -574,10 +597,13 @@
 ;; Global graph vars
 ;;
 
+(: current-t : Graph -> Integer)
+(define (current-t g)
+  (cast (graph-get-var g 't 0) Integer))
+
 (: bump-t : Graph -> Graph)
 (define (bump-t g)
-  (let ([t (cast (graph-get-var g 't 0) Integer)])
-    (graph-set-var g 't (add1 t))))
+  (graph-set-var g 't (add1 (current-t g))))
 
 ;; ======================================================================
 ;;
