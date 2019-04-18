@@ -66,6 +66,7 @@
   (tagclass can-be-consumed
     (applies-to ([node])))
   (tagclass consume
+    (is-a fill)
     (applies-to ([consumer (by-ports consumer filled-by)]
                  [consumes (by-ports consumes fill)])))
 
@@ -165,7 +166,9 @@
     (λ ([g : Graph] _) (filter/g g node-is-a-number? (all-nodes g)))
     (λ ([g : Graph] [node1 : Node])
       (let ([fi (λ ([node2 : Node])
-                  (tagclass-applies-to? g 'greater-than (list node1 node2)))]
+                  (and
+                    (not (has-tag? g 'greater-than (list node1 node2)))
+                    (tagclass-applies-to? g 'greater-than (list node1 node2))))]
             [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
         (cond
           [(void? node2) '()]
@@ -177,6 +180,7 @@
     (λ ([g : Graph] [node1 : Node])
       (let ([fi (λ ([node2 : Node])
                   (and (not (eq? node1 node2))
+                       (not (has-tag? g 'same (list node1 node2)))
                        (tagclass-applies-to? g 'same (list node1 node2))))]
             [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
         (cond

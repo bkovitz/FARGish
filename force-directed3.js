@@ -55,10 +55,17 @@ function containersFirst(node1, node2) {
   else return 0;
 }
 
+function values(o) {
+  a = [];
+  for (k in o)
+    a.push(o[k]);
+  return a;
+}
+
 function makeNodesArray(graph) {
   // Poor man's topological sort, putting containers first so they draw
   // before, hence under, the nodes that they contain.
-  return Object.values(graph.nodes)
+  return        values(graph.nodes)
                .sort(compareLengthMembersRecursive)
                .sort(containersFirst);
 }

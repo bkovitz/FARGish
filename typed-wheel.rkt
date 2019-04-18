@@ -146,6 +146,23 @@
 
 ;; ======================================================================
 ;;
+;; Convenience functions for functions that accept optional Voids
+;;
+
+; Returns true if x is a void or a list that contains at least one void.
+(: any-void? (All (A) (U A Void (Listof (U A Void))) -> Boolean))
+(define (any-void? x)
+  (cond
+    [(void? x) #t]
+    [(list? x) (let loop ([xs : (Listof Any) x])
+                 (cond
+                   [(null? xs) #f]
+                   [(void? (car xs)) #t]
+                   [else (loop (cdr xs))]))]
+    [else #f]))
+
+;; ======================================================================
+;;
 ;; Generic UnorderedPair
 ;;
 
@@ -197,6 +214,13 @@
   (for/fold ([st st])
             ([x xs])
     (set-add st x)))
+
+; Same as set-union, but works even with no arguments. Useful with 'apply'.
+(: set-union* (All (A) (-> (Setof A) * (Setof A))))
+(define (set-union* . sts)
+  (cond
+    [(null? sts) (set)]
+    [else (apply set-union sts)]))
 
 (: hash-remove* (All (K V) (Hashof K V) K * -> (Hashof K V)))
 (define (hash-remove* h . keys)

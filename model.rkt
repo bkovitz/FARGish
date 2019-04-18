@@ -109,8 +109,33 @@
                     nodeclass
                     (const (void)))]))
 
-(: has-tag? : Graph Symbol Node -> Boolean)
-(define (has-tag? g tagclass node)
+; Is tag tagging all of node/s?
+(: is-tagging? : Graph (U Node Void) MaybeNodes -> Boolean)
+(define (is-tagging? g tag node/s)
+  (cond
+    [(any-void? node/s) #f]
+    [(void? tag) #f]
+    #:define nodes (->nodelist node/s)
+    [(null? nodes) #f]
+    [else
+      (andmap (is-tagging?1/ g tag) nodes)]))
+
+; Makes helper closure for is-tagging?.
+(: is-tagging?1/ : Graph Node -> (Node -> Boolean))
+(define (is-tagging?1/ g tag)
+  (let ([spec (Graph-spec g)]
+        [tagclass (class-of g tag)]
+        [taggee-infos (hash-ref (FARGishSpec-ht/class->taggee-infos spec)
+                                  tagclass
+                                  (const '()))])
+    (λ ([node : Node]) : Boolean
+      (for/or ([info taggee-infos])
+        (let ([from-label (TaggeeInfo-from-port-label info)]
+              [to-label (TaggeeInfo-to-port-label info)])
+          (has-edge? g `((,tag ,from-label) (,node ,to-label))))))))
+
+(: has-tag?/1 : Graph Symbol Node -> Boolean)
+(define (has-tag?/1 g tagclass node)
   (let ([spec (Graph-spec g)]
         [taggee-infos (hash-ref (FARGishSpec-ht/class->taggee-infos spec)
                                   tagclass
@@ -121,6 +146,19 @@
         (for/or ([neighbor (port->neighbors g `(,node ,to-label))]) : Boolean
           (and (node-is-a? g neighbor tagclass)
                (has-edge? g `((,neighbor ,from-label) (,node ,to-label)))))))))
+
+(: has-tag? : Graph Symbol MaybeNodes -> Boolean)
+(define (has-tag? g tagclass node/s)
+  (cond
+    [(Node? node/s) (has-tag?/1 g tagclass node/s)]
+    [(null? node/s) #f]
+    [(any-void? node/s) #f]
+    #:define nodes (->nodelist node/s)
+    #:define candidate-tags (filter (node-is-a?/ g tagclass)
+                                    (set->list (common-neighbors g node/s)))
+    [else (let ([is? (λ ([tag : Node]) : Boolean
+                       (is-tagging? g tag node/s))])
+            (ormap is? candidate-tags))]))
 
 ; Returns #t iff the nodes meet the TaggeeInfo criteria to be tagged by
 ; tagclass.
@@ -258,10 +296,19 @@
 (define (node-is-a? g node ancestor)
   (nodeclass-is-a? (Graph-spec g) (class-of g node) ancestor))
 
+(: node-is-a?/ : Graph Symbol -> (-> (U Node Void) Boolean))
+(define (node-is-a?/ g class)
+  (λ (node)
+    (node-is-a? g node class)))
+
 ;; ======================================================================
 ;;
 ;; Walking the graph
 ;;
+
+(: common-neighbors : Graph MaybeNodes -> (Setof Node))
+(define (common-neighbors g node/s)
+  (apply set-union* (map (curry node->neighbors g) (->nodelist node/s))))
 
 (: members-of : Graph Node -> (Listof Node))
 (define (members-of g groupid)
