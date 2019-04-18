@@ -10,6 +10,9 @@ SRCFILES = typed-wheel.rkt types.rkt id-set.rkt graph.rkt fargish.rkt \
 all:
 	raco make -j 2 -v $(SRCFILES)
 
+run-server:
+	racket web.rkt
+
 ut:
 	raco make -j 2 --vv $(UT_FILES)
 	raco test -j 2 $(UT_FILES)
@@ -26,4 +29,4 @@ tags:
 clean:
 	rm -f fargish.html
 
-.PHONY: ut tags all clean
+.PHONY: ut tags all clean run-server

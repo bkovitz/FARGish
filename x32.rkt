@@ -35,7 +35,7 @@
     (display-name n))
   ;(nodeclass placeholder)
   (nodeclass times
-    (display-name "*"))
+    (display-name "×"))
   (nodeclass equals
     (display-name "="))
   ; Tags
@@ -187,7 +187,23 @@
           [(void? node2) '()]
           [else (list (tag-and-support/ (same) node1 node2))])))))
 
-(define lms (list lm/fill lm/greater-than lm/same))
+(: node->num-digits : Graph Node -> (U Integer Void))
+(define (node->num-digits g node)
+  (->num-digits (value-of g node)))
+
+(define lm/num-digits
+  (LocalMatch
+    (let ([ok? (λ ([g : Graph] [node : Node])
+                 (and (node-is-a-number? g node)
+                      (not (has-tag? g 'num-digits node))))])
+      (λ ([g : Graph] _) (filter/g g ok? (all-nodes g))))
+    (λ ([g : Graph] [node : Node])
+      (cond
+        #:define nd #R (node->num-digits g node)
+        [(void? nd) '()]
+        [else (list (tag-and-support/ (num-digits nd) node))]))))
+
+(define lms (list lm/fill lm/greater-than lm/same lm/num-digits))
 
 (: random-lm : -> LocalMatch)
 (define random-lm

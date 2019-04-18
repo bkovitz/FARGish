@@ -19,6 +19,8 @@
   (response/output void))
 
 (define (get-model req)
+  (when (void? g)
+    (set! g (step/web g)))
   (response/output (λ (output-port)
                        (write-graph/json g output-port)
                        (void))))

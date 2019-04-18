@@ -135,7 +135,7 @@
     (let ([name (->display-name name)])
       (values (hash-set attrs 'display-name name) name)))
   (cond
-    [(hash-ref attrs 'name #f)
+    [(hash-ref attrs 'display-name #f)
      => (λ (name) (values attrs (->display-name name)))]
     [(hash-ref attrs 'value #f)
      => set-name-and-return]
