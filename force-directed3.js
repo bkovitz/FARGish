@@ -1,3 +1,11 @@
+// TODO Get a correct polyfill for Object.values
+function values(o) {
+  a = [];
+  for (k in o)
+    a.push(o[k]);
+  return a;
+}
+
 var graph = {
   "nodes": {},
   "links": [],  // TODO this right
@@ -47,27 +55,11 @@ function compareLengthMembersRecursive(node1, node2) {
   return node2.membersRecursive.size - node1.membersRecursive.size;
 }
 
-function containersFirst(node1, node2) {
-  if (node1.membersRecursive.has(node2))
-    return -1;
-  else if (node2.membersRecursive.has(node1))
-    return 1;
-  else return 0;
-}
-
-function values(o) {
-  a = [];
-  for (k in o)
-    a.push(o[k]);
-  return a;
-}
-
 function makeNodesArray(graph) {
   // Poor man's topological sort, putting containers first so they draw
   // before, hence under, the nodes that they contain.
   return        values(graph.nodes)
-               .sort(compareLengthMembersRecursive)
-               .sort(containersFirst);
+               .sort(compareLengthMembersRecursive);
 }
 
 // Set up known HTML elements
