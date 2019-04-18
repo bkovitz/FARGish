@@ -6,23 +6,42 @@ function values(o) {
   return a;
 }
 
-var graph = {
-  "nodes": {},
-  "links": [],  // TODO this right
-  "t": undefined
+var graph = {}
+var nodesArray = [] // graph.nodes as an array, sorted by order in which
+                    // they should be drawn (i.e. increasing Z-order).
+
+function clearGraph() {
+  graph = {
+    "nodes": {},
+    "links": [],  // TODO this right
+    "t": undefined
+  };
+  nodesArray = [];
 }
 
-var gg;
+window.onload = function() {
+  reset_button();
+}
+
+var gg; // The raw JSON received from the server; only for debugging.
 
 function step_button() {
-  $.get("step", function(data) {
-    update_graph(JSON.parse(data));
-    restart();
-  });
+  $.get("step");
+  get_model();
 }
 
 function reset_button() {
-  $.get("reset", function(data) {
+  $.get("reset");
+  clearGraph();
+  node.remove();
+  link.remove();
+  //nodeg.selectAll("*").remove();
+  //listg.selectAll("*").remove();
+  get_model();
+}
+
+function get_model() {
+  $.get("get-model", function(data) {
     update_graph(JSON.parse(data));
     restart();
   });
@@ -45,6 +64,10 @@ function update_graph(g) {
         });
     }
   }
+  // Poor man's topological sort, putting containers first so they draw
+  // before, hence under, the nodes that they contain.
+  nodesArray = values(graph.nodes).sort(compareLengthMembersRecursive);
+
   graph.links = g.links.filter(l =>
     !graph.nodes[l.source].members.has(l.target)
     &&
@@ -53,13 +76,6 @@ function update_graph(g) {
 
 function compareLengthMembersRecursive(node1, node2) {
   return node2.membersRecursive.size - node1.membersRecursive.size;
-}
-
-function makeNodesArray(graph) {
-  // Poor man's topological sort, putting containers first so they draw
-  // before, hence under, the nodes that they contain.
-  return        values(graph.nodes)
-               .sort(compareLengthMembersRecursive);
 }
 
 // Set up known HTML elements
@@ -86,6 +102,10 @@ var link = linkg.selectAll("line");
 // nodes. Then the lines should show up correctly on the screen.
 
 
+function isContainer(node) {
+  return node.members.size > 0;
+}
+
 //var color = d3.scaleOrdinal(d3.schemeCategory10);
 
 //const nodeWidth = 60;
@@ -102,7 +122,7 @@ var simulation = d3.forceSimulation()
                          else
                            return 90;
                        })
-                       .strength(0.5)
+                       .strength(0.2)
                        .id(function(d) { return d.id; }))
     .force('charge', d3.forceManyBody().strength(-2))
     .force('center', d3.forceCenter(width / 2, height / 2))
@@ -121,9 +141,7 @@ var forceLinks = []
 //})
 
 function restart() {
-  //var nodes_array = Object.values(graph.nodes);
-  var nodes_array = makeNodesArray(graph);
-  node = nodeg.selectAll("g").data(nodes_array, function(d) { return d.id; });
+  node = nodeg.selectAll("g").data(nodesArray, function(d) { return d.id; });
 
   nodeEnter = node.enter().append("g");
     
@@ -150,10 +168,23 @@ function restart() {
         //console.log(d);
         return d["display-name"] + "";
       })
-      .style("text-anchor", "middle")
+      .style("text-anchor", function (d) {
+                              if (isContainer(d))
+                                return "start";
+                              else
+                                return "middle";
+                            })
       .classed('svgText', true)
-      .attr('x', function(d) { return d.width / 2; })
-      .attr('y', function(d) { return d.height / 2; })
+      .attr('x', function(d) { if (isContainer(d))
+                                 return 5;
+                               else
+                                 return d.width / 2;
+                             })
+      .attr('y', function(d) { if (isContainer(d))
+                                 return 17;
+                               else
+                                 return d.height / 2 + 4;
+                             })
 
   node = nodeEnter.merge(node);
 
@@ -169,8 +200,7 @@ function restart() {
 //  node.append("title")
 //      .text(function(d) { return d.id; });
 
-  simulation.nodes(nodes_array);
-  //forceLinks = JSON.parse(JSON.stringify(graph.links))
+  simulation.nodes(nodesArray);
   simulation.force("link").links(graph.links);
   simulation.alpha(1).restart();
 }
@@ -187,13 +217,6 @@ function getX(d) { return d.x; }
 function getY(d) { return d.y; }
 
 function ticked() {
-  //var nodes_array = Object.values(graph.nodes);
-  //var qtree = d3.quadtree(nodes_array, getX, getY);
-
-//  for (var i = 0; i < nodes_array.length; i++) {
-//    qtree.visit(collide(qtree, nodes_array[i]));
-//  }
-
   //node.attr('x', getX).attr('y', getY);
   node
       .attr("transform", function(d) {

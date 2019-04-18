@@ -15,20 +15,27 @@
 (define g (void))
 (set! g g)
 
+(define (response/empty)
+  (response/output void))
+
+(define (get-model req)
+  (response/output (λ (output-port)
+                       (write-graph/json g output-port)
+                       (void))))
+
 (define (step-model! req)
   (set! g (step/web g))
-  (response/output (λ (output-port)
-                     (write-graph/json g output-port)
-                     (void))))
+  (response/empty))
 
 (define (reset-model! req)
-  (set! g (void))
-  (step-model! req))
+  (set! g (step/web (void)))
+  (response/empty))
 
 (define-values (x-dispatch x-url)
   (dispatch-rules
     [("step") step-model!]
-    [("reset") reset-model!]))
+    [("reset") reset-model!]
+    [("get-model") get-model]))
 
 (serve/servlet x-dispatch
   #:port 8080
