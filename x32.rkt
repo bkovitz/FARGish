@@ -135,17 +135,17 @@
 ;;
 
 (: make-numble : Graph Integer Integer * -> (Values Graph Node))
-(define (make-numble g target . bricks)
-  (let ([(g numble) (make-node g 'problem)]
-        [(g target-node) (make-node/in g numble (number target))]
-        [g (add-tag g 'target target-node)]
+(define (make-numble g targ . bricks)
+  (let ([(g numble) (make-node g (problem))]
+        [(g target-node) (make-node/in g numble (number targ))]
+        [g (add-tag g (target) target-node)]
         [g : Graph (make-permanent g numble target-node)]
         [g (for/fold ([g : Graph g])
-                     ([brick (in-list bricks)])
-             (let ([(g brick-node) (make-node/in g numble (number brick))]
-                   [g (add-tag g 'brick brick-node)]
+                     ([b (in-list bricks)])
+             (let ([(g brick-node) (make-node/in g numble (number b))]
+                   [g (add-tag g (brick) brick-node)]
                    [g (make-permanent g brick-node)]
-                   [g (add-tag g 'can-be-consumed brick-node)])
+                   [g (add-tag g (can-be-consumed) brick-node)])
                g))])
     (values g numble)))
 

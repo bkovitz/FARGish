@@ -349,5 +349,6 @@
     [(hash? x) (for/hash ([(k v) (in-hash x)]) : (Hashof Symbol JSExpr)
                  (values (->symbol k) (->jsexpr v)))]
     [(void? x) 'null]
+    [(set? x) (map ->jsexpr (set->list x))]
     [else (format "~a" x)]))
 

@@ -6,6 +6,43 @@ function values(o) {
   return a;
 }
 
+function eqSets(a, b) {
+  if (a.size !== b.size)
+    return false;
+  for (var x of a)
+    if (!b.has(x))
+      return false;
+  return true;
+}
+
+function index(d) {
+  return d.index;
+}
+
+function find(nodeById, nodeId) {
+  var node = nodeById.get(nodeId);
+  if (!node) throw new Error("missing: " + nodeId);
+  return node;
+}
+
+function constant(x) {
+  return function() {
+    return x;
+  };
+}
+
+function jiggle() {
+  return (Math.random() - 0.5) * 1e-6;
+}
+
+function isTag(node) {
+  return node["tag?"];
+}
+
+function area(node) {
+  return node.height * node.width;
+}
+
 var graph = {}
 var nodesArray = [] // graph.nodes as an array, sorted by order in which
                     // they should be drawn (i.e. increasing Z-order).
@@ -26,39 +63,40 @@ window.onload = function() {
 var gg; // The raw JSON received from the server; only for debugging.
 
 function step_button() {
-  $.get("step");
-  get_model();
+  $.get("step", updateGraphFromJSON);
 }
 
 function reset_button() {
-  $.get("reset");
   clearGraph();
   node.remove();
   link.remove();
-  get_model();
+  $.get("reset", updateGraphFromJSON);
 }
 
-function get_model() {
-  $.get("get-model", function(data) {
-    update_graph(JSON.parse(data));
-    restart();
-  });
+//function get_model() {
+//  $.get("get-model", function(data) {
+//    updateGraph(JSON.parse(data));
+//    restart();
+//  });
+//}
+
+function updateGraphFromJSON(data) {
+  updateGraph(JSON.parse(data));
 }
 
-function update_graph(g) {
+function updateGraph(g) {
   gg = g;
   $('#t').text(g.t);
   for (var i = 0; i < g.nodes.length; i++) {
     const node = g.nodes[i];
-    //console.log(node);
     if (!graph.nodes.hasOwnProperty(node.id)) {
-      //console.log("HERE", node.id);
       graph.nodes[node.id] = 
         Object.assign(node, {
           width: node.d3width * nodeWidthMultiplier,
           height: node.d3height * nodeHeightMultiplier,
           members: new Set(node.members),
-          membersRecursive: new Set(node.membersRecursive)
+          membersRecursive: new Set(node.membersRecursive),
+          memberOf: new Set(node.memberOf)
         });
     }
   }
@@ -70,6 +108,8 @@ function update_graph(g) {
     !graph.nodes[l.source].members.has(l.target)
     &&
     !graph.nodes[l.target].members.has(l.source));
+
+  restart();
 }
 
 function compareLengthMembersRecursive(node1, node2) {
@@ -114,24 +154,28 @@ const nodeHeightMultiplier = 20;
 
 var simulation = d3.forceSimulation()
     .force('link', d3.forceLink()
-                       .distance(function(l) {
-                         if (l.source["tag?"] || l.target["tag?"])
-                           return 70;
-                         else
-                           return 90;
-                       })
-                       .strength(0.05)
+//                       .distance(function(l) {
+//                         if (l.source["tag?"] || l.target["tag?"])
+//                           return 100;
+//                         else if (eqSets(l.source.memberOf, l.target.memberOf))
+//                           return nodeWidthMultiplier;
+//                         else
+//                           return 200;
+//                       })
+                       //.strength(0.00)
+                       //.iterations(2)
                        .id(function(d) { return d.id; }))
-    .force('charge', d3.forceManyBody().strength(-1))
-    .force('center', d3.forceCenter(width / 2, height / 2))
+    //.force('link', forceCustomLink().id(function(d) { return d.id; }))
+    .force('charge', d3.forceManyBody().strength(0))
+    //.force('center', d3.forceCenter(width / 2, height / 2))
     .force('collide', forceRectCollide())
     .force('containment', forceContainment())
-    .alphaDecay(1 - Math.pow(0.001, 1 / 100))
+    .alphaDecay(1 - Math.pow(0.001, 1 / 300))
     .stop()
     .on('tick', ticked);
 
+var defaultLinkStrength = simulation.force('link').strength();
 
-var forceLinks = []
 
 //d3.json("g.json").then(function(g) {
 //  graph = g
@@ -141,7 +185,11 @@ var forceLinks = []
 function restart() {
   node = nodeg.selectAll("g").data(nodesArray, function(d) { return d.id; });
 
-  nodeEnter = node.enter().append("g");
+  nodeEnter = node.enter().append("g")
+      .call(d3.drag()
+          .on("start", dragstarted)
+          .on("drag", dragged)
+          .on("end", dragended));
     
   nodeEnter.append("rect")
       //.attr('width', nodeWidth)
@@ -155,11 +203,7 @@ function restart() {
       .attr('ry', 1.5)
       //.attr('transform', 'translate(-15,-10)')
       //.attr("fill", function(d) { return color(d.group); })
-      .each(function(d) { this.classList.add("node", d.class); })
-      .call(d3.drag()
-          .on("start", dragstarted)
-          .on("drag", dragged)
-          .on("end", dragended));
+      .each(function(d) { this.classList.add("node", d.class); });
 
   nodeEnter.append("text")
       .text(function(d) {
@@ -198,8 +242,49 @@ function restart() {
 //  node.append("title")
 //      .text(function(d) { return d.id; });
 
+  //simulation.force('charge').strength(-30); // HACK
   simulation.nodes(nodesArray);
-  simulation.force("link").links(graph.links);
+  simulation.force("link")
+      .links(graph.links)
+  //simulation.force('link').links(graph.links);
+  var ls = graph.links;
+  var n = node.data().length;
+  var m = ls.length;
+  var count = new Array(n);
+  for (let i = 0; i < m; i++) {
+    l = ls[i];
+    count[l.source.index] = (count[l.source.index] || 0) + 1;
+    count[l.target.index] = (count[l.target.index] || 0) + 1;
+  }
+
+  simulation.force('link')
+      .distance(function(l) {
+        if (l.source.memberOf.size > 0 && l.target.memberOf.size > 0 &&
+            eqSets(l.source.memberOf, l.target.memberOf))
+          return nodeWidthMultiplier;
+        else if (isTag(l.source) && count[l.source.index] < 2 ||
+                 isTag(l.target) && count[l.target.index] < 2)
+          return 80;
+        else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
+          return 300;
+        else
+          return 100;
+      })
+      .strength(function(l, i) {
+        if (l.source.members.size > 0 || l.target.members.size > 0)
+          return 0;
+        else if (l.source.memberOf.size > 0 && l.target.memberOf.size > 0) {
+          if (eqSets(l.source.memberOf, l.target.memberOf))
+            return 0.1;
+          else
+            return 0.0;
+        } else
+//        } else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
+//          return 0.02;
+//        else
+//          return 0.5;
+          return Math.pow(defaultLinkStrength(l, i) / 3, 2);
+      });
   simulation.alpha(1).restart();
 }
 
@@ -231,29 +316,121 @@ function ticked() {
   // Update size of SVG so scroll-bars appear when needed
   const ws = document.getElementById("ws")
   const bbox = ws.getBBox();
-  ws.setAttribute("viewBox", (bbox.x-10) + " " + (bbox.y-10) +
-                             " " + (bbox.width+20) + " " + (bbox.height+20));
+  ws.setAttribute("viewBox",       Math.min(-500, (bbox.x-10)) +
+                             " " + Math.min(-500, (bbox.y-10)) +
+                             " " + (2*bbox.width+20) +
+                             " " + (2*bbox.height+20));
+  //ws.setAttribute("viewBox", "-500 -500 2000 2000");
   ws.setAttribute("width", (bbox.width+20) + "px");
   ws.setAttribute("height", (bbox.height+20) + "px");
 
 }
 
+var oldChargeStrength;
+
 function dragstarted(d) {
-  if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+  oldChargeStrength = simulation.force('charge').strength();
+  if (!d3.event.active) {
+    simulation.force('charge').strength(0);
+    simulation.alphaTarget(0.3).restart();
+  }
   d.fx = d.x;
   d.fy = d.y;
+  for (let k of d.membersRecursive) {
+    n = graph.nodes[k];
+    n.fx = n.x;
+    n.fy = n.y;
+  }
 }
 
 function dragged(d) {
-  d.fx = d3.event.x;
-  d.fy = d3.event.y;
+//  d.fx = d3.event.x;
+//  d.fy = d3.event.y;
+  //console.log(d3.event.dx, d3.event.dy);
+  d.fx += d3.event.dx;
+  d.fy += d3.event.dy;
+//  d3.select(this).attr("transform", function(d) {
+//    return "translate(" + [d.fx - d.width/2, d.fy - d.height/2] + ")";
+//  });
+  for (let k of d.membersRecursive) {
+    n = graph.nodes[k];
+    n.fx += d3.event.dx;
+    n.fy += d3.event.dy;
+  }
 }
 
 function dragended(d) {
-  if (!d3.event.active) simulation.alphaTarget(0);
+  if (!d3.event.active) {
+    simulation.alphaTarget(0);
+    simulation.on('end', function() {
+      simulation.force('charge').strength(oldChargeStrength);
+    });
+  }
+  //if (!d3.event.active) simulation.alpha(0);
   d.fx = null;
   d.fy = null;
+  for (let k of d.membersRecursive) {
+    n = graph.nodes[k];
+    n.fx = null;
+    n.fy = null;
+  }
 }
+
+//// Based on https://github.com/d3/d3-force/blob/master/src/link.js by
+//// Michael Bostock.
+//function customLinkForce() {
+//  var links = [],
+//      nodes,
+//      id = index;
+//
+//  function force(alpha) {
+//    var n = links.length;
+//    for (var i = 0, link, source, target; i < n; i++) {
+//      link = links[i], source = link.source, target = link.target;
+//      if (isTag(source) && isTag(target)) {
+//        // nothing
+//      } else if (!isTag(source) && !isTag(target)) {
+//        // nothing
+//      } else {
+//        // exactly one of the nodes is a tag
+//        var 
+//      }
+//    }
+//  }
+//
+//  function initialize() {
+//    if (!nodes) return;
+//
+//    var i,
+//        n = nodes.length,
+//        m = links.length,
+//        nodeById = new Map(nodes.map((d, i) => [id(d, i, nodes), d])),
+//        link;
+//
+//    for (i = 0; i < m; ++i) {
+//      link = links[i], link.index = i;
+//      if (typeof link.source !== "object")
+//        link.source = find(nodeById, link.source);
+//      if (typeof link.target !== "object")
+//        link.target = find(nodeById, link.target);
+//    }
+//  }
+//
+//  force.initialize = function(_) {
+//    nodes = _;
+//    initialize();
+//  }
+//
+//  force.links = function(_) {
+//    return arguments.length ? (links = _, initialize(), force) : links;
+//  }
+//
+//  force.id = function(_) {
+//    return arguments.length ? (id = _, force) : id;
+//  }
+//
+//  return force;
+//}
 
 function forceRectCollide() {
   var nodes;
@@ -303,7 +480,8 @@ function oldCollide(qtree, alpha, node) {
       if (!node["tag?"] &&
           !qnode["tag?"] &&
           !qnode.membersRecursive.has(node.id) &&
-          !node.membersRecursive.has(qnode.id)) {
+          !node.membersRecursive.has(qnode.id) &&
+          eqSets(node.memberOf, qnode.memberOf)) {
         var dx = node.x - qnode.x;
         var dy = node.y - qnode.y;
         var xSpacing = (qnode.width + node.width) / 2;
@@ -315,7 +493,8 @@ function oldCollide(qtree, alpha, node) {
         if (absDx < xSpacing && absDy < ySpacing) {
           // The lower bound here prevents collisions between nearly coincident
           // nodes from causing them to be moved gigantic distances.
-          l = Math.max(10.0, Math.sqrt(dx * dx, dy * dy));
+          //l = Math.max(1.0, Math.min(2.0, Math.sqrt(dx * dx, dy * dy))) * alpha;
+          l = Math.max(1.0, Math.sqrt(dx * dx + dy * dy))
           lx = (absDx - xSpacing) / l;
           ly = (absDy - ySpacing) / l;
 
@@ -354,7 +533,8 @@ function collide(qtree, alpha, node) {
       if (!node["tag?"] &&
           !qnode["tag?"] &&
           !qnode.membersRecursive.has(node.id) &&
-          !node.membersRecursive.has(qnode.id)) {
+          !node.membersRecursive.has(qnode.id) &&
+          eqSets(node.memberOf, qnode.memberOf)) {
         var k = 200 * alpha;
         var dx = node.x - qnode.x;
         var dy = node.y - qnode.y;
@@ -362,7 +542,6 @@ function collide(qtree, alpha, node) {
         var ySpacing = (qnode.height + node.height) / 2;
         var absDx = Math.abs(dx);
         var absDy = Math.abs(dy);
-        var l, lx, ly;
 
         if (absDx < xSpacing && absDy < ySpacing) { // collision!
           if (node.x + xSpacing < qnode.x) {
@@ -425,4 +604,118 @@ function containment(qtree, alpha, node) {
 
 function isLeafNode(quadnode) {
   return !quadnode.length;
+}
+
+////////////////////////////////////////////////////////////////////////
+
+// Like d3.forceLink, except tags can't drag other nodes.
+function forceCustomLink(links) {
+  var id = index,
+      strength = defaultStrength,
+      strengths,
+      distance = constant(30),
+      distances,
+      nodes,
+      count,
+      bias,
+      iterations = 1;
+
+  if (links == null) links = [];
+
+  function defaultStrength(link) {
+    return 1 / Math.min(count[link.source.index], count[link.target.index]);
+  }
+
+  function force(alpha) {
+    for (var k = 0, n = links.length; k < iterations; ++k) {
+      for (var i = 0, link, source, target, x, y, l, b; i < n; ++i) {
+        link = links[i], source = link.source, target = link.target;
+        x = target.x + target.vx - source.x - source.vx || jiggle();
+        y = target.y + target.vy - source.y - source.vy || jiggle();
+        l = Math.sqrt(x * x + y * y);
+        l = (l - distances[i]) / l * alpha * strengths[i];
+        x *= l, y *= l;
+        target.vx -= x * (b = bias[i]);
+        target.vy -= y * b;
+        source.vx += x * (b = 1 - b);
+        source.vy += y * b;
+      }
+    }
+  }
+
+  function initialize() {
+    if (!nodes) return;
+
+    var i,
+        n = nodes.length,
+        m = links.length,
+        nodeById = new Map(nodes.map((d, i) => [id(d, i, nodes), d])),
+        link;
+
+    for (i = 0, count = new Array(n); i < m; ++i) {
+      link = links[i], link.index = i;
+      if (typeof link.source !== "object") link.source = find(nodeById, link.source);
+      if (typeof link.target !== "object") link.target = find(nodeById, link.target);
+      count[link.source.index] = (count[link.source.index] || 0) + 1;
+      count[link.target.index] = (count[link.target.index] || 0) + 1;
+    }
+
+    // CUSTOMIZED PART: changed bias from Bostock's original
+    for (i = 0, bias = new Array(m); i < m; ++i) {
+      link = links[i];
+      if (isTag(link.source) && !isTag(link.target))
+        bias[i] = 0.0;
+      else if (!isTag(link.source) && isTag(link.target))
+        bias[i] = 1.0;
+      else
+        bias[i] = count[link.source.index] /
+                    (count[link.source.index] + count[link.target.index]);
+    }
+
+    strengths = new Array(m), initializeStrength();
+    distances = new Array(m), initializeDistance();
+  }
+
+  function initializeStrength() {
+    if (!nodes) return;
+
+    for (var i = 0, n = links.length; i < n; ++i) {
+      strengths[i] = +strength(links[i], i, links);
+    }
+  }
+
+  function initializeDistance() {
+    if (!nodes) return;
+
+    for (var i = 0, n = links.length; i < n; ++i) {
+      distances[i] = +distance(links[i], i, links);
+    }
+  }
+
+  force.initialize = function(_) {
+    nodes = _;
+    initialize();
+  };
+
+  force.links = function(_) {
+    return arguments.length ? (links = _, initialize(), force) : links;
+  };
+
+  force.id = function(_) {
+    return arguments.length ? (id = _, force) : id;
+  };
+
+  force.iterations = function(_) {
+    return arguments.length ? (iterations = +_, force) : iterations;
+  };
+
+  force.strength = function(_) {
+    return arguments.length ? (strength = typeof _ === "function" ? _ : constant(+_), initializeStrength(), force) : strength;
+  };
+
+  force.distance = function(_) {
+    return arguments.length ? (distance = typeof _ === "function" ? _ : constant(+_), initializeDistance(), force) : distance;
+  };
+
+  return force;
 }

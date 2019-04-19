@@ -18,20 +18,23 @@
 (define (response/empty)
   (response/output void))
 
+(define (response/model)
+  (response/output (λ (output-port)
+                     (write-graph/json g output-port)
+                     (void))))
+
 (define (get-model req)
   (when (void? g)
     (set! g (step/web g)))
-  (response/output (λ (output-port)
-                       (write-graph/json g output-port)
-                       (void))))
+  (response/model))
 
 (define (step-model! req)
   (set! g (step/web g))
-  (response/empty))
+  (response/model))
 
 (define (reset-model! req)
   (set! g (step/web (void)))
-  (response/empty))
+  (response/model))
 
 (define-values (x-dispatch x-url)
   (dispatch-rules

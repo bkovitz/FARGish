@@ -44,8 +44,9 @@ text {
 
 .node {
   fill: DarkSeaGreen;
-  //stroke-width: 1px;
-  //stroke: Black;
+  /* pointer-events: none; */
+  /* stroke-width: 1px; */
+  /* stroke: Black; */
 }
 
 .links line {
@@ -60,11 +61,16 @@ text {
 }
 
 .svgText {
-  pointer-events: none;
+  pointer-events: none;  /* Needed to prevent cursor from selecting text. */
+                         /* But...it doesn't always work. */
 }
 
 .link {
   stroke: #999;
+}
+
+svg g {
+  /* user-select: none; */
 }
 
 svg .trace {
