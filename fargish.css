@@ -35,9 +35,8 @@ text {
 }
 
 .svgContainer {
-  padding: 2%;
-  height: 600;
-  width: 960;
+  height: 80%;
+  width: 95%;
   overflow: auto;
   border: 1px solid gray;
 }

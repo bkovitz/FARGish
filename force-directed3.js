@@ -128,22 +128,35 @@ function compareLengthMembersRecursive(node1, node2) {
   return node2.membersRecursive.size - node1.membersRecursive.size;
 }
 
+var zoom = d3.zoom()
+    .on("zoom", function() {
+      console.log(d3.event);
+      svg.attr("transform", d3.event.transform);
+    });
+
 // Set up known HTML elements
 var svg = d3.select("svg")
     .attr("width", "100%")
     .attr("height", "100%")
-    .call(d3.zoom()
-        .on("zoom", function () {
-          console.log("HERE");
-          svg.attr("transform", d3.event.transform)
-        }))
+    .call(zoom)
     .append("g");
     //.attr("transform", "translate(200, 200) scale(0.6)");
 //    width = +svg.attr("width"),
 //    height = +svg.attr("height");
 
-d3.zoom().translateTo(svg, -200, -200);
-d3.zoom().scaleTo(svg, 0.6);
+//svg.call(zoom.transform, d3.zoomIdentity.translate(200, 200).scale(0.6));
+
+//var zoom = d3.zoom()
+//  .on("zoom", function () {
+//    console.log("HERE");
+//    svg.attr("transform", d3.event.transform)
+//  });
+
+//zoom.translateTo(svg, -200, -200);
+//zoom.scaleTo(svg, 0.6);
+//
+//svg.call(zoom)
+//  .append("g");
 
 //svg.attr('height', '100%')
 //    .attr('width', '100%')
