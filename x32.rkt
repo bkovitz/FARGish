@@ -53,6 +53,14 @@
       (condition (and (same-class? g node1 node2)
                       (safe-equal? (value-of g node1)
                                    (value-of g node2))))))
+  (tagclass (pow10 [p : Integer])  ; taggee is a power of 10 (but not 1)
+    (value p)
+    (display-name (format "pow10 ~a" p))
+    (applies-to ([node])
+      (condition (let ([taggee-p (pow10-of (value-of g node))])
+                   (and (not (void taggee-p))
+                        (not (= 0 taggee-p)))))))
+
   (tagclass (num-digits [n : Integer])
     (value n)
     (display-name (format "num-digits-~a" n))
@@ -113,6 +121,23 @@
 (define (node-is-a-number? g node)
   (and (node-is-a? g node 'number)
        (has-value? g node)))
+
+(: all-numbers : Graph -> (Listof Node))
+(define (all-numbers g)
+  (filter/g g node-is-a-number? (all-nodes g)))
+
+; Returns void if n is not a power of 10.
+(: pow10-of : Any -> (U Integer Void))
+(define (pow10-of n)
+  (cond
+    [(not (integer? n)) (void)]
+    [else (let loop ([n : Integer (if (negative? n) (- n) n)] [p 0])
+            (cond
+              [(= n 1) p]
+              [(zero? n) (void)]
+              #:define n (/ n 10)
+              [(integer? n) (loop n (add1 p))]
+              [else (void)]))]))
 
 (: same-class? : Graph MaybeNode MaybeNode -> Boolean)
 (define (same-class? g node1 node2)
@@ -183,7 +208,7 @@
 
 (define lm/greater-than
   (LocalMatch
-    (λ ([g : Graph] _) (filter/g g node-is-a-number? (all-nodes g)))
+    (λ ([g : Graph] _) (all-numbers g))
     (λ ([g : Graph] [node1 : Node])
       (let ([fi (λ ([node2 : Node])
                   (and
@@ -207,6 +232,19 @@
           [(void? node2) '()]
           [else (list (tag-and-support/ (same) node1 node2))])))))
 
+(define lm/pow10
+  (LocalMatch
+    (let ([ok? (λ ([g : Graph] [node : Node])
+                 (and (node-is-a-number? g node)
+                      (not (has-tag? g 'pow10 node))))])
+      (λ ([g : Graph] _) (filter/g g ok? (all-nodes g))))
+    (λ ([g : Graph] [node : Node])
+      #R node
+      (let ([p #R (pow10-of (value-of g node))])
+        (cond
+          [(void? p) '()]
+          [else (list (tag-and-support/ (pow10 p) node))])))))
+
 (: node->num-digits : Graph Node -> (U Integer Void))
 (define (node->num-digits g node)
   (->num-digits (value-of g node)))
@@ -219,11 +257,11 @@
       (λ ([g : Graph] _) (filter/g g ok? (all-nodes g))))
     (λ ([g : Graph] [node : Node])
       (cond
-        #:define nd #R (node->num-digits g node)
+        #:define nd (node->num-digits g node)
         [(void? nd) '()]
         [else (list (tag-and-support/ (num-digits nd) node))]))))
 
-(define lms (list lm/fill lm/greater-than lm/same lm/num-digits))
+(define lms (list lm/fill lm/greater-than lm/same lm/num-digits lm/pow10))
 
 (: random-lm : -> LocalMatch)
 (define random-lm
@@ -319,7 +357,8 @@
                    [g (set-node-attr g new-trace 'display-name "new trace")]
                    [(g new-numble) (make-numble g 100 9 10 7 3)]
                    [g (make-member-of g (path->node g new-trace 'first)
-                                        new-numble)])
+                                        new-numble)]
+                   [g (set-salience-of g (all-nodes g) 1.0)]) ;HACK
                g)
              g)]
         [g (do-local-matches g)])
