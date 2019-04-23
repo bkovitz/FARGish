@@ -28,6 +28,10 @@
            )
      (body
        (p "t=" (span ((id "t")) "0"))
+       #;(div ((id "scale-slider") (height "20px") (width "2in")
+             (range "min") (min "0") (max "100") (value "10")))
+       (div (input ((type "range") (min "0") (max "100") (value "10")
+                    (class "slider") (id "scale-slider"))))
        (div ((class "svgContainer"))
          (svg ((id "ws"))
            ;,@temporal-trace

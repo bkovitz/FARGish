@@ -1,0 +1,72 @@
+[n ... ns : number, n.value]
+
+
+external {
+  numDigits(v : Integer) : Integer;
+}
+
+
+nodeclass number(n : Integer) {
+  Integer value = n;
+  display-name = n;
+}
+
+tagclass num-digits {
+  me.[taggee : number] = me.(tagged -- tags).taggee;
+  value : Integer = numDigits(taggee.value);
+  display-name = format("num-digits-~a", n);
+}
+
+tagclass > {
+  [a : number].me.[b : number] = {
+    me.(greater -- greater-than).a
+    me.(lesser -- less-than).b
+  }
+  condition { a.value > b.value }
+}
+
+
+; unary tag
+given {
+  [n : number] n.value
+} make {
+  num-digits(n.value).n
+}
+
+; binary tag
+given {
+  [n1 : number] [n2 : number]
+  n1.value > n2.value
+} make {
+  n1.>.n2
+}
+
+nodeclass container {
+  me.member.[m : node] = me.(members -- member-of).m;
+}
+
+; as an edge:
+[a : node].guides.[b : node] = a.(guidee -- guides).b;
+
+;as a node:
+tagclass guides {
+  [a : node].me.[b : node] = a.(guiding -- guider).me.(guidee -- guided-by).b;
+}
+
+nodeclass trace : container {
+  in {
+    me.guides.[live : trace]
+  } want {
+    me.member.t0.member.situation.same.([t' : timestep].member.situation)
+    live.member.t'
+  }
+}
+
+    me.member.t0.member.situation.same.situation.member-of
+    .timestep.member-of.trace
+
+means: "When I'm tagged as guiding another trace,
+find/make a t0 member of me,
+find/make a situation member of that t0,
+find/make a same tag connecting that situation
+to a timestep t' 

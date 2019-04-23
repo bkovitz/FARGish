@@ -56,7 +56,19 @@ function clearGraph() {
   nodesArray = [];
 }
 
+var scaleSlider;
+
 window.onload = function() {
+  scaleSlider = document.getElementById("scale-slider");
+  scaleSlider.oninput = function() {
+    const ws = document.getElementById("ws")
+    const bbox = ws.getBBox();
+    ws.setAttribute("viewBox",       Math.min(-500, (bbox.x-10)) +
+                               " " + Math.min(-500, (bbox.y-10)) +
+                               " " + (this.value*(2*bbox.width+20)) +
+                               " " + (this.value*(2*bbox.height+20)));
+      
+  };
   reset_button();
 }
 
@@ -117,9 +129,21 @@ function compareLengthMembersRecursive(node1, node2) {
 }
 
 // Set up known HTML elements
-var svg = d3.select("#ws"),
-    width = +svg.attr("width"),
-    height = +svg.attr("height");
+var svg = d3.select("svg")
+    .attr("width", "100%")
+    .attr("height", "100%")
+    .call(d3.zoom()
+        .on("zoom", function () {
+          console.log("HERE");
+          svg.attr("transform", d3.event.transform)
+        }))
+    .append("g");
+    //.attr("transform", "translate(200, 200) scale(0.6)");
+//    width = +svg.attr("width"),
+//    height = +svg.attr("height");
+
+d3.zoom().translateTo(svg, -200, -200);
+d3.zoom().scaleTo(svg, 0.6);
 
 //svg.attr('height', '100%')
 //    .attr('width', '100%')
@@ -135,6 +159,17 @@ var linkg = svg.append("g")
     .attr("class", "links");
 
 var link = linkg.selectAll("line");
+
+
+// Panning and zooming
+
+//var zoom = d3.zoom()
+//  .on("zoom", zoomed);
+//
+//function zoomed() {
+//  svg.attr("transform", d3.event.transform);
+//}
+
 
 // TODO Make three groups, in this order: container nodes, links, non-container
 // nodes. Then the lines should show up correctly on the screen.
@@ -314,15 +349,15 @@ function ticked() {
       .attr("y2", function(d) { return d.target.y; });
 
   // Update size of SVG so scroll-bars appear when needed
-  const ws = document.getElementById("ws")
-  const bbox = ws.getBBox();
-  ws.setAttribute("viewBox",       Math.min(-500, (bbox.x-10)) +
-                             " " + Math.min(-500, (bbox.y-10)) +
-                             " " + (2*bbox.width+20) +
-                             " " + (2*bbox.height+20));
-  //ws.setAttribute("viewBox", "-500 -500 2000 2000");
-  ws.setAttribute("width", (bbox.width+20) + "px");
-  ws.setAttribute("height", (bbox.height+20) + "px");
+//  const ws = document.getElementById("ws")
+//  const bbox = ws.getBBox();
+//  ws.setAttribute("viewBox",       Math.min(-500, (bbox.x-10)) +
+//                             " " + Math.min(-500, (bbox.y-10)) +
+//                             " " + (2*bbox.width+20) +
+//                             " " + (2*bbox.height+20));
+//  //ws.setAttribute("viewBox", "-500 -500 2000 2000");
+//  ws.setAttribute("width", (bbox.width+20) + "px");
+//  ws.setAttribute("height", (bbox.height+20) + "px");
 
 }
 
