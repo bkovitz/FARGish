@@ -100,7 +100,7 @@
              (add-tag-support g tag node))])
     g))
 
-(: tag-and-support/ : Attrs Node * -> Action)
+(: tag-and-support/ : Attrs Node * -> (-> Graph Graph))
 (define (tag-and-support/ tagspec . nodes)
   (λ (g) (apply tag-and-support g tagspec nodes)))
 
@@ -179,20 +179,24 @@
 ;; Local matches
 ;;
 
-(define-type Action (-> Graph Graph))
+;(define-type Action (-> Graph Graph))
+
+(define-struct/exec Action ([name : Any] [f : (Graph -> Graph)])
+  [(λ ([a : Action] [g : Graph])
+     ((Action-f a) g)) : (Action Graph -> Graph)])
 
 (struct LocalMatch
   ([g->node1-candidates : (Graph (U Node Void) -> (Listof Node))]
-   [node1->actions : (Graph Node -> (Listof Action))])
+   [node1->action : (Graph Node -> (U Action Void))])
   #:prefab)
 
 (: lm->candidates : Graph LocalMatch (U Node Void) -> (Listof Node))
 (define (lm->candidates g lm start-node)
   ((LocalMatch-g->node1-candidates lm) g start-node))
 
-(: lm+node1->actions : Graph LocalMatch Node -> (Listof Action))
-(define (lm+node1->actions g lm node1)
-  ((LocalMatch-node1->actions lm) g node1))
+(: lm+node1->action : Graph LocalMatch Node -> (U Action Void))
+(define (lm+node1->action g lm node1)
+  ((LocalMatch-node1->action lm) g node1))
 
 (define lm/fill
   (LocalMatch
@@ -203,8 +207,9 @@
                            g node-to-fill #:filter fi)])
         (cond
           [(not (void? filler-node))
-           (list (tag-and-support/ (fill) node-to-fill filler-node))]
-          [else '()])))))
+           (Action @~a{fill @node-to-fill with @filler-node}
+                   (tag-and-support/ (fill) node-to-fill filler-node))]
+          [else (void)])))))
 
 (define lm/greater-than
   (LocalMatch
@@ -216,8 +221,9 @@
                     (tagclass-applies-to? g 'greater-than (list node1 node2))))]
             [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
         (cond
-          [(void? node2) '()]
-          [else (list (tag-and-support/ (greater-than) node1 node2))])))))
+          [(void? node2) (void)]
+          [else (Action @~a{greater-than @node1 @node2}
+                        (tag-and-support/ (greater-than) node1 node2))])))))
 
 (define lm/same
   (LocalMatch
@@ -229,8 +235,9 @@
                        (tagclass-applies-to? g 'same (list node1 node2))))]
             [node2 (choose-nearby-node-by-salience g node1 #:filter fi)])
         (cond
-          [(void? node2) '()]
-          [else (list (tag-and-support/ (same) node1 node2))])))))
+          [(void? node2) (void)]
+          [else (Action @~a{same @node1 @node2}
+                        (tag-and-support/ (same) node1 node2))])))))
 
 (define lm/pow10
   (LocalMatch
@@ -239,11 +246,11 @@
                       (not (has-tag? g 'pow10 node))))])
       (λ ([g : Graph] _) (filter/g g ok? (all-nodes g))))
     (λ ([g : Graph] [node : Node])
-      #R node
-      (let ([p #R (pow10-of (value-of g node))])
+      (let ([p (pow10-of (value-of g node))])
         (cond
-          [(void? p) '()]
-          [else (list (tag-and-support/ (pow10 p) node))])))))
+          [(void? p) (void)]
+          [else (Action @~a{pow10 @node @p}
+                        (tag-and-support/ (pow10 p) node))])))))
 
 (: node->num-digits : Graph Node -> (U Integer Void))
 (define (node->num-digits g node)
@@ -258,8 +265,9 @@
     (λ ([g : Graph] [node : Node])
       (cond
         #:define nd (node->num-digits g node)
-        [(void? nd) '()]
-        [else (list (tag-and-support/ (num-digits nd) node))]))))
+        [(void? nd) (void)]
+        [else (Action @~a{num-digits @nd @node}
+                      (tag-and-support/ (num-digits nd) node))]))))
 
 (define lms (list lm/fill lm/greater-than lm/same lm/num-digits lm/pow10))
 
@@ -276,7 +284,9 @@
                      (λ ([node : Node]) (salience-of g node))
                      (lm->candidates g lm (void)))
     [(void? node1) '()]
-    [else (lm+node1->actions g lm node1)]))
+    #:define a (lm+node1->action g lm node1)
+    [(void? a) '()]
+    [else (list a)]))
 
 (: do-local-matches : Graph -> Graph)
 (define (do-local-matches g)
@@ -284,7 +294,8 @@
                            ([i 6])
                    (append actions (lm->actions g (random-lm))))])
     (for/fold ([g g])
-              ([action #R actions])
+              ([action actions])
+      (displayln (Action-name action))
       (action g))))
 
 ;; ======================================================================
@@ -297,7 +308,7 @@
     ([(g) (make-empty-graph spec)]
      ;old temporal trace
      [(g trace) (make-node g (trace))]
-     [g (set-node-attr g trace 'display-name "old trace")]
+     [g (set-node-attr g trace 'display-name "memory trace")]
      ;t0
      [(g t0) (make-node/in g trace (t 0))]
      [(g) (add-edge g `((,trace first) (,t0 first-in)))]
@@ -334,7 +345,7 @@
 ;     [(g) (make-permanent g trace
 ;                          t0 problem target b6 b3 b4 b5 c1 c2
 ;                          t1 eqn1 e6 times e4 equals1 e24)]
-     [g (set-salience-of g (all-nodes g) 1.0)]
+;     [g (set-salience-of g (all-nodes g) 1.0)]
      )
     g))
 
@@ -352,17 +363,21 @@
 (: step : Graph -> Graph)
 (define (step g)
   (let ([g (bump-t g)]
+        [(g) (clear-touched-nodes g)]
+        [(g) (clear-new-nodes g)]
+        [g (decay-salience/all g)]
         [g (if (= 1 (current-t g))
              (let ([(g new-trace) (copy-trace g 'trace)]
-                   [g (set-node-attr g new-trace 'display-name "new trace")]
+                   [g (set-node-attr g new-trace 'display-name "live trace")]
                    [(g new-numble) (make-numble g 100 9 10 7 3)]
                    [g (make-member-of g (path->node g new-trace 'first)
                                         new-numble)]
-                   [g (set-salience-of g (all-nodes g) 1.0)]) ;HACK
+                   #;[g (set-salience-of g (all-nodes g) 1.0)]) ;HACK
                g)
              g)]
-        [g (do-local-matches g)])
-    #R (list (length (all-nodes g)))
+        [g (do-local-matches g)]
+        [g (boost-salience-of-touched-nodes g)])
+    #R (length (all-nodes g))
     g))
 
 (: step/web : (U Graph Void) -> Graph)

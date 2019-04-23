@@ -209,6 +209,10 @@
 ;; Collection utilities
 ;;
 
+(: sorted : (All (a) (U (Listof a) (Setof a)) -> (Listof a)))
+(define (sorted xs)
+  ((inst sort a) (->list xs) string<? #:key ~a))
+
 (: set-add* (All (A) (-> (Setof A) A * (Setof A))))
 (define (set-add* st . xs)
   (for/fold ([st st])

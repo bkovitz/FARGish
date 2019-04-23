@@ -35,7 +35,12 @@
                  (hash 'class attrs)
                  attrs)]
         [(g node) (g:make-node g attrs)])
-    ; TODO post-make-node
+    (post-make-node g node)))
+
+(: post-make-node : Graph Node -> (Values Graph Node))
+(define (post-make-node g node)
+  (let ([g (record-new-node g node)]
+        [g (boost-salience-of g node)])
     (values g node)))
 
 (: add-node : Graph Attrs -> Graph)
@@ -579,13 +584,13 @@
 (: display-salience (->* [Graph Node] [(U Salience Void)] Void))
 (define (display-salience g node [salience (void)])
   (let ([salience (if (void? salience) (salience-of g node) salience)]
-        [s-node (~a (~a node #:min-width 15))]
+        [s-node (~a (~a node #:min-width 19))]
         [s-salience (~r salience #:precision '(= 3))])
     (displayln (string-append s-node " " s-salience))))
 
 (: pr-saliences : Graph -> Void)
 (define (pr-saliences g)
-  (for ([node (members-of g 'ws)])
+  (for ([node (sorted (all-nodes g))])
     (display-salience g node)))
 
 (: saliences-ht : Graph -> (Hashof Node Salience))
