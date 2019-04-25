@@ -1,0 +1,50 @@
+#lang brag
+
+farg-spec : fargish-elem*
+
+/fargish-elem : nodeclass-definition
+              | codelet
+
+nodeclass-definition
+  : NODECLASS IDENTIFIER args ancestors /";"
+  | NODECLASS IDENTIFIER args ancestors /"{" nodeclass-elem* /"}"
+
+args : [ /"(" [ IDENTIFIER ("," IDENTIFIER)* /")" ] ]
+
+; NEXT Syntax for tagging multiple nodes, like > in WANT
+
+/nodeclass-elem : lhs /"=" expr /";"
+
+lhs : IDENTIFIER
+    | chain-expr
+
+expr : IDENTIFIER
+     | NUMBER
+     | STRING
+     | /"(" expr /")"
+     | expr BINARY-OP expr
+     | function-call
+     | chain-expr
+
+chain-expr : node-ref (/"." chain-link)+
+
+node-ref : IDENTIFIER | ME | named-node | /"(" node-ref /")"
+
+chain-link : node-ref | explicit-edge /"." chain-link
+
+named-node : /"[" IDENTIFIER /":" IDENTIFIER /"]"
+
+function-call : expr /"(" [ expr (/"," expr )* ] /")"
+
+ancestors : [ /":" IDENTIFIER (/"," IDENTIFIER)* ]
+
+codelet : CODELET IDENTIFIER GIVEN /"{" given-elem* /"}"
+                             MAKE /"{" make-elem* /"}"
+
+given-elem : STUB
+
+make-elem : STUB
+
+explicit-edge : /"(" port-label /"--" port-label /")"
+
+port-label : IDENTIFIER
