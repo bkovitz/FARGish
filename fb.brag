@@ -3,13 +3,17 @@
 farg-spec : fargish-elem*
 
 /fargish-elem : nodeclass-definition
+              | connection-definition
               | codelet
 
 nodeclass-definition
   : NODECLASS IDENTIFIER args ancestors /";"
   | NODECLASS IDENTIFIER args ancestors /"{" nodeclass-elem* /"}"
 
-args : [ /"(" [ IDENTIFIER ("," IDENTIFIER)* /")" ] ]
+connection-definition
+  : chain-lhs /"=" chain-expr /";"
+
+args : [/"(" [IDENTIFIER ("," IDENTIFIER)* /")"]]
 
 ; NEXT Syntax for tagging multiple nodes, like > in WANT
 
@@ -26,8 +30,11 @@ expr : IDENTIFIER
      | function-call
      | chain-expr
 
+chain-lhs : node-ref /"." IDENTIFIER [/"." chain-expr]
+
 chain-expr : node-ref (/"." chain-link)+
 
+; existing-node-ref ?
 node-ref : IDENTIFIER | ME | named-node | /"(" node-ref /")"
 
 chain-link : node-ref | explicit-edge /"." chain-link
@@ -38,12 +45,15 @@ function-call : expr /"(" [ expr (/"," expr )* ] /")"
 
 ancestors : [ /":" IDENTIFIER (/"," IDENTIFIER)* ]
 
-codelet : CODELET IDENTIFIER GIVEN /"{" given-elem* /"}"
-                             MAKE /"{" make-elem* /"}"
+codelet : /CODELET IDENTIFIER /GIVEN /"{" match-elem* /"}"
+                              /MAKE /"{" make-elem* /"}"
 
-given-elem : STUB
+match-elem : node-ref         ; need to disallow ME
+           | chain-expr
+           | /"{" expr /"}"   ; will be treated as Boolean expression
 
-make-elem : STUB
+make-elem : chain-expr
+          ; Also need to allow { node.value = expr } ?
 
 explicit-edge : /"(" port-label /"--" port-label /")"
 

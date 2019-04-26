@@ -25,6 +25,19 @@ tagclass > {
   condition { a.value > b.value }
 }
 
+tagclass > {
+  [a : number].me.[b : number] =
+    a.(greater -- greater-than).me.(lesser -- less-than).b;
+  condition { a.value > b.value }
+}
+
+tagclass > {
+  applies-to(a : number, b : number) {
+    a.(greater -- greater-than).me.(lesser -- less-than).b;
+    condition { a.value > b.value }
+  }
+}
+
 
 ; unary tag
 given {
@@ -36,13 +49,13 @@ given {
 ; binary tag
 given {
   [n1 : number] [n2 : number]
-  n1.value > n2.value
+  { n1.value > n2.value }
 } make {
   n1.>.n2
 }
 
 nodeclass container {
-  me.member.[m : node] = me.(members -- member-of).m;
+  me.member.[m/s : node] = me.(members -- member-of).m/s;
 }
 
 ; as an edge:
@@ -70,3 +83,59 @@ find/make a t0 member of me,
 find/make a situation member of that t0,
 find/make a same tag connecting that situation
 to a timestep t' 
+
+
+
+nodeclass node {
+  salience = INITIAL-SALIENCE;
+}
+
+; How to indicate support?
+
+on-touch ...   ; Define what happens when a node is touched
+step           ; One iteration of the main loop
+nodes {        ; A way to make concrete nodes and enable FARGish code to
+  ws : workspace(22, "ab")                              ; refer to them.
+  slipnet : slipnet-root
+}
+set-up {
+  [WS : ws(22, "ab")]
+  [SLIPNET : slipnet]
+}
+set-up(brick-val/s : Integer; target-val : Integer) {
+  brick.[brick-node/s : number(brick-val)]
+  target.[target-node : number(target-val)]
+  [WS : ws(22, "ab")].member.brick-nodes
+  [SLIPNET : slipnet]
+}
+
+Need a way to make a condition "Is this node tagged X?"
+tagclass brick? {
+  me.[a : number] = me.(tagged -- tags).a;
+}
+tagclass brick {
+  me.[a : number] = me.(tagged -- tags).a;
+  brick?(node) = has-tag?(node, me);
+}
+
+codelet brick->available
+  given {
+    (not available && not consumed).[b : brick?]
+  } make {
+    available.b
+  }
+codelet brick->available
+  given {
+    (not available && not consumed).(problem.member.[b : number])
+    brick.b
+  } make {
+    available.b
+  }
+codelet brick->available
+  given {
+    problem.member.[b : number]
+    brick.b
+    (not available && not consumed).b
+  } make {
+    available.b
+  }

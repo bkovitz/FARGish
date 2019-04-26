@@ -14,6 +14,10 @@
       ["nodeclass" (token 'NODECLASS (hash))]  ; empty hash => not a tag
       ["tagclass" (token 'NODECLASS (hash 'tag? #t))]
       ["codelet" 'CODELET]
+      ["given" 'GIVEN]
+      ["make" 'MAKE]
+      ["in" 'IN]
+      ["want" 'WANT]
       ["me" 'ME]
       ["STUB" 'STUB]
       [#\" (token 'STRING (list->string (get-string-token input-port)))]
