@@ -39,6 +39,11 @@ tagclass > {
 }
 
 
+[a : number].>.[b : number] =
+  a.(greater -- greater-than).me.(lesser -- less-than).b;
+  
+
+
 ; unary tag
 given {
   [n : number] n.value

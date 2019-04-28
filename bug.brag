@@ -1,0 +1,10 @@
+#lang brag
+
+start : elem*
+
+elem : THING "(" arg ("," arg)* ")"
+
+arg : IDENTIFIER
+    | IDENTIFIER ":" IDENTIFIER   ; Matching this case seems to throw
+                                  ; everything off, but only if the
+                                  ; ("," arg)* clause is included in elem.

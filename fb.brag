@@ -1,21 +1,40 @@
 #lang brag
 
-farg-spec : fargish-elem*
+farg-spec : elem*
+
+/elem : IN IDENTIFIER /";"
+;      | IN IDENTIFIER /"(" arg /")" /";"
+      | IN IDENTIFIER /"(" arg ("," arg)* /")" /";"
+      | IN /"{" IDENTIFIER /"}"
+
+;farg-spec : fargish-elem*
 
 /fargish-elem : nodeclass-definition
-              | connection-definition
-              | codelet
+;              | connection-definition
+;              | codelet
 
+;nodeclass-definition
+;  : NODECLASS IDENTIFIER args ancestors /"{" nodeclass-elem* /"}"
+;  | NODECLASS IDENTIFIER args ancestors /";"
 nodeclass-definition
-  : NODECLASS IDENTIFIER args ancestors /";"
-  | NODECLASS IDENTIFIER args ancestors /"{" nodeclass-elem* /"}"
+  : NODECLASS IDENTIFIER args /";"
+  | NODECLASS IDENTIFIER /";"
+;  | NODECLASS IDENTIFIER ancestors nodeclass-body
+;  | NODECLASS IDENTIFIER args ancestors nodeclass-body
 
-connection-definition
-  : chain-lhs /"=" chain-expr /";"
+nodeclass-body
+  : /";"
+  | /"{" /"}"
 
-args : [/"(" [IDENTIFIER ("," IDENTIFIER)* /")"]]
+; BUG in brag? Apparently you can't have production that is completely optional.
+; args didn't work when the whole rhs was in brackets. Same with ancestors.
+args : "(" [arg ("," arg)*] ")"
 
-; NEXT Syntax for tagging multiple nodes, like > in WANT
+arg : IDENTIFIER | typed-arg
+
+typed-arg : IDENTIFIER ":" IDENTIFIER
+
+ecch : "ECCH"
 
 /nodeclass-elem : lhs /"=" expr /";"
 
@@ -37,13 +56,16 @@ chain-expr : node-ref (/"." chain-link)+
 ; existing-node-ref ?
 node-ref : IDENTIFIER | ME | named-node | /"(" node-ref /")"
 
+connection-definition
+  : chain-lhs /"=" chain-expr /";"
+
 chain-link : node-ref | explicit-edge /"." chain-link
 
 named-node : /"[" IDENTIFIER /":" IDENTIFIER /"]"
 
 function-call : expr /"(" [ expr (/"," expr )* ] /")"
 
-ancestors : [ /":" IDENTIFIER (/"," IDENTIFIER)* ]
+ancestors : /":" IDENTIFIER (/"," IDENTIFIER)*
 
 codelet : /CODELET IDENTIFIER /GIVEN /"{" match-elem* /"}"
                               /MAKE /"{" make-elem* /"}"

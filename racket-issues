@@ -18,7 +18,10 @@ I'm guessing what the semantics and intended way of use is, so I have to
 debug. Stacktraces are often hard to get; line-number information is often
 missing. What function called what? What arguments were on the stack?
 
-3. SLOW. The frequent, unpredictable pauses interfere with my train of
+3. Readability. How do you write readable code in Racket? Is it possible?
+Looking at Racket source code is usually a major undertaking.
+
+4. SLOW. The frequent, unpredictable pauses interfere with my train of
 thought.
 
 

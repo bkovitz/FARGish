@@ -1,7 +1,11 @@
+; fb2.rkt -- Experimental reader/parser/expander for fb.brag
+;
+; This file should probably become the reader and expander for FARGish.
+
 #lang debug racket
 
 (require brag/support br-parser-tools/lex
-         "fb.brag")
+         (only-in "fb.brag" parse))
 
 (define (tokenize ip)
   (port-count-lines! ip)
@@ -25,7 +29,7 @@
        (token 'IDENTIFIER (string->symbol lexeme))]
       [whitespace (return-without-pos (my-lexer ip))]
       [(eof) 'EOF]))
-  (thunk (my-lexer ip)))
+  (λ () #R (my-lexer ip)))
 
 (define get-string-token
   (lexer
@@ -44,8 +48,30 @@
   (let ([th (tokenize (open-input-string str))])
     (let loop ([tok (th)])
       (displayln tok)
-      (when (not (eq? 'EOF (srcloc-token-token tok)))
+      (when (not (eq? 'EOF (position-token-token tok)))
         (loop (th))))))
 
 (define (p str)
   (parse (tokenize (open-input-string str))))
+
+(define t0 "in a;")
+(define t1 "in a; in b;")
+(define t2 "in a; in { b }")
+(define t3 "in a(x);")
+(define t4 "in a(x); in b;")
+(define t5 "in a(x : Integer); in b;")
+
+(define s0 "nodeclass a;")
+
+(define s1 "nodeclass a; nodeclass b;")
+
+(define s2 "nodeclass number(n : Integer);")
+
+(define s3 "
+nodeclass number(n : Integer);
+
+nodeclass blah;
+")
+
+
+;(define-syntax 
