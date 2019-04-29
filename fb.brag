@@ -1,6 +1,6 @@
 #lang brag
 
-farg-spec : fargish-elem*
+farg-spec : @fargish-elem*
 
 /fargish-elem : nodeclass-definition
               | connection-definition
