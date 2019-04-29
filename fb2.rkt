@@ -4,8 +4,10 @@
 
 #lang debug racket
 
-(require brag/support br-parser-tools/lex
-         (only-in "fb.brag" parse))
+(require (for-syntax racket/base syntax/parse)
+         brag/support br-parser-tools/lex
+         (only-in "fb.brag" parse)
+         syntax/parse)
 
 (define (tokenize ip)
   (port-count-lines! ip)
@@ -15,8 +17,8 @@
       [(:or (char-set "+-*/<>") "==" "<=" "!=" ">=" "&&" "||")
        (token 'BINARY-OP lexeme)]
       ["--" lexeme]
-      ["nodeclass" (token 'NODECLASS (hash))]  ; empty hash => not a tag
-      ["tagclass" (token 'NODECLASS (hash 'tag? #t))]
+      ["nodeclass" (token 'NODECLASS '(hash 'tag? #f))]
+      ["tagclass" (token 'NODECLASS '(hash 'tag? #t))]
       ["codelet" 'CODELET]
       ["given" 'GIVEN]
       ["make" 'MAKE]
@@ -29,7 +31,7 @@
        (token 'IDENTIFIER (string->symbol lexeme))]
       [whitespace (return-without-pos (my-lexer ip))]
       [(eof) 'EOF]))
-  (λ () #R (my-lexer ip)))
+  (λ () (my-lexer ip)))
 
 (define get-string-token
   (lexer
@@ -81,4 +83,17 @@ nodeclass blah;
 (define s9 "nodeclass a(n : Integer) : b { blah = yah; } nodeclass c;")
 
 
-;(define-syntax 
+(define (f fargish-spec-stx)
+  (syntax-parse fargish-spec-stx
+    [(_ (elem ...))
+     #'(list elem ...)]))
+
+(define-syntax (nodeclass-definition nodeclass-stx)
+  (syntax-parse nodeclass-stx
+    [(_ ht name- args- ancestors- body-)
+     #'(hash-set* ht 'name 'name-
+                     'args 'args-
+                     'ancestors 'ancestors-
+                     'body 'body-)]))
+
+

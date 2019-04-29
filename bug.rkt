@@ -1,9 +1,9 @@
-; bug.rkt -- Now trying to find workaround for bug demo'ed in bug.brag
+; bug.rkt -- Code to reproduce apparent bug in 'brag'
 
 #lang debug racket
 
 (require brag/support br-parser-tools/lex
-         (only-in "workaround.brag" parse))
+         (only-in "bug.brag" parse))
 
 (define (tokenize ip)
   (port-count-lines! ip)
