@@ -1,11 +1,9 @@
-; bug.rkt -- Minimal runnable example for a possible bug found in 'brag'
-;
-; Found by Ben Kovitz bkovitz@indiana.edu on 28-Apr-2019.
+; bug.rkt -- Now trying to find workaround for bug demo'ed in bug.brag
 
 #lang debug racket
 
 (require brag/support br-parser-tools/lex
-         (only-in "bug.brag" parse))
+         (only-in "workaround.brag" parse))
 
 (define (tokenize ip)
   (port-count-lines! ip)
@@ -27,8 +25,11 @@
 (define t4 "thing(a : Integer) thing(b)")   ; This doesn't work. The parser
                                             ; says that the second "thing" is
                                             ; an error.
+(define t5 "thing(a : Integer, b) thing(b)")
+
 (p t0)
 (p t1)
 (p t2)
 (p t3)
 (p t4)
+(p t5)

@@ -1,0 +1,9 @@
+#lang brag
+
+start : elem*
+
+elem : THING /"(" arg /")"
+     | THING /"(" arg (/"," arg)+ /")"
+
+arg : IDENTIFIER
+    | IDENTIFIER /":" IDENTIFIER

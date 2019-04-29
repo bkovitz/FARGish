@@ -73,5 +73,12 @@ nodeclass number(n : Integer);
 nodeclass blah;
 ")
 
+(define s4 "nodeclass a : b;")
+(define s5 "nodeclass a() : b;")
+(define s6 "nodeclass a : b; nodeclass c;")
+(define s7 "nodeclass a() : b; nodeclass c;")
+(define s8 "nodeclass a(n : Integer) : b; nodeclass c;")
+(define s9 "nodeclass a(n : Integer) : b { blah = yah; } nodeclass c;")
+
 
 ;(define-syntax 
