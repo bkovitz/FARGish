@@ -27,3 +27,15 @@ Render salience
 Render support
 
 
+
+The new syntax
+--------------
+Parser   DONE
+
+graph->proc
+
+  find-nodes-permutation
+
+  scout-for
+
+Compile codelet source to graph

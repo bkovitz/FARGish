@@ -106,3 +106,5 @@ so-so tools and libraries. TANSTAAFF
 6. How do you write readable Racket code?
 Compare all the clutter in scheme-parser in br-parser-tools/examples/read.rkt
 to a typical yacc grammar.
+
+7. How do you break off a small piece of a problem to work on it separately from the rest? Usually easy in OO; not obvious in Racket.

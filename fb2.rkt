@@ -4,7 +4,7 @@
 
 #lang debug racket
 
-(require (for-syntax racket/base syntax/parse)
+(require (for-syntax racket syntax/parse)
          brag/support br-parser-tools/lex
          (only-in "fb.brag" parse)
          syntax/parse)
@@ -46,6 +46,72 @@
   [identifier-initial (:or alphabetic identifier-punctuation)]
   [identifier-subsequent (:or identifier-initial numeric)])
 
+;; ======================================================================
+;;
+;; Making something out of the syntax objects from the parser
+;;
+
+; name : Symbol
+; default-attrs : (Hashof Symbol Any)
+; args : (Listof Arg)
+; ancestors : (Listof Symbol)
+; body :
+(struct Nodeclass (name default-attrs args ancestors body)
+                  #:prefab)
+(struct Arg (name type)
+            #:prefab)
+(struct Nodeclass-Body-Elem (lhs rhs)
+        #:prefab)
+
+;(define (f fargish-spec-stx)
+;  (syntax-parse fargish-spec-stx
+;    [(_ elem ...)
+;     #'(list elem ...)]))
+
+(define (f fargish-spec-stx)
+  fargish-spec-stx)
+  ;#`(list #,@fargish-spec-stx))
+
+(define-syntax (farg-spec stx)
+  (syntax-parse stx
+    [(_ elem ...)
+     #'(list elem ...)]))
+
+(define-syntax (nodeclass-definition nodeclass-stx)
+  (syntax-parse nodeclass-stx
+    [(_ ht name args ancestors body)
+     #'(Nodeclass 'name ht args ancestors 'body)]))
+
+(define-syntax (args stx)
+  (syntax-parse stx
+    [(_) #''()]
+    [(_ (arg ...))
+     #'(list arg ...)]))
+
+(define-syntax (untyped-arg stx)
+  (syntax-parse stx
+    [(_ id:id) #'(Arg 'id 'Any)]))
+
+(define-syntax (typed-arg stx)
+  (syntax-parse stx
+    [(_ id:id typename:expr)
+     #'(Arg 'id 'typename)]))
+
+(define-syntax (ancestors stx)
+  (syntax-parse stx
+    [(_ id:id ...) #'(list 'id ...)]))
+
+(define-syntax (nodeclass-body stx)
+  (syntax-parse stx
+    [(_ elem:expr ...) #'(list elem ...)]))
+
+(define-syntax (nodeclass-body-elem stx)
+  (syntax-parse stx
+    [(_ lhs:expr rhs:expr)
+     #'(Nodeclass-Body-Elem 'lhs 'rhs)]))
+
+;------ Throwaway test code
+
 (define (lx str)
   (let ([th (tokenize (open-input-string str))])
     (let loop ([tok (th)])
@@ -83,64 +149,6 @@ nodeclass blah;
 (define s9 "nodeclass a(n : Integer) : b { blah = yah; } nodeclass c;")
 (define s10 "nodeclass a(x) : b, c { value = x; }")
 
-;; ======================================================================
-;;
-;; Making something out of the syntax objects from the parser
-;;
-
-; name : Symbol
-; default-attrs : (Hashof Symbol Any)
-; args : (Listof Arg)
-; ancestors : (Listof Symbol)
-; body :
-(struct Nodeclass (name default-attrs args ancestors body)
-                  #:prefab)
-(struct Arg (name type)
-            #:prefab)
-(struct Nodeclass-Body-Elem (lhs rhs)
-        #:prefab)
-
-(define (f fargish-spec-stx)
-  (syntax-parse fargish-spec-stx
-    [(_ elem ...)
-     #'(list elem ...)]))
-
-(define-syntax (nodeclass-definition nodeclass-stx)
-  (syntax-parse nodeclass-stx
-    [(_ ht name args ancestors body)
-     #'(Nodeclass 'name ht args ancestors 'body)]))
-
-(define-syntax (args stx)
-  (syntax-parse stx
-    [(_) #''()]
-    [(_ (arg ...))
-     #'(list arg ...)]))
-
-(define-syntax (untyped-arg stx)
-  (syntax-parse stx
-    [(_ id:id) #'(Arg 'id 'Any)]))
-
-(define-syntax (typed-arg stx)
-  (syntax-parse stx
-    [(_ id:id typename:expr)
-     #'(Arg 'id 'typename)]))
-
-(define-syntax (ancestors stx)
-  (syntax-parse stx
-    [(_ id:id ...) #'(list 'id ...)]))
-
-(define-syntax (nodeclass-body stx)
-  (syntax-parse stx
-    [(_ elem:expr ...) #'(list elem ...)]))
-
-(define-syntax (nodeclass-body-elem stx)
-  (syntax-parse stx
-    [(_ lhs:expr rhs:expr)
-     #'(Nodeclass-Body-Elem 'lhs 'rhs)]))
-
-
-;------ Throwaway test code
-
 (define a (f (p s4)))
 (displayln a)
 (define b (eval a))
@@ -148,13 +156,13 @@ b
 (newline)
 (define aa (f (p s8)))
 (displayln aa)
-(define bb (eval aa))
-bb
+;(define bb (eval aa))
+;bb
 (newline)
 (define a1 (f (p s10)))
 (displayln a1)
-(define b1 (eval a1))
-b1
+;(define b1 (eval a1))
+;b1
 
 
 
