@@ -8,6 +8,7 @@ farg-spec : @fargish-elem*
 
 nodeclass-definition
   : NODECLASS IDENTIFIER args ancestors nodeclass-body
+  ; TODO Put a / before NODECLASS
 
 nodeclass-body
   : /";"

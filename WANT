@@ -31,7 +31,7 @@ tagclass > {
   condition { a.value > b.value }
 }
 
-tagclass > {
+tagclass > : relational-op {
   applies-to(a : number, b : number) {
     a.(greater -- greater-than).me.(lesser -- less-than).b;
     condition { a.value > b.value }
@@ -46,7 +46,7 @@ tagclass > {
 
 ; unary tag
 given {
-  [n : number] n.value
+  [n : number] { n.value }
 } make {
   num-digits(n.value).n
 }
@@ -60,7 +60,7 @@ given {
 }
 
 nodeclass container {
-  me.member.[m/s : node] = me.(members -- member-of).m/s;
+  me.member.[mem/s : node] = me.(members -- member-of).mem/s;
 }
 
 ; as an edge:

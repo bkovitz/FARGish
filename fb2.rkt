@@ -149,9 +149,13 @@ nodeclass blah;
 (define s9 "nodeclass a(n : Integer) : b { blah = yah; } nodeclass c;")
 (define s10 "nodeclass a(x) : b, c { value = x; }")
 
+(define-namespace-anchor ns-anchor)
+(define ns (namespace-anchor->namespace ns-anchor))
+
 (define a (f (p s4)))
 (displayln a)
-(define b (eval a))
+(displayln ns)
+(define b (eval a ns))
 b
 (newline)
 (define aa (f (p s8)))
