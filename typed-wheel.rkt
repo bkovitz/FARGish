@@ -283,6 +283,11 @@
 
     ;[else (filter (not/ void?) ls)]))
 
+(: all-unique? (All (a) (Listof a) -> Boolean))
+(define (all-unique? xs)
+  (let ([st (list->set xs)])
+    (= (length xs) (set-count st))))
+
 ;; ======================================================================
 ;;
 ;; Inheritance

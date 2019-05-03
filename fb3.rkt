@@ -5,14 +5,37 @@
 
 (require errortrace)
 (require (for-syntax syntax/parse))
-(require "typed-wheel.rkt")
+(require "typed-wheel.rkt" typed/racket/flonum)
 (require "types.rkt" "fargish.rkt" "model.rkt" "trace.rkt" "support-typed.rkt")
 
-(: all-unique? (All (a) (Listof a) -> Boolean))
-(define (all-unique? xs)
-  (let ([st (list->set xs)])
-    (= (length xs) (set-count st))))
+(define-type SearchableNodesFunc (-> Graph (Listof Node)))
 
+(: current-searchable-nodes-func : (Parameterof SearchableNodesFunc))
+(define current-searchable-nodes-func (make-parameter all-nodes))
+
+(: current-searchable-nodes : SearchableNodesFunc)
+(define (current-searchable-nodes g)
+  ((current-searchable-nodes-func) g))
+
+(define MIN-SALIENCE : Salience 0.00001)
+
+(: ok-salience : Salience -> Salience)
+(define (ok-salience x)
+  (if (< x MIN-SALIENCE) MIN-SALIENCE x))
+
+(: choose-node-permutation-by-salience : Graph (Listof (Listof Node))
+                                         -> (Listof Node))
+(define (choose-node-permutation-by-salience g nodess)
+  (let ([node->salience (g->node->salience g)]
+        [perm->salience (λ ([nodes : (Listof Node)]) : Salience
+                          (ok-salience
+                            (foldl fl* 0.0 (map node->salience nodes))))]
+        [perm (weighted-choice-by perm->salience nodess)])
+    (cond
+      [(void? perm) '()]
+      [else perm])))
+
+; In lieu of a FARGish spec
 (: number : (U Integer Void) -> Attrs)
 (define (number n)
   (hash 'class 'number
@@ -20,7 +43,7 @@
 
 (: find-matching-nodes : Graph (-> Graph Node Any) -> (Listof Node))
 (define (find-matching-nodes g pred)
-  (filter/g g pred (all-nodes g)))
+  (filter/g g pred (current-searchable-nodes g)))
 
 (: find-node-permutations : Graph (-> Graph Node Any) *
                             -> (Listof (Listof Node)))
@@ -30,12 +53,13 @@
             (find-matching-nodes g pred))])
     (apply cartesian-product nodess)))
 
-;STUB: Just chooses the first
 (: choose-node-permutation : Graph (Listof (Listof Node)) -> (Listof Node))
-(define (choose-node-permutation g permutations)
-  (cond
-    [(null? permutations) '()]
-    [else (car permutations)]))
+;STUB: Just chooses the first
+;(define (choose-node-permutation g permutations)
+;  (cond
+;    [(null? permutations) '()]
+;    [else (car permutations)]))
+(define choose-node-permutation choose-node-permutation-by-salience)
 
 (define-syntax (bind-from-list stx)
   (syntax-parse stx
@@ -57,7 +81,7 @@
     [(_ g-expr:expr ([name:id pred:expr] ...)
                aggregate-pred-expr:expr
        body:expr ...+)
-     #'(let ([g g-expr]
+     #'(let ([g : Graph g-expr]
              [node-permutations
                (for/list : (Listof (Listof Node))
                          ([perm (find-node-permutations g pred ...)]
