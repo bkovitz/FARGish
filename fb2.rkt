@@ -110,6 +110,59 @@
     [(_ lhs:expr rhs:expr)
      #'(Nodeclass-Body-Elem 'lhs 'rhs)]))
 
+(struct Codelet (name match-elems make-elems) #:prefab)
+
+(struct NamedNode (name condition) #:prefab)
+
+(struct NodeRef (body) #:prefab)
+
+(struct Expr (body) #:prefab)
+
+(struct ChainExpr (body) #:prefab)
+
+(struct ChainLink (body) #:prefab)
+
+(define-syntax (codelet stx)
+  (syntax-parse stx
+    [(_ name:id ((~literal match-elems) match-elem:expr ...)
+                ((~literal make-elems) make-elem:expr ...))
+     #'(Codelet 'name (list match-elem ...) (list make-elem ...))]))
+
+(define-syntax (named-node stx)
+  (syntax-parse stx
+    [(_ name:id condition:expr)
+     #'(NamedNode 'name condition)]))
+
+(define-syntax (node-ref stx)
+  (syntax-parse stx
+    [(_ body:expr ...)
+     #'(NodeRef (list body ...))]))
+
+(define-syntax (node-class stx)
+  (syntax-parse stx
+    [(_ name:id)
+     #''name]))
+
+(define-syntax (expr stx)
+  (syntax-parse stx
+    [(_ body:expr ...)
+     #'(Expr (list body ...))]))
+
+(define-syntax (chain-expr stx)
+  (syntax-parse stx
+    [(_ body:expr ...)
+     #'(ChainExpr (list body ...))]))
+
+(define-syntax (chain-link stx)
+  (syntax-parse stx
+    [(_ body:expr ...)
+     #'(ChainLink (list body ...))]))
+
+(define-syntax (already-named-node stx)
+  (syntax-parse stx
+    [(_ name:id)
+     #''name]))
+
 ;------ Throwaway test code
 
 (define (lx str)
@@ -149,12 +202,20 @@ nodeclass blah;
 (define s9 "nodeclass a(n : Integer) : b { blah = yah; } nodeclass c;")
 (define s10 "nodeclass a(x) : b, c { value = x; }")
 
+
+(define u0 "codelet gtc
+given {
+  [n1 : number] [n2 : number]
+  { n1.value > n2.value }
+} make {
+  n1.gt.n2
+}")
+
 (define-namespace-anchor ns-anchor)
 (define ns (namespace-anchor->namespace ns-anchor))
 
 (define a (f (p s4)))
 (displayln a)
-(displayln ns)
 (define b (eval a ns))
 b
 (newline)
@@ -167,6 +228,11 @@ b
 (displayln a1)
 ;(define b1 (eval a1))
 ;b1
-
+(newline)
+(define a2 (f (p u0)))
+;a2
+(pretty-print (syntax->datum a2))
+(define b2 (eval a2 ns))
+b2
 
 

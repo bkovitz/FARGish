@@ -29,7 +29,7 @@
   (let ([node->salience (g->node->salience g)]
         [perm->salience (λ ([nodes : (Listof Node)]) : Salience
                           (ok-salience
-                            (foldl fl* 0.0 (map node->salience nodes))))]
+                            (foldl fl* 1.0 (map node->salience nodes))))]
         [perm (weighted-choice-by perm->salience nodess)])
     (cond
       [(void? perm) '()]
@@ -108,6 +108,24 @@
     #R n1
     #R n2
     (displayln "FOUND IT")))
+
+;; ======================================================================
+;;
+;; Making a procedure for a local matcher (codelet)
+;;
+
+; args:  (nodeid node-condition) ...
+;        collective-condition
+;        (new-nodeid make-expr) ...
+(define (mk-codelet ??)
+  (syntax-parse '()
+    [(_ ...)
+     #`(λ ([g : Graph]) : Graph
+         (scout-for g ([nodeid node-condition] ...)
+                      collective-condition
+           (let*-values ([(g new-nodeid) make-expr] ...)
+             g)))]))
+           
 
 (define init-g : Graph
   (let

@@ -36,36 +36,44 @@ lhs : IDENTIFIER
 expr : IDENTIFIER
      | NUMBER
      | STRING
-     | /"(" expr /")"
+     | /"(" @expr /")"
      | expr BINARY-OP expr
      | function-call
-     | chain-expr
+     | @chain-expr
 
 chain-lhs : node-ref /"." IDENTIFIER [/"." chain-expr]
 
 chain-expr : node-ref (/"." chain-link)+
 
 ; existing-node-ref ?
-node-ref : IDENTIFIER | ME | named-node | /"(" node-ref /")"
+@node-ref : already-named-node | ME | named-node | /"(" node-ref /")"
+
+already-named-node : IDENTIFIER
 
 connection-definition
   : chain-lhs /"=" chain-expr /";"
 
 chain-link : node-ref | explicit-edge /"." chain-link
 
-named-node : /"[" IDENTIFIER /":" IDENTIFIER /"]"
+named-node : /"[" IDENTIFIER /":" node-class /"]"
+
+node-class : IDENTIFIER
 
 function-call : expr /"(" [ expr (/"," expr )* ] /")"
 
-codelet : /CODELET IDENTIFIER /GIVEN /"{" match-elem* /"}"
-                              /MAKE /"{" make-elem* /"}"
+codelet : /CODELET IDENTIFIER /GIVEN /"{" match-elems /"}"
+                              /MAKE /"{" make-elems /"}"
 
-match-elem : node-ref         ; need to disallow ME
-           | chain-expr
-           | /"{" expr /"}"   ; will be treated as Boolean expression
+match-elems : match-elem*
 
-make-elem : chain-expr
-          ; Also need to allow { node.value = expr } ?
+@match-elem : node-ref         ; need to disallow ME
+            | chain-expr
+            | /"{" expr /"}"   ; will be treated as Boolean expression
+
+make-elems : make-elem*
+
+@make-elem : chain-expr
+           ; Also need to allow { node.value = expr } ?
 
 explicit-edge : /"(" port-label /"--" port-label /")"
 
