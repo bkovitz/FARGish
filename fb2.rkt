@@ -2,7 +2,7 @@
 ;
 ; This file should probably become the reader and expander for FARGish.
 
-#lang debug racket
+#lang debug at-exp racket
 
 (require (for-syntax racket syntax/parse)
          brag/support br-parser-tools/lex
@@ -111,6 +111,40 @@
      #'(Nodeclass-Body-Elem 'lhs 'rhs)]))
 
 (struct Codelet (name match-elems make-elems) #:prefab)
+
+(struct MatchElemInfo (name node-condition) #:prefab)
+
+(struct MatchElemsInfo (elem-infos collective-condition) #:prefab)
+
+(define (reverse-MatchElemsInfo info)
+  (match-let ([(MatchElemsInfo elem-infos collective-condition) info])
+    (MatchElemsInfo (reverse elem-infos) (reverse collective-condition))))
+
+(define (add-name-and-condition s name condition)
+  (let ([already-defined? (λ (info)
+                            (equal? name (MatchElemInfo-name info)))]
+        [existing-infos (MatchElemsInfo-elem-infos s)])
+    (cond
+      [(ormap already-defined? existing-infos)
+       (raise @~a{Already defined: @name})] ;TODO Better exception
+      [else (struct-copy MatchElemsInfo s
+              [elem-infos (cons (MatchElemInfo name condition)
+                                existing-infos)])])))
+
+(define (add-collective-condition s elem)
+  (let ([existing (MatchElemsInfo-collective-condition s)])
+    (struct-copy MatchElemsInfo s
+      [collective-condition (cons elem existing)])))
+
+(define (match-elems->info elems)
+  (for/fold ([s (MatchElemsInfo '() '())]
+             #:result (reverse-MatchElemsInfo s))
+            ([elem elems])
+    (match elem
+      [(NamedNode name condition)
+       (add-name-and-condition s name condition)]
+      [(Expr body)
+       (add-collective-condition s elem)]))) ;STUB
 
 (struct NamedNode (name condition) #:prefab)
 
@@ -234,5 +268,7 @@ b
 (pretty-print (syntax->datum a2))
 (define b2 (eval a2 ns))
 b2
-
+(define c (car b2))
+(define ms (Codelet-match-elems c))
+(match-elems->info ms)
 

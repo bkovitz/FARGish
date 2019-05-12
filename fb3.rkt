@@ -117,7 +117,7 @@
 ; args:  (nodeid node-condition) ...
 ;        collective-condition
 ;        (new-nodeid make-expr) ...
-(define (mk-codelet ??)
+(define (gen/codelet ??)
   (syntax-parse '()
     [(_ ...)
      #`(λ ([g : Graph]) : Graph
