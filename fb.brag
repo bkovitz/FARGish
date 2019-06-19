@@ -39,7 +39,7 @@ expr : IDENTIFIER
      | /"(" @expr /")"
      | expr BINARY-OP expr
      | function-call
-     | @chain-expr
+     | chain-expr
 
 chain-lhs : node-ref /"." IDENTIFIER [/"." chain-expr]
 

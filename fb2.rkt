@@ -116,10 +116,12 @@
 
 (struct MatchElemsInfo (elem-infos collective-condition) #:prefab)
 
+; (: reverse-MatchElemsInfo : MatchElemsInfo -> MatchElemsInfo)
 (define (reverse-MatchElemsInfo info)
   (match-let ([(MatchElemsInfo elem-infos collective-condition) info])
     (MatchElemsInfo (reverse elem-infos) (reverse collective-condition))))
 
+; (: add-name-and-condition : MatchElemsInfo Symbol ? -> MatchElemsInfo)
 (define (add-name-and-condition s name condition)
   (let ([already-defined? (λ (info)
                             (equal? name (MatchElemInfo-name info)))]
@@ -131,11 +133,13 @@
               [elem-infos (cons (MatchElemInfo name condition)
                                 existing-infos)])])))
 
+; (: add-collective-condition : MatchElemsInfo MatchElemInfo -> MatchElemsInfo)
 (define (add-collective-condition s elem)
   (let ([existing (MatchElemsInfo-collective-condition s)])
     (struct-copy MatchElemsInfo s
       [collective-condition (cons elem existing)])))
 
+;(: match-elems->info : (Listof (U NamedNode Expr)) -> MatchElemsInfo)
 (define (match-elems->info elems)
   (for/fold ([s (MatchElemsInfo '() '())]
              #:result (reverse-MatchElemsInfo s))
@@ -153,6 +157,19 @@
 (struct Expr (body) #:prefab)
 
 (struct ChainExpr (body) #:prefab)
+
+; (: chain-expr->racket/make : ChainExpr -> Syntax)
+; Generates code to construct an instance of the ChainExpr.
+(define (expanded-chain-expr->racket/make ech)
+  (
+  find first node, or make it and bind it
+  recursive:
+    case hop is attr:
+      gen look up attr on current node
+      compilation error if not last hop
+    case hop is edge to node:
+      more cases...
+      
 
 (struct ChainLink (body) #:prefab)
 

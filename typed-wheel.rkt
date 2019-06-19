@@ -146,6 +146,16 @@
 
 ;; ======================================================================
 ;;
+;; Miscellaneous
+;;
+
+; TODO Optimize for small cases.
+(: distinct? : Any * -> Boolean)
+(define (distinct? . xs)
+  (= (length xs) (set-count (list->set xs))))
+
+;; ======================================================================
+;;
 ;; Convenience functions for functions that accept optional Voids
 ;;
 

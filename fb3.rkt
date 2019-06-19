@@ -109,6 +109,22 @@
     #R n2
     (displayln "FOUND IT")))
 
+; Match actual subgraphs against this.
+(define-type SubgraphDefinition (Listof SubgraphChain))
+
+; One chain in a subgraph definition
+(define-type SubgraphChain
+  (Pairof SubgraphChainNode (Listof SubgraphChainEdge)))
+
+(struct SubgraphChainNode ([name : Symbol]
+                           [pred : (-> Graph Node Boolean)])
+                          #:prefab)
+
+(struct SubgraphChainEdge ([from-port-label : Port-label]
+                           [to-port-label : Port-label]
+                           [to-node : SubgraphChainNode])
+                          #:prefab)
+
 ;; ======================================================================
 ;;
 ;; Making a procedure for a local matcher (codelet)
