@@ -75,10 +75,13 @@ nodeclass trace : container {
   in {
     me.guides.[live : trace]
   } want {
+    [t0 : timestep]
     me.member.t0.member.situation.same.([t' : timestep].member.situation)
     live.member.t'
   }
 }
+
+guides(me, [live : trace])
 
     me.member.t0.member.situation.same.situation.member-of
     .timestep.member-of.trace

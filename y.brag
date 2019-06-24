@@ -1,0 +1,24 @@
+; Original sketch of complete FARGish grammar is in fb.brag.
+
+#lang brag
+
+farg-spec : @fargish-elem*
+
+/fargish-elem : subgraph-defn
+
+subgraph-defn : /"{" node-chain+ /"}"
+
+node-chain : node-ref (/"." connection /"." node-ref)*
+
+node-ref : nodeclass
+         | /"[" IDENTIFIER /"]"
+         | /"[" IDENTIFIER /":" nodeclass /"]"
+
+@connection : connection-name
+            | connection-literal
+
+connection-name : IDENTIFIER
+
+connection-literal : /"(" port-label /"--" port-label /")"
+
+connection-defn : node-ref /"." connection-name /"." node-ref /"=" node-chain
