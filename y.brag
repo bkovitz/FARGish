@@ -11,8 +11,12 @@ subgraph-defn : /"{" node-chain+ /"}"
 node-chain : node-ref (/"." connection /"." node-ref)*
 
 node-ref : nodeclass
-         | /"[" IDENTIFIER /"]"
-         | /"[" IDENTIFIER /":" nodeclass /"]"
+         | /"[" node-var /"]"
+         | /"[" node-var /":" nodeclass /"]"
+
+nodeclass : IDENTIFIER
+
+node-var : IDENTIFIER
 
 @connection : connection-name
             | connection-literal
@@ -22,3 +26,5 @@ connection-name : IDENTIFIER
 connection-literal : /"(" port-label /"--" port-label /")"
 
 connection-defn : node-ref /"." connection-name /"." node-ref /"=" node-chain
+
+port-label : IDENTIFIER
