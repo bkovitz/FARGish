@@ -2,6 +2,7 @@
 
 #lang debug at-exp racket
 
+(require (for-syntax syntax/parse))
 (require brag/support br-parser-tools/lex
          (only-in "y.brag" [parse bragparse])
          syntax/parse)
@@ -60,3 +61,37 @@
 
 (define (parse src)
   (bragparse (tokenizer (->input-port src))))
+
+;;;;;;;;;;;;;;
+
+(define (compile-subgraph-defn stx)
+  (syntax-parse stx
+    [({~literal subgraph-defn}
+       ({~literal node-chain}
+          ({~literal node-ref}
+            ({~literal nodeclass} class:id))) ...+)
+     #'(λ (g)
+         (cartesian-product (filter (node-is-a?/ g 'class) (all-nodes g))
+                            ...))]))
+
+
+     ;#'(λ (g) (filter (node-is-a?/ g 'class) (all-nodes g)))]))
+
+
+;(let ([blah1s (filter (node-is-a?/ g 'blah1) (all-nodes g))]
+;      [blah2s (filter (node-is-a?/ g 'blah2) (all-nodes g))])
+;  (cartesian-product blah1s blah2s))
+; Returns a single list of two-element lists
+
+
+(define (compile-farg-spec stx)
+  (syntax-parse stx
+    [({~literal farg-spec} body:expr)
+     (compile-subgraph-defn #'body)]))
+
+(compile-farg-spec
+  (parse "{ blah }"))
+
+(compile-farg-spec
+  #R (parse "{ blah1 blah2 }"))
+
