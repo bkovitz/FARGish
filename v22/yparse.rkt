@@ -89,9 +89,28 @@
     [({~literal farg-spec} body:expr)
      (compile-subgraph-defn #'body)]))
 
+(define-syntax-class arg+type
+  #:description "argument with type, like [n : Integer]"
+  #:datum-literals [:]
+  (pattern [name:id : type:expr]))
+
+
 (compile-farg-spec
   (parse "{ blah }"))
 
 (compile-farg-spec
-  #R (parse "{ blah1 blah2 }"))
+  (parse "{ blah1 blah2 }"))
 
+(parse "{ blah1.(members -- member-of).blah2 }")
+
+(parse "{ [b : blah1].forward.blah2 b.forward.blah3 }")
+
+(filter (λ (nodes)
+          (let ([nodes (list->vector nodes)])
+            (and (forward? (vector-ref nodes 0)
+                           (vector-ref nodes 1))
+                 (forward? (vector-ref nodes 0)
+                           (vector-ref nodes 2)))))
+  (cartesian-product (filter g (node-is-a?/ g 'blah1) (all-nodes g))
+                     (filter g (node-is-a?/ g 'blah2) (all-nodes g))
+                     (filter g (node-is-a?/ g 'blah3) (all-nodes g))))

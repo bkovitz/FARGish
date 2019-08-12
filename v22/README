@@ -1,0 +1,47 @@
+This directory contains v22 of FARGish, written in Racket.
+
+The clojure/ directory contains v21.4, the last Clojure version.
+
+
+To run a very simple demo of the force-directed graph:
+
+1. In one terminal window, run:
+
+   $ racket web.rkt
+
+2. In a web browser, open:
+
+   http://localhost:8080/force-demo.html
+
+To stop the web browser, hit Ctrl-C in the terminal window.
+
+1-Apr-2019: The above will probably become obsolete soon.
+
+
+; NEXT
+; Code it all "one-off".
+;   One-off graph data structure (no generic interface). SORT OF DONE
+;   Make a, b, c, nexts, bindings. DONE
+;   Check for desiderata.
+;   Start tag-scouts for bindings that lack desiderata.
+;   Tag-scout code.
+;   Assign strength of basis depending on tag(s).
+;   Boost support.
+;   Decay self-support.
+;   Normalize support.
+;   Prune nodes with low support.
+        
+    
+;; A spec
+
+(define model1
+  (spec
+    (nodeclass 'letter
+      (name required))
+    (edgeclass 'bind)
+    (edgeclass 'support)
+    (nodeclass internal-bdx-builder
+      (desideratum (every 'bind) (tag-on-port? 'basis))))
+    (tagclass 'bind `((from bound-to) (self bind-from))
+                    `((...)))
+

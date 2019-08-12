@@ -19,7 +19,7 @@ nodeclass : IDENTIFIER
 node-var : IDENTIFIER
 
 @connection : connection-name
-            | connection-literal
+            | @connection-literal
 
 connection-name : IDENTIFIER
 
