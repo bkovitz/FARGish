@@ -35,22 +35,21 @@ def sa(d_t0, neighbors, edge_weight, T, decay=1.0, num_steps=10):
     return d_t1
 
 def activations(g):
-    d_t0 = {}
-    for node in g.nodes:
-        d_t0[node] = g.nodes[node].get('a', 0.0)
-    return d_t0
+    return {node: g.nodes[node].get('a', 0.0) for node in g.nodes}
 
 def set_activations(g, d):
     for node, activation in d.items():
         g.nodes[node]['a'] = activation
 
+def T(x):
+    return 2.0 / (1 + exp(-2.2 * x)) - 1.0
+
+def edge_weight(from_node, to_node):
+    return 1.0
+
 def simple_sa(g, decay=1.0, num_steps=10):
     def neighbors(node):
         return g.neighbors(node)
-    def edge_weight(from_node, to_node):
-        return 1.0
-    def T(x):
-        return 2.0 / (1 + exp(-2.2 * x)) - 1.0
     return sa(activations(g), neighbors, edge_weight, T,
               decay=decay, num_steps=num_steps
            )
@@ -63,5 +62,9 @@ if __name__ == '__main__':
     g.add_edge('O', 'sa', 'A', 'sa')
 
     g.nodes['A']['a'] = 1.0
-    set_activations(g, simple_sa(g))
+
+    def go():
+        set_activations(g, simple_sa(g))
+    go()
+    print(timeit.timeit(go, number=1000))
     print(activations(g))

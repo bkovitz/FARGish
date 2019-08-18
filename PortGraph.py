@@ -2,7 +2,7 @@
 
 import networkx as nx
 
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, UserDict
 
 empty_set = frozenset()
 
@@ -10,17 +10,23 @@ PortNeighborInfo = namedtuple('PortNeighborInfo',
     ['neighbor', 'neighbor_port_label', 'edge_key']
 )
 
+class NodeAttrDict(UserDict):
+    '''Custom dict that maps nodes in a Graph to their attributes. Every
+    node automatically gets an attribute named '_ports' whose value is a
+    defaultdict(set).'''
+
+    def __setitem__(self, node, node_attrs):
+        '''node_attrs must be a dictionary object.'''
+        super().__setitem__(node, node_attrs)
+        if '_ports' not in node_attrs:
+            self.data[node]['_ports'] = defaultdict(set)
+
+
 class PortGraph(nx.MultiGraph):
 
-    def add_node(self, node_for_adding, **attr):
-        attr['_ports'] = defaultdict(set) # {port_label: set(PortNeighborInfo)}
-        super(PortGraph, self).add_node(node_for_adding, **attr)
+    node_dict_factory = NodeAttrDict
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
-        if node1 not in self:
-            self.add_node(node1)
-        if node2 not in self:
-            self.add_node(node2)
         key = super(PortGraph, self).add_edge(node1, node2, **attr)
         self.nodes[node1]['_ports'][port_label1].add(
             PortNeighborInfo(node2, port_label2, key)
@@ -40,7 +46,7 @@ class PortGraph(nx.MultiGraph):
     def edge_keys(self, node, port_label):
         'Returns iterator over edge keys from node.port_label'
         return (i.edge_key for i in
-            self.nodes[node]['_ports'].get(port_label, []))
+            self.nodes[node]['_ports'].get(port_label, empty_set))
 
     def remove_edge(self, node1, port_label1, node2, port_label2):
         if node1 in self and node2 in self:
