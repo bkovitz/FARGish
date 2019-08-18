@@ -5,38 +5,64 @@ from PortGraph import PortGraph
 import networkx as nx
 
 from collections import defaultdict
+import numbers
 
 '''
-is_node_match
+TODO
 is_edge_match
 '''
 
 
 class Node:
-    class_to_nextid = {}  # cls: id to assign next instance of cls
 
     @classmethod
-    def assign_id(cls):
-        n = Node.class_to_nextid.get(cls, 1)
-        Node.class_to_nextid[cls] = n + 1
-        return cls.__name__ + str(n)
+    def is_attrs_match(cls, node_attrs, host_node_attrs):
+        return True
 
-    def __init__(self):
-        self.id = self.assign_id()
-
-    def __repr__(self):
-        return self.id
 
 class Number(Node):
 
-    def __init__(self, n=None):
-        super().__init__()
-        self.n = n
+    @classmethod
+    def is_attrs_match(cls, node_attrs, host_node_attrs):
+        try:
+            return (
+                node_attrs['value'] == host_node_attrs['value']
+            )
+        except KeyError:
+            return False
 
-tg = PortGraph()
-tg.add_node(Number(2))
-tg.add_node(Number(2))
 
-g = PortGraph()
-g.add_nodes_from([(0, {'salience': 0.1})])
+def is_node_match(tg, target_node, hg, host_node):
+    try:
+        target_attrs = tg.nodes[target_node]
+        host_attrs = hg.nodes[host_node]
+        target_class = target_attrs['_class']
+        host_class = host_attrs['_class']
+        return (
+            issubclass(host_class, target_class)
+            and
+            target_class.is_attrs_match(target_attrs, host_attrs)
+        )
+    except KeyError:
+        return False
 
+def make_graph(*nodes):
+    g = PortGraph()
+    for i, node in enumerate(nodes):
+        if isinstance(node, numbers.Number):
+            d = {'_class': Number}
+        else:
+            d = {'_class': Node}
+        d['value'] = node
+        g.add_node(i, **d)
+    return g
+
+tg = make_graph(2, 2)  # "target" graph
+hg = make_graph(2, 2, '+')  # "host" graph
+
+
+
+print(tg.nodes(data=True))
+print(hg.nodes(data=True))
+print(is_node_match(tg, 0, hg, 0))  # True
+print(is_node_match(tg, 0, hg, 2))  # False

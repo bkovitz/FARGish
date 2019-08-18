@@ -18,8 +18,7 @@ class NodeAttrDict(UserDict):
     def __setitem__(self, node, node_attrs):
         '''node_attrs must be a dictionary object.'''
         super().__setitem__(node, node_attrs)
-        if '_ports' not in node_attrs:
-            self.data[node]['_ports'] = defaultdict(set)
+        self.data[node]['_ports'] = defaultdict(set)
 
 
 class PortGraph(nx.MultiGraph):
