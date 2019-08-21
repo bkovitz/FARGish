@@ -40,9 +40,12 @@ def subgraph_match_by_nodes_only(tg, hg):
 def matching_subgraphs(tg, hg):
     def edge_matches(d, edge):
         tg_node1, tg_node2, tg_edge_key = edge
-        tg_port_label1, tg_port_label2 = tg.edge_port_labels(tg_node1, tg_node2)
-        return hg.has_edge(
-                   d[tg_node1], d[tg_node2], tg_port_label1, tg_port_label2
+        tg_hop = tg.edge_to_hop(edge)
+        return hg.has_hop(
+                   d[tg_node1],
+                   tg_hop.from_port_label,
+                   d[tg_node2],
+                   tg_hop.to_port_label
                )
     return (nodes_d for nodes_d in 
                 dict_product_no_multiple_mappings_to_same_value(

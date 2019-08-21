@@ -109,6 +109,15 @@ class PortGraph(nx.MultiGraph):
         except StopIteration:
             return None
 
+    def edge_to_hop(self, edge):
+        'edge is a tuple (from_node, to_node, key). Returns a Hop or None.'
+        from_node, to_node, key = edge
+        try:
+            return next(hop for hop in self.hops_to_neighbor(from_node, to_node)
+                            if hop.key == key)
+        except StopIteration:
+            return None
+
     def has_hop(self, from_node, from_port_label, to_node, to_port_label):
         return bool(
             self.find_hop(from_node, from_port_label, to_node, to_port_label)
