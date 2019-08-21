@@ -6,10 +6,6 @@ from collections import defaultdict, namedtuple, UserDict
 
 empty_set = frozenset()
 
-#PortNeighborInfo = namedtuple('PortNeighborInfo',
-#    ['neighbor', 'neighbor_port_label', 'edge_key']
-#)
-
 HopBase = namedtuple('Hop',
     ['from_node', 'from_port_label', 'to_node', 'to_port_label', 'key']
 )
@@ -124,6 +120,49 @@ class PortGraph(nx.MultiGraph):
         else:
             return (hop.to_node
                         for hop in self.hops_from_port(node, port_label))
+
+
+class Node:
+
+    @classmethod
+    def is_attrs_match(cls, node_attrs, host_node_attrs):
+        return True
+
+class Number(Node):
+
+    @classmethod
+    def is_attrs_match(cls, node_attrs, host_node_attrs):
+        try:
+            return (
+                node_attrs['value'] == host_node_attrs['value']
+            )
+        except KeyError:
+            return False
+
+
+def is_node_match(tg, target_node, hg, host_node):
+    try:
+        target_attrs = tg.nodes[target_node]
+        host_attrs = hg.nodes[host_node]
+        target_class = target_attrs['_class']
+        host_class = host_attrs['_class']
+        return (
+            issubclass(host_class, target_class)
+            and
+            target_class.is_attrs_match(target_attrs, host_attrs)
+        )
+    except KeyError:
+        return False
+
+def is_port_label_match(target_port_label, host_port_label):
+    if (
+        isinstance(target_port_label, str)
+        or
+        isinstance(target_port_label, numbers.Number)
+    ):
+        return target_port_label == host_port_label
+    else:
+        return issubclass(host_port_label, target_port_label)
 
 
 if __name__ == '__main__':
