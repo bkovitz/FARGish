@@ -6,9 +6,9 @@ from PortGraph import PortGraph, Node, Number, is_node_match, \
 from collections import defaultdict
 from itertools import product
 
-def cart_ds(d):
+def dict_product(d):
     """
-    >>> list(cart_ds(dict(number=[1,2], character='ab')))
+    >>> list(dict_product(dict(number=[1,2], character='ab')))
     [{'character': 'a', 'number': 1},
      {'character': 'a', 'number': 2},
      {'character': 'b', 'number': 1},
@@ -16,11 +16,12 @@ def cart_ds(d):
     """
     return (dict(zip(d.keys(), vs)) for vs in product(*d.values()))
 
-#TODO Better name for this
-# It filters out duplicate mappings to the same value
-def c(d):
+def dict_product_no_multiple_mappings_to_same_value(d):
+    '''Like dict_product but filters out dictionaries where a single value
+    has more than one key that maps to it. For efficiency, assumes that d
+    already has this property.'''
     num_keys = len(d)
-    return (e for e in cart_ds(d)
+    return (e for e in dict_product(d)
                   if len(set(e.values())) == num_keys)
 
 def subgraph_match_by_nodes_only(tg, hg):
@@ -37,13 +38,13 @@ def subgraph_match_by_nodes_only(tg, hg):
     return nodes_d
 
 def matching_subgraphs(tg, hg):
-    nodes_d = subgraph_match_by_nodes_only(tg, hg)
-
     def edge_matches(d, edge):
         tg_node1, tg_node2, tg_edge_key = edge
         tg_port_label1, tg_port_label2 = tg.edge_port_labels(tg_node1, tg_node2)
         return hg.has_edge(
                    d[tg_node1], d[tg_node2], tg_port_label1, tg_port_label2
                )
-    return (d for d in c(nodes_d)
-                  if all(edge_matches(d, e) for e in tg.edges))
+    return (nodes_d for nodes_d in 
+                dict_product_no_multiple_mappings_to_same_value(
+                    subgraph_match_by_nodes_only(tg, hg)
+                ) if all(edge_matches(nodes_d, e) for e in tg.edges))
