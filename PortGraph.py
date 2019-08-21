@@ -25,6 +25,16 @@ class HopDict:
         self.d_from_port_label = {}  # from_port_label: set(Hop)
         self.d_to_node = {}          # to_node: set(Hop)
 
+    def all_hops(self):
+        '''Returns a set of hops.'''
+        result = set()
+        for hset in self.d_from_port_label.values():
+            result = result.union(hset)
+        return result
+
+    def from_port_labels(self):
+        return self.d_from_port_label.keys()
+
     def add(self, hop):
         try:
             self.d_from_port_label[hop.from_port_label].add(hop)
@@ -76,6 +86,40 @@ class PortGraph(nx.MultiGraph):
 
     node_dict_factory = NodeAttrDict
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nextid = 1
+
+    def _bump_nextid(self):
+        result = self.nextid
+        self.nextid += 1
+        return result
+
+    def make_node(self, attrs):
+        i = self._bump_nextid()
+        self.add_node(i, **attrs)
+        return i
+
+    def dup_node(self, h, node):
+        'h is another PortGraph, which must contain node.'
+        attrs = h.nodes[node]
+        new_attrs = dict((k, attrs[k]) for k in ['_class', 'value']
+                                           if k in attrs)
+        return self.make_node(new_attrs)
+
+    def nodestr(self, node):
+        attrs = self.nodes[node]
+        cl = attrs.get('_class', None)
+        value = attrs.get('value', None)
+        if cl is not None:
+            class_name = cl.__name__
+            if value is not None:
+                return '%s: %s(%s)' % (node, class_name, value)
+            else:
+                return '%s: %s' % (node, class_name)
+        else:
+            return str(node)
+
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         key = super(PortGraph, self).add_edge(node1, node2, **attr)
         hop1 = Hop(node1, port_label1, node2, port_label2, key)
@@ -91,6 +135,9 @@ class PortGraph(nx.MultiGraph):
             self.nodes[node2]['_hops'].remove(hop.reverse())
             super().remove_edge(node1, node2, hop.key)
 
+    def hops_from_node(self, node):
+        return self.nodes[node]['_hops'].all_hops()
+
     def hops_from_port(self, node, port_label):
         return self.nodes[node]['_hops'].hops_from_port_label(port_label)
 
@@ -98,6 +145,9 @@ class PortGraph(nx.MultiGraph):
         return (
             self.nodes[node]['_hops'].hops_to_neighbor(neighbor_node)
         )
+
+    def port_labels(self, node):
+        return self.nodes[node]['_hops'].from_port_labels()
 
     def find_hop(self, from_node, from_port_label, to_node, to_port_label):
         '''Returns the Hop if it exists, else None.'''
@@ -130,12 +180,29 @@ class PortGraph(nx.MultiGraph):
             return (hop.to_node
                         for hop in self.hops_from_port(node, port_label))
 
+    def add_member_edge(self, group_node, member_node):
+        self.add_edge(group_node, 'members', member_node, 'member_of')
+
+    def members_of(self, group_node):
+        return list(self.neighbors(group_node, 'members'))
+
+    def members_to_subgraph(self, group_node):
+        return self.subgraph(self.members_of(group_node))
+
 
 class Node:
 
     @classmethod
     def is_attrs_match(cls, node_attrs, host_node_attrs):
         return True
+
+    @classmethod
+    def d(cls, value=None):
+        if value is None:
+            return {'_class': cls}
+        else:
+            return {'_class': cls, 'value': value}
+
 
 class Number(Node):
 
