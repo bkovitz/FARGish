@@ -41,6 +41,17 @@ class HopDict:
         except KeyError:
             pass
 
+    def remove_by_port_info(
+        self, from_port_label, to_node, to_port_label
+    ):
+        '''It is not an error to remove a hop that doesn't exist.'''
+        for hop in frozenset(self.hops_to_neighbor(to_node)):
+            if (hop.from_port_label == from_port_label
+                and
+                hop.to_port_label == to_port_label
+            ):
+                self.remove(hop)
+
     def hops_from_port_label(self, from_port_label):
         '''Returns a set of Hops.'''
         try:
@@ -107,10 +118,18 @@ class PortGraph(nx.MultiGraph):
                             if pni.neighbor == node1 and
                                pni.neighbor_port_label == port_label1]
             for pni in pnis1:
-                super().remove_edge(node1, node2, pni.edge_key)
+                #super().remove_edge(node1, node2, pni.edge_key)
                 self._remove_pni(node1, port_label1, pni)
             for pni in pnis2:
                 self._remove_pni(node2, port_label2, pni)
+
+            self.nodes[node1]['_hops'].remove_by_port_info(
+                port_label1, node2, port_label2
+            )
+            self.nodes[node2]['_hops'].remove_by_port_info(
+                port_label2, node1, port_label1
+            )
+            super().remove_edge(node1, node2, pni.edge_key)
 
     def hops_from_port(self, node, port_label):
         return self.nodes[node]['_hops'].hops_from_port_label(port_label)
@@ -120,17 +139,29 @@ class PortGraph(nx.MultiGraph):
             self.nodes[node]['_hops'].hops_to_neighbor(neighbor_node)
         )
 
+    def find_hop(self, from_node, from_port_label, to_node, to_port_label):
+        '''Returns the Hop if it exists, else None.'''
+        try:
+            return next(hop for hop in self.hops_to_neighbor(from_node, to_node)
+                                if hop.from_port_label == from_port_label
+                                    and
+                                    hop.to_port_label == to_port_label)
+        except StopIteration:
+            return None
+
     def has_hop(self, from_node, from_port_label, to_node, to_port_label):
-        return any(hop.from_port_label == from_port_label
-                   and
-                   hop.to_port_label == to_port_label
-                       for hop in self.hops_to_neighbor(from_node, to_node))
+        return bool(
+            self.find_hop(from_node, from_port_label, to_node, to_port_label)
+        )
 
     def neighbors(self, node, port_label=None):
         if port_label is None:
             return super().neighbors(node)
         else:
-            return (i.neighbor for i in self.pnis(node, port_label))
+            return (hop.to_node
+                        for hop in self.hops_from_port(node, port_label))
+            #return (i.neighbor for i in self.pnis(node, port_label))
+
 
 
 if __name__ == '__main__':
@@ -142,10 +173,10 @@ if __name__ == '__main__':
     print(list(g.neighbors('A', 'in')))
     print(list(g.neighbors('B', 'out')))
     print(g.hops_to_neighbor('A', 'B'))
-    g.remove_edge('A', 'in', 'B', 'out')
-    print(list(g.neighbors('A')))
-    print(list(g.neighbors('A', 'in')))
-    print(list(g.neighbors('B', 'out')))
+#    g.remove_edge('A', 'in', 'B', 'out')
+#    print(list(g.neighbors('A')))
+#    print(list(g.neighbors('A', 'in')))
+#    print(list(g.neighbors('B', 'out')))
 
     #print(g.adj)
     #print(list(g.adjacency()))

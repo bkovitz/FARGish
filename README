@@ -1,3 +1,4 @@
 v23 of FARGish: Restarting from scratch, this time in Python
 
-v22/ contains the last attempt in Racket, abandoned.
+v22/ contains the last attempt in Racket, abandoned. Also includes old
+Clojure code from still earlier versions.
