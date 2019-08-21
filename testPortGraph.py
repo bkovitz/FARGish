@@ -22,7 +22,8 @@ class TestPortGraph(unittest.TestCase):
                          set([Hop('A', 'in', 'B', 'out', 0)]))
         self.assertEqual(set(g.hops_from_port('B', 'out')),
                          set([Hop('B', 'out', 'A', 'in', 0)]))
-
+        self.assertEqual(g.find_hop('A', 'in', 'B', 'out'),
+                         Hop('A', 'in', 'B', 'out', 0))
         g.remove_edge('A', 'in', 'B', 'out')
 
         self.assertEqual(set(g.neighbors('A')),             set(['O']))
@@ -32,5 +33,6 @@ class TestPortGraph(unittest.TestCase):
         self.assertEqual(set(g.hops_to_neighbor('B', 'A')), empty_set)
         self.assertEqual(set(g.hops_from_port('A', 'in')),  empty_set)
         self.assertEqual(set(g.hops_from_port('B', 'out')), empty_set)
+        self.assertEqual(g.find_hop('A', 'in', 'B', 'out'), None)
 
         

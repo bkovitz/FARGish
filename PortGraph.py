@@ -6,13 +6,22 @@ from collections import defaultdict, namedtuple, UserDict
 
 empty_set = frozenset()
 
-PortNeighborInfo = namedtuple('PortNeighborInfo',
-    ['neighbor', 'neighbor_port_label', 'edge_key']
-)
+#PortNeighborInfo = namedtuple('PortNeighborInfo',
+#    ['neighbor', 'neighbor_port_label', 'edge_key']
+#)
 
-Hop = namedtuple('Hop',
+HopBase = namedtuple('Hop',
     ['from_node', 'from_port_label', 'to_node', 'to_port_label', 'key']
 )
+class Hop(HopBase):
+    def reverse(self):
+        return Hop(
+            self.to_node,
+            self.to_port_label,
+            self.from_node,
+            self.from_port_label,
+            self.key
+        )
 
 class HopDict:
 
@@ -41,17 +50,6 @@ class HopDict:
         except KeyError:
             pass
 
-    def remove_by_port_info(
-        self, from_port_label, to_node, to_port_label
-    ):
-        '''It is not an error to remove a hop that doesn't exist.'''
-        for hop in frozenset(self.hops_to_neighbor(to_node)):
-            if (hop.from_port_label == from_port_label
-                and
-                hop.to_port_label == to_port_label
-            ):
-                self.remove(hop)
-
     def hops_from_port_label(self, from_port_label):
         '''Returns a set of Hops.'''
         try:
@@ -69,14 +67,13 @@ class HopDict:
 
 class NodeAttrDict(UserDict):
     '''Custom dict that maps nodes in a Graph to their attributes. Every
-    node automatically gets an attribute named '_ports' whose value is a
+    node automatically gets an attribute named '_hops' whose value is a
     defaultdict(set).'''
 
     def __setitem__(self, node, node_attrs):
         '''node_attrs must be a dictionary object.'''
         super().__setitem__(node, node_attrs)
         self.data[node]['_hops'] = HopDict()
-        self.data[node]['_ports'] = defaultdict(set)
 
 
 class PortGraph(nx.MultiGraph):
@@ -85,51 +82,18 @@ class PortGraph(nx.MultiGraph):
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         key = super(PortGraph, self).add_edge(node1, node2, **attr)
-        self.nodes[node1]['_ports'][port_label1].add(
-            PortNeighborInfo(node2, port_label2, key)
-        )
-        self.nodes[node2]['_ports'][port_label2].add(
-            PortNeighborInfo(node1, port_label1, key)
-        )
         hop1 = Hop(node1, port_label1, node2, port_label2, key)
         hop2 = Hop(node2, port_label2, node1, port_label1, key)
         self.nodes[node1]['_hops'].add(hop1)
         self.nodes[node2]['_hops'].add(hop2)
         return key
 
-    def pnis(self, node, port_label):
-        'Returns set of PortNeighborInfos for node.port_label'
-        return self.nodes[node]['_ports'].get(port_label, empty_set)
-
-    def _remove_pni(self, node, port_label, pni):
-        self.nodes[node]['_ports'][port_label].discard(pni)
-
-    def edge_keys(self, node, port_label):
-        'Returns iterator over edge keys from node.port_label'
-        return (i.edge_key for i in
-            self.nodes[node]['_ports'].get(port_label, empty_set))
-
     def remove_edge(self, node1, port_label1, node2, port_label2):
-        if node1 in self and node2 in self:
-            pnis1 = [pni for pni in self.pnis(node1, port_label1)
-                            if pni.neighbor == node2 and
-                               pni.neighbor_port_label == port_label2]
-            pnis2 = [pni for pni in self.pnis(node2, port_label2)
-                            if pni.neighbor == node1 and
-                               pni.neighbor_port_label == port_label1]
-            for pni in pnis1:
-                #super().remove_edge(node1, node2, pni.edge_key)
-                self._remove_pni(node1, port_label1, pni)
-            for pni in pnis2:
-                self._remove_pni(node2, port_label2, pni)
-
-            self.nodes[node1]['_hops'].remove_by_port_info(
-                port_label1, node2, port_label2
-            )
-            self.nodes[node2]['_hops'].remove_by_port_info(
-                port_label2, node1, port_label1
-            )
-            super().remove_edge(node1, node2, pni.edge_key)
+        hop = self.find_hop(node1, port_label1, node2, port_label2)
+        if hop:
+            self.nodes[node1]['_hops'].remove(hop)
+            self.nodes[node2]['_hops'].remove(hop.reverse())
+            super().remove_edge(node1, node2, hop.key)
 
     def hops_from_port(self, node, port_label):
         return self.nodes[node]['_hops'].hops_from_port_label(port_label)
@@ -160,8 +124,6 @@ class PortGraph(nx.MultiGraph):
         else:
             return (hop.to_node
                         for hop in self.hops_from_port(node, port_label))
-            #return (i.neighbor for i in self.pnis(node, port_label))
-
 
 
 if __name__ == '__main__':
