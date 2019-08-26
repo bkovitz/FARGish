@@ -1,37 +1,9 @@
-from PortGraph import PortGraph, Node, Number
+from PortGraph import PortGraph, pn, Node, Number
 from submatch import matching_subgraphs
+from numbonodes import *
 
 from collections.abc import Iterable
 from random import choice
-
-
-class Workspace(Node):
-    pass
-
-class Brick(Number):
-    pass
-class Target(Number):
-    pass
-
-class Operator(Node):
-    @classmethod
-    def d(cls, value):
-        return {'_class': cls.operator_classes[value]}
-
-class Plus (Operator):
-    pass
-class Minus (Operator):
-    pass
-class Times (Operator):
-    pass
-class Div (Operator):
-    pass
-        
-Operator.operator_classes = {'+': Plus, '-': Minus, '*': Times, '/': Div}
-
-
-class Equation(Node):
-    pass
 
 
 def make_numble(bricks, target):
@@ -64,16 +36,6 @@ def make_equation(g, operands, operator, result):
         result['operand_ids'].add(operand_id)
     return result
 
-def is_operand(g, node):
-    return any(hop.to_port_label == 'operands'
-                   for hop in g.hops_from_port(node, 'result'))
-
-def operands_of(g, n):
-    if isinstance(n, Iterable):
-        return [node for node in n if is_operand(g, node)]
-    else:
-        return operands_of(g, g.members_of(n))
-
 def complete_equation(g, eqn, d, container):
     '''d is a subgraph binding, returned from matching_subgraphs.
     container is where to build the missing nodes.'''
@@ -95,11 +57,6 @@ def find_equation_match(g, eqn_node, hg):
         return choice(list(ms))
     except IndexError:
         return None
-
-def pn(g):
-    '''HACK: print the nodes in the graph'''
-    for node in g.nodes:
-        print(g.nodestr(node))
 
 if __name__ == '__main__':
     g = make_numble([1, 1], 2)

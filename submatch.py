@@ -38,6 +38,7 @@ def subgraph_match_by_nodes_only(tg, hg):
     return nodes_d
 
 def matching_subgraphs(tg, hg):
+    'Returns seq of bindings' #TODO Explain more
     def edge_matches(d, edge):
         tg_node1, tg_node2, tg_edge_key = edge
         tg_hop = tg.edge_to_hop(edge)

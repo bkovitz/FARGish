@@ -3,6 +3,9 @@
 import networkx as nx
 
 from collections import defaultdict, namedtuple, UserDict
+from inspect import isclass
+from operator import attrgetter
+
 
 empty_set = frozenset()
 
@@ -63,6 +66,11 @@ class HopDict:
         except KeyError:
             return empty_set
 
+    def hops_to_port_label(self, to_port_label):
+        '''Returns a seq of hops.'''
+        return (hop for hop in self.all_hops()
+                       if hop.to_port_label == to_port_label)
+
     def hops_to_neighbor(self, neighbor_node):
         '''Returns a set of Hops.'''
         try:
@@ -95,9 +103,11 @@ class PortGraph(nx.MultiGraph):
         self.nextid += 1
         return result
 
-    def make_node(self, attrs):
+    def make_node(self, o):
         i = self._bump_nextid()
-        self.add_node(i, **attrs)
+        if isclass(o):
+            o = o()
+        self.add_node(i, **{'datum': o})
         return i
 
     def dup_node(self, h, node):
@@ -107,18 +117,21 @@ class PortGraph(nx.MultiGraph):
                                            if k in attrs)
         return self.make_node(new_attrs)
 
+#    def nodestr(self, node):
+#        attrs = self.nodes[node]
+#        cl = attrs.get('_class', None)
+#        value = attrs.get('value', None)
+#        if cl is not None:
+#            class_name = cl.__name__
+#            if value is not None:
+#                return '%s: %s(%s)' % (node, class_name, value)
+#            else:
+#                return '%s: %s' % (node, class_name)
+#        else:
+#            return str(node)
+
     def nodestr(self, node):
-        attrs = self.nodes[node]
-        cl = attrs.get('_class', None)
-        value = attrs.get('value', None)
-        if cl is not None:
-            class_name = cl.__name__
-            if value is not None:
-                return '%s: %s(%s)' % (node, class_name, value)
-            else:
-                return '%s: %s' % (node, class_name)
-        else:
-            return str(node)
+        return str(node) + ': ' + str(self.nodes[node]['datum'])
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         key = super(PortGraph, self).add_edge(node1, node2, **attr)
@@ -189,13 +202,42 @@ class PortGraph(nx.MultiGraph):
     def members_to_subgraph(self, group_node):
         return self.subgraph(self.members_of(group_node))
 
+    def is_member(self, group_node, node):
+        return self.has_hop(group_node, 'members', node, 'member_of')
+
+    def hopdict(self, node):
+        return self.nodes[node]['_hops']
+
+    def find_member_in_role(self, group_node, role):
+        #TODO UT
+        '''role is a port label that a neighbor of the sought node must have.
+        Returns either a node playing that role in relation to another member
+        of group_node, or None. If more than one node fits the criterion, the
+        choice is arbitrary.'''
+        for member in self.members_of(group_node):
+            for hop in self.hopdict(member).hops_to_port_label(role):
+                if self.is_member(group_node, hop.to_node):
+                    return member
+        return None
+
+def nice_object_repr(self):
+    items = self.__dict__.items()
+    if len(items) == 1:
+        return '%s(%s)' % (self.__class__.__name__, next(iter(items))[1])
+    elif len(items) == 0:
+        return self.__class__.__name__
+    else:
+        return '%s(%s)' % (self.__class__.__name__,
+                           ''.join('%s=%s' % (k, repr(v))
+                                       for k, v in items))
 
 class Node:
 
-    @classmethod
-    def is_attrs_match(cls, node_attrs, host_node_attrs):
-        return True
+#    @classmethod
+#    def is_attrs_match(cls, node_attrs, host_node_attrs):
+#        return True
 
+    #TODO rm this?
     @classmethod
     def d(cls, value=None):
         if value is None:
@@ -203,32 +245,69 @@ class Node:
         else:
             return {'_class': cls, 'value': value}
 
+    def is_attrs_match(self, other):
+        return True
+
+    __repr__ = nice_object_repr
+
+
+class Tag(Node):
+    pass
+
+class CouldMake(Tag):
+
+    def __init__(self, bindings):
+        self.bindings = bindings
+
 
 class Number(Node):
 
-    @classmethod
-    def is_attrs_match(cls, node_attrs, host_node_attrs):
+    def __init__(self, n):
+        self.value = n
+
+    def is_attrs_match(self, other):
         try:
-            return (
-                node_attrs['value'] == host_node_attrs['value']
-            )
-        except KeyError:
+            return self.value == other.value
+        except AttributeError:
             return False
 
+#    @classmethod
+#    def is_attrs_match(cls, node_attrs, host_node_attrs):
+#        try:
+#            return (
+#                node_attrs['value'] == host_node_attrs['value']
+#            )
+#        except KeyError:
+#            return False
 
-def is_node_match(tg, target_node, hg, host_node):
+
+#def is_node_match(tg, target_node, hg, host_node):
+#    try:
+#        target_attrs = tg.nodes[target_node]
+#        host_attrs = hg.nodes[host_node]
+#        #target_class = target_attrs['_class']
+#        #host_class = host_attrs['_class']
+#        target_class = target_attrs['datum'].__class__
+#        host_class = host_attrs['datum'].__class__
+#        return (
+#            issubclass(host_class, target_class)
+#            and
+#            target_class.is_attrs_match(target_attrs, host_attrs)
+#        )
+#    except KeyError:
+#        return False
+
+def is_node_match(bg, base_node, hg, host_node):
     try:
-        target_attrs = tg.nodes[target_node]
-        host_attrs = hg.nodes[host_node]
-        target_class = target_attrs['_class']
-        host_class = host_attrs['_class']
-        return (
-            issubclass(host_class, target_class)
-            and
-            target_class.is_attrs_match(target_attrs, host_attrs)
-        )
+        base_datum = bg.nodes[base_node]['datum']
+        host_datum = hg.nodes[host_node]['datum']
     except KeyError:
         return False
+    return (
+        issubclass(host_datum.__class__, base_datum.__class__)
+        and
+        base_datum.is_attrs_match(host_datum)
+    )
 
 def is_port_label_match(target_port_label, host_port_label):
     if (
@@ -240,6 +319,21 @@ def is_port_label_match(target_port_label, host_port_label):
     else:
         return issubclass(host_port_label, target_port_label)
 
+def pn(g):
+    '''HACK: print the nodes in the graph'''
+    for node in g.nodes:
+        print(g.nodestr(node))
+
+def pg(g):
+    '''Prints graph g in simple text form.'''
+    for node in g.nodes:
+        print(g.nodestr(node))
+        for hop in sorted(
+            g.hops_from_node(node), key=attrgetter('from_port_label')
+        ):
+            print('  %s --> %s %s' % (hop.from_port_label,
+                                      g.nodestr(hop.to_node),
+                                      hop.to_port_label))
 
 if __name__ == '__main__':
     g = PortGraph()
