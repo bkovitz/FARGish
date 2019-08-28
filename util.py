@@ -1,4 +1,5 @@
-# util.py -- Generic utility functions for FARGish
+# util.py -- Generic utility functions and classes for FARGish
+
 
 def nice_object_repr(self):
     '''Stick  __repr__ = nice_object_repr  inside a class definition and

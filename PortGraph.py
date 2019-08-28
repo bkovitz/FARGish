@@ -41,18 +41,6 @@ class CouldMake(Tag):
         self.bindings = bindings
 
 
-class Number(Node):
-
-    def __init__(self, n):
-        self.value = n
-
-    def is_attrs_match(self, other):
-        try:
-            return self.value == other.value
-        except AttributeError:
-            return False
-
-
 HopBase = namedtuple('Hop',
     ['from_node', 'from_port_label', 'to_node', 'to_port_label', 'key']
 )
@@ -277,6 +265,15 @@ class PortGraph(nx.MultiGraph):
             return set(hop.to_node
                           for hop in self.hops_from_port(node, port_label))
 
+    def neighbor(self, node, port_label=None):
+        '''Returns 'first' neighbor of node, at optional port_label. If there
+        is more than one neighbor, the choice is made arbitrarily. If there
+        is no neighbor, returns None.'''
+        try:
+            return next(iter(self.neighbors(node, port_label)))
+        except StopIteration:
+            return None
+
     def add_member_edge(self, group_node, member_node):
         self.add_edge(group_node, 'members', member_node, 'member_of')
 
@@ -293,7 +290,18 @@ class PortGraph(nx.MultiGraph):
         return self.nodes[node]['_hops']
 
     def class_of(self, node):
-        return self.datum(node).__class__
+        '''Returns None is node does not exist or lacks a datum.'''
+        datum = self.datum(node)
+        if datum is None:
+            return None
+        else:
+            return self.datum(node).__class__
+
+    def is_of_class(self, node, cl):
+        try:
+            return issubclass(self.class_of(node), cl)
+        except TypeError:
+            return False
 
     def value_of(self, node):
         try:
@@ -313,7 +321,13 @@ class PortGraph(nx.MultiGraph):
         return v1 == v2
 
     def datum(self, node):
-        return self.nodes[node]['datum']
+        '''Returns the datum associated with node. The datum is presumed to be
+        an object that inherits from Node. If node does not exist or lacks
+        a datum, returns None.'''
+        try:
+            return self.nodes[node]['datum']
+        except KeyError:
+            return None
 
     def find_member_in_role(self, group_node, role):
         #TODO UT

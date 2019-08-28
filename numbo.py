@@ -1,6 +1,7 @@
-from PortGraph import PortGraph, pg, pn, Node, Tag, CouldMake, Number
+from PortGraph import PortGraph, pg, pn, Node, Tag, CouldMake
 from numbonodes import *
 from watcher import Watcher, Response, TagWith
+from exc import FargDone, NumboSuccess
 from util import nice_object_repr
 
 from itertools import product
@@ -93,26 +94,71 @@ class FoundWanted(Response):
         g.add_edge(self.avail, 'consumer', self.wanted, 'source')
         g.remove_tag(self.avail, Avail)
         #TODO Declare victory if wanted is Target
+        if g.is_of_class(self.wanted, Target):
+            raise NumboSuccess(g, self.wanted)
         #TODO Otherwise tag wanted as Avail
 
     __repr__ = nice_object_repr
 
 
+class NumboGraph(PortGraph):
+
+    default_graph_attrs = dict(t=0, watchers=WantedWatcher(), done=False)
+
+    def __init__(self, **kwargs):
+        kws = self.default_graph_attrs.copy()
+        kws.update(kwargs)
+        super().__init__(**kws)
+        ws = self.make_node(Workspace)
+        self.graph['ws'] = ws
+        if 'numble' in self.graph:
+            self.graph['numble'].build(self, ws)
+    
+    def ws(self):
+        return self.graph['ws']
+        
+    def watchers(self):
+        #TODO It would likely be a better model if the Watchers were
+        #themselves Nodes in the graph.
+        return self.graph['watchers']
+
+    def do_timestep(self):
+        #TODO This is very crude: it executes all Responses from all Watchers.
+        #We should randomly choose just one, based on salience.
+        self.graph['t'] += 1
+        try:
+            for watcher in self.graph['watchers']:
+                for response in watcher.look(g):
+                    response.go(g)
+        except FargDone as exc:
+            print('\n' + exc.done_msg())
+            self.graph['done'] = True
+            
+    def expr_by_sources(self, target):
+        '''Returns a string representing the expression whose ultimate
+        'consumer' is target.'''
+        return self.datum(target).expr_str(self, target)
+
+        
 def run(numble):
-    g = PortGraph()
+    g = NumboGraph()
     ws = g.make_node(Workspace)
     numble.build(g, ws)
-
 
 if __name__ == '__main__':
 #    numble = prompt_for_numble()
 #    run(numble)
-    g = PortGraph()
-    ws = g.make_node(Workspace)
-    Numble([1, 3, 1], 3).build(g, ws)
-    pg(g)
-    rs = WantedWatcher().look(g)
-    #rs = BrickWatcher().look(g)
-    print(rs)
-    #rs[0].go(g)  # This should tag the first Brick with Avail
 
+#    g = PortGraph()
+#    ws = g.make_node(Workspace)
+#    Numble([1, 3, 1], 3).build(g, ws)
+#    pg(g)
+#    rs = WantedWatcher().look(g)
+#    print(rs)
+#    #rs[0].go(g)  # This should tag the first Brick with Avail
+
+    g = NumboGraph(watchers=[WantedWatcher()], numble=Numble([1, 3, 1], 3))
+    pg(g)
+    g.do_timestep()
+    print()
+    pg(g)
