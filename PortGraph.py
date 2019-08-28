@@ -219,6 +219,23 @@ class PortGraph(nx.MultiGraph):
     def class_of(self, node):
         return self.datum(node).__class__
 
+    def value_of(self, node):
+        try:
+            return self.datum(node).value
+        except AttributeError:
+            return None
+
+    def have_same_value(self, node1, node2):
+        '''A value of None is not considered the same as anything, even another
+        None.'''
+        v1 = self.value_of(node1)
+        if v1 is None:
+            return False
+        v2 = self.value_of(node2)
+        if v2 is None:
+            return False
+        return v1 == v2
+
     def datum(self, node):
         return self.nodes[node]['datum']
 
@@ -242,6 +259,13 @@ class PortGraph(nx.MultiGraph):
             if issubclass(datum.__class__, cl):
                 result.append(node)
         return result
+
+    def nodes_with_tag(self, tagclass):
+        'Returns a generator of nodes that have a tag of class tagclass.'
+        return (
+            node for node in self.nodes
+                     if self.has_tag(node, tagclass)
+        )
 
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'

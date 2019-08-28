@@ -1,0 +1,11 @@
+Watchers
+
+  Callable objects that take as arguments:
+    host graph
+    set of nodes in host graph
+  and return a list of responses, each of which has:
+    salience  (for a random weighted choice of which response to enact)
+    action  (function that acts on the host graph)
+
+
+Accept numble from keyboard

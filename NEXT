@@ -1,12 +1,3 @@
-Watchers
-
-  Callable objects that take as arguments:
-    host graph
-    set of nodes in host graph
-  and return a list of responses, each of which has:
-    salience  (for a random weighted choice of which response to enact)
-    action  (function that acts on the host graph)
-
 Main loop:
 
     Run all of a set of watchers
@@ -16,5 +7,10 @@ Main loop:
 CouldMake
     Make the desired Number by completing the equation.
 
+Mustang Sally:
+    Try combining Avail Numbers randomly.
+    Do arithmetic in Python. Actually solve any numble, though crudely.
+    'Consume' removes Avail, produces Block.
+    Watcher for when an Avail Number equals the Target.
 
-Accept numble from keyboard
+    When there are no Avails and no solution, tag something with Failed.
