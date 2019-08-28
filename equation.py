@@ -7,7 +7,37 @@ from numbonodes import Equation
 from submatch import matching_subgraphs
 
 from collections.abc import Iterable
+from inspect import isclass
 
+
+def make_equation(g, operands, operator, result):
+    '''Creates an equation group, containing nodes for the operands, the
+    operator, and the result. Returns a dict containing all nodes created.'''
+    if isclass(operator):
+        operator = operator()
+    operator_id = g.make_node(operator)
+    result_id = g.make_node(Number(result))
+    g.add_edge(operator_id, 'result', result_id, 'source')
+
+    equation_id = g.make_node(Equation('%s=%s' % (
+                                           operator.symbol().join(
+                                              str(operand)
+                                                  for operand in operands
+                                           ),
+                                           str(result))))
+    g.add_member_edge(equation_id, operator_id)
+    g.add_member_edge(equation_id, result_id)
+
+    result = {'operator_id': operator_id,
+              'result_id': result_id,
+              'operand_ids': set(),
+              'equation_id': equation_id}
+    for operand in operands:
+        operand_id = g.make_node(Number(operand))
+        g.add_edge(operand_id, 'result', operator_id, 'operands')
+        g.add_member_edge(equation_id, operand_id)
+        result['operand_ids'].add(operand_id)
+    return result
 
 def is_operand(g, node):
     return any(hop.to_port_label == 'operands'

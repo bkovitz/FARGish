@@ -1,5 +1,7 @@
 # PortGraph.py -- PortGraph class
 
+from util import nice_object_repr
+
 import networkx as nx
 
 from collections import defaultdict, namedtuple, UserDict
@@ -186,6 +188,12 @@ class PortGraph(nx.MultiGraph):
             self.find_hop(from_node, from_port_label, to_node, to_port_label)
         )
 
+    def has_tag(self, node, tagclass):
+        return any(
+            tag for tag in self.neighbors(node, port_label='tags')
+                    if issubclass(self.class_of(tag), tagclass)
+        )
+
     def neighbors(self, node, port_label=None):
         if port_label is None:
             return super().neighbors(node)
@@ -208,6 +216,12 @@ class PortGraph(nx.MultiGraph):
     def hopdict(self, node):
         return self.nodes[node]['_hops']
 
+    def class_of(self, node):
+        return self.datum(node).__class__
+
+    def datum(self, node):
+        return self.nodes[node]['datum']
+
     def find_member_in_role(self, group_node, role):
         #TODO UT
         '''role is a port label that a neighbor of the sought node must have.
@@ -220,16 +234,19 @@ class PortGraph(nx.MultiGraph):
                     return member
         return None
 
-def nice_object_repr(self):
-    items = self.__dict__.items()
-    if len(items) == 1:
-        return '%s(%s)' % (self.__class__.__name__, next(iter(items))[1])
-    elif len(items) == 0:
-        return self.__class__.__name__
-    else:
-        return '%s(%s)' % (self.__class__.__name__,
-                           ''.join('%s=%s' % (k, repr(v))
-                                       for k, v in items))
+    def nodes_of_class(self, cl):
+        #TODO UT
+        result = []
+        for node in self.nodes:
+            datum = self.nodes[node]['datum']
+            if issubclass(datum.__class__, cl):
+                result.append(node)
+        return result
+
+    def is_in_role(self, node, role):
+        'role is the port label of a neighbor of node.'
+        return any(self.hopdict(node).hops_to_port_label(role))
+
 
 class Node:
 

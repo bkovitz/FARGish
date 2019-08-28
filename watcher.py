@@ -31,11 +31,16 @@ class Response(ABC):
 
 class TagWith(Response):
 
-    def __init__(self, tag_class, tag_args, edges):
+    def __init__(self, tag_class, tag_args=(), edges={}, taggee=None):
         '''edges is a dict {port_label: node}'''
+        #TODO 'edges' should allow caller to specify the taggee's port label,
+        # too.
         self.tag_class = tag_class
         self.tag_args = tag_args
-        self.edges = edges
+        if taggee is None:
+            self.edges = edges
+        else:
+            self.edges = {'taggees': taggee}
 
     __repr__ = nice_object_repr
 
