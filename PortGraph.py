@@ -11,6 +11,48 @@ from operator import attrgetter
 
 empty_set = frozenset()
 
+
+class Node:
+
+#    @classmethod
+#    def is_attrs_match(cls, node_attrs, host_node_attrs):
+#        return True
+
+    #TODO rm this?
+    @classmethod
+    def d(cls, value=None):
+        if value is None:
+            return {'_class': cls}
+        else:
+            return {'_class': cls, 'value': value}
+
+    def is_attrs_match(self, other):
+        return True
+
+    __repr__ = nice_object_repr
+
+
+class Tag(Node):
+    pass
+
+class CouldMake(Tag):
+
+    def __init__(self, bindings):
+        self.bindings = bindings
+
+
+class Number(Node):
+
+    def __init__(self, n):
+        self.value = n
+
+    def is_attrs_match(self, other):
+        try:
+            return self.value == other.value
+        except AttributeError:
+            return False
+
+
 HopBase = namedtuple('Hop',
     ['from_node', 'from_port_label', 'to_node', 'to_port_label', 'key']
 )
@@ -60,6 +102,11 @@ class HopDict:
             self.d_to_node[hop.to_node].discard(hop)
         except KeyError:
             pass
+
+    def remove_all_hops_to(self, to_node):
+        '''It is not an error if there are no hops to to_node.'''
+        for hop in list(self.hops_to_neighbor(to_node)):
+            self.remove(hop)
 
     def hops_from_port_label(self, from_port_label):
         '''Returns a set of Hops.'''
@@ -133,7 +180,7 @@ class PortGraph(nx.MultiGraph):
 #            return str(node)
 
     def nodestr(self, node):
-        return str(node) + ': ' + str(self.nodes[node]['datum'])
+        return str(node) + ': ' + str(self.datum(node))
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         key = super(PortGraph, self).add_edge(node1, node2, **attr)
@@ -149,6 +196,20 @@ class PortGraph(nx.MultiGraph):
             self.nodes[node1]['_hops'].remove(hop)
             self.nodes[node2]['_hops'].remove(hop.reverse())
             super().remove_edge(node1, node2, hop.key)
+
+    def remove_node(self, node):
+        self._remove_all_hops_to(node)
+        super().remove_node(node)
+
+    def remove_nodes_from(self, nodes):
+        nodes = list(nodes) # We iterate over nodes twice.
+        for node in nodes:
+            self._remove_all_hops_to(node)
+        super().remove_nodes_from(nodes)
+
+    def _remove_all_hops_to(self, node):
+        for neighbor in list(self.neighbors(node)):
+            self.hopdict(neighbor).remove_all_hops_to(node)
 
     def hops_from_node(self, node):
         return self.nodes[node]['_hops'].all_hops()
@@ -194,12 +255,27 @@ class PortGraph(nx.MultiGraph):
                     if issubclass(self.class_of(tag), tagclass)
         )
 
+    def tags_of(self, node, tagclass=Tag):
+        'Returns a generator.'
+        #TODO Should be able to specify tagclass more narrowly.
+        return (tag for tag in self.neighbors(node, port_label='tags')
+                        if issubclass(self.class_of(tag), tagclass))
+
+    def remove_tag(self, node, tagclass):
+        '''Removes all tags of node that match tagclass.'''
+        #TODO Should only remove the edge if the tag tags other nodes, too.
+        #TODO Should be able to specify the tagclass more narrowly (e.g.
+        # by value, by other taggees).
+        self.remove_nodes_from(
+            tag for tag in self.tags_of(node, tagclass=tagclass)
+        )
+        
     def neighbors(self, node, port_label=None):
         if port_label is None:
             return super().neighbors(node)
         else:
-            return (hop.to_node
-                        for hop in self.hops_from_port(node, port_label))
+            return set(hop.to_node
+                          for hop in self.hops_from_port(node, port_label))
 
     def add_member_edge(self, group_node, member_node):
         self.add_edge(group_node, 'members', member_node, 'member_of')
@@ -271,46 +347,6 @@ class PortGraph(nx.MultiGraph):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))
 
-
-class Node:
-
-#    @classmethod
-#    def is_attrs_match(cls, node_attrs, host_node_attrs):
-#        return True
-
-    #TODO rm this?
-    @classmethod
-    def d(cls, value=None):
-        if value is None:
-            return {'_class': cls}
-        else:
-            return {'_class': cls, 'value': value}
-
-    def is_attrs_match(self, other):
-        return True
-
-    __repr__ = nice_object_repr
-
-
-class Tag(Node):
-    pass
-
-class CouldMake(Tag):
-
-    def __init__(self, bindings):
-        self.bindings = bindings
-
-
-class Number(Node):
-
-    def __init__(self, n):
-        self.value = n
-
-    def is_attrs_match(self, other):
-        try:
-            return self.value == other.value
-        except AttributeError:
-            return False
 
 #    @classmethod
 #    def is_attrs_match(cls, node_attrs, host_node_attrs):

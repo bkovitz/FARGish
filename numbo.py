@@ -58,7 +58,7 @@ class BrickWatcher(Watcher):
     def look(self, hg):
         return [self.make_response(brick)
                     for brick in g.nodes_of_class(Brick)
-                        if (not g.is_in_role(brick, 'operand')
+                        if (not g.is_in_role(brick, 'source')
                             and
                             not g.has_tag(brick, Avail))]
 
@@ -70,13 +70,13 @@ class WantedWatcher(Watcher):
 
     def look(self, hg):
         avails = hg.nodes_with_tag(Avail)
-        wants = hg.nodes_with_tag(Wanted)
-        return [self.make_response(avail, want)
-                    for avail, want in product(avails, wants)
-                        if hg.have_same_value(avail, want)]
+        wanteds = hg.nodes_with_tag(Wanted)
+        return [self.make_response(avail, wanted)
+                    for avail, wanted in product(avails, wanteds)
+                        if hg.have_same_value(avail, wanted)]
 
-    def make_response(self, avail, want):
-        return FoundWanted(avail, want)
+    def make_response(self, avail, wanted):
+        return FoundWanted(avail, wanted)
 
 class Avail(Tag):
     pass
@@ -85,12 +85,15 @@ class Wanted(Tag):
     pass
 
 class FoundWanted(Response):
-    def __init__(self, avail, want):
+    def __init__(self, avail, wanted):
         self.avail = avail
-        self.want = want
+        self.wanted = wanted
 
     def go(self, g):
-        pass #TODO
+        g.add_edge(self.avail, 'consumer', self.wanted, 'source')
+        g.remove_tag(self.avail, Avail)
+        #TODO Declare victory if wanted is Target
+        #TODO Otherwise tag wanted as Avail
 
     __repr__ = nice_object_repr
 
