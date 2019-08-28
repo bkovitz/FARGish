@@ -168,7 +168,10 @@ class PortGraph(nx.MultiGraph):
 #            return str(node)
 
     def nodestr(self, node):
-        return str(node) + ': ' + str(self.datum(node))
+        return str(node) + ': ' + self.datumstr(node)
+
+    def datumstr(self, node):
+        return str(self.datum(node))
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         key = super(PortGraph, self).add_edge(node1, node2, **attr)
@@ -410,13 +413,19 @@ def is_port_label_match(target_port_label, host_port_label):
     else:
         return issubclass(host_port_label, target_port_label)
 
+def pt(g):
+    if 't' in g.graph:
+        print('t=' + str(g.graph['t']))
+
 def pn(g):
-    '''HACK: print the nodes in the graph'''
+    '''Prints the nodes in the graph'''
+    pt(g)
     for node in g.nodes:
         print(g.nodestr(node))
 
 def pg(g):
     '''Prints graph g in simple text form.'''
+    pt(g)
     for node in g.nodes:
         print(g.nodestr(node))
         for hop in sorted(

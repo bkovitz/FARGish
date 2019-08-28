@@ -1,10 +1,11 @@
 from PortGraph import PortGraph, pg, pn, Node, Tag, CouldMake
 from numbonodes import *
 from watcher import Watcher, Response, TagWith
-from exc import FargDone, NumboSuccess
+from exc import *
 from util import nice_object_repr
 
-from itertools import product
+from itertools import product, chain
+from random import sample, choice
 
 
 class Numble:
@@ -36,6 +37,8 @@ def prompt_for_numble():
         brick_str = input('Bricks: ')
         try:
             bricks = [int(b) for b in brick_str.split()]
+            if not bricks:
+                continue #TODO Probably better to throw an exception
             break
         except ValueError:
             print('Please enter the bricks as integers separated by spaces.')
@@ -67,6 +70,7 @@ class BrickWatcher(Watcher):
         return TagWith(Avail, taggee=brick)
 
 
+
 class WantedWatcher(Watcher):
 
     def look(self, hg):
@@ -78,12 +82,6 @@ class WantedWatcher(Watcher):
 
     def make_response(self, avail, wanted):
         return FoundWanted(avail, wanted)
-
-class Avail(Tag):
-    pass
-
-class Wanted(Tag):
-    pass
 
 class FoundWanted(Response):
     def __init__(self, avail, wanted):
@@ -100,10 +98,98 @@ class FoundWanted(Response):
 
     __repr__ = nice_object_repr
 
+    def annotation(self, g):
+        return (
+            "Hey, look! We wanted %s and we have %s."
+            %
+            (g.datumstr(self.wanted), g.datumstr(self.avail))
+        )
+
+
+class AvailWatcher(Watcher):
+
+    def look(self, hg):
+        avails = list(hg.nodes_with_tag(Avail))
+        #TODO Very crude for now: just pick two available numbers and
+        # combine them with a random operator
+        if len(avails) >= 2:
+            avails = sample(avails, 2)
+            try:
+                return [CombineOperands(hg, avails)]
+            except FargCantRespond:
+                return []
+        else:
+            return []
+
+class CombineOperands(Response):
+
+    def __init__(self, g, operands):
+        self.g = g
+        self.operands = operands
+        possible_operators = [
+            op for op in all_operators
+                if not self.failed_with_these_operands(op)
+        ]
+        if possible_operators:
+            self.operator = choice(possible_operators)()
+        else:
+            raise FargCantRespond()
+
+    def failed_with_these_operands(self, operator):
+        former_consumerss = []
+        for operand in self.operands:
+            former_consumerss.append(
+                set(neighbor for neighbor in self.g.neighbors(
+                                 operand, 'former_consumer'
+                             )
+                             if g.is_of_class(neighbor, operator)
+                )
+            )
+        return len(set.intersection(*former_consumerss)) > 0
+
+
+    #TODO Stop passing g to .go()
+    def go(self, g):
+        operator_id = g.make_node(self.operator)
+        for operand in self.operands:
+            g.add_edge(operand, 'consumer', operator_id, 'source')
+            g.remove_tag(operand, Avail)
+        result_value = self.operator.result_value(g, operator_id)
+        result_id = g.make_node(Block(result_value))
+        print('Made %s.' % g.datumstr(result_id)) #TODO Move this
+        g.add_edge(operator_id, 'consumer', result_id, 'source')
+        TagWith(Avail, taggee=result_id).go(g)
+
+    def annotation(self, g):
+        return "Let's try %s on %s." % (
+            self.operator, ', '.join(g.datumstr(o) for o in self.operands)
+        )
+
+class Backtrack(Response):
+    '''Pretty crude: just undoes all existing Avail tags, tags any operators
+    that produced the the Avails' taggees with Failed, and retags the
+    operands with Avail. Actually, all the decision-making is pushed to
+    the nodes tagged Avail.'''
+
+    def go(self, g):
+        for node in list(g.nodes_with_tag(Avail)):
+            g.fail(node)
+
+#        avails = g.nodes_with_tag(Avail)
+#        for avail in avails:
+#            taggee = g.taggee_of(avail)
+#            taggee_datum = g.datum(taggee_id)
+#            taggee_datum.fail(g, taggee_id)
+#            g.remove_node(g, avail)
+
 
 class NumboGraph(PortGraph):
 
-    default_graph_attrs = dict(t=0, watchers=WantedWatcher(), done=False)
+    default_graph_attrs = dict(
+        t=0,
+        watchers=[WantedWatcher(), AvailWatcher()],
+        done=False
+    )
 
     def __init__(self, **kwargs):
         kws = self.default_graph_attrs.copy()
@@ -127,17 +213,41 @@ class NumboGraph(PortGraph):
         #We should randomly choose just one, based on salience.
         self.graph['t'] += 1
         try:
-            for watcher in self.graph['watchers']:
-                for response in watcher.look(g):
-                    response.go(g)
+            responses = list(chain.from_iterable(
+                watcher.look(g) for watcher in self.graph['watchers']
+            ))
+            if len(responses) == 0:
+                responses = [Backtrack()]
+            for response in responses:
+                print(response.annotation(g))
+                    #TODO Print only if DEBUG or LOG or something
+                response.go(g)
         except FargDone as exc:
             print('\n' + exc.done_msg())
             self.graph['done'] = True
+
+    def run(self, max_timesteps=20):
+        while self.graph['t'] <= max_timesteps:
+            self.do_timestep()
+            if self.graph['done']:
+                return
+        print('''
+If so great a mind as mine could not solve this numble in %s timesteps,
+it must surely have no solution.
+''' % max_timesteps)
             
     def expr_by_sources(self, target):
         '''Returns a string representing the expression whose ultimate
         'consumer' is target.'''
         return self.datum(target).expr_str(self, target)
+
+    def fail(self, node):
+        datum = g.datum(node)
+        datum.fail(g, node)
+
+    def cascade_fail(self, node):
+        datum = g.datum(node)
+        datum.cascade_fail(g, node)
 
         
 def run(numble):
@@ -145,9 +255,27 @@ def run(numble):
     ws = g.make_node(Workspace)
     numble.build(g, ws)
 
+#TODO Make this into a proper unit test
+def testInstantSuccess():
+    g = NumboGraph(watchers=[WantedWatcher()], numble=Numble([1, 3, 1], 3))
+    pg(g)
+    g.do_timestep()
+    print()
+    pg(g)
+
+def testSimple():
+    #Sometimes this backtracks
+    g = NumboGraph(numble=Numble([1, 1, 1], 3))
+    pg(g)
+    g.do_timestep()
+    print()
+    pg(g)
+
 if __name__ == '__main__':
-#    numble = prompt_for_numble()
-#    run(numble)
+    while True:
+        numble = prompt_for_numble()
+        g = NumboGraph(numble=numble)
+        g.run()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)
@@ -157,8 +285,4 @@ if __name__ == '__main__':
 #    print(rs)
 #    #rs[0].go(g)  # This should tag the first Brick with Avail
 
-    g = NumboGraph(watchers=[WantedWatcher()], numble=Numble([1, 3, 1], 3))
-    pg(g)
-    g.do_timestep()
-    print()
-    pg(g)
+

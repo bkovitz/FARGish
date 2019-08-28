@@ -18,3 +18,6 @@ class NumboSuccess(FargDone):
         return 'Success!  ' + self.g.expr_by_sources(self.target)
 
     __repr__ = nice_object_repr
+
+class FargCantRespond(Exception):
+    pass

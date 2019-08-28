@@ -1,6 +1,7 @@
 # watcher.py -- Watcher and Response
 
 from PortGraph import nice_object_repr
+from util import nice_object_repr
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
@@ -16,6 +17,8 @@ class Watcher(ABC):
     def salience(self):
         return 1.0
 
+    __repr__ = nice_object_repr
+
 
 class Response(ABC):
 
@@ -28,7 +31,14 @@ class Response(ABC):
         'Updates hg (the host graph) and returns None.'
         pass
 
+    def annotation(self, g):
+        return repr(self)
 
+    __repr__ = nice_object_repr
+
+
+#TODO Make a function to do the work in this, so we can call it conveniently
+#without constructing a Response.
 class TagWith(Response):
 
     def __init__(self, tag_class, tag_args=(), edges={}, taggee=None):
@@ -54,3 +64,5 @@ class TagWith(Response):
                     g.add_edge(tag, port_label, node, 'tags')
             else:
                 g.add_edge(tag, port_label, node, 'tags')
+
+    __repr__ = nice_object_repr
