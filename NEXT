@@ -1,21 +1,48 @@
 Main loop:
-
-    Run all of a set of watchers
     Randomly choose a response and execute it
 
 
 CouldMake
     Make the desired Number by completing the equation.
 
-Mustang Sally:
-    Try combining Avail Numbers randomly.
-    Do arithmetic in Python. Actually solve any numble, though crudely.
-    'Consume' removes Avail, produces Block.
-    Watcher for when an Avail Number equals the Target.
 
-    When there are no Avails and no solution, tag something with Failed.
+Demo 2
 
-    Print the graph symbolically, showing the current "thought".
+   Fix solution string.
+   Minus / Needs operands to be ordered
+   120 1 2 3 4; 121   Figure out 120 + 1 = 121 right away
+   1 1 1 1 1; 6  Figure out 2 * 3 = 6
 
 
-    Watcher to combine Avail Numbers.
+Bottom-up "noticing"
+   
+   Notice that 120 is "close to" 121.
+      CloseNumbersTagger
+      tag: CloseNumbers
+      CloseToWantedWatcher
+         start a process to build the difference
+
+Top-down "searching"
+
+   Make a Wanted-Block node
+   When fulfilled, capitalize. E.g. did we solve the numble?
+   Detect failure somehow
+   Upon failure, add tags so we don't try that again
+
+   Spreading activation to find equation to complete
+
+
+Salience
+
+   Let Watchers fade away
+
+
+Design / Refactoring
+
+   Some sort of "filter" to pass nodes through a series of criteria.
+   a Nodes class that knows what graph the nodes come from.
+
+
+Tools
+
+   Single-stepper for FARG model

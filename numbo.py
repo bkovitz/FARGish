@@ -1,11 +1,12 @@
-from PortGraph import PortGraph, pg, pn, Node, Tag, CouldMake
+from PortGraph import PortGraph, NodeAndValue, pg, pn, Node, Tag, CouldMake
 from numbonodes import *
-from watcher import Watcher, Response, TagWith
+from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
 from util import nice_object_repr
 
-from itertools import product, chain
+from itertools import product, chain, combinations
 from random import sample, choice
+from math import ceil
 
 
 class Numble:
@@ -83,6 +84,45 @@ class WantedWatcher(Watcher):
     def make_response(self, avail, wanted):
         return FoundWanted(avail, wanted)
 
+
+def are_close(n1, n2):
+    m = max(n1, n2)
+    max_dist = abs(ceil(m * 0.1))
+    return abs(n1 - n2) < max_dist
+
+class CloseNumbersTagger(Watcher):
+
+    def look(self, hg):
+        nodes = hg.nodes_of_class(Number)
+        nodes = list(hg.nodes_without_tag(CloseNumbers, nodes=nodes))
+        nvs = [NodeAndValue(node, hg.value_of(node)) for node in nodes]
+        nv_pairs = list(combinations(nvs, 2))
+#        close_node_pairs = [
+#            (nv1.node, nv2.node)
+#                for nv1, nv2 in nv_pairs
+#                    if are_close(nv1.value, nv2.value)
+#        ]
+#        return [
+#            TagWith2(CloseNumbers, [node1, node2])
+#                for node1, node2 in close_node_pairs
+#        ]
+        return [
+            TagWith2(CloseNumbers, [nv1.node, nv2.node])
+                for nv1, nv2 in nv_pairs
+                    if are_close(nv1.value, nv2.value)
+        ]
+
+#class CloseToWantedWatcher(Watcher):
+#
+#    def look(self, hg):
+#        wanteds = g.nodes_with_tag(Wanted)
+#        close_nodes = from_iterable(
+#            g.mates_via_tag(w, Close)
+#                for w in wanteds
+#        )
+#        for 
+
+
 class FoundWanted(Response):
     def __init__(self, avail, wanted):
         self.avail = avail
@@ -142,7 +182,7 @@ class CombineOperands(Response):
                 set(neighbor for neighbor in self.g.neighbors(
                                  operand, 'former_consumer'
                              )
-                             if g.is_of_class(neighbor, operator)
+                             if self.g.is_of_class(neighbor, operator)
                 )
             )
         return len(set.intersection(*former_consumerss)) > 0
@@ -183,11 +223,13 @@ class Backtrack(Response):
 #            g.remove_node(g, avail)
 
 
+default_watchers = [WantedWatcher(), AvailWatcher(), CloseNumbersTagger()]
+
 class NumboGraph(PortGraph):
 
     default_graph_attrs = dict(
         t=0,
-        watchers=[WantedWatcher(), AvailWatcher()],
+        watchers=default_watchers,
         done=False
     )
 
@@ -213,15 +255,16 @@ class NumboGraph(PortGraph):
         #We should randomly choose just one, based on salience.
         self.graph['t'] += 1
         try:
+            print('WATCHERS', self.graph['watchers'])
             responses = list(chain.from_iterable(
-                watcher.look(g) for watcher in self.graph['watchers']
+                watcher.look(self) for watcher in self.graph['watchers']
             ))
             if len(responses) == 0:
                 responses = [Backtrack()]
             for response in responses:
-                print(response.annotation(g))
+                print(response.annotation(self))
                     #TODO Print only if DEBUG or LOG or something
-                response.go(g)
+                response.go(self)
         except FargDone as exc:
             print('\n' + exc.done_msg())
             self.graph['done'] = True
@@ -242,12 +285,12 @@ it must surely have no solution.
         return self.datum(target).expr_str(self, target)
 
     def fail(self, node):
-        datum = g.datum(node)
-        datum.fail(g, node)
+        datum = self.datum(node)
+        datum.fail(self, node)
 
     def cascade_fail(self, node):
-        datum = g.datum(node)
-        datum.cascade_fail(g, node)
+        datum = self.datum(node)
+        datum.cascade_fail(self, node)
 
         
 def run(numble):
@@ -265,17 +308,32 @@ def testInstantSuccess():
 
 def testSimple():
     #Sometimes this backtracks
+    global g
     g = NumboGraph(numble=Numble([1, 1, 1], 3))
     pg(g)
     g.do_timestep()
     print()
     pg(g)
 
-if __name__ == '__main__':
+def demo():
+    '''Run this for Doug.'''
+    global g
     while True:
         numble = prompt_for_numble()
         g = NumboGraph(numble=numble)
         g.run()
+
+def in_progress():
+    '''This runs whatever I'm working on right now. --BEN'''
+    global g
+    g = NumboGraph(numble=Numble([120, 1, 2, 3, 4, 5], 121))
+    pg(g)
+    g.run()
+
+
+if __name__ == '__main__':
+    #demo()
+    in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

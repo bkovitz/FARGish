@@ -11,5 +11,16 @@ Watchers
 Accept numble from keyboard
 
 
+Main loop:
+    Run all of a set of watchers
+
+Mustang Sally / Demo 1:
     FoundWanted: avail consumer -- wanted source
     FoundWanted: Declare victory if Avail matches Target
+    Watcher for when an Avail Number equals the Target.
+    Watcher to combine Avail Numbers.
+    'Consume' removes Avail, produces Block.
+    Do arithmetic in Python. Actually solve any numble, though crudely.
+    Try combining Avail Numbers randomly.
+    When there are no Avails and no solution, tag something with Failed.
+    Print the graph symbolically, showing the current "thought".

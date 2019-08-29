@@ -19,6 +19,9 @@ class Wanted(Tag):
 class Failed(Tag):
     pass
 
+class CloseNumbers(Tag):
+    pass
+
 
 class Number(Node):
 

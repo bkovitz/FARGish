@@ -1,0 +1,11 @@
+MODEL
+
+    Watchers should be nodes in the graph
+
+    Follow old temporal traces
+
+
+IMPLEMENTATION
+
+    Find some way for watchers like CloseNumbersTagger to not need to
+    look at all the Number nodes.

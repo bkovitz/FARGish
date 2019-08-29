@@ -1,6 +1,6 @@
 # PortGraph.py -- PortGraph class
 
-from util import nice_object_repr
+from util import nice_object_repr, as_iter
 
 import networkx as nx
 
@@ -127,6 +127,11 @@ class NodeAttrDict(UserDict):
         self.data[node]['_hops'] = HopDict()
 
 
+# Convenience class for holding a node's id along with the value stored in 
+# its datum.
+NodeAndValue = namedtuple('NodeAndValue', ['node', 'value'])
+
+
 class PortGraph(nx.MultiGraph):
 
     node_dict_factory = NodeAttrDict
@@ -239,6 +244,23 @@ class PortGraph(nx.MultiGraph):
         return bool(
             self.find_hop(from_node, from_port_label, to_node, to_port_label)
         )
+
+    def add_tag(
+        self, tag_or_tagclass, node_or_nodes,
+        tag_port_label='taggees', node_port_label='tags'
+    ):
+        '''Links a tag to one or more nodes. Returns the tag's id.
+        If tag_or_tagclass is a class, builds the tag.'''
+        if isclass(tag_or_tagclass):
+            # Make the tag node
+            tag = self.make_node(tag_or_tagclass)
+        else:
+            # We'll link from an existing tag node
+            tag = tag_or_tagclass
+        # Link the tag to the taggee(s)
+        for node in as_iter(node_or_nodes):
+            self.add_edge(tag, tag_port_label, node, node_port_label)
+        return tag
 
     def has_tag(self, node, tagclass):
         return any(
@@ -353,11 +375,22 @@ class PortGraph(nx.MultiGraph):
                 result.append(node)
         return result
 
-    def nodes_with_tag(self, tagclass):
+    def nodes_with_tag(self, tagclass, nodes=None):
         'Returns a generator of nodes that have a tag of class tagclass.'
+        if nodes is None:
+            nodes = self.nodes
         return (
-            node for node in self.nodes
+            node for node in nodes
                      if self.has_tag(node, tagclass)
+        )
+
+    def nodes_without_tag(self, tagclass, nodes=None):
+        'Returns a generator of nodes that do not have a tag of class tagclass.'
+        if nodes is None:
+            nodes = self.nodes
+        return (
+            node for node in nodes
+                     if not self.has_tag(node, tagclass)
         )
 
     def is_in_role(self, node, role):

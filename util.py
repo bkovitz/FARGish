@@ -1,5 +1,16 @@
 # util.py -- Generic utility functions and classes for FARGish
 
+from collections.abc import Iterable
+
+
+def is_iter(o):
+    return isinstance(o, Iterable)
+
+def as_iter(o):
+    if is_iter(o):
+        return o
+    else:
+        return list(o)
 
 def nice_object_repr(self):
     '''Stick  __repr__ = nice_object_repr  inside a class definition and

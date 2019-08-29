@@ -1,7 +1,7 @@
 # watcher.py -- Watcher and Response
 
 from PortGraph import nice_object_repr
-from util import nice_object_repr
+from util import nice_object_repr, as_iter
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
@@ -52,8 +52,6 @@ class TagWith(Response):
         else:
             self.edges = {'taggees': taggee}
 
-    __repr__ = nice_object_repr
-
     def go(self, g):
         tag = g.make_node(self.tag_class(*self.tag_args))
         for port_label, node in self.edges.items():
@@ -66,3 +64,16 @@ class TagWith(Response):
                 g.add_edge(tag, port_label, node, 'tags')
 
     __repr__ = nice_object_repr
+
+
+class TagWith2(Response):
+
+    def __init__(self, tagclass, taggees):
+        '''Builds a node of class tagclass and edges of the form
+        (tag taggees) -- (taggee tags) for each taggee. taggees is either
+        a single node id or an iterable of node ids.'''
+        self.tagclass = tagclass
+        self.taggees = taggees
+
+    def go(self, g):
+        g.add_tag(self.tagclass, self.taggees)
