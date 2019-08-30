@@ -1,6 +1,6 @@
 # submatch.py -- Subgraph matching
 
-from PortGraph import PortGraph, Node, Number, is_node_match, \
+from PortGraph import PortGraph, Node, is_node_match, \
     is_port_label_match
 
 from collections import defaultdict

@@ -8,6 +8,7 @@ class TestPortGraph(unittest.TestCase):
 
     def test_basics(self):
         g = PortGraph()
+        g.add_nodes_from(['A', 'B', 'O'])
         g.add_edge('A', 'in', 'B', 'out')
         g.add_edge('O', 'members', 'A', 'member_of')
 
