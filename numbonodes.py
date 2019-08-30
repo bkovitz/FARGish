@@ -2,6 +2,7 @@
 
 from PortGraph import Node, Tag
 from watcher import TagWith #TODO shouldn't need this
+import expr
 
 from abc import ABC, abstractmethod
 
@@ -40,12 +41,16 @@ class Number(Node):
         except AttributeError:
             return False
 
+    #TODO rm
     def expr_str(self, g, node):
         source = g.neighbor(node, 'source')
         if source is None:
             return str(self)
         source_datum = g.datum(source)
         return source_datum.expr_str(g, source) + ' = ' + str(self)
+
+    def expr(self, g, node):
+        return expr.Number(g.value_of(node))
 
     def fail(self, g, node):
         pass
@@ -61,6 +66,11 @@ class Target(Number):
     pass
 
 class Block(Number):
+
+    def expr(self, g, node):
+        source = g.neighbor(node, port_label='source')
+        #TODO What if there's more than one source? Or none?
+        return g.expr(source)
 
     def fail(self, g, node):
         TagWith(Failed, taggee=node).go(g) #TODO need add_tag function
@@ -79,6 +89,18 @@ class Operator(Node, ABC):
     def result_value(self, g, node):
         pass
 
+    def operands(self, g, node):
+        return list(g.neighbors(node, 'source'))
+
+    def operand_exprs(self, g, node):
+        return [
+            g.expr(operand)
+                for operand in self.operands(g, node)
+        ]
+
+    def expr(self, g, node):
+        return self.expr_class(*self.operand_exprs(g, node))
+
     def fail(self, g, node):
         TagWith(Failed, taggee=node).go(g) #TODO add_tag
         g.remove_tag(node, Avail)
@@ -89,6 +111,7 @@ class Operator(Node, ABC):
 
     cascade_fail = fail
 
+    #TODO rm
     def expr_str(self, g, node):
         sources = g.neighbors(node, 'source')
         sep = ' ' + self.symbol() + ' '
@@ -97,10 +120,13 @@ class Operator(Node, ABC):
 
 class Plus (Operator):
 
+    expr_class = expr.Plus
+
     def symbol(self):
         return '+'
 
     def result_value(self, g, node):
+        #TODO OAOO
         operands = list(g.neighbors(node, 'source'))
         if operands:
             return sum(g.value_of(operand) for operand in operands)
@@ -109,10 +135,14 @@ class Plus (Operator):
 
 class Minus (Operator):
 
+    expr_class = expr.Minus
+
     def symbol(self):
         return '-'
 
 class Times (Operator):
+
+    expr_class = expr.Times
 
     def symbol(self):
         return '*'
@@ -128,6 +158,9 @@ class Times (Operator):
             return None
 
 class Div (Operator):
+
+    expr_class = expr.Div
+
     def symbol(self):
         return '/'
         

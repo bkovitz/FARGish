@@ -291,10 +291,20 @@ If so great a mind as mine could not solve this numble in %s timesteps,
 it must surely have no solution.
 ''' % self.graph['t'])
             
-    def expr_by_sources(self, target):
-        '''Returns a string representing the expression whose ultimate
+#    def expr_by_sources(self, target):
+#        '''Returns a string representing the expression whose ultimate
+#        'consumer' is target.'''
+#        return self.datum(target).expr_str(self, target)
+
+    def expr_as_equation(self, target):
+        '''Returns an expr.Equation representing the expression whose ultimate
         'consumer' is target.'''
-        return self.datum(target).expr_str(self, target)
+        source = self.neighbor(target, port_label='source')
+        #TODO What if there's more than one source? Or none?
+        return expr.Equation(self.expr(source), self.expr(target))
+
+    def expr(self, node):
+        return self.datum(node).expr(self, node)
 
     def fail(self, node):
         datum = self.datum(node)
@@ -359,8 +369,8 @@ def in_progress(seed=None, num_timesteps=None):
 
 if __name__ == '__main__':
     #demo()
-    #in_progress(seed=4097948433610962494, num_timesteps=20)
-    in_progress()
+    in_progress(seed=6185774907678598918, num_timesteps=20)
+    #in_progress()
     print('SEED', g.graph['seed'])
 
 #    g = PortGraph()
