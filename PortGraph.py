@@ -14,18 +14,6 @@ empty_set = frozenset()
 
 class Node:
 
-#    @classmethod
-#    def is_attrs_match(cls, node_attrs, host_node_attrs):
-#        return True
-
-    #TODO rm this?
-    @classmethod
-    def d(cls, value=None):
-        if value is None:
-            return {'_class': cls}
-        else:
-            return {'_class': cls, 'value': value}
-
     def is_attrs_match(self, other):
         return True
 
@@ -179,12 +167,33 @@ class PortGraph(nx.MultiGraph):
         return str(self.datum(node))
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
-        key = super(PortGraph, self).add_edge(node1, node2, **attr)
-        hop1 = Hop(node1, port_label1, node2, port_label2, key)
-        hop2 = Hop(node2, port_label2, node1, port_label1, key)
-        self.nodes[node1]['_hops'].add(hop1)
-        self.nodes[node2]['_hops'].add(hop2)
-        return key
+        '''If the edge already exists, doesn't make a new one. Regardless,
+        returns the key of the edge.'''
+        hop = self.find_hop(node1, port_label1, node2, port_label2)
+        if hop:
+            return hop.key
+        else:
+            key = super(PortGraph, self).add_edge(node1, node2, **attr)
+            hop1 = Hop(node1, port_label1, node2, port_label2, key)
+            hop2 = Hop(node2, port_label2, node1, port_label1, key)
+            self.nodes[node1]['_hops'].add(hop1)
+            self.nodes[node2]['_hops'].add(hop2)
+            return key
+
+    def has_edge(self, u, v, w=None, y=None):
+        if y is None:
+            return super().has_edge(u, v, w)
+        else:
+            node1 = u
+            node1_port_label = v
+            node2 = w
+            node2_port_label = y
+            return (
+                self.has_hop(node1, node1_port_label, node2, node2_port_label)
+                or  # Is the 'or' necessary? Is overriding has_edge() necessary,
+                    # since we have has_hop()?
+                self.has_hop(node2, node2_port_label, node1, node1_port_label)
+            )
 
     def remove_edge(self, node1, port_label1, node2, port_label2):
         hop = self.find_hop(node1, port_label1, node2, port_label2)
@@ -262,6 +271,18 @@ class PortGraph(nx.MultiGraph):
             self.add_edge(tag, tag_port_label, node, node_port_label)
         return tag
 
+    def replace_tag(
+        self, node_or_nodes, old_tag_or_tagclass, new_tag_or_tagclass,
+        tag_port_label='taggees', node_port_label='tags'
+    ):
+        '''Removes old_tag_or_tagclass, adds new_tag_or_tagclass to
+        node_or_nodes.'''
+        self.remove_tag(node_or_nodes, old_tag_or_tagclass)
+        self.add_tag(tag_or_tagclass=new_tag_or_tagclass,
+                     node_or_nodes=node_or_nodes,
+                     tag_port_label=tag_port_label,
+                     node_port_label=node_port_label)
+
     def has_tag(self, node, tagclass):
         return any(
             tag for tag in self.neighbors(node, port_label='tags')
@@ -274,14 +295,19 @@ class PortGraph(nx.MultiGraph):
         return (tag for tag in self.neighbors(node, port_label='tags')
                         if issubclass(self.class_of(tag), tagclass))
 
-    def remove_tag(self, node, tagclass):
+    #TODO node_or_nodes, tag_or_tagclass
+    def remove_tag(self, node_or_nodes, tag_or_tagclass):
         '''Removes all tags of node that match tagclass.'''
         #TODO Should only remove the edge if the tag tags other nodes, too.
         #TODO Should be able to specify the tagclass more narrowly (e.g.
         # by value, by other taggees).
-        self.remove_nodes_from(
-            tag for tag in self.tags_of(node, tagclass=tagclass)
-        )
+        if isclass(tag_or_tagclass):
+            for node in as_iter(node_or_nodes):
+                self.remove_nodes_from(
+                    tag for tag in self.tags_of(node, tagclass=tag_or_tagclass)
+                )
+        else:
+            self.remove_node(tag_or_tagclass)
         
     def neighbors(self, node, port_label=None):
         if port_label is None:

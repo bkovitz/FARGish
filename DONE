@@ -24,3 +24,6 @@ Mustang Sally / Demo 1:
     Try combining Avail Numbers randomly.
     When there are no Avails and no solution, tag something with Failed.
     Print the graph symbolically, showing the current "thought".
+
+Print random-number seed.
+Take random-number seed as argument.

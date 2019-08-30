@@ -16,10 +16,16 @@ class Avail(Tag):
 class Wanted(Tag):
     pass
 
+class WasWanted(Tag):
+    pass
+
 class Failed(Tag):
     pass
 
 class CloseNumbers(Tag):
+    pass
+
+class Seek(Wanted):
     pass
 
 

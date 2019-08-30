@@ -2,7 +2,7 @@ from PortGraph import PortGraph, NodeAndValue, pg, pn, Node, Tag, CouldMake
 from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
-from util import nice_object_repr
+from util import nice_object_repr, reseed
 
 from itertools import product, chain, combinations
 from random import sample, choice
@@ -84,11 +84,35 @@ class WantedWatcher(Watcher):
     def make_response(self, avail, wanted):
         return FoundWanted(avail, wanted)
 
+class FoundWanted(Response):
+    def __init__(self, avail, wanted):
+        self.avail = avail
+        self.wanted = wanted
+
+    def go(self, g):
+        g.add_edge(self.avail, 'consumer', self.wanted, 'source')
+        g.remove_tag(self.avail, Avail)
+        if g.is_of_class(self.wanted, Target):
+            raise NumboSuccess(g, self.wanted)
+        else:
+            g.add_tag(Avail, self.wanted)
+            #TODO Somehow remember the class of the Wanted tag
+            g.replace_tag(self.wanted, Wanted, WasWanted)
+
+    __repr__ = nice_object_repr
+
+    def annotation(self, g):
+        return (
+            "Hey, look! We wanted %s and we have %s."
+            %
+            (g.datumstr(self.wanted), g.datumstr(self.avail))
+        )
+
 
 def are_close(n1, n2):
     m = max(n1, n2)
     max_dist = abs(ceil(m * 0.1))
-    return abs(n1 - n2) < max_dist
+    return n1 != n2 and abs(n1 - n2) < max_dist
 
 class CloseNumbersTagger(Watcher):
 
@@ -113,37 +137,19 @@ class CloseNumbersTagger(Watcher):
         ]
 
 #class CloseToWantedWatcher(Watcher):
+#    '''Looks for Wanted nodes tagged Close to another Number. Starts a
+#    Watcher to find or build the difference.'''
 #
 #    def look(self, hg):
-#        wanteds = g.nodes_with_tag(Wanted)
-#        close_nodes = from_iterable(
-#            g.mates_via_tag(w, Close)
+#        wanteds = hg.nodes_with_tag(Wanted)
+#        close_mates = [
+#            (w, hg.mates_via_tag(w, Close))
 #                for w in wanteds
-#        )
-#        for 
+#        ]
+#        for w, mates in close_mates:
+#            for mate in mates:
+#                hg.start_watcher(
 
-
-class FoundWanted(Response):
-    def __init__(self, avail, wanted):
-        self.avail = avail
-        self.wanted = wanted
-
-    def go(self, g):
-        g.add_edge(self.avail, 'consumer', self.wanted, 'source')
-        g.remove_tag(self.avail, Avail)
-        #TODO Declare victory if wanted is Target
-        if g.is_of_class(self.wanted, Target):
-            raise NumboSuccess(g, self.wanted)
-        #TODO Otherwise tag wanted as Avail
-
-    __repr__ = nice_object_repr
-
-    def annotation(self, g):
-        return (
-            "Hey, look! We wanted %s and we have %s."
-            %
-            (g.datumstr(self.wanted), g.datumstr(self.avail))
-        )
 
 
 class AvailWatcher(Watcher):
@@ -230,12 +236,17 @@ class NumboGraph(PortGraph):
     default_graph_attrs = dict(
         t=0,
         watchers=default_watchers,
-        done=False
+        done=False,
+        num_timesteps=20,
+        seed=None
     )
 
     def __init__(self, **kwargs):
         kws = self.default_graph_attrs.copy()
         kws.update(kwargs)
+        if kws.get('num_timesteps', None) is None:
+            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
+        kws['seed'] = reseed(kws.get('seed', None))
         super().__init__(**kws)
         ws = self.make_node(Workspace)
         self.graph['ws'] = ws
@@ -255,7 +266,6 @@ class NumboGraph(PortGraph):
         #We should randomly choose just one, based on salience.
         self.graph['t'] += 1
         try:
-            print('WATCHERS', self.graph['watchers'])
             responses = list(chain.from_iterable(
                 watcher.look(self) for watcher in self.graph['watchers']
             ))
@@ -269,15 +279,17 @@ class NumboGraph(PortGraph):
             print('\n' + exc.done_msg())
             self.graph['done'] = True
 
-    def run(self, max_timesteps=20):
-        while self.graph['t'] <= max_timesteps:
+    def run(self, num_timesteps=None):
+        if num_timesteps is None:
+            num_timesteps = self.graph['num_timesteps']
+        for i in range(num_timesteps):
             self.do_timestep()
             if self.graph['done']:
                 return
         print('''
 If so great a mind as mine could not solve this numble in %s timesteps,
 it must surely have no solution.
-''' % max_timesteps)
+''' % self.graph['t'])
             
     def expr_by_sources(self, target):
         '''Returns a string representing the expression whose ultimate
@@ -323,17 +335,33 @@ def demo():
         g = NumboGraph(numble=numble)
         g.run()
 
-def in_progress():
-    '''This runs whatever I'm working on right now. --BEN'''
+def close():
     global g
     g = NumboGraph(numble=Numble([120, 1, 2, 3, 4, 5], 121))
+    pg(g)
+    g.run()
+
+def in_progress(seed=None, num_timesteps=None):
+    '''This runs whatever I'm working on right now. --BEN'''
+    global g
+    g = NumboGraph(
+        numble=Numble([1, 1, 1, 1, 1], 6),
+        seed=seed,
+        num_timesteps=num_timesteps
+    )
+    two = g.make_node(Block(2))
+    g.add_tag(Seek, two)
+    three = g.make_node(Block(3))
+    g.add_tag(Seek, three)
     pg(g)
     g.run()
 
 
 if __name__ == '__main__':
     #demo()
+    #in_progress(seed=4097948433610962494, num_timesteps=20)
     in_progress()
+    print('SEED', g.graph['seed'])
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

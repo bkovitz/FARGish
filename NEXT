@@ -1,3 +1,14 @@
+Don't allow a Block to consume itself.
+
+Seek(2) and Seek(3) alone should prime the model to solve 1 1 1 1 1; 6.
+
+   Add Consumed tag upon consuming.
+
+   Change Consumed to Avail in cascade_fail.
+
+----------
+
+
 Main loop:
     Randomly choose a response and execute it
 

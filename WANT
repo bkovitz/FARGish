@@ -1,8 +1,18 @@
 MODEL
 
-    Watchers should be nodes in the graph
+    Focal point: search only nodes "near" this, but possibly consider nodes
+    (e.g. in the slipnet or long-term memory) that are far away.
 
-    Follow old temporal traces
+    Watchers should be nodes in the graph.
+
+        Wanted should be a watcher. It becomes more salient if its taggee
+        heats up.
+
+    Follow old temporal traces.
+
+    It shouldn't be necessary to think through the movement of Avail tags
+    carefully. If something goes wrong with those tags, the model itself
+    should correct it.
 
 
 IMPLEMENTATION

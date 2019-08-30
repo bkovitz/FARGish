@@ -1,6 +1,8 @@
 # util.py -- Generic utility functions and classes for FARGish
 
 from collections.abc import Iterable
+import random
+import sys
 
 
 def is_iter(o):
@@ -10,7 +12,18 @@ def as_iter(o):
     if is_iter(o):
         return o
     else:
-        return list(o)
+        return [o]
+
+def reseed(seed=None):
+    '''With seed=None: reseeds Python's random-number generator with a new,
+    random seed based on the time, and returns it so you can save it.
+    Otherwise reseeds Python's random-number generator with seed, and again
+    returns seed.'''
+    if seed is None:
+        random.seed(None)
+        seed = random.randrange(sys.maxsize)
+    random.seed(seed)
+    return seed
 
 def nice_object_repr(self):
     '''Stick  __repr__ = nice_object_repr  inside a class definition and
