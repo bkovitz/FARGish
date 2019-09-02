@@ -55,3 +55,19 @@ def matching_subgraphs(tg, hg):
                 dict_product_no_multiple_mappings_to_same_value(
                     subgraph_match_by_nodes_only(tg, hg)
                 ) if all(edge_matches(nodes_d, e) for e in tg.edges))
+
+def bdxs_for_datums(datums, hg, nodes=None):
+    '''hg: Host graph
+    datums = iterable of Datum objects to compare with
+
+    Returns iter of dicts of bindings from datums to nodes in bg. Edges in
+    hg are ignored. No dict will bind the same datum to the two different
+    nodes. Some datums might not have a mate.'''
+    if nodes is None:
+        nodes = hg.nodes
+    d = dict((datum, set(hg.nodes_matching_datum(datum, nodes=nodes)))
+                for datum in datums)
+    #TODO Allow a datum to map to nothing without shutting down the other
+    #mappings. Maybe just omit its key from d.
+    return dict_product_no_multiple_mappings_to_same_value(d)
+

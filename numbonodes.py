@@ -63,9 +63,11 @@ class Brick(Number):
     pass
 
 class Target(Number):
-    pass
+    needs_source = True
 
 class Block(Number):
+
+    needs_source = True
 
     def expr(self, g, node):
         source = g.neighbor(node, port_label='source')
@@ -82,6 +84,9 @@ class Block(Number):
 
 
 class Operator(Node, ABC):
+
+    needs_source = True
+
     def symbol(self):
         return '?'
 

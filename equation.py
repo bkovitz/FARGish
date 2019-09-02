@@ -2,9 +2,10 @@
 #                partial instances of equations
 
 from watcher import Watcher, Response, TagWith
-from PortGraph import CouldMake, pn
-from numbonodes import Equation
+from PortGraph import PortGraph, CouldMake, pn, is_node_match
+from numbonodes import *
 from submatch import matching_subgraphs
+from util import nice_object_repr
 
 from collections.abc import Iterable
 from inspect import isclass
@@ -85,3 +86,22 @@ class CompleteEquation(Response):
         def complete_equation(hg):
             return "TODO"
         return complete_equation
+
+
+class EquationWatcher2(Watcher):
+    '''A bit of a hack: This class makes its own internal graph to hold the
+    equation.'''
+
+    def __init__(self, operands, operator, result):
+        'EquationWatcher2([2, 3], Times, 6)'
+        self.bg = PortGraph()
+        self.dict = make_equation(self.bg, operands, operator, result)
+        self.operands = self.dict['operand_ids']
+        self.operator = self.dict['operator_id']
+        self.result = self.dict['result_id']
+
+    #TODO UT
+    def look(self, hg):
+        return [] #TODO STUB
+
+    __repr__ = nice_object_repr

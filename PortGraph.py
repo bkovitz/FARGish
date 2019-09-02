@@ -19,6 +19,11 @@ class Node:
 
     __repr__ = nice_object_repr
 
+    def __getattr__(self, name):
+        '''All attrs default to None, to make them easy to override in
+        subclasses.'''
+        return None
+
 
 class Tag(Node):
     pass
@@ -284,10 +289,13 @@ class PortGraph(nx.MultiGraph):
                      node_port_label=node_port_label)
 
     def has_tag(self, node, tagclass):
-        return any(
-            tag for tag in self.neighbors(node, port_label='tags')
-                    if issubclass(self.class_of(tag), tagclass)
-        )
+        try:
+            return any(
+                tag for tag in self.neighbors(node, port_label='tags')
+                        if issubclass(self.class_of(tag), tagclass)
+            )
+        except KeyError:
+            return False
 
     def tags_of(self, node, tagclass=Tag):
         'Returns a generator.'
@@ -419,6 +427,18 @@ class PortGraph(nx.MultiGraph):
                      if not self.has_tag(node, tagclass)
         )
 
+    def nodes_matching_datum(self, datum, nodes=None):
+        if nodes is None:
+            nodes = self.nodes
+        cl = datum.__class__
+        for node in nodes:
+            node_datum = self.datum(node)
+            if (issubclass(node_datum.__class__, cl)
+                and
+                datum.is_attrs_match(node_datum)
+               ):
+                yield node
+
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))
@@ -482,10 +502,12 @@ def pn(g):
     for node in g.nodes:
         print(g.nodestr(node))
 
-def pg(g):
+def pg(g, nodes=None):
     '''Prints graph g in simple text form.'''
     pt(g)
-    for node in g.nodes:
+    if nodes is None:
+        nodes = g.nodes
+    for node in nodes:
         print(g.nodestr(node))
         for hop in sorted(
             g.hops_from_node(node), key=attrgetter('from_port_label')

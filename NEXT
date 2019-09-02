@@ -1,13 +1,15 @@
 Demo 2
 
-   Something top-down
-   Minus / Needs operands to be ordered
-   120 1 2 3 4; 121   Figure out 120 + 1 = 121 right away  SALLY
-
    Mustang Sally
 
       1 1 1 1 1; 6  Figure out 2 * 3 = 6
-      EquationWatcher
+         EquationWatcher
+            Hacked with ctor args; internal graph
+            Trigger only upon spotting result
+
+   Something top-down
+   Minus / Needs operands to be ordered
+   120 1 2 3 4; 121   Figure out 120 + 1 = 121 right away  SALLY
 
 Don't allow multiple consumers. Or detect it and correct it if it
 happens.

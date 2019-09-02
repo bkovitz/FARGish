@@ -3,7 +3,8 @@ from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
 from util import nice_object_repr, reseed
-from logging import ShowReponseList
+from log import ShowReponseList
+from submatch import bdxs_for_datums
 
 from itertools import product, chain, combinations
 from random import sample, choice
@@ -27,6 +28,7 @@ class Numble:
         target_id = g.make_node(Target(self.target))
         g.add_member_edge(container, target_id)
         TagWith(Wanted, taggee=target_id).go(g)
+        g.graph['target'] = target_id
         return container
 
     __repr__ = nice_object_repr
@@ -65,7 +67,11 @@ class WantedWatcher(Watcher):
         wanteds = hg.nodes_with_tag(Wanted)
         return [self.make_response(avail, wanted)
                     for avail, wanted in product(avails, wanteds)
-                        if hg.have_same_value(avail, wanted)]
+                        if (avail != wanted
+                            and
+                            hg.have_same_value(avail, wanted)
+                        )
+        ]
 
     def make_response(self, avail, wanted):
         return FoundWanted(avail, wanted)
@@ -197,6 +203,88 @@ class CombineOperands(Response):
             self.operator, ', '.join(g.datumstr(o) for o in self.operands)
         )
 
+
+class EquationResultWatcher(Watcher):
+
+    def __init__(self, operands, operator, result):
+        'EquationResultWatcher([2, 3], Times, 6)'
+        self.operands = [Number(o) for o in operands]
+        self.operator = operator
+        self.result = Number(result)
+
+    def look(self, hg):
+        result_nodes = list(
+            node for node in hg.nodes_matching_datum(self.result)
+                     if (hg.has_tag(node, Wanted)
+                         and
+                         not hg.is_in_role(node, 'consumer')
+                     )
+        )
+        print('RESULT_NODES', self.result, result_nodes)
+        responses = []
+        for result_node in result_nodes:
+            for d in bdxs_for_datums(self.operands, hg):
+                for r in self.make_responses(hg, d, result_node):
+                    responses.append(r)
+        #Somewhat HACKish: if there are any opportunities to complete
+        #an equation, we don't return any of MakeSeek responses even if
+        #there were any, since those will likely set up a subgoal that
+        #has already been achieved.
+        fills = [r for r in responses if isinstance(r, FillInOperator)]
+        if fills:
+            return fills
+        else:
+            return responses
+
+    def make_responses(self, hg, bindings_dict, result_node):
+        if len(bindings_dict) == len(self.operands): # every operand has a mate
+            if all(hg.has_tag(bindings_dict[o], Avail) for o in self.operands):
+                return [
+                    FillInOperator(bindings_dict, self.operator, result_node)
+                ]
+            else:
+                # Start WantedWatchers for the non-Avail operators
+                return [
+                    MakeSeek(o.value)
+                        for o in self.operands
+                            if (not hg.has_tag(
+                                        bindings_dict.get(o, None),
+                                        Avail)
+                                and
+                                not hg.already_seeking(Number(o.value))
+                            )
+                ]
+        return [] #TODO STUB
+
+    __repr__ = nice_object_repr
+
+class FillInOperator(Response):
+
+    def __init__(self, bindings_dict, operator_datum, result_node):
+        self.bindings_dict = bindings_dict
+        self.operator_datum = operator_datum
+        self.result_node = result_node
+
+    def go(self, g):
+        #TODO OAOO with CombineOperands; should have a consume() function
+        operator_id = g.make_node(self.operator_datum)
+        for operand in self.bindings_dict.values():
+            g.add_edge(operand, 'consumer', operator_id, 'source')
+            g.remove_tag(operand, Avail)
+        g.add_edge(operator_id, 'consumer', self.result_node, 'source')
+        g.remove_tag(self.result_node, Wanted)
+        TagWith(Avail, taggee=self.result_node).go(g)
+
+class MakeSeek(Response):
+
+    def __init__(self, wanted_value):
+        self.wanted_value = wanted_value
+
+    def go(self, g):
+        node = g.make_node(Block(self.wanted_value))
+        g.add_tag(Seek, node)
+
+
 class Backtrack(Response):
     '''Pretty crude: just undoes all existing Avail tags, tags any operators
     that produced the the Avails' taggees with Failed, and retags the
@@ -253,12 +341,34 @@ class NumboGraph(PortGraph):
         #themselves Nodes in the graph.
         return self.graph['watchers']
 
+    def is_fully_sourced(self, node):
+        if not self.has_node(node):
+            return False
+        datum = self.datum(node)
+        if datum.needs_source:
+            sources = self.neighbors(node, port_label='source')
+            if sources:
+                return all(self.is_fully_sourced(source) for source in sources)
+            else:
+                return False
+        else:
+            return True
+
+    def detect_success(self):
+        try:
+            target = self.graph['target']
+        except KeyError:
+            return
+        if self.is_fully_sourced(target):
+            raise NumboSuccess(self, target)
+
     def do_timestep(self):
         #TODO This is very crude: it executes all Responses from all Watchers.
         #We should randomly choose just one, based on salience.
         self.graph['t'] += 1
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         try:
+            self.detect_success()  #HACK Should notice more humanly
             responses = list(chain.from_iterable(
                 watcher.look(self) for watcher in self.graph['watchers']
             ))
@@ -268,7 +378,8 @@ class NumboGraph(PortGraph):
                 responses = [Backtrack()]
             #for response in responses:
             response = choice(responses)
-            print(response.annotation(self))
+            print(response)
+            #print(response.annotation(self))
                 #TODO Print only if DEBUG or LOG or something
             response.go(self)
         except FargDone as exc:
@@ -318,6 +429,13 @@ it must surely have no solution.
 
     def has_consumer(self, node):
         return self.neighbor(node, port_label='consumer')
+
+    def already_seeking(self, datum):
+        try:
+            next(self.nodes_matching_datum(datum, self.nodes_with_tag(Seek)))
+            return True
+        except StopIteration:
+            return False
 
     def fail(self, node):
         datum = self.datum(node)
@@ -369,24 +487,32 @@ def close():
     pg(g)
     g.run()
 
-def in_progress(seed=None, num_timesteps=None):
+def in_progress(seed=None, num_timesteps=None,
+        watchers=default_watchers + [
+            EquationResultWatcher([2, 3], Times, 6),
+            EquationResultWatcher([1, 1], Plus, 2),
+            EquationResultWatcher([1, 1, 1], Plus, 3),
+            EquationResultWatcher([1, 2], Plus, 3)
+        ]
+    ):
     '''This runs whatever I'm working on right now. --BEN'''
     global g
     g = NumboGraph(
         numble=Numble([1, 1, 1, 1, 1], 6),
         seed=seed,
-        num_timesteps=num_timesteps
+        num_timesteps=num_timesteps,
+        watchers=watchers
     )
     two = g.make_node(Block(2))
-    g.add_tag(Seek, two)
+    #g.add_tag(Seek, two)
     three = g.make_node(Block(3))
-    g.add_tag(Seek, three)
+    #g.add_tag(Seek, three)
     pg(g)
     g.run()
 
 
 def go(seed=6185774907678598918, num_timesteps=20):
-    ShowReponseList.start_logging()
+    #ShowReponseList.start_logging()
     in_progress(seed=seed, num_timesteps=num_timesteps)
     if not g.done():
         pb(g)
