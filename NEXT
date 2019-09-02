@@ -1,3 +1,21 @@
+Demo 2
+
+   Something top-down
+   Minus / Needs operands to be ordered
+   120 1 2 3 4; 121   Figure out 120 + 1 = 121 right away  SALLY
+
+   Mustang Sally
+
+      1 1 1 1 1; 6  Figure out 2 * 3 = 6
+      EquationWatcher
+
+Don't allow multiple consumers. Or detect it and correct it if it
+happens.
+
+   Disallow consumer loops, too!
+
+   Try writing out the current model in English-FARGish.  DONE
+
 Don't allow a Block to consume itself.
 
 Seek(2) and Seek(3) alone should prime the model to solve 1 1 1 1 1; 6.
@@ -15,14 +33,6 @@ Main loop:
 
 CouldMake
     Make the desired Number by completing the equation.
-
-
-Demo 2
-
-   Fix solution string.
-   Minus / Needs operands to be ordered
-   120 1 2 3 4; 121   Figure out 120 + 1 = 121 right away
-   1 1 1 1 1; 6  Figure out 2 * 3 = 6
 
 
 Bottom-up "noticing"

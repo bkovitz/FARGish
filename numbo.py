@@ -3,6 +3,7 @@ from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
 from util import nice_object_repr, reseed
+from logging import ShowReponseList
 
 from itertools import product, chain, combinations
 from random import sample, choice
@@ -55,21 +56,6 @@ def prompt_for_numble():
             continue
 
     return Numble(bricks, target)
-
-
-#TODO rm
-class BrickWatcher(Watcher):
-
-    def look(self, hg):
-        return [self.make_response(brick)
-                    for brick in g.nodes_of_class(Brick)
-                        if (not g.is_in_role(brick, 'source')
-                            and
-                            not g.has_tag(brick, Avail))]
-
-    def make_response(self, brick):
-        return TagWith(Avail, taggee=brick)
-
 
 
 class WantedWatcher(Watcher):
@@ -253,9 +239,15 @@ class NumboGraph(PortGraph):
         if 'numble' in self.graph:
             self.graph['numble'].build(self, ws)
     
+    def __repr__(self):
+        return 'NumboGraph'
+
     def ws(self):
         return self.graph['ws']
         
+    def done(self):
+        return self.graph['done']
+
     def watchers(self):
         #TODO It would likely be a better model if the Watchers were
         #themselves Nodes in the graph.
@@ -265,28 +257,34 @@ class NumboGraph(PortGraph):
         #TODO This is very crude: it executes all Responses from all Watchers.
         #We should randomly choose just one, based on salience.
         self.graph['t'] += 1
+        print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         try:
             responses = list(chain.from_iterable(
                 watcher.look(self) for watcher in self.graph['watchers']
             ))
+            if ShowReponseList.is_logging():
+                print('responses=%s' % (responses,))
             if len(responses) == 0:
                 responses = [Backtrack()]
-            for response in responses:
-                print(response.annotation(self))
-                    #TODO Print only if DEBUG or LOG or something
-                response.go(self)
+            #for response in responses:
+            response = choice(responses)
+            print(response.annotation(self))
+                #TODO Print only if DEBUG or LOG or something
+            response.go(self)
         except FargDone as exc:
             print('\n' + exc.done_msg())
             self.graph['done'] = True
 
-    def run(self, num_timesteps=None):
+    def run(self, num_timesteps=None, show_fail=False):
         if num_timesteps is None:
             num_timesteps = self.graph['num_timesteps']
         for i in range(num_timesteps):
             self.do_timestep()
             if self.graph['done']:
                 return
-        print('''
+        else:
+            if show_fail:
+                print('''
 If so great a mind as mine could not solve this numble in %s timesteps,
 it must surely have no solution.
 ''' % self.graph['t'])
@@ -306,6 +304,21 @@ it must surely have no solution.
     def expr(self, node):
         return self.datum(node).expr(self, node)
 
+    def blocks_str(self):
+        result = []
+        for block in self.nodes_of_class(Block):
+            if self.has_source(block) and not self.has_consumer(block):
+                result.append(
+                    str(self.expr(block)) + ' = ' + str(self.value_of(block))
+                )
+        return '\n'.join(result)
+
+    def has_source(self, node):
+        return self.neighbor(node, port_label='source')
+
+    def has_consumer(self, node):
+        return self.neighbor(node, port_label='consumer')
+
     def fail(self, node):
         datum = self.datum(node)
         datum.fail(self, node)
@@ -313,6 +326,11 @@ it must surely have no solution.
     def cascade_fail(self, node):
         datum = self.datum(node)
         datum.cascade_fail(self, node)
+
+
+def pb(g):
+    'Print the Blocks built from Bricks and their expressions'
+    print(g.blocks_str())
 
         
 def run(numble):
@@ -367,9 +385,16 @@ def in_progress(seed=None, num_timesteps=None):
     g.run()
 
 
+def go(seed=6185774907678598918, num_timesteps=20):
+    ShowReponseList.start_logging()
+    in_progress(seed=seed, num_timesteps=num_timesteps)
+    if not g.done():
+        pb(g)
+
+
 if __name__ == '__main__':
     #demo()
-    in_progress(seed=6185774907678598918, num_timesteps=20)
+    go()
     #in_progress()
     print('SEED', g.graph['seed'])
 

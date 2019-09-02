@@ -37,5 +37,3 @@ def nice_object_repr(self):
         return '%s(%s)' % (self.__class__.__name__,
                            ', '.join('%s=%s' % (k, repr(v))
                                        for k, v in items))
-
-

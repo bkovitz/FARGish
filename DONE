@@ -27,3 +27,14 @@ Mustang Sally / Demo 1:
 
 Print random-number seed.
 Take random-number seed as argument.
+
+Print bottom-up "equation".  pg(g), NumboGraph.blocks_str()
+
+
+Demo 2
+
+   Fix solution string.
+
+   Do only on Response per timestep
+      Print list of Responses
+      Choose one randomly
