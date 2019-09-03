@@ -44,15 +44,34 @@ def set_activations(g, d, attr='a'):
 def T(x):
     return 2.0 / (1 + exp(-2.2 * x)) - 1.0
 
-def edge_weight(from_node, to_node):
+def edge_weight_always_one(from_node, to_node):
     return 1.0
 
 def simple_sa(g, attr='a', decay=1.0, num_steps=10):
     def neighbors(node):
         return g.neighbors(node)
-    return sa(activations(g, attr=attr), neighbors, edge_weight, T,
+    return sa(activations(g, attr=attr), neighbors, edge_weight_always_one, T,
               decay=decay, num_steps=num_steps
            )
+
+def spread_activation(
+    g,
+    attr='a', via_port_label='sa', num_steps=10, transfer=T, decay=1.0,
+    edge_weight=edge_weight_always_one
+):
+    '''Spreads activation through graph g.'''
+    def neighbors(node):
+        return g.neighbors(node, port_label=via_port_label)
+    old_as = activations(g, attr=attr)
+    new_as = sa(
+        old_as,
+        neighbors,
+        edge_weight,
+        transfer,
+        decay=decay,
+        num_steps=num_steps
+    )
+    set_activations(g, new_as, attr=attr)
 
 
 if __name__ == '__main__':
