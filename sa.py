@@ -34,12 +34,12 @@ def sa(d_t0, neighbors, edge_weight, T, decay=1.0, num_steps=10):
                          )
     return d_t1
 
-def activations(g):
-    return {node: g.nodes[node].get('a', 0.0) for node in g.nodes}
+def activations(g, attr='a'):
+    return {node: g.nodes[node].get(attr, 0.0) for node in g.nodes}
 
-def set_activations(g, d):
+def set_activations(g, d, attr='a'):
     for node, activation in d.items():
-        g.nodes[node]['a'] = activation
+        g.nodes[node][attr] = activation
 
 def T(x):
     return 2.0 / (1 + exp(-2.2 * x)) - 1.0
@@ -47,10 +47,10 @@ def T(x):
 def edge_weight(from_node, to_node):
     return 1.0
 
-def simple_sa(g, decay=1.0, num_steps=10):
+def simple_sa(g, attr='a', decay=1.0, num_steps=10):
     def neighbors(node):
         return g.neighbors(node)
-    return sa(activations(g), neighbors, edge_weight, T,
+    return sa(activations(g, attr=attr), neighbors, edge_weight, T,
               decay=decay, num_steps=num_steps
            )
 
@@ -58,6 +58,7 @@ def simple_sa(g, decay=1.0, num_steps=10):
 if __name__ == '__main__':
     from PortGraph import PortGraph
     g = PortGraph()
+    g.add_nodes_from(['A', 'B', 'O'])
     g.add_edge('A', 'sa', 'B', 'sa')
     g.add_edge('O', 'sa', 'A', 'sa')
 

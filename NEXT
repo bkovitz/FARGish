@@ -2,6 +2,10 @@ Demo 2
 
    Mustang Sally
 
+      Better logging
+        Need to see Datums in FoundWanted and CombineOperands, not just
+        node ids.
+
       1 1 1 1 1; 6  Figure out 2 * 3 = 6
          EquationWatcher
             Hacked with ctor args; internal graph
