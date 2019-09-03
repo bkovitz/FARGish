@@ -27,15 +27,20 @@ class TestSpreadingActivation(unittest.TestCase):
 
     def test_spread_activation(self):
         g = PortGraph()
-        g.add_nodes_from(['A', 'B', 'O'])
+        g.add_nodes_from(['A', 'B', 'O', 'IGNORED'])
         g.add_edge('A', 'sa', 'B', 'sa')
         g.add_edge('O', 'sa', 'A', 'sa')
+        def only_nodes(g, node):
+            return node in set(['A', 'B', 'O'])
         
         set_activations(g, {'O': 1.0}, attr='A')
+        self.assertFalse('A' in g.nodes['IGNORED'])
         spread_activation(
             g,
-            attr='A', via_port_label='sa', num_steps=10, transfer=T, decay=1.0
+            attr='A', via_port_label='sa', num_steps=10, transfer=T, decay=1.0,
+            only_nodes=only_nodes
         )
         self.assertAlmostEqual(g.nodes['A']['A'], 0.9969358984814931)
         self.assertAlmostEqual(g.nodes['B']['A'], 0.9741717893936888)
         self.assertAlmostEqual(g.nodes['O']['A'], 0.9741717893936888)
+        self.assertFalse('A' in g.nodes['IGNORED'])

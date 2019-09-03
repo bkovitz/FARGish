@@ -34,18 +34,25 @@ def sa(d_t0, neighbors, edge_weight, T, decay=1.0, num_steps=10):
                          )
     return d_t1
 
-def activations(g, attr='a'):
-    return {node: g.nodes[node].get(attr, 0.0) for node in g.nodes}
-
-def set_activations(g, d, attr='a'):
-    for node, activation in d.items():
-        g.nodes[node][attr] = activation
-
 def T(x):
+    '''The transfer function with attractors at +/- 0.5 and repellors at
+    0.0, +/- 1.0.'''
     return 2.0 / (1 + exp(-2.2 * x)) - 1.0
 
 def edge_weight_always_one(from_node, to_node):
     return 1.0
+
+def always_true(g, node):
+    return True
+
+def activations(g, attr='a', only_nodes=always_true):
+    return {node: g.nodes[node].get(attr, 0.0)
+               for node in g.nodes
+                   if only_nodes(g, node)}
+
+def set_activations(g, d, attr='a'):
+    for node, activation in d.items():
+        g.nodes[node][attr] = activation
 
 def simple_sa(g, attr='a', decay=1.0, num_steps=10):
     def neighbors(node):
@@ -57,12 +64,12 @@ def simple_sa(g, attr='a', decay=1.0, num_steps=10):
 def spread_activation(
     g,
     attr='a', via_port_label='sa', num_steps=10, transfer=T, decay=1.0,
-    edge_weight=edge_weight_always_one
+    edge_weight=edge_weight_always_one, only_nodes=always_true
 ):
     '''Spreads activation through graph g.'''
     def neighbors(node):
         return g.neighbors(node, port_label=via_port_label)
-    old_as = activations(g, attr=attr)
+    old_as = activations(g, attr=attr, only_nodes=only_nodes)
     new_as = sa(
         old_as,
         neighbors,
@@ -72,19 +79,3 @@ def spread_activation(
         num_steps=num_steps
     )
     set_activations(g, new_as, attr=attr)
-
-
-if __name__ == '__main__':
-    from PortGraph import PortGraph
-    g = PortGraph()
-    g.add_nodes_from(['A', 'B', 'O'])
-    g.add_edge('A', 'sa', 'B', 'sa')
-    g.add_edge('O', 'sa', 'A', 'sa')
-
-    g.nodes['A']['a'] = 1.0
-
-    def go():
-        set_activations(g, simple_sa(g))
-    go()
-    print(timeit.timeit(go, number=1000))
-    print(activations(g))
