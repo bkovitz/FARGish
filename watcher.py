@@ -24,7 +24,7 @@ class Response(ABC):
 
     @property
     def salience(self):
-        return 1.0
+        return 0.01
 
     @abstractmethod
     def go(self, hg):

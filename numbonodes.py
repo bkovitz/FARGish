@@ -20,6 +20,13 @@ class Avail(Tag):
 class Wanted(Tag, Watcher):
 
     def look(self, g, this_tag):
+        return (
+            self.look_at_avails(g, this_tag)
+            +
+            self.look_at_couldmakes(g, this_tag)
+        )
+
+    def look_at_avails(self, g, this_tag):
         avails = g.nodes_with_tag(Avail)
         wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
         return [FoundWanted(avail, wanted)
@@ -29,6 +36,47 @@ class Wanted(Tag, Watcher):
                             g.have_same_value(avail, wanted)
                            )
         ]
+
+    def look_at_couldmakes(self, g, this_tag):
+        wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
+        could_makes = [
+            node for node in g.nodes_of_class(OperandsCouldMake)
+                #TODO Fix bad design (this class knows too much about
+                #OperandsCouldMake)
+                if (
+                    g.all_have_tag(Avail, g.neighbors(node, 'operands'))
+                    and
+                    any(
+                        g.have_same_value(wanted, g.neighbor(node, 'result'))
+                            for wanted in wanteds
+                    )
+                )
+        ]
+        salience = g.salience(this_tag)
+        result = [
+            BoostSalience(could_make, salience=salience)
+                for could_make in could_makes
+        ]
+        return result
+
+class BoostSalience(Response):
+
+    def __init__(self, node, salience=0.1):
+        '''salience is salience of Response object, not salience to be
+        given to node.'''
+        self.node = node
+        self._salience = salience
+
+    @property
+    def salience(self):
+        return self._salience
+
+    def go(self, g):
+        g.boost_salience(self.node)
+
+    def annotation(self, g):
+        return 'Boosting salience of %s.' % g.datum(self.node)
+
 
 class FoundWanted(Response):
 
@@ -276,6 +324,9 @@ class Build(Response):
 
 class OperandsCouldMake(Tag, Watcher):
 
+    default_salience = 0.01
+    #BUG Why is this being ignored?
+
     @classmethod
     def maybe_make_datum(cls, g, operands):
         '''Returns an OperandsCouldMake object for operands if possible;
@@ -353,4 +404,14 @@ class ConsummateCouldMake(Response):
         g.add_edge(operator, 'consumer', result, 'source')
         if all_operands_avail:
             Avail.add_tag(g, result)
+
+    def annotation(self, g):
+        #TODO OAOO these first three lines
+        operands = [
+            g.datum(operand)
+                for operand in g.neighbors(self.could_make, 'operands')
+        ]
+        result = g.datum(g.neighbor(self.could_make, 'result'))
+        operator = g.datum(g.neighbor(self.could_make, 'operator'))
+        return 'Making %s %s = %s' % (operator, operands, result)
 

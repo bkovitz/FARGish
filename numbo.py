@@ -264,7 +264,7 @@ class NumboGraph(PortGraph):
     default_graph_attrs = dict(
         t=0,
         done=False,
-        num_timesteps=20,
+        num_timesteps=40,
         seed=None
     )
 
@@ -325,8 +325,8 @@ class NumboGraph(PortGraph):
         response = choices(
             responses, weights=[r.salience for r in responses], k=1
         )[0]
-        print(response)
-        #print(response.annotation(self))
+        #print(response)
+        print(response.annotation(self))
             #TODO Print only if DEBUG or LOG or something
         response.go(self)
 
@@ -443,9 +443,9 @@ def in_progress(**kwargs):
     simplest(**kwargs)
 
 
-def go(seed=6185774907678598918, num_timesteps=20):
-    #ShowReponseList.start_logging()
+def go(seed=6185774907678598918, num_timesteps=40):
     global g
+    #ShowReponseList.start_logging()
     in_progress(seed=seed, num_timesteps=num_timesteps)
     if not g.done():
         pb(g)
