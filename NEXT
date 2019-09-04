@@ -2,6 +2,14 @@ Demo 2
 
    Mustang Sally
 
+      1 1; 2  with Watchers as nodes
+        Make 1+1=2 much more attractive than 1*1=1
+            set Response salience
+                favor Consummmating a Wanted node
+
+      default_watchers -> initial_watchers
+        Create these nodes in NumboGraph's ctor
+
       Better logging
         Need to see Datums in FoundWanted and CombineOperands, not just
         node ids.

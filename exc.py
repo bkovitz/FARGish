@@ -14,7 +14,7 @@ class NumboSuccess(FargDone):
         self.g = g
         self.target = target
 
-    def done_msg(self):
+    def __str__(self):
         return 'Success!  ' + str(self.g.expr_as_equation(self.target))
 
     __repr__ = nice_object_repr

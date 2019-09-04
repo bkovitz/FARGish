@@ -1,6 +1,6 @@
 # PortGraph.py -- PortGraph class
 
-from util import nice_object_repr, as_iter
+from util import nice_object_repr, as_iter, is_iter
 
 import networkx as nx
 
@@ -23,6 +23,9 @@ class Node:
         '''All attrs default to None, to make them easy to override in
         subclasses.'''
         return None
+
+    def decay_salience(self, g, node):
+        g.set_salience(node, 0.9 * g.salience(node))
 
 
 class Tag(Node):
@@ -144,6 +147,8 @@ class PortGraph(nx.MultiGraph):
 
     node_dict_factory = NodeAttrDict
 
+    default_salience = 0.01
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.nextid = 1
@@ -154,10 +159,20 @@ class PortGraph(nx.MultiGraph):
         return result
 
     def make_node(self, o):
+        '''Builds a new node and sets its datum. If o is a class, we call it
+        with no arguments and set the datum to the constructed object.
+        Otherwise we set the datum to o. We set the salience according
+        to o.default_salience (from the object, not the class).'''
         i = self._bump_nextid()
         if isclass(o):
             o = o()
         self.add_node(i, **{'datum': o})
+        try:
+            salience = o.default_salience
+            if salience is not None:
+                self.set_salience(i, salience)
+        except AttributeError:
+            pass
         return i
 
     def dup_node(self, h, node):
@@ -188,17 +203,20 @@ class PortGraph(nx.MultiGraph):
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         '''If the edge already exists, doesn't make a new one. Regardless,
-        returns the key of the edge.'''
+        returns the key of the edge. Calls boost_salience on node1 and
+        node2.'''
         hop = self.find_hop(node1, port_label1, node2, port_label2)
         if hop:
-            return hop.key
+            key = hop.key
         else:
             key = super(PortGraph, self).add_edge(node1, node2, **attr)
             hop1 = Hop(node1, port_label1, node2, port_label2, key)
             hop2 = Hop(node2, port_label2, node1, port_label1, key)
             self.nodes[node1]['_hops'].add(hop1)
             self.nodes[node2]['_hops'].add(hop2)
-            return key
+        self.boost_salience(node1)
+        self.boost_salience(node2)
+        return key
 
     def has_edge(self, u, v, w=None, y=None):
         if y is None:
@@ -315,13 +333,27 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             return False
 
-    def tags_of(self, node, tagclass=Tag):
-        'Returns a generator.'
-        #TODO Should be able to specify tagclass more narrowly.
-        return (tag for tag in self.neighbors(node, port_label='tags')
-                        if issubclass(self.class_of(tag), tagclass))
+    def all_have_tag(self, tagclass, nodes, taggee_port_label='tags'):
+        return all(
+            self.has_tag(node, tagclass, taggee_port_label=taggee_port_label)
+                for node in nodes
+        )
 
-    #TODO node_or_nodes, tag_or_tagclass
+    def tags_of(self, nodes, tagclass=Tag, taggee_port_label='tags'):
+        '''Returns a generator. nodes can be a single node id or an iterable
+        of node ids.'''
+        #TODO Should be able to specify tagclass more narrowly.
+        tag_sets = (
+            set(tag
+                for node in as_iter(nodes)
+                    for tag in self.neighbors(
+                            node, port_label=taggee_port_label
+                        )
+                        if self.is_of_class(tag, tagclass)
+            )
+        )
+        return set.intersection(tag_sets)
+
     def remove_tag(self, node_or_nodes, tag_or_tagclass):
         '''Removes all tags of node that match tagclass.'''
         #TODO Should only remove the edge if the tag tags other nodes, too.
@@ -405,6 +437,31 @@ class PortGraph(nx.MultiGraph):
             return self.nodes[node]['datum']
         except KeyError:
             return None
+
+    def salience(self, node):
+        '''Returns node's salience. If no salience has been set explicitly
+        for node, returns default_salience. If node does not exist,
+        returns 0.0.'''
+        try:
+            return self.nodes[node].get('salience', self.default_salience)
+        except KeyError:
+            return 0.0
+
+    def set_salience(self, node, salience):
+        try:
+            self.nodes[node]['salience'] = salience
+        except KeyError:
+            pass
+
+    def boost_salience(self, node, new_salience=None):
+        if new_salience is None:
+            new_salience = max(1.0, self.salience(node)) * 1.1
+        self.set_salience(node, new_salience)
+
+    def decay_saliences(self):
+        for node in self.nodes:
+            datum = self.datum(node)
+            datum.decay_salience(self, node)
 
     def find_member_in_role(self, group_node, role):
         #TODO UT
@@ -534,7 +591,7 @@ def pg(g, nodes=None):
     if nodes is None:
         nodes = g.nodes
     for node in nodes:
-        print(g.nodestr(node))
+        print('%s  sal=%.3f' % (g.nodestr(node), g.salience(node)))
         for hop in sorted(
             g.hops_from_node(node), key=attrgetter('from_port_label')
         ):

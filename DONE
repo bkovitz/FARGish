@@ -35,6 +35,9 @@ Demo 2
 
    Fix solution string.
 
-   Do only on Response per timestep
+   Do only one Response per timestep
       Print list of Responses
       Choose one randomly
+
+   choose by salience of Response  DONE
+   decay salience

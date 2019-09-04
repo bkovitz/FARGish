@@ -10,7 +10,7 @@ from log import ShowReponseList
 from submatch import bdxs_for_datums
 
 from itertools import product, chain, combinations
-from random import sample, choice
+from random import sample, choice, choices
 from math import ceil
 
 
@@ -302,41 +302,33 @@ class NumboGraph(PortGraph):
         else:
             return True
 
-    def detect_success(self):
-        try:
-            target = self.graph['target']
-        except KeyError:
-            return
-        if self.is_fully_sourced(target):
-            raise NumboSuccess(self, target)
-
     def watchers(self):
         return self.nodes_of_class(Watcher)
 
+    def set_done(self, done):
+        self.graph['done'] = done
+
     def do_timestep(self):
-        #TODO This is very crude: it executes all Responses from all Watchers.
-        #We should randomly choose just one, based on salience.
         self.graph['t'] += 1
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
-        try:
-            self.detect_success()  #HACK Should notice more humanly
-            responses = list(chain.from_iterable(
-                self.datum(watcher).look(self, watcher)
-                    for watcher in self.watchers()
-            ))
-            if ShowReponseList.is_logging():
-                print('responses=%s' % (responses,))
-            if len(responses) == 0:
-                responses = [Backtrack()]
-            #for response in responses:
-            response = choice(responses)
-            print(response)
-            #print(response.annotation(self))
-                #TODO Print only if DEBUG or LOG or something
-            response.go(self)
-        except FargDone as exc:
-            print('\n' + exc.done_msg())
-            self.graph['done'] = True
+        self.decay_saliences()
+        responses = list(chain.from_iterable(
+            self.datum(watcher).look(self, watcher)
+                for watcher in self.watchers()
+        ))
+        if ShowReponseList.is_logging():
+            print('responses=%s' % (responses,))
+        if len(responses) == 0:
+            responses = [Backtrack()]
+        #for response in responses:
+        #response = choice(responses)
+        response = choices(
+            responses, weights=[r.salience for r in responses], k=1
+        )[0]
+        print(response)
+        #print(response.annotation(self))
+            #TODO Print only if DEBUG or LOG or something
+        response.go(self)
 
     def run(self, num_timesteps=None, show_fail=False):
         if num_timesteps is None:
@@ -344,6 +336,7 @@ class NumboGraph(PortGraph):
         for i in range(num_timesteps):
             self.do_timestep()
             if self.graph['done']:
+                print(self.graph['done'])
                 return
         else:
             if show_fail:
@@ -403,11 +396,6 @@ def pb(g):
     print(g.blocks_str())
 
         
-def run(numble):
-    g = NumboGraph()
-    ws = g.make_node(Workspace)
-    numble.build(g, ws)
-
 #TODO Make this into a proper unit test
 def testInstantSuccess():
     g = NumboGraph(watchers=[WantedWatcher()], numble=Numble([1, 3, 1], 3))
@@ -433,24 +421,26 @@ def demo():
         g = NumboGraph(numble=numble)
         g.run()
 
+def run(numble, seed=None, num_timesteps=None):
+    global g
+    g = NumboGraph(seed=seed)
+    numble.build(g, g.ws())
+    g.make_node(OperandsCouldMakeTagger)
+    g.run(num_timesteps=num_timesteps)
+    return g
+
 def close():
     global g
     g = NumboGraph(numble=Numble([120, 1, 2, 3, 4, 5], 121))
     pg(g)
     g.run()
 
-def in_progress(seed=None, num_timesteps=None, watchers=default_watchers):
+def simplest(**kwargs):
+    run(Numble([1, 1], 2), **kwargs)
+
+def in_progress(**kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
-    global g
-    g = NumboGraph(
-        numble=Numble([1, 1], 2),
-        seed=seed,
-        num_timesteps=num_timesteps,
-        watchers=watchers
-    )
-    g.make_node(OperandsCouldMakeTagger)
-    pg(g)
-    g.run()
+    simplest(**kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=20):

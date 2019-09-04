@@ -2,6 +2,7 @@
 
 from PortGraph import Node, Tag
 from watcher import Watcher, Response, TagWith #TODO shouldn't need TagWith
+from exc import NumboSuccess
 import expr
 
 from abc import ABC, abstractmethod
@@ -92,10 +93,13 @@ class Number(Node):
         TagWith(Avail, taggee=node).go(g) #TODO add_tag
 
 class Brick(Number):
-    pass
+
+    default_salience = 1.0
 
 class Target(Number, Watcher):
     needs_source = True
+
+    default_salience = 1.0
 
     def look(self, g, node, nodes=None):
         if g.is_fully_sourced(node):
@@ -129,7 +133,7 @@ class Operator(Node, ABC):
         return '?'
 
     @abstractmethod
-    def result_value(self, g, node):
+    def result_value(self, g, node, operands=None):
         pass
 
     @classmethod
@@ -143,6 +147,7 @@ class Operator(Node, ABC):
                                  if g.is_of_class(neighbor, cls)
                 )
             )
+        print('SET', former_consumerss, set.intersection(*former_consumerss))
         return len(set.intersection(*former_consumerss)) > 0
 
     def operands(self, g, node):
@@ -178,13 +183,18 @@ class Plus (Operator):
 
     expr_class = expr.Plus
 
+    @classmethod
+    def calculate(cls, operands):
+        return sum(operands)
+
     def symbol(self):
         return '+'
 
-    def result_value(self, g, node):
+    def result_value(self, g, node, operands=None):
         #TODO OAOO
         operands = list(g.neighbors(node, 'source'))
         if operands:
+            #TODO OAOO calculate
             return sum(g.value_of(operand) for operand in operands)
         else:
             return None
@@ -200,12 +210,20 @@ class Times (Operator):
 
     expr_class = expr.Times
 
+    @classmethod
+    def calculate(cls, operands):
+        v = 1
+        for operand in operands:
+            v *= operand
+        return v
+
     def symbol(self):
         return '*'
 
     def result_value(self, g, node):
         operands = list(g.neighbors(node, 'source'))
         if operands:
+            #TODO OAOO calculate
             v = 1
             for operand in operands:
                 v *= g.value_of(operand)
@@ -233,13 +251,10 @@ class OperandsCouldMakeTagger(Node, Watcher):
 
     def look(self, g, node, nodes=None):
         #TODO Don't look at everything. Weighted choice by salience, maybe
-        # other factors, too.
+        # other factors, too. And we really shouldn't limit the search only
+        # to Avail nodes, either.
         avails = g.nodes_with_tag(Avail, nodes=nodes)
-        possible_operands = list(
-            g.nodes_without_tag(
-                OperandsCouldMake, nodes=avails, taggee_port_label='could_make'
-            )
-        )
+        possible_operands = list(avails)
         if len(possible_operands) >= 2:
             possible_operand_pairs = list(permutations(possible_operands, 2))
             shuffle(possible_operand_pairs)
@@ -259,7 +274,7 @@ class Build(Response):
         self.datum.build(g)
 
 
-class OperandsCouldMake(Tag):
+class OperandsCouldMake(Tag, Watcher):
 
     @classmethod
     def maybe_make_datum(cls, g, operands):
@@ -267,25 +282,75 @@ class OperandsCouldMake(Tag):
         otherwise None. Does not build a node.'''
         possible_operators = [
             op for op in all_operators
-                if not op.failed_with_these_operands(g, operands)
+                if not cls.already_tagged(g, operands, operator_class=op)
+                #if not op.failed_with_these_operands(g, operands)
         ]
+        #NEXT Not failed_with_these_operands, but did we already tag
+        # these operands with that operator?
         if possible_operators:
             return OperandsCouldMake(operands, choice(possible_operators))
         else:
             return None
 
+    @classmethod
+    def already_tagged(cls, g, operands, operator_class):
+        return any(tag for tag in g.tags_of(operands, cls, 'could_make')
+                           if g.is_of_class(
+                               g.neighbor(tag, port_label='operator'),
+                               operator_class
+                           )
+        )
+
     def __init__(self, operands, operator_class):
         self.operands = operands  # nodes, not values
         self.operator_class = operator_class
-        self.operator = None
+        self.operator = None  # datum, not node
+        self.operator_id = None  # node, not datum
 
     def build(self, g):
+        node = g.make_node(self)
         self.operator = self.operator_class()
-        operator_id = g.make_node(self.operator)
-        for operand in self.operands:
-            g.add_edge(operand, 'consumer', operator_id, 'source')
-            g.remove_tag(operand, Avail)
-        result_value = self.operator.result_value(g, operator_id)
+        self.operator_id = g.make_node(self.operator)
+        result_value = self.operator.calculate(
+            [g.value_of(o) for o in self.operands]
+        )
         result_id = g.make_node(Block(result_value))
-        g.add_edge(operator_id, 'consumer', result_id, 'source')
-        Avail.add_tag(g, result_id)
+        for operand in self.operands:
+            g.add_edge(node, 'operands', operand, 'could_make')
+        g.add_edge(node, 'operator', self.operator_id, 'could_make')
+        g.add_edge(node, 'result', result_id, 'could_make')
+
+    def look(self, g, node, nodes=None):
+        if g.has_tag(self.operator_id, Failed):
+            return []
+        all_operands_avail = all(g.has_tag(o, Avail) for o in self.operands)
+        if g.all_have_tag(Avail, self.operands):
+            return [ConsummateCouldMake(node)]
+        else:
+            return []
+
+
+class ConsummateCouldMake(Response):
+
+    def __init__(self, could_make, salience=0.01):
+        'could_make: the OperandsCouldMake node id.'
+        self.could_make = could_make
+        self._salience = salience
+
+    @property
+    def salience(self):
+        return self._salience
+
+    def go(self, g):
+        operands = g.neighbors(self.could_make, 'operands')
+        result = g.neighbor(self.could_make, 'result')
+        operator = g.neighbor(self.could_make, 'operator')
+        all_operands_avail = all(g.has_tag(o, Avail) for o in operands)
+        #TODO What if some but not all operands are Avail?
+        for operand in operands:
+            g.add_edge(operand, 'consumer', operator, 'source')
+            g.remove_tag(operand, Avail)
+        g.add_edge(operator, 'consumer', result, 'source')
+        if all_operands_avail:
+            Avail.add_tag(g, result)
+
