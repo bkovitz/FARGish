@@ -1,12 +1,10 @@
 # numbonodes.py -- Class definitions for nodes needed by Numbo
 
 from PortGraph import Node, Tag
-from watcher import Watcher, Response, TagWith #TODO shouldn't need TagWith
+from watcher import TagWith #TODO shouldn't need this
 import expr
 
 from abc import ABC, abstractmethod
-from random import shuffle, choice
-from itertools import permutations, product
 
 
 class Workspace(Node):
@@ -16,38 +14,8 @@ class Workspace(Node):
 class Avail(Tag):
     pass
 
-class Wanted(Tag, Watcher):
-
-    def look(self, g, this_tag):
-        avails = g.nodes_with_tag(Avail)
-        wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
-        return [FoundWanted(avail, wanted)
-                    for avail, wanted in product(avails, wanteds)
-                        if (avail != wanted
-                            and
-                            g.have_same_value(avail, wanted)
-                           )
-        ]
-
-class FoundWanted(Response):
-
-    def __init__(self, avail, wanted):
-        self.avail = avail
-        self.wanted = wanted
-
-    def go(self, g):
-        g.add_edge(self.avail, 'consumer', self.wanted, 'source')
-        g.remove_tag(self.avail, Avail)
-        Avail.add_tag(g, self.wanted)
-        g.replace_tag(self.wanted, Wanted, WasWanted)
-
-    def annotation(self, g):
-        return (
-            "Hey, look! We wanted %s and we have %s."
-            %
-            (g.datumstr(self.wanted), g.datumstr(self.avail))
-        )
-
+class Wanted(Tag):
+    pass
 
 class WasWanted(Tag):
     pass
@@ -94,14 +62,8 @@ class Number(Node):
 class Brick(Number):
     pass
 
-class Target(Number, Watcher):
+class Target(Number):
     needs_source = True
-
-    def look(self, g, node, nodes=None):
-        if g.is_fully_sourced(node):
-            g.set_done(NumboSuccess(g, node))
-        return []
-
 
 class Block(Number):
 
@@ -131,19 +93,6 @@ class Operator(Node, ABC):
     @abstractmethod
     def result_value(self, g, node):
         pass
-
-    @classmethod
-    def failed_with_these_operands(cls, g, operands):
-        former_consumerss = []
-        for operand in operands:
-            former_consumerss.append(
-                set(neighbor for neighbor in g.neighbors(
-                                 operand, 'former_consumer'
-                             )
-                                 if g.is_of_class(neighbor, cls)
-                )
-            )
-        return len(set.intersection(*former_consumerss)) > 0
 
     def operands(self, g, node):
         return list(g.neighbors(node, 'source'))
@@ -227,65 +176,3 @@ all_operators = [Plus, Times]  #TODO Minus: need to represent the order of
 class Equation(Node):
     def __init__(self, name):
         self.name = name
-
-
-class OperandsCouldMakeTagger(Node, Watcher):
-
-    def look(self, g, node, nodes=None):
-        #TODO Don't look at everything. Weighted choice by salience, maybe
-        # other factors, too.
-        avails = g.nodes_with_tag(Avail, nodes=nodes)
-        possible_operands = list(
-            g.nodes_without_tag(
-                OperandsCouldMake, nodes=avails, taggee_port_label='could_make'
-            )
-        )
-        if len(possible_operands) >= 2:
-            possible_operand_pairs = list(permutations(possible_operands, 2))
-            shuffle(possible_operand_pairs)
-            for operands in possible_operand_pairs:
-                datum = OperandsCouldMake.maybe_make_datum(g, operands)
-                if datum:
-                    return [Build(datum)]
-        return []
-
-
-class Build(Response):
-
-    def __init__(self, datum):
-        self.datum = datum
-
-    def go(self, g):
-        self.datum.build(g)
-
-
-class OperandsCouldMake(Tag):
-
-    @classmethod
-    def maybe_make_datum(cls, g, operands):
-        '''Returns an OperandsCouldMake object for operands if possible;
-        otherwise None. Does not build a node.'''
-        possible_operators = [
-            op for op in all_operators
-                if not op.failed_with_these_operands(g, operands)
-        ]
-        if possible_operators:
-            return OperandsCouldMake(operands, choice(possible_operators))
-        else:
-            return None
-
-    def __init__(self, operands, operator_class):
-        self.operands = operands  # nodes, not values
-        self.operator_class = operator_class
-        self.operator = None
-
-    def build(self, g):
-        self.operator = self.operator_class()
-        operator_id = g.make_node(self.operator)
-        for operand in self.operands:
-            g.add_edge(operand, 'consumer', operator_id, 'source')
-            g.remove_tag(operand, Avail)
-        result_value = self.operator.result_value(g, operator_id)
-        result_id = g.make_node(Block(result_value))
-        g.add_edge(operator_id, 'consumer', result_id, 'source')
-        Avail.add_tag(g, result_id)

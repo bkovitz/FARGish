@@ -1,6 +1,3 @@
-# numbo2.py -- Run this to run Numbo
-
-from numble import Numble, prompt_for_numble
 from PortGraph import PortGraph, NodeAndValue, pg, pn, Node, Tag, CouldMake
 from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
@@ -12,6 +9,55 @@ from submatch import bdxs_for_datums
 from itertools import product, chain, combinations
 from random import sample, choice
 from math import ceil
+
+
+class Numble:
+
+    def __init__(self, bricks, target):
+        'bricks: a list of integers. target: an integer.'
+        self.bricks = bricks
+        self.target = target
+
+    def build(self, g, container):
+        '''Builds the nodes for the numble as members of the container node
+        in graph g. Returns container.'''
+        for brick in self.bricks:
+            brick_id = g.make_node(Brick(brick))
+            g.add_member_edge(container, brick_id)
+            TagWith(Avail, taggee=brick_id).go(g)
+        target_id = g.make_node(Target(self.target))
+        g.add_member_edge(container, target_id)
+        TagWith(Wanted, taggee=target_id).go(g)
+        g.graph['target'] = target_id
+        return container
+
+    __repr__ = nice_object_repr
+
+
+def prompt_for_numble():
+    '''Prompts the user to enter bricks and a target at the keyboard.
+    Returns a Numble object.'''
+    while True:
+        brick_str = input('Bricks: ')
+        try:
+            bricks = [int(b) for b in brick_str.split()]
+            if not bricks:
+                continue #TODO Probably better to throw an exception
+            break
+        except ValueError:
+            print('Please enter the bricks as integers separated by spaces.')
+            continue
+
+    while True:
+        target_str = input('Target: ')
+        try:
+            target = int(target_str)
+            break
+        except ValueError:
+            print('Please enter one integer and press Enter.')
+            continue
+
+    return Numble(bricks, target)
 
 
 class WantedWatcher(Watcher):
@@ -263,6 +309,7 @@ class NumboGraph(PortGraph):
 
     default_graph_attrs = dict(
         t=0,
+        watchers=default_watchers,
         done=False,
         num_timesteps=20,
         seed=None
@@ -289,6 +336,11 @@ class NumboGraph(PortGraph):
     def done(self):
         return self.graph['done']
 
+    def watchers(self):
+        #TODO It would likely be a better model if the Watchers were
+        #themselves Nodes in the graph.
+        return self.graph['watchers']
+
     def is_fully_sourced(self, node):
         if not self.has_node(node):
             return False
@@ -310,9 +362,6 @@ class NumboGraph(PortGraph):
         if self.is_fully_sourced(target):
             raise NumboSuccess(self, target)
 
-    def watchers(self):
-        return self.nodes_of_class(Watcher)
-
     def do_timestep(self):
         #TODO This is very crude: it executes all Responses from all Watchers.
         #We should randomly choose just one, based on salience.
@@ -321,8 +370,7 @@ class NumboGraph(PortGraph):
         try:
             self.detect_success()  #HACK Should notice more humanly
             responses = list(chain.from_iterable(
-                self.datum(watcher).look(self, watcher)
-                    for watcher in self.watchers()
+                watcher.look(self) for watcher in self.graph['watchers']
             ))
             if ShowReponseList.is_logging():
                 print('responses=%s' % (responses,))
@@ -439,23 +487,32 @@ def close():
     pg(g)
     g.run()
 
-def in_progress(seed=None, num_timesteps=None, watchers=default_watchers):
+def in_progress(seed=None, num_timesteps=None,
+        watchers=default_watchers + [
+            EquationResultWatcher([2, 3], Times, 6),
+            EquationResultWatcher([1, 1], Plus, 2),
+            EquationResultWatcher([1, 1, 1], Plus, 3),
+            EquationResultWatcher([1, 2], Plus, 3)
+        ]
+    ):
     '''This runs whatever I'm working on right now. --BEN'''
     global g
     g = NumboGraph(
-        numble=Numble([1, 1], 2),
+        numble=Numble([1, 1, 1, 1, 1], 6),
         seed=seed,
         num_timesteps=num_timesteps,
         watchers=watchers
     )
-    g.make_node(OperandsCouldMakeTagger)
+    two = g.make_node(Block(2))
+    #g.add_tag(Seek, two)
+    three = g.make_node(Block(3))
+    #g.add_tag(Seek, three)
     pg(g)
     g.run()
 
 
 def go(seed=6185774907678598918, num_timesteps=20):
     #ShowReponseList.start_logging()
-    global g
     in_progress(seed=seed, num_timesteps=num_timesteps)
     if not g.done():
         pb(g)

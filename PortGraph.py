@@ -26,7 +26,22 @@ class Node:
 
 
 class Tag(Node):
-    pass
+
+    tag_port_label = 'taggees'
+
+    taggee_port_label = 'tags'
+
+    @classmethod
+    def add_tag(cls, g, taggees):
+        '''Builds an instance of the tag in g and attaches it to taggee at
+        the appropriate ports. Returns tag_id. taggees can be a single
+        node id or an iterable of node ids.'''
+        #TODO More general way to specify taggees; maybe a dict.
+        tag = g.make_node(cls)
+        for taggee in as_iter(taggees):
+            g.add_edge(tag, cls.tag_port_label, taggee, cls.taggee_port_label)
+        return tag
+
 
 class CouldMake(Tag):
 
@@ -288,10 +303,13 @@ class PortGraph(nx.MultiGraph):
                      tag_port_label=tag_port_label,
                      node_port_label=node_port_label)
 
-    def has_tag(self, node, tagclass):
+    def has_tag(self, node, tagclass, taggee_port_label='tags'):
         try:
             return any(
-                tag for tag in self.neighbors(node, port_label='tags')
+                tag for tag in self.neighbors(
+                        node,
+                        port_label=taggee_port_label
+                    )
                         if issubclass(self.class_of(tag), tagclass)
             )
         except KeyError:
@@ -409,22 +427,30 @@ class PortGraph(nx.MultiGraph):
                 result.append(node)
         return result
 
-    def nodes_with_tag(self, tagclass, nodes=None):
+    def nodes_with_tag(self, tagclass, nodes=None, taggee_port_label='tags'):
         'Returns a generator of nodes that have a tag of class tagclass.'
         if nodes is None:
             nodes = self.nodes
         return (
             node for node in nodes
-                     if self.has_tag(node, tagclass)
+                     if self.has_tag(
+                         node,
+                         tagclass,
+                         taggee_port_label=taggee_port_label
+                     )
         )
 
-    def nodes_without_tag(self, tagclass, nodes=None):
+    def nodes_without_tag(self, tagclass, nodes=None, taggee_port_label='tags'):
         'Returns a generator of nodes that do not have a tag of class tagclass.'
         if nodes is None:
             nodes = self.nodes
         return (
             node for node in nodes
-                     if not self.has_tag(node, tagclass)
+                     if not self.has_tag(
+                         node,
+                         tagclass,
+                         taggee_port_label=taggee_port_label
+                     )
         )
 
     def nodes_matching_datum(self, datum, nodes=None):
