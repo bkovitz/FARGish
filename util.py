@@ -45,13 +45,30 @@ def rescale(xs, new_total=1.0):
     multiplier = new_total / sum(xs)
     return [multiplier * x for x in xs]
 
+# TODO BUG numpy has its own random-number generator. This results in
+# indeterminism because other code invokes Python's random-number generator.
+#def sample_without_replacement(items, k=1, weights=None):
+#    '''k is number of items to choose. If k > len(items), returns only
+#    len(items) items.'''
+#    if weights is not None:
+#        weights = rescale(weights)
+#        items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
+#        weights = [w for w in weights if w > 0.0]
+#    return np.random.choice(
+#        items, size=min(k, len(items)), replace=False, p=weights
+#    )
+
 def sample_without_replacement(items, k=1, weights=None):
-    '''k is number of items to choose. If k > len(items), returns only
-    len(items) items.'''
+    items = items.copy()
     if weights is not None:
         weights = rescale(weights)
         items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
         weights = [w for w in weights if w > 0.0]
-    return np.random.choice(
-        items, size=min(k, len(items)), replace=False, p=weights
-    )
+    for i in range(k):
+        if items:
+            i = random.choices(range(len(items)), weights=weights, k=1)[0]
+            item = items.pop(i)
+            del weights[i]
+            yield item
+        else:
+            return

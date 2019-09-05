@@ -38,6 +38,15 @@ Demo 2
    Do only one Response per timestep
       Print list of Responses
       Choose one randomly
+      Went back to multiple Responses per timestep so that BoostSalience
+      didn't starve all the other Response types.
 
    choose by salience of Response  DONE
    decay salience
+
+    set Response salience
+        favor Consummating a Wanted node
+    finer granularity for CouldMakeFromOperands
+        First tag Avail with CouldBeOperand.
+        Then CouldMakeFromOperandsTagger triggers when it sees
+        two numbers tagged CouldBeOperand.

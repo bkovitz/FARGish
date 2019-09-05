@@ -16,7 +16,8 @@ class LoggingObject:
     def stop_logging(self):
         logging.discard(self)
 
-ShowReponseList = LoggingObject()
+ShowResponseList = LoggingObject()
+ShowResponseResults = LoggingObject()
 
 
 def start_logging(os):

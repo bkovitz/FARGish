@@ -4,8 +4,9 @@ Demo 2
 
       1 1; 2  with Watchers as nodes
         Make 1+1=2 much more attractive than 1*1=1
-            set Response salience
-                favor Consummating a Wanted node
+            Need still better way of favoring 1+1=2, since the current way
+            isn't working.
+
 
       default_watchers -> initial_watchers
         Create these nodes in NumboGraph's ctor
@@ -22,6 +23,9 @@ Demo 2
    Something top-down
    Minus / Needs operands to be ordered
    120 1 2 3 4; 121   Figure out 120 + 1 = 121 right away  SALLY
+
+Do Response annotations differently: Build should indicate whether it
+successfully Built or not.
 
 Don't allow multiple consumers. Or detect it and correct it if it
 happens.

@@ -154,7 +154,6 @@ class Target(Number, Watcher):
             g.set_done(NumboSuccess(g, node))
         return []
 
-
 class Block(Number):
 
     needs_source = True
@@ -172,6 +171,42 @@ class Block(Number):
             g.add_edge(node, 'former_source', source, 'former_consumer')
             g.cascade_fail(source)
 
+
+class BottomUpOperandFinder(Node, Watcher):
+
+    def look(self, g, this_node, nodes=None):
+        avail_operands = g.nodes_without_tag(
+            CouldBeOperand,
+            nodes=g.nodes_with_tag(Avail)
+        )
+        return [Build(CouldBeOperand(o)) for o in avail_operands]
+
+
+class CouldBeOperand(Tag, Watcher):
+
+    def __init__(self, operand):
+        self.operand = operand
+
+    def build(self, g):
+        this_tag = g.make_node(self)
+        g.add_tag(this_tag, self.operand)
+        return this_tag
+
+    def look(self, g, this_tag, nodes=None):
+        '''If other nodes are tagged CouldBeOperand, tag them with
+        CouldMakeFromOperands and remove their CouldBeOperand tags.'''
+        # TODO From a modeling perspective, this look() is terrible.
+        # We're simply grabbing all the potential operands
+        #TODO If self.operand is removed, we should disappear, too.
+        others = [other for other in g.nodes_with_tag(CouldBeOperand)
+                    if other != self.operand]
+        if others:
+            operands = others + [self.operand]
+            if all(g.has_tag(o, Avail) for o in operands):
+                datum = CouldMakeFromOperands.maybe_make_datum(g, operands)
+                if datum:
+                    return [Build(datum)]
+        return []
 
 class Operator(Node, ABC):
 
@@ -304,7 +339,11 @@ class CouldMakeFromOperandsTagger(Node, Watcher):
         avails = g.nodes_with_tag(Avail, nodes=nodes)
         possible_operands = list(avails)
         if len(possible_operands) >= 2:
-            possible_operand_pairs = list(permutations(possible_operands, 2))
+            #possible_operand_pairs = list(permutations(possible_operands, 2))
+            possible_operand_pairs = list(
+                product(possible_operands, possible_operands)
+            )
+            print('POSS', possible_operands, possible_operand_pairs)
             shuffle(possible_operand_pairs)
             for operands in possible_operand_pairs:
                 datum = CouldMakeFromOperands.maybe_make_datum(g, operands)
@@ -317,9 +356,16 @@ class Build(Response):
 
     def __init__(self, datum):
         self.datum = datum
+        self.built = None
 
     def go(self, g):
-        self.datum.build(g)
+        self.built = self.datum.build(g)
+
+    def annotation(self, g):
+        if self.built:
+            return 'Built %s' % (g.nodestr(self.built))
+        else:
+            return 'Failed to build %s' % (self.datum,)
 
 
 class CouldMakeFromOperands(Tag, Watcher):
@@ -359,17 +405,19 @@ class CouldMakeFromOperands(Tag, Watcher):
         self.operator_id = None  # node, not datum
 
     def build(self, g):
-        node = g.make_node(self)
-        self.operator = self.operator_class()
-        self.operator_id = g.make_node(self.operator)
-        result_value = self.operator.calculate(
-            [g.value_of(o) for o in self.operands]
-        )
-        result_id = g.make_node(Block(result_value))
-        for operand in self.operands:
-            g.add_edge(node, 'operands', operand, 'could_make')
-        g.add_edge(node, 'operator', self.operator_id, 'could_make')
-        g.add_edge(node, 'result', result_id, 'could_make')
+        if not self.already_tagged(g, self.operands, self.operator_class):
+            node = g.make_node(self)
+            self.operator = self.operator_class()
+            self.operator_id = g.make_node(self.operator)
+            result_value = self.operator.calculate(
+                [g.value_of(o) for o in self.operands]
+            )
+            result_id = g.make_node(Block(result_value))
+            for operand in self.operands:
+                g.add_edge(node, 'operands', operand, 'could_make')
+            g.add_edge(node, 'operator', self.operator_id, 'could_make')
+            g.add_edge(node, 'result', result_id, 'could_make')
+            return node
 
     def look(self, g, node, nodes=None):
         if g.has_tag(self.operator_id, Failed):

@@ -6,7 +6,7 @@ from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
 from util import nice_object_repr, reseed, sample_without_replacement
-from log import ShowReponseList
+from log import ShowResponseList, ShowResponseResults
 from submatch import bdxs_for_datums
 
 from itertools import product, chain, combinations
@@ -318,7 +318,7 @@ class NumboGraph(PortGraph):
         ))
         if len(responses) == 0:  #TODO Better criterion for backtracking
             responses = [Backtrack()]
-        if ShowReponseList.is_logging():
+        if ShowResponseList.is_logging():
             #print('responses=%s' % (responses,))
             print('Responses:')
             for response in responses:
@@ -334,9 +334,9 @@ class NumboGraph(PortGraph):
             responses, k=2, weights=[r.salience for r in responses]
         ):
             #print(response)
-            print(response.annotation(self))
-                #TODO Print only if DEBUG or LOG or something
             response.go(self)
+            if ShowResponseResults.is_logging():
+                print(response.annotation(self))
 
     def run(self, num_timesteps=None, show_fail=False):
         if num_timesteps is None:
@@ -433,7 +433,8 @@ def run(numble, seed=None, num_timesteps=None):
     global g
     g = NumboGraph(seed=seed)
     numble.build(g, g.ws())
-    g.make_node(CouldMakeFromOperandsTagger)
+    #g.make_node(CouldMakeFromOperandsTagger)
+    g.make_node(BottomUpOperandFinder)
     g.run(num_timesteps=num_timesteps)
     return g
 
@@ -453,7 +454,8 @@ def in_progress(**kwargs):
 
 def go(seed=6185774907678598918, num_timesteps=40):
     global g
-    ShowReponseList.start_logging()
+    ShowResponseList.start_logging()
+    ShowResponseResults.start_logging()
     in_progress(seed=seed, num_timesteps=num_timesteps)
     if not g.done():
         pb(g)
