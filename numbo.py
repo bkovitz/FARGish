@@ -5,7 +5,7 @@ from PortGraph import PortGraph, NodeAndValue, pg, pn, Node, Tag, CouldMake
 from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
-from util import nice_object_repr, reseed
+from util import nice_object_repr, reseed, sample_without_replacement
 from log import ShowReponseList
 from submatch import bdxs_for_datums
 
@@ -316,19 +316,27 @@ class NumboGraph(PortGraph):
             self.datum(watcher).look(self, watcher)
                 for watcher in self.watchers()
         ))
-        if ShowReponseList.is_logging():
-            print('responses=%s' % (responses,))
-        if len(responses) == 0:
+        if len(responses) == 0:  #TODO Better criterion for backtracking
             responses = [Backtrack()]
+        if ShowReponseList.is_logging():
+            #print('responses=%s' % (responses,))
+            print('Responses:')
+            for response in responses:
+                print('  %.3f %s' % (response.salience, response))
         #for response in responses:
         #response = choice(responses)
-        response = choices(
-            responses, weights=[r.salience for r in responses], k=1
-        )[0]
-        #print(response)
-        print(response.annotation(self))
-            #TODO Print only if DEBUG or LOG or something
-        response.go(self)
+#        response = choices(
+#            responses, weights=[r.salience for r in responses], k=1
+#        )[0]
+
+        # TODO global parameter: k  (number of responses to do each timestep)
+        for response in sample_without_replacement(
+            responses, k=2, weights=[r.salience for r in responses]
+        ):
+            #print(response)
+            print(response.annotation(self))
+                #TODO Print only if DEBUG or LOG or something
+            response.go(self)
 
     def run(self, num_timesteps=None, show_fail=False):
         if num_timesteps is None:
@@ -425,7 +433,7 @@ def run(numble, seed=None, num_timesteps=None):
     global g
     g = NumboGraph(seed=seed)
     numble.build(g, g.ws())
-    g.make_node(OperandsCouldMakeTagger)
+    g.make_node(CouldMakeFromOperandsTagger)
     g.run(num_timesteps=num_timesteps)
     return g
 
@@ -445,7 +453,7 @@ def in_progress(**kwargs):
 
 def go(seed=6185774907678598918, num_timesteps=40):
     global g
-    #ShowReponseList.start_logging()
+    ShowReponseList.start_logging()
     in_progress(seed=seed, num_timesteps=num_timesteps)
     if not g.done():
         pb(g)

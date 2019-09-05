@@ -40,9 +40,9 @@ class Wanted(Tag, Watcher):
     def look_at_couldmakes(self, g, this_tag):
         wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
         could_makes = [
-            node for node in g.nodes_of_class(OperandsCouldMake)
+            node for node in g.nodes_of_class(CouldMakeFromOperands)
                 #TODO Fix bad design (this class knows too much about
-                #OperandsCouldMake)
+                #CouldMakeFromOperands)
                 if (
                     g.all_have_tag(Avail, g.neighbors(node, 'operands'))
                     and
@@ -295,7 +295,7 @@ class Equation(Node):
         self.name = name
 
 
-class OperandsCouldMakeTagger(Node, Watcher):
+class CouldMakeFromOperandsTagger(Node, Watcher):
 
     def look(self, g, node, nodes=None):
         #TODO Don't look at everything. Weighted choice by salience, maybe
@@ -307,7 +307,7 @@ class OperandsCouldMakeTagger(Node, Watcher):
             possible_operand_pairs = list(permutations(possible_operands, 2))
             shuffle(possible_operand_pairs)
             for operands in possible_operand_pairs:
-                datum = OperandsCouldMake.maybe_make_datum(g, operands)
+                datum = CouldMakeFromOperands.maybe_make_datum(g, operands)
                 if datum:
                     return [Build(datum)]
         return []
@@ -322,14 +322,14 @@ class Build(Response):
         self.datum.build(g)
 
 
-class OperandsCouldMake(Tag, Watcher):
+class CouldMakeFromOperands(Tag, Watcher):
 
     default_salience = 0.01
     #BUG Why is this being ignored?
 
     @classmethod
     def maybe_make_datum(cls, g, operands):
-        '''Returns an OperandsCouldMake object for operands if possible;
+        '''Returns an CouldMakeFromOperands object for operands if possible;
         otherwise None. Does not build a node.'''
         possible_operators = [
             op for op in all_operators
@@ -339,7 +339,7 @@ class OperandsCouldMake(Tag, Watcher):
         #NEXT Not failed_with_these_operands, but did we already tag
         # these operands with that operator?
         if possible_operators:
-            return OperandsCouldMake(operands, choice(possible_operators))
+            return CouldMakeFromOperands(operands, choice(possible_operators))
         else:
             return None
 
@@ -376,15 +376,15 @@ class OperandsCouldMake(Tag, Watcher):
             return []
         all_operands_avail = all(g.has_tag(o, Avail) for o in self.operands)
         if g.all_have_tag(Avail, self.operands):
-            return [ConsummateCouldMake(node)]
+            return [ConsummateCouldMakeFromOperands(node)]
         else:
             return []
 
 
-class ConsummateCouldMake(Response):
+class ConsummateCouldMakeFromOperands(Response):
 
     def __init__(self, could_make, salience=0.01):
-        'could_make: the OperandsCouldMake node id.'
+        'could_make: the CouldMakeFromOperands node id.'
         self.could_make = could_make
         self._salience = salience
 

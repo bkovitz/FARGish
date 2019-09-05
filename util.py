@@ -4,6 +4,8 @@ from collections.abc import Iterable
 import random
 import sys
 
+import numpy as np
+
 
 def is_iter(o):
     return isinstance(o, Iterable)
@@ -37,3 +39,19 @@ def nice_object_repr(self):
         return '%s(%s)' % (self.__class__.__name__,
                            ', '.join('%s=%s' % (k, repr(v))
                                        for k, v in items))
+
+def rescale(xs, new_total=1.0):
+    '''Returns list of xs, rescaled to sum to new_total.'''
+    multiplier = new_total / sum(xs)
+    return [multiplier * x for x in xs]
+
+def sample_without_replacement(items, k=1, weights=None):
+    '''k is number of items to choose. If k > len(items), returns only
+    len(items) items.'''
+    if weights is not None:
+        weights = rescale(weights)
+        items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
+        weights = [w for w in weights if w > 0.0]
+    return np.random.choice(
+        items, size=min(k, len(items)), replace=False, p=weights
+    )
