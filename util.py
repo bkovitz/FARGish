@@ -4,8 +4,6 @@ from collections.abc import Iterable
 import random
 import sys
 
-import numpy as np
-
 
 def is_iter(o):
     return isinstance(o, Iterable)
