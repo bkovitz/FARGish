@@ -463,6 +463,17 @@ class PortGraph(nx.MultiGraph):
             datum = self.datum(node)
             datum.decay_salience(self, node)
 
+    #TODO mv to WithSupport mix-in
+    def support_for(self, node):
+        try:
+            return self.nodes[node]['support']
+        except KeyError:
+            return 0.0
+
+    #TODO mv to WithSupport mix-in
+    def set_support_for(self, node, support):
+        self.nodes[node]['support'] = support
+
     def find_member_in_role(self, group_node, role):
         #TODO UT
         '''role is a port label that a neighbor of the sought node must have.

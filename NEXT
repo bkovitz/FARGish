@@ -6,6 +6,8 @@ Demo 2
         Make 1+1=2 much more attractive than 1*1=1
             Need still better way of favoring 1+1=2, since the current way
             isn't working.
+                support.py
+                Consumers vs. Watchers
 
 
       default_watchers -> initial_watchers
@@ -51,6 +53,10 @@ Main loop:
 
 CouldMake
     Make the desired Number by completing the equation.
+
+
+Support
+    Set the edge weight in the unit test.
 
 
 Bottom-up "noticing"
