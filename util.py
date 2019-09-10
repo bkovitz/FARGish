@@ -40,8 +40,15 @@ def nice_object_repr(self):
 
 def rescale(xs, new_total=1.0):
     '''Returns list of xs, rescaled to sum to new_total.'''
-    multiplier = new_total / sum(xs)
-    return [multiplier * x for x in xs]
+    if not xs:
+        return xs
+    s = sum(xs)
+    if s == 0:
+        x = 1.0 / len(xs)
+        return [x] * len(xs)
+    else:
+        multiplier = new_total / sum(xs)
+        return [multiplier * x for x in xs]
 
 # TODO BUG numpy has its own random-number generator. This results in
 # indeterminism because other code invokes Python's random-number generator.
@@ -58,10 +65,11 @@ def rescale(xs, new_total=1.0):
 
 def sample_without_replacement(items, k=1, weights=None):
     items = items.copy()
-    if weights is not None:
-        weights = rescale(weights)
-        items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
-        weights = [w for w in weights if w > 0.0]
+    if weights is None:
+        weights = [1.0] * len(items)
+    weights = rescale(weights)
+    items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
+    weights = [w for w in weights if w > 0.0]
     for i in range(k):
         if items:
             i = random.choices(range(len(items)), weights=weights, k=1)[0]

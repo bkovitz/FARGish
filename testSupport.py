@@ -24,3 +24,7 @@ class TestSupport(unittest.TestCase):
         self.assertAlmostEqual(d['A'], 0.817665950444724)
         self.assertAlmostEqual(d['B'], 0.1822909838416653)
         self.assertAlmostEqual(d['O'], 4.306571361059501e-05)
+
+    def test_min_support_for(self):
+        #TODO
+        pass

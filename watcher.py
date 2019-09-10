@@ -1,6 +1,5 @@
 # watcher.py -- Watcher and Response
 
-from PortGraph import nice_object_repr
 from util import nice_object_repr, as_iter
 
 from abc import ABC, abstractmethod
@@ -21,6 +20,9 @@ class Watcher(ABC):
 
 
 class Response(ABC):
+
+    action_threshold = 0.0
+    # salience must be >= this for Response.go to be called
 
     @property
     def salience(self):

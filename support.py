@@ -2,9 +2,6 @@
 #
 # Nodes give support to other nodes.
 
-# The variable i refers to a node that is giving support; the variable j refers
-# to a node that is receiving support.
-
 positive_feedback_rate = 0.2
 alpha = 0.9
 
@@ -41,11 +38,12 @@ def propagate_support(g, nodes=None, max_total_support=10.0):
     for node, old in old_d.items():
         positive_feedback = 1.0 + positive_feedback_rate * old
         incoming_neighbors = g.neighbors(node, port_label='support_from')
-        new_d[node] = old * alpha + sum(
-            (1 - alpha) * (positive_feedback * g.support_for(neighbor))
+        new_support = old * alpha + sum(
+            (1 - alpha) * (positive_feedback * old_d[neighbor])
             # TODO need to multiply the edge weight   hops_from_port
                 for neighbor in incoming_neighbors
         )
+        new_d[node] = max(g.min_support_for(node), new_support)
     new_d = normalize(new_d, max_total_support=max_total_support)
     for node, new_support in new_d.items():
         g.set_support_for(node, new_support)

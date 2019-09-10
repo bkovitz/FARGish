@@ -8,6 +8,7 @@ from exc import *
 from util import nice_object_repr, reseed, sample_without_replacement
 from log import ShowResponseList, ShowResponseResults
 from submatch import bdxs_for_datums
+from support import propagate_support
 
 from itertools import product, chain, combinations
 from random import sample, choice, choices
@@ -312,10 +313,23 @@ class NumboGraph(PortGraph):
         self.graph['t'] += 1
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
-        responses = list(chain.from_iterable(
-            self.datum(watcher).look(self, watcher)
-                for watcher in self.watchers()
-        ))
+        propagate_support(self)
+#        responses = list(chain.from_iterable(
+#            self.datum(watcher).look(self, watcher)
+#                for watcher in self.watchers()
+#        ))
+
+        responses = []
+        for watcher in self.watchers():
+            for response in self.datum(watcher).look(self, watcher):
+                #HACK: Overriding the Response object's salience
+                response._salience = max(
+                    self.support_for(watcher),
+                    response.salience
+                )
+                if response.salience >= response.action_threshold:
+                    responses.append(response)
+
         if len(responses) == 0:  #TODO Better criterion for backtracking
             responses = [Backtrack()]
         if ShowResponseList.is_logging():
@@ -337,6 +351,7 @@ class NumboGraph(PortGraph):
             response.go(self)
             if ShowResponseResults.is_logging():
                 print(response.annotation(self))
+        self.do_touches()
 
     def run(self, num_timesteps=None, show_fail=False):
         if num_timesteps is None:
@@ -424,14 +439,17 @@ def testSimple():
 def demo():
     '''Run this for Doug.'''
     global g
+    ShowResponseResults.start_logging()
     while True:
         numble = prompt_for_numble()
         g = NumboGraph(numble=numble)
         g.run()
 
-def run(numble, seed=None, num_timesteps=None):
+def run(numble=None, seed=None, num_timesteps=None):
     global g
     g = NumboGraph(seed=seed)
+    if numble is None:
+        numble = prompt_for_numble()
     numble.build(g, g.ws())
     #g.make_node(CouldMakeFromOperandsTagger)
     g.make_node(BottomUpOperandFinder)
@@ -447,12 +465,16 @@ def close():
 def simplest(**kwargs):
     run(Numble([1, 1], 2), **kwargs)
 
+def six(**kwargs):
+    run(Numble([1, 1, 1, 1, 1], 6), **kwargs)
+
 def in_progress(**kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
-    simplest(**kwargs)
+    #simplest(**kwargs)
+    six(**kwargs)
 
 
-def go(seed=6185774907678598918, num_timesteps=40):
+def go(seed=6185774907678598918, num_timesteps=2):
     global g
     ShowResponseList.start_logging()
     ShowResponseResults.start_logging()

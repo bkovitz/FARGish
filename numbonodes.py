@@ -143,16 +143,29 @@ class Number(Node):
 class Brick(Number):
 
     default_salience = 1.0
+    min_support_for = 1.0
 
 class Target(Number, Watcher):
     needs_source = True
-
     default_salience = 1.0
+    min_support_for = 1.0
 
     def look(self, g, node, nodes=None):
         if g.is_fully_sourced(node):
             g.set_done(NumboSuccess(g, node))
         return []
+
+    def update_support(self, g, node):
+        for neighbor in g.neighbors(node):
+            if g.is_of_class(neighbor, Number):
+                if (g.value_of(neighbor) == self.value
+                    and
+                    not g.has_tag(neighbor, Failed)
+                   ):
+                    g.add_mutual_support(node, neighbor)
+                else:
+                    g.remove_mutual_support(node, neighbor)
+
 
 class Block(Number):
 
@@ -375,7 +388,7 @@ class CouldMakeFromOperands(Tag, Watcher):
 
     @classmethod
     def maybe_make_datum(cls, g, operands):
-        '''Returns an CouldMakeFromOperands object for operands if possible;
+        '''Returns a CouldMakeFromOperands object for operands if possible;
         otherwise None. Does not build a node.'''
         possible_operators = [
             op for op in all_operators
@@ -415,8 +428,11 @@ class CouldMakeFromOperands(Tag, Watcher):
             result_id = g.make_node(Block(result_value))
             for operand in self.operands:
                 g.add_edge(node, 'operands', operand, 'could_make')
+                g.add_mutual_support(node, operand)
             g.add_edge(node, 'operator', self.operator_id, 'could_make')
+            g.add_mutual_support(node, self.operator_id)
             g.add_edge(node, 'result', result_id, 'could_make')
+            g.add_mutual_support(node, result_id)
             return node
 
     def look(self, g, node, nodes=None):
@@ -430,6 +446,8 @@ class CouldMakeFromOperands(Tag, Watcher):
 
 
 class ConsummateCouldMakeFromOperands(Response):
+
+    action_threshold = 5.0
 
     def __init__(self, could_make, salience=0.01):
         'could_make: the CouldMakeFromOperands node id.'

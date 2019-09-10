@@ -1,5 +1,6 @@
 # PortGraph.py -- PortGraph class
 
+from watcher import Watcher, Response
 from util import nice_object_repr, as_iter, is_iter
 
 import networkx as nx
@@ -14,6 +15,9 @@ empty_set = frozenset()
 
 class Node:
 
+    can_need_update = False  # override with True to get NeedsUpdate tag
+    min_support_for = 0.0
+
     def is_attrs_match(self, other):
         return True
 
@@ -27,12 +31,15 @@ class Node:
     def decay_salience(self, g, node):
         g.set_salience(node, 0.9 * g.salience(node))
 
+    def update_support(self, g, node):
+        pass
+
 
 class Tag(Node):
 
     tag_port_label = 'taggees'
-
     taggee_port_label = 'tags'
+    mutual_support = True
 
     @classmethod
     def add_tag(cls, g, taggees):
@@ -42,8 +49,23 @@ class Tag(Node):
         #TODO More general way to specify taggees; maybe a dict.
         tag = g.make_node(cls)
         for taggee in as_iter(taggees):
-            g.add_edge(tag, cls.tag_port_label, taggee, cls.taggee_port_label)
+            g.add_edge(tag, cls.tag_port_label, taggee, cls.taggee_port_label,
+                       mutual_support=cls.mutual_support)
         return tag
+
+class NeedsUpdate(Tag, Watcher):
+
+    def look(self, g, node, nodes=None):
+        return [UpdateSupport(node)]
+
+
+class UpdateSupport(Response):
+
+    def __init__(self, node):
+        self.node = node
+
+    def go(self, g):
+        g.update_support(self.node)
 
 
 class CouldMake(Tag):
@@ -152,6 +174,8 @@ class PortGraph(nx.MultiGraph):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.nextid = 1
+        self.during_touch = False
+        self.touched_nodes = set()
 
     def _bump_nextid(self):
         result = self.nextid
@@ -173,6 +197,7 @@ class PortGraph(nx.MultiGraph):
                 self.set_salience(i, salience)
         except AttributeError:
             pass
+        self.set_support_for(i, max(1.0, o.min_support_for))
         return i
 
     def dup_node(self, h, node):
@@ -204,7 +229,12 @@ class PortGraph(nx.MultiGraph):
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         '''If the edge already exists, doesn't make a new one. Regardless,
         returns the key of the edge. Calls boost_salience on node1 and
-        node2.'''
+        node2. If the edge did not already exist, we "touch" node1 and node2.'''
+        mutual_support = attr.get('mutual_support', False)
+        try:
+            del attr['mutual_support']
+        except KeyError:
+            pass
         hop = self.find_hop(node1, port_label1, node2, port_label2)
         if hop:
             key = hop.key
@@ -214,8 +244,10 @@ class PortGraph(nx.MultiGraph):
             hop2 = Hop(node2, port_label2, node1, port_label1, key)
             self.nodes[node1]['_hops'].add(hop1)
             self.nodes[node2]['_hops'].add(hop2)
-        self.boost_salience(node1)
-        self.boost_salience(node2)
+            self.touch(node1)
+            self.touch(node2)
+        if mutual_support:
+            self.add_mutual_support(node1, node2)
         return key
 
     def has_edge(self, u, v, w=None, y=None):
@@ -234,11 +266,15 @@ class PortGraph(nx.MultiGraph):
             )
 
     def remove_edge(self, node1, port_label1, node2, port_label2):
+        '''It is not an error to remove an edge that does not exist. If the
+        edge did exist, we remove it and "touch" both nodes.'''
         hop = self.find_hop(node1, port_label1, node2, port_label2)
         if hop:
             self.nodes[node1]['_hops'].remove(hop)
             self.nodes[node2]['_hops'].remove(hop.reverse())
             super().remove_edge(node1, node2, hop.key)
+            self.touch(node1)
+            self.touch(node2)
 
     def remove_node(self, node):
         self._remove_all_hops_to(node)
@@ -291,6 +327,31 @@ class PortGraph(nx.MultiGraph):
         return bool(
             self.find_hop(from_node, from_port_label, to_node, to_port_label)
         )
+
+    def touch(self, node):
+        '''Adds node to set of 'touched' nodes. Call do_touches() to touch
+        them.'''
+        self.touched_nodes.add(node)
+
+    def do_touch(self, node):
+        if not self.during_touch:
+            self.during_touch = True
+            self.boost_salience(node)
+            if self.can_need_update(node):
+                self.add_tag(NeedsUpdate, node)
+            self.during_touch = False
+
+    def do_touches(self):
+        for node in self.touched_nodes:
+            self.do_touch(node)
+        self.touched_nodes.clear()
+
+    def can_need_update(self, node):
+        datum = self.datum(node)
+        if datum:
+            return datum.can_need_update
+        else:
+            return False
 
     def add_tag(
         self, tag_or_tagclass, node_or_nodes,
@@ -470,9 +531,28 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             return 0.0
 
+    def min_support_for(self, node):
+        try:
+            return self.datum(node).min_support_for
+        except AttributeError:
+            return 0.0
+
     #TODO mv to WithSupport mix-in
     def set_support_for(self, node, support):
         self.nodes[node]['support'] = support
+
+    def add_mutual_support(self, node, neighbor):
+        self.add_edge(node, 'support_to', neighbor, 'support_from')
+        self.add_edge(neighbor, 'support_to', node, 'support_from')
+
+    def remove_mutual_support(self, node, neighbor):
+        self.remove_edge(node, 'support_to', neighbor, 'support_from')
+        self.remove_edge(neighbor, 'support_to', node, 'support_from')
+
+    def update_support(self, node):
+        datum = self.datum(node)
+        if datum is not None:
+            datum.update_support(self, node)
 
     def find_member_in_role(self, group_node, role):
         #TODO UT
@@ -602,7 +682,11 @@ def pg(g, nodes=None):
     if nodes is None:
         nodes = g.nodes
     for node in nodes:
-        print('%s  sal=%.3f' % (g.nodestr(node), g.salience(node)))
+        print('%s  supp=%.3f sal=%.3f' % (
+            g.nodestr(node),
+            g.support_for(node),
+            g.salience(node)
+        ))
         for hop in sorted(
             g.hops_from_node(node), key=attrgetter('from_port_label')
         ):
