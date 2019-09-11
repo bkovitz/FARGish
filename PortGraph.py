@@ -34,6 +34,10 @@ class Node:
     def update_support(self, g, node):
         pass
 
+    #TODO rm; Fail tags should be managed by scouts, etc.
+    def fail(self, g, node):
+        pass
+
 
 class Tag(Node):
 
@@ -353,6 +357,7 @@ class PortGraph(nx.MultiGraph):
         else:
             return False
 
+    #TODO Make node_or_nodes the first argument
     def add_tag(
         self, tag_or_tagclass, node_or_nodes,
         tag_port_label='taggees', node_port_label='tags'
@@ -553,6 +558,9 @@ class PortGraph(nx.MultiGraph):
         datum = self.datum(node)
         if datum is not None:
             datum.update_support(self, node)
+
+    def supports(self, from_node, to_node):
+        return self.has_edge(from_node, 'support_to', to_node, 'support_from')
 
     def find_member_in_role(self, group_node, role):
         #TODO UT

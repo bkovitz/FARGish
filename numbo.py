@@ -313,7 +313,8 @@ class NumboGraph(PortGraph):
         self.graph['t'] += 1
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
-        propagate_support(self)
+        for i in range(3):
+            propagate_support(self)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)
 #                for watcher in self.watchers()
@@ -322,21 +323,22 @@ class NumboGraph(PortGraph):
         responses = []
         for watcher in self.watchers():
             for response in self.datum(watcher).look(self, watcher):
-                #HACK: Overriding the Response object's salience
-                response._salience = max(
-                    self.support_for(watcher),
-                    response.salience
-                )
-                if response.salience >= response.action_threshold:
+                if response is not None:
+                    #HACK: Overriding the Response object's salience
+                    response.salience = max(
+                        self.support_for(watcher),
+                        response.salience
+                    )
                     responses.append(response)
-
-        if len(responses) == 0:  #TODO Better criterion for backtracking
-            responses = [Backtrack()]
         if ShowResponseList.is_logging():
-            #print('responses=%s' % (responses,))
-            print('Responses:')
+            print('Responses generated:')
             for response in responses:
                 print('  %.3f %s' % (response.salience, response))
+        for i, response in enumerate(responses):
+            if response.salience < response.action_threshold:
+                del responses[i]
+        if len(responses) == 0:  #TODO Better criterion for backtracking
+            responses = [Backtrack()]
         #for response in responses:
         #response = choice(responses)
 #        response = choices(
@@ -359,7 +361,8 @@ class NumboGraph(PortGraph):
         for i in range(num_timesteps):
             self.do_timestep()
             if self.graph['done']:
-                print(self.graph['done'])
+                if not ShowResponseResults.is_logging():
+                    print(self.graph['done'])
                 return
         else:
             if show_fail:
@@ -452,7 +455,7 @@ def run(numble=None, seed=None, num_timesteps=None):
         numble = prompt_for_numble()
     numble.build(g, g.ws())
     #g.make_node(CouldMakeFromOperandsTagger)
-    g.make_node(BottomUpOperandFinder)
+    #g.make_node(BottomUpOperandFinder)
     g.run(num_timesteps=num_timesteps)
     return g
 
@@ -462,6 +465,9 @@ def close():
     pg(g)
     g.run()
 
+def no_arithmetic(**kwargs):
+    run(Numble([2, 3, 4], 3), **kwargs)
+
 def simplest(**kwargs):
     run(Numble([1, 1], 2), **kwargs)
 
@@ -470,8 +476,7 @@ def six(**kwargs):
 
 def in_progress(**kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
-    #simplest(**kwargs)
-    six(**kwargs)
+    no_arithmetic(**kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=2):
@@ -479,15 +484,15 @@ def go(seed=6185774907678598918, num_timesteps=2):
     ShowResponseList.start_logging()
     ShowResponseResults.start_logging()
     in_progress(seed=seed, num_timesteps=num_timesteps)
+    print('SEED', g.graph['seed'])
     if not g.done():
         pb(g)
 
 
 if __name__ == '__main__':
-    #demo()
-    go()
+    demo()
+    #go()
     #in_progress()
-    print('SEED', g.graph['seed'])
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

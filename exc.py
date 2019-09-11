@@ -21,3 +21,6 @@ class NumboSuccess(FargDone):
 
 class FargCantRespond(Exception):
     pass
+
+class Fizzle(Exception):
+    pass

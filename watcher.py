@@ -24,9 +24,7 @@ class Response(ABC):
     action_threshold = 0.0
     # salience must be >= this for Response.go to be called
 
-    @property
-    def salience(self):
-        return 0.01
+    salience = 0.01
 
     @abstractmethod
     def go(self, hg):
@@ -37,6 +35,11 @@ class Response(ABC):
         return repr(self)
 
     __repr__ = nice_object_repr
+
+
+class Decision(Response):
+
+    action_threshold = 5.0
 
 
 #TODO Make a function to do the work in this, so we can call it conveniently
