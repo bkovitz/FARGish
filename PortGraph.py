@@ -201,7 +201,7 @@ class PortGraph(nx.MultiGraph):
                 self.set_salience(i, salience)
         except AttributeError:
             pass
-        self.set_support_for(i, max(1.0, o.min_support_for))
+        self.set_support_for(i, max(0.01, o.min_support_for))
         return i
 
     def dup_node(self, h, node):
@@ -548,6 +548,7 @@ class PortGraph(nx.MultiGraph):
 
     def add_mutual_support(self, node, neighbor):
         self.add_edge(node, 'support_to', neighbor, 'support_from')
+        #if self.datum(neighbor).gives_reciprocal_support: #HACK
         self.add_edge(neighbor, 'support_to', node, 'support_from')
 
     def remove_mutual_support(self, node, neighbor):

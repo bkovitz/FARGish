@@ -11,6 +11,8 @@ def is_iter(o):
 def as_iter(o):
     if is_iter(o):
         return o
+    elif o is None:
+        return []
     else:
         return [o]
 

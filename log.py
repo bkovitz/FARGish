@@ -18,6 +18,7 @@ class LoggingObject:
 
 ShowResponseList = LoggingObject()
 ShowResponseResults = LoggingObject()
+ShowOperandCandidates = LoggingObject()
 
 
 def start_logging(os):

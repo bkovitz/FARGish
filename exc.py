@@ -19,6 +19,15 @@ class NumboSuccess(FargDone):
 
     __repr__ = nice_object_repr
 
+class TooManyTimestepsWithNoResponse(FargDone):
+    def __init__(self, num_timesteps):
+        self.num_timesteps = num_timesteps
+
+    def __str__(self):
+        return "Giving up. %d timesteps without seeing an action." % (
+            self.num_timesteps
+        )
+
 class FargCantRespond(Exception):
     pass
 

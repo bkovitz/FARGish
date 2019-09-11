@@ -8,6 +8,9 @@ import unittest
 class TestSupport(unittest.TestCase):
 
     def test_basics(self):
+        #TODO BROKEN; assumes 
+        #  positive_feedback_rate = 0.2
+        #  alpha = 0.9
         g = PortGraph()
         g.add_nodes_from(['A', 'B', 'O'])
         g.add_edge('A', 'in', 'B', 'out')

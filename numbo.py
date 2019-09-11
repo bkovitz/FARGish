@@ -276,6 +276,7 @@ class NumboGraph(PortGraph):
             kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
         kws['seed'] = reseed(kws.get('seed', None))
         super().__init__(**kws)
+        self.consecutive_timesteps_with_no_response = 0
         ws = self.make_node(Workspace)
         self.graph['ws'] = ws
         if 'numble' in self.graph:
@@ -313,8 +314,8 @@ class NumboGraph(PortGraph):
         self.graph['t'] += 1
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
-        for i in range(3):
-            propagate_support(self)
+        for i in range(1):
+            propagate_support(self, max_total_support=30)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)
 #                for watcher in self.watchers()
@@ -333,12 +334,21 @@ class NumboGraph(PortGraph):
         if ShowResponseList.is_logging():
             print('Responses generated:')
             for response in responses:
-                print('  %.3f %s' % (response.salience, response))
-        for i, response in enumerate(responses):
-            if response.salience < response.action_threshold:
-                del responses[i]
+                print('  %.3f (%.3f) %s' % (
+                    response.salience, response.action_threshold, response
+                ))
+        responses = [r for r in responses if r.salience >= r.action_threshold]
         if len(responses) == 0:  #TODO Better criterion for backtracking
-            responses = [Backtrack()]
+            #responses = [Backtrack()]
+            self.consecutive_timesteps_with_no_response += 1
+            if self.consecutive_timesteps_with_no_response >= 20:
+                self.set_done(TooManyTimestepsWithNoResponse(
+                    self.consecutive_timesteps_with_no_response
+                ))
+                if ShowResponseResults.is_logging():
+                    print(self.done())
+        else:
+            self.consecutive_timesteps_with_no_response = 0
         #for response in responses:
         #response = choice(responses)
 #        response = choices(
@@ -384,6 +394,7 @@ it must surely have no solution.
         return expr.Equation(self.expr(source), self.expr(target))
 
     def expr(self, node):
+        print('NODE', node, self.datum(node))
         return self.datum(node).expr(self, node)
 
     def blocks_str(self):
@@ -445,8 +456,11 @@ def demo():
     ShowResponseResults.start_logging()
     while True:
         numble = prompt_for_numble()
-        g = NumboGraph(numble=numble)
-        g.run()
+        if numble is None:
+            break
+        run(numble=numble)
+        #g = NumboGraph(numble=numble)
+        #g.run()
 
 def run(numble=None, seed=None, num_timesteps=None):
     global g
@@ -456,6 +470,7 @@ def run(numble=None, seed=None, num_timesteps=None):
     numble.build(g, g.ws())
     #g.make_node(CouldMakeFromOperandsTagger)
     #g.make_node(BottomUpOperandFinder)
+    g.make_node(BottomUpOperandScout)
     g.run(num_timesteps=num_timesteps)
     return g
 
@@ -474,12 +489,16 @@ def simplest(**kwargs):
 def six(**kwargs):
     run(Numble([1, 1, 1, 1, 1], 6), **kwargs)
 
-def in_progress(**kwargs):
+def in_progress(seed=5680298187468365268, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
-    no_arithmetic(**kwargs)
+    #simplest(**kwargs)
+    ShowResponseResults.start_logging()
+    ShowResponseList.start_logging()
+    ShowOperandCandidates.start_logging()
+    run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
 
 
-def go(seed=6185774907678598918, num_timesteps=2):
+def go(seed=6185774907678598918, num_timesteps=3):
     global g
     ShowResponseList.start_logging()
     ShowResponseResults.start_logging()

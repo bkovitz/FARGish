@@ -2,7 +2,7 @@
 #
 # Nodes give support to other nodes.
 
-positive_feedback_rate = 0.2
+positive_feedback_rate = 0.05   # 0.2
 alpha = 0.9
 
 def support_dict(g, nodes=None):

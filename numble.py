@@ -29,9 +29,12 @@ class Numble:
 
 def prompt_for_numble():
     '''Prompts the user to enter bricks and a target at the keyboard.
-    Returns a Numble object.'''
+    Returns a Numble object, or None if user just hit Enter.'''
+    print()
     while True:
         brick_str = input('Bricks: ')
+        if not brick_str:
+            return None
         try:
             bricks = [int(b) for b in brick_str.split()]
             if not bricks:
@@ -43,6 +46,8 @@ def prompt_for_numble():
 
     while True:
         target_str = input('Target: ')
+        if not target_str:
+            return None
         try:
             target = int(target_str)
             break
