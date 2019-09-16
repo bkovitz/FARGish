@@ -8,7 +8,7 @@ from exc import *
 from util import nice_object_repr, reseed, sample_without_replacement
 from log import ShowResponseList, ShowResponseResults
 from submatch import bdxs_for_datums
-from support import propagate_support
+import support
 
 from itertools import product, chain, combinations
 from random import sample, choice, choices
@@ -315,12 +315,12 @@ class NumboGraph(PortGraph):
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
         for i in range(1):
-            propagate_support(self, max_total_support=30)
+            support.propagate(self, max_total_support=30)
+        support.log_support(g)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)
 #                for watcher in self.watchers()
 #        ))
-
         responses = []
         for watcher in self.watchers():
             for response in self.datum(watcher).look(self, watcher):
@@ -341,7 +341,7 @@ class NumboGraph(PortGraph):
         if len(responses) == 0:  #TODO Better criterion for backtracking
             #responses = [Backtrack()]
             self.consecutive_timesteps_with_no_response += 1
-            if self.consecutive_timesteps_with_no_response >= 20:
+            if self.consecutive_timesteps_with_no_response >= 60:
                 self.set_done(TooManyTimestepsWithNoResponse(
                     self.consecutive_timesteps_with_no_response
                 ))
@@ -458,7 +458,7 @@ def demo():
         numble = prompt_for_numble()
         if numble is None:
             break
-        run(numble=numble)
+        run(numble=numble, num_timesteps=200)
         #g = NumboGraph(numble=numble)
         #g.run()
 
@@ -498,7 +498,7 @@ def in_progress(seed=5680298187468365268, **kwargs):
     run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
 
 
-def go(seed=6185774907678598918, num_timesteps=3):
+def go(seed=6185774907678598918, num_timesteps=10):
     global g
     ShowResponseList.start_logging()
     ShowResponseResults.start_logging()
@@ -509,8 +509,8 @@ def go(seed=6185774907678598918, num_timesteps=3):
 
 
 if __name__ == '__main__':
-    demo()
-    #go()
+    #demo()
+    go()
     #in_progress()
 
 #    g = PortGraph()

@@ -1,6 +1,6 @@
 # testSupport.py -- Unit tests for support.py
 
-from support import propagate_support, support_dict
+from support import propagate, support_dict
 from PortGraph import PortGraph, Hop
 
 import unittest
@@ -22,7 +22,7 @@ class TestSupport(unittest.TestCase):
         g.add_edge('B', 'support_to', 'O', 'support_from')
         #TODO edge weights
 
-        propagate_support(g, max_total_support=1.0)
+        propagate(g, max_total_support=1.0)
         d = support_dict(g)
         self.assertAlmostEqual(d['A'], 0.817665950444724)
         self.assertAlmostEqual(d['B'], 0.1822909838416653)
