@@ -209,26 +209,20 @@ class Wanted(Tag, Watcher):
                     if g.have_same_value(candidate, wanted):
                         responses.append(ConsumeSource(candidate, wanted))
                         maybe_give_support(responses, g, this_tag, candidate)
-                elif (
-                    could_be_made(g, candidate)
-                    and
-                    (
-                        g.have_same_value(candidate, wanted)
-                        or
-                        any(
-                            getting_closer(g, c, g.value_of(wanted))
-                                for c in could_be_made_by(g, candidate)
-                        )
-                    )
-                ):
-                    maybe_give_support(responses, g, this_tag, candidate, 0.5)
+                elif any(
+                    g.datum(c).getting_closer(g, g.value_of(wanted))
+                        for c in could_be_made_by(g, candidate)
+                            if isinstance(g.datum(c), CouldMakeFromOperands)
+                ):    #TODO Inefficient
+                    maybe_give_support(responses, g, this_tag, candidate, 0.1)
                     #TODO: weight should vary according to closeness
         return responses
 
 def getting_closer(g, candidate, wanted_value):
+    raise "Don't call this"
     #print('DAT', wanted_value, candidate, g.datum(candidate))
     result_id = g.neighbor(candidate, port_label='result')
-    operator_ids = g.neighbors(candidate, port_label='operators')
+    operator_ids = g.neighbors(candidate, port_label='operators') #WRONG
     result_value = g.value_of(result_id)
     result_distance = wanted_value - result_value  # TODO abs
     if result_distance < 0:
@@ -420,6 +414,7 @@ class CouldMakeFromOperands(CouldMake, Watcher):
         self.operator_class = operator_class
         self.operator = None  # datum, not node
         self.operator_id = None  # node, not datum
+        self.result_value = None
 
     def build(self, g):
         if not self.already_tagged(g, self.operands, self.operator_class):
@@ -427,10 +422,10 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             g.set_support_for(node, 0.5)
             self.operator = self.operator_class()
             self.operator_id = g.make_node(self.operator)
-            result_value = self.operator.calculate(
+            self.result_value = self.operator.calculate(
                 [g.value_of(o) for o in self.operands]
             )
-            result_id = g.make_node(Block(result_value))
+            result_id = g.make_node(Block(self.result_value))
             for operand in self.operands:
                 g.add_edge(node, 'operands', operand, 'could_make')
                 g.add_mutual_support(node, operand)
@@ -439,6 +434,18 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             g.add_edge(node, 'result', result_id, 'could_make')
             g.add_mutual_support(node, result_id)
             return node
+
+    def getting_closer(self, g, wanted_value):
+        '''Is the result closer to the wanted_value than at least one
+        operand?'''
+        result_distance = wanted_value - self.result_value  # TODO abs
+        if result_distance < 0:
+            return False  # HACK until Minus is implemented
+        for operand_id in self.operands:
+            if result_distance < (wanted_value - g.value_of(operand_id)):
+                return True
+        return False
+
 
     def look(self, g, node, nodes=None):
         if g.has_tag(self.operator_id, Failed):

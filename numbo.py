@@ -364,8 +364,9 @@ class NumboGraph(PortGraph):
             response.go(self)
             if ShowResponseResults.is_logging():
                 ann = response.annotation(self)
-                if not isinstance(ann, FargDone) or not self['running']:
-                    print(ann)
+                #print('IS', ann.__class__, isinstance(ann, FargDone))
+                #if not isinstance(ann, FargDone) or not self['running']:
+                print(ann)
             if isinstance(response, Decision):
                 break
         self.do_touches()
@@ -379,7 +380,7 @@ class NumboGraph(PortGraph):
                 self.do_timestep()
                 if self.graph['done']:
                     #if not ShowResponseResults.is_logging():
-                    print(self.graph['done'])
+                    #print(self.graph['done'])
                     return
             else:
                 if show_fail:
