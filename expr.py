@@ -39,6 +39,12 @@ class LeafExpr(Expr, metaclass=ABCMeta):
     def needs_parens(self):
         return False
 
+class UnspecifiedExpr(LeafExpr):
+    '''Like a constant, but means that its value or expression is unknown.'''
+
+    def raw_s(self):
+        return '?'
+
 class Equation(Expr):
     precedence = 0
 

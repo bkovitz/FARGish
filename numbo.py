@@ -1,7 +1,7 @@
 # numbo2.py -- Run this to run Numbo
 
 from numble import Numble, prompt_for_numble
-from PortGraph import PortGraph, NodeAndValue, pg, pn, Node, Tag, CouldMake
+from PortGraph import PortGraph, NodeAndValue, pg, pn, ps, Node, Tag, CouldMake
 from numbonodes import *
 from watcher import Watcher, Response, TagWith, TagWith2
 from exc import *
@@ -266,7 +266,8 @@ class NumboGraph(PortGraph):
         t=0,
         done=False,
         num_timesteps=40,
-        seed=None
+        seed=None,
+        running=False
     )
 
     def __init__(self, **kwargs):
@@ -315,7 +316,7 @@ class NumboGraph(PortGraph):
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
         for i in range(1):
-            support.propagate(self, max_total_support=30)
+            support.propagate(self, max_total_support=300)
         support.log_support(g)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)
@@ -362,24 +363,32 @@ class NumboGraph(PortGraph):
             #print(response)
             response.go(self)
             if ShowResponseResults.is_logging():
-                print(response.annotation(self))
+                ann = response.annotation(self)
+                if not isinstance(ann, FargDone) or not self['running']:
+                    print(ann)
+            if isinstance(response, Decision):
+                break
         self.do_touches()
 
     def run(self, num_timesteps=None, show_fail=False):
-        if num_timesteps is None:
-            num_timesteps = self.graph['num_timesteps']
-        for i in range(num_timesteps):
-            self.do_timestep()
-            if self.graph['done']:
-                if not ShowResponseResults.is_logging():
+        try:
+            self.graph['running'] = True
+            if num_timesteps is None:
+                num_timesteps = self.graph['num_timesteps']
+            for i in range(num_timesteps):
+                self.do_timestep()
+                if self.graph['done']:
+                    #if not ShowResponseResults.is_logging():
                     print(self.graph['done'])
-                return
-        else:
-            if show_fail:
-                print('''
+                    return
+            else:
+                if show_fail:
+                    print('''
 If so great a mind as mine could not solve this numble in %s timesteps,
 it must surely have no solution.
 ''' % self.graph['t'])
+        finally:
+            self.graph['running'] = False
             
 #    def expr_by_sources(self, target):
 #        '''Returns a string representing the expression whose ultimate
@@ -394,8 +403,11 @@ it must surely have no solution.
         return expr.Equation(self.expr(source), self.expr(target))
 
     def expr(self, node):
-        print('NODE', node, self.datum(node))
-        return self.datum(node).expr(self, node)
+        if node is None:
+            return expr.UnspecifiedExpr()
+        else:
+            #print('NODE', node, self.datum(node))
+            return self.datum(node).expr(self, node)
 
     def blocks_str(self):
         result = []
@@ -450,7 +462,7 @@ def testSimple():
     print()
     pg(g)
 
-def demo():
+def demo(num_timesteps=200):
     '''Run this for Doug.'''
     global g
     ShowResponseResults.start_logging()
@@ -458,7 +470,7 @@ def demo():
         numble = prompt_for_numble()
         if numble is None:
             break
-        run(numble=numble, num_timesteps=200)
+        run(numble=numble, num_timesteps=num_timesteps)
         #g = NumboGraph(numble=numble)
         #g.run()
 
@@ -489,13 +501,18 @@ def simplest(**kwargs):
 def six(**kwargs):
     run(Numble([1, 1, 1, 1, 1], 6), **kwargs)
 
-def in_progress(seed=5680298187468365268, **kwargs):
+def slog7(**kwargs):
+    run(Numble([2, 3, 4, 5, 6, 7], 8), **kwargs)
+
+#def in_progress(seed=5680298187468365268, **kwargs):
+def in_progress(seed=4611039348018989335, num_timesteps=22, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()
     ShowResponseList.start_logging()
-    ShowOperandCandidates.start_logging()
-    run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
+    #ShowOperandCandidates.start_logging()
+    #run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
+    slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=10):
@@ -509,8 +526,8 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    #demo()
-    go()
+    demo()
+    #go()
     #in_progress()
 
 #    g = PortGraph()

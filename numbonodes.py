@@ -42,15 +42,15 @@ class Brick(Number):
     min_support_for = 0.1
     #gives_reciprocal_support = False
 
-class Target(Number, Watcher):
+class Target(Number):
     needs_source = True
     default_salience = 1.0
-    min_support_for = 4.0
+    min_support_for = 1.0
 
-    def look(self, g, node, nodes=None):
-        if g.is_fully_sourced(node):
-            return [HaltNumbo(NumboSuccess(g, node))]
-        return []
+#    def look(self, g, node, nodes=None):
+#        if g.is_fully_sourced(node):
+#            return [HaltNumbo(NumboSuccess(g, node))]
+#        return []
 
 class Block(Number):
     needs_source = True
@@ -183,13 +183,15 @@ class Avail(Tag):
 class Failed(Tag):
     pass
 
-def maybe_give_support(responses, g, from_node, to_node):
+def maybe_give_support(responses, g, from_node, to_node, weight=1.0):
     '''Appends a GiveSupport object if from_node does not already support
     to_node.'''
     if not g.supports(from_node, to_node):
-        responses.append(GiveSupport(from_node, to_node))
+        responses.append(GiveSupport(from_node, to_node, weight=weight))
 
 class Wanted(Tag, Watcher):
+
+    initial_support_for = 1.0
 
     def look(self, g, this_tag):
         candidates = g.nodes
@@ -214,26 +216,41 @@ class Wanted(Tag, Watcher):
                         g.have_same_value(candidate, wanted)
                         or
                         any(
-                            self.getting_closer(g, c, g.value_of(wanted))
+                            getting_closer(g, c, g.value_of(wanted))
                                 for c in could_be_made_by(g, candidate)
                         )
                     )
                 ):
-                    maybe_give_support(responses, g, wanted, candidate)
+                    maybe_give_support(responses, g, this_tag, candidate, 0.5)
+                    #TODO: weight should vary according to closeness
         return responses
 
-    def getting_closer(self, g, candidate, wanted_value):
-        #print('DAT', wanted_value, candidate, g.datum(candidate))
-        result_id = g.neighbor(candidate, port_label='result')
-        operator_ids = g.neighbors(candidate, port_label='operators')
-        result_value = g.value_of(result_id)
-        result_distance = wanted_value - result_value  # TODO abs
-        if result_distance < 0:
-            return False  # HACK until Minus is implemented
-        for operator_id in operator_ids:
-            if result_distance < (wanted_value - g.value_of(operator_id)):
-                return True
-        return False
+def getting_closer(g, candidate, wanted_value):
+    #print('DAT', wanted_value, candidate, g.datum(candidate))
+    result_id = g.neighbor(candidate, port_label='result')
+    operator_ids = g.neighbors(candidate, port_label='operators')
+    result_value = g.value_of(result_id)
+    result_distance = wanted_value - result_value  # TODO abs
+    if result_distance < 0:
+        return False  # HACK until Minus is implemented
+    for operator_id in operator_ids:
+        if result_distance < (wanted_value - g.value_of(operator_id)):
+            return True
+    return False
+
+
+class WantFullySourced(Wanted):
+
+    min_support_for = 4.0
+
+    def look(self, g, this_tag):
+        wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
+        responses = [
+            HaltNumbo(NumboSuccess(g, wanted))
+                for wanted in wanteds
+                    if g.is_fully_sourced(wanted)
+        ]
+        return responses + super().look(g, this_tag)
 
 
 class Consumed(Tag):
@@ -297,12 +314,13 @@ class ConsumeSource(Decision):
 
 class GiveSupport(Response):
 
-    def __init__(self, from_node, to_node):
+    def __init__(self, from_node, to_node, weight=1.0):
         self.from_node = from_node
         self.to_node = to_node
+        self.weight = weight
 
     def go(self, g):
-        g.add_mutual_support(self.from_node, self.to_node)
+        g.add_mutual_support(self.from_node, self.to_node, self.weight)
 
     def annotation(self, g):
         return "%s is now supporting %s and vice versa" % (
@@ -432,7 +450,7 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             return []
 
     def annotation(self, g, this_node):
-        return 'Noticed that ' + self.equation_str(g, this_node)
+        return 'Got an inkling that ' + self.equation_str(g, this_node)
 
     def equation_str(self, g, this_node):
         result = g.datum(g.neighbor(this_node, 'result'))
@@ -485,3 +503,10 @@ class Build(Response):
                 return 'Built %s' % (g.nodestr(self.built))
         else:
             return 'Failed to build %s' % (self.datum,)
+
+class GettingCloser(Tag):
+
+    def __init__(self, taggee, closer_to):
+        self.taggee = taggee
+        self.closer_to = closer_to
+

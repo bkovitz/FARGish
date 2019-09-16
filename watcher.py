@@ -39,7 +39,7 @@ class Response(ABC):
 
 class Decision(Response):
 
-    action_threshold = 1.0
+    action_threshold = 3.0
 
 
 #TODO Make a function to do the work in this, so we can call it conveniently

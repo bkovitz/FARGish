@@ -17,6 +17,7 @@ class Node:
 
     can_need_update = False  # override with True to get NeedsUpdate tag
     min_support_for = 0.0
+    initial_support_for = 0.01
 
     def is_attrs_match(self, other):
         return True
@@ -51,6 +52,7 @@ class Tag(Node):
         the appropriate ports. Returns tag_id. taggees can be a single
         node id or an iterable of node ids.'''
         #TODO More general way to specify taggees; maybe a dict.
+        #TODO Don't build the tag if the taggees already have this tag.
         tag = g.make_node(cls)
         for taggee in as_iter(taggees):
             g.add_edge(tag, cls.tag_port_label, taggee, cls.taggee_port_label,
@@ -201,7 +203,7 @@ class PortGraph(nx.MultiGraph):
                 self.set_salience(i, salience)
         except AttributeError:
             pass
-        self.set_support_for(i, max(0.01, o.min_support_for))
+        self.set_support_for(i, max(o.initial_support_for, o.min_support_for))
         return i
 
     def dup_node(self, h, node):
@@ -317,6 +319,22 @@ class PortGraph(nx.MultiGraph):
                                     hop.to_port_label == to_port_label)
         except StopIteration:
             return None
+
+    def hop_weight(self, *args):
+        '''0.0 if hop does not exist. 1.0 if hop exists but has no weight
+        specified.'''
+        if len(args) == 4:
+            from_node, from_port_label, to_node, to_port_label = args
+            hop = self.find_hop(
+                from_node, from_port_label, to_node, to_port_label
+            )
+        elif len(args) == 1:
+            hop = args[0]
+        else:
+            raise ValueError('Illegal args for hop_weight: %s' % repr(args))
+        if hop is None:
+            return 0.0
+        return self[hop.from_node][hop.to_node][hop.key].get('weight', 1.0)
 
     def edge_to_hop(self, edge):
         'edge is a tuple (from_node, to_node, key). Returns a Hop or None.'
@@ -546,8 +564,12 @@ class PortGraph(nx.MultiGraph):
     def set_support_for(self, node, support):
         self.nodes[node]['support'] = support
 
-    def add_mutual_support(self, node, neighbor):
-        self.add_edge(node, 'support_to', neighbor, 'support_from')
+    def add_mutual_support(self, node, neighbor, weight=None):
+        if weight is None:
+            self.add_edge(node, 'support_to', neighbor, 'support_from')
+        else:
+            self.add_edge(node, 'support_to', neighbor, 'support_from',
+                **{'weight': weight})
         #if self.datum(neighbor).gives_reciprocal_support: #HACK
         self.add_edge(neighbor, 'support_to', node, 'support_from')
 
@@ -690,7 +712,7 @@ def pg(g, nodes=None):
     pt(g)
     if nodes is None:
         nodes = g.nodes
-    for node in nodes:
+    for node in as_iter(nodes):
         print('%s  supp=%.3f sal=%.3f' % (
             g.nodestr(node),
             g.support_for(node),
@@ -699,9 +721,33 @@ def pg(g, nodes=None):
         for hop in sorted(
             g.hops_from_node(node), key=attrgetter('from_port_label')
         ):
-            print('  %s --> %s %s' % (hop.from_port_label,
-                                      g.nodestr(hop.to_node),
-                                      hop.to_port_label))
+            print('  %s --> %s %s (%.3f)' % (
+                hop.from_port_label,
+                g.nodestr(hop.to_node),
+                hop.to_port_label,
+                g.hop_weight(hop)
+            ))
+
+def ps(g, nodes=None, by='support'):
+    '''Prints each node with its support and salience (but not its edges).'''
+    pt(g)
+    if nodes is None:
+        nodes = g.nodes
+    if by == 'support':
+        key = lambda node: g.support_for(node)
+    elif by == 'id':
+        key = lambda node: node
+    elif callable(by):
+        key = by
+    else:
+        raise ValueError('invalid argument for by: %s' % repr(by))
+    for node in sorted(nodes, key=key):
+        print('supp=%.3f sal=%.3f  %s' % (
+            g.support_for(node),
+            g.salience(node),
+            g.nodestr(node)
+        ))
+
 
 if __name__ == '__main__':
     g = PortGraph()
