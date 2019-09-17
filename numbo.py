@@ -316,7 +316,7 @@ class NumboGraph(PortGraph):
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
         for i in range(1):
-            support.propagate(self, max_total_support=300)
+            support.propagate(self, max_total_support=3000)
         support.log_support(g)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)
@@ -484,6 +484,7 @@ def run(numble=None, seed=None, num_timesteps=None):
     #g.make_node(CouldMakeFromOperandsTagger)
     #g.make_node(BottomUpOperandFinder)
     g.make_node(BottomUpOperandScout)
+    g.make_node(SameNumberScout)
     g.run(num_timesteps=num_timesteps)
     return g
 
@@ -527,9 +528,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    demo()
+    #demo()
     #go()
-    #in_progress()
+    in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

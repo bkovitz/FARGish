@@ -1,10 +1,10 @@
 # numbonodes.py -- Class definitions for nodes needed by Numbo
 
 from PortGraph import Node, Tag
-from watcher import Watcher, Response, Decision
+from watcher import Watcher, Response, Decision, TagWith2
 from exc import NumboSuccess
 import expr
-from util import as_iter
+from util import as_iter, sample_without_replacement
 from log import ShowOperandCandidates
 
 from abc import ABC, abstractmethod
@@ -517,3 +517,32 @@ class GettingCloser(Tag):
         self.taggee = taggee
         self.closer_to = closer_to
 
+class SameNumber(Tag):
+    pass
+
+class SameNumberScout(Node, Watcher):
+    '''Looks for Numbers that are the same and tags them SameNumber.'''
+
+    min_support_for = 1.0
+
+    def look(self, g, this_node):
+        candidates = set(g.candidate_nodes(nodeclass=Number))
+        untagged = list(g.nodes_without_tag(SameNumber, nodes=candidates))
+        tagged = candidates.difference(untagged)
+        responses = []
+        if untagged:
+            k = min(5, len(untagged))
+            for node in sample_without_replacement(
+                untagged, k=k, weights=[g.salience(n) for n in untagged]
+            ):
+                v = g.value_of(node)
+                others = set(o for o in candidates
+                                if o != node and g.value_of(o) == v)
+                if others:
+                    responses.append(
+                        TagWith2(
+                            SameNumber,
+                            [node, g.choose_by_salience(others)[0]]
+                        )
+                    )
+        return responses

@@ -8,6 +8,7 @@ import networkx as nx
 from collections import defaultdict, namedtuple, UserDict
 from inspect import isclass
 from operator import attrgetter
+from random import choices
 
 
 empty_set = frozenset()
@@ -212,6 +213,24 @@ class PortGraph(nx.MultiGraph):
         new_attrs = dict((k, attrs[k]) for k in ['_class', 'value']
                                            if k in attrs)
         return self.make_node(new_attrs)
+
+    def candidate_nodes(self, nodeclass=None, exclude=None):
+        '''Candidate nodes to consider for searching or choosing from.
+        Future version should consider focal point and maybe salience.
+        In current version, simply returns all the nodes in the graph
+        of nodeclass except 'exclude'. Either argument may be omitted.
+        Returns an iterable, which may or may not be a set.'''
+        #TODO Better: return a set of nodes with saliences, to faciliate
+        # "scouting" by weighted random choice.
+        if nodeclass is None:
+            result = self.nodes
+        else:
+            result = self.nodes_of_class(nodeclass)
+        if exclude is not None:
+            result = set(result)
+            for e in as_iter(exclude):
+                result.remove(e)
+        return result
 
 #    def nodestr(self, node):
 #        attrs = self.nodes[node]
@@ -643,6 +662,11 @@ class PortGraph(nx.MultiGraph):
                 datum.is_attrs_match(node_datum)
                ):
                 yield node
+
+    def choose_by_salience(self, nodes, k=1):
+        return choices(
+            list(nodes), k=k, weights=[self.salience(n) for n in nodes]
+        )
 
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'
