@@ -1,24 +1,23 @@
-Demo 3
+Demo 4
 
-    Mustang Sally
-        Give more weight to promising CouldMakeFromOperands tags.
-        Hopefully that will solve more easy problems (without backtracking).
+    Problem goal:  120 1 2 3 4; 121
 
-    max_total_support = 100  DONE
+    SameNumber tag
+        SameNumberScout
+        Wanted should look at this tag rather than search on its own
 
-    WantFullySourced: huge support
-        Hopefully that will favor "wins".  DONE not much effect
+    GettingCloser tag
+        Wanted should look at this tag rather than search on its own
 
-    #GettingCloser tag
-    Edge weights for "closer"
+    Vary edge weights for "closer"
 
     TooHigh tag
-        Opposition rather than support
+        Opposition rather than support from Wanted
+
+    HACK: Only one Decision per timestep.
 
     Two CouldMakeFromOperands that share one or more nodes should oppose
     each other.
-
-    HACK: Only one Decision per timestep.
 
 Demo 2
 

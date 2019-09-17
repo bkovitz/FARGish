@@ -50,3 +50,17 @@ Demo 2
         First tag Avail with CouldBeOperand.
         Then CouldMakeFromOperandsTagger triggers when it sees
         two numbers tagged CouldBeOperand.
+
+Demo 3
+
+    Main idea:
+        Give more weight to promising CouldMakeFromOperands tags.
+        Hopefully that will solve more easy problems (without backtracking).
+
+    WantFullySourced: huge support
+        Hopefully that will favor "wins".  DONE not much effect
+
+    Edge weights in support
+    
+    Fixed .getting_closer().
+    Crude, constant (0.1) weight for "closer" node regardless of how close.
