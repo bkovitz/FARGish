@@ -275,7 +275,8 @@ def consume(g, avail, result=None):
         g.add_tag(Consumed, node)
     for node in as_iter(result):
         g.remove_tag(node, Consumed)
-        g.add_tag(Avail, node)
+        if not g.is_of_class(node, Target):  #HACK
+            g.add_tag(Avail, node)
 
 
 class CouldMake(Tag):
