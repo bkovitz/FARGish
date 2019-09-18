@@ -316,7 +316,7 @@ class NumboGraph(PortGraph):
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
         for i in range(1):
-            support.propagate(self, max_total_support=3000)
+            support.propagate(self, max_total_support=300)
         support.log_support(g)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)
@@ -485,14 +485,12 @@ def run(numble=None, seed=None, num_timesteps=None):
     #g.make_node(BottomUpOperandFinder)
     g.make_node(BottomUpOperandScout)
     g.make_node(SameNumberScout)
+    g.make_node(CloseNumbersScout)
     g.run(num_timesteps=num_timesteps)
     return g
 
-def close():
-    global g
-    g = NumboGraph(numble=Numble([120, 1, 2, 3, 4, 5], 121))
-    pg(g)
-    g.run()
+def close(**kwargs):
+    run(Numble([120, 1, 2, 3, 4, 5], 121), **kwargs)
 
 def no_arithmetic(**kwargs):
     run(Numble([2, 3, 4], 3), **kwargs)
@@ -507,14 +505,15 @@ def slog7(**kwargs):
     run(Numble([2, 3, 4, 5, 6, 7], 8), **kwargs)
 
 #def in_progress(seed=5680298187468365268, **kwargs):
-def in_progress(seed=4611039348018989335, num_timesteps=22, **kwargs):
+def in_progress(seed=4611039348018989335, num_timesteps=1, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()
     ShowResponseList.start_logging()
     #ShowOperandCandidates.start_logging()
     #run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
-    slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    #slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    close(seed=seed, num_timesteps=num_timesteps, **kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=10):
@@ -528,9 +527,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    #demo()
+    demo()
     #go()
-    in_progress()
+    #in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

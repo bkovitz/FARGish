@@ -1,11 +1,16 @@
 Demo 4
 
-    rm .candidate_nodes()
-
     Mustang Sally
 
       Close by 1
+          CloseTo  DONE
+          CloseNumbersScout  DONE
+
       Notice the 1
+          Wanted:
+              Support CloseTo->N<-CouldMake->O<-Small
+              Consume Avail Numbers that = Wanted
+              GiveSupport to Close makeable Numbers
       Favor the CouldMake
 
     SameNumber tag
@@ -30,6 +35,8 @@ Demo 4
 
     Two CouldMakeFromOperands that share one or more nodes should oppose
     each other.
+
+    rm .candidate_nodes()
 
     Brick: What should it support?
 

@@ -268,16 +268,16 @@ class PortGraph(nx.MultiGraph):
                 result.remove(e)
         return result
 
-    def candidate_nodes_wsal(self, nodeclass=None, exclude=None):
+    def candidate_nodes_wsal(self, nodeclass=None, exclude=None, nodes=None):
         '''Candidate nodes to consider for searching or choosing from.
         Future version should consider focal point and maybe salience.
         In current version, simply returns all the nodes of nodeclass except
         'exclude'. Either argument may be omitted.  Returns a
         NodesWithSalience.'''
-        if nodeclass is None:
+        if nodeclass:
+            nodes = self.nodes_of_class(nodeclass, nodes=nodes)
+        if nodes is None:
             nodes = self.nodes
-        else:
-            nodes = self.nodes_of_class(nodeclass)
         nodes = set.difference(set(nodes), as_iter(exclude))
         return NodesWithSalience(self, nodes)
 
@@ -449,7 +449,10 @@ class PortGraph(nx.MultiGraph):
         tag_port_label='taggees', node_port_label='tags'
     ):
         '''Links a tag to one or more nodes. Returns the tag's id.
-        If tag_or_tagclass is a class, builds the tag.'''
+        If tag_or_tagclass is a class, builds the tag.
+        The tag supports its taggees.'''
+        #TODO Allow other options regarding support (e.g. less support,
+        #opposition, reciprocal support).
         if isclass(tag_or_tagclass):
             # Make the tag node
             tag = self.make_node(tag_or_tagclass)
@@ -459,6 +462,7 @@ class PortGraph(nx.MultiGraph):
         # Link the tag to the taggee(s)
         for node in as_iter(node_or_nodes):
             self.add_edge(tag, tag_port_label, node, node_port_label)
+            self.add_support(tag, node)
         return tag
 
     def replace_tag(
@@ -490,6 +494,11 @@ class PortGraph(nx.MultiGraph):
             self.has_tag(node, tagclass, taggee_port_label=taggee_port_label)
                 for node in nodes
         )
+
+    def all_share_tag(self, tagclass, nodes, taggee_port_label='tags'):
+        return bool(self.tags_of(
+            nodes, tagclass=tagclass, taggee_port_label=taggee_port_label
+        ))
 
     def tags_of(self, nodes, tagclass=Tag, taggee_port_label='tags'):
         '''Returns a generator. nodes can be a single node id or an iterable
@@ -534,6 +543,9 @@ class PortGraph(nx.MultiGraph):
             return next(iter(self.neighbors(node, port_label)))
         except StopIteration:
             return None
+
+    def taggees_of(self, tag, port_label='taggees'):
+        return self.neighbors(tag, port_label=port_label)
 
     def add_member_edge(self, group_node, member_node):
         self.add_edge(group_node, 'members', member_node, 'member_of')
@@ -590,7 +602,7 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             return None
 
-    def salience(self, node):
+    def raw_salience(self, node):
         '''Returns node's salience. If no salience has been set explicitly
         for node, returns default_salience. If node does not exist,
         returns 0.0.'''
@@ -599,7 +611,13 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             return 0.0
 
+    def salience(self, node):
+        #HACK
+        '''Returns sum of node's raw salience and node's support.'''
+        return self.raw_salience(node) + self.support_for(node)
+
     def set_salience(self, node, salience):
+        '''Sets raw salience.'''
         try:
             self.nodes[node]['salience'] = salience
         except KeyError:
@@ -668,10 +686,12 @@ class PortGraph(nx.MultiGraph):
                     return member
         return None
 
-    def nodes_of_class(self, cl):
+    def nodes_of_class(self, cl, nodes=None):
         #TODO UT
         result = []
-        for node in self.nodes:
+        if nodes is None:
+            nodes = self.nodes
+        for node in nodes:
             datum = self.nodes[node]['datum']
             if issubclass(datum.__class__, cl):
                 result.append(node)

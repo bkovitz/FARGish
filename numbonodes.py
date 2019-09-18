@@ -1,6 +1,6 @@
 # numbonodes.py -- Class definitions for nodes needed by Numbo
 
-from PortGraph import Node, Tag
+from PortGraph import Node, Tag, NodesWithSalience
 from watcher import Watcher, Response, Decision, TagWith2
 from exc import NumboSuccess
 import expr
@@ -193,7 +193,7 @@ class Wanted(Tag, Watcher):
 
     initial_support_for = 1.0
 
-    def look(self, g, this_tag):
+    def OLDlook(self, g, this_tag):
         candidates = g.nodes
         wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
         responses = []
@@ -217,6 +217,22 @@ class Wanted(Tag, Watcher):
                     maybe_give_support(responses, g, this_tag, candidate, 0.1)
                     #TODO: weight should vary according to closeness
         return responses
+
+    def look(self, g, this_tag):
+        wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
+        responses = []
+        for wanted in wanteds:
+            for tag in g.tags_of(wanted):
+                if g.is_of_class(tag, SameNumber):
+                    for taggee in g.taggees_of(tag):
+                        if g.has_tag(taggee, Avail):
+                            responses.append(ConsumeSource(taggee, wanted))
+                        if not g.has_tag(taggee, Consumed):
+                            maybe_give_support(responses, g, this_tag, taggee)
+                elif g.is_of_class(tag, CloseTo):
+                    maybe_give_support(responses, g, this_tag, tag)
+        return responses
+
 
 def getting_closer(g, candidate, wanted_value):
     raise "Don't call this"
@@ -314,10 +330,10 @@ class GiveSupport(Response):
         self.weight = weight
 
     def go(self, g):
-        g.add_mutual_support(self.from_node, self.to_node, self.weight)
+        g.add_support(self.from_node, self.to_node, self.weight)
 
     def annotation(self, g):
-        return "%s is now supporting %s and vice versa" % (
+        return "%s is now supporting %s" % (
             g.datumstr(self.from_node),
             g.datumstr(self.to_node)
         )
@@ -349,19 +365,22 @@ class BottomUpOperandScout(Node, Watcher):
     '''Looks for Numbers that could be operands. Response: builds a
     CouldMakeFromOperands for them.'''
     
-    min_support_for = 1.0
+    min_support_for = 0.1
 
     def look(self, g, this_node):
-        candidates = [node for node in g.nodes if could_be_operand(g, node)]
+        candidates = NodesWithSalience(
+            g, [node for node in g.nodes if could_be_operand(g, node)]
+        )
         if ShowOperandCandidates.is_logging():
             print(' operand candidates: %s' % (
-                ', '.join(g.nodestr(o) for o in candidates)
+                ', '.join(g.nodestr(o) for o in candidates.nodes)
             ))
         if len(candidates) >= 2:
             for attempt in range(3):
                 #num = randrange(2, len(candidates) + 1)
                 num = 2
-                operands = sample(candidates, num)
+                #operands = sample(candidates, num)
+                operands = list(candidates.choose(num))
                 if ShowOperandCandidates.is_logging():
                     print(' chose: %s' % (
                         ', '.join(g.nodestr(o) for o in operands)
@@ -457,7 +476,11 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             return []
 
     def annotation(self, g, this_node):
-        return 'Got an inkling that ' + self.equation_str(g, this_node)
+        return (
+            'Got a hint of a wisp of starting to notice that '
+            +
+            self.equation_str(g, this_node)
+        )
 
     def equation_str(self, g, this_node):
         result = g.datum(g.neighbor(this_node, 'result'))
@@ -546,3 +569,35 @@ class SameNumberScout(Node, Watcher):
                         )
                     )
         return responses
+
+
+class CloseTo(Tag):
+
+    initial_support_for = 1.0
+
+
+class CloseNumbersScout(Node, Watcher):
+    '''Looks for Numbers whose values are close together.'''
+
+    min_support_for = 1.0
+
+    def look(self, g, this_node):
+        #TODO Should exclude pairs of Numbers already tagged CloseTo
+        candidates = g.candidate_nodes_wsal(nodeclass=Number)
+        responses = []
+        for i in range(10):
+            nodes = list(candidates.choose(k=2))
+            if (
+                self.are_close(g, nodes)
+                and 
+                not g.all_share_tag(tagclass=CloseTo, nodes=nodes)
+            ):
+                responses.append(TagWith2(CloseTo, nodes))
+        return responses
+
+    def are_close(self, g, nodes):
+        vs = list(g.value_of(n) for n in nodes)
+        hi = max(vs)
+        lo = min(vs)
+        diff = abs(hi - lo)
+        return (diff < 5) or (diff < abs(0.05 * hi))
