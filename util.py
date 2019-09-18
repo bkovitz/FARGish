@@ -66,9 +66,17 @@ def rescale(xs, new_total=1.0):
 #    )
 
 def sample_without_replacement(items, k=1, weights=None):
-    items = items.copy()
+    '''Returns a generator of k items sampled randomly without replacement from
+    'items', weighted by 'weights'. If 'weights' is None, then all items have
+    equal probability.  If k > number of items, returns same result as if k =
+    number of items.'''
+    try:
+        n = len(items)
+    except TypeError:
+        items = list(items)
+        n = len(items)
     if weights is None:
-        weights = [1.0] * len(items)
+        weights = [1.0] * n
     weights = rescale(weights)
     items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
     weights = [w for w in weights if w > 0.0]

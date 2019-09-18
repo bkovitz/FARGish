@@ -67,7 +67,10 @@ Demo 3
 
 Demo 4
 
-    Brick does not return support to CouldMakeFromOperands.
+    Brick: do not return support to CouldMakeFromOperands.
         This works better: solved 1 1 1 1 1; 6 on first try.
         But with seed=8048827927063357261, got gigantic salience (400.0+)
         for a couple GiveSupport responses at t=102,103.
+
+    .candidate_nodes_wsal()
+    NodeWithSalience

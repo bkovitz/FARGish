@@ -1,10 +1,6 @@
 Demo 4
 
-    Brick: What should it support?
-        To start, remove mutual support; Brick gives no support.  DONE
-
-
-    Numble goal:  120 1 2 3 4; 121
+    rm .candidate_nodes()
 
     Mustang Sally
 
@@ -34,6 +30,8 @@ Demo 4
 
     Two CouldMakeFromOperands that share one or more nodes should oppose
     each other.
+
+    Brick: What should it support?
 
 
 Demo 2

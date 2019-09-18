@@ -1,13 +1,13 @@
 # PortGraph.py -- PortGraph class
 
 from watcher import Watcher, Response
-from util import nice_object_repr, as_iter, is_iter
+from util import nice_object_repr, as_iter, is_iter, sample_without_replacement
 
 import networkx as nx
 
 from collections import defaultdict, namedtuple, UserDict
 from inspect import isclass
-from operator import attrgetter
+from operator import attrgetter, itemgetter
 from random import choices
 
 
@@ -172,6 +172,41 @@ class NodeAttrDict(UserDict):
 NodeAndValue = namedtuple('NodeAndValue', ['node', 'value'])
 
 
+class NodesWithSalience:
+
+    def __init__(self, g=None, nodes=[]):
+        self.nodes = []
+        self.weights = []
+        if g:
+            for node in nodes:
+                self.add(node, g.salience(node))
+        else:
+            if nodes is not None:
+                raise ValueError('NodesWithSalience: nodes provided to constructor without a graph; must provide graph in order to determine salience.')
+
+    def add(self, node, salience):
+        if salience > 0.0:
+            self.nodes.append(node)
+            self.weights.append(salience)
+
+    def choose(self, k=1):
+        return sample_without_replacement(
+            self.nodes, k=k, weights=self.weights
+        )
+
+    def __len__(self):
+        return len(self.nodes)
+
+    def __repr__(self):
+        fmt = '  %%%ds  %%.3f' % max(len(str(node)) for node in self.nodes)
+        return 'NodesWithSalience(\n%s\n)' % '\n'.join(
+            (fmt % tup)
+                for tup in sorted(
+                    zip(self.nodes, self.weights), key=itemgetter(1)
+                )
+        )
+
+
 class PortGraph(nx.MultiGraph):
 
     node_dict_factory = NodeAttrDict
@@ -214,6 +249,7 @@ class PortGraph(nx.MultiGraph):
                                            if k in attrs)
         return self.make_node(new_attrs)
 
+    #TODO rm; replaced by candidate_nodes_wsal
     def candidate_nodes(self, nodeclass=None, exclude=None):
         '''Candidate nodes to consider for searching or choosing from.
         Future version should consider focal point and maybe salience.
@@ -231,6 +267,19 @@ class PortGraph(nx.MultiGraph):
             for e in as_iter(exclude):
                 result.remove(e)
         return result
+
+    def candidate_nodes_wsal(self, nodeclass=None, exclude=None):
+        '''Candidate nodes to consider for searching or choosing from.
+        Future version should consider focal point and maybe salience.
+        In current version, simply returns all the nodes of nodeclass except
+        'exclude'. Either argument may be omitted.  Returns a
+        NodesWithSalience.'''
+        if nodeclass is None:
+            nodes = self.nodes
+        else:
+            nodes = self.nodes_of_class(nodeclass)
+        nodes = set.difference(set(nodes), as_iter(exclude))
+        return NodesWithSalience(self, nodes)
 
 #    def nodestr(self, node):
 #        attrs = self.nodes[node]
