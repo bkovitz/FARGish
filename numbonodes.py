@@ -428,7 +428,7 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             result_id = g.make_node(Block(self.result_value))
             for operand in self.operands:
                 g.add_edge(node, 'operands', operand, 'could_make')
-                g.add_mutual_support(node, operand)
+                g.add_support(node, operand)
             g.add_edge(node, 'operator', self.operator_id, 'could_make')
             g.add_mutual_support(node, self.operator_id)
             g.add_edge(node, 'result', result_id, 'could_make')
