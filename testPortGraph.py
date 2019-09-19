@@ -36,3 +36,10 @@ class TestPortGraph(unittest.TestCase):
         self.assertCountEqual(g.hops_from_port('A', 'in'),  empty_set)
         self.assertCountEqual(g.hops_from_port('B', 'out'), empty_set)
         self.assertEqual(g.find_hop('A', 'in', 'B', 'out'), None)
+
+    def test_no_dup_tag(self):
+        g = PortGraph()
+        tens = [g.make_node(Number(10)), g.make_node(Number(10))]
+        g.add_tag(SameNumber, tens)
+        g.add_tag(SameNumber, tens)
+        #TODO  Not sure yet that add_tag shouldn't double-tag

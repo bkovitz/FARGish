@@ -2,9 +2,7 @@ Demo 5
 
     Numble goal: 3 3 3; 27
 
-    add_tag SameNumber shouldn't do anything if those numbers are already
-    tagged SameNumber.
-
+    In slog7, why are the saliences so high at t=28,29?
     Favor the CouldMake
     <-CouldMake->O<-Small
 

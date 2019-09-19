@@ -86,7 +86,8 @@ class TagWith2(Response):
         self.taggees = taggees
 
     def go(self, g):
-        g.add_tag(self.tagclass, self.taggees)
+        if not g.all_share_tag(self.tagclass, self.taggees):
+            g.add_tag(self.tagclass, self.taggees)
 
     def gstr(self, g):
         return 'TagWith2(%s, taggees=%s, salience=%0.3f)' % (

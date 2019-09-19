@@ -5,7 +5,7 @@
 import csv
 
 
-positive_feedback_rate = 0.01   # 0.2
+positive_feedback_rate =  0.2
 alpha = 0.95
 
 def support_dict(g, nodes=None):
