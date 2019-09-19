@@ -33,7 +33,8 @@ Operands should be groupable in a sequence. This is how to implement Minus
 and Div.
 
 Watchers should have a memory. Don't search for the thing you just searched
-for. If you're sated, don't generate any Responses.
+for. If you're sated, don't generate any Responses. A Watcher could "crawl"
+around the graph searching for something, remembering where it's been.
 
 Coarse-grained representations: group "like" nodes, e.g. all Bricks or
 all Avail Numbers or all Numbers, and represent the group in some coarse
@@ -43,3 +44,10 @@ If many numbers cluster together and there is one outlier, that should register
 in the coarse-grained representation.
 
 Watchers are properly Agents.
+
+Rigorously distinguish support and salience:
+    Support favors a node's continuing to exist.
+    Salience favors being found in searches.
+    Selection of Watchers and their Responses should be determined by support,
+    not salience. Salience influences which nodes the Watchers see and hence
+    what Responses they generate.

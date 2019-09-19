@@ -89,3 +89,5 @@ Demo 4
         SameNumberScout
         Wanted should look at this tag rather than search on its own
 
+Remove unnecessary classes from numbo.py. FoundWanted?, etc.
+
