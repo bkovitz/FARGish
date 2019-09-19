@@ -295,7 +295,7 @@ def could_be_made_by(g, node):
             )
 
 def could_be_made(g, node):
-    '''Is node tagged by an non-Failed CouldMake tag?'''
+    '''Is node tagged by a non-Failed CouldMake tag?'''
     try:
         next(could_be_made_by(g, node))
         return True
@@ -394,7 +394,6 @@ class BottomUpOperandScout(Node, Watcher):
 class CouldMakeFromOperands(CouldMake, Watcher):
 
     default_salience = 0.01
-    #BUG Why is this being ignored?
 
     @classmethod
     def maybe_make_datum(cls, g, operands):
@@ -439,7 +438,6 @@ class CouldMakeFromOperands(CouldMake, Watcher):
     def build(self, g):
         if not self.already_tagged(g, self.operands, self.operator_class):
             node = g.make_node(self)
-            g.set_support_for(node, 0.5)
             self.operator = self.operator_class()
             self.operator_id = g.make_node(self.operator)
             self.result_value = self.operator.calculate(

@@ -2,9 +2,47 @@ Demo 5
 
     Numble goal: 3 3 3; 27
 
+    View
+
+      A node that "sees" all nodes of a given kind, like "Number nodes tagged
+      Avail", auto-updated. The View can track collective attributes of the
+      nodes it's watching, such as the maximum Number, the number of Numbers,
+      a number-line representation, etc.
+      
+      The View, or something attached to it, is responsible for starting
+      CouldMakeFromOperands nodes.
+
+      The View also knows when it's running out of Avail Numbers, hence
+      can trigger a failure recovery.
+
+    Replace (or supplement) BottomUpOperandScout with OperandScout(Plus) and
+    OperandScout(Times), each attached to the View(Avail Number). These
+    Scouts generate CouldMakeFromOperands nodes, but only with their
+    preferred Operator.
+
+    Minus
+
+      Need a group node that holds multiple operands in sequence.
+
+      Or, for now, implement inheritance for port_labels and just give
+      Minus a left_operand and a right_operand (or 'minuend' and
+      'subtrahend').
+
+    Find upper bound of addition; favor multiplication if Target out of range.
+
+       Q. How are we going to inhibit the CouldMakes until we've assessed the
+       upper bound on addition? A. OperandScout nodes attached to a View,
+       supported by something that watches the upper bound on addition and/or
+       other whole-view attributes.
+
+    Coarse-grained representation: put all the Avail numbers and the Target
+    on a number line.
+
+       Coarse-grained representation should be automatic (no codelet needed).
+       Perhaps a codelet is needed to start the coarse-grained representation,
+       but it should update automatically.
+
     In slog7, why are the saliences so high at t=28,29?
-    Favor the CouldMake
-    <-CouldMake->O<-Small
 
     GettingCloser tag
         Wanted should look at this tag rather than search on its own
