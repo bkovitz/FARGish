@@ -3,6 +3,7 @@
 from collections.abc import Iterable
 import random
 import sys
+from inspect import isclass
 
 
 def is_iter(o):
@@ -37,8 +38,17 @@ def nice_object_repr(self):
         return self.__class__.__name__
     else:
         return '%s(%s)' % (self.__class__.__name__,
-                           ', '.join('%s=%s' % (k, repr(v))
+                           ', '.join('%s=%s' % (k, nrepr(v))
                                        for k, v in items))
+
+def nrepr(o):
+    '''Helper for nice_object_repr().'''
+    if isclass(o):
+        return o.__name__
+    elif isinstance(o, float):
+        return '%.3f' % o
+    else:
+        return repr(o)
 
 def rescale(xs, new_total=1.0):
     '''Returns list of xs, rescaled to sum to new_total.'''

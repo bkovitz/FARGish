@@ -476,6 +476,27 @@ class CouldMakeFromOperands(CouldMake, Watcher):
         else:
             return []
 
+    def datumstr(self, g, this_node):
+        result = self.result_node(g, this_node)
+        if result is None:
+            result = self.result_value
+        else:
+            result = g.nodestr(result)
+        rator = self.operator_id
+        if rator is None:
+            rator = self.operator_class.__name__
+        else:
+            rator = g.nodestr(rator)
+        return '%s(operands=%s, operator=%s, result=%s)' % (
+            self.__class__.__name__,
+            ', '.join(g.nodestr(o) for o in self.operands),
+            rator,
+            result
+        )
+
+    def result_node(self, g, this_node):
+        return g.neighbor(this_node, 'result')
+
     def annotation(self, g, this_node):
         return (
             'Got a hint of a wisp of starting to notice that '
@@ -511,6 +532,13 @@ class ConsumeOperands(Decision):
         if all_operands_avail:
             Avail.add_tag(g, result)
 
+    def gstr(self, g):
+        return '%s(could_make=%s, salience=%.3f)' % (
+            self.__class__.__name__,
+            g.nodestr(self.could_make),
+            self.salience
+        )
+
     def annotation(self, g):
         return 'Let\'s try %s' % (
             g.datum(self.could_make).equation_str(g, self.could_make)
@@ -524,6 +552,12 @@ class Build(Response):
 
     def go(self, g):
         self.built = self.datum.build(g)
+
+    def gstr(self, g):
+        return 'Build(%s, salience=%.3f' % (
+            self.datum.datumstr(g, None),
+            self.salience
+        )
 
     def annotation(self, g):
         if self.built:

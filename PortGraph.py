@@ -25,6 +25,9 @@ class Node:
 
     __repr__ = nice_object_repr
 
+    def datumstr(self, g, node):
+        return repr(self)  # Override to exploit g
+
     def __getattr__(self, name):
         '''All attrs default to None, to make them easy to override in
         subclasses.'''
@@ -60,6 +63,12 @@ class Tag(Node):
                        mutual_support=cls.mutual_support)
         return tag
 
+    def datumstr(self, g, node):
+        return '%s(%s)' % (self.__class__.__name__, ', '.join(
+            g.nodestr(ee) for ee in g.taggees_of(node)
+        ))
+
+
 class NeedsUpdate(Tag, Watcher):
 
     def look(self, g, node, nodes=None):
@@ -78,7 +87,7 @@ class UpdateSupport(Response):
 class CouldMake(Tag):
 
     def __init__(self, bindings):
-        self.bindings = bindings
+        self.bindings = bindings  #TODO I think this is obsolete (BEN)
 
 
 HopBase = namedtuple('Hop',
@@ -298,7 +307,12 @@ class PortGraph(nx.MultiGraph):
         return str(node) + ': ' + self.datumstr(node)
 
     def datumstr(self, node):
-        return str(self.datum(node))
+        datum = self.datum(node)
+        if datum is None:
+            return '(no datum)'
+        else:
+            return datum.datumstr(self, node)
+        #return str(self.datum(node))
 
     def add_edge(self, node1, port_label1, node2, port_label2, **attr):
         '''If the edge already exists, doesn't make a new one. Regardless,
@@ -426,7 +440,11 @@ class PortGraph(nx.MultiGraph):
     def do_touch(self, node):
         if not self.during_touch:
             self.during_touch = True
+            s = self.salience(node) #DEBUG
             self.boost_salience(node)
+            print('DO_TOUCH %50s  %.3f  %.3f' % (
+                self.nodestr(node), s, self.salience(node)
+            ))
             if self.can_need_update(node):
                 self.add_tag(NeedsUpdate, node)
             self.during_touch = False
@@ -531,6 +549,8 @@ class PortGraph(nx.MultiGraph):
     def neighbors(self, node, port_label=None):
         if port_label is None:
             return super().neighbors(node)
+        elif node is None:
+            return []
         else:
             return set(hop.to_node
                           for hop in self.hops_from_port(node, port_label))
@@ -625,7 +645,7 @@ class PortGraph(nx.MultiGraph):
 
     def boost_salience(self, node, new_salience=None):
         if new_salience is None:
-            new_salience = max(1.0, self.salience(node)) * 1.1
+            new_salience = max(1.0, self.raw_salience(node)) * 1.1
         self.set_salience(node, new_salience)
 
     def decay_saliences(self):

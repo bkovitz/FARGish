@@ -32,9 +32,14 @@ class Response(ABC):
         pass
 
     def annotation(self, g):
-        return repr(self)
+        return self.gstr(g)
 
     __repr__ = nice_object_repr
+
+    def gstr(self, g):
+        '''Like __str__ but takes a g argument so the string can describe
+        nodes that the Response refers to.'''
+        return repr(self)  # Override to exploit g
 
 
 class Decision(Response):
@@ -82,3 +87,10 @@ class TagWith2(Response):
 
     def go(self, g):
         g.add_tag(self.tagclass, self.taggees)
+
+    def gstr(self, g):
+        return 'TagWith2(%s, taggees=%s, salience=%0.3f)' % (
+            self.tagclass.__name__,
+            ', '.join(g.nodestr(ee) for ee in self.taggees),
+            self.salience
+        )

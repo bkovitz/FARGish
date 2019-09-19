@@ -1,21 +1,12 @@
-Demo 4
+Demo 5
 
-    Mustang Sally
+    Numble goal: 3 3 3; 27
 
-      Close by 1
-          CloseTo  DONE
-          CloseNumbersScout  DONE
+    add_tag SameNumber shouldn't do anything if those numbers are already
+    tagged SameNumber.
 
-      Notice the 1
-          Wanted:
-              Support CloseTo->N<-CouldMake->O<-Small
-              Consume Avail Numbers that = Wanted
-              GiveSupport to Close makeable Numbers
-      Favor the CouldMake
-
-    SameNumber tag
-        SameNumberScout
-        Wanted should look at this tag rather than search on its own
+    Favor the CouldMake
+    <-CouldMake->O<-Small
 
     GettingCloser tag
         Wanted should look at this tag rather than search on its own

@@ -1,0 +1,45 @@
+Ideas for how to do various things better
+
+Implementation
+--------------
+.datum_str() should take a g argument so that tags like CouldMakeFromOperands
+can show the datum_strs of their taggees.
+
+.candidate_nodes_wsal() should be able to search for possible taggees of
+a tag, i.e. tuples of nodes that don't yet have that tag.
+
+
+
+Model
+-----
+The model should tune global parameters like positive_feedback_rate
+according to how well it's doing.
+
+BottomUp scouts shouldn't be quite so bottom-up: they should be created as
+"agents" for nodes that represent specific goals. For example,
+BottomUpOperandScout should be an agent of Wanted. It should have some idea
+of what it's looking for.
+
+Multiple, identical Bricks should be rerepresented as bags of Bricks,
+able to provide an Avail Brick as needed. The count of Bricks in the bag
+decreases. This might be tricky, since code searching for operands might need
+to see that the bag contains more than one operand.
+
+Port labels should be Python class objects so they have a class hierarchy.
+Then if you search for an 'operand', you can match a 'left_operand', and if
+you search for a 'source', you can match an 'operand'.
+
+Operands should be groupable in a sequence. This is how to implement Minus
+and Div.
+
+Watchers should have a memory. Don't search for the thing you just searched
+for. If you're sated, don't generate any Responses.
+
+Coarse-grained representations: group "like" nodes, e.g. all Bricks or
+all Avail Numbers or all Numbers, and represent the group in some coarse
+way, and let that have a lot of influence. For example, a coarse-grained
+representation of 5 1 1 1 1 1 should be something like "a 5 and a bunch of 1s".
+If many numbers cluster together and there is one outlier, that should register
+in the coarse-grained representation.
+
+Watchers are properly Agents.

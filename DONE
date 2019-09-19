@@ -74,3 +74,18 @@ Demo 4
 
     .candidate_nodes_wsal()
     NodeWithSalience
+
+    Close by 1
+        CloseTo  DONE
+        CloseNumbersScout  DONE
+
+    Notice the 1
+        Wanted:
+            Support CloseTo->N
+            Consume Avail Numbers that = Wanted
+            GiveSupport to Close makeable Numbers
+
+    SameNumber tag
+        SameNumberScout
+        Wanted should look at this tag rather than search on its own
+

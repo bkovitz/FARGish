@@ -12,6 +12,7 @@ import support
 
 from itertools import product, chain, combinations
 from random import sample, choice, choices
+from operator import attrgetter
 from math import ceil
 
 
@@ -334,9 +335,12 @@ class NumboGraph(PortGraph):
                     responses.append(response)
         if ShowResponseList.is_logging():
             print('Responses generated:')
-            for response in responses:
+            print('RESP', responses)
+            for response in sorted(responses, key=attrgetter('salience')):
                 print('  %.3f (%.3f) %s' % (
-                    response.salience, response.action_threshold, response
+                    response.salience,
+                    response.action_threshold,
+                    response.gstr(self)
                 ))
         responses = [r for r in responses if r.salience >= r.action_threshold]
         if len(responses) == 0:  #TODO Better criterion for backtracking
@@ -512,8 +516,8 @@ def in_progress(seed=4611039348018989335, num_timesteps=1, **kwargs):
     ShowResponseList.start_logging()
     #ShowOperandCandidates.start_logging()
     #run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
-    #slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
-    close(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    #close(seed=seed, num_timesteps=num_timesteps, **kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=10):
@@ -527,9 +531,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    demo()
+    #demo()
     #go()
-    #in_progress()
+    in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)
