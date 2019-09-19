@@ -1,6 +1,6 @@
 # testSupport.py -- Unit tests for support.py
 
-from support import propagate, support_dict
+from support import Propagator, support_dict
 from PortGraph import PortGraph, Hop
 
 import unittest
@@ -8,10 +8,12 @@ import unittest
 class TestSupport(unittest.TestCase):
 
     def test_basics(self):
-        #TODO BROKEN; assumes 
-        #  positive_feedback_rate = 0.2
-        #  alpha = 0.9
         g = PortGraph()
+        p = Propagator(
+            positive_feedback_rate=0.2,
+            alpha=0.9,
+            max_total_support=1.0
+        )
         g.add_nodes_from(['A', 'B', 'O'])
         g.add_edge('A', 'in', 'B', 'out')
         g.add_edge('O', 'members', 'A', 'member_of')
@@ -22,11 +24,11 @@ class TestSupport(unittest.TestCase):
         g.add_edge('B', 'support_to', 'O', 'support_from')
         #TODO edge weights
 
-        propagate(g, max_total_support=1.0)
+        p.propagate(g)
         d = support_dict(g)
-        self.assertAlmostEqual(d['A'], 0.817665950444724)
-        self.assertAlmostEqual(d['B'], 0.1822909838416653)
-        self.assertAlmostEqual(d['O'], 4.306571361059501e-05)
+        self.assertAlmostEqual(d['A'], 0.569072143062159)
+        self.assertAlmostEqual(d['B'], 0.319848331226608)
+        self.assertAlmostEqual(d['O'], 0.11107952571123292)
 
     def test_min_support_for(self):
         #TODO

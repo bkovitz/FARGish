@@ -23,7 +23,8 @@ class NumboGraph(PortGraph):
         done=False,
         num_timesteps=40,
         seed=None,
-        running=False
+        running=False,
+        support_propagator=support.Propagator(max_total_support=300)
     )
 
     def __init__(self, **kwargs):
@@ -47,6 +48,9 @@ class NumboGraph(PortGraph):
         
     def done(self):
         return self.graph['done']
+
+    def propagate_support(self):
+        self.graph['support_propagator'].propagate(self)
 
     def is_fully_sourced(self, node):
         if not self.has_node(node):
@@ -72,7 +76,8 @@ class NumboGraph(PortGraph):
         print('t=%s' % self.graph['t']) #TODO Set a global flag for this
         self.decay_saliences()
         for i in range(1):
-            support.propagate(self, max_total_support=300)
+            #support.propagate(self, max_total_support=300)
+            self.propagate_support()
         support.log_support(g)
 #        responses = list(chain.from_iterable(
 #            self.datum(watcher).look(self, watcher)

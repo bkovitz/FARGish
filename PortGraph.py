@@ -858,9 +858,9 @@ def ps(g, nodes=None, by='support'):
     else:
         raise ValueError('invalid argument for by: %s' % repr(by))
     for node in sorted(nodes, key=key):
-        print('supp=%.3f sal=%.3f  %s' % (
+        print('supp=%.3f rawsal=%.3f  %s' % (
             g.support_for(node),
-            g.salience(node),
+            g.raw_salience(node),
             g.nodestr(node)
         ))
 
