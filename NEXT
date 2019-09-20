@@ -4,16 +4,22 @@ Demo 5
 
     View
 
+      Update MemberCount.
+
+      Update MaxMember.
+
+      Update AdditionUpperBound.
+
       The View, or something attached to it, is responsible for starting
       CouldMakeFromOperands nodes.
 
       The View also knows when it's running out of Avail Numbers, hence
       can trigger a failure recovery.
 
-    Replace (or supplement) BottomUpOperandScout with OperandScout(Plus) and
-    OperandScout(Times), each attached to the View(Avail Number). These
-    Scouts generate CouldMakeFromOperands nodes, but only with their
-    preferred Operator.
+      Replace (or supplement) BottomUpOperandScout with OperandScout(Plus) and
+      OperandScout(Times), each attached to the View(Avail Number). These
+      Scouts generate CouldMakeFromOperands nodes, but only with their
+      preferred Operator.
 
     Minus
 

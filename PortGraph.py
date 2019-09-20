@@ -776,6 +776,15 @@ class PortGraph(nx.MultiGraph):
             list(nodes), k=k, weights=[self.salience(n) for n in nodes]
         )
 
+    def scope_of(self, node):
+        '''Returns set containing the viewees of the node's neighbors at its
+        'scope' port.'''
+        scope_nodes = self.neighbors(node, port_label='scope')
+        result = set()
+        for scope_node in scope_nodes:
+            result.update(self.neighbors(scope_node, port_label='viewees'))
+        return result
+
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))

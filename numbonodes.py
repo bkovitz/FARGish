@@ -634,3 +634,20 @@ class CloseNumbersScout(Node, Watcher):
         lo = min(vs)
         diff = abs(hi - lo)
         return (diff < 5) or (diff < abs(0.05 * hi))
+
+
+class OperandScout(Node, Watcher):
+
+    def __init__(self, operator_class):
+        self.operator_class = operator_class
+
+    def look(self, g, this_node):
+        candidates = g.candidate_nodes_wsal(nodes=g.scope_of(this_node))
+        responses = []
+        if len(candidates) >= 2:
+            pass
+            #NEXT Choose nodes, build CouldMakeFromOperands.
+            #But first, think about how to make this process finer-grained.
+            #Pressures must flow, pressures must add.
+            #Pressure for addition, pressures for operands, pressures
+            #for addition of certain operands, toward certain results.
