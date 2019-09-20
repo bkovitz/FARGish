@@ -4,11 +4,6 @@ Demo 5
 
     View
 
-      A node that "sees" all nodes of a given kind, like "Number nodes tagged
-      Avail", auto-updated. The View can track collective attributes of the
-      nodes it's watching, such as the maximum Number, the number of Numbers,
-      a number-line representation, etc.
-      
       The View, or something attached to it, is responsible for starting
       CouldMakeFromOperands nodes.
 

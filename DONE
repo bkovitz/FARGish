@@ -99,3 +99,20 @@ Fix the unit tests.
 
     Parameterize support in a Propagator object.
 
+View
+
+  A node that "sees" all nodes of a given kind, like "Number nodes tagged
+  Avail", auto-updated. The View can track collective attributes of the
+  nodes it's watching, such as the maximum Number, the number of Numbers,
+  a number-line representation, etc.
+
+    Notify every View whenever:
+    
+        a new node is created.
+
+        one of its viewees is touched.
+
+        one of its viewees is removed.
+
+    The above is done by calling the View near the end of do_touches(),
+    passing it all the new and touched nodes.

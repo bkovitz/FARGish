@@ -227,6 +227,8 @@ class PortGraph(nx.MultiGraph):
         self.nextid = 1
         self.during_touch = False
         self.touched_nodes = set()
+        self.new_nodes = set()
+        self.after_touch_nodes = set()
 
     def _bump_nextid(self):
         result = self.nextid
@@ -249,6 +251,9 @@ class PortGraph(nx.MultiGraph):
         except AttributeError:
             pass
         self.set_support_for(i, max(o.initial_support_for, o.min_support_for))
+        if callable(o.after_touch_update):
+            self.after_touch_nodes.add(i)
+        self.new_nodes.add(i)
         return i
 
     def dup_node(self, h, node):
@@ -442,17 +447,28 @@ class PortGraph(nx.MultiGraph):
             self.during_touch = True
             s = self.salience(node) #DEBUG
             self.boost_salience(node)
-            print('DO_TOUCH %50s  %.3f  %.3f' % (
-                self.nodestr(node), s, self.salience(node)
-            ))
+            #print('DO_TOUCH %50s  %.3f  %.3f' % (
+            #    self.nodestr(node), s, self.salience(node)
+            #))
             if self.can_need_update(node):
                 self.add_tag(NeedsUpdate, node)
             self.during_touch = False
 
     def do_touches(self):
+        '''Calls all follow-ups for all touched nodes, including
+        after_touch_nodes, and then clears .touched_nodes and .new_nodes.'''
         for node in self.touched_nodes:
             self.do_touch(node)
+        for tn in list(self.after_touch_nodes):
+            d = self.datum(tn)
+            if d:
+                d.after_touch_update(
+                    self, tn, self.touched_nodes, self.new_nodes
+                )
+            else:
+                self.after_touch_nodes.remove(tn)
         self.touched_nodes.clear()
+        self.new_nodes.clear()
 
     def can_need_update(self, node):
         datum = self.datum(node)
