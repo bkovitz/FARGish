@@ -95,7 +95,6 @@ class NumboGraph(PortGraph):
                     responses.append(response)
         if ShowResponseList.is_logging():
             print('Responses generated:')
-            print('RESP', responses)
             for response in sorted(responses, key=attrgetter('salience')):
                 print('  %.3f (%.3f) %s' % (
                     response.salience,
@@ -130,10 +129,11 @@ class NumboGraph(PortGraph):
                 ann = response.annotation(self)
                 #print('IS', ann.__class__, isinstance(ann, FargDone))
                 #if not isinstance(ann, FargDone) or not self['running']:
-                print(ann)
+                print(' ', ann)
             if isinstance(response, Decision):
                 break
         self.do_touches()
+        self.update_all_support()
 
     def run(self, num_timesteps=None, show_fail=False):
         try:
@@ -250,6 +250,7 @@ def run(numble=None, seed=None, num_timesteps=None):
     g.make_node(BottomUpOperandScout)
     g.make_node(SameNumberScout)
     g.make_node(CloseNumbersScout)
+    g.make_node(OperandView(g.graph['target']))
     g.run(num_timesteps=num_timesteps)
     return g
 
@@ -268,6 +269,9 @@ def six(**kwargs):
 def slog7(**kwargs):
     run(Numble([2, 3, 4, 5, 6, 7], 8), **kwargs)
 
+def easymul(**kwargs):
+    run(Numble([3, 3, 3], 27), **kwargs)
+
 #def in_progress(seed=5680298187468365268, **kwargs):
 def in_progress(seed=4611039348018989335, num_timesteps=1, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
@@ -276,8 +280,9 @@ def in_progress(seed=4611039348018989335, num_timesteps=1, **kwargs):
     ShowResponseList.start_logging()
     #ShowOperandCandidates.start_logging()
     #run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
-    slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    #slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
     #close(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    easymul(seed=seed, num_timesteps=num_timesteps, **kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=10):
@@ -291,9 +296,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    #demo()
+    demo()
     #go()
-    in_progress()
+    #in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

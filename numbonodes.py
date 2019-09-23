@@ -2,6 +2,7 @@
 
 from PortGraph import Node, Tag, NodesWithSalience
 from watcher import Watcher, Response, Decision, TagWith2
+from View import View, NodeCriterion
 from exc import NumboSuccess
 import expr
 from util import as_iter, sample_without_replacement
@@ -9,7 +10,7 @@ from log import ShowOperandCandidates
 
 from abc import ABC, abstractmethod
 from random import shuffle, choice, randrange, sample
-from itertools import permutations, product
+from itertools import permutations, product, chain
 
 
 class Workspace(Node):
@@ -497,9 +498,7 @@ class CouldMakeFromOperands(CouldMake, Watcher):
 
     def annotation(self, g, this_node):
         return (
-            'Got a hint of a wisp of starting to notice that '
-            +
-            self.equation_str(g, this_node)
+            'Could ' + self.equation_str(g, this_node) + ' be relevant?'
         )
 
     def equation_str(self, g, this_node):
@@ -651,3 +650,50 @@ class OperandScout(Node, Watcher):
             #Pressures must flow, pressures must add.
             #Pressure for addition, pressures for operands, pressures
             #for addition of certain operands, toward certain results.
+
+class OperandView(View):
+
+    min_support_for = 1.0
+
+    def __init__(self, target_id):
+        super().__init__(NodeCriterion(nodeclass=Number, tagclass=Avail))
+        self.target_id = target_id  # node id of Number we're trying to build
+
+    def update_support(self, g, this_node):
+        target = g.value_of(self.target_id)
+        if target is None:
+            return
+        viewees = list(self.viewing(g, this_node))
+
+        could_makes = set()
+        for viewee in viewees:
+            could_makes.update(n for n in g.neighbors(viewee)
+                                  if g.is_of_class(n, CouldMakeFromOperands))
+            
+        ub_by_addition = sum(g.value_of(n) for n in viewees)
+        if ub_by_addition < target:
+            self.favor_multiplication(g, this_node, could_makes)
+        elif ub_by_addition > target * 2:
+            self.favor_addition(g, this_node, could_makes)
+
+    def favor_multiplication(self, g, this_node, could_makes):
+        for could_make in could_makes:
+            if issubclass(self.operator_class_of(g, could_make), Times):
+                g.add_support(this_node, could_make)
+            else:
+                g.oppose(this_node, could_make)
+
+    def favor_addition(self, g, this_node, could_makes):
+        for could_make in could_makes:
+            if issubclass(self.operator_class_of(g, could_make), Plus):
+                g.add_support(this_node, could_make)
+            else:
+                g.oppose(this_node, could_make)
+        
+    #TODO This code should be closer to CouldMakeFromOperands. Better yet,
+    # there should be some easy way to get an attribute from a node's
+    # datum by name.
+    def operator_class_of(self, g, node):
+        d = g.datum(node)
+        if d:
+            return d.operator_class

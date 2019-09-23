@@ -693,6 +693,9 @@ class PortGraph(nx.MultiGraph):
             self.add_edge(node, 'support_to', neighbor, 'support_from',
                 **{'weight': weight})
 
+    def oppose(self, node, neighbor):
+        self.add_support(node, neighbor, -0.2)
+
     def add_mutual_support(self, node, neighbor, weight=None):
         self.add_support(node, neighbor, weight=weight)
         #if self.datum(neighbor).gives_reciprocal_support: #HACK
@@ -706,6 +709,10 @@ class PortGraph(nx.MultiGraph):
         datum = self.datum(node)
         if datum is not None:
             datum.update_support(self, node)
+
+    def update_all_support(self):
+        for node in self.nodes:
+            self.update_support(node)
 
     def supports(self, from_node, to_node):
         return self.has_edge(from_node, 'support_to', to_node, 'support_from')
@@ -853,6 +860,8 @@ def pg(g, nodes=None):
     pt(g)
     if nodes is None:
         nodes = g.nodes
+    elif isclass(nodes) and issubclass(nodes, Node):
+        nodes = g.nodes_of_class(nodes)
     for node in as_iter(nodes):
         print('%s  supp=%.3f sal=%.3f' % (
             g.nodestr(node),
@@ -869,8 +878,9 @@ def pg(g, nodes=None):
                 g.hop_weight(hop)
             ))
 
-def ps(g, nodes=None, by='support'):
-    '''Prints each node with its support and salience (but not its edges).'''
+def ps(g, nodes=None, by='support', e=False):
+    '''Prints each node with its support and salience (but not its edges).
+    e=True to see support edges.'''
     pt(g)
     if nodes is None:
         nodes = g.nodes
@@ -882,12 +892,20 @@ def ps(g, nodes=None, by='support'):
         key = by
     else:
         raise ValueError('invalid argument for by: %s' % repr(by))
-    for node in sorted(nodes, key=key):
+    for node in sorted(as_iter(nodes), key=key):
         print('supp=%.3f rawsal=%.3f  %s' % (
             g.support_for(node),
             g.raw_salience(node),
             g.nodestr(node)
         ))
+        if e:
+            s_froms = list(g.neighbors(node, port_label='support_from'))
+            #TODO Separate support from opposition
+            if s_froms:
+                print('  <-- %s' % ', '.join(g.nodestr(n) for n in s_froms))
+            s_tos = list(g.neighbors(node, port_label='support_to'))
+            if s_tos:
+                print('  --> %s' % ', '.join(g.nodestr(n) for n in s_tos))
 
 
 if __name__ == '__main__':
