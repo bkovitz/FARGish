@@ -116,3 +116,18 @@ View
 
     The above is done by calling the View near the end of do_touches(),
     passing it all the new and touched nodes.
+
+  Permanent support to OperandView. (HACK)  DONE
+
+  Support/oppose only CouldMakeFromOperands nodes.  DONE
+
+Don't make multiple CouldMakeFromOperands for same operands & operation.
+
+Mult * 1 => oppose CouldMakeFromOperands
+Plus + 0 => oppose CouldMakeFromOperands
+
+Demo 5
+
+    Numble goal: 3 3 3; 27
+
+

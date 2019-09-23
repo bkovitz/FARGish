@@ -694,7 +694,7 @@ class PortGraph(nx.MultiGraph):
                 **{'weight': weight})
 
     def oppose(self, node, neighbor):
-        self.add_support(node, neighbor, -0.2)
+        self.add_support(node, neighbor, weight=-0.2)
 
     def add_mutual_support(self, node, neighbor, weight=None):
         self.add_support(node, neighbor, weight=weight)

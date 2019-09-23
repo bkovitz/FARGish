@@ -1,17 +1,8 @@
 Demo 5
 
-    Numble goal: 3 3 3; 27
+    Stop SameNumber from retagging.
 
     View
-
-      Permanent support to OperandView. (HACK)  DONE
-
-      Support/oppose only CouldMakeFromOperands nodes.  DONE
-
-      Try 3 3 3; 27
-
-      Don't make multiple CouldMakeFromOperands for same operands & operation.
-
 
       Update MemberCount.
 

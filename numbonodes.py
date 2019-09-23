@@ -11,6 +11,7 @@ from log import ShowOperandCandidates
 from abc import ABC, abstractmethod
 from random import shuffle, choice, randrange, sample
 from itertools import permutations, product, chain
+from collections import Counter
 
 
 class Workspace(Node):
@@ -135,6 +136,16 @@ class Plus (Operator):
         else:
             return None
 
+    def update_support(self, g, this_node):
+        for could_make in g.neighbors(this_node, port_label='could_make'):
+            if any(
+                g.value_of(o) == 0
+                    for o in g.neighbors(could_make, port_label='operands')
+            ):
+                g.oppose(this_node, could_make)
+            else:
+                g.add_support(this_node, could_make)
+
 class Minus (Operator):
 
     expr_class = expr.Minus
@@ -166,6 +177,16 @@ class Times (Operator):
             return v
         else:
             return None
+
+    def update_support(self, g, this_node):
+        for could_make in g.neighbors(this_node, port_label='could_make'):
+            if any(
+                g.value_of(o) == 1
+                    for o in g.neighbors(could_make, port_label='operands')
+            ):
+                g.oppose(this_node, could_make)
+            else:
+                g.add_support(this_node, could_make)
 
 class Div (Operator):
 
@@ -418,11 +439,16 @@ class CouldMakeFromOperands(CouldMake, Watcher):
     def already_tagged(cls, g, operands, operator_class):
         tags = list(g.tags_of(operands, cls, 'could_make'))
         operands = set(operands)
+        operand_values = Counter(g.value_of(o) for o in operands)
         return any(tag for tag in g.tags_of(operands, cls, 'could_make')
                            if (
-                               set(g.neighbors(tag, port_label='operands'))
+                               Counter(g.value_of(n) for n in
+                                 g.neighbors(tag, port_label='operands'))
                                ==
-                               operands
+                               operand_values
+                               #set(g.neighbors(tag, port_label='operands'))
+                               #==
+                               #operands
                               ) and g.is_of_class(
                                        g.neighbor(tag, port_label='operator'),
                                        operator_class
@@ -449,7 +475,7 @@ class CouldMakeFromOperands(CouldMake, Watcher):
                 g.add_edge(node, 'operands', operand, 'could_make')
                 g.add_support(node, operand)
             g.add_edge(node, 'operator', self.operator_id, 'could_make')
-            g.add_mutual_support(node, self.operator_id)
+            g.add_support(node, self.operator_id)
             g.add_edge(node, 'result', result_id, 'could_make')
             g.add_mutual_support(node, result_id)
             return node
