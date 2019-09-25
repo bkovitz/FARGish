@@ -9,8 +9,8 @@ from util import as_iter, sample_without_replacement
 from log import ShowOperandCandidates
 
 from abc import ABC, abstractmethod
-from random import shuffle, choice, randrange, sample
-from itertools import permutations, product, chain
+from random import shuffle, choice, choices, randrange, sample
+from itertools import permutations, combinations, product, chain
 from collections import Counter
 
 
@@ -607,27 +607,23 @@ class SameNumberScout(Node, Watcher):
     min_support_for = 1.0
 
     def look(self, g, this_node):
-        candidates = set(g.candidate_nodes(nodeclass=Number))
-        untagged = list(g.nodes_without_tag(SameNumber, nodes=candidates))
-        tagged = candidates.difference(untagged)
-        #print('SAME', untagged, tagged)
-        responses = []
-        if untagged:
-            k = min(5, len(untagged))
-            for node in sample_without_replacement(
-                untagged, k=k, weights=[g.salience(n) for n in untagged]
-            ):
-                v = g.value_of(node)
-                others = set(o for o in candidates
-                                if o != node and g.value_of(o) == v)
-                if others:
-                    responses.append(
-                        TagWith2(
-                            SameNumber,
-                            [node, g.choose_by_salience(others)[0]]
-                        )
-                    )
-        return responses
+        candidate_pairs = [
+            p for p in combinations(g.candidate_nodes(nodeclass=Number), 2)
+                if g.value_of(p[0]) == g.value_of(p[1])
+                   and
+                   not g.all_share_tag(SameNumber, p)
+        ]
+        if candidate_pairs:
+            pair = choices(
+                candidate_pairs,
+                weights=[
+                    g.salience(p[0]) + g.salience(p[1])
+                        for p in candidate_pairs
+                ]
+            )[0]
+            return [TagWith2(SameNumber, list(pair))]
+        else:
+            return []
 
 
 class CloseTo(Tag):

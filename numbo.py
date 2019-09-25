@@ -71,69 +71,72 @@ class NumboGraph(PortGraph):
     def set_done(self, done):
         self.graph['done'] = done
 
-    def do_timestep(self):
-        self.graph['t'] += 1
-        print('t=%s' % self.graph['t']) #TODO Set a global flag for this
-        self.decay_saliences()
-        for i in range(1):
-            #support.propagate(self, max_total_support=300)
-            self.propagate_support()
-        support.log_support(g)
-#        responses = list(chain.from_iterable(
-#            self.datum(watcher).look(self, watcher)
-#                for watcher in self.watchers()
-#        ))
-        responses = []
-        for watcher in self.watchers():
-            for response in self.datum(watcher).look(self, watcher):
-                if response is not None:
-                    #HACK: Overriding the Response object's salience
-                    response.salience = max(
-                        self.support_for(watcher),
-                        response.salience
-                    )
-                    responses.append(response)
-        if ShowResponseList.is_logging():
-            print('Responses generated:')
-            for response in sorted(responses, key=attrgetter('salience')):
-                print('  %.3f (%.3f) %s' % (
-                    response.salience,
-                    response.action_threshold,
-                    response.gstr(self)
-                ))
-        responses = [r for r in responses if r.salience >= r.action_threshold]
-        if len(responses) == 0:  #TODO Better criterion for backtracking
-            #responses = [Backtrack()]
-            self.consecutive_timesteps_with_no_response += 1
-            if self.consecutive_timesteps_with_no_response >= 60:
-                self.set_done(TooManyTimestepsWithNoResponse(
-                    self.consecutive_timesteps_with_no_response
-                ))
-                if ShowResponseResults.is_logging():
-                    print(self.done())
-        else:
-            self.consecutive_timesteps_with_no_response = 0
-        #for response in responses:
-        #response = choice(responses)
-#        response = choices(
-#            responses, weights=[r.salience for r in responses], k=1
-#        )[0]
+    def do_timestep(self, num=1):
+        for local_t in range(num):
+            self.graph['t'] += 1
+            print('t=%s' % self.graph['t']) #TODO Set a global flag for this
+            self.decay_saliences()
+            for i in range(1):
+                #support.propagate(self, max_total_support=300)
+                self.propagate_support()
+            support.log_support(g)
+    #        responses = list(chain.from_iterable(
+    #            self.datum(watcher).look(self, watcher)
+    #                for watcher in self.watchers()
+    #        ))
+            responses = []
+            for watcher in self.watchers():
+                for response in self.datum(watcher).look(self, watcher):
+                    if response is not None:
+                        #HACK: Overriding the Response object's salience
+                        response.salience = max(
+                            self.support_for(watcher),
+                            response.salience
+                        )
+                        responses.append(response)
+            if ShowResponseList.is_logging():
+                print('Responses generated:')
+                for response in sorted(responses, key=attrgetter('salience')):
+                    print('  %.3f (%.3f) %s' % (
+                        response.salience,
+                        response.action_threshold,
+                        response.gstr(self)
+                    ))
+            responses = [
+                r for r in responses if r.salience >= r.action_threshold
+            ]
+            if len(responses) == 0:  #TODO Better criterion for backtracking
+                #responses = [Backtrack()]
+                self.consecutive_timesteps_with_no_response += 1
+                if self.consecutive_timesteps_with_no_response >= 60:
+                    self.set_done(TooManyTimestepsWithNoResponse(
+                        self.consecutive_timesteps_with_no_response
+                    ))
+                    if ShowResponseResults.is_logging():
+                        print(self.done())
+            else:
+                self.consecutive_timesteps_with_no_response = 0
+            #for response in responses:
+            #response = choice(responses)
+    #        response = choices(
+    #            responses, weights=[r.salience for r in responses], k=1
+    #        )[0]
 
-        # TODO global parameter: k  (number of responses to do each timestep)
-        for response in sample_without_replacement(
-            responses, k=2, weights=[r.salience for r in responses]
-        ):
-            #print(response)
-            response.go(self)
-            if ShowResponseResults.is_logging():
-                ann = response.annotation(self)
-                #print('IS', ann.__class__, isinstance(ann, FargDone))
-                #if not isinstance(ann, FargDone) or not self['running']:
-                print(' ', ann)
-            if isinstance(response, Decision):
-                break
-        self.do_touches()
-        self.update_all_support()
+            # TODO global parameter: k  (number of responses to do each timestep)
+            for response in sample_without_replacement(
+                responses, k=2, weights=[r.salience for r in responses]
+            ):
+                #print(response)
+                response.go(self)
+                if ShowResponseResults.is_logging():
+                    ann = response.annotation(self)
+                    #print('IS', ann.__class__, isinstance(ann, FargDone))
+                    #if not isinstance(ann, FargDone) or not self['running']:
+                    print(' ', ann)
+                if isinstance(response, Decision):
+                    break
+            self.do_touches()
+            self.update_all_support()
 
     def run(self, num_timesteps=None, show_fail=False):
         try:
@@ -273,7 +276,7 @@ def easymul(**kwargs):
     run(Numble([3, 3, 3], 27), **kwargs)
 
 #def in_progress(seed=5680298187468365268, **kwargs):
-def in_progress(seed=4611039348018989335, num_timesteps=1, **kwargs):
+def in_progress(seed=4611039348018989335, num_timesteps=40, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()
@@ -296,9 +299,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    demo()
+    #demo()
     #go()
-    #in_progress()
+    in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)
