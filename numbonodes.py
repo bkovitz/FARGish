@@ -610,6 +610,7 @@ class SameNumberScout(Node, Watcher):
         candidates = set(g.candidate_nodes(nodeclass=Number))
         untagged = list(g.nodes_without_tag(SameNumber, nodes=candidates))
         tagged = candidates.difference(untagged)
+        #print('SAME', untagged, tagged)
         responses = []
         if untagged:
             k = min(5, len(untagged))

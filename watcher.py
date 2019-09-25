@@ -86,6 +86,7 @@ class TagWith2(Response):
         self.taggees = taggees
 
     def go(self, g):
+        #print('T2', self.taggees, g.all_share_tag(self.tagclass, self.taggees))
         if not g.all_share_tag(self.tagclass, self.taggees):
             g.add_tag(self.tagclass, self.taggees)
 

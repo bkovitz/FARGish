@@ -227,7 +227,7 @@ def testSimple():
     print()
     pg(g)
 
-def demo(num_timesteps=200):
+def demo(num_timesteps=40):
     '''Run this for Doug.'''
     global g
     ShowResponseResults.start_logging()
