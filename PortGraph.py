@@ -487,7 +487,7 @@ class PortGraph(nx.MultiGraph):
         The tag supports its taggees.'''
         #TODO Allow other options regarding support (e.g. less support,
         #opposition, reciprocal support).
-        if isclass(tag_or_tagclass):
+        if isclass(tag_or_tagclass) or isinstance(tag_or_tagclass, Node):
             # Make the tag node
             tag = self.make_node(tag_or_tagclass)
         else:
@@ -884,6 +884,9 @@ def ps(g, nodes=None, by='support', e=False):
     pt(g)
     if nodes is None:
         nodes = g.nodes
+    elif isclass(nodes):
+        nodes = g.nodes_of_class(nodes)
+
     if by == 'support':
         key = lambda node: g.support_for(node)
     elif by == 'id':

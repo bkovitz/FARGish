@@ -211,6 +211,10 @@ def maybe_give_support(responses, g, from_node, to_node, weight=1.0):
     if not g.supports(from_node, to_node):
         responses.append(GiveSupport(from_node, to_node, weight=weight))
 
+def wanted_value(g, wanted):
+    '''wanted is a node id. Returns the value of the node tagged by wanted.'''
+    return g.value_of(g.neighbor(wanted, port_label='taggees'))
+
 class Wanted(Tag, Watcher):
 
     initial_support_for = 1.0
@@ -252,6 +256,9 @@ class Wanted(Tag, Watcher):
                         if not g.has_tag(taggee, Consumed):
                             maybe_give_support(responses, g, this_tag, taggee)
                 elif g.is_of_class(tag, CloseTo):
+                    maybe_give_support(responses, g, this_tag, tag)
+        for tag in g.tags_of(this_tag):
+                if g.is_of_class(tag, GettingCloser):
                     maybe_give_support(responses, g, this_tag, tag)
         return responses
 
@@ -492,14 +499,20 @@ class CouldMakeFromOperands(CouldMake, Watcher):
         return False
 
 
+    #TODO node -> this_node
     def look(self, g, node, nodes=None):
         if g.has_tag(self.operator_id, Failed):
             return []
         all_operands_avail = all(g.has_tag(o, Avail) for o in self.operands)
-        if g.all_have_tag(Avail, self.operands):
-            return [ConsumeOperands(node)]
-        else:
+        if not g.all_have_tag(Avail, self.operands):
             return []
+        responses = [ConsumeOperands(node)]
+        for wanted in g.nodes_of_class(Wanted):
+            v = wanted_value(g, wanted)
+            if self.getting_closer(g, v):
+                if not g.has_tag(node, GettingCloser):
+                    responses.append(Build(GettingCloser(node, wanted)))
+        return responses
 
     def datumstr(self, g, this_node):
         result = self.result_node(g, this_node)
@@ -595,8 +608,17 @@ class Build(Response):
 class GettingCloser(Tag):
 
     def __init__(self, taggee, closer_to):
+        '''closer_to is a node_id, not a value.'''
         self.taggee = taggee
         self.closer_to = closer_to
+        #NEXT When the GettingCloser is made, it must tag the wanted node
+        # so that Wanted will support the GettingCloser node.
+
+    def build(self, g):
+        this_tag = g.make_node(self)
+        g.add_tag(this_tag, self.taggee)
+        g.add_edge(this_tag, 'close_to', self.closer_to, 'tags')
+        return this_tag
 
 class SameNumber(Tag):
     pass
@@ -676,7 +698,7 @@ class OperandScout(Node, Watcher):
 
 class OperandView(View):
 
-    min_support_for = 1.0
+    min_support_for = 0.1
 
     def __init__(self, target_id):
         super().__init__(NodeCriterion(nodeclass=Number, tagclass=Avail))

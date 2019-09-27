@@ -276,7 +276,7 @@ def easymul(**kwargs):
     run(Numble([3, 3, 3], 27), **kwargs)
 
 #def in_progress(seed=5680298187468365268, **kwargs):
-def in_progress(seed=4611039348018989335, num_timesteps=40, **kwargs):
+def in_progress(seed=4355516146718806865, num_timesteps=8, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()
@@ -285,7 +285,8 @@ def in_progress(seed=4611039348018989335, num_timesteps=40, **kwargs):
     #run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
     #slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
     #close(seed=seed, num_timesteps=num_timesteps, **kwargs)
-    easymul(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    #easymul(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    six(seed=seed, num_timesteps=num_timesteps, **kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=10):
@@ -299,9 +300,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    #demo()
+    demo()
     #go()
-    in_progress()
+    #in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)
