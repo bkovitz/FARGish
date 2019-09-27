@@ -260,6 +260,14 @@ class Wanted(Tag, Watcher):
         for tag in g.tags_of(this_tag):
                 if g.is_of_class(tag, GettingCloser):
                     maybe_give_support(responses, g, this_tag, tag)
+                elif g.is_of_class(tag, NotGettingCloser):
+                    maybe_give_support(
+                        responses,
+                        g,
+                        this_tag,
+                        g.neighbor(tag, port_label='taggees'),
+                        weight=-0.2
+                    )
         return responses
 
 
@@ -306,6 +314,10 @@ def consume(g, avail, result=None):
         g.remove_tag(node, Consumed)
         if not g.is_of_class(node, Target):  #HACK
             g.add_tag(Avail, node)
+
+    #A model HACK: "reset" the race for support to exceed the threshold
+    for node in g.nodes_of_class(CouldMake):
+        g.set_support_for(node, min(0.01, g.support_for(node)))
 
 
 class CouldMake(Tag):
@@ -512,6 +524,9 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             if self.getting_closer(g, v):
                 if not g.has_tag(node, GettingCloser):
                     responses.append(Build(GettingCloser(node, wanted)))
+            else:
+                if not g.has_tag(node, NotGettingCloser):
+                    responses.append(Build(NotGettingCloser(node, wanted)))
         return responses
 
     def datumstr(self, g, this_node):
@@ -611,13 +626,24 @@ class GettingCloser(Tag):
         '''closer_to is a node_id, not a value.'''
         self.taggee = taggee
         self.closer_to = closer_to
-        #NEXT When the GettingCloser is made, it must tag the wanted node
-        # so that Wanted will support the GettingCloser node.
 
     def build(self, g):
         this_tag = g.make_node(self)
         g.add_tag(this_tag, self.taggee)
-        g.add_edge(this_tag, 'close_to', self.closer_to, 'tags')
+        g.add_edge(this_tag, 'getting_closer_to', self.closer_to, 'tags')
+        return this_tag
+
+class NotGettingCloser(Tag):
+
+    def __init__(self, taggee, not_closer_to):
+        self.taggee = taggee
+        self.not_closer_to = not_closer_to
+
+    def build(self, g):
+        this_tag = g.make_node(self)
+        g.add_tag(this_tag, self.taggee)
+        g.add_edge(this_tag, 'not_getting_closer_to',
+                   self.not_closer_to, 'tags')
         return this_tag
 
 class SameNumber(Tag):

@@ -276,7 +276,7 @@ def easymul(**kwargs):
     run(Numble([3, 3, 3], 27), **kwargs)
 
 #def in_progress(seed=5680298187468365268, **kwargs):
-def in_progress(seed=4355516146718806865, num_timesteps=8, **kwargs):
+def in_progress(seed=4355516146718806865, num_timesteps=15, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()
