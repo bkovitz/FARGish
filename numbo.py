@@ -88,6 +88,7 @@ class NumboGraph(PortGraph):
             for watcher in self.watchers():
                 for response in self.datum(watcher).look(self, watcher):
                     if response is not None:
+                        print('RESP', response)
                         #HACK: Overriding the Response object's salience
                         response.salience = max(
                             self.support_for(watcher),
@@ -250,9 +251,10 @@ def run(numble=None, seed=None, num_timesteps=None):
     numble.build(g, g.ws())
     #g.make_node(CouldMakeFromOperandsTagger)
     #g.make_node(BottomUpOperandFinder)
-    g.make_node(BottomUpOperandScout)
+    #g.make_node(BottomUpOperandScout)
     g.make_node(SameNumberScout)
-    g.make_node(CloseNumbersScout)
+    #g.make_node(CloseNumbersScout)
+    g.make_node(NumericalRelationScout)
     g.make_node(OperandView(g.graph['target']))
     g.run(num_timesteps=num_timesteps)
     return g
@@ -284,9 +286,9 @@ def in_progress(seed=4355516146718806865, num_timesteps=15, **kwargs):
     #ShowOperandCandidates.start_logging()
     #run(Numble([2, 3, 5], 10), seed=seed, **kwargs)
     #slog7(seed=seed, num_timesteps=num_timesteps, **kwargs)
-    #close(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    close(seed=seed, num_timesteps=num_timesteps, **kwargs)
     #easymul(seed=seed, num_timesteps=num_timesteps, **kwargs)
-    six(seed=seed, num_timesteps=num_timesteps, **kwargs)
+    #six(seed=seed, num_timesteps=num_timesteps, **kwargs)
 
 
 def go(seed=6185774907678598918, num_timesteps=10):
@@ -300,9 +302,9 @@ def go(seed=6185774907678598918, num_timesteps=10):
 
 
 if __name__ == '__main__':
-    demo()
+    #demo()
     #go()
-    #in_progress()
+    in_progress()
 
 #    g = PortGraph()
 #    ws = g.make_node(Workspace)

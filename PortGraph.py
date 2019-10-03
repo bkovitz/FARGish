@@ -696,6 +696,10 @@ class PortGraph(nx.MultiGraph):
     def oppose(self, node, neighbor):
         self.add_support(node, neighbor, weight=-0.2)
 
+    def add_mutual_opposition(self, node1, node2):
+        self.oppose(node1, node2)
+        self.oppose(node2, node1)
+
     def add_mutual_support(self, node, neighbor, weight=None):
         self.add_support(node, neighbor, weight=weight)
         #if self.datum(neighbor).gives_reciprocal_support: #HACK

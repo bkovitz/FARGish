@@ -12,6 +12,7 @@ from abc import ABC, abstractmethod
 from random import shuffle, choice, choices, randrange, sample
 from itertools import permutations, combinations, product, chain
 from collections import Counter
+from operator import itemgetter
 
 
 class Workspace(Node):
@@ -248,6 +249,9 @@ class Wanted(Tag, Watcher):
         wanteds = g.neighbors(this_tag, port_label=self.tag_port_label)
         responses = []
         for wanted in wanteds:
+            oscout = OperandsScout(wanted)
+            if oscout.ok_to_build(g):
+                responses.append(Build(oscout))
             for tag in g.tags_of(wanted):
                 if g.is_of_class(tag, SameNumber):
                     for taggee in g.taggees_of(tag):
@@ -500,15 +504,18 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             return node
 
     def getting_closer(self, g, wanted_value):
-        '''Is the result closer to the wanted_value than at least one
-        operand?'''
+        '''Is the result closer to the wanted_value than all operands?'''
         result_distance = wanted_value - self.result_value  # TODO abs
         if result_distance < 0:
             return False  # HACK until Minus is implemented
-        for operand_id in self.operands:
-            if result_distance < (wanted_value - g.value_of(operand_id)):
-                return True
-        return False
+        return all(
+            result_distance < (wanted_value - g.value_of(oid))
+                for oid in self.operands
+        )
+#        for operand_id in self.operands:
+#            if result_distance < (wanted_value - g.value_of(operand_id)):
+#                return True
+#        return False
 
 
     #TODO node -> this_node
@@ -646,8 +653,39 @@ class NotGettingCloser(Tag):
                    self.not_closer_to, 'tags')
         return this_tag
 
-class SameNumber(Tag):
-    pass
+
+class NumericalRelationTag(Tag):
+
+    initial_support_for = 0.1
+
+    @classmethod
+    def test(self, g, nodes):
+        '''Should return None if nodes don't have the relation, or a Node
+        datum suitable for Building if they do.'''
+        pass
+
+    #TODO Allow more than two relata
+    def __init__(self, lhs, rhs):
+        self.lhs = lhs
+        self.rhs = rhs
+
+    def ok_to_build(self, g):
+        return not g.all_share_tag(
+            tagclass=self.__class__,
+            nodes=[self.lhs, self.rhs]
+        )
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(node, 'lhs', self.lhs, 'tags')
+        g.add_edge(node, 'rhs', self.rhs, 'tags')
+        return node
+
+
+class SameNumber(NumericalRelationTag):
+
+    initial_support_for = 1.0
+
 
 class SameNumberScout(Node, Watcher):
     '''Looks for Numbers that are the same and tags them SameNumber.'''
@@ -674,11 +712,36 @@ class SameNumberScout(Node, Watcher):
             return []
 
 
-class CloseTo(Tag):
+class CloseTo(NumericalRelationTag):
 
-    initial_support_for = 1.0
+    @classmethod
+    def test(cls, g, nodes):
+        vs = list(g.value_of(n) for n in nodes)
+        hi = max(vs)
+        lo = min(vs)
+        diff = abs(hi - lo)
+        if (diff < 5) or (diff < abs(0.05 * hi)):
+            #TODO Allow more than 2 nodes
+            assert(len(nodes) == 2)
+            return CloseTo(nodes[0], nodes[1])
+        else:
+            return None
+
+class GreaterThan(NumericalRelationTag):
+
+    @classmethod
+    def test(cls, g, nodes):
+        tuples = sorted(
+            [(node, g.value_of(node)) for node in nodes],
+            key=itemgetter(1)
+        )
+        if tuples[0][1] == tuples[1][1]:
+            return None
+        else:
+            return GreaterThan(tuples[1][0], tuples[0][0])
 
 
+# TODO: rm? Made obsolete by NumericalRelationScout?
 class CloseNumbersScout(Node, Watcher):
     '''Looks for Numbers whose values are close together.'''
 
@@ -698,12 +761,36 @@ class CloseNumbersScout(Node, Watcher):
                 responses.append(TagWith2(CloseTo, nodes))
         return responses
 
+    #TODO OAOO
     def are_close(self, g, nodes):
         vs = list(g.value_of(n) for n in nodes)
         hi = max(vs)
         lo = min(vs)
         diff = abs(hi - lo)
         return (diff < 5) or (diff < abs(0.05 * hi))
+
+
+class NumericalRelationScout(Node, Watcher):
+
+    min_support_for = 1.0
+
+    possible_tagclasses = [CloseTo, GreaterThan]
+
+    def look(self, g, this_node):
+        #TODO Should exclude pairs of Numbers already tagged?
+        candidates = g.candidate_nodes_wsal(nodeclass=Number)
+        responses = []
+        for attempt in range(20):
+            nodes = list(candidates.choose(k=2))
+            #test = choice(self.tests)
+            tagclass = choice(self.possible_tagclasses)
+            #datum = test.__func__(self.__class__, g, nodes)
+            datum = tagclass.test(g, nodes)
+            if datum and datum.ok_to_build(g):
+                responses.append(Build(datum))
+                if len(responses) >= 2:
+                    break
+        return responses
 
 
 class OperandScout(Node, Watcher):
@@ -768,3 +855,80 @@ class OperandView(View):
         d = g.datum(node)
         if d:
             return d.operator_class
+
+########################################################################
+#
+# Nodes to build up CouldMakeFromOperands guesses in stages: guesses at
+# what is worth constructing a guess out of.
+
+class UseAsLeftOperand(Tag):
+    pass
+
+class UseAsRightOperand(Tag):
+    pass
+
+class BigPlusSmallMakesBig(Node, Watcher):
+
+    def look(self, g, this_node):
+        # STUB
+        return []
+
+class OperandsScout(Node, Watcher):
+
+    def __init__(self, agent_for):
+        self.agent_for = agent_for  # the node we're working for, assumed to
+                                    # be a Wanted
+    def ok_to_build(self, g):
+        agents = g.nodes_of_class(
+            self.__class__,
+            g.neighbors(self.agent_for, port_label='agents')
+        )
+        return len(agents) == 0
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        plus = g.make_node(Plus)
+        times = g.make_node(Times)
+        #TODO 'tags' doesn't seem like the right name for this.
+        g.add_edge(node, 'operators', plus, 'tags')
+        g.add_edge(node, 'operators', times, 'tags')
+        self.notice_everything(g, node) #TODO notice a little at a time
+        return node
+
+    def look(self, g, this_node):
+        print('OPERANDS SCOUT')
+        return []
+
+    def notice_everything(self, g, this_node):
+        wanted_value = g.value_of(self.agent_for)
+        new_nodes = []
+        los = []   # UseAsLeftOperand nodes
+        ros = []   # UseAsRightOperand nodes
+        operand_ids = list(g.nodes_with_tag(Avail))
+        for operand_id in operand_ids:
+            lo = g.add_tag(UseAsLeftOperand, operand_id)
+            ro = g.add_tag(UseAsRightOperand, operand_id)
+            los.append(lo)
+            ros.append(ro)
+            g.add_mutual_opposition(lo, ro)
+            new_nodes += [lo, ro]
+        for lo1, lo2 in combinations(los, 2):
+            g.add_mutual_opposition(lo1, lo2)
+        for ro1, ro2 in combinations(ros, 2):
+            g.add_mutual_opposition(ro1, ro2)
+
+        for operand_id in operand_ids:
+            #NEXT Look at tags, add BrickCloseToTarget, etc.
+            pass
+
+
+class BigPlusSmallMakesBig(Node, Watcher):
+
+    def __init__(self, agent_for, plus):
+        self.agent_for = agent_for
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+
