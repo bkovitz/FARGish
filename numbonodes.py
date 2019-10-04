@@ -903,20 +903,23 @@ class OperandsScout(Node, Watcher):
     def notice_everything(self, g, this_node):
         wanted_value = g.value_of(self.agent_for)
         new_nodes = []
-        los = []   # UseAsLeftOperand nodes
-        ros = []   # UseAsRightOperand nodes
+        uls = []   # UseAsLeftOperand nodes
+        urs = []   # UseAsRightOperand nodes
         operand_ids = list(g.nodes_with_tag(Avail))
         for operand_id in operand_ids:
-            lo = g.add_tag(UseAsLeftOperand, operand_id)
-            ro = g.add_tag(UseAsRightOperand, operand_id)
-            los.append(lo)
-            ros.append(ro)
-            g.add_mutual_opposition(lo, ro)
-            new_nodes += [lo, ro]
-        for lo1, lo2 in combinations(los, 2):
-            g.add_mutual_opposition(lo1, lo2)
-        for ro1, ro2 in combinations(ros, 2):
-            g.add_mutual_opposition(ro1, ro2)
+            ul = g.add_tag(UseAsLeftOperand, operand_id)
+            ur = g.add_tag(UseAsRightOperand, operand_id)
+            uls.append(ul)
+            urs.append(ur)
+            g.add_mutual_opposition(ul, ur)
+            new_nodes += [ul, ur]
+        for ul1, ul2 in combinations(uls, 2):
+            g.add_mutual_opposition(ul1, ul2)
+        for ur1, ur2 in combinations(urs, 2):
+            g.add_mutual_opposition(ur1, ur2)
+        for ul, ur in product(uls, urs):
+            if g.taggee_of(ul) != g.taggee_of(ur):
+                g.add_mutual_support(ul, ur)
 
         for operand_id in operand_ids:
             #NEXT Look at tags, add BrickCloseToTarget, etc.

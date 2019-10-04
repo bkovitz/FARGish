@@ -583,6 +583,12 @@ class PortGraph(nx.MultiGraph):
     def taggees_of(self, tag, port_label='taggees'):
         return self.neighbors(tag, port_label=port_label)
 
+    def taggee_of(self, tag, port_label='taggees'):
+        try:
+            return next(iter(self.taggees_of(tag, port_label=port_label)))
+        except StopIteration:
+            return None
+
     def add_member_edge(self, group_node, member_node):
         self.add_edge(group_node, 'members', member_node, 'member_of')
 
