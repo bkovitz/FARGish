@@ -88,12 +88,13 @@ class NumboGraph(PortGraph):
             for watcher in self.watchers():
                 for response in self.datum(watcher).look(self, watcher):
                     if response is not None:
-                        print('RESP', response)
+                        #print('RESP', response)
                         #HACK: Overriding the Response object's salience
-                        response.salience = max(
-                            self.support_for(watcher),
-                            response.salience
-                        )
+                        if isinstance(response, ConsumeOperands):
+                            response.salience = max(
+                                self.support_for(watcher),
+                                response.salience
+                            )
                         responses.append(response)
             if ShowResponseList.is_logging():
                 print('Responses generated:')
@@ -125,7 +126,7 @@ class NumboGraph(PortGraph):
 
             # TODO global parameter: k  (number of responses to do each timestep)
             for response in sample_without_replacement(
-                responses, k=2, weights=[r.salience for r in responses]
+                responses, k=10, weights=[r.salience for r in responses]
             ):
                 #print(response)
                 response.go(self)

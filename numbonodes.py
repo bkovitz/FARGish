@@ -571,6 +571,28 @@ class CouldMakeFromOperands(CouldMake, Watcher):
             result.value
         )
 
+class MakeCouldMakeFromOperands(Decision):
+
+    def __init__(self, g, operator_id, lbrick, rbrick):
+        self.operator_id = operator_id
+        self.lbrick = lbrick
+        self.rbrick = rbrick
+        so = g.support_for(operator_id)
+        sl = g.support_for(g.tag_of(lbrick, tagclass=UseAsLeftOperand))
+        sr = g.support_for(g.tag_of(rbrick, tagclass=UseAsRightOperand))
+        print('SAL', so, sl, sr)
+        if min(so, sl, sr) < self.action_threshold:
+            self.salience = min(so, sl, sr)
+        else:
+            self.salience = so + sl + sr
+
+    def go(self, g):
+        CouldMakeFromOperands(
+            [self.lbrick, self.rbrick],
+            g.class_of(self.operator_id)
+        ).build(g)
+
+
 class ConsumeOperands(Decision):
 
     def __init__(self, could_make):
@@ -710,6 +732,13 @@ class SameNumberScout(Node, Watcher):
             return [TagWith2(SameNumber, list(pair))]
         else:
             return []
+
+#TODO OAOO
+def is_close(*vs):
+    hi = max(vs)
+    lo = min(vs)
+    diff = abs(hi - lo)
+    return (diff < 5) or (diff < abs(0.05 * hi))
 
 
 class CloseTo(NumericalRelationTag):
@@ -861,10 +890,12 @@ class OperandView(View):
 # Nodes to build up CouldMakeFromOperands guesses in stages: guesses at
 # what is worth constructing a guess out of.
 
-class UseAsLeftOperand(Tag):
+class UseAsOperand(Tag):
     pass
 
-class UseAsRightOperand(Tag):
+class UseAsLeftOperand(UseAsOperand):
+    pass
+class UseAsRightOperand(UseAsOperand):
     pass
 
 class BigPlusSmallMakesBig(Node, Watcher):
@@ -873,11 +904,151 @@ class BigPlusSmallMakesBig(Node, Watcher):
         # STUB
         return []
 
+class BigPlusSmallMakesBig(Node, Watcher):
+
+    def __init__(self, agent_for, plus):
+        self.agent_for = agent_for
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        return node
+
+class BrickLessThanTarget(Tag, Watcher):
+
+    def __init__(self, agent_for, brick, target):
+        self.agent_for = agent_for
+        self.brick = brick
+        self.target = target
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        g.add_edge(node, 'taggees', self.brick, 'tags')
+        g.add_edge(node, 'taggees', self.target, 'tags')
+        g.add_support(node, g.tag_of(self.brick, tagclass=UseAsLeftOperand))
+        g.add_mutual_support(node, g.tag_of(self.brick, tagclass=UseAsRightOperand), weight=0.2)
+        return node
+
+    def look(self, g, this_node):
+        responses = []
+        for agent in g.neighbors(self.agent_for, 'agents'):
+            if agent == this_node:
+                continue
+            if g.is_of_class(agent, (Plus, Times, BrickLessThanTarget)):
+                maybe_give_support(responses, g, this_node, agent)
+        return responses
+
+class BrickCloseToTarget(Tag, Watcher):
+
+    def __init__(self, agent_for, brick, target):
+        self.agent_for = agent_for
+        self.brick = brick
+        self.target = target
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        g.add_edge(node, 'taggees', self.brick, 'tags')
+        g.add_edge(node, 'taggees', self.target, 'tags')
+        g.add_mutual_support(node, g.tag_of(self.brick, tagclass=UseAsLeftOperand))
+        return node
+
+    def look(self, g, this_node):
+        responses = []
+        for agent in g.neighbors(self.agent_for, 'agents'):
+            if agent == this_node:
+                continue
+            if g.is_of_class(agent, (Plus, BrickLessThanTarget)):
+                maybe_give_support(responses, g, this_node, agent)
+        return responses
+
+class GoodLeftMultiplier(Tag, Watcher):
+    
+    def __init__(self, agent_for, brick, target):
+        self.agent_for = agent_for
+        self.brick = brick
+        self.target = target
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        g.add_edge(node, 'taggees', self.brick, 'tags')
+        g.add_edge(node, 'taggees', self.target, 'tags')
+        g.add_mutual_support(node, g.tag_of(self.brick, tagclass=UseAsLeftOperand), weight=0.2)
+        return node
+
+    def look(self, g, this_node):
+        responses = []
+        for agent in g.neighbors(self.agent_for, 'agents'):
+            if agent == this_node:
+                continue
+            if g.is_of_class(agent, (Times, GoodRightMultiplier)):
+                maybe_give_support(responses, g, this_node, agent)
+        return responses
+
+class GoodRightMultiplier(Tag, Watcher):
+    
+    def __init__(self, agent_for, brick, target):
+        self.agent_for = agent_for
+        self.brick = brick
+        self.target = target
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        g.add_edge(node, 'taggees', self.brick, 'tags')
+        g.add_edge(node, 'taggees', self.target, 'tags')
+        g.add_mutual_support(node, g.tag_of(self.brick, tagclass=UseAsRightOperand), weight=0.2)
+        return node
+
+    def look(self, g, this_node):
+        responses = []
+        for agent in g.neighbors(self.agent_for, 'agents'):
+            if agent == this_node:
+                continue
+            if g.is_of_class(agent, (Times, GoodLeftMultiplier)):
+                maybe_give_support(responses, g, this_node, agent)
+        return responses
+
+class TinyBrick(Tag, Watcher):
+
+    def __init__(self, agent_for, brick, target):
+        self.agent_for = agent_for
+        self.brick = brick
+        self.target = target
+
+    def build(self, g):
+        node = g.make_node(self)
+        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
+        g.add_edge(node, 'taggees', self.brick, 'tags')
+        g.add_edge(node, 'taggees', self.target, 'tags')
+        g.add_mutual_support(node, g.tag_of(self.brick, tagclass=UseAsLeftOperand))
+        return node
+
+    def look(self, g, this_node):
+        responses = []
+        for agent in g.neighbors(self.agent_for, 'agents'):
+            if agent == this_node:
+                continue
+            if g.is_of_class(agent, (Plus, BrickCloseToTarget)):
+                maybe_give_support(responses, g, this_node, agent)
+        return responses
+
+
 class OperandsScout(Node, Watcher):
+
+    tagclasses_to_support = (
+        BrickLessThanTarget, BrickCloseToTarget, GoodLeftMultiplier,
+        GoodRightMultiplier, TinyBrick
+    )
 
     def __init__(self, agent_for):
         self.agent_for = agent_for  # the node we're working for, assumed to
                                     # be a Wanted
+        self.plus = None
+        self.times = None
+
     def ok_to_build(self, g):
         agents = g.nodes_of_class(
             self.__class__,
@@ -888,17 +1059,29 @@ class OperandsScout(Node, Watcher):
     def build(self, g):
         node = g.make_node(self)
         g.add_edge(self.agent_for, 'agents', node, 'agent_for')
-        plus = g.make_node(Plus)
-        times = g.make_node(Times)
+        self.plus = g.make_node(Plus)
+        self.times = g.make_node(Times)
         #TODO 'tags' doesn't seem like the right name for this.
-        g.add_edge(node, 'operators', plus, 'tags')
-        g.add_edge(node, 'operators', times, 'tags')
+        g.add_edge(node, 'agents', self.plus, 'agent_for')
+        g.add_edge(node, 'agents', self.times, 'agent_for')
+        g.add_support(self.agent_for, node)
         self.notice_everything(g, node) #TODO notice a little at a time
         return node
 
     def look(self, g, this_node):
-        print('OPERANDS SCOUT')
-        return []
+        responses = []
+        for operator_id in [self.plus, self.times]:
+            for ul in g.tags_of(this_node, tagclass=UseAsLeftOperand,
+                                taggee_port_label='agents'):
+                print('LOOK')
+                for ur in g.tags_of(this_node, tagclass=UseAsRightOperand,
+                                    taggee_port_label='agents'):
+                    lbrick = g.taggee_of(ul)
+                    rbrick = g.taggee_of(ur)
+                    r = MakeCouldMakeFromOperands(g, operator_id, lbrick, rbrick)
+                    print('RRRR', r)
+                    responses.append(r)
+        return responses
 
     def notice_everything(self, g, this_node):
         wanted_value = g.value_of(self.agent_for)
@@ -909,6 +1092,8 @@ class OperandsScout(Node, Watcher):
         for operand_id in operand_ids:
             ul = g.add_tag(UseAsLeftOperand, operand_id)
             ur = g.add_tag(UseAsRightOperand, operand_id)
+            g.add_edge(this_node, 'agents', ul, 'agent_for')
+            g.add_edge(this_node, 'agents', ur, 'agent_for')
             uls.append(ul)
             urs.append(ur)
             g.add_mutual_opposition(ul, ur)
@@ -919,19 +1104,51 @@ class OperandsScout(Node, Watcher):
             g.add_mutual_opposition(ur1, ur2)
         for ul, ur in product(uls, urs):
             if g.taggee_of(ul) != g.taggee_of(ur):
-                g.add_mutual_support(ul, ur)
+                g.add_mutual_support(ul, ur, weight=0.2)
 
         for operand_id in operand_ids:
             #NEXT Look at tags, add BrickCloseToTarget, etc.
             pass
 
+        for ul in uls:
+            brick = g.taggee_of(ul)
+            v = g.value_of(brick)
+            if v < wanted_value:
+                new_nodes.append(
+                    BrickLessThanTarget(
+                        this_node, brick, self.agent_for
+                    ).build(g)
+                )
+            if is_close(v, wanted_value):
+                new_nodes.append(
+                    BrickCloseToTarget(
+                        this_node, brick, self.agent_for
+                    ).build(g)
+                )
+            if v >= 2 and v < wanted_value / 2:
+                new_nodes.append(
+                    GoodLeftMultiplier(
+                        this_node, brick, self.agent_for
+                    ).build(g)
+                )
 
-class BigPlusSmallMakesBig(Node, Watcher):
+        for ur in urs:
+            brick = g.taggee_of(ur)
+            v = g.value_of(brick)
+            if abs(v) < 5 or abs(v) < abs(0.05 * wanted_value):
+                new_nodes.append(
+                    TinyBrick(
+                        this_node, brick, self.agent_for
+                    ).build(g)
+                )
+            if v >= 2 and v < wanted_value / 2:
+                new_nodes.append(
+                    GoodRightMultiplier(
+                        this_node, brick, self.agent_for
+                    ).build(g)
+                )
 
-    def __init__(self, agent_for, plus):
-        self.agent_for = agent_for
-
-    def build(self, g):
-        node = g.make_node(self)
-        g.add_edge(self.agent_for, 'agents', node, 'agent_for')
-
+        for node in new_nodes:
+            print('NODE', node, g.class_of(node))
+            if g.is_of_class(node, self.tagclasses_to_support):
+                g.add_support(this_node, node)

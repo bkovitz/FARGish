@@ -549,6 +549,15 @@ class PortGraph(nx.MultiGraph):
         )
         return set.intersection(tag_sets)
 
+    def tag_of(self, node, tagclass=Tag, taggee_port_label='tags'):
+        #TODO Handle multiple taggees, different port labels
+        try:
+            return next(iter(self.tags_of(
+                node, tagclass=tagclass, taggee_port_label=taggee_port_label
+            )))
+        except StopIteration:
+            return None
+        
     def remove_tag(self, node_or_nodes, tag_or_tagclass):
         '''Removes all tags of node that match tagclass.'''
         #TODO Should only remove the edge if the tag tags other nodes, too.
@@ -620,9 +629,12 @@ class PortGraph(nx.MultiGraph):
 
     def value_of(self, node):
         try:
-            return self.datum(node).value
+            v = self.datum(node).value
         except AttributeError:
             return None
+        if v is None and self.is_of_class(node, Tag):
+            return self.value_of(self.taggee_of(node))
+        return v
 
     def have_same_value(self, node1, node2):
         '''A value of None is not considered the same as anything, even another
