@@ -24,7 +24,11 @@ class NumboGraph(PortGraph):
         num_timesteps=40,
         seed=None,
         running=False,
-        support_propagator=support.Propagator(max_total_support=300)
+        support_propagator=support.Propagator(max_total_support=70,  #300
+                                              positive_feedback_rate=0.1,
+                                              sigmoid_p=0.5,
+                                              alpha=0.95
+                                             )
     )
 
     def __init__(self, **kwargs):
@@ -128,7 +132,7 @@ class NumboGraph(PortGraph):
             for response in sample_without_replacement(
                 responses, k=10, weights=[r.salience for r in responses]
             ):
-                #print(response)
+                #print('RESPONSE', response)
                 response.go(self)
                 if ShowResponseResults.is_logging():
                     ann = response.annotation(self)
@@ -232,7 +236,7 @@ def testSimple():
     print()
     pg(g)
 
-def demo(num_timesteps=40):
+def demo(num_timesteps=200):
     '''Run this for Doug.'''
     global g
     ShowResponseResults.start_logging()
@@ -253,7 +257,7 @@ def run(numble=None, seed=None, num_timesteps=None):
     #g.make_node(CouldMakeFromOperandsTagger)
     #g.make_node(BottomUpOperandFinder)
     #g.make_node(BottomUpOperandScout)
-    g.make_node(SameNumberScout)
+    #g.make_node(SameNumberScout)
     #g.make_node(CloseNumbersScout)
     g.make_node(NumericalRelationScout)
     g.make_node(OperandView(g.graph['target']))
@@ -279,7 +283,7 @@ def easymul(**kwargs):
     run(Numble([3, 3, 3], 27), **kwargs)
 
 #def in_progress(seed=5680298187468365268, **kwargs):
-def in_progress(seed=4355516146718806865, num_timesteps=15, **kwargs):
+def in_progress(seed=4355516146718806865, num_timesteps=65, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()

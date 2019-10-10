@@ -242,6 +242,7 @@ class PortGraph(nx.MultiGraph):
         to o.default_salience (from the object, not the class).'''
         i = self._bump_nextid()
         if isclass(o):
+            print('CLASS', o)
             o = o()
         self.add_node(i, **{'datum': o})
         try:
@@ -323,6 +324,7 @@ class PortGraph(nx.MultiGraph):
         '''If the edge already exists, doesn't make a new one. Regardless,
         returns the key of the edge. Calls boost_salience on node1 and
         node2. If the edge did not already exist, we "touch" node1 and node2.'''
+        #TODO Probably get rid of the mutual_support flag.
         mutual_support = attr.get('mutual_support', False)
         try:
             del attr['mutual_support']
@@ -704,24 +706,25 @@ class PortGraph(nx.MultiGraph):
     def set_support_for(self, node, support):
         self.nodes[node]['support'] = support
 
-    def add_support(self, node, neighbor, weight=None):
+    def add_support(self, node, neighbor, weight=0.2):
         if weight is None:
             self.add_edge(node, 'support_to', neighbor, 'support_from')
         else:
             self.add_edge(node, 'support_to', neighbor, 'support_from',
                 **{'weight': weight})
 
-    def oppose(self, node, neighbor):
-        self.add_support(node, neighbor, weight=-0.2)
-
-    def add_mutual_opposition(self, node1, node2):
-        self.oppose(node1, node2)
-        self.oppose(node2, node1)
-
-    def add_mutual_support(self, node, neighbor, weight=None):
+    def oppose(self, node, neighbor, weight=-0.1):
         self.add_support(node, neighbor, weight=weight)
+
+    def add_mutual_opposition(self, node1, node2, weight=-0.1):
+        self.oppose(node1, node2, weight=weight)
+        self.oppose(node2, node1, weight=weight)
+
+    def add_mutual_support(self, node, neighbor, weight=0.2):
+        self.add_support(node, neighbor, weight=weight)
+        self.add_support(neighbor, node, weight=weight)
         #if self.datum(neighbor).gives_reciprocal_support: #HACK
-        self.add_edge(neighbor, 'support_to', node, 'support_from')
+        #self.add_edge(neighbor, 'support_to', node, 'support_from')
 
     def remove_mutual_support(self, node, neighbor):
         self.remove_edge(node, 'support_to', neighbor, 'support_from')
