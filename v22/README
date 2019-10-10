@@ -11,11 +11,9 @@ To run a very simple demo of the force-directed graph:
 
 2. In a web browser, open:
 
-   http://localhost:8080/force-demo.html
+   http://localhost:8080/fargish.html
 
 To stop the web browser, hit Ctrl-C in the terminal window.
-
-1-Apr-2019: The above will probably become obsolete soon.
 
 
 ; NEXT

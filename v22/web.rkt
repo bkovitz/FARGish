@@ -1,7 +1,5 @@
 ; web.rkt -- Simple web server for FARGish graphical user interface
 
-; 31-Mar-2019 Does nothing but serve files from current directory.
-
 #lang racket
 
 (require web-server/servlet

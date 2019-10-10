@@ -1,4 +1,16 @@
+Show the graph on the screen
 
+  fargish.html  DONE
+
+  Make a Python web server  DONE
+
+  Respond to command from web browser  DONE
+
+  Send command to a runner for Numbo
+
+  Send JSON to web server
+
+  Write a README explaining how to run the server.
 
 
 Change Response .salience to .urgency.
