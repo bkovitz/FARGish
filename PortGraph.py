@@ -28,6 +28,9 @@ class Node:
     def datumstr(self, g, node):
         return repr(self)  # Override to exploit g
 
+    def display_name(self, g, node):
+        return self.__class__.__name__
+
     def __getattr__(self, name):
         '''All attrs default to None, to make them easy to override in
         subclasses.'''

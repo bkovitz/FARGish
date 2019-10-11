@@ -23,6 +23,9 @@ class Number(Node):
     def __init__(self, n):
         self.value = n
 
+    def display_name(self, g, node):
+        return self.datumstr(g, node)
+
     def is_attrs_match(self, other):
         try:
             return self.value == other.value

@@ -65,9 +65,10 @@ class Runner:
             'support': n.get('support', 0.0),
             'salience': n.get('salience', 0.0),
             'class': datum.__class__.__name__,
-            'display-name': datum.__class__.__name__, #TODO
+            'display-name': datum.display_name(self.g, nodeid),
             'd3height': 2,
             'd3width': 2
+            #TODO: members, membersRecursive
         }
         d.update(n['datum'].__dict__)
         print('D', d)
