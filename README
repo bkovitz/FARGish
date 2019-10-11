@@ -2,3 +2,18 @@ v23 of FARGish: Restarting from scratch, this time in Python
 
 v22/ contains the last attempt in Racket, abandoned. Also includes old
 Clojure code from still earlier versions.
+
+
+To run with a graphical display in a web browser:
+
+1. In a terminal window, run:
+
+   $ python3 server.py
+
+2. In a web browser, open:
+
+   http://localhost:8081/fargish.html
+
+To stop the web server, hit Ctrl-C in the terminal window.
+
+11-Oct-2019: First running version, still with bugs and missing features.

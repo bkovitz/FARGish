@@ -98,3 +98,12 @@ def sample_without_replacement(items, k=1, weights=None):
             yield item
         else:
             return
+
+def read_to_blank_line(f):
+    result = ''
+    while True:
+        l = f.readline()
+        if not l.strip():
+            break
+        result += l
+    return result

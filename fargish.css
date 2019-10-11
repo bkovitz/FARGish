@@ -1,0 +1,109 @@
+/*
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.nodes circle,rect {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+text {
+  font-family: sans-serif;
+  font-size: 10px;
+}
+
+.tstep {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1px;
+}
+
+.trace {
+  fill: blue;
+  padding: 3px;
+}
+*/
+
+.workspace {
+  fill: none;
+  pointer-events: all;
+}
+
+#ws {
+}
+
+.svgContainer {
+  height: 80%;
+  width: 95%;
+  overflow: auto;
+  border: 1px solid gray;
+}
+
+.node {
+  fill: DarkSeaGreen;
+  /* pointer-events: none; */
+  /* stroke-width: 1px; */
+  /* stroke: Black; */
+}
+
+.links line {
+  stroke: #999;
+  stroke-opacity: 0.6;
+}
+
+.cursor {
+  fill: none;
+  stroke: brown;
+  pointer-events: none;
+}
+
+.svgText {
+  pointer-events: none;  /* Needed to prevent cursor from selecting text. */
+                         /* But...it doesn't always work. */
+}
+
+.link {
+  stroke: #999;
+}
+
+svg g {
+  /* user-select: none; */
+}
+
+svg .trace {
+  fill: PaleGoldenRod;
+}
+
+svg .t {
+  fill: LightGoldenRodYellow;
+}
+
+svg .problem {
+  fill: PapayaWhip;
+}
+
+svg .number {
+  fill: SteelBlue;
+}
+
+svg .brick {
+  fill: FireBrick;
+}
+
+svg .target {
+  fill: Salmon;
+}
+
+svg .equals, svg .times {
+  fill: Gold;
+}
+
+svg .consume {
+  fill: OliveDrab;
+}
+
+svg .equation {
+  fill: Green;
+}

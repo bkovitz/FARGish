@@ -83,7 +83,7 @@ class NumboGraph(PortGraph):
             for i in range(1):
                 #support.propagate(self, max_total_support=300)
                 self.propagate_support()
-            support.log_support(g)
+            support.log_support(self)
     #        responses = list(chain.from_iterable(
     #            self.datum(watcher).look(self, watcher)
     #                for watcher in self.watchers()
@@ -248,11 +248,8 @@ def demo(num_timesteps=200):
         #g = NumboGraph(numble=numble)
         #g.run()
 
-def run(numble=None, seed=None, num_timesteps=None):
-    global g
+def new_graph(numble, seed=None):
     g = NumboGraph(seed=seed)
-    if numble is None:
-        numble = prompt_for_numble()
     numble.build(g, g.ws())
     #g.make_node(CouldMakeFromOperandsTagger)
     #g.make_node(BottomUpOperandFinder)
@@ -261,6 +258,13 @@ def run(numble=None, seed=None, num_timesteps=None):
     #g.make_node(CloseNumbersScout)
     g.make_node(NumericalRelationScout)
     g.make_node(OperandView(g.graph['target']))
+    return g
+
+def run(numble=None, seed=None, num_timesteps=None):
+    global g
+    if numble is None:
+        numble = prompt_for_numble()
+    g = new_graph(numble=numble, seed=seed)
     g.run(num_timesteps=num_timesteps)
     return g
 
