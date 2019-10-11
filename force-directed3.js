@@ -80,8 +80,10 @@ function step_button() {
 
 function reset_button() {
   clearGraph();
-  node.remove();
-  link.remove();
+  //node.remove();
+  //link.remove();
+  nodeg.selectAll("g").remove();
+  linkg.selectAll("line").remove();
   $.get("reset", updateGraphFromJSON);
 }
 
@@ -356,7 +358,10 @@ function isSupportEdge(d) {
 }
 
 function strokeWidth(d) {
-  return 10 * Math.sqrt(Math.abs(d.weight));
+  if (d.weight)
+    return 5 * Math.sqrt(Math.abs(d.weight));
+  else
+    return 1;
 }
 
 function strokeColor(d) {
@@ -548,8 +553,8 @@ function oldCollide(qtree, alpha, node) {
 
     if (isLeafNode(quadnode) && quadnode.data !== node) {
       var qnode = quadnode.data;
-      if (!node["tag?"] &&
-          !qnode["tag?"] &&
+      if (//!node["tag?"] &&
+          //!qnode["tag?"] &&
           !qnode.membersRecursive.has(node.id) &&
           !node.membersRecursive.has(qnode.id) &&
           eqSets(node.memberOf, qnode.memberOf)) {
@@ -601,11 +606,12 @@ function collide(qtree, alpha, node) {
 
     if (isLeafNode(quadnode) && quadnode.data !== node) {
       var qnode = quadnode.data;
-      if (//!node["tag?"] &&
-          //!qnode["tag?"] &&
+      if (!node["tag?"] &&
+          !qnode["tag?"] &&
           !qnode.membersRecursive.has(node.id) &&
           !node.membersRecursive.has(qnode.id) &&
-          eqSets(node.memberOf, qnode.memberOf)) {
+          eqSets(node.memberOf, qnode.memberOf)
+      ) {
         var k = 200 * alpha;
         var dx = node.x - qnode.x;
         var dy = node.y - qnode.y;
