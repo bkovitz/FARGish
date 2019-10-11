@@ -130,7 +130,7 @@ function compareLengthMembersRecursive(node1, node2) {
 
 var zoom = d3.zoom()
     .on("zoom", function() {
-      console.log(d3.event);
+      //console.log(d3.event);
       svg.attr("transform", d3.event.transform);
     });
 

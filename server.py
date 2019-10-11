@@ -57,6 +57,7 @@ class RunnerInterface:
     def start_subp(self):
         if self.subp is not None:
             print('Restarting subprocess')
+            self.subp.kill()
         try:
             self.subp = Popen(runner_args)
             self.start_time = time.time()
@@ -92,9 +93,9 @@ class RunnerRequestHandler(http.server.SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
-    def log_message(self, *args, **kwargs):
-        'Overriding to disable server logging.'
-        pass
+#    def log_message(self, *args, **kwargs):
+#        'Overriding to disable server logging.'
+#        pass
 
 class CustomServer(socketserver.TCPServer):
 

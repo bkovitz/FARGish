@@ -52,6 +52,7 @@ class Tag(Node):
     tag_port_label = 'taggees'
     taggee_port_label = 'tags'
     mutual_support = True
+    is_tag = True
 
     @classmethod
     def add_tag(cls, g, taggees):
@@ -611,6 +612,24 @@ class PortGraph(nx.MultiGraph):
 
     def members_to_subgraph(self, group_node):
         return self.subgraph(self.members_of(group_node))
+
+    def member_of(self, group_node):
+        return self.neighbors(group_node, port_label='member_of')
+
+    #TODO UT
+    def members_recursive(self, group_node):
+        result = set()
+        visited = set()
+        to_visit = set([group_node])
+        while to_visit:
+            members = set()
+            for node in to_visit:
+                for m in self.members_of(node):
+                    members.add(m)
+            result |= members
+            visited |= to_visit
+            to_visit = members - visited
+        return result
 
     def is_member(self, group_node, node):
         return self.has_hop(group_node, 'members', node, 'member_of')

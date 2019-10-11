@@ -66,10 +66,18 @@ class Runner:
             'salience': n.get('salience', 0.0),
             'class': datum.__class__.__name__,
             'display-name': datum.display_name(self.g, nodeid),
+            'tag?': bool(datum.is_tag),
+            'members': self.g.members_of(nodeid),
+            'membersRecursive': list(self.g.members_recursive(nodeid)),
+            'memberOf': list(self.g.member_of(nodeid)),
             'd3height': 2,
             'd3width': 2
             #TODO: members, membersRecursive
         }
+        if d['members']: # if container
+            #HACK Should calculate d3 width & height as in the Racket version
+            d['d3height'] = 10
+            d['d3width'] = 15
         d.update(n['datum'].__dict__)
         print('D', d)
         return d

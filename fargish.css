@@ -92,6 +92,10 @@ svg .brick {
   fill: FireBrick;
 }
 
+svg .workspace {
+  fill: LightYellow;
+}
+
 svg .target {
   fill: Salmon;
 }
