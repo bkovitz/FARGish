@@ -88,8 +88,8 @@ class Runner:
             'source': hop.from_node,
             'source_port_label': hop.from_port_label,
             'target': hop.to_node,
-            'target_port_label': hop.to_port_label
-            #TODO weight
+            'target_port_label': hop.to_port_label,
+            'weight': self.g.edge_weight(edge)
         }
 
 # ORIGINAL TEST CODE

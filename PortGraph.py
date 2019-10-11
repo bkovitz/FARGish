@@ -413,6 +413,13 @@ class PortGraph(nx.MultiGraph):
         except StopIteration:
             return None
 
+    def edge_weight(self, edge):
+        'edge is a tuple (from_node, to_node, key). weight defaults to 0.0.'
+        try:
+            return self.edges[edge]['weight']
+        except KeyError:
+            return 0.0
+
     def hop_weight(self, *args):
         '''0.0 if hop does not exist. 1.0 if hop exists but has no weight
         specified.'''

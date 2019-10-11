@@ -280,7 +280,9 @@ function restart() {
 
   link = linkg.selectAll("line").data(graph.links)
     .enter().append("line")
-      .attr("stroke-width", function(d) { return Math.sqrt(d.value); })
+      //.attr("stroke-width", function(d) { return 10 * Math.sqrt(d.weight); })
+      .attr("stroke-width", strokeWidth)
+      .style("stroke", strokeColor)
       .merge(link);
 
   //node = node.merge(node);
@@ -312,11 +314,11 @@ function restart() {
           return nodeWidthMultiplier;
         else if (isTag(l.source) && count[l.source.index] < 2 ||
                  isTag(l.target) && count[l.target.index] < 2)
-          return 80;
+          return 40;
         else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
-          return 300;
+          return 150;
         else
-          return 100;
+          return 60;
       })
       .strength(function(l, i) {
         if (l.source.members.size > 0 || l.target.members.size > 0)
@@ -342,6 +344,27 @@ function addn(x) {
   n["display-name"] = x;
   graph.nodes.push(n);
   restart();
+}
+
+supportLabels = new Set('support_from', 'support_to')
+
+function isSupportEdge(d) {
+  return eqSets(
+    supportLabels,
+    new Set(d.source_port_label, d.target_port_label)
+  );
+}
+
+function strokeWidth(d) {
+  return 10 * Math.sqrt(Math.abs(d.weight));
+}
+
+function strokeColor(d) {
+  if (isSupportEdge(d)) {
+    return d.weight < 0 ? 'red' : 'green';
+  } else {
+    return 'gray';
+  }
 }
 
 function getX(d) { return d.x; }
@@ -578,8 +601,8 @@ function collide(qtree, alpha, node) {
 
     if (isLeafNode(quadnode) && quadnode.data !== node) {
       var qnode = quadnode.data;
-      if (!node["tag?"] &&
-          !qnode["tag?"] &&
+      if (//!node["tag?"] &&
+          //!qnode["tag?"] &&
           !qnode.membersRecursive.has(node.id) &&
           !node.membersRecursive.has(qnode.id) &&
           eqSets(node.memberOf, qnode.memberOf)) {
