@@ -23,7 +23,7 @@ print('R3')
 
 def write_fifo(s):
     fout.write(s)
-    fout.write('\n')
+    fout.write('\n\n')
     fout.flush()
 
 # Ignore Ctrl-C so that server.py gets the Ctrl-C and shuts down correctly.
@@ -37,11 +37,11 @@ class Runner:
         self.g = None
         self.numble = Numble([120, 1, 2, 3, 4, 5], 121)
 
-    def step(self):
+    def step(self, num=1):
         if self.g is None:
             self.reset()
         else:
-            self.g.do_timestep()
+            self.g.do_timestep(num=num)
 
     def reset(self):
         self.g = new_graph(self.numble)
@@ -55,7 +55,7 @@ class Runner:
             'nodes': [self.nodedict(n) for n in self.g.nodes],
             'links': [self.edgedict(e) for e in self.g.edges]
         }
-        return json.dumps(d, default=lambda x: '??', indent=2) + '\n'
+        return json.dumps(d, default=lambda x: '??', indent=2)
 
     def nodedict(self, nodeid):
         n = self.g.nodes[nodeid]
@@ -113,6 +113,9 @@ while True:
     elif command == 'step':
         runner.step()
         write_fifo(runner.json_status())
+    elif command == 'step10':
+        runner.step(num=10)
+        write_fifo(runner.json_status())
     else:
-        print("Unrecognized command: %s" % line, file=sys.stderr)
-        write_fifo('\n')
+        print("Unrecognized command: %s" % line, file=sys.stderr, flush=True)
+        write_fifo('')

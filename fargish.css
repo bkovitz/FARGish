@@ -100,7 +100,7 @@ svg .target {
   fill: Salmon;
 }
 
-svg .equals, svg .times {
+svg .equals, svg .times, svg .plus, svg .minus {
   fill: Gold;
 }
 

@@ -78,6 +78,10 @@ function step_button() {
   $.get("step", updateGraphFromJSON);
 }
 
+function step10_button() {
+  $.get("step10", updateGraphFromJSON);
+}
+
 function reset_button() {
   clearGraph();
   //node.remove();

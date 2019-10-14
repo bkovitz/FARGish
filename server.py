@@ -4,6 +4,7 @@ import socketserver
 from urllib.parse import urlparse, parse_qs
 import os
 import time
+import sys
 
 from util import read_to_blank_line
 
@@ -21,7 +22,7 @@ make_fifo(fifo_in)
 
 PORT = 8081
 runner_args = ['python3', 'runner.py', '--rfifo', fifo_out, '--wfifo', fifo_in]
-commands = set(['step', 'reset', 'get-model'])
+commands = set(['step', 'step10', 'reset', 'get-model'])
 
 
 class RunnerInterface:
@@ -85,6 +86,7 @@ class RunnerRequestHandler(http.server.SimpleHTTPRequestHandler):
         if command in commands:
             #print(self.path, file=fout, flush=True)
             #reply = read_to_blank_line(fin)
+            print('DEBUG', self.path, flush=True, file=sys.stderr)
             rif.write(self.path)
             reply = rif.read()
             self.send_response(200)
