@@ -560,6 +560,14 @@ function forceContainment() {
   return force;
 }
 
+function areTagAndContainer(node1, node2) {
+  return (
+    (isContainer(node1) && node2['tag?'])
+    ||
+    (isContainer(node2) && node1['tag?'])
+  );
+}
+
 // Based on http://bl.ocks.org/natebates/273b99ddf86e2e2e58ff
 function oldCollide(qtree, alpha, node) {
   return function(quadnode, x1, y1, x2, y2) {
@@ -569,6 +577,7 @@ function oldCollide(qtree, alpha, node) {
       var qnode = quadnode.data;
       if (//!node["tag?"] &&
           //!qnode["tag?"] &&
+          !areTagAndContainer(node, qnode) &&
           !qnode.membersRecursive.has(node.id) &&
           !node.membersRecursive.has(qnode.id) &&
           eqSets(node.memberOf, qnode.memberOf)) {
