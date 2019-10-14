@@ -562,9 +562,9 @@ function forceContainment() {
 
 function areTagAndContainer(node1, node2) {
   return (
-    (isContainer(node1) && node2['tag?'])
+    (isContainer(node1) && isTag(node2))
     ||
-    (isContainer(node2) && node1['tag?'])
+    (isContainer(node2) && isTag(node1))
   );
 }
 
