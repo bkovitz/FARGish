@@ -43,7 +43,16 @@ class Runner:
         else:
             self.g.do_timestep(num=num)
 
-    def reset(self):
+    def reset(self, data=None):
+        #TODO Catch errors and send an error message to the client
+        print('DATA', data)
+        if data:
+            try:
+                bricks = [int(b) for b in data['bricks'][0].split()]
+                target = int(data['target'][0])
+                self.numble = Numble(bricks, target)
+            except KeyError:
+                pass
         self.g = new_graph(self.numble)
 
     def json_status(self):
@@ -53,7 +62,8 @@ class Runner:
         d = {
             't': self.g.graph['t'],
             'nodes': [self.nodedict(n) for n in self.g.nodes],
-            'links': [self.edgedict(e) for e in self.g.edges]
+            'links': [self.edgedict(e) for e in self.g.edges],
+            'numble': self.numble.as_dict()
         }
         return json.dumps(d, default=lambda x: '??', indent=2)
 
@@ -103,12 +113,13 @@ runner = Runner()
 while True:
     line = fin.readline()
     url = urlparse(line)
+    data = parse_qs(url.query)
     command = url.path.strip()
     if command.startswith('/'):
         command = command[1:]
     print('COMMAND', command, file=sys.stderr)
     if command == 'reset':
-        runner.reset()
+        runner.reset(data)
         write_fifo(runner.json_status())
     elif command == 'step':
         runner.step()

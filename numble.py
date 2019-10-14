@@ -24,6 +24,9 @@ class Numble:
             g.add_tag(Avail, brick_id)
         return container
 
+    def as_dict(self):
+        return { 'bricks': self.bricks, 'target': self.target }
+
     __repr__ = nice_object_repr
 
 

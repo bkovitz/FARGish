@@ -88,8 +88,16 @@ function reset_button() {
   //link.remove();
   nodeg.selectAll("g").remove();
   linkg.selectAll("line").remove();
-  $.get("reset", updateGraphFromJSON);
+  data = { bricks: $('#bricks').val(), target: $('#target').val() }
+  $.get("reset", data, updateGraphFromJSON);
 }
+
+$('#target').keyup( function(event) {
+  if (event.which === 13 || event.keyCode === 13) {
+    //event.preventDefault();
+    $('#reset').click();
+  }
+});
 
 //function get_model() {
 //  $.get("get-model", function(data) {
@@ -105,6 +113,8 @@ function updateGraphFromJSON(data) {
 function updateGraph(g) {
   gg = g;
   $('#t').text(g.t);
+  $('#bricks').val(g.numble.bricks.join(' '));
+  $('#target').val(g.numble.target);
   for (var i = 0; i < g.nodes.length; i++) {
     const node = g.nodes[i];
     if (!graph.nodes.hasOwnProperty(node.id)) {
