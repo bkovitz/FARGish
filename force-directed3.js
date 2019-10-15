@@ -124,7 +124,10 @@ function updateGraph(g) {
           height: node.d3height * nodeHeightMultiplier,
           members: new Set(node.members),
           membersRecursive: new Set(node.membersRecursive),
-          memberOf: new Set(node.memberOf)
+          memberOf: new Set(node.memberOf),
+          // Do this only for tags, just before calling forceSimulation.nodes.
+          //x: 0,  
+          //y: isTag(node) ? 2400 : 0
         });
     }
   }
@@ -250,6 +253,7 @@ function restart() {
   node = nodeg.selectAll("g").data(nodesArray, function(d) { return d.id; });
 
   nodeEnter = node.enter().append("g")
+      //.attr('y', function(d) { if (isTag(d)) return 4000; else return 0; })
       .call(d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
@@ -332,7 +336,7 @@ function restart() {
                  isTag(l.target) && count[l.target.index] < 2)
           return 40;
         else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
-          return 150;
+          return 40; // 150
         else
           return 60;
       })
@@ -579,8 +583,9 @@ function oldCollide(qtree, alpha, node) {
           //!qnode["tag?"] &&
           !areTagAndContainer(node, qnode) &&
           !qnode.membersRecursive.has(node.id) &&
-          !node.membersRecursive.has(qnode.id) &&
-          eqSets(node.memberOf, qnode.memberOf)) {
+          !node.membersRecursive.has(qnode.id) // &&
+          // eqSets(node.memberOf, qnode.memberOf)
+        ) {
         var dx = node.x - qnode.x;
         var dy = node.y - qnode.y;
         var xSpacing = (qnode.width + node.width) / 2;
