@@ -11,8 +11,15 @@
     <div>
         <input type="range" min="0" max="100" value="10" class="slider" id="scale-slider" />
     </div>
-    <div class="svgContainer">
-        <svg id="ws"></svg>
+    <div style="width: 100%; height: 80%; overflow: hidden; display: flex;">
+      <div class="svgContainer">
+          <svg id="ws"></svg>
+      </div>
+      <div class="infobox" id="infobox" style="visibility: hidden;">
+        <p><output id='nodestr'>   </output></p>
+        <p>support: <output id='support'>   </output></p>
+        <p>salience: <output id='salience'>   </output></p>
+      </div>
     </div>
     <p>
         <button id="step" onClick="step_button()">t+1</button>

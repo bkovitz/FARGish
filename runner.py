@@ -73,10 +73,11 @@ class Runner:
         datum = n['datum']
         d = {
             'id': nodeid,
-            'support': n.get('support', 0.0),
-            'salience': n.get('salience', 0.0),
+            'support': self.g.support_for(nodeid),
+            'salience': self.g.raw_salience(nodeid),
             'class': datum.__class__.__name__,
             'display-name': datum.display_name(self.g, nodeid),
+            'nodestr': self.g.nodestr(nodeid),
             'tag?': bool(datum.is_tag),
             'members': self.g.members_of(nodeid),
             'membersRecursive': list(self.g.members_recursive(nodeid)),

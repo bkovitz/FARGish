@@ -19,11 +19,23 @@ Show the graph on the screen
 
   Write a README explaining how to run the server.  DONE
 
+  Click a node to see its id.  DONE
+
+  Update displayed node info upon t+1.  DONE
+
   Make the tags appear closer to their taggees.
 
-  See levels of support.
+    Make GreaterThan's taggees show up in 'taggees'.
+
+    Put taggee port labels in class definition.
+
+  See support as radius of node.
+
+  See salience as radius of node.
 
   Enter numble from browser.  DONE
+
+  Start with the workspace centered on the screen.
 
   Correct d3height and d3width.
 

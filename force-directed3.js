@@ -145,6 +145,9 @@ function updateGraph(g) {
     &&
     !graph.nodes[l.target].members.has(l.source));
 
+  if (typeof shownNode !== 'undefined')
+    updateNodeInfobox(graph.nodes[shownNode]);
+
   restart();
 }
 
@@ -262,7 +265,9 @@ function restart() {
       .call(d3.drag()
           .on("start", dragstarted)
           .on("drag", dragged)
-          .on("end", dragended));
+          .on("end", dragended))
+      .on("mouseover", showNodeInfo)
+      .on("click", showContainerInfo)
     
 /*
   nodeEnter.append("rect")
@@ -372,7 +377,6 @@ function restart() {
             eqSets(l.source.memberOf, l.target.memberOf))
           return 100;  //nodeWidthMultiplier;
         else if (oneTagsTheOther(l.source, l.target)) {
-          console.log(l.source.class, l.target.class); // DEBUG
           return 40;
         }
 //        else if (isTag(l.source) && count[l.source.index] < 2 ||
@@ -467,6 +471,25 @@ function ticked() {
 //  ws.setAttribute("width", (bbox.width+20) + "px");
 //  ws.setAttribute("height", (bbox.height+20) + "px");
 
+}
+
+var shownNode = undefined;
+
+function updateNodeInfobox(d) {
+  shownNode = d.id;
+  $('#infobox').css('visibility', 'visible');
+  $('#nodestr').val(d.nodestr);
+  $('#support').val(d.support);
+  $('#salience').val(d.salience);
+}
+
+function showNodeInfo(d) {
+  if (!isContainer(d))
+    updateNodeInfobox(d);
+}
+
+function showContainerInfo(d) {
+  updateNodeInfobox(d);
 }
 
 var oldChargeStrength;

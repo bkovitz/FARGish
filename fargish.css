@@ -35,10 +35,16 @@ text {
 }
 
 .svgContainer {
-  height: 80%;
-  width: 95%;
+  /* height: 80%; */
+  /* width: 95%; */
+  flex-grow: 1;
   overflow: auto;
   border: 1px solid gray;
+}
+
+.infobox {
+  width: 16em;
+  margin-left: 1em;
 }
 
 .node {
