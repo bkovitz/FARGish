@@ -256,8 +256,8 @@ def new_graph(numble, seed=None):
     #g.make_node(BottomUpOperandScout)
     #g.make_node(SameNumberScout)
     #g.make_node(CloseNumbersScout)
-    g.make_node(NumericalRelationScout)
-    g.make_node(OperandView(g.graph['target']))
+    g.make_node(NumericalRelationScout, container=g.ws())
+    g.make_node(OperandView(g.graph['target']), container=g.ws())
     return g
 
 def run(numble=None, seed=None, num_timesteps=None):
@@ -287,7 +287,7 @@ def easymul(**kwargs):
     run(Numble([3, 3, 3], 27), **kwargs)
 
 #def in_progress(seed=5680298187468365268, **kwargs):
-def in_progress(seed=4355516146718806865, num_timesteps=65, **kwargs):
+def in_progress(seed=4355516146718806865, num_timesteps=2, **kwargs):
     '''This runs whatever I'm working on right now. --BEN'''
     #simplest(**kwargs)
     ShowResponseResults.start_logging()

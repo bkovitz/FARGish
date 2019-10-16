@@ -111,3 +111,7 @@ svg .consume {
 svg .equation {
   fill: Green;
 }
+
+svg .OperandsScout, svg. NumericalRelationScout {
+  fill: Orange;
+}

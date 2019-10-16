@@ -117,7 +117,7 @@ function updateGraph(g) {
   $('#target').val(g.numble.target);
   for (var i = 0; i < g.nodes.length; i++) {
     const node = g.nodes[i];
-    if (!graph.nodes.hasOwnProperty(node.id)) {
+    //if (!graph.nodes.hasOwnProperty(node.id)) {
       graph.nodes[node.id] = 
         Object.assign(node, {
           width: node.d3width * nodeWidthMultiplier,
@@ -129,7 +129,7 @@ function updateGraph(g) {
           //x: 0,  
           //y: isTag(node) ? 2400 : 0
         });
-    }
+    //}
   }
   // Poor man's topological sort, putting containers first so they draw
   // before, hence under, the nodes that they contain.
@@ -368,11 +368,11 @@ function restart() {
           return nodeWidthMultiplier;
         else if (isTag(l.source) && count[l.source.index] < 2 ||
                  isTag(l.target) && count[l.target.index] < 2)
-          return 40;
+          return 80;
         else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
-          return 40; // 150
+          return 150; // 150
         else
-          return 60;
+          return 80;
       })
       .strength(function(l, i) {
         if (l.source.members.size > 0 || l.target.members.size > 0)
@@ -714,13 +714,19 @@ function collide(qtree, alpha, node) {
     return updated;
   };
 }
+
 function containment(qtree, alpha, node) {
   return function(quadnode, x1, y1, x2, y2) {
     var updated = false;
 
+    if (isLeafNode(quadnode) && quadnode.data && node.class == 'Workspace')
+      console.log(quadnode.data.class, node.class); //DEBUG
     if (isLeafNode(quadnode) && quadnode.data !== node) {
       var k = 50 * alpha;
       var qnode = quadnode.data;
+      //if (new Set([node.class, qnode.class]) == new Set('Workspace', 'Plus'))
+      if (node.class == 'Workspace' && qnode.class == 'Plus')
+        console.log('HERE') //DEBUG
       if (!node["tag?"] &&
           !qnode["tag?"] &&
           node.members.has(qnode.id)) {

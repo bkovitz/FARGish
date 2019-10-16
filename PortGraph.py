@@ -239,7 +239,7 @@ class PortGraph(nx.MultiGraph):
         self.nextid += 1
         return result
 
-    def make_node(self, o):
+    def make_node(self, o, container=None):
         '''Builds a new node and sets its datum. If o is a class, we call it
         with no arguments and set the datum to the constructed object.
         Otherwise we set the datum to o. We set the salience according
@@ -259,6 +259,8 @@ class PortGraph(nx.MultiGraph):
         if callable(o.after_touch_update):
             self.after_touch_nodes.add(i)
         self.new_nodes.add(i)
+        for c in as_iter(container):
+            self.add_member_edge(c, i)
         return i
 
     def dup_node(self, h, node):
@@ -622,6 +624,16 @@ class PortGraph(nx.MultiGraph):
 
     def member_of(self, group_node):
         return self.neighbors(group_node, port_label='member_of')
+
+    def container_of(self, node):
+        '''Like member_of, but returns member_of node's taggees if node is a
+        tag and is not a member of anything.'''
+        ms = self.member_of(node)
+        if not ms:
+            ms = set()
+            for taggee in self.taggees_of(node):
+                ms.update(self.member_of(taggee))
+        return ms
 
     #TODO UT
     def members_recursive(self, group_node):

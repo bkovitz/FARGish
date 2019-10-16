@@ -1099,10 +1099,11 @@ class OperandsScout(Node, Watcher):
         return len(agents) == 0
 
     def build(self, g):
-        node = g.make_node(self)
+        container = g.container_of(self.agent_for)
+        node = g.make_node(self, container=container)
         g.add_edge(self.agent_for, 'agents', node, 'agent_for')
-        self.plus = g.make_node(Plus)
-        self.times = g.make_node(Times)
+        self.plus = g.make_node(Plus, container=container)
+        self.times = g.make_node(Times, container=container)
         g.add_mutual_opposition(self.plus, self.times)
         #TODO 'tags' doesn't seem like the right name for this.
         g.add_edge(node, 'agents', self.plus, 'agent_for')
