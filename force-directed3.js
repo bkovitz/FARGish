@@ -259,6 +259,7 @@ function restart() {
           .on("drag", dragged)
           .on("end", dragended));
     
+/*
   nodeEnter.append("rect")
       //.attr('width', nodeWidth)
       //.attr('height', nodeHeight)
@@ -271,6 +272,32 @@ function restart() {
       .attr('ry', 1.5)
       //.attr('transform', 'translate(-15,-10)')
       //.attr("fill", function(d) { return color(d.group); })
+      .each(function(d) { this.classList.add("node", d.class); });
+*/
+
+  nodeEnter.append(function (d) {
+        var elem;
+        if (isContainer(d)) {
+          elem = document.createElementNS(d3.namespaces.svg,
+            'rect',
+            //{'width': d.width, 'height': d.height}
+          );
+          elem.setAttribute('width', d.width);
+          elem.setAttribute('height', d.height);
+          elem.setAttribute('rx', 1.5);
+          elem.setAttribute('ry', 1.5);
+        } else {
+          elem = document.createElementNS(d3.namespaces.svg, 'circle',);
+          let r = 16;
+          elem.setAttribute('r', r);
+          d.width = r * 2;
+          d.height = r * 2;
+        }
+        return this.appendChild(elem);
+      })
+      //.attr('r', 16) // ignored for circle?
+      //.attr('width', function(d) { return d.width; })
+      //.attr('height', function(d) { return d.height; })
       .each(function(d) { this.classList.add("node", d.class); });
 
   nodeEnter.append("text")
@@ -285,6 +312,7 @@ function restart() {
                                 return "middle";
                             })
       .classed('svgText', true)
+      /*
       .attr('x', function(d) { if (isContainer(d))
                                  return 5;
                                else
@@ -295,6 +323,12 @@ function restart() {
                                else
                                  return d.height / 2 + 4;
                              })
+      */
+      .attr('y', function(d) { if (isContainer(d))
+                                return 17;
+                              else
+                                return 3;
+                            })
 
   node = nodeEnter.merge(node);
 
@@ -398,7 +432,13 @@ function ticked() {
   node
       .attr("transform", function(d) {
         //console.log(d);
-        return "translate(" + (d.x - d.width/2) + "," + (d.y - d.height/2) + ")";
+        //return "translate(" + (d.x - d.width/2) + "," + (d.y - d.height/2) + ")";
+        if (isContainer(d))
+          return "translate(" + (d.x - d.width/2) +
+                            "," +
+                            (d.y - d.height/2) + ")";
+        else
+          return "translate(" + d.x + "," + d.y + ")";
       })
 
   link

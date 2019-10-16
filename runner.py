@@ -9,6 +9,7 @@ import json
 
 from numbo import NumboGraph, new_graph
 from numble import Numble
+from log import ShowResponseList, ShowResponseResults
 
 parser = argparse.ArgumentParser(description='FIFO test')
 parser.add_argument('--rfifo', dest='rfifo')
@@ -89,7 +90,7 @@ class Runner:
             d['d3height'] = 10
             d['d3width'] = 15
         d.update(n['datum'].__dict__)
-        print('D', d)
+        #print('D', d)
         return d
 
     def edgedict(self, edge):
@@ -110,6 +111,8 @@ class Runner:
 #    print('GOT', url, qs, flush=True)
 
 runner = Runner()
+ShowResponseResults.start_logging()
+ShowResponseList.start_logging()
 while True:
     line = fin.readline()
     url = urlparse(line)
