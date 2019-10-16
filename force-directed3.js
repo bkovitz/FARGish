@@ -39,6 +39,10 @@ function isTag(node) {
   return node["tag?"];
 }
 
+function oneTagsTheOther(d1, d2) {
+  return d1.taggees.has(d2.id) || d2.taggees.has(d1.id);
+}
+
 function area(node) {
   return node.height * node.width;
 }
@@ -125,6 +129,7 @@ function updateGraph(g) {
           members: new Set(node.members),
           membersRecursive: new Set(node.membersRecursive),
           memberOf: new Set(node.memberOf),
+          taggees: new Set(node.taggees)
           // Do this only for tags, just before calling forceSimulation.nodes.
           //x: 0,  
           //y: isTag(node) ? 2400 : 0
@@ -365,14 +370,18 @@ function restart() {
       .distance(function(l) {
         if (l.source.memberOf.size > 0 && l.target.memberOf.size > 0 &&
             eqSets(l.source.memberOf, l.target.memberOf))
-          return nodeWidthMultiplier;
-        else if (isTag(l.source) && count[l.source.index] < 2 ||
-                 isTag(l.target) && count[l.target.index] < 2)
-          return 80;
-        else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
-          return 150; // 150
+          return 100;  //nodeWidthMultiplier;
+        else if (oneTagsTheOther(l.source, l.target)) {
+          console.log(l.source.class, l.target.class); // DEBUG
+          return 40;
+        }
+//        else if (isTag(l.source) && count[l.source.index] < 2 ||
+//                 isTag(l.target) && count[l.target.index] < 2)
+//          return 80;
+//        else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
+//          return 150; // 150
         else
-          return 80;
+          return 400;
       })
       .strength(function(l, i) {
         if (l.source.members.size > 0 || l.target.members.size > 0)
@@ -719,14 +728,9 @@ function containment(qtree, alpha, node) {
   return function(quadnode, x1, y1, x2, y2) {
     var updated = false;
 
-    if (isLeafNode(quadnode) && quadnode.data && node.class == 'Workspace')
-      console.log(quadnode.data.class, node.class); //DEBUG
     if (isLeafNode(quadnode) && quadnode.data !== node) {
       var k = 50 * alpha;
       var qnode = quadnode.data;
-      //if (new Set([node.class, qnode.class]) == new Set('Workspace', 'Plus'))
-      if (node.class == 'Workspace' && qnode.class == 'Plus')
-        console.log('HERE') //DEBUG
       if (!node["tag?"] &&
           !qnode["tag?"] &&
           node.members.has(qnode.id)) {
