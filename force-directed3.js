@@ -115,26 +115,35 @@ function updateGraphFromJSON(data) {
 }
 
 function updateGraph(g) {
-  gg = g;
+  gg = Object.assign({}, g);
   $('#t').text(g.t);
   $('#bricks').val(g.numble.bricks.join(' '));
   $('#target').val(g.numble.target);
+  graph.nodes = {}
+  for (var i = 0; i < nodesArray.length; i++) {
+    graph.nodes[getId(nodesArray[i])] = nodesArray[i]
+  }
   for (var i = 0; i < g.nodes.length; i++) {
     const node = g.nodes[i];
     //if (!graph.nodes.hasOwnProperty(node.id)) {
-      graph.nodes[node.id] = 
-        Object.assign(node, {
-          width: node.d3width * nodeWidthMultiplier,
-          height: node.d3height * nodeHeightMultiplier,
-          members: new Set(node.members),
-          membersRecursive: new Set(node.membersRecursive),
-          memberOf: new Set(node.memberOf),
-          taggees: new Set(node.taggees)
-          // Do this only for tags, just before calling forceSimulation.nodes.
-          //x: 0,  
-          //y: isTag(node) ? 2400 : 0
-        });
+    Object.assign(node, {
+      width: node.d3width * nodeWidthMultiplier,
+      height: node.d3height * nodeHeightMultiplier,
+      members: new Set(node.members),
+      membersRecursive: new Set(node.membersRecursive),
+      memberOf: new Set(node.memberOf),
+      taggees: new Set(node.taggees)
+      // Do this only for tags, just before calling forceSimulation.nodes.
+      //x: 0,  
+      //y: isTag(node) ? 2400 : 0
+    });
     //}
+    if (node.id in graph.nodes) {
+      // This preserves the x, y values from the last run of forceSimulation.
+      Object.assign(graph.nodes[node.id], node);
+    } else {
+      graph.nodes[node.id] = node;
+    }
   }
   // Poor man's topological sort, putting containers first so they draw
   // before, hence under, the nodes that they contain.
@@ -246,6 +255,7 @@ var simulation = d3.forceSimulation()
     .force('collide', forceRectCollide())
     .force('containment', forceContainment())
     .alphaDecay(1 - Math.pow(0.001, 1 / 300))
+    //.velocityDecay(0.1) // DEBUG
     .stop()
     .on('tick', ticked);
 
@@ -258,7 +268,8 @@ var defaultLinkStrength = simulation.force('link').strength();
 //})
 
 function restart() {
-  node = nodeg.selectAll("g").data(nodesArray, function(d) { return d.id; });
+  //node = nodeg.selectAll("g").data(nodesArray, function(d) { return d.id; });
+  node = nodeg.selectAll('g').data(nodesArray, getId)
 
   nodeEnter = node.enter().append("g")
       //.attr('y', function(d) { if (isTag(d)) return 4000; else return 0; })
@@ -268,6 +279,8 @@ function restart() {
           .on("end", dragended))
       .on("mouseover", showNodeInfo)
       .on("click", showContainerInfo)
+
+  //console.log('nodeEnter.size ', nodeEnter.size()); //DEBUG
     
 /*
   nodeEnter.append("rect")
@@ -341,13 +354,16 @@ function restart() {
                             })
 
   node = nodeEnter.merge(node);
+  //node = node.exit().remove();
 
   link = linkg.selectAll("line").data(graph.links)
     .enter().append("line")
       //.attr("stroke-width", function(d) { return 10 * Math.sqrt(d.weight); })
       .attr("stroke-width", strokeWidth)
       .style("stroke", strokeColor)
-      .merge(link);
+    .merge(link)
+
+  //console.log('link.size', link.size(), graph.links.length); //DEBUG
 
   //node = node.merge(node);
   //link = link.merge(link);
@@ -439,6 +455,7 @@ function strokeColor(d) {
 
 function getX(d) { return d.x; }
 function getY(d) { return d.y; }
+function getId(d) { return d.id; }
 
 function ticked() {
   //node.attr('x', getX).attr('y', getY);
