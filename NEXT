@@ -50,6 +50,8 @@ Show the graph on the screen
 
   Correct d3height and d3width for containers.
 
+  Anchor the Workspace? (So it doesn't slide around in the SVG space.)
+
   Allow the user to type Python commands referring to the graph from the
   terminal where server.py is running.
 

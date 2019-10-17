@@ -361,6 +361,7 @@ function restart() {
       //.attr("stroke-width", function(d) { return 10 * Math.sqrt(d.weight); })
       .attr("stroke-width", strokeWidth)
       .style("stroke", strokeColor)
+      .style("visibility", strokeVisibility)
     .merge(link)
 
   //console.log('link.size', link.size(), graph.links.length); //DEBUG
@@ -451,6 +452,11 @@ function strokeColor(d) {
   } else {
     return 'gray';
   }
+}
+
+function strokeVisibility(d) {
+  // TEMPORARY: Support edges are unconditionally hidden.
+  return isSupportEdge(d) ? 'hidden' : 'visible';
 }
 
 function getX(d) { return d.x; }
