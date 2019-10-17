@@ -311,7 +311,8 @@ function restart() {
           elem.setAttribute('ry', 1.5);
         } else {
           elem = document.createElementNS(d3.namespaces.svg, 'circle',);
-          let r = 16;
+          //let r = 16;
+          let r = Math.max(7, 20 * Math.sqrt(d.support)); // support -> radius
           elem.setAttribute('r', r);
           d.width = r * 2;
           d.height = r * 2;
@@ -402,7 +403,7 @@ function restart() {
 //        else if (count[l.source.index] >= 2 || count[l.target.index] >= 2)
 //          return 150; // 150
         else
-          return 400;
+          return 200;
       })
       .strength(function(l, i) {
         if (l.source.members.size > 0 || l.target.members.size > 0)

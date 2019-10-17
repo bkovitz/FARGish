@@ -25,13 +25,15 @@ Show the graph on the screen
 
   Animate only changed nodes; don't animate from scratch each timestep.  DONE
 
+  Node infobox: list all edges
+
   Make the tags appear closer to their taggees.
 
     Make GreaterThan's taggees show up in 'taggees'.
 
     Put taggee port labels in class definition.
 
-  See support as radius of node.
+  See support as radius of node.  DONE
 
   See salience as radius of node.
 
