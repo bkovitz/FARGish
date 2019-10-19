@@ -62,6 +62,21 @@ function clearGraph() {
 
 var scaleSlider;
 
+function centerViewBox() {
+  const ws = document.getElementById("ws")
+  const bbox = ws.getBBox();
+//  ws.setAttribute("viewBox",       Math.min(-500, (bbox.x-10)) +
+//                             " " + Math.min(-500, (bbox.y-10)) +
+//                             " " + (bbox.width+20) +
+//                             " " + (bbox.height+20));
+  const width = Math.max(bbox.width, 450) + 20;
+  const height = Math.max(bbox.height, 450) + 20;
+  const minX = -(width / 2);
+  const minY = -(height / 2);
+  ws.setAttribute("viewBox", minX + " " + minY + " " + width + " " + height);
+  //ws.setAttribute("viewBox", "-500 -500 450 450")
+}
+
 window.onload = function() {
   scaleSlider = document.getElementById("scale-slider");
   scaleSlider.oninput = function() {
@@ -71,9 +86,15 @@ window.onload = function() {
                                " " + Math.min(-500, (bbox.y-10)) +
                                " " + (this.value*(2*bbox.width+20)) +
                                " " + (this.value*(2*bbox.height+20)));
-      
   };
   reset_button();
+}
+
+function center_button() {
+  //const myG = d3.select("svg").select("g");
+  //d3.zoom().translateTo(myG, 100, 100, [0, 0]);  // This has no effect.
+  myG = document.getElementById("fargModel");
+  myG.setAttribute("transform", "");
 }
 
 var gg; // The raw JSON received from the server; only for debugging.
@@ -94,6 +115,10 @@ function reset_button() {
   linkg.selectAll("line").remove();
   data = { bricks: $('#bricks').val(), target: $('#target').val() }
   $.get("reset", data, updateGraphFromJSON);
+  centerViewBox();  // HACK: This should happen after the elements are loaded
+                    // but before animation begins. Called from here,
+                    // centerViewBox() happens before the updateGraphFromJSON()
+                    // is called.
 }
 
 $('#target').keyup( function(event) {
@@ -175,7 +200,8 @@ var svg = d3.select("svg")
     .attr("width", "100%")
     .attr("height", "100%")
     .call(zoom)
-    .append("g");
+  .append("g")
+    .attr("id", "fargModel");
     //.attr("transform", "translate(200, 200) scale(0.6)");
 //    width = +svg.attr("width"),
 //    height = +svg.attr("height");
@@ -302,7 +328,7 @@ function restart() {
         var elem;
         if (isContainer(d)) {
           elem = document.createElementNS(d3.namespaces.svg,
-            'rect',
+            'rect'
             //{'width': d.width, 'height': d.height}
           );
           elem.setAttribute('width', d.width);
@@ -310,7 +336,7 @@ function restart() {
           elem.setAttribute('rx', 1.5);
           elem.setAttribute('ry', 1.5);
         } else {
-          elem = document.createElementNS(d3.namespaces.svg, 'circle',);
+          elem = document.createElementNS(d3.namespaces.svg, 'circle');
           //let r = 16;
           let r = Math.max(7, 20 * Math.sqrt(d.support)); // support -> radius
           elem.setAttribute('r', r);

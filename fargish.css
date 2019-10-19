@@ -26,6 +26,11 @@ text {
 }
 */
 
+text {
+  font-family: sans-serif;
+  font-size: 10px;
+}
+
 .workspace {
   fill: none;
   pointer-events: all;
