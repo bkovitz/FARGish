@@ -22,7 +22,7 @@ make_fifo(fifo_in)
 
 PORT = 8081
 runner_args = ['python3', 'runner.py', '--rfifo', fifo_out, '--wfifo', fifo_in]
-commands = set(['step', 'step10', 'reset', 'get-model'])
+commands = set(['step', 'step10', 'reset', 'get-model', 'nodeinfo'])
 
 
 class RunnerInterface:

@@ -10,6 +10,7 @@ import json
 from numbo import NumboGraph, new_graph
 from numble import Numble
 from log import ShowResponseList, ShowResponseResults
+from PortGraph import long_nodestr
 
 parser = argparse.ArgumentParser(description='FIFO test')
 parser.add_argument('--rfifo', dest='rfifo')
@@ -23,6 +24,7 @@ fout = open(args.wfifo, mode='w')
 print('R3')
 
 def write_fifo(s):
+    s = s.strip()
     fout.write(s)
     fout.write('\n\n')
     fout.flush()
@@ -55,6 +57,9 @@ class Runner:
             except KeyError:
                 pass
         self.g = new_graph(self.numble)
+
+    def nodeinfo(self, node):
+        return json.dumps(long_nodestr(self.g, node))
 
     def json_status(self):
         'Returns a JSON string describing the current state of the graph.'
@@ -134,6 +139,8 @@ while True:
         write_fifo(runner.json_status())
     elif command == 'get-model':
         write_fifo(runner.json_status())
+    elif command == 'nodeinfo':
+        write_fifo(runner.nodeinfo(int(data['node'][0])))
     else:
         print("Unrecognized command: %s" % line, file=sys.stderr, flush=True)
         write_fifo('')

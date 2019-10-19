@@ -557,10 +557,15 @@ var shownNode = undefined;
 
 function updateNodeInfobox(d) {
   shownNode = d.id;
-  $('#infobox').css('visibility', 'visible');
-  $('#nodestr').val(d.nodestr);
-  $('#support').val(d.support.toFixed(3));
-  $('#salience').val(d.salience.toFixed(3));
+  $.get('nodeinfo', { node: shownNode }, function(data) {
+    s = JSON.parse(data);
+    $('#infobox').css('visibility', 'visible');
+    $('#infoboxContent').text(s);
+  });
+//  $('#infobox').css('visibility', 'visible');
+//  $('#nodestr').val(d.nodestr);
+//  $('#support').val(d.support.toFixed(3));
+//  $('#salience').val(d.salience.toFixed(3));
 }
 
 function showNodeInfo(d) {

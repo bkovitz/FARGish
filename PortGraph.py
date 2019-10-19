@@ -9,6 +9,7 @@ from collections import defaultdict, namedtuple, UserDict
 from inspect import isclass
 from operator import attrgetter, itemgetter
 from random import choices
+from io import StringIO
 
 
 empty_set = frozenset()
@@ -920,6 +921,24 @@ def pn(g):
     pt(g)
     for node in g.nodes:
         print(g.nodestr(node))
+
+def long_nodestr(g, node):
+    sio = StringIO()
+    print('%s\n\n  support=%.3f\n  salience=%.3f\n' % (
+        g.nodestr(node),
+        g.support_for(node),
+        g.salience(node)
+    ), file=sio)
+    for hop in sorted(
+        g.hops_from_node(node), key=attrgetter('from_port_label')
+    ):
+        print('  %s --> %s %s (%.3f)' % (
+            hop.from_port_label,
+            g.nodestr(hop.to_node),
+            hop.to_port_label,
+            g.hop_weight(hop)
+        ), file=sio)
+    return sio.getvalue()
 
 def pg(g, nodes=None):
     '''Prints graph g in simple text form.'''
