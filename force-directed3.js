@@ -89,7 +89,8 @@ window.onload = function() {
                                " " + (this.value*(2*bbox.height+20)));
   };
   */
-  d3.select('#radii').on('change', resetRadii)
+  d3.select('#radii').on('change', resetRadii);
+  d3.select('#supportEdges').on('change', resetLinkVisibility);
   reset_button();
 }
 
@@ -309,6 +310,12 @@ function nodeRadius(d) {
   return r;
 }
 
+function resetLinkVisibility() {
+  link = linkg.selectAll("line").data(graph.links)
+    .style("visibility", strokeVisibility);
+  simulation.alphaTarget(0.5).restart();
+}
+
 function resetRadii() {
   // TODO It would be nice to make a smooth transition.
   nodeg.selectAll("g").each(function (d) {
@@ -319,7 +326,7 @@ function resetRadii() {
       d.height = r * 2;
     }
   });
-  simulation.alphaTarget(0.5).restart();
+  redraw();
 }
 
 function restart() {
@@ -492,7 +499,7 @@ supportLabels = new Set(['support_from', 'support_to'])
 function isSupportEdge(d) {
   return eqSets(
     supportLabels,
-    new Set([d.source_port_label, d.target_port_labelj)
+    new Set([d.source_port_label, d.target_port_label])
   );
 }
 
@@ -513,7 +520,10 @@ function strokeColor(d) {
 
 function strokeVisibility(d) {
   // TEMPORARY: Support edges are unconditionally hidden.
-  return isSupportEdge(d) ? 'hidden' : 'visible';
+  if (document.getElementById('supportEdges').checked)
+    return 'visible';
+  else
+    return isSupportEdge(d) ? 'hidden' : 'visible';
 }
 
 function getX(d) { return d.x; }
