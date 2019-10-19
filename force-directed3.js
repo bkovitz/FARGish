@@ -147,13 +147,12 @@ function updateGraph(g) {
   $('#t').text(g.t);
   $('#bricks').val(g.numble.bricks.join(' '));
   $('#target').val(g.numble.target);
-  graph.nodes = {}
+  graph.nodes = {};
   for (var i = 0; i < nodesArray.length; i++) {
-    graph.nodes[getId(nodesArray[i])] = nodesArray[i]
+    graph.nodes[getId(nodesArray[i])] = nodesArray[i];
   }
   for (var i = 0; i < g.nodes.length; i++) {
     const node = g.nodes[i];
-    //if (!graph.nodes.hasOwnProperty(node.id)) {
     Object.assign(node, {
       width: node.d3width * nodeWidthMultiplier,
       height: node.d3height * nodeHeightMultiplier,
@@ -161,11 +160,7 @@ function updateGraph(g) {
       membersRecursive: new Set(node.membersRecursive),
       memberOf: new Set(node.memberOf),
       taggees: new Set(node.taggees)
-      // Do this only for tags, just before calling forceSimulation.nodes.
-      //x: 0,  
-      //y: isTag(node) ? 2400 : 0
     });
-    //}
     if (node.id in graph.nodes) {
       // This preserves the x, y values from the last run of forceSimulation.
       Object.assign(graph.nodes[node.id], node);
@@ -182,8 +177,9 @@ function updateGraph(g) {
     &&
     !graph.nodes[l.target].members.has(l.source));
 
-  if (typeof shownNode !== 'undefined')
+  if (typeof shownNode !== 'undefined') {
     updateNodeInfobox(graph.nodes[shownNode]);
+  }
 
   restart();
 }
@@ -323,7 +319,7 @@ function resetRadii() {
       d.height = r * 2;
     }
   });
-  simulation.alphaTarget(0.3).restart();
+  simulation.alphaTarget(0.5).restart();
 }
 
 function restart() {
@@ -563,8 +559,8 @@ function updateNodeInfobox(d) {
   shownNode = d.id;
   $('#infobox').css('visibility', 'visible');
   $('#nodestr').val(d.nodestr);
-  $('#support').val(d.support);
-  $('#salience').val(d.salience);
+  $('#support').val(d.support.toFixed(3));
+  $('#salience').val(d.salience.toFixed(3));
 }
 
 function showNodeInfo(d) {

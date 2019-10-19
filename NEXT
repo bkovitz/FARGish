@@ -25,6 +25,12 @@ Show the graph on the screen
 
   Animate only changed nodes; don't animate from scratch each timestep.  DONE
 
+  NEXT
+  Curved edges
+  Edges with arrows
+
+  Turn on/off different kinds of edges
+
   Node infobox: list all edges
 
   Make the tags appear closer to their taggees.

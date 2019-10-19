@@ -5,6 +5,6 @@ ut:
 	$(PY) -m unittest
 
 tags:
-	ctags *.py *.js
+	ctags *.py force-directed*.js
 
 .PHONY: ut tags
