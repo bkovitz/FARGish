@@ -7,35 +7,49 @@
 </head>
 
 <body>
-    <p>t=<span id="t">0</span></p>
-    <div>
-        <input type="range" min="0" max="100" value="10" class="slider" id="scale-slider" />
-    </div>
-    <div style="width: 100%; height: 80%; overflow: hidden; display: flex;">
-      <div class="svgContainer">
-          <svg id="ws"></svg>
-      </div>
-      <div class="infobox" id="infobox" style="visibility: hidden;">
-        <p><output id='nodestr'>   </output></p>
-        <p>support: <output id='support'>   </output></p>
-        <p>salience: <output id='salience'>   </output></p>
-      </div>
-    </div>
-    <p>
-        <button id="step" onClick="step_button()">t+1</button>
-        <button id="step10" onClick="step10_button()">t+10</button>
-        <button id="reset" onClick="reset_button()">reset</button>
-        <button id="center" onClick="center_button()">center</button>
-    </p>
-    <form>
-        <label for="bricks">Bricks:</label>
-        <input type="text" id="bricks" name="bricks" size="20">
-        <label for="target">Target:</label>
-        <input type="text" id="target" name="target" size="5">
+  <p>
+    t=<span id="t">0</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <!--
+  <div>
+      <input type="range" min="0" max="100" value="10" class="slider" id="scale-slider" />
+  </div>
+  -->
+    <form id="radii">
+      node radii:
+      <input type="radio" name="radius" id="constantButton" value="constant" checked>
+      <label for="constantButton">constant</label>
+      <input type="radio" name="radius" id="supportButton" value="support">
+      <label for="supportButton">support</label>
+      <input type="radio" name="radius" id="salienceButton" value="salience">
+      <label for="salienceButton">salience</label>
     </form>
-    <script src="jquery.js"></script>
-    <script src="https://d3js.org/d3.v5.min.js"></script>
-    <script src="force-directed3.js"></script>
+  </p>
+  <div style="width: 100%; height: 80%; overflow: hidden; display: flex;">
+    <div class="svgContainer">
+        <svg id="ws"></svg>
+    </div>
+    <div class="infobox" id="infobox" style="visibility: hidden;">
+      <p><output id='nodestr'>   </output></p>
+      <p>support: <output id='support'>   </output></p>
+      <p>salience: <output id='salience'>   </output></p>
+    </div>
+  </div>
+  <p>
+    <button id="step" onClick="step_button()">t+1</button>
+    <button id="step10" onClick="step10_button()">t+10</button>
+    <button id="reset" onClick="reset_button()">reset</button>
+    <button id="center" onClick="center_button()">center</button>
+  </p>
+  <form>
+    <label for="bricks">Bricks:</label>
+    <input type="text" id="bricks" name="bricks" size="20">
+    <label for="target">Target:</label>
+    <input type="text" id="target" name="target" size="5">
+  </form>
+  <script src="jquery.js"></script>
+  <script src="https://d3js.org/d3.v5.min.js"></script>
+  <script src="force-directed3.js"></script>
 </body>
 
 </html>

@@ -35,7 +35,9 @@ Show the graph on the screen
 
   See support as radius of node.  DONE
 
-  See salience as radius of node.
+  See salience as radius of node.  DONE
+
+  Set node radius by node type: bricks big, tags small.  DONE
 
   Lighter colors for all node classes.
 

@@ -78,6 +78,7 @@ function centerViewBox() {
 }
 
 window.onload = function() {
+  /*
   scaleSlider = document.getElementById("scale-slider");
   scaleSlider.oninput = function() {
     const ws = document.getElementById("ws")
@@ -87,6 +88,8 @@ window.onload = function() {
                                " " + (this.value*(2*bbox.width+20)) +
                                " " + (this.value*(2*bbox.height+20)));
   };
+  */
+  d3.select('#radii').on('change', resetRadii)
   reset_button();
 }
 
@@ -293,6 +296,36 @@ var defaultLinkStrength = simulation.force('link').strength();
 //  restart();
 //})
 
+function nodeRadius(d) {
+  var r;
+  switch ($("input:radio[name=radius]:checked").val()) {
+    case 'support':
+      r = Math.max(7, 20 * Math.sqrt(d.support)); // support -> radius
+      break;
+    case 'salience':
+      r = Math.max(7, 20 * Math.sqrt(d.salience)); // salience -> radius
+      break;
+    case 'constant':
+    default:
+      r = isTag(d) ? 10 : 20;
+      break;
+  }
+  return r;
+}
+
+function resetRadii() {
+  // TODO It would be nice to make a smooth transition.
+  nodeg.selectAll("g").each(function (d) {
+    if (!isContainer(d)) {
+      const r = nodeRadius(d);
+      this.firstElementChild.setAttribute('r', r);
+      d.width = r * 2;
+      d.height = r * 2;
+    }
+  });
+  simulation.alphaTarget(0.3).restart();
+}
+
 function restart() {
   //node = nodeg.selectAll("g").data(nodesArray, function(d) { return d.id; });
   node = nodeg.selectAll('g').data(nodesArray, getId)
@@ -338,7 +371,8 @@ function restart() {
         } else {
           elem = document.createElementNS(d3.namespaces.svg, 'circle');
           //let r = 16;
-          let r = Math.max(7, 20 * Math.sqrt(d.support)); // support -> radius
+          //let r = Math.max(7, 20 * Math.sqrt(d.support)); // support -> radius
+          const r = nodeRadius(d);
           elem.setAttribute('r', r);
           d.width = r * 2;
           d.height = r * 2;
