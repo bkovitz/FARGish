@@ -487,12 +487,12 @@ function addn(x) {
   restart();
 }
 
-supportLabels = new Set('support_from', 'support_to')
+supportLabels = new Set(['support_from', 'support_to'])
 
 function isSupportEdge(d) {
   return eqSets(
     supportLabels,
-    new Set(d.source_port_label, d.target_port_label)
+    new Set([d.source_port_label, d.target_port_labelj)
   );
 }
 
