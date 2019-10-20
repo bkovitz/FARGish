@@ -326,7 +326,7 @@ function resetRadii() {
       d.height = r * 2;
     }
   });
-  redraw();
+  simulation.alphaTarget(0.5).restart();
 }
 
 function restart() {
