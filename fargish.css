@@ -73,6 +73,10 @@ text {
   stroke-opacity: 0.6;
 }
 
+path {
+  fill: none;
+}
+
 .cursor {
   fill: none;
   stroke: brown;

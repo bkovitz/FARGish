@@ -116,7 +116,7 @@ function reset_button() {
   //node.remove();
   //link.remove();
   nodeg.selectAll("g").remove();
-  linkg.selectAll("line").remove();
+  linkg.selectAll("path").remove();
   data = { bricks: $('#bricks').val(), target: $('#target').val() }
   $.get("reset", data, updateGraphFromJSON);
   centerViewBox();  // HACK: This should happen after the elements are loaded
@@ -233,7 +233,8 @@ var node = nodeg.selectAll("g");
 var linkg = svg.append("g")
     .attr("class", "links");
 
-var link = linkg.selectAll("line");
+var link = //linkg.selectAll("line");
+           linkg.selectAll("path");
 
 
 // Panning and zooming
@@ -310,8 +311,16 @@ function nodeRadius(d) {
   return r;
 }
 
+function linkArc(d) {
+  const dx = d.target.x - d.source.x,
+        dy = d.target.y - d.target.y,
+        dr = Math.sqrt(dx * dx + dy * dy);
+  return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr
+             + " 0 0,1 " + d.target.x + "," + d.target.y;
+}
+
 function resetLinkVisibility() {
-  link = linkg.selectAll("line").data(graph.links)
+  link = linkg.selectAll("path").data(graph.links)
     .style("visibility", strokeVisibility);
   simulation.alphaTarget(0.5).restart();
 }
@@ -420,8 +429,8 @@ function restart() {
   node = nodeEnter.merge(node);
   //node = node.exit().remove();
 
-  link = linkg.selectAll("line").data(graph.links)
-    .enter().append("line")
+  link = linkg.selectAll("path").data(graph.links)
+    .enter().append("path")
       //.attr("stroke-width", function(d) { return 10 * Math.sqrt(d.weight); })
       .attr("stroke-width", strokeWidth)
       .style("stroke", strokeColor)
@@ -545,10 +554,11 @@ function ticked() {
       })
 
   link
-      .attr("x1", function(d) { return d.source.x; })
-      .attr("y1", function(d) { return d.source.y; })
-      .attr("x2", function(d) { return d.target.x; })
-      .attr("y2", function(d) { return d.target.y; });
+      .attr("d", linkArc);
+//      .attr("x1", function(d) { return d.source.x; })
+//      .attr("y1", function(d) { return d.source.y; })
+//      .attr("x2", function(d) { return d.target.x; })
+//      .attr("y2", function(d) { return d.target.y; });
 
   // Update size of SVG so scroll-bars appear when needed
 //  const ws = document.getElementById("ws")
