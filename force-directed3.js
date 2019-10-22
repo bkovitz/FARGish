@@ -62,7 +62,9 @@ function clearGraph() {
 
 var scaleSlider;
 
+
 function centerViewBox() {
+/*
   const ws = document.getElementById("ws")
   const bbox = ws.getBBox();
 //  ws.setAttribute("viewBox",       Math.min(-500, (bbox.x-10)) +
@@ -75,6 +77,35 @@ function centerViewBox() {
   const minY = -(height / 2);
   ws.setAttribute("viewBox", minX + " " + minY + " " + width + " " + height);
   //ws.setAttribute("viewBox", "-500 -500 450 450")
+*/
+  /*
+  fm = document.getElementById("fargModel");
+  ws = document.getElementById("ws");
+  const outerRect = ws.getBoundingClientRect();  // DOMRect
+  const innerRect = fm.getBBox();  // SVGRect
+  
+  horizMargin = (outerRect.width - innerRect.width) / 2;
+  vertMargin = (outerRect.height - innerRect.height) / 2;
+
+  halfInnerWidth = innerRect.width / 2;
+  halfInnerHeight = innerRect.height / 2;
+
+  dx = -innerRect.x + horizMargin;
+  dy = -innerRect.y + vertMargin;
+
+  fm.setAttribute(
+    "transform",
+    "translate(" + dx + " " + dy + ")"
+  );
+  */
+  svg0.call(zoom.transform, d3.zoomIdentity.translate(0, 0).scale(1));
+  //zoom.translateTo(svg, 0, 0);
+  //zoom.translateTo(svg, 0, 0);
+  //zoom.scaleTo(svg, 1);
+//  fm = d3.select('#fargModel')
+//  fm.transition()
+//    .duration(750)
+//    .call(zoom.transform, d3.zoomIdentity);
 }
 
 window.onload = function() {
@@ -97,8 +128,9 @@ window.onload = function() {
 function center_button() {
   //const myG = d3.select("svg").select("g");
   //d3.zoom().translateTo(myG, 100, 100, [0, 0]);  // This has no effect.
-  myG = document.getElementById("fargModel");
-  myG.setAttribute("transform", "");
+  centerViewBox();
+  //myG = document.getElementById("fargModel");
+  //myG.setAttribute("transform", "");
 }
 
 var gg; // The raw JSON received from the server; only for debugging.
@@ -119,7 +151,7 @@ function reset_button() {
   linkg.selectAll("path").remove();
   data = { bricks: $('#bricks').val(), target: $('#target').val() }
   $.get("reset", data, updateGraphFromJSON);
-  centerViewBox();  // HACK: This should happen after the elements are loaded
+  //centerViewBox();  // HACK: This should happen after the elements are loaded
                     // but before animation begins. Called from here,
                     // centerViewBox() happens before the updateGraphFromJSON()
                     // is called.
@@ -191,20 +223,38 @@ function compareLengthMembersRecursive(node1, node2) {
 
 var zoom = d3.zoom()
     .on("zoom", function() {
-      //console.log(d3.event);
+      console.log(d3.event); //DEBUG
+      //svg.call(zoom.transform, d3.event.transform);
       svg.attr("transform", d3.event.transform);
+      //fm = d3.select('#fargModel')
+      //fm.attr("transform", d3.event.transform);
     });
 
 // Set up known HTML elements
-var svg = d3.select("svg")
+var svg0 = d3.select("svg")
     .attr("width", "100%")
     .attr("height", "100%")
-    .call(zoom)
-  .append("g")
+
+svg0.append("svg:defs").selectAll("marker")
+    .data(["arrowEnd"])
+  .enter().append("svg:marker")
+    .attr("id", String)
+    .attr("viewBox", "0 -5 10 10")
+    .attr("refX", 15)
+    .attr("refY", -1.5)
+    .attr("markerWidth", 6)
+    .attr("markerHeight", 6)
+    .attr("orient", "auto")
+  .append("svg:path")
+    .attr("d", "M0,-5L10,0,L0,5");
+
+svg = svg0.append("g")
     .attr("id", "fargModel");
     //.attr("transform", "translate(200, 200) scale(0.6)");
 //    width = +svg.attr("width"),
 //    height = +svg.attr("height");
+
+svg0.call(zoom);
 
 //svg.call(zoom.transform, d3.zoomIdentity.translate(200, 200).scale(0.6));
 
@@ -315,8 +365,10 @@ function linkArc(d) {
   const dx = d.target.x - d.source.x,
         dy = d.target.y - d.target.y,
         dr = Math.sqrt(dx * dx + dy * dy);
-  return "M" + d.source.x + "," + d.source.y + "A" + dr + "," + dr
-             + " 0 0,1 " + d.target.x + "," + d.target.y;
+  // TODO radius should be independent of endpoints
+  return "M" + d.source.x + "," + d.source.y +
+         "A" + dr + "," + dr + " 0 0,1 " + d.target.x + "," + d.target.y;
+         // A rx ry x-axis-rotation large-arc-flag sweep-flag x y
 }
 
 function resetLinkVisibility() {
@@ -430,11 +482,12 @@ function restart() {
   //node = node.exit().remove();
 
   link = linkg.selectAll("path").data(graph.links)
-    .enter().append("path")
-      //.attr("stroke-width", function(d) { return 10 * Math.sqrt(d.weight); })
+    .enter().append("svg:path")
       .attr("stroke-width", strokeWidth)
+      .attr("class", "link")
       .style("stroke", strokeColor)
       .style("visibility", strokeVisibility)
+      .attr("marker-end", "url(#arrowEnd)")
     .merge(link)
 
   //console.log('link.size', link.size(), graph.links.length); //DEBUG
@@ -579,7 +632,7 @@ function updateNodeInfobox(d) {
   shownNode = d.id;
   $.get('nodeinfo', { node: shownNode }, function(data) {
     s = JSON.parse(data);
-    $('#infobox').css('visibility', 'visible');
+    //$('#infobox').css('visibility', 'visible');
     $('#infoboxContent').text(s);
   });
 //  $('#infobox').css('visibility', 'visible');
@@ -612,6 +665,7 @@ function dragstarted(d) {
     n.fx = n.x;
     n.fy = n.y;
   }
+  svg.attr("cursor", "grabbing");
 }
 
 function dragged(d) {
@@ -645,6 +699,7 @@ function dragended(d) {
     n.fx = null;
     n.fy = null;
   }
+  svg.attr("cursor", "grabbed");
 }
 
 //// Based on https://github.com/d3/d3-force/blob/master/src/link.js by

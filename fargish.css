@@ -73,10 +73,6 @@ text {
   stroke-opacity: 0.6;
 }
 
-path {
-  fill: none;
-}
-
 .cursor {
   fill: none;
   stroke: brown;
@@ -90,6 +86,7 @@ path {
 
 .link {
   stroke: #999;
+  fill: none;
 }
 
 svg g {
