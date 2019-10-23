@@ -98,7 +98,11 @@ function centerViewBox() {
     "translate(" + dx + " " + dy + ")"
   );
   */
-  svg0.call(zoom.transform, d3.zoomIdentity.translate(0, 0).scale(1));
+  fm = document.getElementById("fargModel");
+  const innerRect = fm.getBBox();  // SVGRect
+  x = innerRect.width / 2;
+  y = innerRect.height / 2;
+  svg0.call(zoom.transform, d3.zoomIdentity.translate(x, y).scale(1));
   //zoom.translateTo(svg, 0, 0);
   //zoom.translateTo(svg, 0, 0);
   //zoom.scaleTo(svg, 1);
@@ -150,7 +154,7 @@ function reset_button() {
   nodeg.selectAll("g").remove();
   linkg.selectAll("path").remove();
   data = { bricks: $('#bricks').val(), target: $('#target').val() }
-  $.get("reset", data, updateGraphFromJSON);
+  $.get("reset", data, updateThenCenter);
   //centerViewBox();  // HACK: This should happen after the elements are loaded
                     // but before animation begins. Called from here,
                     // centerViewBox() happens before the updateGraphFromJSON()
@@ -173,6 +177,11 @@ $('#target').keyup( function(event) {
 
 function updateGraphFromJSON(data) {
   updateGraph(JSON.parse(data));
+}
+
+function updateThenCenter(data) {
+  updateGraphFromJSON(data);
+  centerViewBox();
 }
 
 function updateGraph(g) {
@@ -223,7 +232,7 @@ function compareLengthMembersRecursive(node1, node2) {
 
 var zoom = d3.zoom()
     .on("zoom", function() {
-      console.log(d3.event); //DEBUG
+      //console.log(d3.event); //DEBUG
       //svg.call(zoom.transform, d3.event.transform);
       svg.attr("transform", d3.event.transform);
       //fm = d3.select('#fargModel')
