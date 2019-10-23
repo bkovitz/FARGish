@@ -32,9 +32,12 @@ Show the graph on the screen
   Animate only changed nodes; don't animate from scratch each timestep.  DONE
 
   NEXT
-  Node infobox: list all edges
-  Curved edges
-  Edges with arrows
+  Node infobox: list all edges  DONE
+  Curved edges  DONE
+  Edges with arrows  DONE
+  Make the arrowheads grey.  DONE
+  Start/end the arc at the edge of the circles.
+  Update the arc radius continuously?  DONE
 
   Turn on/off different kinds of edges
 

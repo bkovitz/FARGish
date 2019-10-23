@@ -6,6 +6,14 @@ function values(o) {
   return a;
 }
 
+function keys(o) {
+  if (o !== Object(o))
+    throw new TypeError('keys() called on a non-object');
+  var k=[],p;
+  for (p in o) if (Object.prototype.hasOwnProperty.call(o,p)) k.push(p);
+  return k;
+}
+
 function eqSets(a, b) {
   if (a.size !== b.size)
     return false;
@@ -45,6 +53,22 @@ function oneTagsTheOther(d1, d2) {
 
 function area(node) {
   return node.height * node.width;
+}
+
+edgeTypeToColor = { support: 'green', antipathy: 'red', generic: 'gray' };
+edgeTypes = keys(edgeTypeToColor);
+
+function edgeType(d) {
+  if (isSupportEdge(d)) {
+    return d.weight < 0 ? 'support' : 'antipathy';
+  } else {
+    return 'generic';
+  }
+}
+
+function arrowHeadUrl(d) {
+  // d is the data for a link
+  return "url(#arrowEnd-" + edgeType(d) + ")";
 }
 
 var graph = {}
@@ -245,15 +269,17 @@ var svg0 = d3.select("svg")
     .attr("height", "100%")
 
 svg0.append("svg:defs").selectAll("marker")
-    .data(["arrowEnd"])
+    //.data(["arrowEnd"])
+    .data(edgeTypes)
   .enter().append("svg:marker")
-    .attr("id", String)
+    .attr("id", function(d) { return "arrowEnd-" + d; })
     .attr("viewBox", "0 -5 10 10")
     .attr("refX", 15)
     .attr("refY", -1.5)
     .attr("markerWidth", 6)
     .attr("markerHeight", 6)
     .attr("orient", "auto")
+    .attr("fill", function(d) { return edgeTypeToColor[d]; })
   .append("svg:path")
     .attr("d", "M0,-5L10,0,L0,5");
 
@@ -372,7 +398,7 @@ function nodeRadius(d) {
 
 function linkArc(d) {
   const dx = d.target.x - d.source.x,
-        dy = d.target.y - d.target.y,
+        dy = d.target.y - d.source.y,
         dr = Math.sqrt(dx * dx + dy * dy);
   // TODO radius should be independent of endpoints
   return "M" + d.source.x + "," + d.source.y +
@@ -447,6 +473,7 @@ function restart() {
           //let r = Math.max(7, 20 * Math.sqrt(d.support)); // support -> radius
           const r = nodeRadius(d);
           elem.setAttribute('r', r);
+          d.r = r;
           d.width = r * 2;
           d.height = r * 2;
         }
@@ -496,7 +523,7 @@ function restart() {
       .attr("class", "link")
       .style("stroke", strokeColor)
       .style("visibility", strokeVisibility)
-      .attr("marker-end", "url(#arrowEnd)")
+      .attr("marker-end", arrowHeadUrl)
     .merge(link)
 
   //console.log('link.size', link.size(), graph.links.length); //DEBUG
