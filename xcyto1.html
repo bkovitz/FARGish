@@ -2,20 +2,16 @@
 <html>
 <head>
   <title>Tutorial 1: Getting Started</title>
-  <style>
-      #cy {
-          width: 100%;
-          height: 100%;
-          position: absolute;
-          top: 0px;
-          left: 0px;
-      }
-  </style>
+  <link rel="stylesheet" type="text/css" href="cy.css" />
   <script>function abb() { alert('abb'); }</script>
 </head>
 <body>
-  <div id="cy"></div>
-  <input type="button" id="abb" value="add" onClick="abb()" />
+  <div class="cydiv">
+    <div id="cy"></div>
+  </div>
+  <div>
+    <input type="button" id="abb" value="add" onClick="abb()" />
+  </div>
   <script src='cytoscape.min.js'></script>
   <script src="http://marvl.infotech.monash.edu/webcola/cola.v3.min.js"></script>
   <script src="cytoscape-cola.js"></script>

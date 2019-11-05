@@ -6,15 +6,22 @@
 var cy;
 
 function abb() {
+  console.log('abb'); //DEBUG
   cy.add({ data: { id: 'new' }});
-  cy.add({ data: { id: 'e1', source: 'new', target: 'node5' }});
-  cy.layout.stop();
+  cy.add({ data: { id: 'e1', source: 'new', target: 'e' }});
+  //cy.layout.stop();
   cy.elements().layout({ name: 'cola' }).run();
+}
+
+function ids() {
+  for (i = 0; i < cy.nodes().length; i++) {
+    console.log(cy.nodes()[i].id());
+  }
 }
 
 
 window.onload = function () {
-  document.getElementById('abb').addEventListener('click', abb);
+  //document.getElementById('abb').addEventListener('click', abb);
 
   cy = cytoscape({
     container: document.getElementById('cy'),
@@ -61,7 +68,7 @@ window.onload = function () {
         }
     }],
     layout: {
-      name: 'grid'
+      name: 'cola'
     },
     style: [
       {
@@ -86,4 +93,6 @@ window.onload = function () {
 
   cy.layout({ name: 'cola' }).run();
   */
+
+  ids(); //DEBUG
 }
