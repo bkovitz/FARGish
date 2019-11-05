@@ -1,3 +1,12 @@
+Try cytoscape.js and cola.js
+
+  Lay out a hard-coded graph with cola.js.
+
+  Animate adding a new node.
+
+  Hook it up to JSON data from server.py.
+
+
 Next demo
 
   1 + 1 = 2, graphically
@@ -39,7 +48,7 @@ Show the graph on the screen
   Start/end the arc at the edge of the circles.
   Update the arc radius continuously?  DONE
 
-  Turn on/off different kinds of edges
+  Turn on/off different kinds of edges  DONE
 
   Make the tags appear closer to their taggees.
 
