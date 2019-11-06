@@ -7,7 +7,9 @@ var cy;
 
 function abb() {
   console.log('abb'); //DEBUG
-  cy.add({ data: { id: 'new' }});
+  e = cy.nodes('#e');
+  epos = e.position();
+  cy.add({ x: epos.x, y:epos.y, data: { id: 'new', x: epos.x, y: epos.y }});
   cy.add({ data: { id: 'e1', source: 'new', target: 'e' }});
   //cy.layout.stop();
   cy.elements().layout({ name: 'cola' }).run();
@@ -68,14 +70,27 @@ window.onload = function () {
         }
     }],
     layout: {
-      name: 'cola'
+      name: 'cola',
+      directed: true
     },
+    randomize: false,
     style: [
       {
         selector: 'node',
-        style: { shape: 'hexagon', 'background-color': 'red', label: 'data(id)' }
+        style: {
+          shape: 'hexagon',
+          'background-color': 'red',
+          label: 'data(id)'
+        }
+      },
+      {
+        selector: 'edge',
+        style: {
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'triangle'
+        }
       }
-    ]
+    ],
   });
 
   /*
