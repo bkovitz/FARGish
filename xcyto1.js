@@ -10,7 +10,7 @@ function abb() {
   e = cy.nodes('#e');
   epos = e.position();
   cy.add({ x: epos.x, y:epos.y, data: { id: 'new', x: epos.x, y: epos.y }});
-  cy.add({ data: { id: 'e1', source: 'new', target: 'e' }});
+  cy.add({ data: { id: 'e1', source: 'new', target: 'b' }});
   //cy.layout.stop();
   cy.elements().layout({ name: 'cola' }).run();
 }
@@ -29,11 +29,11 @@ window.onload = function () {
     container: document.getElementById('cy'),
     elements: [
       { data: { id: 'a' } },
-      { data: { id: 'b' } },
+      { data: { id: 'b', parent: 'e' } },
       { data: { id: 'c' } },
       { data: { id: 'd' } },
       { data: { id: 'e' } },
-      { data: { id: 'f' } },
+      { data: { id: 'f', parent: 'e' } },
       {
         data: {
           id: 'ab',
@@ -48,6 +48,7 @@ window.onload = function () {
           target: 'd'
         }
       },
+      /*
       {
         data: {
           id: 'ef',
@@ -55,6 +56,7 @@ window.onload = function () {
           target: 'f'
         }
       },
+      */
       {
         data: {
           id: 'ac',
@@ -62,13 +64,23 @@ window.onload = function () {
           target: 'c'
         }
       },
+      /*
       {
         data: {
           id: 'be',
           source: 'b',
           target: 'e'
         }
-    }],
+      }
+      */
+      {
+        data: {
+          id: 'bf',
+          source: 'b',
+          target: 'f'
+        }
+      }
+    ],
     layout: {
       name: 'cola',
       directed: true
@@ -81,6 +93,12 @@ window.onload = function () {
           shape: 'hexagon',
           'background-color': 'red',
           label: 'data(id)'
+        }
+      },
+      {
+        selector: 'node:parent',
+        css: {
+          'background-opacity': 0.333
         }
       },
       {
