@@ -107,7 +107,8 @@ window.onload = function () {
         selector: 'node',
         style: {
           shape: 'rectangle',
-          'background-color': 'red',
+          //'background-color': 'red',
+          'background-color': '#f0e0d0',
           label: 'data(id)',
           'text-valign': 'center',
           width: 'data(width)'
@@ -117,7 +118,8 @@ window.onload = function () {
         selector: 'node:parent',
         style: {
           'text-valign': 'top',
-          'background-opacity': 0.333
+          'background-opacity': 0.333,
+          'border-width': 0
         },
       },
       {
