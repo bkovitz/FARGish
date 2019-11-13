@@ -9,8 +9,9 @@ const layout = {
   name: 'cola',
   directed: true,
   fit: false,
-  //handleDisconnected: false,
+  handleDisconnected: false,
   //refresh: 0.00000001
+  refresh: 10
 }
 
 function colaRun() {
@@ -105,16 +106,19 @@ window.onload = function () {
       {
         selector: 'node',
         style: {
-          shape: 'hexagon',
+          shape: 'rectangle',
           'background-color': 'red',
-          label: 'data(id)'
+          label: 'data(id)',
+          'text-valign': 'center',
+          width: 'data(width)'
         }
       },
       {
         selector: 'node:parent',
-        css: {
+        style: {
+          'text-valign': 'top',
           'background-opacity': 0.333
-        }
+        },
       },
       {
         selector: 'edge',
@@ -125,6 +129,17 @@ window.onload = function () {
       }
     ],
   });
+
+  cy.nodes().forEach(function(n) { n.data('width', 40); });
+  /* To change the shape at run-time:
+   *
+   * c = cy.$('#c');
+   * c.style('shape', 'ellipse');
+   *
+   * To change the width at run-time, the style must be set to read the width
+   * from the node's data, e.g. width: 'data(width)'. Then you just change the
+   * width element of the node's data at run-time.
+   */
 
   /*
   for (var i = 0; i < 10; i++) {
