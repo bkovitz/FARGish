@@ -124,13 +124,17 @@ window.onload = function () {
         selector: 'edge',
         style: {
           'curve-style': 'bezier',
-          'target-arrow-shape': 'triangle'
+          'target-arrow-shape': 'triangle',
+          'line-color': 'green',
+          'target-arrow-color': 'green',
+          'width': "data(weight)"
         }
       }
     ],
   });
 
   cy.nodes().forEach(function(n) { n.data('width', 40); });
+  cy.edges().forEach(function(e) { e.data('weight', 12); });
   /* To change the shape at run-time:
    *
    * c = cy.$('#c');
@@ -139,6 +143,11 @@ window.onload = function () {
    * To change the width at run-time, the style must be set to read the width
    * from the node's data, e.g. width: 'data(width)'. Then you just change the
    * width element of the node's data at run-time.
+   *
+   * Similarly, to change a node's width at run-time:
+   *
+   * e = cy.$('ab');
+   * e.data('weight', 8);
    */
 
   /*
