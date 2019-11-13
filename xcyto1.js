@@ -8,21 +8,36 @@ var cy;
 var alignments = {
   'a': {x: 0, y: 0},
   'c': {x: 0, y: -100},
-  'd': {y: -100}
+  'd': {y: -100},
+  'b': {y: 0},
+  'f': {y: 0}
 }
+
+var gaps = [
+  { axis: 'y', left: 'a', right: 'b', gap: 25 }
+]
 
 const layout = {
   name: 'cola',
   directed: true,
   fit: false,
   handleDisconnected: false,
-  alignment: function(n) { return alignments[n.id()]; },
+  // alignment: function(n) { return alignments[n.id()]; },
+  //gapInequalities: gaps,
   //refresh: 0.00000001
   refresh: 10
 }
 
 function colaRun() {
   cy.elements().layout(layout).run();
+}
+
+cIsDisplayed = true;
+
+function toggleButton() {
+  cIsDisplayed = !cIsDisplayed;
+  cy.nodes('#c').style('display', cIsDisplayed ? 'element' : 'none');
+  colaRun();
 }
 
 function abb() {

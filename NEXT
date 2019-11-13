@@ -22,7 +22,9 @@ Try cytoscape.js and cola.js
 
   Select color based on some node data attribute.
 
-  Constraints to put sum above operator above operands.  DONE
+  Constraints to put sum above operator above operands.  ECCH
+
+  Turn some nodes off and on with a button.  DONE
 
   Hook it up to JSON data from server.py.
 
