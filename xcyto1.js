@@ -5,19 +5,37 @@
 
 var cy;
 
+const layout = {
+  name: 'cola',
+  directed: true,
+  fit: false,
+  //handleDisconnected: false,
+  //refresh: 0.00000001
+}
+
+function colaRun() {
+  cy.elements().layout(layout).run();
+}
+
 function abb() {
   console.log('abb'); //DEBUG
   e = cy.nodes('#e');
   epos = e.position();
-  cy.add({ x: epos.x, y:epos.y, data: { id: 'new', x: epos.x, y: epos.y }});
+  epos.x += e.width() + 100;
+  //cy.add({ position: epos, data: { id: 'new' }});
+  cy.add({ data: { id: 'new' }});
   cy.add({ data: { id: 'e1', source: 'new', target: 'b' }});
   //cy.layout.stop();
-  cy.elements().layout({ name: 'cola' }).run();
+  //cy.elements().layout({ name: 'cola' }).run();
+  colaRun();
 }
 
 function ids() {
   for (i = 0; i < cy.nodes().length; i++) {
-    console.log(cy.nodes()[i].id());
+    id = cy.nodes()[i].id();
+    posn = cy.nodes()[i].position();
+    rposn = cy.nodes()[i].renderedPosition();
+    console.log(i, ' ', id, ' ', posn, ' ', rposn);
   }
 }
 
@@ -81,10 +99,7 @@ window.onload = function () {
         }
       }
     ],
-    layout: {
-      name: 'cola',
-      directed: true
-    },
+    layout: layout,
     randomize: false,
     style: [
       {

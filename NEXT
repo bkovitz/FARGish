@@ -1,8 +1,12 @@
 Try cytoscape.js and cola.js
 
-  Lay out a hard-coded graph with cola.js.
+  Lay out a hard-coded graph with cola.js.  DONE
 
-  Animate adding a new node.
+  Animate adding a new node.  DONE
+
+  Make a container node.  DONE
+
+  Make a 'cola' button to update layout after dragging.  DONE
 
   Hook it up to JSON data from server.py.
 
