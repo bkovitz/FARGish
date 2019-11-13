@@ -18,11 +18,11 @@ Try cytoscape.js and cola.js
 
   Change the width of edges.  DONE
 
-  Choose some nicer, lighter colors.
+  Choose some nicer, lighter colors.  DONE
 
   Select color based on some node data attribute.
 
-  Constraints to put sum above operator above operands.
+  Constraints to put sum above operator above operands.  DONE
 
   Hook it up to JSON data from server.py.
 

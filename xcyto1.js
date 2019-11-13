@@ -5,11 +5,18 @@
 
 var cy;
 
+var alignments = {
+  'a': {x: 0, y: 0},
+  'c': {x: 0, y: -100},
+  'd': {y: -100}
+}
+
 const layout = {
   name: 'cola',
   directed: true,
   fit: false,
   handleDisconnected: false,
+  alignment: function(n) { return alignments[n.id()]; },
   //refresh: 0.00000001
   refresh: 10
 }
