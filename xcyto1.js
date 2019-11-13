@@ -46,8 +46,8 @@ function abb() {
   epos = e.position();
   epos.x += e.width() + 100;
   //cy.add({ position: epos, data: { id: 'new' }});
-  cy.add({ data: { id: 'new' }});
-  cy.add({ data: { id: 'e1', source: 'new', target: 'b' }});
+  cy.add({ data: { id: 'new', label: 'This is the new node' }});
+  cy.add({ data: { id: 'e1', source: 'new', target: 'b', weight: 12 }});
   //cy.layout.stop();
   //cy.elements().layout({ name: 'cola' }).run();
   colaRun();
@@ -147,8 +147,8 @@ window.onload = function () {
       {
         selector: 'edge',
         style: {
-          'curve-style': 'bezier',
-          'target-arrow-shape': 'triangle',
+          'curve-style': 'unbundled-bezier',
+          'target-arrow-shape': 'triangle-backcurve',
           'line-color': 'green',
           'target-arrow-color': 'green',
           'width': "data(weight)"
@@ -158,7 +158,7 @@ window.onload = function () {
   });
 
   cy.nodes().forEach(function(n) { n.data('width', 40); });
-  cy.edges().forEach(function(e) { e.data('weight', 12); });
+  cy.edges().forEach(function(e) { e.data('weight', 8); });
   /* To change the shape at run-time:
    *
    * c = cy.$('#c');

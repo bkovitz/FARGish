@@ -26,6 +26,11 @@ Try cytoscape.js and cola.js
 
   Turn some nodes off and on with a button.  DONE
 
+  Get curvy edges.  DONE:  'curve-style': 'unbundled-bezier'
+
+  Figure out how to assign unique ids to new nodes.
+    "assigned automatically on undefined"?
+
   Hook it up to JSON data from server.py.
 
 
