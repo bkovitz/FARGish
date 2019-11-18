@@ -1,4 +1,4 @@
-// xctyo1.js  --  cytoscript.js tutorial and experiments
+// xcyto1.js  --  cytoscript.js tutorial and experiments
 //
 // Goes with xcyto1.html.
 
@@ -60,6 +60,18 @@ function ids() {
     rposn = cy.nodes()[i].renderedPosition();
     console.log(i, ' ', id, ' ', posn, ' ', rposn);
   }
+}
+
+function getModel() {
+  $.get('getModel', updateGraphFromJSON);
+}
+
+function updateGraphFromJSON(data) {
+  updateGraph(JSON.parse(data));
+}
+
+function updateGraph(g) {
+  console.log(g);
 }
 
 

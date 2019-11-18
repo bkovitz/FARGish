@@ -61,6 +61,10 @@ class Runner:
     def nodeinfo(self, node):
         return json.dumps(long_nodestr(self.g, node))
 
+    def get_model(self):
+        if self.g is None:
+            self.reset()
+
     def json_status(self):
         'Returns a JSON string describing the current state of the graph.'
         #STUB
@@ -137,7 +141,8 @@ while True:
     elif command == 'step10':
         runner.step(num=10)
         write_fifo(runner.json_status())
-    elif command == 'get-model':
+    elif command == 'getModel':
+        runner.get_model()
         write_fifo(runner.json_status())
     elif command == 'nodeinfo':
         write_fifo(runner.nodeinfo(int(data['node'][0])))
