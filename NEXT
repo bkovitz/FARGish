@@ -33,6 +33,14 @@ Try cytoscape.js and cola.js
 
   Hook it up to JSON data from server.py.
 
+    Read nodes from server.  DONE
+
+    Read edges from server.  DONE
+
+    Set edge weight according to port labels. 
+
+    Set node color according to class.
+
 
 Next demo
 

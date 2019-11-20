@@ -34,14 +34,39 @@ var gg;
 
 function updateGraph(g) {
   gg = g;
-  //console.log(g);
-  //nodes = 
+
+  // Import nodes from server graph
   for (const sn of gg.nodes) {  // sn = node as represented on the server
     node = cy.$id(sn.id)        // node = cytoscape.js's representation of node
     if (node.empty()) {
       cy.add({group: 'nodes', data: {id: sn.id}});
     }
   }
+
+  // Import edges from server graph
+  for (const se of gg.links) {  // se = edge as represented on the server
+    sid = makeEdgeId(
+      se.source, se.source_port_label, se.target, se.target_port_label
+    );
+    edge = cy.$id(sid);
+    if (edge.empty()) {
+      cy.add({group: 'edges',
+              data: { id: sid,
+                      source: se.source,
+                      source_port_label: se.source_port_label,
+                      target: se.target,
+                      target_port_label: se.target_port_label
+                    }
+              });
+    }
+  }
+}
+
+function makeEdgeId(source, source_port_label, target, target_port_label) {
+  return (
+    '' + source + '.' + source_port_label + '.' + target +
+    '.' + target_port_label
+  );
 }
 
 window.onload = function () {
