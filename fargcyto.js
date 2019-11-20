@@ -28,6 +28,7 @@ function getModel() {
 
 function updateGraphFromJSON(data) {
   updateGraph(JSON.parse(data));
+  colaRun();
 }
 
 var gg;
@@ -55,7 +56,8 @@ function updateGraph(g) {
                       source: se.source,
                       source_port_label: se.source_port_label,
                       target: se.target,
-                      target_port_label: se.target_port_label
+                      target_port_label: se.target_port_label,
+                      weight: 1  // TODO set appropriately
                     }
               });
     }
