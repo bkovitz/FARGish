@@ -34,26 +34,31 @@ function updateGraphFromJSON(data) {
   colaRun();
 }
 
-var gg;
+var gg; // We save the last graph dict from the server here so we can look at
+        // it in the Chrome debugger.
 
 function updateGraph(g) {
   gg = g;
 
   // Import nodes from server graph
-  for (const sn of gg.nodes) {  // sn = node as represented on the server
-    node = cy.$id(sn.id)        // node = cytoscape.js's representation of node
+  for (const sn of g.nodes) {  // sn = node as represented on the server
+    var node = cy.$id(sn.id)   // node = cytoscape.js's representation of node
     if (node.empty()) {
-      cy.add({group: 'nodes', data: {
-        id: sn.id,
-        label: sn['display-name'],
-        parent: sn.memberOf
-      }});
-      cy.$id(sn.id).addClass(sn.class);
+      node = cy.add({group: 'nodes',
+          data: {
+            id: sn.id,
+            label: sn['display-name'],
+            parent: sn.memberOf
+          },
+          position: { x: (sn.id * 111) % 17 * 5, y: (sn.id * 119) % 17 * 5 }
+       });
+      //cy.$id(sn.id).addClass(sn.class);
+      node.addClass(sn.class);
     }
   }
 
   // Import edges from server graph
-  for (const se of gg.links) {  // se = edge as represented on the server
+  for (const se of g.links) {  // se = edge as represented on the server
     sid = makeEdgeId(
       se.source, se.source_port_label, se.target, se.target_port_label
     );
@@ -65,7 +70,7 @@ function updateGraph(g) {
                       source_port_label: se.source_port_label,
                       target: se.target,
                       target_port_label: se.target_port_label,
-                      weight: 1  // TODO set appropriately
+                      weight: 0.5  // TODO set appropriately
                     }
               });
     }
@@ -95,20 +100,20 @@ window.onload = function () {
           'background-color': '#f0e0d0',
           label: 'data(label)',
           'text-valign': 'center',
-          width: 'data(width)'
+          //width: 'data(width)'
+          width: 'label'
         }
       },
       {
         selector: 'node.Brick',
         style: {
-          'background-color': 'firebrick',
-          'color': 'white'
+          'background-color': 'firebrick'
         }
       },
       {
         selector: 'node.Workspace',
         style: {
-          'background-color': 'lightyellow'
+          'background-color': 'yellow'
         }
       },
       {
@@ -124,8 +129,8 @@ window.onload = function () {
         style: {
           'curve-style': 'unbundled-bezier',
           'target-arrow-shape': 'triangle-backcurve',
-          'line-color': 'green',
-          'target-arrow-color': 'green',
+          'line-color': 'black',
+          'target-arrow-color': 'black',
           'width': "data(weight)"
         }
       }
