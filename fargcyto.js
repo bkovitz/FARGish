@@ -2,7 +2,9 @@
 //
 // Goes with fargcyto.html. Works with cytoscript.js and cola.js.
 
-var cy;
+var cy;  // The cytoscape.js object
+
+var stringStyleSheet = 'node { background-color: cyan; }'
 
 // Layout object that gives constraints and other parameters to cola.js
 const layout = {
@@ -41,6 +43,7 @@ function updateGraph(g) {
     node = cy.$id(sn.id)        // node = cytoscape.js's representation of node
     if (node.empty()) {
       cy.add({group: 'nodes', data: {id: sn.id}});
+      cy.$id(sn.id).addClass(sn.class);
     }
   }
 
@@ -91,6 +94,13 @@ window.onload = function () {
         }
       },
       {
+        selector: 'node.Brick',
+        style: {
+          'background-color': 'firebrick',
+          'color': 'white'
+        }
+      },
+      {
         selector: 'node:parent',
         style: {
           'text-valign': 'top',
@@ -110,4 +120,5 @@ window.onload = function () {
       }
     ],
   });
+  getModel();
 }

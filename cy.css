@@ -1,9 +1,9 @@
 /* CSS styles for cytoscape.js + cola.js */
 
-div .cydiv {
+.cydiv {
   flex-grow: 1;
   overflow: auto;
-  border: 1px solid gray;
+  border: 1px solid grey;
   margin: 1em;
 }
 
