@@ -25,6 +25,7 @@ function colaRun() {
 
 // Button function: retrieves the FARG model from the server
 function getModel() {
+  cy.center();
   $.get('getModel', updateGraphFromJSON);
 }
 
@@ -42,7 +43,11 @@ function updateGraph(g) {
   for (const sn of gg.nodes) {  // sn = node as represented on the server
     node = cy.$id(sn.id)        // node = cytoscape.js's representation of node
     if (node.empty()) {
-      cy.add({group: 'nodes', data: {id: sn.id}});
+      cy.add({group: 'nodes', data: {
+        id: sn.id,
+        label: sn['display-name'],
+        parent: sn.memberOf
+      }});
       cy.$id(sn.id).addClass(sn.class);
     }
   }
@@ -88,7 +93,7 @@ window.onload = function () {
           shape: 'rectangle',
           //'background-color': 'red',
           'background-color': '#f0e0d0',
-          label: 'data(id)',
+          label: 'data(label)',
           'text-valign': 'center',
           width: 'data(width)'
         }
@@ -98,6 +103,12 @@ window.onload = function () {
         style: {
           'background-color': 'firebrick',
           'color': 'white'
+        }
+      },
+      {
+        selector: 'node.Workspace',
+        style: {
+          'background-color': 'lightyellow'
         }
       },
       {
