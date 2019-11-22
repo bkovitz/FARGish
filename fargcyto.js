@@ -7,6 +7,7 @@ var cy;  // The cytoscape.js object
 var stringStyleSheet = 'node { background-color: cyan; }'
 
 // Layout object that gives constraints and other parameters to cola.js
+/*
 const layout = {
   name: 'cola',
   directed: true,
@@ -17,15 +18,46 @@ const layout = {
   //refresh: 0.00000001
   refresh: 10
 }
+*/
+
+function makeLayout() {
+  return {
+    name: 'cola',
+    directed: true,
+    fit: false,
+    nodeDimensionsIncludeLabels: true,
+    //avoidOverlaps: true,
+    //handleDisconnected: false,
+    // alignment: function(n) { return alignments[n.id()]; },
+    gapInequalities: [
+      // bricks below target
+      { axis: 'y', right: cy.$id(4), left: cy.$id(2), gap: 50 },
+      { axis: 'y', right: cy.$id(6), left: cy.$id(2), gap: 50 },
+      { axis: 'y', right: cy.$id(8), left: cy.$id(2), gap: 50 },
+      { axis: 'y', right: cy.$id(10), left: cy.$id(2), gap: 50 },
+      { axis: 'y', right: cy.$id(12), left: cy.$id(2), gap: 50 },
+      { axis: 'y', right: cy.$id(14), left: cy.$id(2), gap: 50 },
+
+      // bricks same y
+      { axis: 'y', right: cy.$id(4), left: cy.$id(6), gap: 0, equality: true },
+      { axis: 'y', right: cy.$id(4), left: cy.$id(8), gap: 0, equality: true },
+      { axis: 'y', right: cy.$id(4), left: cy.$id(10), gap: 0, equality: true },
+      { axis: 'y', right: cy.$id(4), left: cy.$id(12), gap: 0, equality: true },
+      { axis: 'y', right: cy.$id(4), left: cy.$id(14), gap: 0, equality: true },
+    ],
+    //refresh: 0.00000001
+    refresh: 10
+  };
+}
 
 // Runs the cola.js layout engine; call this after updating the graph.
 function colaRun() {
-  cy.elements().layout(layout).run();
+  cy.elements().layout(makeLayout()).run();
 }
 
 // Button function: retrieves the FARG model from the server
 function getModel() {
-  cy.center();
+  //cy.center(1);
   $.get('getModel', updateGraphFromJSON);
 }
 
@@ -54,6 +86,7 @@ function updateGraph(g) {
        });
       //cy.$id(sn.id).addClass(sn.class);
       node.addClass(sn.class);
+      node.on('tap', function(e) { console.log(e.target.id()); });
     }
   }
 
@@ -89,7 +122,7 @@ window.onload = function () {
 
   cy = cytoscape({
     container: document.getElementById('cy'),
-    layout: layout,
+    //layout: layout,
     randomize: false,
     style: [
       {
@@ -102,6 +135,7 @@ window.onload = function () {
           'text-valign': 'center',
           //width: 'data(width)'
           width: 'label'
+          //width: 40
         }
       },
       {

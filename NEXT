@@ -37,9 +37,16 @@ Try cytoscape.js and cola.js
 
     Read edges from server.  DONE
 
+    Make the arrow point from the tag to the taggee.
+
     Set edge weight according to port labels. 
 
     Set node color according to class.
+
+  Toggle between nodes as rectangles and nodes as circles with area
+  proportional to support.
+
+  Toggle support edges on/off.
 
 
 Next demo
