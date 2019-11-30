@@ -103,7 +103,7 @@ function updateGraph(g) {
                       source_port_label: se.source_port_label,
                       target: se.target,
                       target_port_label: se.target_port_label,
-                      weight: 0.5  // TODO set appropriately
+                      weight: Math.max(se.weight * 10, 0.5)
                     }
               });
     }
