@@ -455,16 +455,6 @@ ColaLayout.prototype.run = function () {
     });
   }
 
-  if (options.rawConstraints) {
-    options.rawConstraints.forEach(function (c) {
-      c.offsets.forEach(function (nodeConstraint) {
-        var nodeIdx = nodeConstraint.node.scratch().cola.index;
-        nodeConstraint.node = nodeIdx;
-      });
-      constraints.push(c);
-    });
-  }
-
   // add constraints if any
   if (constraints.length > 0) {
     adaptor.constraints(constraints);

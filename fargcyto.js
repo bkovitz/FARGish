@@ -20,15 +20,65 @@ const layout = {
 }
 */
 
-function makeLayout() {
+var alignments = {
+  // bricks
+  4: {y: 0},
+  6: {y: 0},
+  8: {y: 0},
+  10: {y: 0},
+  12: {y: 0},
+  14: {y: 0},
+  // target
+  2: { y: 100 }
+}
+
+var alignments1 = {
+  // bricks
+  //4: {y: 0},
+  //6: {y: 0},
+  //8: {y: 0},
+  10: {y: 0, x: 0},
+  12: {y: 0, x: 100},
+  14: {y: 0, x: 200},
+  // target
+  //2: { y: 100 }
+}
+
+var alignments2 = {
+  // bricks
+  4: {y: 0},
+  6: {y: 0},
+  8: {y: 0},
+  //10: {y: 0},
+  //12: {y: 0},
+  //14: {y: 0},
+  // target
+  //2: { y: 100 }
+}
+
+
+var layout;  // The current cytoscape.js layout object
+
+function makeLayout(n) {
+  var alignmentFunc;
+  if (n) {
+    alignmentFunc = function(n) { return alignments2[n.id()]; }
+  } else {
+    alignmentFunc = function(n) { return alignments1[n.id()]; }
+  }
   return {
     name: 'cola',
     directed: true,
     fit: false,
     nodeDimensionsIncludeLabels: true,
-    //avoidOverlaps: true,
+    //nodeSpacing: 100,
+    animate: true,
+    avoidOverlaps: true,
+    nodeDimensionsIncludeLabels: true,
+    //maxSimulationTime: 8000,
     //handleDisconnected: false,
-    // alignment: function(n) { return alignments[n.id()]; },
+    //alignment: alignmentFunc,
+    /*
     gapInequalities: [
       // bricks below target
       { axis: 'y', right: cy.$id(4), left: cy.$id(2), gap: 50 },
@@ -45,14 +95,37 @@ function makeLayout() {
       { axis: 'y', right: cy.$id(4), left: cy.$id(12), gap: 0, equality: true },
       { axis: 'y', right: cy.$id(4), left: cy.$id(14), gap: 0, equality: true },
     ],
+    */
+    rawConstraints: [
+      {
+        type: 'alignment', axis: 'y', offsets: [
+          { 'node': cy.$id(4), 'offset': '0' },
+          { 'node': cy.$id(6), 'offset': '0' },
+          { 'node': cy.$id(8), 'offset': '0' },
+        ]
+      },
+    ],
     //refresh: 0.00000001
-    refresh: 10
+    refresh: 1 //10
   };
 }
 
 // Runs the cola.js layout engine; call this after updating the graph.
 function colaRun() {
-  cy.elements().layout(makeLayout()).run();
+  /* Known to animate continuously from run to run
+  if (!layout)
+    layout = cy.layout(makeLayout());
+  layout.stop();
+  layout.run();
+  */
+
+  layout = cy.layout(makeLayout());
+  layout.run();
+
+  //cy.elements("#10,#12,#14").layout(makeLayout(0)).run();
+  //cy.elements("#4,#6,#8").layout(makeLayout(1)).run();
+
+  //cy.elements().layout(layout).run();
 }
 
 // Button function: retrieves the FARG model from the server
