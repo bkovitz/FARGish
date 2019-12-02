@@ -6,12 +6,14 @@ import json
 
 from numbo import NumboGraph, new_graph
 from numble import Numble
+from numbospec import spec as numbo_spec
 from PortGraph import long_nodestr
 
 class ModelWrapper:
 
     def __init__(self):
         self.g = None
+        #TODO rm Numbo-specific code
         self.numble = Numble([120, 1, 2, 3, 4, 5], 121)
 
     def step(self, num=1):
@@ -88,7 +90,7 @@ class ModelWrapper:
             'weight': self.g.edge_weight(edge)
         }
 
-    def edgedict(self, edge):
+    def edgedictOLD2(self, edge):
         hop = self.g.edge_to_hop(edge)
         m = make_edge_label_map(hop.from_port_label, hop.to_port_label)
         m['weight'] = self.g.edge_weight(edge)
@@ -99,6 +101,10 @@ class ModelWrapper:
             m['source'] = hop.to_node
             m['target'] = hop.from_node
         return m
+
+    def edgedict(self, edge):
+        print('EDGEDICT') #DEBUG
+        return numbo_spec.edgedict(self.g, edge)
 
 # TODO Make this part of the model definition
 edge_label_map = {

@@ -37,7 +37,9 @@ Try cytoscape.js and cola.js
 
     Read edges from server.  DONE
 
-    Make the arrow point from the tag to the taggee.
+    Make the arrow point from the tag to the taggee.  DONE
+
+    Set edge color according to port labels.
 
     Set edge weight according to port labels. 
 
@@ -47,6 +49,15 @@ Try cytoscape.js and cola.js
   proportional to support.
 
   Toggle support edges on/off.
+
+
+Break out tag ports/labels to a simple model spec.  DONE
+
+  Clean that up.
+
+Plan out a new spec
+
+  ...and what it will take to get back to a good demo.
 
 
 Next demo

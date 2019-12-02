@@ -170,15 +170,15 @@ function updateGraph(g) {
     );
     edge = cy.$id(sid);
     if (edge.empty()) {
-      cy.add({group: 'edges',
-              data: { id: sid,
-                      source: se.source,
-                      source_port_label: se.source_port_label,
-                      target: se.target,
-                      target_port_label: se.target_port_label,
-                      weight: Math.max(se.weight * 10, 0.5)
-                    }
-              });
+      edge = cy.add({group: 'edges',
+                     data: { id: sid,
+                             source: se.source,
+                             source_port_label: se.source_port_label,
+                             target: se.target,
+                             target_port_label: se.target_port_label,
+                             weight: Math.max(se.weight * 10, 0.5)
+                           }
+                     });
     }
   }
 }
