@@ -2,6 +2,20 @@
 //
 // Goes with fargcyto.html. Works with cytoscript.js and cola.js.
 
+function getCircularReplacer() {
+  const seen = new WeakSet();
+  return (key, value) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return;
+      }
+      seen.add(value);
+    }
+    return value;
+  };
+};
+
+
 var cy;  // The cytoscape.js object
 
 var stringStyleSheet = 'node { background-color: cyan; }'
@@ -96,15 +110,17 @@ function makeLayout(n) {
       { axis: 'y', right: cy.$id(4), left: cy.$id(14), gap: 0, equality: true },
     ],
     */
+    /*
     rawConstraints: [
       {
         type: 'alignment', axis: 'y', offsets: [
-          { 'node': cy.$id(4), 'offset': '0' },
-          { 'node': cy.$id(6), 'offset': '0' },
-          { 'node': cy.$id(8), 'offset': '0' },
+          { 'node': cy.$id(4), 'offset': 0 },
+          { 'node': cy.$id(6), 'offset': 0 },
+          { 'node': cy.$id(8), 'offset': 0 },
         ]
       },
     ],
+    */
     //refresh: 0.00000001
     refresh: 1 //10
   };
@@ -119,7 +135,9 @@ function colaRun() {
   layout.run();
   */
 
-  layout = cy.layout(makeLayout());
+  const d = makeLayout();
+  //console.log(JSON.stringify(d)); //DEBUG
+  layout = cy.layout(d);
   layout.run();
 
   //cy.elements("#10,#12,#14").layout(makeLayout(0)).run();
@@ -132,6 +150,17 @@ function colaRun() {
 function getModel() {
   //cy.center(1);
   $.get('getModel', updateGraphFromJSON);
+}
+
+// Button function: advances the FARG model one timestep
+function stepButton() {
+  $.get("step", updateGraphFromJSON);
+}
+
+// Button function: clears the graph and resets the FARG model
+function resetButton() {
+  cy.elements().remove();
+  $.get("reset", updateGraphFromJSON);
 }
 
 function updateGraphFromJSON(data) {
@@ -149,14 +178,17 @@ function updateGraph(g) {
   for (const sn of g.nodes) {  // sn = node as represented on the server
     var node = cy.$id(sn.id)   // node = cytoscape.js's representation of node
     if (node.empty()) {
-      node = cy.add({group: 'nodes',
-          data: {
-            id: sn.id,
-            label: sn['display-name'],
-            parent: sn.memberOf
-          },
-          position: { x: (sn.id * 111) % 17 * 5, y: (sn.id * 119) % 17 * 5 }
-       });
+      const d = {
+        group: 'nodes',
+        data: {
+          id: sn.id,
+          label: sn['display-name'],
+          parent: sn.memberOf
+        },
+        position: { x: (sn.id * 111) % 17 * 5, y: (sn.id * 119) % 17 * 5 }
+      };
+      //console.log(JSON.stringify(d)); //DEBUG
+      node = cy.add(d);
       //cy.$id(sn.id).addClass(sn.class);
       node.addClass(sn.class);
       node.on('tap', function(e) { console.log(e.target.id()); });
@@ -170,15 +202,19 @@ function updateGraph(g) {
     );
     edge = cy.$id(sid);
     if (edge.empty()) {
-      edge = cy.add({group: 'edges',
-                     data: { id: sid,
-                             source: se.source,
-                             source_port_label: se.source_port_label,
-                             target: se.target,
-                             target_port_label: se.target_port_label,
-                             weight: Math.max(se.weight * 10, 0.5)
-                           }
-                     });
+      const d = {
+        group: 'edges',
+        data: { id: sid,
+                source: parseInt(se.source),
+                source_port_label: se.source_port_label,
+                target: parseInt(se.target),
+                target_port_label: se.target_port_label,
+                weight: Math.max(se.weight * 10, 0.5)
+              }
+      };
+      //console.log(JSON.stringify(d)); //DEBUG
+      edge = cy.add(d);
+      colaRun();
     }
   }
 }

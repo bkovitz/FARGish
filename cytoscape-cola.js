@@ -455,12 +455,17 @@ ColaLayout.prototype.run = function () {
     });
   }
 
+  // Added 3-Dec-2019 by Dave Bender and Ben Kovitz
+  // Just put the constraint objects directly into the layout, under the key
+  // 'rawConstraints'. This code will replace node objects in 'offsets' with
+  // their indices.
   if (options.rawConstraints) {
     options.rawConstraints.forEach(function (c) {
       c.offsets.forEach(function (nodeConstraint) {
         var nodeIdx = nodeConstraint.node.scratch().cola.index;
         nodeConstraint.node = nodeIdx;
       });
+      //console.log(c); // DEBUG
       constraints.push(c);
     });
   }
