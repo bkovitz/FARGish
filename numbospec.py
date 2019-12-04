@@ -4,7 +4,8 @@ from FARGSpec import FARGSpec, EdgeInfo
 
 edgeinfos = [
     EdgeInfo('taggees', 'tags'),
-    EdgeInfo('support_from', 'support_to')
+    EdgeInfo('support_from', 'support_to', clas='Support'),
+    EdgeInfo('members', 'member_of', clas='Member')
 ]
 
 spec = FARGSpec(edgeinfos)

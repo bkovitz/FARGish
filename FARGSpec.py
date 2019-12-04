@@ -4,9 +4,10 @@ from util import nice_object_repr
 
 
 class EdgeInfo:
-    def __init__(self, source_port_label, target_port_label):
+    def __init__(self, source_port_label, target_port_label, clas=None):
         self.source_port_label = source_port_label
         self.target_port_label = target_port_label
+        self.clas = clas
 
     def key(self):
         '''Returns a frozenset containing the source_port_label and
@@ -14,8 +15,11 @@ class EdgeInfo:
         return frozenset([self.source_port_label, self.target_port_label])
 
     def make_edgedict(self):
-        return {'source_port_label': self.source_port_label,
-                'target_port_label': self.target_port_label}
+        d = {'source_port_label': self.source_port_label,
+             'target_port_label': self.target_port_label}
+        if self.clas:
+            d['class'] = self.clas
+        return d
 
     __repr__ = nice_object_repr
 

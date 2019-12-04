@@ -214,6 +214,8 @@ function updateGraph(g) {
       };
       //console.log(JSON.stringify(d)); //DEBUG
       edge = cy.add(d);
+      if (se.class)
+        edge.addClass(se.class);
       colaRun();
     }
   }
@@ -279,7 +281,7 @@ window.onload = function () {
         }
       },
       {
-        selector: 'node.OperandView,node.NumericalRelationsScout,node.WantFullySourced',
+        selector: 'node.OperandView,node.NumericalRelationScout,node.WantFullySourced,node.OperandsScout',
         style: {
           'background-color': '#BAECE9'  // light unsaturated blue
         }
@@ -295,12 +297,27 @@ window.onload = function () {
       {
         selector: 'edge',
         style: {
-          'curve-style': 'unbundled-bezier',
+          'curve-style': 'bezier',
           'target-arrow-shape': 'triangle-backcurve',
           'line-color': 'black',
           'target-arrow-color': 'black',
           'width': "data(weight)"
         }
+      },
+      {
+        selector: 'edge.Support',
+        style: {
+          'display': 'none',
+          'curve-style': 'bezier',
+          'target-arrow-shape': 'triangle-backcurve',
+          'line-color': 'green',
+          'target-arrow-color': 'green',
+          'width': "data(weight)"
+        }
+      },
+      {
+        selector: 'edge.Member',
+        style: { 'display': 'none' }
       }
     ],
   });
