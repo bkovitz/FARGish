@@ -16,3 +16,12 @@
   top: 0px;
   left: 0px; */
 }
+
+p, form, label {
+  font-family: sans-serif;
+  font-size: 11pt;
+}
+
+.controls {
+  margin-left: 2em;
+}

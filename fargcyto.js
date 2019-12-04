@@ -2,6 +2,9 @@
 //
 // Goes with fargcyto.html. Works with cytoscript.js and cola.js.
 
+lightAquamarine = '#89D3AD'
+lightUnsaturatedBlue = '#BAECE9'
+
 function getCircularReplacer() {
   const seen = new WeakSet();
   return (key, value) => {
@@ -175,6 +178,8 @@ function updateGraph(g) {
   gg = g;
 
   $('#t').text(g.t);
+  $('#nodecount').text(g.nodes.length);
+  $('#edgecount').text(g.links.length);
 
   // Import nodes from server graph
   for (const sn of g.nodes) {  // sn = node as represented on the server
@@ -185,7 +190,8 @@ function updateGraph(g) {
         data: {
           id: sn.id,
           label: sn['display-name'],
-          parent: sn.memberOf
+          parent: sn.memberOf,
+          class: sn.class
         },
         position: { x: (sn.id * 111) % 17 * 5, y: (sn.id * 119) % 17 * 5 }
       };
@@ -211,7 +217,8 @@ function updateGraph(g) {
                 source_port_label: se.source_port_label,
                 target: parseInt(se.target),
                 target_port_label: se.target_port_label,
-                weight: Math.max(se.weight * 10, 0.5)
+                weight: Math.max(se.weight * 10, 0.5),
+                class: se.class
               }
       };
       //console.log(JSON.stringify(d)); //DEBUG
@@ -279,7 +286,7 @@ window.onload = function () {
         selector: 'node.Workspace',
         style: {
           'shape': 'round-rectangle',
-          'background-color': '#BDBDBD'  // light grey
+          'background-color': '#F7E387'  // light manila
         }
       },
       {
@@ -294,10 +301,16 @@ window.onload = function () {
           'background-color': '#FFFF04'  // yellow
         }
       },
-      {
-        selector: 'node.OperandView,node.NumericalRelationScout,node.WantFullySourced,node.OperandsScout',
+      { // agents
+        selector: 'node.NumericalRelationScout,node.WantFullySourced,node.OperandsScout',
         style: {
-          'background-color': '#BAECE9'  // light unsaturated blue
+          'background-color': lightUnsaturatedBlue
+        }
+      },
+      {
+        selector: 'node.OperandView',
+        style: {
+          'background-color': lightAquamarine
         }
       },
       {
@@ -337,8 +350,17 @@ window.onload = function () {
       {
         selector: 'edge.View',
         style: {
-          'line-color': 'grey',
-          'target-arrow-color': 'grey',
+          'line-color': lightAquamarine,
+          'target-arrow-color': lightAquamarine,
+          'width': 2
+        }
+      },
+      {
+        selector: 'edge.Agent',
+        style: {
+          'line-color': lightUnsaturatedBlue,
+          'target-arrow-color': lightUnsaturatedBlue,
+          'width': 2
         }
       }
     ],

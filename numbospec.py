@@ -6,7 +6,8 @@ edgeinfos = [
     EdgeInfo('taggees', 'tags'),
     EdgeInfo('support_from', 'support_to', clas='Support'),
     EdgeInfo('members', 'member_of', clas='Member'),
-    EdgeInfo('viewing', 'view', clas='View')
+    EdgeInfo('viewing', 'view', clas='View'),
+    EdgeInfo('agent_for', 'agents', clas='Agent')
 ]
 
 spec = FARGSpec(edgeinfos)
