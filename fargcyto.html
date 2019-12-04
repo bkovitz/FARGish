@@ -9,10 +9,13 @@
     <div id="cy"></div>
   </div>
   <div>
-    <input type="button" id="cola" value="cola" onClick="colaRun()" />
-    <input type="button" id="getModel" value="getModel" onClick="getModel()" />
-    <button id="step" onClick="stepButton()">t+1</button>
-    <button id="reset" onClick="resetButton()">reset</button>
+    <p>t=<span id="t">?</span></p>
+    <p>
+      <input type="button" id="cola" value="cola" onClick="colaRun()" />
+      <input type="button" id="getModel" value="getModel" onClick="getModel()" />
+      <button id="step" onClick="stepButton()">t+1</button>
+      <button id="reset" onClick="resetButton()">reset</button>
+    </p>
   </div>
   <script src="jquery.js"></script>
   <script src='cytoscape.min.js'></script>

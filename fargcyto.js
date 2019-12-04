@@ -168,11 +168,13 @@ function updateGraphFromJSON(data) {
   colaRun();
 }
 
-var gg; // We save the last graph dict from the server here so we can look at
+var gg; // We save the last dict from the server here so we can look at
         // it in the Chrome debugger.
 
 function updateGraph(g) {
   gg = g;
+
+  $('#t').text(g.t);
 
   // Import nodes from server graph
   for (const sn of g.nodes) {  // sn = node as represented on the server
@@ -191,7 +193,7 @@ function updateGraph(g) {
       node = cy.add(d);
       //cy.$id(sn.id).addClass(sn.class);
       node.addClass(sn.class);
-      node.on('tap', function(e) { console.log(e.target.id()); });
+      node.on('tap', function(e) { console.log(nodeInfo(e.target)); });
     }
   }
 
@@ -216,9 +218,20 @@ function updateGraph(g) {
       edge = cy.add(d);
       if (se.class)
         edge.addClass(se.class);
+      edge.on('tap', function(event) { console.log(edgeInfo(event.target)); });
       colaRun();
     }
   }
+}
+
+function edgeInfo(edge) {
+  return edge.id() + '\n' + JSON.stringify(edge.data()) + '\n\n' +
+         nodeInfo(edge.source()) + '\n\n' +
+         nodeInfo(edge.target());
+}
+
+function nodeInfo(node) {
+  return node.id() + '\n' + JSON.stringify(node.data());
 }
 
 function makeEdgeId(source, source_port_label, target, target_port_label) {
@@ -265,6 +278,7 @@ window.onload = function () {
       {
         selector: 'node.Workspace',
         style: {
+          'shape': 'round-rectangle',
           'background-color': '#BDBDBD'  // light grey
         }
       },
@@ -291,7 +305,8 @@ window.onload = function () {
         style: {
           'text-valign': 'top',
           'background-opacity': 0.333,
-          'border-width': 0
+          'border-width': 0,
+          'shape': 'round-rectangle'
         },
       },
       {
@@ -318,6 +333,13 @@ window.onload = function () {
       {
         selector: 'edge.Member',
         style: { 'display': 'none' }
+      },
+      {
+        selector: 'edge.View',
+        style: {
+          'line-color': 'grey',
+          'target-arrow-color': 'grey',
+        }
       }
     ],
   });

@@ -74,9 +74,12 @@ class RunnerInterface:
         elif self.subp.poll() is not None:
             print('Subprocess exited (return_code=%d)' % self.subp.poll())
             return self.start_subp()
-        elif any(self.start_time < os.path.getmtime(filename)
-                     for filename in source_filenames):
-            print('runner.py has been modified.')
+        modified = next((filename
+                           for filename in source_filenames
+                               if self.start_time < os.path.getmtime(filename)),
+                        None)
+        if modified:
+            print(modified, 'has been modified.')
             return self.start_subp()
         else:
             return True
