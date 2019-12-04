@@ -243,20 +243,45 @@ window.onload = function () {
           label: 'data(label)',
           'text-valign': 'center',
           //width: 'data(width)'
-          width: 'label'
+          width: 'label',
+          'background-color': '#E7D97F'   // manila
           //width: 40
         }
       },
       {
         selector: 'node.Brick',
         style: {
-          'background-color': 'firebrick'
+          'background-color': '#E17139'   // orange brickish
+        }
+      },
+      {
+        selector: 'node.Target',
+        style: {
+          'background-color': '#AEE983'  // light green
         }
       },
       {
         selector: 'node.Workspace',
         style: {
-          'background-color': 'yellow'
+          'background-color': '#BDBDBD'  // light grey
+        }
+      },
+      {
+        selector: 'node.Plus,node.Times',
+        style: {
+          'background-color': '#D6B1FE'  // lavender
+        }
+      },
+      {
+        selector: 'node.Avail',
+        style: {
+          'background-color': '#FFFF04'  // yellow
+        }
+      },
+      {
+        selector: 'node.OperandView,node.NumericalRelationsScout,node.WantFullySourced',
+        style: {
+          'background-color': '#BAECE9'  // light unsaturated blue
         }
       },
       {

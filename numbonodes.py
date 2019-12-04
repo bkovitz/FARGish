@@ -859,7 +859,7 @@ class NumericalRelationScout(Node, Watcher):
         return responses
 
 
-class OperandScout(Node, Watcher):
+class OperandScout(Node, Watcher):  #TODO rm? replaced by OperandsScout?
 
     def __init__(self, operator_class):
         self.operator_class = operator_class
@@ -1109,7 +1109,7 @@ class OperandsScout(Node, Watcher):
         g.add_edge(node, 'agents', self.plus, 'agent_for')
         g.add_edge(node, 'agents', self.times, 'agent_for')
         g.add_support(self.agent_for, node)
-        self.notice_everything(g, node) #TODO notice a little at a time
+        #self.notice_everything(g, node) #TODO notice a little at a time
         return node
 
     def look(self, g, this_node):
@@ -1129,7 +1129,7 @@ class OperandsScout(Node, Watcher):
                     responses.append(r)
         return responses
 
-    def notice_everything(self, g, this_node):
+    def notice_everything(self, g, this_node):   # HACK !!!!!!
         #wanted_value = g.value_of(self.agent_for)
         wv = wanted_value(g, self.agent_for)
         new_nodes = []
