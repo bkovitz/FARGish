@@ -24,6 +24,31 @@ PORT = 8081
 runner_args = ['python3', 'runner.py', '--rfifo', fifo_out, '--wfifo', fifo_in]
 commands = set(['step', 'step10', 'reset', 'getModel', 'nodeinfo'])
 
+source_filenames = [
+    'FARGSpec.py',
+    'ModelWrapper.py',
+    'PortGraph.py',
+    'View.py',
+    'demo1.py',
+    'equation.py',
+    'exc.py',
+    'expr.py',
+    'log.py',
+    'numble.py',
+    'numbo.py',
+    'numbo2.py',
+    'numbonodes.py',
+    'numbospec.py',
+    'plot.py',
+    'repl.py',
+    'runner.py',
+    'sa.py',
+    'server.py',
+    'submatch.py',
+    'support.py',
+    'util.py',
+    'watcher.py'
+]
 
 class RunnerInterface:
 
@@ -49,7 +74,8 @@ class RunnerInterface:
         elif self.subp.poll() is not None:
             print('Subprocess exited (return_code=%d)' % self.subp.poll())
             return self.start_subp()
-        elif self.start_time < os.path.getmtime('runner.py'):
+        elif any(self.start_time < os.path.getmtime(filename)
+                     for filename in source_filenames):
             print('runner.py has been modified.')
             return self.start_subp()
         else:

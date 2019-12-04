@@ -103,7 +103,6 @@ class ModelWrapper:
         return m
 
     def edgedict(self, edge):
-        print('EDGEDICT') #DEBUG
         return numbo_spec.edgedict(self.g, edge)
 
 # TODO Make this part of the model definition

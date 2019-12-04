@@ -14,11 +14,8 @@ parser.add_argument('--rfifo', dest='rfifo')
 parser.add_argument('--wfifo', dest='wfifo')
 args = parser.parse_args()
 
-print('R1')
 fin = open(args.rfifo, mode='r')
-print('R2')
 fout = open(args.wfifo, mode='w')
-print('R3')
 
 def write_fifo(s):
     s = s.strip()
