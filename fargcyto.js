@@ -74,6 +74,14 @@ var alignments2 = {
 }
 
 
+function edgeLengthFunc(edge) {
+  if (edge.data().class === 'Tag')
+    return 10;
+  else
+    return 30;
+}
+
+
 var layout;  // The current cytoscape.js layout object
 
 function makeLayout(n) {
@@ -92,6 +100,7 @@ function makeLayout(n) {
     animate: true,
     avoidOverlaps: true,
     nodeDimensionsIncludeLabels: true,
+    edgeLength: edgeLengthFunc,
     //maxSimulationTime: 8000,
     //handleDisconnected: false,
     //alignment: alignmentFunc,
