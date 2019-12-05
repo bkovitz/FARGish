@@ -1,3 +1,35 @@
+Simplest possible numble solver
+
+    Simplify (break out) do_timestep()
+
+    Avail
+
+    Consume
+
+    Failed
+
+    OperandsScout
+
+    Plus
+
+    Times
+
+    Minus
+
+
+
+Make "all nodes are the same" scout/responder.
+
+    Scout?
+
+        Draw a diagram
+
+        CoarseGrainedView
+
+    Tag
+
+
+
 Try cytoscape.js and cola.js
 
   Lay out a hard-coded graph with cola.js.  DONE
