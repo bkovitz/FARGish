@@ -244,7 +244,8 @@ class PortGraph(nx.MultiGraph):
         '''Builds a new node and sets its datum. If o is a class, we call it
         with no arguments and set the datum to the constructed object.
         Otherwise we set the datum to o. We set the salience according
-        to o.default_salience (from the object, not the class).'''
+        to o.default_salience (from the object, not the class). Returns the
+        new node's id.'''
         i = self._bump_nextid()
         if isclass(o):
             print('CLASS', o)
@@ -604,6 +605,10 @@ class PortGraph(nx.MultiGraph):
             return next(iter(self.neighbors(node, port_label)))
         except StopIteration:
             return None
+
+    def has_neighbor_at(self, node, port_label):
+        '''Does node have a neighbor linked to port_label?'''
+        return bool(self.neighbor(node, port_label))
 
     def taggees_of(self, tag, port_label='taggees'):
         return self.neighbors(tag, port_label=port_label)

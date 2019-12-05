@@ -16,6 +16,9 @@ class LoggingObject:
     def stop_logging(self):
         logging.discard(self)
 
+ShowActiveNodes = LoggingObject()
+ShowActionList = LoggingObject()
+ShowActionsChosen = LoggingObject()
 ShowResponseList = LoggingObject()
 ShowResponseResults = LoggingObject()
 ShowOperandCandidates = LoggingObject()

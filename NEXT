@@ -1,6 +1,8 @@
 Simplest possible numble solver
 
-    Simplify (break out) do_timestep()
+    Simplify (break out) do_timestep()  DONE
+
+      TimeStepper class  DONE
 
     Avail
 
@@ -16,6 +18,13 @@ Simplest possible numble solver
 
     Minus
 
+
+It would be nice to...
+
+   Print better node info for on_behalf_of etc. in an Action's repr.
+
+   Somehow put appropriate formatting or printing code into each
+   LoggingObject.
 
 
 Make "all nodes are the same" scout/responder.

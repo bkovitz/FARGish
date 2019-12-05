@@ -17,3 +17,14 @@ To run with a graphical display in a web browser:
 To stop the web server, hit Ctrl-C in the terminal window.
 
 11-Oct-2019: First running version, still with bugs and missing features.
+
+
+
+5-Dec-2019
+  Now in the middle of rewriting the do_timestep and Response code.
+  The new way has a mix-in object, TimeStepper, which will replace
+  NumboGraph.do_timestep() and its ancillary functions. Watcher is now
+  ActiveNode and Response is now Action. The new files are:
+     bases.py             ActiveNode and Action
+     TimeStepper.py
+     testTimeStepper.py   Has simple example of setting up a tiny FARG model
