@@ -8,7 +8,7 @@ import networkx as nx
 from collections import defaultdict, namedtuple, UserDict
 from inspect import isclass
 from operator import attrgetter, itemgetter
-from random import choices
+from random import choice, choices
 from io import StringIO
 
 
@@ -619,6 +619,9 @@ class PortGraph(nx.MultiGraph):
         except StopIteration:
             return None
 
+    def taggee_value(self, tag, port_label='taggees'):
+        return self.value_of(self.taggee_of(tag, port_label=port_label))
+
     def add_member_edge(self, group_node, member_node):
         self.add_edge(group_node, 'members', member_node, 'member_of')
 
@@ -801,6 +804,17 @@ class PortGraph(nx.MultiGraph):
                     return member
         return None
 
+    def look_for(self, *criteria):
+        '''Returns one node that meets criteria, or None if not found.
+        criteria are functions that take two arguments: g, nodeid, and
+        return a true value if nodeid matches the criterion.'''
+        nodes = self.nodes() # Start with all nodes (INEFFICIENT)
+        for c in criteria:
+            nodes = [n for n in nodes if c(self, n)]
+            if not nodes:
+                return False
+        return choice(nodes) # TODO choose by salience?
+
     def nodes_of_class(self, cl, nodes=None):
         #TODO UT
         result = []
@@ -867,6 +881,15 @@ class PortGraph(nx.MultiGraph):
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))
+
+    def set_done(self, done):
+        self.graph['done'] = done
+
+    def done(self):
+        try:
+            return self.graph['done']
+        except KeyError:
+            return False
 
 
 #    @classmethod

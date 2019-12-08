@@ -74,9 +74,13 @@ class TimeStepper:
                 ))
 
         for action in chosen_actions:
-            action.go(self)
+            self.do_action(action)
 
         self.update_all_support()
+
+    def do_action(self, action):
+        '''action: an Action object'''
+        action.go(self)
 
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''

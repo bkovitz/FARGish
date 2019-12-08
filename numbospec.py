@@ -2,7 +2,11 @@
 
 from FARGSpec import FARGSpec, EdgeInfo
 from PortGraph import Node, Tag, NodesWithSalience, pg, ps
+from bases import ActiveNode, Action
+from criteria import Tagged, HasValue
+from exc import NumboSuccess
 from util import nice_object_repr
+import expr
 
 from abc import ABC, abstractmethod
 
@@ -56,13 +60,53 @@ class Block(Number):
         #TODO What if there's more than one source? Or none?
         return g.expr(source)
 
-# Tag classes
+
+# Tag classes and ancillary functions
 
 class Avail(Tag):
     pass
 
 class Failed(Tag):
     pass
+
+class WantBuiltFromBricks(Tag, ActiveNode):
+    min_support_for = 1.0
+
+    def actions(self, g, thisid):
+        wantedid = g.taggee_of(thisid)
+        wanted_number = g.value_of(wantedid)
+        foundid = g.look_for(Tagged(Avail), HasValue(wanted_number))
+        if is_built_from_bricks(g, foundid):
+            responses = [HaltNumbo(NumboSuccess(g, wantedid))]
+        else:
+            #wanted_number = g.taggee_value(thisid)
+            responses = [] #TODO
+        return responses
+
+def is_built_from_bricks(g, nodeid):
+    # True iff nodeid is a Brick or all its 'source' neighbors trace all the
+    # way to Bricks.
+    if not g.has_node(nodeid):
+        return False
+    datum = g.datum(nodeid)
+    if datum.needs_source:
+        sources = g.neighbors(nodeid, port_label='source')
+        if sources:
+            return all(is_built_from_bricks(s) for s in sources)
+        else:
+            return False
+    else:
+        return True
+
+# Actions
+
+class HaltNumbo(Action):
+
+    def __init__(self, done_object):
+        self.done_object = done_object
+
+    def go(self, g):
+        g.set_done(self.done_object)
 
 # Definition of a Numbo problem, a "numble"
 
@@ -77,7 +121,7 @@ class Numble:
         '''Builds the nodes for the numble as members of the container node
         in graph g. Returns container.'''
         target_id = g.make_node(Target(self.target), container)
-        #WantFullySourced.add_tag(g, target_id)  TODO restore
+        WantBuiltFromBricks.add_tag(g, target_id)
         g.graph['target'] = target_id
         for brick in self.bricks:
             brick_id = g.make_node(Brick(brick), container)

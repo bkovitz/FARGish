@@ -4,12 +4,16 @@ Simplest possible numble solver
 
       TimeStepper class  DONE
 
-    Number
-      Brick
-      Target
+    Number  DONE
+      Brick  DONE
+      Target  DONE
       Block
 
-    Avail
+    Want
+
+    WantBuiltFromBricks
+
+    Avail  DONE
 
     Consume
 
@@ -22,6 +26,10 @@ Simplest possible numble solver
     Times
 
     Minus
+
+    test_brick_is_target  DONE
+
+    test_4_5_6_15
 
 
 It would be nice to...
