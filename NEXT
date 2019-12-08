@@ -4,6 +4,11 @@ Simplest possible numble solver
 
       TimeStepper class  DONE
 
+    Number
+      Brick
+      Target
+      Block
+
     Avail
 
     Consume

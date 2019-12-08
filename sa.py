@@ -1,8 +1,8 @@
 # sa.py -- Spreading activation
 
 import networkx as nx
-import matplotlib.pyplot as plt
-import numpy as np
+#import matplotlib.pyplot as plt
+#import numpy as np
 import statistics as stats
 
 from random import random, randint

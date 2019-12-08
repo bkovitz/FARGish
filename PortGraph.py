@@ -248,7 +248,7 @@ class PortGraph(nx.MultiGraph):
         new node's id.'''
         i = self._bump_nextid()
         if isclass(o):
-            print('CLASS', o)
+            #print('CLASS', o)
             o = o()
         self.add_node(i, **{'datum': o})
         try:

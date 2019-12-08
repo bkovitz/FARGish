@@ -17,11 +17,13 @@ class Seeker(ActiveNode):
         '''A Seeker seeks a Sought with the same .value.'''
         self.value = value
 
+    # Required: Returns list of Action objects
     def actions(self, g, thisid):
         return [MakeLink(thisid, nodeid)
                     for nodeid in g.nodes_of_class(Sought)
                         if self.am_seeking(g, nodeid)]
 
+    # Override: Tells when to stop polling this node for actions
     def dormant(self, g, thisid):
         return g.has_neighbor_at(thisid, 'found')
 
@@ -46,8 +48,8 @@ class MakeLink(Action):
         self.on_behalf_of = thisid
         self.soughtid = soughtid
 
+    # Required override: performs the action
     def go(self, g):
-        print('MAKELINK', self)
         g.add_edge(self.on_behalf_of, 'found', self.soughtid, 'seeker')
 
 
