@@ -4,8 +4,9 @@
 
 import json
 
-from numbo import NumboGraph, new_graph
-from numble import Numble
+#from numbo import NumboGraph, new_graph
+from numbo3 import new_graph, Numble
+#from numble import Numble
 from numbospec import spec as numbo_spec
 from PortGraph import long_nodestr
 

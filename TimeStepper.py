@@ -26,7 +26,7 @@ class TimeStepper:
             self.max_actions = kwargs['max_actions']
         super().__init__(*args, **kwargs)
 
-    def do_timestep(self, n=1):
+    def do_timestep(self, num=1):
         '''Executes n timesteps.
 
         On each timestep, we decay saliences, choose active nodes, generate
@@ -34,49 +34,52 @@ class TimeStepper:
         perform, execute those Actions, and update support.
         '''
 
-        self.decay_saliences()
+        for i in range(num):
+            self.graph['t'] += 1
 
-        active_nodes = self.get_active_nodes()
+            self.decay_saliences()
 
-        if (self.max_active_nodes is not None
-            and
-            len(active_nodes) > self.max_active_nodes
-        ):
-            active_nodes = self.choose_active_nodes(active_nodes)
-        if ShowActiveNodes.is_logging():
-            print('ACTIVE NODES')
-            pg(self, active_nodes)
+            active_nodes = self.get_active_nodes()
 
-        actions = self.collect_actions(active_nodes)
-        if len(actions) == 0:
-            self.consecutive_timesteps_with_no_action += 1
-            #TODO Stop or do something if idle too long
-        else:
-            self.consecutive_timesteps_with_no_action = 0
-        if ShowActionList.is_logging():
-            print('ACTIONS COLLECTED')
-            for action in sorted(actions, key=attrgetter('weight')):
-                print('  %.3f (%.3f) %s' % (
-                    action.weight,
-                    action.threshold,
-                    action
-                ))
+            if (self.max_active_nodes is not None
+                and
+                len(active_nodes) > self.max_active_nodes
+            ):
+                active_nodes = self.choose_active_nodes(active_nodes)
+            if ShowActiveNodes.is_logging():
+                print('ACTIVE NODES')
+                pg(self, active_nodes)
 
-        chosen_actions = self.choose_actions(actions)
-        if ShowActionsChosen.is_logging():
-            print('ACTIONS')
-            #TODO OAOO with above
-            for action in sorted(chosen_actions, key=attrgetter('weight')): 
-                print('  %.3f (%.3f) %s' % (
-                    action.weight,
-                    action.threshold,
-                    action
-                ))
+            actions = self.collect_actions(active_nodes)
+            if len(actions) == 0:
+                self.consecutive_timesteps_with_no_action += 1
+                #TODO Stop or do something if idle too long
+            else:
+                self.consecutive_timesteps_with_no_action = 0
+            if ShowActionList.is_logging():
+                print('ACTIONS COLLECTED')
+                for action in sorted(actions, key=attrgetter('weight')):
+                    print('  %.3f (%.3f) %s' % (
+                        action.weight,
+                        action.threshold,
+                        action
+                    ))
 
-        for action in chosen_actions:
-            self.do_action(action)
+            chosen_actions = self.choose_actions(actions)
+            if ShowActionsChosen.is_logging():
+                print('ACTIONS')
+                #TODO OAOO with above
+                for action in sorted(chosen_actions, key=attrgetter('weight')): 
+                    print('  %.3f (%.3f) %s' % (
+                        action.weight,
+                        action.threshold,
+                        action
+                    ))
 
-        self.update_all_support()
+            for action in chosen_actions:
+                self.do_action(action)
+
+            self.update_all_support()
 
     def do_action(self, action):
         '''action: an Action object'''

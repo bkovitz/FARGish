@@ -14,8 +14,15 @@ parser.add_argument('--rfifo', dest='rfifo')
 parser.add_argument('--wfifo', dest='wfifo')
 args = parser.parse_args()
 
-fin = open(args.rfifo, mode='r')
-fout = open(args.wfifo, mode='w')
+if args.rfifo is None or args.rfifo == '-':
+    fin = sys.stdin
+else:
+    fin = open(args.rfifo, mode='r')
+
+if args.wfifo is None or args.wfifo == '-':
+    fout = sys.stdout
+else:
+    fout = open(args.wfifo, mode='w')
 
 def write_fifo(s):
     s = s.strip()
@@ -60,6 +67,8 @@ while True:
         write_fifo(model_wrapper.json_status())
     elif command == 'nodeinfo':
         write_fifo(model_wrapper.nodeinfo(int(data['node'][0])))
+    elif command == 'quit' or command == 'q':
+        sys.exit(0)
     else:
         print("Unrecognized command: %s" % line, file=sys.stderr, flush=True)
         write_fifo('')
