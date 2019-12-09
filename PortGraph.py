@@ -212,6 +212,8 @@ class NodesWithSalience:
         return len(self.nodes)
 
     def __repr__(self):
+        if not self.nodes:
+            return 'NodesWithSalience()'
         fmt = '  %%%ds  %%.3f' % max(len(str(node)) for node in self.nodes)
         return 'NodesWithSalience(\n%s\n)' % '\n'.join(
             (fmt % tup)

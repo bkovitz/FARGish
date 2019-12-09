@@ -248,10 +248,13 @@ def is_built_from_bricks(g, nodeid):
 class OperandsScout(ActiveNode):
 
     def actions(self, g, thisid):
-        # choose 2 Avail Numbers
-        # choose a random Operator
-        # make a BuildNewOperation
-        return []  #TODO
+        '''Chooses two Avail numbers and makes a BuildNewOperation using them
+        as operands if possible.'''
+        operandids = NodesWithSalience(g, g.nodes_with_tag(Avail))
+        if len(operandids) < 2:
+            return []
+        else:
+            return [BuildNewOperation.make(g, operandids.choose(k=2))]
         
 
 # Actions
@@ -320,6 +323,7 @@ class BuildNewOperation(Action):
         arithmetic operation on the operandids, linking them to a new
         Operator, whose class is chosen randomly, which links to a result
         Block. Otherwise returns None.'''
+        operandids = list(operandids)
         consumers = intersection(
             *[g.neighbors(o, port_label='consumer') for o in operandids]
         )
