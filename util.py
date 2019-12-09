@@ -107,3 +107,12 @@ def read_to_blank_line(f):
             break
         result += l
     return result
+
+def intersection(*sets):
+    '''Returns a set, which is the intersection of sets. The sets may be
+    any iterable, not just 'set' objects.'''
+    sets = [set(s) for s in sets]
+    if sets:
+        return sets[0].intersection(*sets[1:])
+    else:
+        return set()

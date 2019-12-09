@@ -5,10 +5,11 @@ from PortGraph import Node, Tag, NodesWithSalience, pg, ps
 from bases import ActiveNode, Action
 from criteria import Tagged, HasValue
 from exc import NumboSuccess
-from util import nice_object_repr
+from util import nice_object_repr, intersection
 import expr
 
 from abc import ABC, abstractmethod
+from random import choice
 
 edgeinfos = [
     EdgeInfo('taggees', 'tags', clas='Tag'),
@@ -20,7 +21,7 @@ edgeinfos = [
 
 spec = FARGSpec(edgeinfos)
 
-# Non-tag node classes
+# Node classes other than tags and scouts
 
 class Workspace(Node):
     min_support_for = 0.01  # Prevents node from being removed
@@ -60,6 +61,143 @@ class Block(Number):
         #TODO What if there's more than one source? Or none?
         return g.expr(source)
 
+class Operator(Node, ABC):
+
+    needs_source = True
+
+    def symbol(self):
+        return '?'
+
+    @abstractmethod
+    def result_value(self, g, node, operands=None):
+        pass
+
+    @classmethod
+    def failed_with_these_operands(cls, g, operands):
+        former_consumerss = []
+        for operand in operands:
+            former_consumerss.append(
+                set(neighbor for neighbor in g.neighbors(
+                                 operand, 'former_consumer'
+                             )
+                                 if g.is_of_class(neighbor, cls)
+                )
+            )
+        print('SET', former_consumerss, set.intersection(*former_consumerss))
+        return len(set.intersection(*former_consumerss)) > 0
+
+    def operands(self, g, node):
+        return list(g.neighbors(node, 'source'))
+
+    def operand_exprs(self, g, node):
+        return [
+            g.expr(operand)
+                for operand in self.operands(g, node)
+        ]
+
+    def expr(self, g, node):
+        return self.expr_class(*self.operand_exprs(g, node))
+
+    def fail(self, g, node):
+        TagWith(Failed, taggee=node).go(g) #TODO add_tag
+        g.remove_tag(node, Avail)
+        for source in g.neighbors(node, 'source'):
+            g.remove_edge(node, 'source', source, 'consumer')
+            g.add_edge(node, 'former_source', source, 'former_consumer')
+            g.cascade_fail(source)
+
+    cascade_fail = fail
+
+    #TODO rm
+    def expr_str(self, g, node):
+        sources = g.neighbors(node, 'source')
+        sep = ' ' + self.symbol() + ' '
+        return sep.join(g.datum(source).expr_str(g, source)
+                           for source in sources)
+
+class Plus (Operator):
+
+    expr_class = expr.Plus
+
+    @classmethod
+    def calculate(cls, operands):
+        return sum(operands)
+
+    def symbol(self):
+        return '+'
+
+    def result_value(self, g, node, operands=None):
+        #TODO OAOO
+        operands = list(g.neighbors(node, 'source'))
+        if operands:
+            #TODO OAOO calculate
+            return sum(g.value_of(operand) for operand in operands)
+        else:
+            return None
+
+    def update_support(self, g, this_node):
+        for could_make in g.neighbors(this_node, port_label='could_make'):
+            if any(
+                g.value_of(o) == 0
+                    for o in g.neighbors(could_make, port_label='operands')
+            ):
+                g.oppose(this_node, could_make)
+            else:
+                g.add_support(this_node, could_make)
+
+class Minus (Operator):
+
+    expr_class = expr.Minus
+
+    def symbol(self):
+        return '-'
+
+class Times (Operator):
+
+    expr_class = expr.Times
+
+    @classmethod
+    def calculate(cls, operands):
+        v = 1
+        for operand in operands:
+            v *= operand
+        return v
+
+    def symbol(self):
+        return '*'
+
+    def result_value(self, g, node):
+        operands = list(g.neighbors(node, 'source'))
+        if operands:
+            #TODO OAOO calculate
+            v = 1
+            for operand in operands:
+                v *= g.value_of(operand)
+            return v
+        else:
+            return None
+
+    def update_support(self, g, this_node):
+        for could_make in g.neighbors(this_node, port_label='could_make'):
+            if any(
+                g.value_of(o) == 1
+                    for o in g.neighbors(could_make, port_label='operands')
+            ):
+                g.oppose(this_node, could_make)
+            else:
+                g.add_support(this_node, could_make)
+
+class Div (Operator):
+
+    expr_class = expr.Div
+
+    def symbol(self):
+        return '/'
+        
+Operator.operator_classes = {'+': Plus, '-': Minus, '*': Times, '/': Div}
+all_operator_classes = frozenset([Plus, Times])
+    #TODO Minus: need to represent the order of
+    #the operands in the graph.
 
 # Tag classes and ancillary functions
 
@@ -79,8 +217,15 @@ class WantBuiltFromBricks(Tag, ActiveNode):
         if is_built_from_bricks(g, foundid):
             responses = [HaltNumbo(NumboSuccess(g, wantedid))]
         else:
+            # Make an OperandsScout if we don't already have one?
+            # How do we tell when there are no more Avail operands, and
+            # what do we do then?
             #wanted_number = g.taggee_value(thisid)
-            responses = [] #TODO
+            responses = [
+                Build.maybe_make(
+                    g, thisid, 'agents', OperandsScout, 'agent_for'
+                )
+            ]
         return responses
 
 def is_built_from_bricks(g, nodeid):
@@ -98,6 +243,17 @@ def is_built_from_bricks(g, nodeid):
     else:
         return True
 
+# Scout classes
+
+class OperandsScout(ActiveNode):
+
+    def actions(self, g, thisid):
+        # choose 2 Avail Numbers
+        # choose a random Operator
+        # make a BuildNewOperation
+        return []  #TODO
+        
+
 # Actions
 
 class HaltNumbo(Action):
@@ -107,6 +263,91 @@ class HaltNumbo(Action):
 
     def go(self, g):
         g.set_done(self.done_object)
+
+class Build(Action):
+
+    @classmethod
+    def maybe_make(
+        cls, g, nodeid, from_port_label, new_node_class, to_port_label
+    ):
+        '''Returns a Build action to make a link a node of new_node_class
+        to nodeid via the given ports if such a node does not already
+        exist. Otherwise returns None.'''
+        if cls.is_already_built(
+            g, nodeid, from_port_label, new_node_class, to_port_label
+        ):
+            return None
+        else:
+            return Build(nodeid, from_port_label, new_node_class, to_port_label)
+
+    @classmethod
+    def is_already_built(
+        cls, g, nodeid, from_port_label, new_node_class, to_port_label
+    ):
+        return any(
+            g.is_of_class(n, new_node_class)
+                for n in g.neighbors(nodeid, from_port_label)
+        )
+
+    def __init__(self, nodeid, from_port_label, new_node_class, to_port_label):
+        self.nodeid = nodeid
+        self.from_port_label = from_port_label
+        self.new_node_class = new_node_class
+        self.to_port_label = to_port_label
+
+    def go(self, g):
+        if not self.is_already_built(
+            g,
+            self.nodeid,
+            self.from_port_label,
+            self.new_node_class,
+            self.to_port_label
+        ):
+            new_node = g.make_node(self.new_node_class)
+            g.add_edge(
+                self.nodeid,
+                self.from_port_label,
+                new_node,
+                self.to_port_label
+            )
+
+class BuildNewOperation(Action):
+
+    @classmethod
+    def make(cls, g, operandids):
+        '''If any Operators remain that haven't been tried on the operandids
+        (node ids), returns a BuildNewOperation Action to build a full
+        arithmetic operation on the operandids, linking them to a new
+        Operator, whose class is chosen randomly, which links to a result
+        Block. Otherwise returns None.'''
+        consumers = intersection(
+            *[g.neighbors(o, port_label='consumer') for o in operandids]
+        )
+        consumer_classes = set([g.class_of(c) for c in consumers])
+        untried_classes = all_operator_classes.difference(consumer_classes)
+        print('MAKE', consumers, consumer_classes, untried_classes)
+        if untried_classes:
+            return BuildNewOperation(operandids, choice(list(untried_classes)))
+        else:
+            return None
+
+    def __init__(self, operandids, operator_class):
+        self.operandids = operandids
+        self.operator_class = operator_class
+
+    def go(self, g):
+        # If operandids not already linked to a common self.operator_class,
+        # build operator, result, and links.
+        #TODO Check if operator is already built and linked
+        operatorid = g.make_node(self.operator_class)
+        for operandid in self.operandids:
+            g.add_edge(operatorid, 'source', operandid, 'consumer')
+        result_value = self.operator_class.calculate(
+            [g.value_of(o) for o in self.operandids]
+        )
+        resultid = g.make_node(Block(result_value))
+        g.add_edge(resultid, 'source', operatorid, 'consumer')
+
 
 # Definition of a Numbo problem, a "numble"
 
