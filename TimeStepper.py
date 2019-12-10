@@ -24,6 +24,8 @@ class TimeStepper:
             self.max_active_nodes = kwargs['max_active_nodes']
         if 'max_actions' in kwargs:
             self.max_actions = kwargs['max_actions']
+        if 't' not in kwargs:
+            kwargs['t'] = 0
         super().__init__(*args, **kwargs)
 
     def do_timestep(self, num=1):

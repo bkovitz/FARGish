@@ -248,13 +248,13 @@ def is_built_from_bricks(g, nodeid):
 class OperandsScout(ActiveNode):
 
     def actions(self, g, thisid):
-        '''Chooses two Avail numbers and makes a BuildNewOperation using them
+        '''Chooses two Avail numbers and makes a ConsumeOperands using them
         as operands if possible.'''
         operandids = NodesWithSalience(g, g.nodes_with_tag(Avail))
         if len(operandids) < 2:
             return []
         else:
-            return [BuildNewOperation.make(g, operandids.choose(k=2))]
+            return [ConsumeOperands.make(g, operandids.choose(k=2))]
         
 
 # Actions
@@ -314,12 +314,12 @@ class Build(Action):
                 self.to_port_label
             )
 
-class BuildNewOperation(Action):
+class ConsumeOperands(Action):
 
     @classmethod
     def make(cls, g, operandids):
         '''If any Operators remain that haven't been tried on the operandids
-        (node ids), returns a BuildNewOperation Action to build a full
+        (node ids), returns a ConsumeOperands Action to build a full
         arithmetic operation on the operandids, linking them to a new
         Operator, whose class is chosen randomly, which links to a result
         Block. Otherwise returns None.'''
@@ -331,7 +331,7 @@ class BuildNewOperation(Action):
         untried_classes = all_operator_classes.difference(consumer_classes)
         print('MAKE', consumers, consumer_classes, untried_classes)
         if untried_classes:
-            return BuildNewOperation(operandids, choice(list(untried_classes)))
+            return ConsumeOperands(operandids, choice(list(untried_classes)))
         else:
             return None
 
