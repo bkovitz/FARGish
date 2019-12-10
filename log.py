@@ -28,6 +28,9 @@ def start_logging(os):
     for o in as_iter(os):
         logging.add(o)
 
+def stop_all_logging():
+    logging.clear()
+
 #OAOO Should this or LoggingObject.is_logging() be authoritative?
 def is_logging(os):
     return any(o in logging for o in as_iter(os))

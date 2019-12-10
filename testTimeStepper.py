@@ -7,7 +7,10 @@ import unittest
 from TimeStepper import TimeStepper
 from PortGraph import PortGraph, Node, pg
 from bases import ActiveNode, Action
-from log import ShowActiveNodes, ShowActionList, ShowActionsChosen
+from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
+        stop_all_logging
+
+stop_all_logging()
 
 # Node definitions for TestGraph
 

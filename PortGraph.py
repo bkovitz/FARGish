@@ -1,7 +1,8 @@
 # PortGraph.py -- PortGraph class
 
 from watcher import Watcher, Response
-from util import nice_object_repr, as_iter, is_iter, sample_without_replacement
+from util import nice_object_repr, as_iter, is_iter, reseed, \
+        sample_without_replacement
 
 import networkx as nx
 
@@ -230,6 +231,8 @@ class PortGraph(nx.MultiGraph):
     default_salience = 0.01
 
     def __init__(self, *args, **kwargs):
+        kws = kwargs.copy()
+        kws['seed'] = reseed(kws.get('seed', None))
         super().__init__(*args, **kwargs)
         self.nextid = 1
         self.during_touch = False

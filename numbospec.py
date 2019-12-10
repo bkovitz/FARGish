@@ -207,6 +207,9 @@ class Avail(Tag):
 class Failed(Tag):
     pass
 
+class Consumed(Tag):
+    pass
+
 class WantBuiltFromBricks(Tag, ActiveNode):
     min_support_for = 1.0
 
@@ -343,6 +346,8 @@ class ConsumeOperands(Action):
         # If operandids not already linked to a common self.operator_class,
         # build operator, result, and links.
         #TODO Check if operator is already built and linked
+        if self.is_already_consumed(g):
+            return
         operatorid = g.make_node(self.operator_class)
         for operandid in self.operandids:
             g.add_edge(operatorid, 'source', operandid, 'consumer')
@@ -351,6 +356,18 @@ class ConsumeOperands(Action):
         )
         resultid = g.make_node(Block(result_value))
         g.add_edge(resultid, 'source', operatorid, 'consumer')
+        for operatorid in self.operandids:
+            g.add_tag(Consumed, operatorid)
+            g.remove_tag(operatorid, Avail)
+        g.add_tag(Avail, resultid)
+
+    def is_already_consumed(self, g):
+        consumers = intersection(
+            *[g.neighbors(o, port_label='consumer') for o in self.operandids]
+        )
+        consumer_classes = set([g.class_of(c) for c in consumers])
+        return self.operator_class in consumer_classes
+
 
 
 # Definition of a Numbo problem, a "numble"
