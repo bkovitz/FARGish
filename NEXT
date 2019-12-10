@@ -15,9 +15,11 @@ Simplest possible numble solver
 
     Avail  DONE
 
-    Consume
+    ConsumeOperands
 
-    Failed
+    backtracking
+
+        Failed
 
     OperandsScout
 
@@ -30,6 +32,11 @@ Simplest possible numble solver
     test_brick_is_target  DONE
 
     test_4_5_6_15
+
+
+GUI
+
+    Put Tags, Operators, and Blocks into Workspace.
 
 
 It would be nice to...
