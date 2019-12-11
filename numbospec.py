@@ -17,7 +17,8 @@ edgeinfos = [
     EdgeInfo('support_from', 'support_to', clas='Support'),
     EdgeInfo('members', 'member_of', clas='Member'),
     EdgeInfo('viewing', 'view', clas='View'),
-    EdgeInfo('agent_for', 'agents', clas='Agent')
+    EdgeInfo('agent', 'agent_for', clas='Agent'),
+    EdgeInfo('consumer', 'source', clas='Source'),
 ]
 
 spec = FARGSpec(edgeinfos)

@@ -15,7 +15,8 @@ class ModelWrapper:
     def __init__(self):
         self.g = None
         #TODO rm Numbo-specific code
-        self.numble = Numble([120, 1, 2, 3, 4, 5], 121)
+        #self.numble = Numble([120, 1, 2, 3, 4, 5], 121)
+        self.numble = Numble([4, 5, 6], 15)
 
     def step(self, num=1):
         if self.g is None:

@@ -2,8 +2,9 @@
 //
 // Goes with fargcyto.html. Works with cytoscript.js and cola.js.
 
-lightAquamarine = '#89D3AD'
-lightUnsaturatedBlue = '#BAECE9'
+const lightAquamarine = '#89D3AD';
+const lightUnsaturatedBlue = '#BAECE9';
+const lavender = '#D6B1FE';
 
 function getCircularReplacer() {
   const seen = new WeakSet();
@@ -190,6 +191,9 @@ function updateGraph(g) {
   $('#nodecount').text(g.nodes.length);
   $('#edgecount').text(g.links.length);
 
+  var allPrev = cy.elements();  // all elements previously in the graph
+  var elesFromJSON = cy.collection();
+
   // Import nodes from server graph
   for (const sn of g.nodes) {  // sn = node as represented on the server
     var node = cy.$id(sn.id)   // node = cytoscape.js's representation of node
@@ -210,6 +214,7 @@ function updateGraph(g) {
       node.addClass(sn.class);
       node.on('tap', function(e) { console.log(nodeInfo(e.target)); });
     }
+    elesFromJSON = elesFromJSON.union(node)
   }
 
   // Import edges from server graph
@@ -235,9 +240,13 @@ function updateGraph(g) {
       if (se.class)
         edge.addClass(se.class);
       edge.on('tap', function(event) { console.log(edgeInfo(event.target)); });
-      colaRun();
+      //colaRun();
     }
+    elesFromJSON = elesFromJSON.union(edge);
   }
+
+  // remove all elements not mentioned in the JSON
+  allPrev.difference(elesFromJSON).remove();
 }
 
 function edgeInfo(edge) {
@@ -286,6 +295,12 @@ window.onload = function () {
         }
       },
       {
+        selector: 'node.Block',
+        style: {
+          'background-color': '#f2a41d'   // brighter, oranger brick
+        }
+      },
+      {
         selector: 'node.Target',
         style: {
           'background-color': '#AEE983'  // light green
@@ -301,7 +316,7 @@ window.onload = function () {
       {
         selector: 'node.Plus,node.Times',
         style: {
-          'background-color': '#D6B1FE'  // lavender
+          'background-color': lavender
         }
       },
       {
@@ -369,6 +384,14 @@ window.onload = function () {
         style: {
           'line-color': lightUnsaturatedBlue,
           'target-arrow-color': lightUnsaturatedBlue,
+          'width': 2
+        }
+      },
+      {
+        selector: 'edge.Source',
+        style: {
+          'line-color': lavender,
+          'target-arrow-color': lavender,
           'width': 2
         }
       }
