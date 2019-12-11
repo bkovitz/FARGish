@@ -257,8 +257,13 @@ class OperandsScout(ActiveNode):
         as operands if possible.'''
         operandids = NodesWithSalience(g, g.nodes_with_tag(Avail))
         if len(operandids) >= 2:
-            actions = [ConsumeOperands.make(g, operandids.choose(k=2))]
-            # NEXT if can't make ConsumeOperands, keep choosing
+            for i in range(8):
+                actions = [ConsumeOperands.make(g, operandids.choose(k=2))]
+                print('ACTIONS', actions)
+                if actions:
+                    break
+            else:
+                actions = []  # TODO GiveUp or figure out what's wrong
         elif len(operandids) == 1:
             actions = [FailResult(operandids.choose1())]
         else:
