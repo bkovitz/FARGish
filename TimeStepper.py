@@ -8,7 +8,7 @@ from operator import attrgetter
 from PortGraph import pg
 from bases import ActiveNode
 from util import sample_without_replacement
-from log import ShowActiveNodes, ShowActionList, ShowActionsChosen
+from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
 
 
 class TimeStepper:
@@ -88,7 +88,7 @@ class TimeStepper:
 
             d = self.done()
             if d:
-                print(d)
+                ShowResults(d)
                 break
 
     def do_action(self, action):

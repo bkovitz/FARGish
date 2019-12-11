@@ -1,7 +1,7 @@
 PY = python3.7
 
 ut:
-	$(PY) -m unittest
+	$(PY) -m unittest -v
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

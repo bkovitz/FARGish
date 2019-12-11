@@ -1,4 +1,9 @@
+Debug: Why isn't reseeding with the same seed producing the same results?
+
+
 Simplest possible numble solver
+
+    Debug by showing testNumbospec in the browser
 
     Simplify (break out) do_timestep()  DONE
 

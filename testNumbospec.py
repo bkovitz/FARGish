@@ -6,8 +6,10 @@ from numbospec import *
 from PortGraph import PortGraph, pg, pn, pt
 from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
-from log import ShowActiveNodes, ShowActionList, ShowActionsChosen
+from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
+        stop_all_logging
 
+stop_all_logging()
 
 class TestGraph(TimeStepper, ExprAsEquation, PortGraph):
     def __init__(self, numble, **kwargs):
@@ -23,15 +25,14 @@ class TestNumbospec(unittest.TestCase):
         self.assertFalse(g.done())
         g.do_timestep()
         self.assertTrue(g.done())
+        #TODO Assert success
 
     def test_4_5_6_15(self):
-        pass
-
-
-ShowActiveNodes.start_logging()
-ShowActionList.start_logging()
-ShowActionsChosen.start_logging()
-g = TestGraph(Numble([4, 5, 6], 15), seed=4775339968402449257)
-g.do_timestep()
-g.do_timestep()
-pg(g)
+        #ShowActiveNodes.start_logging()
+        #ShowActionList.start_logging()
+        ShowActionsChosen.start_logging()
+        g = TestGraph(Numble([4, 5, 6], 15), seed=4775339968402449257)
+        g.do_timestep(num=20)
+        pg(g)
+        self.assertTrue(g.done())
+        #TODO Assert success

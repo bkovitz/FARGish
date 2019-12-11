@@ -9,8 +9,14 @@ class ExprAsEquation:
         '''Returns an expr.Equation representing the expression whose ultimate
         'consumer' is target.'''
         source = self.neighbor(target, port_label='source')
-        #TODO What if there's more than one source? Or none?
-        return expr.Equation(self.expr(source), self.expr(target))
+        if source:
+            source_expr = self.expr(source)
+        else:
+            source_expr = expr.Number(self.value_of(target))
+        return expr.Equation(
+            source_expr,
+            expr.Number(self.value_of(target))
+        )
 
     def expr(self, node):
         if node is None:

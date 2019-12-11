@@ -355,7 +355,7 @@ class ConsumeOperands(Action):
         )
         consumer_classes = set([g.class_of(c) for c in consumers])
         untried_classes = all_operator_classes.difference(consumer_classes)
-        print('MAKE', consumers, consumer_classes, untried_classes)
+        #print('MAKE', consumers, consumer_classes, untried_classes)
         if untried_classes:
             return ConsumeOperands(operandids, choice(list(untried_classes)))
         else:

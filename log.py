@@ -7,6 +7,10 @@ logging = set()
 
 class LoggingObject:
 
+    def __call__(self, s):
+        if self in logging:
+            print(s)
+
     def start_logging(self):
         logging.add(self)
 
@@ -22,7 +26,9 @@ ShowActionsChosen = LoggingObject()
 ShowResponseList = LoggingObject()
 ShowResponseResults = LoggingObject()
 ShowOperandCandidates = LoggingObject()
+ShowResults = LoggingObject()
 
+logging.add(ShowResults)
 
 def start_logging(os):
     for o in as_iter(os):
