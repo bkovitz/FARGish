@@ -111,7 +111,10 @@ def read_to_blank_line(f):
 def intersection(*sets):
     '''Returns a set, which is the intersection of sets. The sets may be
     any iterable, not just 'set' objects.'''
-    sets = [set(s) for s in sets]
+    sets = [
+        s if isinstance(s, set) else set(s)
+            for s in sets
+    ]
     if sets:
         return sets[0].intersection(*sets[1:])
     else:

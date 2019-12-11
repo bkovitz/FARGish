@@ -258,6 +258,7 @@ class OperandsScout(ActiveNode):
         operandids = NodesWithSalience(g, g.nodes_with_tag(Avail))
         if len(operandids) >= 2:
             actions = [ConsumeOperands.make(g, operandids.choose(k=2))]
+            # NEXT if can't make ConsumeOperands, keep choosing
         elif len(operandids) == 1:
             actions = [FailResult(operandids.choose1())]
         else:
@@ -333,7 +334,10 @@ class Build(Action):
             self.new_node_class,
             self.to_port_label
         ):
-            new_node = g.make_node(self.new_node_class)
+            new_node = g.make_node(
+                self.new_node_class,
+                g.member_of(self.nodeid)
+            )
             g.add_edge(
                 self.nodeid,
                 self.from_port_label,
@@ -372,13 +376,14 @@ class ConsumeOperands(Action):
         #TODO Check if operator is already built and linked
         if self.is_already_consumed(g):
             return
-        operatorid = g.make_node(self.operator_class)
+        container = g.common_container(self.operandids)
+        operatorid = g.make_node(self.operator_class, container=container)
         for operandid in self.operandids:
             g.add_edge(operatorid, 'source', operandid, 'consumer')
         result_value = self.operator_class.calculate(
             [g.value_of(o) for o in self.operandids]
         )
-        resultid = g.make_node(Block(result_value))
+        resultid = g.make_node(Block(result_value), container)
         g.add_edge(resultid, 'source', operatorid, 'consumer')
         for operatorid in self.operandids:
             g.add_tag(Consumed, operatorid)

@@ -2,7 +2,7 @@
 
 from watcher import Watcher, Response
 from util import nice_object_repr, as_iter, is_iter, reseed, \
-        sample_without_replacement
+        sample_without_replacement, intersection
 
 import networkx as nx
 
@@ -59,11 +59,16 @@ class Tag(Node):
     @classmethod
     def add_tag(cls, g, taggees):
         '''Builds an instance of the tag in g and attaches it to taggee at
-        the appropriate ports. Returns tag_id. taggees can be a single
+        the appropriate ports. Tag is a member of all of the taggees'
+        containers. Returns tag_id. taggees can be a single
         node id or an iterable of node ids.'''
         #TODO More general way to specify taggees; maybe a dict.
         #TODO Don't build the tag if the taggees already have this tag.
-        tag = g.make_node(cls)
+        taggees = list(as_iter(taggees))
+        taggee_containers = intersection(
+            *[g.member_of(ee) for ee in as_iter(taggees)]
+        )
+        tag = g.make_node(cls, container=taggee_containers)
         for taggee in as_iter(taggees):
             g.add_edge(tag, cls.tag_port_label, taggee, cls.taggee_port_label,
                        mutual_support=cls.mutual_support)
@@ -523,7 +528,10 @@ class PortGraph(nx.MultiGraph):
         #opposition, reciprocal support).
         if isclass(tag_or_tagclass) or isinstance(tag_or_tagclass, Node):
             # Make the tag node
-            tag = self.make_node(tag_or_tagclass)
+            tag = self.make_node(
+                tag_or_tagclass,
+                container=self.common_container(node_or_nodes)
+            )
         else:
             # We'll link from an existing tag node
             tag = tag_or_tagclass
@@ -648,8 +656,8 @@ class PortGraph(nx.MultiGraph):
     def members_to_subgraph(self, group_node):
         return self.subgraph(self.members_of(group_node))
 
-    def member_of(self, group_node):
-        return self.neighbors(group_node, port_label='member_of')
+    def member_of(self, node):
+        return self.neighbors(node, port_label='member_of')
 
     def container_of(self, node):
         '''Like member_of, but returns member_of node's taggees if node is a
@@ -660,6 +668,18 @@ class PortGraph(nx.MultiGraph):
             for taggee in self.taggees_of(node):
                 ms.update(self.member_of(taggee))
         return ms
+
+    def common_container(self, node_or_nodes):
+        '''Returns the one container that all of node_or_nodes are a member_of,
+        or None if they lack a single common container or have more than one
+        common container.'''
+        containers = intersection(
+            *(self.member_of(n) for n in as_iter(node_or_nodes))
+        )
+        if len(containers) == 1:
+            return list(containers)[0]
+        else:
+            return None
 
     #TODO UT
     def members_recursive(self, group_node):

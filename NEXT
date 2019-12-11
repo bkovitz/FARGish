@@ -1,5 +1,7 @@
 Debug: Why isn't reseeding with the same seed producing the same results?
 
+    Now it seems to work. I don't know why.
+
 
 Simplest possible numble solver
 
@@ -16,21 +18,21 @@ Simplest possible numble solver
 
     Want
 
-    WantBuiltFromBricks
+    WantBuiltFromBricks  DONE
 
     Avail  DONE
 
-    ConsumeOperands
+    ConsumeOperands  DONE
 
-    backtracking
+    backtracking  DONE
 
-        Failed
+        Failed  DONE
 
-    OperandsScout
+    OperandsScout  DONE
 
-    Plus
+    Plus  DONE
 
-    Times
+    Times  DONE
 
     Minus
 
@@ -41,7 +43,15 @@ Simplest possible numble solver
 
 GUI
 
-    Put Tags, Operators, and Blocks into Workspace.
+    Put OperandsScouts, Tags, Operators, and Blocks into Workspace.  DONE
+
+    Why is OperandsScout getting stuck at 4, 5*6=30 ?
+
+    Show seed in browser
+
+    Deëmphasize inactive edges and/or Failed nodes
+
+    Set initial position of new nodes near their neighbors
 
 
 It would be nice to...
