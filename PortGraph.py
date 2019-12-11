@@ -205,9 +205,20 @@ class NodesWithSalience:
             self.weights.append(salience)
 
     def choose(self, k=1):
+        '''Returns a generator of k nodes chosen randomly, weighted by
+        salience.'''
         return sample_without_replacement(
             self.nodes, k=k, weights=self.weights
         )
+
+    def choose1(self):
+        '''Returns a randomly chosen node, or None if there are no nodes
+        in the NodesWithSalience.'''
+        lis = list(self.choose(k=1))
+        if lis:
+            return lis[0]
+        else:
+            None
 
     def __len__(self):
         return len(self.nodes)
@@ -233,7 +244,7 @@ class PortGraph(nx.MultiGraph):
     def __init__(self, *args, **kwargs):
         kws = kwargs.copy()
         kws['seed'] = reseed(kws.get('seed', None))
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, **kws)
         self.nextid = 1
         self.during_touch = False
         self.touched_nodes = set()
@@ -384,9 +395,10 @@ class PortGraph(nx.MultiGraph):
             self.touch(node1)
             self.touch(node2)
 
-    def remove_node(self, node):
-        self._remove_all_hops_to(node)
-        super().remove_node(node)
+    def remove_node(self, node_or_nodes):
+        for node in as_iter(node_or_nodes):
+            self._remove_all_hops_to(node)
+            super().remove_node(node)
 
     def remove_nodes_from(self, nodes):
         nodes = list(nodes) # We iterate over nodes twice.
@@ -886,15 +898,6 @@ class PortGraph(nx.MultiGraph):
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))
-
-    def set_done(self, done):
-        self.graph['done'] = done
-
-    def done(self):
-        try:
-            return self.graph['done']
-        except KeyError:
-            return False
 
 
 #    @classmethod

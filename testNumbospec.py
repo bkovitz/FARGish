@@ -10,8 +10,8 @@ from log import ShowActiveNodes, ShowActionList, ShowActionsChosen
 
 
 class TestGraph(TimeStepper, ExprAsEquation, PortGraph):
-    def __init__(self, numble):
-        super().__init__()
+    def __init__(self, numble, **kwargs):
+        super().__init__(**kwargs)
         self.graph['numble'] = numble
         self.ws = self.make_node(Workspace)
         numble.build(self, self.ws)
@@ -31,7 +31,7 @@ class TestNumbospec(unittest.TestCase):
 ShowActiveNodes.start_logging()
 ShowActionList.start_logging()
 ShowActionsChosen.start_logging()
-g = TestGraph(Numble([4, 5, 6], 15))
+g = TestGraph(Numble([4, 5, 6], 15), seed=4775339968402449257)
 g.do_timestep()
 g.do_timestep()
 pg(g)

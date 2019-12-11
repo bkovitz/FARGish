@@ -5,11 +5,12 @@ from PortGraph import Node, Tag, NodesWithSalience, pg, ps
 from bases import ActiveNode, Action
 from criteria import Tagged, HasValue
 from exc import NumboSuccess
-from util import nice_object_repr, intersection
+from util import as_iter, nice_object_repr, intersection
 import expr
 
 from abc import ABC, abstractmethod
 from random import choice
+from itertools import chain
 
 edgeinfos = [
     EdgeInfo('taggees', 'tags', clas='Tag'),
@@ -218,7 +219,7 @@ class WantBuiltFromBricks(Tag, ActiveNode):
         wanted_number = g.value_of(wantedid)
         foundid = g.look_for(Tagged(Avail), HasValue(wanted_number))
         if is_built_from_bricks(g, foundid):
-            responses = [HaltNumbo(NumboSuccess(g, wantedid))]
+            responses = [HaltNumbo(NumboSuccess(g, foundid))]
         else:
             # Make an OperandsScout if we don't already have one?
             # How do we tell when there are no more Avail operands, and
@@ -240,7 +241,7 @@ def is_built_from_bricks(g, nodeid):
     if datum.needs_source:
         sources = g.neighbors(nodeid, port_label='source')
         if sources:
-            return all(is_built_from_bricks(s) for s in sources)
+            return all(is_built_from_bricks(g, s) for s in sources)
         else:
             return False
     else:
@@ -254,10 +255,13 @@ class OperandsScout(ActiveNode):
         '''Chooses two Avail numbers and makes a ConsumeOperands using them
         as operands if possible.'''
         operandids = NodesWithSalience(g, g.nodes_with_tag(Avail))
-        if len(operandids) < 2:
-            return []
+        if len(operandids) >= 2:
+            actions = [ConsumeOperands.make(g, operandids.choose(k=2))]
+        elif len(operandids) == 1:
+            actions = [FailResult(operandids.choose1())]
         else:
-            return [ConsumeOperands.make(g, operandids.choose(k=2))]
+            actions = []  # TODO GiveUp
+        return [ActionSequence(a, Apoptosis(thisid)) for a in actions]
         
 
 # Actions
@@ -270,6 +274,25 @@ class HaltNumbo(Action):
     def go(self, g):
         g.set_done(self.done_object)
 
+class ActionSequence(Action):
+
+    def __init__(self, *actions):
+        '''Each action can be an Action or an iterable of Actions.'''
+        self.actions = actions
+
+    def go(self, g):
+        for action_or_actions in self.actions:
+            for action in as_iter(action_or_actions):
+                action.go(g)
+
+class Apoptosis(Action):
+
+    def __init__(self, nodeid):
+        self.nodeid = nodeid
+
+    def go(self, g):
+        g.remove_node(self.nodeid)
+            
 class Build(Action):
 
     @classmethod
@@ -368,7 +391,28 @@ class ConsumeOperands(Action):
         consumer_classes = set([g.class_of(c) for c in consumers])
         return self.operator_class in consumer_classes
 
+class FailResult(Action):
+    '''Marks a number tagged Avail as Failed, along with its source, if any.
+    Moves the Avail tag to the source's operands and removes their Consumed
+    tags.'''
 
+    def __init__(self, resultid):
+        self.resultid = resultid
+
+    def go(self, g):
+        for rid in as_iter(self.resultid):
+            if not g.has_tag(rid, Avail):
+                break
+            g.remove_tag(rid, Avail)
+            g.add_tag(Failed, rid)
+            operatorid = g.neighbor(rid, port_label='source')
+            if not operatorid:
+                break
+            g.add_tag(Failed, operatorid)
+            operands = g.neighbors(operatorid, port_label='source')
+            for operand in operands:
+                g.add_tag(Avail, operand)
+                g.remove_tag(operand, Consumed)
 
 # Definition of a Numbo problem, a "numble"
 

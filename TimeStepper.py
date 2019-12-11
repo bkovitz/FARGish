@@ -20,13 +20,16 @@ class TimeStepper:
 
     def __init__(self, *args, **kwargs):
         self.consecutive_timesteps_with_no_action = 0
-        if 'max_active_nodes' in kwargs:
-            self.max_active_nodes = kwargs['max_active_nodes']
-        if 'max_actions' in kwargs:
-            self.max_actions = kwargs['max_actions']
-        if 't' not in kwargs:
-            kwargs['t'] = 0
-        super().__init__(*args, **kwargs)
+        kws = kwargs.copy()
+        if 'max_active_nodes' in kws:
+            self.max_active_nodes = kws['max_active_nodes']
+        if 'max_actions' in kws:
+            self.max_actions = kws['max_actions']
+        if 't' not in kws:
+            kws['t'] = 0
+        if 'done' not in kws:
+            kws['done'] = False
+        super().__init__(*args, **kws)
 
     def do_timestep(self, num=1):
         '''Executes n timesteps.
@@ -83,9 +86,23 @@ class TimeStepper:
 
             self.update_all_support()
 
+            d = self.done()
+            if d:
+                print(d)
+                break
+
     def do_action(self, action):
         '''action: an Action object'''
         action.go(self)
+
+    def set_done(self, done):
+        self.graph['done'] = done
+
+    def done(self):
+        try:
+            return self.graph['done']
+        except KeyError:
+            return False
 
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''
