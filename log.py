@@ -3,9 +3,13 @@
 from util import as_iter
 
 
-logging = set()
+logging = set()  # LoggingObjects now active, i.e. logging
+logging_objects = set()  # All LoggingObjects, regardless of whether active
 
 class LoggingObject:
+
+    def __init__(self):
+        logging_objects.add(self)
 
     def __call__(self, s):
         if self in logging:
@@ -36,6 +40,9 @@ def start_logging(os):
 
 def stop_all_logging():
     logging.clear()
+
+def log_all():
+    logging.update(logging_objects)
 
 #OAOO Should this or LoggingObject.is_logging() be authoritative?
 def is_logging(os):

@@ -7,7 +7,7 @@ from PortGraph import PortGraph, pg, pn, pt
 from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
-        stop_all_logging
+        ShowResults, stop_all_logging, log_all
 
 stop_all_logging()
 
@@ -30,9 +30,19 @@ class TestNumbospec(unittest.TestCase):
     def test_4_5_6_15(self):
         #ShowActiveNodes.start_logging()
         #ShowActionList.start_logging()
-        ShowActionsChosen.start_logging()
+        #ShowActionsChosen.start_logging()
+        #log_all()
         g = TestGraph(Numble([4, 5, 6], 15), seed=4775339968402449257)
         g.do_timestep(num=20)
-        pg(g)
+        ShowResults(g.done())
+        #pg(g)
         self.assertTrue(g.done())
-        #TODO Assert success
+
+if __name__ == '__main__':
+    log_all()
+    g = TestGraph(Numble([4, 5, 6], 15), seed=4775339968402449257)
+    g.do_timestep(num=20)
+    ShowResults(g.done())
+    #pg(g)
+    #self.assertTrue(g.done())
+    #TODO Assert success
