@@ -249,6 +249,7 @@ class PortGraph(nx.MultiGraph):
     def __init__(self, *args, **kwargs):
         kws = kwargs.copy()
         kws['seed'] = reseed(kws.get('seed', None))
+        print('KWS', kws)
         super().__init__(*args, **kws)
         self.nextid = 1
         self.during_touch = False

@@ -5,6 +5,9 @@ import expr
 class ExprAsEquation:
     '''Mix-in for PortGraph. Provides a method expr_as_equation.'''
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     def expr_as_equation(self, target):
         '''Returns an expr.Equation representing the expression whose ultimate
         'consumer' is target.'''

@@ -258,15 +258,20 @@ class OperandsScout(ActiveNode):
         operandids = NodesWithSalience(g, g.nodes_with_tag(Avail))
         if len(operandids) >= 2:
             for i in range(8):
-                actions = [ConsumeOperands.make(g, operandids.choose(k=2))]
+                actions = list(filter(
+                    None,
+                    [ConsumeOperands.make(g, operandids.choose(k=2))]
+                ))
                 print('ACTIONS', actions)
                 if actions:
                     break
             else:
-                actions = []  # TODO GiveUp or figure out what's wrong
+                print('GAVEUP1')
+                actions = [FailResult(operandids.nodes)]
         elif len(operandids) == 1:
             actions = [FailResult(operandids.choose1())]
         else:
+            print('GAVEUP2')
             actions = []  # TODO GiveUp
         return [ActionSequence(a, Apoptosis(thisid)) for a in actions]
         
@@ -412,13 +417,13 @@ class FailResult(Action):
 
     def go(self, g):
         for rid in as_iter(self.resultid):
-            if not g.has_tag(rid, Avail):
-                break
+            if g.is_of_class(rid, Brick) or not g.has_tag(rid, Avail):
+                continue
             g.remove_tag(rid, Avail)
             g.add_tag(Failed, rid)
             operatorid = g.neighbor(rid, port_label='source')
             if not operatorid:
-                break
+                continue
             g.add_tag(Failed, operatorid)
             operands = g.neighbors(operatorid, port_label='source')
             for operand in operands:

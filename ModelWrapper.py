@@ -26,7 +26,7 @@ class ModelWrapper:
 
     def reset(self, data=None):
         #TODO Catch errors and send an error message to the client
-        print('DATA', data)
+        #print('DATA', data)
         if data:
             try:
                 bricks = [int(b) for b in data['bricks'][0].split()]
@@ -34,7 +34,8 @@ class ModelWrapper:
                 self.numble = Numble(bricks, target)
             except KeyError:
                 pass
-        self.g = new_graph(self.numble)
+        self.g = new_graph(self.numble)  #, seed=7691554214943035002)
+        print('SEED', self.g.graph['seed']) #TODO Show this in the browser
 
     def nodeinfo(self, node):
         return json.dumps(long_nodestr(self.g, node))

@@ -247,7 +247,7 @@ function updateGraph(g) {
             y: cposn.y + c.height() / 2
           }
           posn = joggleXY(cposn, data.id);
-          console.log('CENTER', data.id, cposn, c.width(), c.height(), container_center, posn);
+          //console.log('CENTER', data.id, cposn, c.width(), c.height(), container_center, posn);
         }
       }
       if (!posn) {  // didn't set a position?
