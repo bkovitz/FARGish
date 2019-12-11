@@ -38,14 +38,17 @@ Simplest possible numble solver
 
     test_brick_is_target  DONE
 
-    test_4_5_6_15
+    test_4_5_6_15  DONE
 
 
 GUI
 
     Put OperandsScouts, Tags, Operators, and Blocks into Workspace.  DONE
 
-    Why is OperandsScout getting stuck at 4, 5*6=30 ?
+    Why is OperandsScout getting stuck at 4, 5*6=30 ?  DONE
+        Because the first pair of operands it tried didn't have any unused
+        possibilities for operators, and it should have tried another pair
+        (I think).
 
     Show seed in browser
 

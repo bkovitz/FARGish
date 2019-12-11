@@ -204,9 +204,11 @@ function updateGraph(g) {
           id: sn.id,
           label: sn['display-name'],
           parent: sn.memberOf,
-          class: sn.class
+          class: sn.class,
+          'tag?': sn['tag?'],
+          taggees: sn.taggees
         },
-        position: { x: (sn.id * 111) % 17 * 5, y: (sn.id * 119) % 17 * 5 }
+        //position: { x: (sn.id * 111) % 17 * 5, y: (sn.id * 119) % 17 * 5 }
       };
       //console.log(JSON.stringify(d)); //DEBUG
       node = cy.add(d);
@@ -216,6 +218,45 @@ function updateGraph(g) {
     }
     elesFromJSON = elesFromJSON.union(node)
   }
+
+  // Set initial positions
+  extent = cy.extent();
+  viewport_center = {
+    x: (extent.x1 + extent.x2) / 2,
+    y: (extent.y1 + extent.y2) / 2
+  }
+  elesFromJSON.sort(tagsLast).forEach(node => {
+    if (!allPrev.contains(node)) {
+      const data = node.data();
+      var posn;
+      if (data['tag?']) {
+        // if it's a tag, try to place it a little beneath its taggee
+        ee = cy.$id(data.taggee);
+        if (!ee.empty()) {
+          posn = Object.assign({}, ee.position());
+          posn.y += 60;
+        }
+      } 
+      if (!posn && data.parent) {
+        // place near center of container node
+        c = cy.$id(data.parent);
+        cposn = c.position();
+        if (cposn) {
+          container_center = {
+            x: cposn.x + c.width() / 2,
+            y: cposn.y + c.height() / 2
+          }
+          posn = joggleXY(cposn, data.id);
+          console.log('CENTER', data.id, cposn, c.width(), c.height(), container_center, posn);
+        }
+      }
+      if (!posn) {  // didn't set a position?
+        // position node somewhere near the center of the viewport
+        posn = joggleXY(viewport_center, data.id);
+      }
+      node.position(posn);
+    }
+  })
 
   // Import edges from server graph
   for (const se of g.links) {  // se = edge as represented on the server
@@ -247,6 +288,32 @@ function updateGraph(g) {
 
   // remove all elements not mentioned in the JSON
   allPrev.difference(elesFromJSON).remove();
+}
+
+// Returns a new position object, with its x and y moved a little in a
+// deterministic random way from posn, using id as "seed".
+function joggleXY(posn, id) {
+  return {
+      x: posn.x + ((id * 111) % 11 - 5) * 8,
+      y: posn.y + ((id * 119) % 5 - 2) * 2
+  };
+}
+
+// Comparison function for sorting nodes: tags come after non-tags
+function tagsLast(ele1, ele2) {
+  if (ele1.data()['tag?']) {
+    if (ele2.data()['tag?']) {
+      return 0;
+    } else {
+      return 1;
+    }
+  } else {
+    if (ele2.data()['tag?']) {
+      return -1;
+    } else {
+      return 0;
+    }
+  }
 }
 
 function edgeInfo(edge) {
