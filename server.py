@@ -21,7 +21,9 @@ make_fifo(fifo_in)
 #fin = None   # subprocess.
 
 PORT = 8081
-runner_args = ['python3', 'runner.py', '--rfifo', fifo_out, '--wfifo', fifo_in]
+runner_args = [
+    'python3.7', 'runner.py', '--rfifo', fifo_out, '--wfifo', fifo_in
+]
 commands = set(['step', 'step10', 'reset', 'getModel', 'nodeinfo'])
 
 source_filenames = [
