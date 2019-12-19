@@ -3,6 +3,8 @@
 from random import choice, random, uniform
 from math import exp
 
+from util import input_integers
+
 
 class NumberLine:
 
@@ -52,7 +54,7 @@ class Eye:
         if nl_width is None:
             self.width = None
         else:
-            self.width = uniform(0.05, 0.15) * nl_width
+            self.width = uniform(0.05, 0.25) * nl_width
         self.joggle_width()
 
     def joggle_width(self):
@@ -65,7 +67,7 @@ class Eye:
         prev_anchor = self.anchor
         for i in range(8):
             self.anchor = center(prev_look)
-            self.width *= 1 + uniform(0.05, 0.15)
+            self.width *= 1 + uniform(0.05, 0.25)
             new_look = self.look()
             if len(new_look) < len(prev_look):
                 self.width = prev_width
@@ -122,10 +124,23 @@ def center(xs):
     return (max(xs) + min(xs)) / 2
 
 
-nl = NumberLine()
-nl.add(1, 3, 4, 7, 120, 121)
-eyes = [nl.make_eye() for i in range(10)]
-looks = [eye.look() for eye in eyes]
+def test(numbers):
+    nl = NumberLine()
+    nl.add(*numbers)
+    eyes = [nl.make_eye() for i in range(10)]
+    looks = [eye.look() for eye in eyes]
 
-for eye in eyes:
-    print(eye, eye.look())
+    for eye in eyes:
+        print(eye, eye.look())
+
+
+test([1, 3, 4, 7, 120, 121])
+#test([10, 11, 20, 25, 30, 35])
+
+def run():
+    '''A way to try out sets of numbers at the keyboard.'''
+    while True:
+        ns = input_integers('Numbers: ')
+        if not ns:
+            break
+        test(ns)

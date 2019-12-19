@@ -119,3 +119,19 @@ def intersection(*sets):
         return sets[0].intersection(*sets[1:])
     else:
         return set()
+
+def input_integers(prompt):
+    '''Prompts the user to enter a list of integers separated by spaces.
+    Returns a list of numbers, or None if user just hit Enter.'''
+    while True:
+        s = input(prompt)
+        if not s:
+            return None
+        try:
+            ns = [int(n) for n in s.split()]
+            if not ns:
+                continue
+            return ns
+        except ValueError:
+            print('Please enter a list of integers separated by spaces.')
+            continue
