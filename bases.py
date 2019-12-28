@@ -2,8 +2,14 @@
 
 from abc import ABC, abstractmethod
 
-from PortGraph import Node
+from PortGraph import Node, Tag
 from util import nice_object_repr, empty_set
+
+
+class GroupDescriptor(Tag):
+    '''Base class for tags that describe some property of a group, such as a
+    CoarseView.'''
+    pass
 
 
 class ActiveNode(ABC, Node):
@@ -96,4 +102,8 @@ class CoarseView(Node):
         self.nodes = empty_set
 
     def update(self, g, nodeid):
-        self.nodes = set(self.find_nodes(g, nodeid))
+        new_nodes = set(self.find_nodes(g, nodeid))
+        if new_nodes != self.nodes:
+            g.reset_hops_from_port(nodeid, 'viewees', new_nodes, 'viewers')
+            g.remove_tag(nodeid, GroupDescriptor)
+            #TODO make one-shot Scouts

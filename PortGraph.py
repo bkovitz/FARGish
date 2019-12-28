@@ -249,7 +249,7 @@ class PortGraph(nx.MultiGraph):
     def __init__(self, *args, **kwargs):
         kws = kwargs.copy()
         kws['seed'] = reseed(kws.get('seed', None))
-        print('KWS', kws)
+        #print('KWS', kws)
         super().__init__(*args, **kws)
         self.nextid = 1
         self.during_touch = False
@@ -395,12 +395,19 @@ class PortGraph(nx.MultiGraph):
         edge did exist, we remove it and "touch" both nodes.'''
         hop = self.find_hop(node1, port_label1, node2, port_label2)
         if hop:
-            self.nodes[node1]['_hops'].remove(hop)
-            self.nodes[node2]['_hops'].remove(hop.reverse())
-            super().remove_edge(node1, node2, hop.key)
+            self.remove_hop(hop)
             self.touch(node1)
             self.touch(node2)
 
+    def remove_hop(self, hop_or_hops):
+        #Unlike remove_edge, remove_hop doesn't touch the nodes
+        for hop in as_iter(hop_or_hops):
+            node1 = hop.from_node
+            node2 = hop.to_node
+            self.nodes[node1]['_hops'].remove(hop)
+            self.nodes[node2]['_hops'].remove(hop.reverse())
+            super().remove_edge(node1, node2, hop.key)
+        
     def remove_node(self, node_or_nodes):
         for node in as_iter(node_or_nodes):
             self._remove_all_hops_to(node)
@@ -699,6 +706,19 @@ class PortGraph(nx.MultiGraph):
 
     def is_member(self, group_node, node):
         return self.has_hop(group_node, 'members', node, 'member_of')
+
+    def reset_hops_from_port(
+        self, from_nodes, from_port_label, to_nodes, to_port_label
+    ):
+        to_nodes = set(as_iter(to_nodes))
+        for from_node in as_iter(from_nodes):
+            for to_node in as_iter(to_nodes):
+                self.add_edge(
+                    from_node, from_port_label, to_node, to_port_label
+                )
+            for hop in self.hops_from_port(from_node, from_port_label):
+                if hop.to_node not in to_nodes:
+                    self.remove_hop(hop)
 
     def hopdict(self, node):
         return self.nodes[node]['_hops']

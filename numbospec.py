@@ -22,6 +22,7 @@ edgeinfos = [
     EdgeInfo('agent', 'agent_for', clas='Agent'),
     EdgeInfo('consumer', 'source', clas='Source'),
 ]
+#TODO viewees, viewers
 
 spec = FARGSpec(edgeinfos)
 

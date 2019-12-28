@@ -9,7 +9,7 @@ from inspect import isclass
 empty_set = frozenset([])
 
 def is_iter(o):
-    return isinstance(o, Iterable)
+    return isinstance(o, Iterable) and not isinstance(o, tuple)
 
 def as_iter(o):
     if is_iter(o):
