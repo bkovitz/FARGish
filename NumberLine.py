@@ -1,24 +1,57 @@
 # NumberLine.py -- "Coarse" view of some numbers
 
+#TODO "Joggle" width logarithmically
+#TODO Notice a big gap between adjacent clusters
+
 from random import choice, random, uniform
 from math import exp
 
-from util import input_integers
+from util import input_integers, filter_none
+import util
 
 
 class NumberLine:
 
-    def __init__(self):
+    def __init__(self, value_func=util.identity):
+        '''value_func is function that maps an element of self.numbers to
+        its numeric value. util.identity is appropriate if the self.numbers
+        are actual numbers. If the self.numbers are nodeids in a graph,
+        then you must pass a function that maps a nodeid to a numeric value.
+        If value_func(i) returns None, then i will be ignored.'''
+        self.value_func = value_func
         self.numbers = set()
         self.eyes = set()
 
     def add(self, *ns):
         self.numbers.update(ns)
 
+    def clear_numbers(self):
+        self.numbers.clear()
+
+    def set_value_func(self, value_func):
+        '''value_func: as in __init__().'''
+        self.value_func = value_func
+
     def make_eye(self):
         eye = Eye(self)
         self.eyes.add(eye)
         return eye
+
+    def make_eyes(self, num_eyes):
+        while len(self.eyes) < num_eyes:
+            self.make_eye()
+
+    def reset_eyes(self):
+        num_eyes = len(self.eyes)
+        self.eyes.clear()
+        self.make_eye(num_eyes)
+
+    def looks(self):
+        return [eye.look() for eye in self.eyes]
+
+    def joggle_all_eyes(self):
+        for eye in self.eyes:
+            eye.joggle_width()
 
     def choose(self):
         '''Returns a number chosen randomly, with uniform distribution,
@@ -36,13 +69,17 @@ class NumberLine:
         else:
             return (min(self.numbers), max(self.numbers))
 
-    def width(self):
+    def width(self, minimum=1.0):
         '''Returns difference between min and max numbers, or None if the
         NumberLine has no numbers.'''
         if not self.numbers:
             return None
         else:
-            return max(self.numbers) - min(self.numbers)
+            ns = list(filter_none(self.value_func, self.numbers))
+            if ns:
+                return max(max(ns) - min(ns), minimum)
+            else:
+                return None
 
 
 class Eye:
@@ -86,15 +123,25 @@ class Eye:
     def seen(self, n):
         '''Randomly determines if n is "seen".
         TODO self.width should affect the probability.'''
-        return random() <= hump6(n, max_at=self.anchor, width=self.width)
+        if n is None:
+            return False
+        else:
+            return random() <= hump6(
+                self.number_line.value_func(n),
+                max_at=self.anchor,
+                width=self.width
+            )
 
     def __repr__(self):
-        return 'Eye(anchor=%1.1f, width=%1.1f)' % (self.anchor, self.width)
+        if self.anchor is None:
+            return 'Eye(anchor=None, width=%1.1f)' % (self.width)
+        else:
+            return 'Eye(anchor=%1.1f, width=%1.1f)' % (self.anchor, self.width)
 
 
-def hump(x, max_at=0.0, width=1.0):
+def hump(x, max_at=None, width=1.0):
     '''A hump-shaped function equal to 1.0 at max_at, and monotonically
-    decreasing in both directions from max_at.'''
+    decreasing in both directions from max_at. max_at defaults to 0.0.'''
     x = x - max_at
     if abs(width) <= 0.01:
         c = 100.0
@@ -108,7 +155,10 @@ def hump(x, max_at=0.0, width=1.0):
 def hump6(x, max_at=0.0, width=1.0):
     '''A hump-shaped function equal to 1.0 at max_at, and monotonically
     decreasing in both directions from max_at. This hump function is pretty
-    flat along the top, due to use of the function x^6.'''
+    flat along the top, due to use of the function x^6. max_at defaults to
+    0.0.'''
+    if max_at is None:
+        max_at = 0.0
     x = x - max_at
     if abs(width) <= 0.01:
         c = 100.0
@@ -121,7 +171,10 @@ def hump6(x, max_at=0.0, width=1.0):
         return 0
 
 def center(xs):
-    return (max(xs) + min(xs)) / 2
+    if xs:
+        return (max(xs) + min(xs)) / 2
+    else:
+        return None
 
 
 def test(numbers):
@@ -134,8 +187,9 @@ def test(numbers):
         print(eye, eye.look())
 
 
-test([1, 3, 4, 7, 120, 121])
-#test([10, 11, 20, 25, 30, 35])
+if __name__ == '__main__':
+    test([1, 3, 4, 7, 120, 121])
+    #test([10, 11, 20, 25, 30, 35])
 
 def run():
     '''A way to try out sets of numbers at the keyboard.'''

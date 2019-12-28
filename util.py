@@ -6,6 +6,8 @@ import sys
 from inspect import isclass
 
 
+empty_set = frozenset([])
+
 def is_iter(o):
     return isinstance(o, Iterable)
 
@@ -107,6 +109,13 @@ def read_to_blank_line(f):
             break
         result += l
     return result
+
+def identity(x):
+    return x
+
+def filter_none(f, iterable):
+    xs = [f(i) for i in iterable if i is not None]
+    return [x for x in xs if x is not None]
 
 def intersection(*sets):
     '''Returns a set, which is the intersection of sets. The sets may be

@@ -920,6 +920,15 @@ class PortGraph(nx.MultiGraph):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))
 
+class ValueOf:
+    '''Function that returns the value of a nodeid in graph g. Returns None
+    if g.value_of(nodeid) returns None.'''
+
+    def __init__(self, g):
+        self.g = g
+
+    def __call__(self, nodeid):
+        return self.g.value_of(nodeid)
 
 #    @classmethod
 #    def is_attrs_match(cls, node_attrs, host_node_attrs):

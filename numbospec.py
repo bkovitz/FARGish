@@ -1,8 +1,9 @@
 # numbospec.py -- Data structures that specify the Numbo model
 
 from FARGSpec import FARGSpec, EdgeInfo
-from PortGraph import Node, Tag, NodesWithSalience, pg, ps
-from bases import ActiveNode, Action
+from PortGraph import Node, Tag, NodesWithSalience, pg, ps, ValueOf
+from bases import ActiveNode, Action, CoarseView
+from NumberLine import NumberLine
 from criteria import Tagged, HasValue
 from exc import NumboSuccess
 from util import as_iter, nice_object_repr, intersection
@@ -11,6 +12,7 @@ import expr
 from abc import ABC, abstractmethod
 from random import choice
 from itertools import chain
+from collections import Counter
 
 edgeinfos = [
     EdgeInfo('taggees', 'tags', clas='Tag'),
@@ -490,3 +492,34 @@ def prompt_for_numble():
     except EOFError:
         print()
         return None
+
+# CoarseViews
+
+class NumberlineView(CoarseView):
+
+    def __init__(self, find_nodes):
+        super().__init__(find_nodes)
+        self.number_line = NumberLine()
+        self.clusters = set()
+
+    def update(self, g, nodeid):
+        super().update(g, nodeid)
+        self.number_line.clear_numbers()
+        self.number_line.add(*self.nodes)
+        self.number_line.set_value_func(ValueOf(g))
+        self.number_line.make_eyes(20)
+        self.make_clusters(g)
+
+    def make_clusters(self, g):
+        freqs = Counter([frozenset(look) for look in self.number_line.looks()])
+        leftovers = set(self.number_line.numbers)
+        self.clusters = set()
+        for look in sorted(freqs, key=lambda look: freqs[look], reverse=True):
+            if look and not any(look.intersection(c) for c in self.clusters):
+                self.clusters.add(look)
+                leftovers -= look
+        if leftovers:
+            self.clusters.add(frozenset(leftovers))
+
+    def __repr__(self):
+        return 'NumberlineView(%s, %s)' % (self.find_nodes, self.clusters)

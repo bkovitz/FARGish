@@ -6,7 +6,7 @@
 from operator import attrgetter
 
 from PortGraph import pg
-from bases import ActiveNode
+from bases import ActiveNode, CoarseView
 from util import sample_without_replacement
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
 
@@ -43,6 +43,8 @@ class TimeStepper:
             self.graph['t'] += 1
 
             self.decay_saliences()
+
+            self.update_coarse_views()
 
             active_nodes = self.get_active_nodes()
 
@@ -143,3 +145,7 @@ class TimeStepper:
         return list(sample_without_replacement(
             actions, k=k, weights=[a.weight for a in actions]
         ))
+
+    def update_coarse_views(self):
+        for nodeid in self.nodes_of_class(CoarseView):
+            self.datum(nodeid).update(self, nodeid)

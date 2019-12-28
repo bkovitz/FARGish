@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 
 from PortGraph import Node
-from util import nice_object_repr
+from util import nice_object_repr, empty_set
 
 
 class ActiveNode(ABC, Node):
@@ -42,3 +42,58 @@ class Action(ABC):
         pass
 
     __repr__ = nice_object_repr
+
+
+class NodeIsA:
+    '''A function that returns true iff a given node is an instance of
+    nodeclass.'''
+
+    def __init__(self, nodeclass):
+        self.nodeclass = nodeclass
+
+    def __call__(self, g, nodeid):
+        return g.is_of_class(self, nodeid, self.nodeclass)
+
+    __repr__ = nice_object_repr
+
+
+class AllNodesOfClass:
+    '''A function that returns a list of all nodes of class nodeclass.'''
+
+    def __init__(self, nodeclass):
+        self.nodeclass = nodeclass
+
+    def __call__(self, g, nodeid):
+        return g.nodes_of_class(self.nodeclass)
+
+    __repr__ = nice_object_repr
+
+
+class AllNodesTagged:
+    '''A function that returns a list of all nodes tagged by tagclass via
+    taggee_port_label.'''
+
+    def __init__(self, tagclass, taggee_port_label='tags'):
+        self.tagclass = tagclass
+        self.taggee_port_label = taggee_port_label
+
+    def __call__(self, g, nodeid):
+        return g.nodes_with_tag(
+            self.tagclass,
+            taggee_port_label=self.taggee_port_label
+        )
+
+    __repr__ = nice_object_repr
+
+
+class CoarseView(Node):
+
+    def __init__(self, find_nodes):
+        '''find_nodes is function(g, nodeid) that returns set of node to
+        include in the CoarseView. An AllNodesOfClass object is such a function
+        (q.v.).'''
+        self.find_nodes = find_nodes
+        self.nodes = empty_set
+
+    def update(self, g, nodeid):
+        self.nodes = set(self.find_nodes(g, nodeid))
