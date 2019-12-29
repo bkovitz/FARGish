@@ -850,6 +850,15 @@ class PortGraph(nx.MultiGraph):
     def supports(self, from_node, to_node):
         return self.has_edge(from_node, 'support_to', to_node, 'support_from')
 
+    def update(self, node_or_nodes):
+        for nodeid in as_iter(node_or_nodes):
+            d = self.datum(nodeid)
+            if d is None:
+                continue
+            u = d.update
+            if callable(u):
+                u(self, nodeid)
+
     def find_member_in_role(self, group_node, role):
         #TODO UT
         '''role is a port label that a neighbor of the sought node must have.

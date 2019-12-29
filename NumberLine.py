@@ -5,6 +5,7 @@
 
 from random import choice, random, uniform
 from math import exp
+from statistics import median, StatisticsError
 
 from util import input_integers, filter_none
 import util
@@ -31,6 +32,12 @@ class NumberLine:
     def set_value_func(self, value_func):
         '''value_func: as in __init__().'''
         self.value_func = value_func
+
+    def median(self):
+        try:
+            return median((self.value_func(n) for n in self.numbers))
+        except StatisticsError:
+            return None
 
     def make_eye(self):
         eye = Eye(self)
@@ -80,6 +87,8 @@ class NumberLine:
                 return max(max(ns) - min(ns), minimum)
             else:
                 return None
+
+    __repr__ = util.nice_object_repr
 
 
 class Eye:

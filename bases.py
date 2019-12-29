@@ -104,6 +104,6 @@ class CoarseView(Node):
     def update(self, g, nodeid):
         new_nodes = set(self.find_nodes(g, nodeid))
         if new_nodes != self.nodes:
+            self.nodes = new_nodes
             g.reset_hops_from_port(nodeid, 'viewees', new_nodes, 'viewers')
             g.remove_tag(nodeid, GroupDescriptor)
-            #TODO make one-shot Scouts

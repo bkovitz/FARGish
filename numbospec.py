@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from random import choice
 from itertools import chain
 from collections import Counter
+from math import log10
 
 edgeinfos = [
     EdgeInfo('taggees', 'tags', clas='Tag'),
@@ -510,6 +511,9 @@ class NumberlineView(CoarseView):
         self.number_line.set_value_func(ValueOf(g))
         self.number_line.make_eyes(20)
         self.make_clusters(g)
+        #g.make_oneshot_scout(nodeid, LogMedian)  #TODO
+        mtag = g.add_tag(LogMedian, nodeid)
+        g.update(mtag)
 
     def make_clusters(self, g):
         freqs = Counter([frozenset(look) for look in self.number_line.looks()])
@@ -522,5 +526,23 @@ class NumberlineView(CoarseView):
         if leftovers:
             self.clusters.add(frozenset(leftovers))
 
+    def median(self, g):
+        self.number_line.set_value_func(ValueOf(g))
+        return self.number_line.median()
+
     def __repr__(self):
         return 'NumberlineView(%s, %s)' % (self.find_nodes, self.clusters)
+
+class LogMedian(Tag):
+
+    @classmethod
+    def add_tag(cls, g, taggees):
+        tagid = super().add_tag(g, taggees)
+        g.datum(tagid).update(g, tagid)
+
+    def __init__(self):
+        self.value = None
+
+    def update(self, g, tagid):
+        taggee = g.datum(g.taggee_of(tagid))
+        self.value = log10(taggee.median(g))
