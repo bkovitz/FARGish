@@ -1,11 +1,15 @@
 # xdparser.py -- Experiments to figure out how to use dparser
 
 from dparser import Parser, Reject
+from sys import stdout
 
-from util import nice_object_repr
+from util import NiceRepr
 
 
-class Nodeclass:
+space8 = ' ' * 8
+newline = '\n'
+
+class Nodeclass(NiceRepr):
 
     def __init__(self, name, args, parent_inits):
         self.name = name
@@ -16,16 +20,38 @@ class Nodeclass:
     def add_elem(self, elem):
         self.elems.append(elem)
 
-    __repr__ = nice_object_repr
+    def gen(self, file):
+        if self.parent_inits:
+            parents = f"({', '.join(i.name for i in self.parent_inits)})"
+        else:
+            parents = ''
+        arg_asgns = '\n'.join(
+            space8 + f"self.{arg} = {arg}" for arg in self.args
+        )
+        super_inits = '\n'.join(
+            space8 + f"super({p.name}, self).__init__({p.argstring()})"
+                for p in self.parent_inits
+        )
+        elem_stmts = '\n'.join(
+            space8 + e.stmt() for e in self.elems
+        )
+        print(f'''
+class {self.name}{parents}:
+    def __init__({', '.join(['self'] + self.args)}):
+{arg_asgns}
+{super_inits}
+{elem_stmts}''', file=file)
 
-class NodeclassElem:
+class NodeclassAttr(NiceRepr):
 
-    def __init__(self, *body):
-        self.body = body
+    def __init__(self, name, expr):
+        self.name = name
+        self.expr = expr
 
-    __repr__ = nice_object_repr
+    def stmt(self):
+        return f"self.{self.name} = {self.expr}"
 
-class NodeclassInit:
+class NodeclassInit(NiceRepr):
     '''A nodeclass name or a nodeclass name provided with arguments. This
     might be a declaration of a nodeclass or a reference to an already-
     defined nodeclass.'''
@@ -36,9 +62,10 @@ class NodeclassInit:
             args = []
         self.args = args
 
-    __repr__ = nice_object_repr
+    def argstring(self):
+        return ', '.join(self.args)
 
-class NodeclassHeading:
+class NodeclassHeading(NiceRepr):
     '''The first line of a nodeclass definition: one or more nodeclasses
     being defined (the lhs), and one or more nodeclasses that they all
     inherit from (the rhs).'''
@@ -49,8 +76,13 @@ class NodeclassHeading:
             rhs_inits = []
         self.rhs_inits = rhs_inits
 
-    __repr__ = nice_object_repr
 
+def generate_code(definitions, file=None):
+    if isinstance(definitions, list):
+        for definition in definitions:
+            generate_code(definition, file)
+    else:
+        definitions.gen(file)
 
 indent_level = 0  # TODO rm?
 start_column = 0   # column of first nonwhitespace char on current line
@@ -68,8 +100,6 @@ def d_definition(t):
         for elem in t[2]:
             nodeclass.add_elem(elem)
         defs.append(nodeclass)
-#    for elem in t[2]:
-#        t[0].add_elem(elem)
     return defs
 
 def d_definition2(t):
@@ -101,14 +131,13 @@ def d_nodeclass_init(t):
     #"nodeclass : identifier '(' (identifier (',' identifier)*)? ')'"
     return NodeclassInit(t[0], t[2])
 
-def d_nodeclass(t):
-    r"nodeclass : identifier | identifier '(' args ')'"
-    #"nodeclass : identifier '(' (identifier (',' identifier)*)? ')'"
-    return NodeclassInit(t[0], t[2])
+#def d_nodeclass(t):
+#    r"nodeclass : identifier | identifier '(' args ')'"
+#    #"nodeclass : identifier '(' (identifier (',' identifier)*)? ')'"
+#    return NodeclassInit(t[0], t[2])
 
 def d_args(t):
     r"args : | identifier (',' identifier)*"
-    #print('ARGS', t)
     args = []
     while t:
         args.append(t[0])
@@ -120,10 +149,17 @@ def d_identifier(t):
     return t[0]
 
 def d_nodeclass_elem(t):
-    "nodeclass_elem : identifier '=' identifier"
-    return NodeclassElem(t[0], '=', t[2])
+    "nodeclass_elem : identifier '=' expr"
+    return NodeclassAttr(t[0], t[2])
+
+def d_expr(t):
+    "expr : identifier"
+    return t[0]
 
     
+
+# EXPERIMENTING WITH INDENT IN DPARSER
+
 def d_whatever(t):
     "whatever : item*"
     print('WHATEVER', t)
@@ -198,12 +234,15 @@ def whitespace(loc):
         loc.s += 1
 
 p = Parser()
+print(dir(p))
+p.inserted_thing = 'YAH'
 #print(p.parse('2+3+4', initial_skip_space_fn=whitespace).getStructure())
 #print()
 
 s = open('numbo3.farg', 'r').read()
 x = p.parse(s, initial_skip_space_fn=whitespace)
 print(x.getStructure())
+generate_code(x.getStructure())
 
 #print()
 #y = p.parse("   blah\nx\n", initial_skip_space_fn=whitespace)

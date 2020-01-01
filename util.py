@@ -52,6 +52,10 @@ def nrepr(o):
     else:
         return repr(o)
 
+class NiceRepr:
+    "Mix-in to give descendants nice_object_repr."
+    __repr__ = nice_object_repr
+
 def rescale(xs, new_total=1.0):
     '''Returns list of xs, rescaled to sum to new_total.'''
     if not xs:

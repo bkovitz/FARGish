@@ -37,3 +37,5 @@ tags
 *.pdf
 
 *.pyc
+d_parser*.dat
+d_parser*.md5

@@ -2,4 +2,3 @@ Number(n)
   value = n
 
 Target(n), Brick(n), Block(n) \ Number(n)
-
