@@ -1,14 +1,31 @@
 externalFuncs: { pair, chooseSubclass, arithResult, DONE, tag, untag,
-  neighbor, neighbors, nodeWithTag, just1NodeWithTag }
+  neighbor, neighbors, nodeWithTag, just1NodeWithTag, builder }
+
+tags -- taggees
+source -- consumer
+operands :: source
 
 Tag
 
-Avail, Consumed, Failed \ Tag
+Avail, Consumed, Failed :: Tag
 
 Number(n)
   value = n
 
-Target(n), Brick(n), Block(n) \ Number(n)
+Target(n), Brick(n), Block(n) :: Number(n)
+
+Target :: Number(n)
+
+Brick :: Number(n)
+  consumer
+
+Block :: Number
+  source, consumer
+
+Operator
+  operands, consumer
+
+Plus, Times :: Operator
 
 Want(target)
   scout: OperandsScout
@@ -37,6 +54,8 @@ BacktrackingScout(target)
      untag(x, Avail)
      op := neighbor(x, source, OfClass(Operator, op))
      tag(op, Failed)
+     tag({x, op, builder(x, op)}, Failed)
      srcs := neighbors(op, source)
      untag(srcs, Consumed)
      tag(srcs, Avail)
+
