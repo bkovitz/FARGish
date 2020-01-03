@@ -25,22 +25,20 @@ class Nodeclass(NiceRepr):
             parents = f"({', '.join(i.name for i in self.parent_inits)})"
         else:
             parents = ''
-        arg_asgns = '\n'.join(
-            space8 + f"self.{arg} = {arg}" for arg in self.args
+        arg_asgns = ''.join(
+            space8 + f"self.{arg} = {arg}\n" for arg in self.args
         )
-        super_inits = '\n'.join(
-            space8 + f"super({p.name}, self).__init__({p.argstring()})"
+        super_inits = ''.join(
+            space8 + f"super({p.name}, self).__init__({p.argstring()})\n"
                 for p in self.parent_inits
         )
-        elem_stmts = '\n'.join(
-            space8 + e.stmt() for e in self.elems
+        elem_stmts = ''.join(
+            space8 + e.stmt() + '\n' for e in self.elems
         )
         print(f'''
 class {self.name}{parents}:
     def __init__({', '.join(['self'] + self.args)}):
-{arg_asgns}
-{super_inits}
-{elem_stmts}''', file=file)
+{arg_asgns}{super_inits}{elem_stmts}''', file=file)
 
 class NodeclassAttr(NiceRepr):
 

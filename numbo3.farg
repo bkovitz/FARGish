@@ -1,4 +1,42 @@
+externalFuncs: { pair, chooseSubclass, arithResult, DONE, tag, untag,
+  neighbor, neighbors, nodeWithTag, just1NodeWithTag }
+
+Tag
+
+Avail, Consumed, Failed \ Tag
+
 Number(n)
   value = n
 
 Target(n), Brick(n), Block(n) \ Number(n)
+
+Want(target)
+  scout: OperandsScout
+  scout: BacktrackingScout(target)
+  scout: DoneScout(target)
+
+OperandsScout
+  see p := pair(nodeWithTag(Number, Avail))
+      opClass := chooseSubclass(Operator)
+  => build(ConsumeOperands(opClass, p))
+
+ConsumeOperands(operatorClass, nodes)
+  => op := build(operatorClass, linkFrom=nodes)
+     r := build(Block(arithResult(op)), linkFrom=op)
+     tag(nodes, Consumed)
+     untag(nodes, Avail)
+     tag(r, Avail)
+
+DoneScout(target)
+  see x := just1NodeWithTag(Number, Avail), x = target
+  => DONE
+
+BacktrackingScout(target)
+  see x := just1NodeWithTag(Number, Avail), x != target
+  => tag(x, Failed)
+     untag(x, Avail)
+     op := neighbor(x, source, OfClass(Operator, op))
+     tag(op, Failed)
+     srcs := neighbors(op, source)
+     untag(srcs, Consumed)
+     tag(srcs, Avail)
