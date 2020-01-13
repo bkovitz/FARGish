@@ -1,3 +1,17 @@
+Clean-up
+
+    UT NumberLine
+
+Planning
+
+    Draw a bunch of graphs depicting everything that I want to happen.
+
+    List all the stages in sequence leading to "guidance by competing analogous
+    temporal traces".
+    
+    Work out Scouts for "fill this in".
+
+
 Debug: Why isn't reseeding with the same seed producing the same results?
 
     Now it seems to work. I don't know why.

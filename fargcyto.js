@@ -135,7 +135,7 @@ function makeLayout(n) {
     ],
     */
     //refresh: 0.00000001
-    refresh: 1 //10
+    refresh: 0.005 //10
   };
 }
 
