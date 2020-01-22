@@ -148,3 +148,12 @@ def input_integers(prompt):
         except ValueError:
             print('Please enter a list of integers separated by spaces.')
             continue
+
+def setattr_from_kwargs(o, kwargs, *attr_names):
+    for attr_name in attr_names:
+        try:
+            setattr(o, attr_name, kwargs[attr_name])
+        except KeyError:
+            raise(ValueError(
+                f'{o.__class__.__name__} ctor missing argument "{attr_name}".'
+            ))

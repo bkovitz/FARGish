@@ -38,6 +38,9 @@ OperandsScout
   => build(ConsumeOperands(opClass, p))
 
 ConsumeOperands(operatorClass, nodes)
+# We build this as a separate node instead of doing it immediately so that
+# support can flow to it and it can ally and compete with other nodes to
+# get selected to actually happen. Also, it should have an activation threshold.
   => op := build(operatorClass, linkFrom=nodes)
      r := build(Block(arithResult(op)), linkFrom=op)
      tag(Consumed, nodes)
@@ -52,7 +55,7 @@ BacktrackingScout(target)
   see x := Just1NodeWithTag(Number, Avail), x != target
   => tag(Failed, x)
      untag(Avail, x)
-     op := source(x), OfClass(Operator, op))
+     op := source(x), OfClass(Operator, op)
      srcs := operands(op)
      tag(Failed, x, op, builder(x, op))
      untag(Consumed, srcs)
