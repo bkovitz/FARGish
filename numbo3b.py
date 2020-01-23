@@ -57,13 +57,10 @@ class OperandsScout(ActiveNode):
     # ANOTHER IDEA Multiple OperandsScouts, each looking at number nodes and
     # deciding how or whether to combine them into a group of operands.
     def actions(self, g, thisid):
-        p = pair(NodeWithTag(Number, Avail), NotAlready(ConsumeOperands))
-        if not p:
-            return None
-        opClass = chooseSubclass(Operator, NotAlready(ConsumeOperands, p))
-        if not opClass:
-            return None
-        return Build.maybe_make(ConsumeOperands, opClass, p)
+        return Build.maybe_make(ConsumeOperands,
+            [('operand', 'consumeOperands', NodeWithTag(Number, Avail)),
+             ('operand', 'consumeOperands', NodeWithTag(Number, Avail)),
+             ('operator', 'consumeOperands', NodeWithTag(Operator, Allowed))])
 
 class ConsumeOperands(ActiveNode):
 
