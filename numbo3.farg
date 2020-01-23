@@ -48,7 +48,7 @@ ConsumeOperands(operatorClass, nodes)
      tag(Avail, r)
 
 DoneScout(target)
-  see x := Just1NodeWithTag(Number, Avail), x == target
+  see x := NodeWithTag(Number, Avail), x == target
   => DONE
 
 BacktrackingScout(target)
@@ -60,3 +60,4 @@ BacktrackingScout(target)
      tag(Failed, x, op, builder(x, op))
      untag(Consumed, srcs)
      tag(Avail, srcs)
+     #TODO Add Failed tags recursively; probably needs an external func

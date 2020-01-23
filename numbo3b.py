@@ -57,19 +57,64 @@ class OperandsScout(ActiveNode):
     # ANOTHER IDEA Multiple OperandsScouts, each looking at number nodes and
     # deciding how or whether to combine them into a group of operands.
     def actions(self, g, thisid):
+        #TODO on-behalf-of ?
         return Build.maybe_make(ConsumeOperands,
-            [('operand', 'consumeOperands', NodeWithTag(Number, Avail)),
-             ('operand', 'consumeOperands', NodeWithTag(Number, Avail)),
-             ('operator', 'consumeOperands', NodeWithTag(Operator, Allowed))])
+            # Put the Cartesian-combinatoric stuff in Build.maybe_make
+            [('proposed-operand', 'proposal', NodeWithTag(Number, Avail)),
+             ('proposed-operand', 'proposal', NodeWithTag(Number, Avail)),
+             ('proposed-operator', 'proposal', NodeWithTag(Operator, Allowed))])
 
 class ConsumeOperands(ActiveNode):
 
-    def __init__(self, operatorClass, operandids):
-        self.operatorClass = operatorClass
-        self.operandids = operandids
+    def actions(self, g, thisid):
+        return [self.MyAction(g, thisid)]
+
+    class MyAction(Action):
+        threshold = 1.0
+        #IDEA Let probability weight be support - threshold
+
+        def __init__(self, g, thisid):
+            self.thisid = thisid
+
+        def go(self, g):
+            op_class = g.class_of(
+                g.neighbor(self.thisid, port_label='proposed-operator')
+            )
+            operand_ids = g.neighbors(
+                self.thisid, port_label='proposed-operand'
+            )
+            op_id = g.make_node(op_class) #TODO container?
+            for operand_id in operand_ids:
+                g.add_edge(op_id, 'operands', operand_id, 'consumer')
+            # arith_result will follow the links from op_id to get the
+            # operand values.
+            result_id = g.make_node(Block(arith_result(g, op_id))
+            move_tag(g, Avail, operand_ids, result_id)
+            g.add_tag(g, Consumed, operand_ids)
+
+class DoneScout(ActiveNode):
+
+    def __init__(self, targetid):
+        self.targetid = targetid
 
     def actions(self, g, thisid):
-        return [self.action(...)]
+        v = g.value_of(self.targetid)
+        node_ids = NodeWithTag(Number, Avail).find(g)
+        winner_id = next(g.value_of(id) == v for id in node_ids, None)
+        if winner_id:
+            return Raise(DONE, winner_id)
 
-    def action(self, g, thisid):
-        
+class BacktrackingScout(ActiveNode):
+
+    def __init__(self, targetid):
+        self.targetid = targetid
+
+    def actions(self, g, thisid):
+        target_v = g.value_of(self.targetid)
+        node_ids = Just1NodeWithTag(Number, Avail).find(g)
+        if node_ids and g.value_of(node_ids[0]) != target_v:
+            return self.MyAction(g, node_ids[0])
+
+    class MyAction(Action):
+        def __init__(g, node_id):
+            #TODO
