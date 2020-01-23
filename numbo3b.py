@@ -56,13 +56,35 @@ class OperandsScout(ActiveNode):
 
     # ANOTHER IDEA Multiple OperandsScouts, each looking at number nodes and
     # deciding how or whether to combine them into a group of operands.
+
+    link_specs = [
+        ('consume-operand', 'proposer'),
+        ('consume-operand', 'proposer'),
+        ('proposed-operator', 'proposer')
+    ]
+    nodes_finder = CartesianProduct(
+        NodeWithTag(Number, Avail),
+        NodeWithTag(Number, Avail),
+        NodeWithTag(Operator, Allowed),
+        whole_tuple_criteria=TupAnd(
+            no_dups,
+            NotLinkedToSame([link_spec[1] for link_spec in link_specs])
+        )
+    )
+
+#    def actions(self, g, thisid):
+#        #TODO on-behalf-of ?
+#        return Build.maybe_make(ConsumeOperands,
+#            # Put the Cartesian-combinatoric stuff in Build.maybe_make
+#            [('consume-operand', 'proposal', NodeWithTag(Number, Avail)),
+#             ('consume-operand', 'proposal', NodeWithTag(Number, Avail)),
+#             ('proposed-operator', 'proposal', NodeWithTag(Operator, Allowed))])
+
     def actions(self, g, thisid):
         #TODO on-behalf-of ?
-        return Build.maybe_make(ConsumeOperands,
-            # Put the Cartesian-combinatoric stuff in Build.maybe_make
-            [('proposed-operand', 'proposal', NodeWithTag(Number, Avail)),
-             ('proposed-operand', 'proposal', NodeWithTag(Number, Avail)),
-             ('proposed-operator', 'proposal', NodeWithTag(Operator, Allowed))])
+        node_tup = nodes_finder.see_one(g)
+        if node_tup is not None:
+            return [Build(ConsumeOperands, link_specs, node_tup)]
 
 class ConsumeOperands(ActiveNode):
 
@@ -81,7 +103,7 @@ class ConsumeOperands(ActiveNode):
                 g.neighbor(self.thisid, port_label='proposed-operator')
             )
             operand_ids = g.neighbors(
-                self.thisid, port_label='proposed-operand'
+                self.thisid, port_label='consume-operand'
             )
             op_id = g.make_node(op_class) #TODO container?
             for operand_id in operand_ids:
@@ -99,10 +121,18 @@ class DoneScout(ActiveNode):
 
     def actions(self, g, thisid):
         v = g.value_of(self.targetid)
-        node_ids = NodeWithTag(Number, Avail).find(g)
+        node_ids = NodeWithTag(Number, Avail).see_all(g)
         winner_id = next(g.value_of(id) == v for id in node_ids, None)
         if winner_id:
             return Raise(DONE, winner_id)
+
+class StuckScout(ActiveNode):
+
+    def actions(self, g, thisid):
+        nodeid = And(NodeWithTag(Number, Avail),
+                     NodeWithNeighbor('built_by'),
+                     Not(NodeWithTag(Node, Backtrack)))
+        return [Actions(Backtrack(nodeid), SelfDestruct(thisid)]]
 
 class BacktrackingScout(ActiveNode):
 
@@ -110,11 +140,7 @@ class BacktrackingScout(ActiveNode):
         self.targetid = targetid
 
     def actions(self, g, thisid):
-        target_v = g.value_of(self.targetid)
-        node_ids = Just1NodeWithTag(Number, Avail).find(g)
-        if node_ids and g.value_of(node_ids[0]) != target_v:
-            return self.MyAction(g, node_ids[0])
-
-    class MyAction(Action):
-        def __init__(g, node_id):
-            #TODO
+        nodeid = And(NodeWithTag(Number, Backtrack),
+                     Not(HasSameValue(targetid))).see_one(g)
+        if nodeid is not None:
+            return FuncAction(backtrack, nodeid)

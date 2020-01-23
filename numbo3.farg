@@ -1,5 +1,6 @@
 externalFuncs: { pair, chooseSubclass, arithResult, DONE, tag, untag,
-  neighbor, neighbors, NodeWithTag, Just1NodeWithTag, OfClass, build }
+  neighbor, neighbors, NodeWithTag, Just1NodeWithTag, OfClass, build,
+  backtrack }
 
 tags -- taggees
 source -- consumer
@@ -36,6 +37,7 @@ OperandsScout
   see p := pair(NodeWithTag(Number, Avail))
       opClass := chooseSubclass(Operator)
   => build(ConsumeOperands(opClass, p))
+  else build(StuckScout)
 
 ConsumeOperands(operatorClass, nodes)
 # We build this as a separate node instead of doing it immediately so that
@@ -51,13 +53,23 @@ DoneScout(target)
   see x := NodeWithTag(Number, Avail), x == target
   => DONE
 
+StuckScout :: OneShot
+  # We're stuck: find something to backtrack
+  see n := And(NodeWithTag(Number, Avail), NodeWithNeighbor(built_by),
+               Not(NodeWithTag(Node, Backtrack)))
+  => add_tag(Backtrack, n)
+
 BacktrackingScout(target)
-  see x := Just1NodeWithTag(Number, Avail), x != target
-  => tag(Failed, x)
-     untag(Avail, x)
-     op := source(x), OfClass(Operator, op)
-     srcs := operands(op)
-     tag(Failed, x, op, builder(x, op))
-     untag(Consumed, srcs)
-     tag(Avail, srcs)
-     #TODO Add Failed tags recursively; probably needs an external func
+  see n := And(NodeWithTag(Node, Backtrack), Not(SameValue(target)))
+  => backtrack(n)
+
+#BacktrackingScout(target)
+#  see x := Just1NodeWithTag(Number, Avail), x != target
+#  => tag(Failed, x)
+#     untag(Avail, x)
+#     op := source(x), OfClass(Operator, op)
+#     srcs := operands(op)
+#     tag(Failed, x, op, builder(x, op))
+#     untag(Consumed, srcs)
+#     tag(Avail, srcs)
+#     #TODO Add Failed tags recursively; probably needs an external func
