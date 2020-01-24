@@ -1,6 +1,7 @@
 # numbo3b.py -- Manually "compiled" FARGish for brute-force numble solver
 
 from PortGraph import Node, Tag
+from bases import NewLinkSpec
 from util import setattr_from_kwargs
 
 port_label_connections = {
@@ -58,9 +59,9 @@ class OperandsScout(ActiveNode):
     # deciding how or whether to combine them into a group of operands.
 
     link_specs = [
-        ('consume-operand', 'proposer'),
-        ('consume-operand', 'proposer'),
-        ('proposed-operator', 'proposer')
+        NewLinkSpec('consume-operand', 'proposer'),
+        NewLinkSpec('consume-operand', 'proposer'),
+        NewLinkSpec('proposed-operator', 'proposer')
     ]
     nodes_finder = CartesianProduct(
         NodeWithTag(Number, Avail),
@@ -68,7 +69,9 @@ class OperandsScout(ActiveNode):
         NodeWithTag(Operator, Allowed),
         whole_tuple_criteria=TupAnd(
             no_dups,
-            NotLinkedToSame([link_spec[1] for link_spec in link_specs])
+            NotLinkedToSame(
+                [link_spec.old_node_port_label for link_spec in link_specs]
+            )
         )
     )
 

@@ -1,9 +1,16 @@
 # NodeBases.py -- Base classes for fundamental node types
 
 from abc import ABC, abstractmethod
+from collections import namedtuple
 
 from PortGraph import Node, Tag
 from util import nice_object_repr, empty_set
+
+
+# Ports to link by an edge between an old node and a new node
+NewLinkSpec = namedtuple('NewLinkSpec',
+    ['old_node_port_label', 'new_node_port_label']
+)
 
 
 class GroupDescriptor(Tag):
