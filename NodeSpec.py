@@ -63,13 +63,16 @@ class NodeWithNeighbor(NodeSpec):
         return g.neighbor(nodeid, port_label=self.port_label) is not None
 
 class HasSameValue(NodeSpec):
+    '''Matches nodes with same value as targetid, but does not match
+    targetid.'''
 
     def __init__(self, targetid):
         self.targetid = targetid
 
-    def is_match(self, nodeid):
-        v = g.value_of(self.targetid)
-        return g.value_of(nodeid) == v
+    def is_match(self, g, nodeid):
+        if nodeid == self.targetid:
+            return False
+        return g.value_of(nodeid) == g.value_of(self.targetid)
 
 class And(NodeSpec):
 

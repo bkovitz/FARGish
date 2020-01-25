@@ -748,8 +748,8 @@ class PortGraph(nx.MultiGraph):
             v = self.datum(node).value
         except AttributeError:
             return None
-        if v is None and self.is_of_class(node, Tag):
-            return self.value_of(self.taggee_of(node))
+#        if v is None and self.is_of_class(node, Tag):
+#            return self.value_of(self.taggee_of(node))
         return v
 
     def have_same_value(self, node1, node2):
