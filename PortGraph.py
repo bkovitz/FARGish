@@ -33,6 +33,12 @@ class Node:
     def display_name(self, g, node):
         return self.__class__.__name__
 
+    def __eq__(self, other):
+        return repr(self) == repr(other)
+
+    def __hash__(self):
+        return hash(repr(self))
+
     def __getattr__(self, name):
         '''All attrs default to None, to make them easy to override in
         subclasses.'''
