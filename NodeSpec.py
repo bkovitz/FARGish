@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from random import choice
 from itertools import product
 
-from util import intersection
+from util import intersection, nice_object_repr
 
 
 class NodeSpec(ABC):
@@ -33,6 +33,8 @@ class NodeSpec(ABC):
         else:
             return None
 
+    __repr__ = nice_object_repr
+
 class NodeOfClass(NodeSpec):
 
     def __init__(self, nodeclass):
@@ -54,6 +56,8 @@ class NodeWithTag(NodeSpec):
             g.has_tag(nodeid, self.tagclass)
         )
 
+#TODO rename to NodeWithNeighborAt?
+#TODO UT
 class NodeWithNeighbor(NodeSpec):
 
     def __init__(self, port_label):
@@ -61,6 +65,14 @@ class NodeWithNeighbor(NodeSpec):
 
     def is_match(self, g, nodeid):
         return g.neighbor(nodeid, port_label=self.port_label) is not None
+
+class NodeWithValue(NodeSpec):
+
+    def __init__(self, value):
+        self.value = value
+
+    def is_match(self, g, nodeid):
+        return g.value_of(nodeid) == self.value
 
 class HasSameValue(NodeSpec):
     '''Matches nodes with same value as targetid, but does not match
@@ -97,22 +109,24 @@ class CartesianProduct:
     own Nodespec, and the whole tuple can have further criteria, e.g. to
     disallow the same node from appearing more than once in one tuple.'''
 
-    def __init__(self, *nodespecs, whole_tuple_criteria=None):
+    def __init__(self, *nodespecs, whole_tuple_criterion=None):
         self.nodespecs = nodespecs
-        self.whole_tuple_criteria = whole_tuple_criteria
+        if whole_tuple_criterion is None:
+            whole_tuple_criterion = tup_always_true
+        self.whole_tuple_criterion = whole_tuple_criterion
 
     def see_all(self, g, nodes=None):
-        '''Returns a list of tuples of nodes that meet all the criteria.
+        '''Returns a list of tuples of nodes that meet the criterion.
         If nodes is not None, it specifies a subset of nodes in which to
         search.'''
         return [
             tup for tup in product(
                 *(nodespec.see_all(g, nodes) for nodespec in self.nodespecs)
-            ) if all(c(tup) for c in self.whole_tuple_criteria)
+            ) if self.whole_tuple_criterion.is_match(g, tup)
         ]
 
     def see_one(self, g, nodes=None):
-        '''Returns one tuple of nodes that meets all the criteria, chosen
+        '''Returns one tuple of nodes that meets the criterion, chosen
         randomly if more than one exists, or None if no such tuple exists.
         If 'nodes' is not None, it specifies a subset of nodes in which to
         search.'''
@@ -130,6 +144,12 @@ class TupleCriterion(ABC):
     @abstractmethod
     def is_match(self, g, tup):
         '''Returns True iff tup matches the criterion.'''
+        pass
+
+class TupAlwaysTrue(TupleCriterion):
+    def is_match(self, g, tup):
+        return True
+tup_always_true = TupAlwaysTrue()
 
 class NoDups(TupleCriterion):
     '''Allows no nodeid to appear more than once in the tuple.'''
@@ -150,14 +170,14 @@ class NotLinkedToSame(TupleCriterion):
         if len(tup) != len(self.port_labels):
             raise(ValueError(f'tuple {tuple} and port_labels {self.port_labels} do not have the same length.'))
         mate_sets = []
-        for nodeid, port_label in tup, self.port_labels:
+        for nodeid, port_label in zip(tup, self.port_labels):
             mate_sets.append(g.neighbors(nodeid, port_label=port_label))
         common_mates = intersection(*mate_sets)
         return len(common_mates) == 0
 
 class TupAnd(TupleCriterion):
 
-    def __init__(self, tupcriteria):
+    def __init__(self, *tupcriteria):
         self.tupcriteria = tupcriteria
 
     def is_match(self, g, tup):

@@ -59,9 +59,9 @@ class OperandsScout(ActiveNode):
     # deciding how or whether to combine them into a group of operands.
 
     link_specs = [
-        NewLinkSpec('consume-operand', 'proposer'),
-        NewLinkSpec('consume-operand', 'proposer'),
-        NewLinkSpec('proposed-operator', 'proposer')
+        NewLinkSpec('proposer', 'consume-operand', ),
+        NewLinkSpec('proposer', 'consume-operand', ),
+        NewLinkSpec('proposer', 'proposed-operator')
     ]
     nodes_finder = CartesianProduct(
         NodeWithTag(Number, Avail),

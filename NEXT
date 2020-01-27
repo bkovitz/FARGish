@@ -1,3 +1,13 @@
+testNodeSpec.py
+
+    UT And
+    UT Not
+    UT CartesianProduct  DONE
+    UT NotLinkedToSame  DONE
+    UT NoDups  DONE
+    UT TupAnd  DONE
+
+
 numbo3b.py: Latest manually "compiled" brute-force Numbo
 
     Write out the whole model as top-level code

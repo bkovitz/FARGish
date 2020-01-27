@@ -11,6 +11,9 @@ from util import nice_object_repr, empty_set
 NewLinkSpec = namedtuple('NewLinkSpec',
     ['old_node_port_label', 'new_node_port_label']
 )
+def make_link(g, link_spec, new_node, old_node):
+    g.add_edge(old_node, link_spec.old_node_port_label,
+               new_node, link_spec.new_node_port_label)
 
 
 class GroupDescriptor(Tag):
