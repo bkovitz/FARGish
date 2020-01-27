@@ -102,7 +102,7 @@ class Not(NodeSpec):
         self.nodespec = nodespec
 
     def is_match(self, g, nodeid):
-        return not self.nodespec(g, nodeid)
+        return not self.nodespec.is_match(g, nodeid)
 
 class CartesianProduct:
     '''Specifies criteria for tuples of nodes. Each node in the tuple has its

@@ -2,7 +2,7 @@ import unittest
 import itertools
 
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
-    CartesianProduct, no_dups, TupAnd, NotLinkedToSame
+    And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame
 from numbospec import *
 from bases import NewLinkSpec, make_link
 from PortGraph import PortGraph, pg
@@ -58,6 +58,17 @@ class TestBasics(unittest.TestCase):
         targetid = NodeOfClass(Target).see_one(g)
         spec = HasSameValue(targetid)
         expect = [Brick(15)]
+        got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
+        self.assertCountEqual(got, expect)
+
+    def test_and_not(self):
+        g = TestGraph(Numble([4, 5, 15, 6], 15))
+        targetid = NodeOfClass(Target).see_one(g)
+        spec = And(
+            Not(HasSameValue(targetid)),
+            NodeWithTag(Number, Avail)
+        )
+        expect = [Brick(4), Brick(5), Brick(6)]
         got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
         self.assertCountEqual(got, expect)
 
