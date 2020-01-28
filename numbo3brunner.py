@@ -5,6 +5,7 @@
 
 from numbo3b import *
 from PortGraph import PortGraph, pg
+from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
 
 
@@ -35,7 +36,7 @@ class Numble:
         Allowed.add_tag(g, timesid)
         return container
 
-class Numbo3Graph(PortGraph, TimeStepper):
+class Numbo3Graph(PortGraph, TimeStepper, ExprAsEquation):
     default_graph_attrs = dict(
         t=0,
         done=False,
@@ -60,3 +61,8 @@ g = Numbo3Graph(seed=1, numble=Numble([4, 5, 6], 15))
 #pg(g)
 for i in range(10):
     g.do_timestep()
+ConsumeOperands.fail(g, 23)
+g.do_timestep()
+g.do_timestep()
+g.do_timestep()
+# Succeeds at last timestep with above seed and numble.

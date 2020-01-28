@@ -5,10 +5,12 @@ from functools import reduce
 
 from PortGraph import Node, Tag
 from bases import ActiveNode, NewLinkSpec
-from Action import Action, FuncAction, Build, ActionSeq, SelfDestruct
-from NodeSpec import NodeOfClass, NodeWithTag, HasSameValue, And, Not, \
-    CartesianProduct, TupAnd, NotLinkedToSame, no_dups
+from Action import Action, FuncAction, Build, ActionSeq, SelfDestruct, Raise
+from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
+    And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups
+from exc import FargDone
 from util import setattr_from_kwargs
+import expr
 
 port_label_connections = {
     # TODO
@@ -32,19 +34,37 @@ class Workspace(Node):
 class Number(Node):
     def __init__(self, n):
         self.value = n
+    def expr(self, g, node): #TODO FARGish?
+        return expr.Number(g.value_of(node))
 class Target(Number):
     pass
 class Brick(Number):
     pass
 class Block(Number):
-    pass
+    def expr(self, g, node): #TODO FARGish?
+        source = g.neighbor(node, port_label='source')
+        return g.expr(source)
 
 class Operator(Node):
-    pass
+    needs_source = True
+
+    #TODO How to put the expr stuff into FARGish?
+    def operands(self, g, node):
+        return list(g.neighbors(node, 'source'))
+
+    def operand_exprs(self, g, node):
+        return [
+            g.expr(operand)
+                for operand in self.operands(g, node)
+        ]
+
+    def expr(self, g, node):
+        return self.expr_class(*self.operand_exprs(g, node))
+
 class Plus(Operator):
-    pass
+    expr_class = expr.Plus  # TODO How to put this in FARGish?
 class Times(Operator):
-    pass
+    expr_class = expr.Times  # TODO How to put this in FARGish?
 
 class Want(Tag, ActiveNode):
 
@@ -140,7 +160,10 @@ def arith_result(g, operator_id):
 class ConsumeOperands(ActiveNode):
 
     def actions(self, g, thisid):
-        if g.all_have_tag(Avail, self.my_operands(g, thisid)):
+        if (not g.has_tag(thisid, Failed)
+            and
+            g.all_have_tag(Avail, self.my_operands(g, thisid))
+        ):
             return [self.MyAction(g, thisid)]
 
     @classmethod
@@ -161,12 +184,39 @@ class ConsumeOperands(ActiveNode):
             operand_ids = g.neighbors(
                 self.thisid, port_label='consume-operand'
             )
-            op_id = g.make_node(op_class) #TODO container?
+            op_id = g.make_node(op_class, builder=self.thisid) #TODO container?
             for operand_id in operand_ids:
                 g.add_edge(op_id, 'operands', operand_id, 'consumer')
-            result_id = g.make_node(Block(arith_result(g, op_id)))
+            result_id = g.make_node(
+                Block(arith_result(g, op_id)), builder=self.thisid
+            )
+            g.add_edge(result_id, 'source', op_id, 'consumer')
             g.move_tag(Avail, operand_ids, result_id)
             g.add_tag(Consumed, operand_ids)
+
+    @classmethod
+    def fail(cls, g, thisid):
+        built_number_ids = g.neighbors(
+            thisid, port_label='built', neighbor_class=Number
+        )
+        operand_ids = g.neighbors(
+            thisid, port_label='consume-operand'
+        )
+        if g.all_have_tag(Avail, built_number_ids):
+            g.move_tag(Avail, built_number_ids, operand_ids)
+            g.remove_tag(operand_ids, Consumed)
+        g.add_tag(Failed, thisid)
+        for built_id in g.neighbors(thisid, port_label='built'):
+            g.add_tag(Failed, built_id)
+        
+
+class NumboSuccess(FargDone):
+
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __str__(self):
+        return 'Success!  ' + str(self.expr)
 
 class DoneScout(ActiveNode):
 
@@ -175,10 +225,16 @@ class DoneScout(ActiveNode):
 
     def actions(self, g, thisid):
         v = g.value_of(self.targetid)
-        node_ids = NodeWithTag(Number, Avail).see_all(g)
-        winner_id = next((g.value_of(id) == v for id in node_ids), None)
-        if winner_id:
-            return Raise(DONE, winner_id)
+        #node_ids = NodeWithTag(Number, Avail).see_all(g)
+        #winner_id = next((g.value_of(id) == v for id in node_ids), None)
+        winner_id = \
+            NodeWithValue(v, nodeclass=Number, tagclass=Avail).see_one(g)
+        if winner_id is not None:
+            return [Raise(NumboSuccess,
+                          expr.Equation(
+                            extract_expr(g, winner_id),
+                            extract_expr(g, self.targetid)))]
+
 
 class StuckScout(ActiveNode):
 
@@ -198,3 +254,24 @@ class BacktrackingScout(ActiveNode):
                      Not(HasSameValue(self.targetid))).see_one(g)
         if nodeid is not None:
             return [FuncAction(backtrack, nodeid)]
+
+def backtrack(g, nodeid):
+    if (not g.has_tag(nodeid, Avail)) or (not g.has_tag(nodeid, Backtrack)):
+        return
+    #TODO Roll the Avail back to the Block's builder's operands
+
+def extract_expr(g, nodeid):
+    '''Extracts an Expr tree consisting of nodeid and its sources.'''
+    nodeclass = g.class_of(nodeid)
+    if issubclass(nodeclass, Block):
+        return extract_expr(g, g.neighbor(nodeid, 'source'))
+    elif issubclass(nodeclass, Number):
+        return expr.Number(g.value_of(nodeid))
+    elif issubclass(nodeclass, Operator):
+        operand_exprs = (
+            extract_expr(g, n)
+                for n in g.neighbors(nodeid, ['source', 'operands'])
+        )
+        return g.datum(nodeid).expr_class(*operand_exprs)
+    else:
+        raise ValueError(f'extract_expr: node {nodeid} has unrecognized class {nodeclass}')

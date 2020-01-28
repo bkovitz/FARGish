@@ -11,11 +11,13 @@ class ExprAsEquation:
     def expr_as_equation(self, target):
         '''Returns an expr.Equation representing the expression whose ultimate
         'consumer' is target.'''
-        source = self.neighbor(target, port_label='source')
+        source = self.neighbor(target, port_label=['source', 'operands'])
+        print('EXPR_AS', source)
         if source:
             source_expr = self.expr(source)
         else:
             source_expr = expr.Number(self.value_of(target))
+        print('SOURCE_EXPR', source_expr)
         return expr.Equation(
             source_expr,
             expr.Number(self.value_of(target))

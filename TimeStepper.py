@@ -8,6 +8,7 @@ from operator import attrgetter
 from PortGraph import pg
 from bases import ActiveNode, CoarseView
 from util import sample_without_replacement
+from exc import FargDone
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
 
 
@@ -95,7 +96,10 @@ class TimeStepper:
 
     def do_action(self, action):
         '''action: an Action object'''
-        action.go(self)
+        try:
+            action.go(self)
+        except FargDone as exc:
+            self.set_done(exc)
 
     def set_done(self, done):
         self.graph['done'] = done

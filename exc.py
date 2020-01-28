@@ -8,6 +8,8 @@ class FargDone(Exception):
     def done_msg(self):
         return 'FargDone' # This should be overridden
 
+    __repr__ = nice_object_repr
+
 class NumboSuccess(FargDone):
     def __init__(self, g, target):
         'g must be a NumboGraph.'
@@ -16,8 +18,6 @@ class NumboSuccess(FargDone):
 
     def __str__(self):
         return 'Success!  ' + str(self.g.expr_as_equation(self.target))
-
-    __repr__ = nice_object_repr
 
 class TooManyTimestepsWithNoResponse(FargDone):
     def __init__(self, num_timesteps):

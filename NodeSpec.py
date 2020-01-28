@@ -79,12 +79,21 @@ class NodeWithNeighborAt(NodeSpec):
         return any(g.is_of_class(neighbor, self.neighbor_class)
                        for neighbor in neighbors)
 
+#TODO UT nodeclass and tagclass
 class NodeWithValue(NodeSpec):
 
-    def __init__(self, value):
+    def __init__(self, value, nodeclass=None, tagclass=None):
         self.value = value
+        self.nodeclass = nodeclass
+        self.tagclass = tagclass
 
     def is_match(self, g, nodeid):
+        if self.nodeclass is not None:
+            if not g.is_of_class(nodeid, self.nodeclass):
+                return False
+        if self.tagclass is not None:
+            if not g.has_tag(nodeid, self.tagclass):
+                return False
         return g.value_of(nodeid) == self.value
 
 class HasSameValue(NodeSpec):

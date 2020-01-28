@@ -268,7 +268,7 @@ class PortGraph(nx.MultiGraph):
         self.nextid += 1
         return result
 
-    def make_node(self, o, container=None):
+    def make_node(self, o, container=None, builder=None):
         '''Builds a new node and sets its datum. If o is a class, we call it
         with no arguments and set the datum to the constructed object.
         Otherwise we set the datum to o. We set the salience according
@@ -289,6 +289,8 @@ class PortGraph(nx.MultiGraph):
         if callable(o.after_touch_update):
             self.after_touch_nodes.add(i)
         self.new_nodes.add(i)
+        if builder is not None:
+            self.add_edge(i, 'builder', builder, 'built')
         for c in as_iter(container):
             self.add_member_edge(c, i)
         return i
@@ -537,7 +539,10 @@ class PortGraph(nx.MultiGraph):
         '''Links a tag to one or more nodes. Returns the tag's id.
         If tag_or_tagclass is a class, builds the tag.
         The tag supports its taggees.'''
-        print('ADD_TAG', tag_or_tagclass, node_or_nodes)
+        any_exist = any(self.has_node(n) for n in as_iter(node_or_nodes))
+        print('ADD_TAG', tag_or_tagclass, node_or_nodes, any_exist)
+        if not any_exist:
+            return
 
         #TODO Allow other options regarding support (e.g. less support,
         #opposition, reciprocal support).
@@ -568,24 +573,36 @@ class PortGraph(nx.MultiGraph):
                      tag_port_label=tag_port_label,
                      node_port_label=node_port_label)
 
+    #TODO UT
     def move_tag(self, tagclass, fromids, toids):
         '''Moves all tags of class tagclass from fromids to toids. fromids and
-        toids can be either a single integer or a list of integer node ids.'''
-        self.remove_tag(fromids, tagclass)
-        for toid in as_iter(toids):
-            self.add_tag(tagclass, toid)
+        toids can be either a single integer or a list of integer node ids.
+        If none of the fromids have such a tag, does nothing.'''
+        if self.remove_tag(fromids, tagclass):
+            for toid in as_iter(toids):
+                print('MOVE', tagclass, toid)
+                self.add_tag(tagclass, toid)
 
     def has_tag(self, node, tagclass, taggee_port_label='tags'):
-        try:
-            return any(
-                tag for tag in self.neighbors(
-                        node,
-                        port_label=taggee_port_label
-                    )
-                        if issubclass(self.class_of(tag), tagclass)
+        '''Returns True iff node has at least one tag of class tagclass.
+        tagclass can be an integer, specifying the nodeid of a specific
+        tag node; if so, returns True iff node is linked to that node at
+        taggee_port_label.'''
+        if isclass(tagclass):
+            try:
+                return any(
+                    tag for tag in self.neighbors(
+                            node,
+                            port_label=taggee_port_label
+                        )
+                            if issubclass(self.class_of(tag), tagclass)
+                )
+            except KeyError:
+                return False
+        else:
+            return tagclass in self.neighbors(
+                node, port_label=taggee_port_label
             )
-        except KeyError:
-            return False
 
     def all_have_tag(self, tagclass, nodes, taggee_port_label='tags'):
         return all(
@@ -622,34 +639,54 @@ class PortGraph(nx.MultiGraph):
         except StopIteration:
             return None
         
+    #TODO Consistent argument order: put tag_or_tagclass first?
     def remove_tag(self, node_or_nodes, tag_or_tagclass):
-        '''Removes all tags of node that match tagclass.'''
+        '''Removes all tags of node that match tagclass. Returns True iff at
+        last one of node_or_nodes was actually so tagged.'''
         #TODO Should only remove the edge if the tag tags other nodes, too.
         #TODO Should be able to specify the tagclass more narrowly (e.g.
         # by value, by other taggees).
+        result = False
         if isclass(tag_or_tagclass):
-            for node in as_iter(node_or_nodes):
-                self.remove_nodes_from(
-                    tag for tag in self.tags_of(node, tagclass=tag_or_tagclass)
-                )
+            tagids = list(self.tags_of(node_or_nodes, tagclass=tag_or_tagclass))
+            if tagids:
+                self.remove_nodes_from(tagids)
+            result = True
         else:
             self.remove_node(tag_or_tagclass)
+            result = True # HACK BUG We should check that node_or_nodes really
+                          # has the given tag node.
+        return result
         
-    def neighbors(self, node, port_label=None):
+    #TODO UT port_label as iterable
+    #TODO neighbor_class
+    def neighbors(self, node, port_label=None, neighbor_class=None):
+        '''Returns a set. If neighbor_class is not None, returns only
+        neighbors of that class. If port_label is None, returns all
+        neighbors at all of node's ports. If port_label is an iterable,
+        returns the union of all the neighbors at the specified ports.'''
         if port_label is None:
-            return super().neighbors(node)
+            result = super().neighbors(node)
         elif node is None:
-            return []
+            result = []
         else:
-            return set(hop.to_node
-                          for hop in self.hops_from_port(node, port_label))
+            result = set()
+            for pl in as_iter(port_label):
+                result.update(
+                    hop.to_node
+                        for hop in self.hops_from_port(node, pl)
+                )
+        if neighbor_class is None:
+            return set(result)
+        else:
+            return set(n for n in result if self.is_of_class(n, neighbor_class))
 
     def neighbor(self, node, port_label=None):
         '''Returns 'first' neighbor of node, at optional port_label. If there
         is more than one neighbor, the choice is made arbitrarily. If there
         is no neighbor, returns None.'''
         try:
-            return next(iter(self.neighbors(node, port_label)))
+            return next(iter(self.neighbors(node, port_label=port_label)))
         except StopIteration:
             return None
 

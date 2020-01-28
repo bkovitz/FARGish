@@ -79,6 +79,18 @@ class Build(Action):
                 link_spec.old_node_port_label
             )
 
+class Raise(Action):
+    '''Raises an exception with user-supplied arguments.'''
+
+    def __init__(self, exc_class, *args, **kwargs):
+        self.exc_class = exc_class
+        self.args = args
+        self.kwargs = kwargs
+
+    def go(self, g):
+        raise self.exc_class(*self.args, **self.kwargs)
+
+
 class SelfDestruct(Action):
 
     def __init__(self, nodeid):
