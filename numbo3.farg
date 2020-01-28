@@ -28,7 +28,7 @@ Operator
 
 Plus, Times :: Operator
 
-Want(target)
+Want :: Tag
   scout: OperandsScout
   scout: BacktrackingScout(target)
   scout: DoneScout(target)

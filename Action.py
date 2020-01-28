@@ -2,6 +2,8 @@
 
 from abc import ABC, abstractmethod
 
+from util import nice_object_repr
+
 
 class Action(ABC):
     '''An action to be performed on the graph.'''
@@ -38,23 +40,50 @@ class FuncAction(Action):
     def go(self, g):
         return self.func(g, *self.args, **self.kwargs)
 
+class ActionSeq(Action):
+    '''A sequence of Actions. Later Actions will be performed even if
+    earlier Actions fail.'''
+
+    def __init__(self, *actions):
+        self.actions = actions
+
+    def go(self, g):
+        for action in self.actions:
+            action.go(g)
+
 class Build(Action):
     '''Builds a node and links it to specified existing nodes.'''
 
-    def __init__(self, nodeclass, link_specs, existing_nodes):
+    def __init__(self, nodeclass, link_specs, existing_nodes, kwargs=None):
         if len(link_specs) != len(existing_nodes):
             raise(ValueError(f'number of link_specs ({link_specs}) does not equal number of existing nodes ({existing_nodes}).'))
         self.nodeclass = nodeclass
         self.link_specs = link_specs
         self.existing_nodes = existing_nodes
+        self.kwargs = kwargs
 
     def go(self, g):
         #TODO member_of? common container of all the existing_nodes?
-        new_node = g.make_node(self.nodeclass)
-        for link_spec, existing_node in self.link_specs, self.existing_nodes:
+        print('BUILD', self.nodeclass)
+        if self.kwargs:
+            datum = self.nodeclass(**self.kwargs)
+        else:
+            datum = self.nodeclass()
+        new_node = g.make_node(datum)
+        for link_spec, existing_node in \
+                zip(self.link_specs, self.existing_nodes):
             g.add_edge(
                 new_node,
                 link_spec.new_node_port_label,
                 existing_node,
                 link_spec.old_node_port_label
             )
+
+class SelfDestruct(Action):
+
+    def __init__(self, nodeid):
+        self.nodeid = nodeid
+
+    def go(self, g):
+        #TODO
+        pass

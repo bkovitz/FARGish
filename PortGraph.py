@@ -530,7 +530,6 @@ class PortGraph(nx.MultiGraph):
         else:
             return False
 
-    #TODO Make node_or_nodes the first argument
     def add_tag(
         self, tag_or_tagclass, node_or_nodes,
         tag_port_label='taggees', node_port_label='tags'
@@ -538,6 +537,8 @@ class PortGraph(nx.MultiGraph):
         '''Links a tag to one or more nodes. Returns the tag's id.
         If tag_or_tagclass is a class, builds the tag.
         The tag supports its taggees.'''
+        print('ADD_TAG', tag_or_tagclass, node_or_nodes)
+
         #TODO Allow other options regarding support (e.g. less support,
         #opposition, reciprocal support).
         if isclass(tag_or_tagclass) or isinstance(tag_or_tagclass, Node):
@@ -566,6 +567,13 @@ class PortGraph(nx.MultiGraph):
                      node_or_nodes=node_or_nodes,
                      tag_port_label=tag_port_label,
                      node_port_label=node_port_label)
+
+    def move_tag(self, tagclass, fromids, toids):
+        '''Moves all tags of class tagclass from fromids to toids. fromids and
+        toids can be either a single integer or a list of integer node ids.'''
+        self.remove_tag(fromids, tagclass)
+        for toid in as_iter(toids):
+            self.add_tag(tagclass, toid)
 
     def has_tag(self, node, tagclass, taggee_port_label='tags'):
         try:
@@ -645,9 +653,14 @@ class PortGraph(nx.MultiGraph):
         except StopIteration:
             return None
 
-    def has_neighbor_at(self, node, port_label):
-        '''Does node have a neighbor linked to port_label?'''
-        return bool(self.neighbor(node, port_label))
+    def has_neighbor_at(self, node, port_label, neighbor_class=None):
+        '''Does node have a neighbor of neighbor_class linked to port_label?
+        If neighbor_class is None, then any class of neighbor will do.'''
+        if neighbor_class is None:
+            return bool(self.neighbor(node, port_label))
+        else:
+            return any(self.is_of_class(neighbor, neighbor_class)
+                          for neighbor in self.neighbors(node, port_label))
 
     def taggees_of(self, tag, port_label='taggees'):
         return self.neighbors(tag, port_label=port_label)

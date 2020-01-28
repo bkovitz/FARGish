@@ -56,15 +56,28 @@ class NodeWithTag(NodeSpec):
             g.has_tag(nodeid, self.tagclass)
         )
 
-#TODO rename to NodeWithNeighborAt?
 #TODO UT
-class NodeWithNeighbor(NodeSpec):
+#TODO Just call PortGraph.has_neighbor_at()
+class NodeWithNeighborAt(NodeSpec):
 
-    def __init__(self, port_label):
+    def __init__(self, port_label, neighbor_class=None, node_class=None):
         self.port_label = port_label
+        self.neighbor_class = neighbor_class
+        self.node_class = node_class
 
     def is_match(self, g, nodeid):
-        return g.neighbor(nodeid, port_label=self.port_label) is not None
+        if (self.node_class is not None
+            and
+            not g.is_of_class(nodeid, self.node_class)
+        ):
+            return False
+        neighbors = g.neighbors(nodeid, port_label=self.port_label)
+        if len(neighbors) == 0:
+            return False
+        if self.neighbor_class is None:
+            return True
+        return any(g.is_of_class(neighbor, self.neighbor_class)
+                       for neighbor in neighbors)
 
 class NodeWithValue(NodeSpec):
 
@@ -168,7 +181,7 @@ class NotLinkedToSame(TupleCriterion):
     def is_match(self, g, tup):
         '''tup must have same length as self.port_labels.'''
         if len(tup) != len(self.port_labels):
-            raise(ValueError(f'tuple {tuple} and port_labels {self.port_labels} do not have the same length.'))
+            raise(ValueError(f'tuple {tup} and port_labels {self.port_labels} do not have the same length.'))
         mate_sets = []
         for nodeid, port_label in zip(tup, self.port_labels):
             mate_sets.append(g.neighbors(nodeid, port_label=port_label))

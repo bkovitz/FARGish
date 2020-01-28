@@ -129,12 +129,14 @@ class TimeStepper:
         .threshold.'''
         actions = []
         for node in active_nodes:
-            for action in self.datum(node).actions(self, node):
-                if (action is not None
-                    and
-                    action.weight >= action.threshold
-                ):
-                    actions.append(action)
+            got = self.datum(node).actions(self, node)
+            if got is not None:
+                for action in got:
+                    if (action is not None
+                        and
+                        action.weight >= action.threshold
+                    ):
+                        actions.append(action)
         return actions
 
     def choose_actions(self, actions, k=None):
