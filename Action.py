@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 
-from util import nice_object_repr
+from util import nice_object_repr, as_iter
 
 
 class Action(ABC):
@@ -90,6 +90,16 @@ class Raise(Action):
     def go(self, g):
         raise self.exc_class(*self.args, **self.kwargs)
 
+
+class Fail(Action):
+    '''Calls 'fail' method on given node or nodes.'''
+
+    def __init__(self, node_or_nodes):
+        self.node_or_nodes = node_or_nodes
+
+    def go(self, g):
+        for nodeid in as_iter(self.node_or_nodes):
+            g.datum(nodeid).fail(g, nodeid)
 
 class SelfDestruct(Action):
 

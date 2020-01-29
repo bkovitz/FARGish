@@ -131,3 +131,15 @@ Demo 5
     Numble goal: 3 3 3; 27
 
 
+testNodeSpec.py
+
+    UT And  DONE
+    UT Not  DONE
+    UT CartesianProduct  DONE
+    UT NotLinkedToSame  DONE
+    UT NoDups  DONE
+    UT TupAnd  DONE
+
+Get expr working with numbo3b.py  DONE
+
+

@@ -5,11 +5,11 @@ from functools import reduce
 
 from PortGraph import Node, Tag
 from bases import ActiveNode, NewLinkSpec
-from Action import Action, FuncAction, Build, ActionSeq, SelfDestruct, Raise
+from Action import Action, FuncAction, Build, ActionSeq, SelfDestruct, Raise, \
+    Fail
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
     And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups
 from exc import FargDone
-from util import setattr_from_kwargs
 import expr
 
 port_label_connections = {
@@ -24,6 +24,10 @@ class Failed(Tag):
     pass
 class Backtrack(Tag):
     pass
+class Done(Tag):
+    '''Indicates that an ActiveNode that has a single action to do has
+    done it.'''
+    pass
 class Allowed(Tag):
     '''Indicates an allowed Operator for solving the current numble.'''
     pass
@@ -34,33 +38,17 @@ class Workspace(Node):
 class Number(Node):
     def __init__(self, n):
         self.value = n
-    def expr(self, g, node): #TODO FARGish?
-        return expr.Number(g.value_of(node))
 class Target(Number):
     pass
 class Brick(Number):
     pass
 class Block(Number):
-    def expr(self, g, node): #TODO FARGish?
-        source = g.neighbor(node, port_label='source')
-        return g.expr(source)
+    def fail(self, g, thisid):
+        for builder in g.neighbors(thisid, port_label='builder'):
+            g.datum(builder).fail(g, builder)
 
 class Operator(Node):
-    needs_source = True
-
-    #TODO How to put the expr stuff into FARGish?
-    def operands(self, g, node):
-        return list(g.neighbors(node, 'source'))
-
-    def operand_exprs(self, g, node):
-        return [
-            g.expr(operand)
-                for operand in self.operands(g, node)
-        ]
-
-    def expr(self, g, node):
-        return self.expr_class(*self.operand_exprs(g, node))
-
+    pass
 class Plus(Operator):
     expr_class = expr.Plus  # TODO How to put this in FARGish?
 class Times(Operator):
@@ -78,12 +66,13 @@ class Want(Tag, ActiveNode):
         if not g.has_neighbor_at(
             thisid, 'agents', neighbor_class=OperandsScout
         ):
-            s1 = Build(OperandsScout, [self.operands_scout_link], [thisid])
+            s1 = Build(OperandsScout, [self.operands_scout_link], [thisid],
+                       kwargs=dict(targetid=targetid))
         s2 = None
-        if not g.has_neighbor_at(
-            thisid, 'agents', neighbor_class=BacktrackingScout
-        ):
-            s2 = Build(BacktrackingScout, [self.backtracking_scout_link], [thisid], kwargs=dict(targetid=targetid))
+#        if not g.has_neighbor_at(
+#            thisid, 'agents', neighbor_class=BacktrackingScout
+#        ):
+#            s2 = Build(BacktrackingScout, [self.backtracking_scout_link], [thisid], kwargs=dict(targetid=targetid))
         s3 = None
         if not g.has_neighbor_at(
             thisid, 'agents', neighbor_class=DoneScout
@@ -111,6 +100,9 @@ class OperandsScout(ActiveNode):
     # ANOTHER IDEA Multiple OperandsScouts, each looking at number nodes and
     # deciding how or whether to combine them into a group of operands.
 
+    def __init__(self, targetid):
+        self.targetid = targetid
+
     link_specs = [
         NewLinkSpec('proposer', 'consume-operand', ),
         NewLinkSpec('proposer', 'consume-operand', ),
@@ -128,20 +120,29 @@ class OperandsScout(ActiveNode):
         )
     )
 
-#    def actions(self, g, thisid):
-#        #TODO on-behalf-of ?
-#        return Build.maybe_make(ConsumeOperands,
-#            # Put the Cartesian-combinatoric stuff in Build.maybe_make
-#            [('consume-operand', 'proposal', NodeWithTag(Number, Avail)),
-#             ('consume-operand', 'proposal', NodeWithTag(Number, Avail)),
-#             ('proposed-operator', 'proposal', NodeWithTag(Operator, Allowed))])
-
     def actions(self, g, thisid):
         #TODO on-behalf-of ?
         node_tup = self.nodes_finder.see_one(g)
         print('NODE_TUP', node_tup)
         if node_tup is not None:
             return [Build(ConsumeOperands, self.link_specs, node_tup)]
+#        cos_in_progress = list(
+#            g.nodes_without_tag(Failed,
+#                nodes=g.nodes_without_tag(Done,
+#                    nodes=g.nodes_of_class(ConsumeOperands))
+#            )
+#        )
+        cos_in_progress = [
+            co for co in g.nodes_of_class(ConsumeOperands)
+                if g.datum(co).can_go(g, co)
+        ]
+        print('COS', cos_in_progress)
+        if cos_in_progress:
+            return []
+        # no operands to consume, so fail, i.e. trigger backtracking
+        nodeid = NodeWithTag(Block, Avail).see_one(g)
+        if g.value_of(nodeid) != g.value_of(self.targetid):
+            return [Fail(nodeid)]
 
 def arith_result(g, operator_id):
     operator_class = g.class_of(operator_id)
@@ -160,11 +161,15 @@ def arith_result(g, operator_id):
 class ConsumeOperands(ActiveNode):
 
     def actions(self, g, thisid):
-        if (not g.has_tag(thisid, Failed)
+        if self.can_go(g, thisid):
+            return [self.MyAction(g, thisid)]
+
+    def can_go(self, g, thisid):
+        return (
+            not g.has_tag(thisid, Done)
             and
             g.all_have_tag(Avail, self.my_operands(g, thisid))
-        ):
-            return [self.MyAction(g, thisid)]
+        )
 
     @classmethod
     def my_operands(self, g, thisid):
@@ -193,6 +198,7 @@ class ConsumeOperands(ActiveNode):
             g.add_edge(result_id, 'source', op_id, 'consumer')
             g.move_tag(Avail, operand_ids, result_id)
             g.add_tag(Consumed, operand_ids)
+            g.add_tag(Done, self.thisid)
 
     @classmethod
     def fail(cls, g, thisid):
@@ -235,30 +241,6 @@ class DoneScout(ActiveNode):
                             extract_expr(g, winner_id),
                             extract_expr(g, self.targetid)))]
 
-
-class StuckScout(ActiveNode):
-
-    def actions(self, g, thisid):
-        nodeid = And(NodeWithTag(Number, Avail),
-                     NodeWithNeighbor('built_by'),
-                     Not(NodeWithTag(Node, Backtrack)))
-        return [ActionSeq(Backtrack(nodeid), SelfDestruct(thisid))]
-
-class BacktrackingScout(ActiveNode):
-
-    def __init__(self, targetid):
-        self.targetid = targetid
-
-    def actions(self, g, thisid):
-        nodeid = And(NodeWithTag(Number, Backtrack),
-                     Not(HasSameValue(self.targetid))).see_one(g)
-        if nodeid is not None:
-            return [FuncAction(backtrack, nodeid)]
-
-def backtrack(g, nodeid):
-    if (not g.has_tag(nodeid, Avail)) or (not g.has_tag(nodeid, Backtrack)):
-        return
-    #TODO Roll the Avail back to the Block's builder's operands
 
 def extract_expr(g, nodeid):
     '''Extracts an Expr tree consisting of nodeid and its sources.'''

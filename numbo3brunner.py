@@ -56,13 +56,19 @@ class Numbo3Graph(PortGraph, TimeStepper, ExprAsEquation):
         self.graph['ws'] = ws
         if 'numble' in self.graph:
             self.graph['numble'].build(self, ws)
-    
-g = Numbo3Graph(seed=1, numble=Numble([4, 5, 6], 15))
-#pg(g)
-for i in range(10):
-    g.do_timestep()
-ConsumeOperands.fail(g, 23)
-g.do_timestep()
-g.do_timestep()
-g.do_timestep()
-# Succeeds at last timestep with above seed and numble.
+
+g = None
+
+def run(seed=None):
+    global g
+    g = Numbo3Graph(seed=seed, numble=Numble([4, 5, 6], 15))
+    print('SEED', g.graph['seed'])
+    #pg(g)
+    g.do_timestep(num=70)
+    #ConsumeOperands.fail(g, 23)
+    #g.do_timestep()
+    #g.do_timestep()
+    #g.do_timestep()
+    # Succeeds at last timestep with above seed and numble.
+
+run(seed=8316664589534836549)

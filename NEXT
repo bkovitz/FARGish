@@ -1,15 +1,5 @@
 
-Get expr working with numbo3b.py
-
-
-testNodeSpec.py
-
-    UT And
-    UT Not
-    UT CartesianProduct  DONE
-    UT NotLinkedToSame  DONE
-    UT NoDups  DONE
-    UT TupAnd  DONE
+Detect stuckness.
 
 
 numbo3b.py: Latest manually "compiled" brute-force Numbo
