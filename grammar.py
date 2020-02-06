@@ -1,6 +1,10 @@
 # grammar.py -- The grammar for FARGish
 #
 # Written in PLY (Python Lex Yacc): https://www.dabeaz.com/ply/
+#
+# A caller should import the 'parser' object.
+# TODO Figure out a nice way for the caller and grammar.py to share the
+# syntax-tree objects.
 
 import ply.lex as lex
 import ply.yacc as yacc
@@ -22,7 +26,7 @@ tokens = (
     'ENDMARKER'
 )
 
-literals = ',:'
+literals = ',:='
 
 def t_LPAREN(t):
     r'\('
@@ -74,11 +78,14 @@ def t_error(t):
 
 class NodeDef:
 
-    def __init__(self, name, ancestor_names=None):
-        self.name = name
+    def __init__(self, name, ancestor_names=None, initializers=None):
         if ancestor_names is None:
             ancestor_names = []
+        if initializers is None:
+            initializers = []
+        self.name = name
         self.ancestor_names = ancestor_names
+        self.initializers = initializers
 
     __repr__ = nice_object_repr
 
@@ -87,6 +94,14 @@ class NameWithArguments:
     def __init__(self, name, arguments):
         self.name = name
         self.arguments = arguments
+
+    __repr__ = nice_object_repr
+
+class Initializer:
+
+    def __init__(self, lhs, rhs):
+        self.lhs = lhs
+        self.rhs = rhs
 
     __repr__ = nice_object_repr
 
@@ -103,8 +118,17 @@ def p_prog(p):
             p[0].append(p[2])
 
 def p_nodedef(p):
-    """nodedef : nodenames maybe_ancestors"""
-    p[0] = [NodeDef(name, p[2]) for name in p[1]]
+    """nodedef : nodenames maybe_ancestors maybe_initializers"""
+    p[0] = [NodeDef(name, p[2], p[3]) for name in p[1]]
+
+
+def p_maybe_initializers(p):
+    """maybe_initializers : empty
+                          | INDENT initializers DEDENT"""
+    if len(p) == 2:  # if empty
+        p[0] = []
+    else:
+        p[0] = p[2]
 
 def p_nodenames(p):
     """nodenames : nodename
@@ -140,20 +164,36 @@ def p_maybe_ancestors(p):
     else:
         p[0] = p[2]
 
+def p_initializer(p):
+    """initializer : NAME '=' NAME"""
+    p[0] = Initializer(p[1], p[3])
+
+def p_initializers(p):
+    """initializers : initializer
+                    | initializers initializer"""
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[0] = p[1]
+        p[0].append(p[2])
+
 def p_empty(p):
     """empty :"""
     pass
 
 
 
-parser = Parser(lex.lex(), yacc.yacc(debug=5))
+parser = Parser(lex.lex(), yacc.yacc())
 
-prog = """
+#TODO rm this test code; make a UT
+if __name__ == '__main__':
+    prog = """
 Number(n)
+  value = n
 
 Brick(x), Block : Number
 
 Target
-"""
-got = parser.parse(prog)
-print(got)
+    """
+    got = parser.parse(prog)
+    print(got)
