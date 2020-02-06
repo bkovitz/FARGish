@@ -3,14 +3,12 @@
 # Written in PLY (Python Lex Yacc): https://www.dabeaz.com/ply/
 #
 # A caller should import the 'parser' object.
-# TODO Figure out a nice way for the caller and grammar.py to share the
-# syntax-tree objects.
 
 import ply.lex as lex
 import ply.yacc as yacc
 
 from Indent1 import Parser
-from util import nice_object_repr
+from raw import NodeDef, NameWithArguments, Initializer
 
 
 # Grammar for lexical analyzer
@@ -75,35 +73,6 @@ def t_error(t):
     t.lexer.skip(1)
 
 # Grammar for syntactic analyzer
-
-class NodeDef:
-
-    def __init__(self, name, ancestor_names=None, initializers=None):
-        if ancestor_names is None:
-            ancestor_names = []
-        if initializers is None:
-            initializers = []
-        self.name = name
-        self.ancestor_names = ancestor_names
-        self.initializers = initializers
-
-    __repr__ = nice_object_repr
-
-class NameWithArguments:
-
-    def __init__(self, name, arguments):
-        self.name = name
-        self.arguments = arguments
-
-    __repr__ = nice_object_repr
-
-class Initializer:
-
-    def __init__(self, lhs, rhs):
-        self.lhs = lhs
-        self.rhs = rhs
-
-    __repr__ = nice_object_repr
 
 def p_prog(p):
     """prog : empty
