@@ -39,3 +39,6 @@ tags
 *.pyc
 d_parser*.dat
 d_parser*.md5
+
+parser.out
+parsetab.py

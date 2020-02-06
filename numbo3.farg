@@ -29,11 +29,12 @@ Operator
 Plus, Times :: Operator
 
 Want :: Tag
-  scout: OperandsScout
+  target = taggee
+  scout: OperandsScout(target)
   scout: BacktrackingScout(target)
   scout: DoneScout(target)
 
-OperandsScout
+OperandsScout #TODO Rewrite this to reflect numbo3b.py (detecting stuckness)
   see p := pair(NodeWithTag(Number, Avail))
       opClass := chooseSubclass(Operator)
   => build(ConsumeOperands(opClass, p))

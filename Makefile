@@ -5,7 +5,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNodeSpec.TestBasics.test_cartesian_product_not_linked_to_same_no_dups
+	$(PY) -m unittest -v testIndent1.TestIndent1
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
