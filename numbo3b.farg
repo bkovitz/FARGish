@@ -1,0 +1,43 @@
+# numbo3b.farg -- FARGish code for brute-force Numbo
+#
+# Unlike numbo3.farg, this is not a sketch. This should compile into Python.
+
+external = { chooseSubclass, arithResult, succeeded }
+
+tags -- taggees
+consume-operand -- proposer
+proposed-operator -- proposer
+
+
+Tag
+
+Avail, Consumed, Failed, Done, Allowed : Tag
+
+Number(n)
+  value = n
+
+Brick, Target, Block : Number
+
+Operator
+
+Plus, Times : Operator
+
+Want : Tag
+  scout: OperandsScout(taggee)
+  scout: SuccessScout(taggee)
+
+OperandsScout(target)
+  see p1 := NodeWithTag(Number, Avail)
+      p2 := NodeWithTag(Number, Avail)
+      op := NodeWithTag(Operator, Allowed)
+  => build ConsumeOperands(op, p1, p2)
+  else block := NodeWithTag(Block, Avail), block != target
+  => Fail(block)
+
+SuccessScout(target)
+  see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
+  => succeeded(winner, target)
+
+ConsumeOperands
+  when Not(Tagged(Done, self)), AllTagged(Avail, consume-operand(self))
+  => consumeOperands(self)  # external func; complicated

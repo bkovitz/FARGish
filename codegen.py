@@ -23,8 +23,9 @@ def compile_fargish(fargish_code, filename='<string>'):
 
 
 prog = """
-Number
+Number(n)
 Brick : Number
 """
-c = compile_fargish(prog)
-exec(c)
+# c = compile_fargish(prog)
+# exec(c)
+make_python(prog)

@@ -162,7 +162,7 @@ Number(n)
 
 Brick(x), Block : Number
 
-Target
+Target: A
     """
     got = parser.parse(prog)
     print(got)
