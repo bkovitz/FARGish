@@ -1,0 +1,49 @@
+prog : empty
+     | prog prog_elem
+
+prog_elem : external_list
+          | port_defn
+          | node_defn
+
+node_defn : node_header
+          | node_header INDENT node_body DEDENT
+
+node_header : node_names
+            | node_names ':' node_names
+
+node_body : empty
+          | node_body node_body_elem
+
+node_body_elem : agent_defn
+               | see_do
+
+node_names : node_name
+           | node_names ',' node_name
+
+node_name : NAME
+          | NAME LPAREN names RPAREN
+
+names : NAME
+      | names ',' NAME
+
+agent_defn : AGENT ':' expr
+
+see_do : '=>' actions
+       | SEE conditions '=>' actions
+       | SEE conditions '=>' actions ELSE actions
+
+conditions : condition
+           | conditions ',' condition
+
+condition : expr
+          | NAME ':=' expr
+
+expr : NAME
+     | NAME LPAREN RPAREN
+     | NAME LPAREN args RPAREN
+
+args : arg
+     | args ',' arg
+
+arg : expr
+    | NAME '=' expr

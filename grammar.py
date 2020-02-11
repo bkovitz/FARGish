@@ -11,7 +11,7 @@ from Indent1 import Parser
 from raw import NodeDef, NameWithArguments, Initializer
 
 
-# Grammar for lexical analyzer
+##### Grammar for lexical analyzer
 
 tokens = (
     'NAME',
@@ -72,7 +72,8 @@ def t_error(t):
     print("Skipping", repr(t.value[0]))
     t.lexer.skip(1)
 
-# Grammar for syntactic analyzer
+
+##### Grammar for syntactic analyzer
 
 def p_prog(p):
     """prog : empty
