@@ -2,7 +2,7 @@ prog : empty
      | prog prog_elem
 
 prog_elem : external_list
-          | port_defn
+          | link_defn
           | node_defn
 
 node_defn : node_header
@@ -26,6 +26,9 @@ node_name : NAME
 names : NAME
       | names ',' NAME
 
+maybe_names : empty
+            | names
+
 agent_defn : AGENT ':' expr
 
 see_do : '=>' actions
@@ -39,11 +42,17 @@ condition : expr
           | NAME ':=' expr
 
 expr : NAME
-     | NAME LPAREN RPAREN
-     | NAME LPAREN args RPAREN
+     | NAME LPAREN maybe_args RPAREN
+
+maybe_args : empty
+           | args
 
 args : arg
      | args ',' arg
 
 arg : expr
     | NAME '=' expr
+
+external_list : EXTERNAL LBRACE maybe_names RBRACE
+
+link_defn : NAME '--' NAME
