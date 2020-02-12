@@ -5,6 +5,10 @@ prog_elem : external_list
           | link_defn
           | node_defn
 
+external_list : EXTERNAL LBRACE maybe_names RBRACE
+
+link_defn : NAME '--' NAME
+
 node_defn : node_header
           | node_header INDENT node_body DEDENT
 
@@ -31,15 +35,22 @@ maybe_names : empty
 
 agent_defn : AGENT ':' expr
 
-see_do : '=>' actions
-       | SEE conditions '=>' actions
-       | SEE conditions '=>' actions ELSE actions
+see_do : FAT_RIGHT_ARROW actions
+       | SEE conditions FAT_RIGHT_ARROW actions
+       | SEE conditions FAT_RIGHT_ARROW actions
+             ELSE conditions FAT_RIGHT_ARROW actions
 
 conditions : condition
            | conditions ',' condition
 
 condition : expr
-          | NAME ':=' expr
+          | NAME LET expr
+
+actions : action
+        | actions action
+
+action : BUILD expr
+       | expr
 
 expr : NAME
      | NAME LPAREN maybe_args RPAREN
@@ -52,7 +63,3 @@ args : arg
 
 arg : expr
     | NAME '=' expr
-
-external_list : EXTERNAL LBRACE maybe_names RBRACE
-
-link_defn : NAME '--' NAME

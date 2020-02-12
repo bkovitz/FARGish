@@ -2,7 +2,7 @@
 #
 # Unlike numbo3.farg, this is not a sketch. This should compile into Python.
 
-external = { chooseSubclass, arithResult, succeeded }
+external { chooseSubclass, arithResult, succeeded }
 
 tags -- taggees
 consume-operand -- proposer

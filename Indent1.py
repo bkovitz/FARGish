@@ -21,6 +21,8 @@ class Indent1Lexer:
         self.lexer.paren_count = 0  # must be updated by t_LPAREN and t_RPAREN
                                     # to prevent INDENT/DEDENT within
                                     # parentheses
+        self.lexer.brace_count = 0  # similarly
+        self.lexer.bracket_count = 0  # similarly
         self.lexer.at_line_start = True  # required by t_WS
         self.lexer.input(s)
         self.token_stream = self.top_filter()
@@ -64,7 +66,7 @@ class Indent1Lexer:
                     pass
                 else:
                     state = self.INDENTED_MIDLINE
-                    yield INDENT(token.lineno)
+                    yield INDENT(token.lineno, token.lexpos)
                     yield token
             elif state == self.NONINDENTED_MIDLINE:
                 if token.type == 'NEWLINE':
@@ -87,7 +89,7 @@ class Indent1Lexer:
                     state = self.INDENTED_MIDLINE
                 else:
                     state = self.NONINDENTED_MIDLINE
-                    yield DEDENT(token.lineno)
+                    yield DEDENT(token.lineno, token.lexpos)
                     yield token
 
         # Add DEDENT at end of file if indented
@@ -96,23 +98,24 @@ class Indent1Lexer:
             or
             state == self.NEWLINE_AFTER_INDENTED
         ):
-            yield DEDENT(token.lineno)
+            yield DEDENT(token.lineno, token.lexpos)
 
 
-def _new_token(type, lineno):
+def _new_token(type, lineno, lexpos):
     tok = lex.LexToken()
     tok.type = type
     tok.value = None
     tok.lineno = lineno
+    tok.lexpos = lexpos
     return tok
 
-def DEDENT(lineno):
+def DEDENT(lineno, lexpos):
     '''Synthesizes a DEDENT tag.'''
-    return _new_token("DEDENT", lineno)
+    return _new_token("DEDENT", lineno, lexpos)
 
-def INDENT(lineno):
+def INDENT(lineno, lexpos):
     '''Synthesizes an INDENT tag.'''
-    return _new_token("INDENT", lineno)
+    return _new_token("INDENT", lineno, lexpos)
 
 
 class Parser:
@@ -124,7 +127,7 @@ class Parser:
         self.lexer = Indent1Lexer(ply_lexer)
         self.parser = ply_yacc
 
-    def parse(self, code):
+    def parse(self, code, debug=False):
         self.lexer.input(code)
-        result = self.parser.parse(lexer=self.lexer)
+        result = self.parser.parse(lexer=self.lexer, debug=debug)
         return result

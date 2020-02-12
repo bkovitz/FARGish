@@ -5,42 +5,70 @@
 
 from util import NiceRepr
 
-class NodeDef(NiceRepr):
+class ExternalList(NiceRepr):
+    def __init__(self, names):
+        '''names: a list of external function names'''
+        self.names = names
 
-    def __init__(self, name, ancestor_names=None, initializers=None):
-        if ancestor_names is None:
-            ancestor_names = []
-        if initializers is None:
-            initializers = []
-        self.name = name
-        self.ancestor_names = ancestor_names
-        self.initializers = initializers
+class LinkDefn(NiceRepr):
+    def __init__(self, from_label, to_label):
+        self.from_label = from_label
+        self.to_label = to_label
 
-    def gen(self, file, env):
-        if self.ancestor_names:
-            ancs = ', '.join(get_name(a) for a in self.ancestor_names)
-        else:
-            ancs = 'Node'
-        print(f'''
-class {get_name(self.name)}({ancs}):
-    pass''', file=file)
-
-def get_name(o):
-    try:
-        return o.name
-    except AttributeError:
-        return o
+class NodeHeader(NiceRepr):
+    def __init__(self, names, ancestors):
+        self.names = names
+        self.ancestors = ancestors
+    def make_node_defns(self, body):
+        return [NodeDefn(name, body, self.ancestors) for name in self.names]
 
 class NameWithArguments(NiceRepr):
-
     def __init__(self, name, arguments):
         self.name = name
         self.arguments = arguments
 
-class Initializer(NiceRepr):
+class NodeDefn(NiceRepr):
+    def __init__(self, name, body, ancestors):
+        self.name = name
+        self.body = body
+        self.ancestors = ancestors
 
-    def __init__(self, lhs, rhs):
+class BuildExpr(NiceRepr):
+    def __init__(self, expr):
+        self.expr = expr
+
+class VarRef(NiceRepr):
+    def __init__(self, name):
+        self.name = name
+
+class FuncCall(NiceRepr):
+    def __init__(self, funcname, args):
+        self.funcname = funcname
+        self.args = args
+
+class Relop(NiceRepr):
+    def __init__(self, lhs, op, rhs):
         self.lhs = lhs
+        self.op = op
         self.rhs = rhs
 
+class LetExpr(NiceRepr):
+    def __init__(self, name, expr):
+        self.name = name
+        self.expr = expr
 
+class SeeDo(NiceRepr):
+    def __init__(self, conditions, actions, else_conditions, else_actions):
+        self.conditions = conditions
+        self.actions = actions
+        self.else_conditions = else_conditions
+        self.else_actions = else_actions
+
+class AgentExpr(NiceRepr):
+    def __init__(self, expr):
+        self.expr = expr
+
+class ArgExpr(NiceRepr):
+    def __init__(self, argname, expr):
+        self.argname = argname
+        self.expr = expr
