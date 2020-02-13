@@ -20,18 +20,40 @@ class NodeHeader(NiceRepr):
         self.names = names
         self.ancestors = ancestors
     def make_node_defns(self, body):
-        return [NodeDefn(name, body, self.ancestors) for name in self.names]
+        return [NodeDefn(name_of(name), args_of(name), body, self.ancestors)
+                    for name in self.names]
+
+def name_of(x):
+    try:
+        return x.name
+    except AttributeError:
+        return x
+
+def args_of(name):
+    try:
+        return name.args
+    except AttributeError:
+        return []
 
 class NameWithArguments(NiceRepr):
-    def __init__(self, name, arguments):
+    def __init__(self, name, args):
         self.name = name
-        self.arguments = arguments
+        self.args = args
 
 class NodeDefn(NiceRepr):
-    def __init__(self, name, body, ancestors):
+    def __init__(self, name, args, body, ancestors):
         self.name = name
+        self.args = args
         self.body = body
         self.ancestors = ancestors
+
+    #GEN class def
+    #def gen(self, 
+
+class Initializer(NiceRepr):
+    def __init__(self, name, expr):
+        self.name = name
+        self.expr = expr
 
 class BuildExpr(NiceRepr):
     def __init__(self, expr):

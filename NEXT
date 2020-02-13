@@ -1,12 +1,22 @@
+FARGish
+
+    BNF  DONE
+
+    Parse FARGish into "raw" objects  DONE
+
+    Generate Python from "raw" objects
+
 
 Detect stuckness.
 
 
 numbo3b.py: Latest manually "compiled" brute-force Numbo
 
-    Write out the whole model as top-level code
+    Write out the whole model as top-level code  DONE
 
-    Implement whatever gets called
+    Implement whatever gets called  DONE
+
+
 
 
 

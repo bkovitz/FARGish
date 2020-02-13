@@ -7,10 +7,12 @@
 import ply.lex as lex
 import ply.yacc as yacc
 
+from pprint import pprint as pp
+
 from Indent1 import Parser
 from raw import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, BuildExpr, VarRef, FuncCall, Relop, LetExpr, SeeDo, AgentExpr, \
-    ArgExpr
+    ArgExpr, Initializer
 
 
 ##### Grammar for lexical analyzer
@@ -43,6 +45,41 @@ tokens = (
 )
 
 literals = ',:='
+
+def t_FAT_RIGHT_ARROW(t):
+    r'=>'
+    t.type = 'FAT_RIGHT_ARROW'
+    return t
+
+def t_EQ(t):
+    r'=='
+    t.type = 'EQ'
+    return t
+
+def t_NE(t):
+    r'!='
+    t.type = 'NE'
+    return t
+
+def t_LE(t):
+    r'<='
+    t.type = 'LE'
+    return t
+
+def t_LT(t):
+    r'<'
+    t.type = 'LT'
+    return t
+
+def t_GE(t):
+    r'>='
+    t.type = 'GE'
+    return t
+
+def t_GT(t):
+    r'>'
+    t.type = 'GT'
+    return t
 
 def t_LET(t):
     r':='
@@ -83,20 +120,13 @@ def t_DOUBLE_HYPHEN(t):
 KEYWORDS = {
     'external': 'EXTERNAL',
     'agent': 'AGENT',
-    '=>': 'FAT_RIGHT_ARROW',
     'see': 'SEE',
     'else': 'ELSE',
-    'build': 'BUILD',
-    '==': 'EQ',
-    '!=': 'NE',
-    '<': 'LT',
-    '<=': 'LE',
-    '>': 'GT',
-    '>=': 'GE'
+    'build': 'BUILD'
 }
 
 def t_NAME(t):
-    r'[-a-zA-Z_\=<>!\?][-a-zA-Z0-9_=<>!\?]*'
+    r'[-a-zA-Z_\<>!\?][-a-zA-Z0-9_<>!\?]*'
     t.type = KEYWORDS.get(t.value, 'NAME')
     return t
 
@@ -196,9 +226,14 @@ def p_node_body(p):
     zero_or_more(p, 2)
 
 def p_node_body_elem(p):
-    '''node_body_elem : agent_defn
+    '''node_body_elem : initializer
+                      | agent_defn
                       | see_do'''
     p[0] = p[1]
+
+def p_initializer(p):
+    '''initializer : NAME '=' expr'''
+    p[0] = Initializer(p[1], p[3])
 
 def p_agent_defn(p):
     '''agent_defn : AGENT ':' expr'''
@@ -308,12 +343,31 @@ def p_maybe_names(p):
                    | names'''
     p[0] = p[1]
 
+def p_error(p):
+    if p:
+        print(f"Syntax error at '{p.value}' in line {p.lineno}: did not expect {p.type}")
+        #TODO Show the column, and/or maybe the whole line. To do that, we'll
+        #access to the string for the whole input program. PLY does not
+        #seem to pass this to p_error().
+        #print(p.lexpos, type(p.lexer), dir(p.lexer))
+    else:
+        print("Syntax error: unexpected end of input.")
+    #print('ERROR', p.type, p.value, p.lineno, p.lexpos)
+
+def find_line(s, index):
+    lb = s.rfind('\n', 0, index) + 1
+    ub = s.find('\n', index)
+    return s[lb:ub]
+
 def p_empty(p):
     '''empty :'''
     p[0] = []  # empty list
 
 
 parser = Parser(lex.lex(), yacc.yacc())
+
+def parse(code, debug=None):
+    return parser.parse(code, debug=debug)
 
 #TODO rm this test code; make a UT
 if __name__ == '__main__':
@@ -334,9 +388,10 @@ OperandsScout(behalf_of, target)
 Number(n)
   value = n
 
-Brick(x), Block : Number
+Brick(x), Block : Number(n)
 
 Target: A
     '''
     got = parser.parse(prog1)
-    print(got)
+    got = parser.parse(prog2)
+    pp(got)
