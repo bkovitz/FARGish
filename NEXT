@@ -12,6 +12,10 @@ FARGish
 
         Generate auto_link code  DONE
 
+        Build some FARGish-specified nodes  DONE
+
+        Single argument to node: __init__ should copy it to kwargs  DONE
+
         Build some FARGish-specified nodes and see them auto-link
 
 

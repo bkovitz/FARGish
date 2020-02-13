@@ -133,12 +133,22 @@ class NodeDefn(EnvItem):
         else:
             lss_code = '    link_specs = []'
             als_code = ''
+
+        targs = self.true_args(env)
+        if targs:
+            inargs = ', '.join(f'{t}=None' for t in targs)
+            absorb = '\n'.join(f"        kwargs['{t}'] = {t}" for t in targs)
+            init_code = f'''
+    def __init__(self, {inargs}, **kwargs):
+{absorb}
+        super().__init__(**kwargs)'''
+        else:
+            init_code = ''
+    
         print(f'''class {self.name}({ancs}):
 {lss_code}
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-    {als_code}''', file=file)
+{init_code}
+{als_code}''', file=file)
 
     def link_specs(self, env):
         result = []

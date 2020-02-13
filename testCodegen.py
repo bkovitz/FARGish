@@ -27,8 +27,9 @@ SomeNode
         prog = '''
 Number(n)
 Brick : Number'''
+        make_python(prog)
         exec(compile_fargish(prog), globals())
-        g.make_node(Brick(n=2))
+        g.make_node(Brick(2))
         got = g.all_datums()
         expect = [Brick(n=2)]
         self.assertCountEqual(got, expect)
