@@ -5,7 +5,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testIndent1.TestIndent1
+	$(PY) -m unittest -v testEnv
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

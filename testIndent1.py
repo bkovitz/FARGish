@@ -88,7 +88,7 @@ class ClassDef:
             self.elems == other.elems
         )
 
-    def __hash__(self, other):
+    def __hash__(self):
         return hash(repr(self))
 
     __repr__ = nice_object_repr

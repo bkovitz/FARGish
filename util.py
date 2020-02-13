@@ -163,3 +163,13 @@ def setattr_from_kwargs(o, kwargs, *attr_names):
             raise(ValueError(
                 f'{o.__class__.__name__} ctor missing argument "{attr_name}".'
             ))
+
+class ReprEq:
+    '''Mix-in to make a class's __eq__ and __hash__ work according to the
+    output of the class's __repr__.'''
+
+    def __eq__(self, other):
+        return repr(self) == repr(other)
+
+    def __hash__(self):
+        return hash(repr(self))

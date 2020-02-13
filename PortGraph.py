@@ -22,6 +22,14 @@ class Node:
     min_support_for = 0.0
     initial_support_for = 0.01
 
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+
+    def auto_link(self, thisid, g):
+        '''Creates links to mates, if any; should be called immediately upon
+        building the node.'''
+        pass
+
     def is_attrs_match(self, other):
         return True
 

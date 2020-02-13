@@ -2,13 +2,13 @@
 
 import unittest
 
-from codegen import make_python, compile_fargish
+#from codegen import make_python, compile_fargish
 
-class TestCodegen(unittest.TestCase):
-
-    def test1(self):
-        prog = '''
-SomeNode
-'''
-        got = make_python(prog)
-        print('GOT', got)
+#class TestCodegen(unittest.TestCase):
+#
+#    def test1(self):
+#        prog = '''
+#SomeNode
+#'''
+#        got = make_python(prog)
+#        print('GOT', got)

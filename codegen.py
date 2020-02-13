@@ -2,17 +2,26 @@
 
 import sys
 from io import StringIO
+from pprint import pprint as pp
 
 from grammar import parse
+from Env import Env
+from PortGraph import Node
+from bases import NewLinkSpec
 
 
 def make_python(fargish_code, file=None):
     if file is None:
         file = sys.stdout
     items = parse(fargish_code)
-    env = dict((o.name, o) for o in items)
+    pp(items)
+    env = Env(items)
+    pp(env)
+    pp(env['Number'].true_args(env))
+    pp(env['Brick'].true_args(env))
     for item in items:
-        item.gen(file, env)
+        if hasattr(item, 'gen'):
+            item.gen(file, env)
 
 def compile_fargish(fargish_code, filename='<string>'):
     s = StringIO()
@@ -20,10 +29,15 @@ def compile_fargish(fargish_code, filename='<string>'):
     return compile(s.getvalue(), filename, 'exec')
 
 
-prog = """
+if __name__ == '__main__':
+    prog = """
+target -- tags
+
 Number(n)
 Brick : Number
-"""
-# c = compile_fargish(prog)
-# exec(c)
-make_python(prog)
+
+OperandScout(target)
+    """
+    #c = compile_fargish(prog)
+    #exec(c)
+    make_python(prog)

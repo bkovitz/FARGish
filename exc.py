@@ -33,3 +33,9 @@ class FargCantRespond(Exception):
 
 class Fizzle(Exception):
     pass
+
+class FARGishCompilerException(Exception):
+    pass
+
+class NoUniqueMateError(FARGishCompilerException):
+    pass

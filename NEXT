@@ -6,7 +6,9 @@ FARGish
 
     Generate Python from "raw" objects
 
-        Write note for what code generation each raw.py class needs to do
+        Write note for what code generation each raw.py class needs to do DONE
+
+        Make Env class
 
 
 Detect stuckness.
