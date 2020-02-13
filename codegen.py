@@ -16,9 +16,6 @@ def make_python(fargish_code, file=None):
     items = parse(fargish_code)
     pp(items)
     env = Env(items)
-    pp(env)
-    pp(env['Number'].true_args(env))
-    pp(env['Brick'].true_args(env))
     for item in items:
         if hasattr(item, 'gen'):
             item.gen(file, env)

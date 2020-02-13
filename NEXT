@@ -8,7 +8,11 @@ FARGish
 
         Write note for what code generation each raw.py class needs to do DONE
 
-        Make Env class
+        Make Env class  DONE
+
+        Generate auto_link code  DONE
+
+        Build some FARGish-specified nodes and see them auto-link
 
 
 Detect stuckness.
