@@ -830,6 +830,11 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             return None
 
+    def all_datums(self):
+        '''Returns a list of all the datums, i.e. a datum for each node in the
+        graph.'''
+        return [self.datum(id) for id in self.nodes]
+
     def raw_salience(self, node):
         '''Returns node's salience. If no salience has been set explicitly
         for node, returns default_salience. If node does not exist,

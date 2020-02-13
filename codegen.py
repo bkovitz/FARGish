@@ -6,16 +6,20 @@ from pprint import pprint as pp
 
 from grammar import parse
 from Env import Env
-from PortGraph import Node
-from bases import NewLinkSpec
+#from PortGraph import Node
+#from bases import NewLinkSpec
 
+
+preamble = '''from PortGraph import Node
+from bases import NewLinkSpec
+'''
 
 def make_python(fargish_code, file=None):
     if file is None:
         file = sys.stdout
     items = parse(fargish_code)
-    pp(items)
     env = Env(items)
+    print(preamble, file=file)
     for item in items:
         if hasattr(item, 'gen'):
             item.gen(file, env)
