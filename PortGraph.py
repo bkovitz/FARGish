@@ -23,7 +23,10 @@ class Node:
     initial_support_for = 0.01
 
     def __init__(self, **kwargs):
-        self.kwargs = kwargs
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        #TODO Redesign so that attributes passed in kwargs can't name-clash
+        #with other attributes of Node, like the methods.
 
     def auto_link(self, thisid, g):
         '''Creates links to mates, if any; should be called immediately upon
@@ -281,7 +284,9 @@ class PortGraph(nx.MultiGraph):
         with no arguments and set the datum to the constructed object.
         Otherwise we set the datum to o. We set the salience according
         to o.default_salience (from the object, not the class). Returns the
-        new node's id.'''
+        new node's id. If the datum has an attribute named auto_link,
+        we call it with these arguments: obj.auto_link(id, self) where id
+        is the new node's id.'''
         i = self._bump_nextid()
         if isclass(o):
             #print('CLASS', o)
@@ -297,10 +302,13 @@ class PortGraph(nx.MultiGraph):
         if callable(o.after_touch_update):
             self.after_touch_nodes.add(i)
         self.new_nodes.add(i)
+        #TODO Document this automatic linking or remove it.
         if builder is not None:
             self.add_edge(i, 'builder', builder, 'built')
         for c in as_iter(container):
             self.add_member_edge(c, i)
+        if hasattr(o, 'auto_link'):
+            o.auto_link(i, self)
         return i
 
     def dup_node(self, h, node):

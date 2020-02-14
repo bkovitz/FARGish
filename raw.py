@@ -164,7 +164,7 @@ def gen_link_spec(link_spec):
     return f'''        {repr(link_spec)},'''
 
 def gen_auto_link(link_spec):
-    return f'''        _otherid = self.kwargs.get('{link_spec.old_node_port_label}')
+    return f'''        _otherid = self.{link_spec.new_node_port_label}
         if _otherid:
             g.add_edge(thisid, '{link_spec.new_node_port_label}', _otherid, '{link_spec.old_node_port_label}')'''
 

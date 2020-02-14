@@ -16,7 +16,10 @@ FARGish
 
         Single argument to node: __init__ should copy it to kwargs  DONE
 
-        Build some FARGish-specified nodes and see them auto-link
+        Build some FARGish-specified nodes and see them auto-link  DONE
+
+        Remove port labels from repr(Node)
+            Implement by generating a __repr__ function.
 
 
 Detect stuckness.
