@@ -39,13 +39,17 @@ def reseed(seed=None):
 def nice_object_repr(self):
     '''Stick  __repr__ = nice_object_repr  inside a class definition and
     repr() will return a nice string for most classes.'''
-    items = self.__dict__.items()
+    return repr_str(self.__class__.__name__, self.__dict__.items())
+
+def repr_str(name, items):
+    '''items is iterable of (name, value). Returns the string appropriate for
+    repr().'''
     if len(items) == 1:
-        return '%s(%s)' % (self.__class__.__name__, next(iter(items))[1])
+        return '%s(%s)' % (name, next(iter(items))[1])
     elif len(items) == 0:
-        return self.__class__.__name__
+        return name
     else:
-        return '%s(%s)' % (self.__class__.__name__,
+        return '%s(%s)' % (name,
                            ', '.join('%s=%s' % (k, nrepr(v))
                                        for k, v in items))
 

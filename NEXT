@@ -18,8 +18,7 @@ FARGish
 
         Build some FARGish-specified nodes and see them auto-link  DONE
 
-        Remove port labels from repr(Node)
-            Implement by generating a __repr__ function.
+        Remove port labels from repr(Node)  DONE
 
 
 Detect stuckness.

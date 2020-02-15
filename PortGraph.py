@@ -1,7 +1,7 @@
 # PortGraph.py -- PortGraph class
 
 from watcher import Watcher, Response
-from util import nice_object_repr, as_iter, is_iter, reseed, \
+from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
         sample_without_replacement, intersection
 
 import networkx as nx
@@ -36,7 +36,14 @@ class Node:
     def is_attrs_match(self, other):
         return True
 
-    __repr__ = nice_object_repr
+    def __repr__(self):
+        try:
+            exclude = set(ls.new_node_port_label for ls in self.link_specs)
+            kvs = [kv for kv in self.__dict__.items()
+                          if kv[0] not in exclude]
+        except KeyError:
+            kvs = self.__dict__.items()
+        return repr_str(self.__class__.__name__, kvs)
 
     def datumstr(self, g, node):
         return repr(self)  # Override to exploit g
