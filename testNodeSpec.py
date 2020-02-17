@@ -2,8 +2,8 @@ import unittest
 import itertools
 
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
-    And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, BuildSpec, \
-    LinkSpec
+    And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, BuildSpec
+from LinkSpec import LinkSpec
 from numbospec import *
 from bases import NewLinkSpec, make_link
 from PortGraph import PortGraph, pg
@@ -185,29 +185,6 @@ class TestNodeSpec(unittest.TestCase):
         # Brick more than once.
         self.assertCountEqual(got, expect)
 
-class TestLinkSpec(unittest.TestCase):
-
-    def test_basics(self):
-        g = PortGraph()
-        b4 = g.make_node(Number(4))
-        b5 = g.make_node(Number(5))
-        #t9 = g.make_node(Target(9))
-        link_spec = LinkSpec('consumer', 'source', old_node=Number)
-
-        self.assertFalse(link_spec.meets(g, None, None))
-
-        plus = g.make_node(Plus)
-        self.assertFalse(link_spec.meets(g, old_node=b4, new_nodeid=plus))
-
-        link_spec.make(g, old_nodeid=b4, new_nodeid=plus)
-        self.assertTrue(link_spec.meets(g, old_node=b4, new_nodeid=plus))
-        self.assertTrue(link_spec.meets_exactly(
-            g, old_node=b4, new_nodeid=plus)
-        )
-
-        g.add_edge(plus, 'wrong-label', b5, 'wrong-label')
-        self.assertFalse(link_spec.meets(g, old_node=b5, new_nodeid=plus))
-
 class TestBuildSpec(unittest.TestCase):
 
     def teest_plus(self):
@@ -218,23 +195,24 @@ class TestBuildSpec(unittest.TestCase):
         spec = BuildSpec(
             Plus,
             [
-                LinkSpec('source', 'consumer', old_node=b4),
-                LinkSpec('source', 'consumer', old_node=b5),
-                LinkSpec('consumer', 'source', old_node=t9)
+                LinkSpec('source', 'consumer', Number),
+                LinkSpec('source', 'consumer', Number),
+                LinkSpec('consumer', 'source', Number)
             ]
         )
-        self.assertFalse(spec.already_built(g, spec))
-        spec.build(g, spec)
-        self.assertTrue(spec.already_built(g, spec))
+        self.assertFalse(spec.already_built(g))
+        spec.build(g) #TODO Think of some satisfactory way to specify b4, b5, t9
+                      # as the "old nodes" that the new Plus node should link to
+        self.assertTrue(spec.already_built(g))
 
-    def teest_agent(self):
+    def test_agent(self):
         g = PortGraph()
         w = g.make_node(Want)
-        a = g.make_node(Agent)
         spec = BuildSpec(
             Agent,
-            LinkSpec('agents', 'behalf_of', Agent)
+            LinkSpec('agents', 'behalf_of')
         )
-        self.assertFalse(spec.already_built(g, spec))
-        spec.build(g, spec)
-        self.assertTrue(spec.already_built(g, spec))
+        self.assertFalse(spec.already_built(g, w))
+        spec.build(g, w)
+        self.assertTrue(spec.already_built(g, w))
+        self.assertEqual(len(g), 2)

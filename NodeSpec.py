@@ -3,159 +3,10 @@
 from abc import ABC, abstractmethod
 from random import choice
 from itertools import product
-from inspect import isclass
-from copy import copy
 
 from bases import NewLinkSpec, meets_link_spec #TODO rm
 from util import as_iter, is_nodeid, intersection, nice_object_repr, NiceRepr
 
-
-class LinkSpec(NiceRepr):
-    '''Specifies a link between an "old node" and a "new node". The "new node"
-    is not part of the specification. The LinkSpec can answer queries about
-    whether a given node is linked in the role specified for the "new node".
-    A LinkSpec only optionally includes information about the "old node".
-    A query must specify a particular nodeid for the "old node".'''
-
-    def __init__(self, old_node_port_label, new_node_port_label, old_node=None):
-        '''old_node can be:
-        None : indicates that .meet() will search for a match.
-        an integer : a specific nodeid
-        a class : a node class to match against
-        an object : an object to match the node's datum against'''
-        self.old_node_port_label = old_node_port_label
-        self.new_node_port_label = new_node_port_label
-        self.old_node_matcher = make_node_matcher(old_node)
-    
-    def meets(self, g, new_nodeid, old_node=None):
-        '''Is new_nodeid linked according to the spec? old_node overrides
-        or supplements self.old_node.'''
-        node_matcher = self.old_node_matcher.override(old_node)
-        return any(
-            g.label_is_a(hop.to_port_label, self.old_node_port_label)
-            and
-            node_matcher.is_match(g, hop.to_node)
-                for hop in g.hops_from_port(
-                    new_nodeid,
-                    self.new_node_port_label
-                )
-        )
-
-    def meets_exactly(self, g, new_nodeid, old_node=None):
-        '''Same as .meets() but class of old_node must match exactly;
-        a subclass of the required class is not enough to make a match.'''
-        node_matcher = self.old_node_matcher.override(old_node)
-        return any(
-            g.label_is_a(hop.to_port_label, self.old_node_port_label)
-            and
-            node_matcher.is_exact_match(g, hop.to_node)
-                for hop in g.hops_from_port(
-                    new_nodeid,
-                    self.new_node_port_label
-                )
-        )
-
-
-    def make(self, g, old_nodeid, new_nodeid):
-        '''Makes the specified edge between old_nodeid and new_nodeid.'''
-        node_matcher = self.old_node_matcher.override(old_nodeid)
-        if not node_matcher.is_match(g, old_nodeid):
-            #TODO Raise a FARGException instead
-            raise ValueError(f"Old node {old_nodeid} doesn't match {self}.")
-        g.add_edge(
-            old_nodeid,
-            self.old_node_port_label,
-            new_nodeid,
-            self.new_node_port_label
-        )
-
-def make_node_matcher(info, id=None, cl=None, datum=None):
-    '''Constructs a NodeMatcher object with correct arguments, incorporating
-    info into id, cl, and datum. Can modify caller's id, cl, and/or datum.'''
-    for i in as_iter(info):
-        if i is None:
-            continue
-        elif is_nodeid(i):
-            id = i  # If more than one nodeid, the last takes priority
-        elif isclass(info):
-            if cl is None:
-                cl = set()
-            cl.add(info)
-        else:
-            if cl is None:
-                cl = set()
-            if datum is None:
-                datum = set()
-            cl.add(info.__class__)
-            datum.add(info)
-    return NodeMatcher(id, cl, datum)
-    
-class NodeMatcher(NiceRepr):
-    '''Matches a node without regard for any of its links, i.e. by id,
-    class, and/or datum attrs.'''
-
-    def __init__(self, id, cl, datum):
-        '''id is either None or a nodeid. cl is either None or a set of
-        nodeclasses. datum is either None or a set of datums.'''
-        self.id = id
-        self.cl = cl
-        self.datum = datum
-
-    def is_match(self, g, nodeid):
-        if self.id is not None:
-            if self.id != nodeid:
-                return False
-        if self.cl is not None:
-            for cl in self.cl:
-                if not g.is_of_class(nodeid, cl):
-                    return False
-        if self.datum is not None:
-            node_datum = g.datum(nodeid)
-            for datum in as_iter(self.datum):
-                if not datum_match(datum, node_datum):
-                    return False
-        return True
-
-    def is_exact_match(self, g, nodeid):
-        '''Same as .is_match() but classes must match exactly, i.e. it's not
-        enough for nodeid's class to be a subclass of a class specified in
-        the NodeMatcher.'''
-        if self.id is not None:
-            if self.id != nodeid:
-                return False
-        if self.cl is not None:
-            for cl in self.cl:
-                if not cl == g.class_of(nodeid):
-                    return False
-        if self.datum is not None:
-            node_datum = g.datum(nodeid)
-            for datum in as_iter(self.datum):
-                if not datum_match(datum, node_datum):
-                    return False
-        return True
-            
-    def override(self, info):
-        '''Returns a new NodeMatcher, which matches info in addition to
-        whatever this NodeMatcher matches, except that if info is a nodeid,
-        the new NodeMatcher will match that nodeid instead of whatever this
-        one matches (if any).'''
-        if info is None:
-            return self
-        else:
-            return make_node_matcher(
-                info, id=self.id, cl=copy(self.cl), datum=copy(self.datum)
-            )
-
-def datum_match(d1, d2):
-    try:
-        d1dict = d1.__dict__
-        d2dict = d2.__dict__
-    except AttributeError:
-        return d1 == d2
-    for k,v in d1dict.items():
-        if v != d2dict.get(k, None):
-            return False
-    return True
 
 class NodeSpec(ABC):
     '''A specification of a condition for nodes to satisfy.'''
@@ -356,22 +207,24 @@ class TupAnd(TupleCriterion):
         return all(c.is_match(g, tup) for c in self.tupcriteria)
 
 class BuildSpec:
-    '''Specifies a node to build.'''
+    '''Specifies a node to build, including links to existing neighbors.'''
 
     def __init__(self, new_nodeclass, link_specs=None, new_node_args=None):
         self.new_nodeclass = new_nodeclass
         self.link_specs = link_specs
         self.new_node_args = new_node_args
 
-    def already_built(self, g, old_nodeid):
+    def already_built(self, g, old_nodeid=None):
+        #TODO old_nodeid should somehow override the old_node in
+        #self.link_specs.
         '''Has a node meeting the spec in relation to old_nodeid already been
         built?'''
         if self.link_specs:
             for link_spec in as_iter(self.link_specs):
-                for nodeid in g.neighbors(
+                for neighbor in g.neighbors(
                     old_nodeid, port_label=link_spec.old_node_port_label
                 ):
-                    if self.meets(g, old_nodeid, nodeid):
+                    if self.meets(g, old_nodeid, neighbor):
                         return True
         else:
             # INEFFICIENT: With no link_spec, we examine all nodes in the graph
@@ -381,13 +234,21 @@ class BuildSpec:
             )
 
     #TODO Check new_node_args
-    def meets(self, old_nodeid, nodeid):
+    def meets(self, g, old_nodeid, nodeid):
         '''Does nodeid meet the spec in relation to old_nodeid?'''
         return (
             g.class_of(nodeid) == self.new_nodeclass
             and
             all(
-                meets_link_spec(g, ls, nodeid, old_nodeid)
-                    for ls in self.link_specs
+                ls.meets_exactly(g, nodeid, old_node=old_nodeid)
+                    for ls in as_iter(self.link_specs)
             )
         )
+
+    def build(self, g, old_nodeid):
+        if self.new_node_args:
+            new_nodeid = g.make_node(self.new_nodeclass(*self.new_node_args))
+        else:
+            new_nodeid = g.make_node(self.new_nodeclass)
+        for ls in as_iter(self.link_specs):
+            ls.make(g, old_nodeid, new_nodeid)
