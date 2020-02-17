@@ -11,6 +11,8 @@ from Env import Env
 
 preamble = '''from PortGraph import Node
 from LinkSpec import LinkSpec
+from NodeSpec import BuildSpec
+from bases import ActiveNode
 '''
 
 def make_python(fargish_code, file=None):
@@ -19,14 +21,17 @@ def make_python(fargish_code, file=None):
     items = parse(fargish_code)
     env = Env(items)
     print(preamble, file=file)
+    fixup = StringIO()
     for item in items:
         if hasattr(item, 'gen'):
-            item.gen(file, env)
+            item.gen(file, env, fixup)
+    fixup.seek(0)
+    for line in fixup:
+        print(line, file=file, end='')
 
 def compile_fargish(fargish_code, filename='<string>'):
     s = StringIO()
     make_python(fargish_code, file=s)
-    print('COMP', s.getvalue())
     return compile(s.getvalue(), filename, 'exec')
 
 

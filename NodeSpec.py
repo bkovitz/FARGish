@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 from random import choice
 from itertools import product
 
+from Action import FuncAction
 from bases import NewLinkSpec, meets_link_spec #TODO rm
+from PortGraph import pg
 from util import as_iter, is_nodeid, intersection, nice_object_repr, NiceRepr
 
 
@@ -206,7 +208,7 @@ class TupAnd(TupleCriterion):
     def is_match(self, g, tup):
         return all(c.is_match(g, tup) for c in self.tupcriteria)
 
-class BuildSpec:
+class BuildSpec(NiceRepr):
     '''Specifies a node to build, including links to existing neighbors.'''
 
     def __init__(self, new_nodeclass, link_specs=None, new_node_args=None):
@@ -246,9 +248,16 @@ class BuildSpec:
         )
 
     def build(self, g, old_nodeid):
+        #TODO Don't build if .already_built()
         if self.new_node_args:
             new_nodeid = g.make_node(self.new_nodeclass(*self.new_node_args))
         else:
             new_nodeid = g.make_node(self.new_nodeclass)
         for ls in as_iter(self.link_specs):
             ls.make(g, old_nodeid, new_nodeid)
+
+    def maybe_make_build_action(self, g, old_nodeid):
+        if self.already_built(g, old_nodeid):
+            return None
+        else:
+            return FuncAction(self.build, old_nodeid)

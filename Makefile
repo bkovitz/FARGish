@@ -6,7 +6,6 @@ ut:
 # Convenience target for single test current being worked on
 u:
 	$(PY) -m unittest -v testCodegen.TestCodegen.testBuildAgent
-	#$(PY) -m unittest -v testPortGraph
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

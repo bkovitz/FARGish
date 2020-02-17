@@ -1,5 +1,6 @@
 import unittest
 import itertools
+from pprint import pprint as pp
 
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
     And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, BuildSpec
@@ -216,3 +217,15 @@ class TestBuildSpec(unittest.TestCase):
         spec.build(g, w)
         self.assertTrue(spec.already_built(g, w))
         self.assertEqual(len(g), 2)
+
+    def test_agent_func_action(self):
+        g = PortGraph()
+        w = g.make_node(Want)
+        spec = BuildSpec(
+            Agent,
+            LinkSpec('agents', 'behalf_of')
+        )
+        a = spec.maybe_make_build_action(g, w)
+        print('A', a)
+        a.go(g)
+        pg(g)

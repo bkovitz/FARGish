@@ -7,6 +7,7 @@ from inspect import isclass
 
 
 empty_set = frozenset([])
+newline = '\n'
 
 def is_iter(o):
     return isinstance(o, Iterable) and not isinstance(o, tuple)

@@ -4,12 +4,19 @@
 # These classes, in turn, can generate Python code.
 
 from abc import ABC, abstractmethod
+from pprint import pprint as pp
 
 from Env import EnvItem
 from LinkSpec import LinkSpec
-from util import NiceRepr
+from NodeSpec import BuildSpec
+from util import NiceRepr, newline
 from exc import NoUniqueMateError
 
+def as_name(x):
+    try:
+        return x.name
+    except KeyError:
+        return x
 
 class ExternalName(EnvItem):
     def __init__(self, name):
@@ -113,13 +120,11 @@ class NodeDefn(EnvItem):
         result += self.args
         return result
 
-    def gen(self, file, env):
+    def gen(self, file, env, fixup):
         #TODO Somewhere check that the args actually passed are appropriate 
         #to the nodeclass.
-        if self.ancestors:
-            ancs = ', '.join(self.ancestors)
-        else:
-            ancs = 'Node'
+
+        # Code for auto-linking
         lss = self.link_specs(env)
         if lss:
             link_spec_code = '\n'.join(gen_link_spec(ls) for ls in lss)
@@ -136,6 +141,7 @@ class NodeDefn(EnvItem):
             lss_code = ''
             als_code = ''
 
+        # Node arguments
         targs = self.true_args(env)
         if targs:
             inargs = ', '.join(f'{t}=None' for t in targs)
@@ -147,14 +153,48 @@ class NodeDefn(EnvItem):
 '''
         else:
             init_code = ''
+
+        # Actions
+        build_specs = []
+        actions = []
+        for body_item in self.body:
+            body_item.body_gen(build_specs, actions)
+
+        if build_specs:
+            bss_code = f'''
+{self.name}.build_specs = [
+{newline.join("    " + b + "," for b in build_specs)}
+]
+'''
+            a_code = f'''
+    def actions(self, g, thisid):
+        return [
+            spec.maybe_make_build_action(g, thisid)
+                for spec in self.build_specs
+        ]
+'''
+        else:
+            bss_code = ''
+            a_code = ''
     
-        if lss_code or init_code or als_code:
-            body_code = f'{lss_code}{init_code}{als_code}'
+        # Now put all the generated code together to define the node class
+        if self.ancestors:
+            ancs = ', '.join(self.ancestors)
+        else:
+            if a_code:
+                ancs = 'ActiveNode'
+            else:
+                ancs = 'Node'
+
+        if lss_code or init_code or als_code or a_code:
+            body_code = f'{lss_code}{init_code}{als_code}{a_code}'
         else:
             body_code = '    pass\n'
 
         print(f'''class {self.name}({ancs}):
 {body_code}''', file=file)
+        if bss_code:
+            print(bss_code, file=fixup)
 
     def link_specs(self, env):
         result = []
@@ -213,6 +253,10 @@ class SeeDo(NiceRepr):
 class AgentExpr(NiceRepr):
     def __init__(self, expr):
         self.expr = expr
+    def body_gen(self, build_specs, actions):
+        build_specs.append(
+            f"BuildSpec({as_name(self.expr)}, LinkSpec('agents', 'behalf_of'))"
+        )
 
 class ArgExpr(NiceRepr):
     def __init__(self, argname, expr):

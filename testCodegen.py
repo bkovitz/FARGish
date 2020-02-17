@@ -5,7 +5,13 @@ from pprint import pprint as pp
 
 from codegen import make_python, compile_fargish
 from PortGraph import PortGraph, Node, pg
+from TimeStepper import TimeStepper
 from LinkSpec import LinkSpec
+from NodeSpec import BuildSpec
+from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
+
+class TestGraph(TimeStepper, PortGraph):
+    pass
 
 class TestCodegen(unittest.TestCase):
 
@@ -42,18 +48,29 @@ Brick : Number'''
 target -- tags
 Number(n)
 Scout(target)'''
-        make_python(prog) #DEBUG
+        #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         nid = g.make_node(Number(3))
         sid = g.make_node(Scout(nid))
         self.assertTrue(g.has_hop(sid, 'target', nid, 'tags'))
 
     def testBuildAgent(self):
-        g = PortGraph()
+        g = TestGraph()
         prog = '''
 Client
     agent: Agent
 
 Agent
 '''
-        make_python(prog)
+        #make_python(prog) #DEBUG
+        exec(compile_fargish(prog), globals())
+        client = g.make_node(Client)
+        g.do_timestep()
+        self.assertEqual(len(g), 2)
+        agent = g.neighbor(client, port_label='agents')
+        self.assertEqual(g.class_of(agent), Agent)
+        self.assertTrue(g.has_hop(agent, 'behalf_of', client, 'agents'))
+
+        # Once the agent is built, the client should not build another.
+        g.do_timestep()
+        self.assertEqual(len(g), 2)

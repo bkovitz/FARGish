@@ -21,7 +21,36 @@ FARGish
         Remove port labels from repr(Node)  DONE
 
         Build and link agent iff not already built  
-            testBuildAgent
+            maybe_make_build_action  DONE
+            generate code  DONE
+            testBuildAgent  DONE
+
+        Make a general NodeSpec class
+
+        see-do
+
+            Put NodeSpec, NodeWithTag, etc. into FARGish
+
+            Cartesian product for named nodes
+
+            'build' action
+
+            'else' with further conditions
+
+            Comma means 'and'
+
+            secondary action
+
+            see Not(Tagged(Done, this))
+
+    Clean up BuildSpec so it's:
+        
+        1. Easy to link a new node to several existing nodes.
+
+        2. Easy to detect that such a node has already been built.
+
+        LinkSpec: include role names?
+            This would let a caller specify nodes by the names of their roles.
 
 
 Detect stuckness.

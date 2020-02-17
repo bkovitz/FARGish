@@ -32,7 +32,7 @@ class FuncAction(Action):
     '''Convenience class that enables treating an arbitrary function as
     an Action.'''
 
-    def __init__(self, func, g, *args, **kwargs):
+    def __init__(self, func, *args, **kwargs):
         self.func = func
         self.args = args
         self.kwargs = kwargs
@@ -64,7 +64,6 @@ class Build(Action):
 
     def go(self, g):
         #TODO member_of? common container of all the existing_nodes?
-        print('BUILD', self.nodeclass)
         if self.kwargs:
             datum = self.nodeclass(**self.kwargs)
         else:
