@@ -7,6 +7,7 @@ from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
 import networkx as nx
 
 from collections import defaultdict, namedtuple, UserDict
+from collections.abc import Iterable
 from inspect import isclass
 from operator import attrgetter, itemgetter
 from random import choice, choices
@@ -37,11 +38,11 @@ class Node:
         return True
 
     def __repr__(self):
-        try:
+        if isinstance(self.link_specs, Iterable):
             exclude = set(ls.new_node_port_label for ls in self.link_specs)
             kvs = [kv for kv in self.__dict__.items()
                           if kv[0] not in exclude]
-        except KeyError:
+        else:
             kvs = self.__dict__.items()
         return repr_str(self.__class__.__name__, kvs)
 
@@ -303,11 +304,14 @@ class PortGraph(nx.MultiGraph):
             salience = o.default_salience
             if salience is not None:
                 self.set_salience(i, salience)
+            self.set_support_for(
+                i,
+                max(o.initial_support_for, o.min_support_for)
+            )
+            if callable(o.after_touch_update):
+                self.after_touch_nodes.add(i)
         except AttributeError:
             pass
-        self.set_support_for(i, max(o.initial_support_for, o.min_support_for))
-        if callable(o.after_touch_update):
-            self.after_touch_nodes.add(i)
         self.new_nodes.add(i)
         #TODO Document this automatic linking or remove it.
         if builder is not None:
@@ -458,7 +462,10 @@ class PortGraph(nx.MultiGraph):
         return self.nodes[node]['_hops'].all_hops()
 
     def hops_from_port(self, node, port_label):
-        return self.nodes[node]['_hops'].hops_from_port_label(port_label)
+        try:
+            return self.nodes[node]['_hops'].hops_from_port_label(port_label)
+        except KeyError:
+            return []
 
     def hops_to_neighbor(self, node, neighbor_node):
         return (
@@ -509,6 +516,10 @@ class PortGraph(nx.MultiGraph):
                             if hop.key == key)
         except StopIteration:
             return None
+
+    def all_hops(self):
+        'Returns a generator of all hops in self.'
+        return (self.edge_to_hop(edge) for edge in self.edges)
 
     def has_hop(self, from_node, from_port_label, to_node, to_port_label):
         return bool(
@@ -815,6 +826,12 @@ class PortGraph(nx.MultiGraph):
             return issubclass(self.class_of(node), cl)
         except TypeError:
             return False
+
+    def label_is_a(self, label, ancestor_label):
+        '''Is label the same as or a descendent of ancestor_label?'''
+        #TODO Implement port-label inheritance. This version just tests
+        #equality.
+        return label == ancestor_label
 
     def value_of(self, node):
         try:

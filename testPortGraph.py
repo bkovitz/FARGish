@@ -43,3 +43,15 @@ class TestPortGraph(unittest.TestCase):
 #        g.add_tag(SameNumber, tens)
 #        g.add_tag(SameNumber, reversed(tens))
 #        #TODO  Not sure yet that add_tag shouldn't double-tag
+
+    def test_nodes(self):
+        g = PortGraph()
+        a = g.make_node('A')
+        b = g.make_node('B')
+        g.add_edge(a, 'in', b, 'out')
+        # g.nodes is all the nodeids in g
+        self.assertCountEqual([1, 2], g.nodes)
+        # g.edges is a set of tuples (nodeid, nodeid, key)
+        self.assertCountEqual([(1, 2, 0)], g.edges)
+        # In a PortGraph, you're probably more interested in hops than edges:
+        self.assertCountEqual([Hop(a, 'in', b, 'out', 0)], list(g.all_hops()))

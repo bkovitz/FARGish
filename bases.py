@@ -15,6 +15,14 @@ def make_link(g, link_spec, new_node, old_node):
     g.add_edge(old_node, link_spec.old_node_port_label,
                new_node, link_spec.new_node_port_label)
 
+def meets_link_spec(g, link_spec, new_node, old_node):
+    return g.has_hop(
+        new_node,
+        link_spec.new_node_port_label,
+        old_node,
+        link_spec.old_node_port_label
+    )
+
 
 class GroupDescriptor(Tag):
     '''Base class for tags that describe some property of a group, such as a

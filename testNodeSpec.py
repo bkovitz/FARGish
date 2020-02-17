@@ -2,7 +2,8 @@ import unittest
 import itertools
 
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
-    And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame
+    And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, BuildSpec, \
+    LinkSpec
 from numbospec import *
 from bases import NewLinkSpec, make_link
 from PortGraph import PortGraph, pg
@@ -35,7 +36,12 @@ class ConsumeOperands(Node):
         for link_spec, old_node in zip(cls.link_specs, old_nodes):
             make_link(g, link_spec, nodeid, old_node)
 
-class TestBasics(unittest.TestCase):
+class Want(Node):
+    pass
+class Agent(Node):
+    pass
+
+class TestNodeSpec(unittest.TestCase):
 
     def test_node_of_class(self):
         spec = NodeOfClass(Number)
@@ -178,3 +184,57 @@ class TestBasics(unittest.TestCase):
         # Thanks to no_dups, no possibility proposes consuming the same
         # Brick more than once.
         self.assertCountEqual(got, expect)
+
+class TestLinkSpec(unittest.TestCase):
+
+    def test_basics(self):
+        g = PortGraph()
+        b4 = g.make_node(Number(4))
+        b5 = g.make_node(Number(5))
+        #t9 = g.make_node(Target(9))
+        link_spec = LinkSpec('consumer', 'source', old_node=Number)
+
+        self.assertFalse(link_spec.meets(g, None, None))
+
+        plus = g.make_node(Plus)
+        self.assertFalse(link_spec.meets(g, old_node=b4, new_nodeid=plus))
+
+        link_spec.make(g, old_nodeid=b4, new_nodeid=plus)
+        self.assertTrue(link_spec.meets(g, old_node=b4, new_nodeid=plus))
+        self.assertTrue(link_spec.meets_exactly(
+            g, old_node=b4, new_nodeid=plus)
+        )
+
+        g.add_edge(plus, 'wrong-label', b5, 'wrong-label')
+        self.assertFalse(link_spec.meets(g, old_node=b5, new_nodeid=plus))
+
+class TestBuildSpec(unittest.TestCase):
+
+    def teest_plus(self):
+        g = PortGraph()
+        b4 = g.make_node(Number(4))
+        b5 = g.make_node(Number(5))
+        t9 = g.make_node(Target(9))
+        spec = BuildSpec(
+            Plus,
+            [
+                LinkSpec('source', 'consumer', old_node=b4),
+                LinkSpec('source', 'consumer', old_node=b5),
+                LinkSpec('consumer', 'source', old_node=t9)
+            ]
+        )
+        self.assertFalse(spec.already_built(g, spec))
+        spec.build(g, spec)
+        self.assertTrue(spec.already_built(g, spec))
+
+    def teest_agent(self):
+        g = PortGraph()
+        w = g.make_node(Want)
+        a = g.make_node(Agent)
+        spec = BuildSpec(
+            Agent,
+            LinkSpec('agents', 'behalf_of', Agent)
+        )
+        self.assertFalse(spec.already_built(g, spec))
+        spec.build(g, spec)
+        self.assertTrue(spec.already_built(g, spec))

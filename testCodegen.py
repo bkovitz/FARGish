@@ -41,8 +41,17 @@ Brick : Number'''
 target -- tags
 Number(n)
 Scout(target)'''
-        make_python(prog)
         exec(compile_fargish(prog), globals())
         nid = g.make_node(Number(3))
         sid = g.make_node(Scout(nid))
         pg(g)
+
+    def testBuildAgent(self):
+        g = PortGraph()
+        prog = '''
+Client
+    agent: Agent
+
+Agent
+'''
+        make_python(prog)

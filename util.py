@@ -25,6 +25,9 @@ def as_iter(o):
     else:
         return [o]
 
+def is_nodeid(x):
+    return isinstance(x, int)
+
 def reseed(seed=None):
     '''With seed=None: reseeds Python's random-number generator with a new,
     random seed based on the time, and returns it so you can save it.

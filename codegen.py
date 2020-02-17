@@ -27,6 +27,7 @@ def make_python(fargish_code, file=None):
 def compile_fargish(fargish_code, filename='<string>'):
     s = StringIO()
     make_python(fargish_code, file=s)
+    print('COMP', s.getvalue())
     return compile(s.getvalue(), filename, 'exec')
 
 

@@ -125,13 +125,15 @@ class NodeDefn(EnvItem):
             link_spec_code = '\n'.join(gen_link_spec(ls) for ls in lss)
             lss_code = f'''    link_specs = [
 {link_spec_code}
-    ]'''
+    ]
+'''
             auto_link_code = '\n'.join(gen_auto_link(ls) for ls in lss)
             als_code = f'''
     def auto_link(self, thisid, g):
-{auto_link_code}'''
+{auto_link_code}
+'''
         else:
-            lss_code = '    link_specs = []'
+            lss_code = ''
             als_code = ''
 
         targs = self.true_args(env)
@@ -141,14 +143,18 @@ class NodeDefn(EnvItem):
             init_code = f'''
     def __init__(self, {inargs}, **kwargs):
 {absorb}
-        super().__init__(**kwargs)'''
+        super().__init__(**kwargs)
+'''
         else:
             init_code = ''
     
+        if lss_code or init_code or als_code:
+            body_code = f'{lss_code}{init_code}{als_code}'
+        else:
+            body_code = '    pass\n'
+
         print(f'''class {self.name}({ancs}):
-{lss_code}
-{init_code}
-{als_code}''', file=file)
+{body_code}''', file=file)
 
     def link_specs(self, env):
         result = []
@@ -167,8 +173,6 @@ def gen_auto_link(link_spec):
     return f'''        _otherid = self.{link_spec.new_node_port_label}
         if _otherid:
             g.add_edge(thisid, '{link_spec.new_node_port_label}', _otherid, '{link_spec.old_node_port_label}')'''
-
-    # g.add_edge(thisid, 'target', 
 
 class Initializer(NiceRepr):
     def __init__(self, name, expr):
