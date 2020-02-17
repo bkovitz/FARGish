@@ -6,7 +6,7 @@ from copy import copy
 from util import as_iter, is_nodeid, NiceRepr
 
 
-class LinkSpec(NiceRepr):
+class LinkSpec:
     '''Specifies a link between an "old node" and a "new node". The "new node"
     is not part of the specification. The LinkSpec can answer queries about
     whether a given node is linked in the role specified for the "new node".
@@ -21,7 +21,14 @@ class LinkSpec(NiceRepr):
         an object : an object to match the node's datum against'''
         self.old_node_port_label = old_node_port_label
         self.new_node_port_label = new_node_port_label
+        self.old_node = old_node
         self.old_node_matcher = make_node_matcher(old_node)
+
+    def __repr__(self):
+        if self.old_node is None:
+            return f'LinkSpec({repr(self.old_node_port_label)}, {repr(self.new_node_port_label)})'
+        else:
+            return f'LinkSpec({repr(self.old_node_port_label)}, {repr(self.new_node_port_label)}, {repr(self.old_node)})'
     
     def meets(self, g, new_nodeid, old_node=None):
         '''Is new_nodeid linked according to the spec? old_node overrides

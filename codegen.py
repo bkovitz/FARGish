@@ -7,11 +7,10 @@ from pprint import pprint as pp
 from grammar import parse
 from Env import Env
 #from PortGraph import Node
-#from bases import NewLinkSpec
 
 
 preamble = '''from PortGraph import Node
-from bases import NewLinkSpec
+from LinkSpec import LinkSpec
 '''
 
 def make_python(fargish_code, file=None):

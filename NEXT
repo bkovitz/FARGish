@@ -21,6 +21,7 @@ FARGish
         Remove port labels from repr(Node)  DONE
 
         Build and link agent iff not already built  
+            testBuildAgent
 
 
 Detect stuckness.

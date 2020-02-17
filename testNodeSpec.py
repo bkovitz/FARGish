@@ -5,7 +5,7 @@ from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
     And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, BuildSpec
 from LinkSpec import LinkSpec
 from numbospec import *
-from bases import NewLinkSpec, make_link
+from bases import make_link
 from PortGraph import PortGraph, pg
 from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
@@ -24,9 +24,9 @@ class TestGraph(TimeStepper, ExprAsEquation, PortGraph):
 class ConsumeOperands(Node):
 
     link_specs = [
-        NewLinkSpec('proposer', 'consume-operand', ),
-        NewLinkSpec('proposer', 'consume-operand', ),
-        NewLinkSpec('proposer', 'proposed-operator')
+        LinkSpec('proposer', 'consume-operand'),
+        LinkSpec('proposer', 'consume-operand'),
+        LinkSpec('proposer', 'proposed-operator')
     ]
 
     @classmethod

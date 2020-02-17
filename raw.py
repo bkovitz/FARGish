@@ -6,7 +6,7 @@
 from abc import ABC, abstractmethod
 
 from Env import EnvItem
-from bases import NewLinkSpec
+from LinkSpec import LinkSpec
 from util import NiceRepr
 from exc import NoUniqueMateError
 
@@ -162,7 +162,7 @@ class NodeDefn(EnvItem):
             argdef = env.get(arg)
             if isinstance(argdef, PortLabel):
                 result.append(
-                    NewLinkSpec(argdef.unique_mate(env).name, argdef.name)
+                    LinkSpec(argdef.unique_mate(env).name, argdef.name)
                 )
         return result
 

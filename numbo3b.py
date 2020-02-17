@@ -4,11 +4,12 @@ from operator import add, mul
 from functools import reduce
 
 from PortGraph import Node, Tag
-from bases import ActiveNode, NewLinkSpec
+from bases import ActiveNode
 from Action import Action, FuncAction, Build, ActionSeq, SelfDestruct, Raise, \
     Fail
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
     And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups
+from LinkSpec import LinkSpec
 from exc import FargDone
 import expr
 
@@ -56,9 +57,9 @@ class Times(Operator):
 
 class Want(Tag, ActiveNode):
 
-    operands_scout_link = NewLinkSpec('agents', 'behalf_of')
-    backtracking_scout_link = NewLinkSpec('agents', 'behalf_of')
-    done_scout_link = NewLinkSpec('agents', 'behalf_of')
+    operands_scout_link = LinkSpec('agents', 'behalf_of')
+    backtracking_scout_link = LinkSpec('agents', 'behalf_of')
+    done_scout_link = LinkSpec('agents', 'behalf_of')
 
     def actions(self, g, thisid):
         targetid = g.taggee_of(thisid)
@@ -104,9 +105,9 @@ class OperandsScout(ActiveNode):
         self.targetid = targetid
 
     link_specs = [
-        NewLinkSpec('proposer', 'consume-operand', ),
-        NewLinkSpec('proposer', 'consume-operand', ),
-        NewLinkSpec('proposer', 'proposed-operator')
+        LinkSpec('proposer', 'consume-operand'),
+        LinkSpec('proposer', 'consume-operand'),
+        LinkSpec('proposer', 'proposed-operator')
     ]
     nodes_finder = CartesianProduct(
         NodeWithTag(Number, Avail),

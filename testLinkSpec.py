@@ -32,4 +32,3 @@ class TestLinkSpec(unittest.TestCase):
 
         g.add_edge(plus, 'wrong-label', b5, 'wrong-label')
         self.assertFalse(link_spec.meets(g, old_node=b5, new_nodeid=plus))
-

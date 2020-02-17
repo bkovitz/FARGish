@@ -5,6 +5,7 @@ from pprint import pprint as pp
 
 from codegen import make_python, compile_fargish
 from PortGraph import PortGraph, Node, pg
+from LinkSpec import LinkSpec
 
 class TestCodegen(unittest.TestCase):
 
@@ -41,10 +42,11 @@ Brick : Number'''
 target -- tags
 Number(n)
 Scout(target)'''
+        make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         nid = g.make_node(Number(3))
         sid = g.make_node(Scout(nid))
-        pg(g)
+        self.assertTrue(g.has_hop(sid, 'target', nid, 'tags'))
 
     def testBuildAgent(self):
         g = PortGraph()

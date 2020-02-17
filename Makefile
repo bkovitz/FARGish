@@ -5,7 +5,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNodeSpec.TestBuildSpec
+	$(PY) -m unittest -v testCodegen.TestCodegen.testBuildAgent
 	#$(PY) -m unittest -v testPortGraph
 
 tags:
