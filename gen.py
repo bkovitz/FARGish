@@ -19,6 +19,12 @@ def as_name(x):
     except AttributeError:
         return x
 
+def as_expr(x):
+    if hasattr(x, 'expr'):
+        return x.expr()
+    else:
+        return str(x)
+
 class Indent:
 
     prefix = '    '
@@ -161,6 +167,7 @@ class Class(NiceRepr):
         self.name = name
         self.ancestors = []
         self.args = []
+        self.inits = []
         self.class_vars = []
         self.auto_links = []
         self.actions = []
@@ -171,6 +178,9 @@ class Class(NiceRepr):
 
     def add_args(self, args):
         self.args += as_iter(args)
+
+    def add_inits(self, inits):
+        self.inits += as_iter(inits)
 
     def add_class_var(self, name_prefix, expr):
         '''Returns name assigned to expr.'''
@@ -209,7 +219,7 @@ class Class(NiceRepr):
             class_var.gen(file, fixup)
 
     def gen_init(self, file, fixup):
-        if self.args:
+        if self.args or self.inits:
             #TODO Ideally, we should generate no __init__ function if the
             #Class has no args not shared by its ancestors and no
             #initializers.
@@ -220,6 +230,8 @@ class Class(NiceRepr):
     def __init__(self, {inargs}, **kwargs):
 {absorb}
         super().__init__(**kwargs)''', file=file)
+            for init in self.inits:
+                print(init, file=file)
 
     def gen_auto_links(self, file, fixup):
         if self.auto_links:
@@ -408,9 +420,13 @@ def gen_auto_link(link_spec):
             g.add_edge(thisid, '{link_spec.new_node_port_label}', _otherid, '{link_spec.old_node_port_label}')'''
 
 class Initializer(NiceRepr):
+
     def __init__(self, name, expr):
         self.name = name
         self.expr = expr
+
+    def add_to_class(self, cl):
+        cl.add_inits(Indent(2, f'''self.{self.name} = {as_expr(self.expr)}'''))
 
 class BuildExpr(NiceRepr):
     def __init__(self, expr):
@@ -419,6 +435,9 @@ class BuildExpr(NiceRepr):
 class VarRef(NiceRepr):
     def __init__(self, name):
         self.name = name
+
+    def expr(self):
+        return self.name
 
 class FuncCall(NiceRepr):
     def __init__(self, funcname, args):
@@ -435,6 +454,21 @@ class LetExpr(NiceRepr):
     def __init__(self, name, expr):
         self.name = name
         self.expr = expr
+
+class NodesFinder(NiceRepr):
+
+    def __init__(self):
+        self.nodespecs = []
+        self.whole_tuple_criteria = ['no_dups']
+
+    def add_item(self, item):
+        self.nodespecs += as_iter(item.nodespecs())
+        self.whole_tuple_criteria += as_iter(item.whole_tuple_criteria())
+
+    def add_to_class(self, cl):
+        if self.nodespecs:
+            cl.add_class_var('nodes_finder',
+f'''CartesianProduct({', '.join(repr(ns) for ns in self.nodespecs)}, whole_tuple_criterion=TupAnd({', '.join(cr) for cr in self.whole_tuple_criteria}))''')
 
 class SeeDo(NiceRepr):
     def __init__(self, conditions, actions, else_conditions, else_actions):

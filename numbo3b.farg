@@ -40,6 +40,6 @@ SuccessScout(target)
   see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
   => succeeded(winner, target)
 
-ConsumeOperands
+ConsumeOperands(consume_operand, consume_operand, proposed_operator)
   see Not(Tagged(Done, this)), AllTagged(Avail, consume-operand(this))
   => consumeOperands(this)  # external func; complicated
