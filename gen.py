@@ -17,7 +17,7 @@ def as_name(x):
     try:
         return x.name
     except AttributeError:
-        return x
+        return str(x)
 
 def as_expr(x):
     if hasattr(x, 'as_expr'):
@@ -205,6 +205,7 @@ class Class(NiceRepr):
         self.gen_actions(file, fixup)
         #if file.seek(0, 1) == len1:  # if body is empty
         #ECCH If file is stdout, then can't test whether anything got printed.
+        self.gen_display_name(file, fixup)
         print('    pass\n', file=file)
 
     def str_ancestors(self):
@@ -248,6 +249,13 @@ class Class(NiceRepr):
             for action in self.actions:
                 print(action, file=file, end='')
             print('''        return _result''', file=file)
+
+    def gen_display_name(self, file, fixup):
+        #HACK Should display all non-neighbor args
+        if len(self.args) == 1:
+            print(f'''
+    def display_name(self, g, thisid):
+        return '{self.name}(' + str(self.{as_name(self.args[0])}) + ')' ''', file=file)
 
     def __str__(self):
         sio = StringIO()

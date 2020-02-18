@@ -5,8 +5,8 @@
 import json
 
 #from numbo import NumboGraph, new_graph
-from numbo3 import new_graph, Numble
-  # IN PREVIOUS LINE, CHANGE numbo3 to demo2
+#from numbo3 import new_graph, Numble
+from demo2 import new_graph, Numble
 #from numble import Numble
 from numbospec import spec as numbo_spec
 from PortGraph import long_nodestr

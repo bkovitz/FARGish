@@ -8,7 +8,7 @@ To run with a graphical display in a web browser:
 
 1. In a terminal window, run:
 
-   $ python3 server.py
+   $ python3.7 server.py
 
 2. In a web browser, open:
 
@@ -30,3 +30,7 @@ To stop the web server, hit Ctrl-C in the terminal window.
      testTimeStepper.py   Has simple example of setting up a tiny FARG model
 
   numbo3.py is the current version.
+
+
+18-Feb-2020
+  demo2.py is the current version.

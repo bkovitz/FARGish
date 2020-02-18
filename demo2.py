@@ -320,6 +320,9 @@ class Numble:
         Allowed.add_tag(g, timesid)
         return container
 
+    def as_dict(self):
+        return { 'bricks': self.bricks, 'target': self.target }
+
 class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
 
     default_graph_attrs = dict(
