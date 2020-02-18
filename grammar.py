@@ -10,7 +10,7 @@ import ply.yacc as yacc
 from pprint import pprint as pp
 
 from Indent1 import Parser
-from raw import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
+from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, BuildExpr, VarRef, FuncCall, Relop, LetExpr, SeeDo, AgentExpr, \
     ArgExpr, Initializer
 

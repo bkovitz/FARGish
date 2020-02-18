@@ -74,3 +74,28 @@ Agent
         # Once the agent is built, the client should not build another.
         g.do_timestep()
         self.assertEqual(len(g), 2)
+
+    def test_see_do(self):
+        g = TestGraph()
+        prog = '''
+tags -- taggees
+
+Tag
+Found, Done : Tag
+
+Target
+Scout
+  see t := NodeOfClass(Target)
+  => add_tag(Found, t)
+
+Scout2
+  see Not(Tagged(Done, this))
+  => do_something(this)
+
+Scout3
+  see t1 := NodeOfClass(Target)
+  => add_tag(Found, t1)
+  else t2 := NodeOfClass(Found)
+  => add_tag(Done, t2)
+'''
+        make_python(prog) #DEBUG

@@ -225,7 +225,8 @@ class TestBuildSpec(unittest.TestCase):
             Agent,
             LinkSpec('agents', 'behalf_of')
         )
-        a = spec.maybe_make_build_action(g, w)
-        print('A', a)
-        a.go(g)
-        pg(g)
+        action = spec.maybe_make_build_action(g, w)
+        action.go(g)
+        self.assertEqual(len(g), 2)
+        a = g.neighbor(w, port_label='agents')
+        self.assertTrue(g.has_hop(a, 'behalf_of', w, 'agents'))

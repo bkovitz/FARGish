@@ -29,6 +29,8 @@ FARGish
 
         see-do
 
+            SeeDoAccumulator
+
             Put NodeSpec, NodeWithTag, etc. into FARGish
 
             Cartesian product for named nodes

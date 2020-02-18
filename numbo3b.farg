@@ -25,10 +25,10 @@ Operator
 Plus, Times : Operator
 
 Want : Tag
-  scout: OperandsScout(target=taggee)
-  scout: SuccessScout(target=taggee)
+  agent: OperandsScout(target=taggee)
+  agent: SuccessScout(target=taggee)
 
-OperandsScout(behalf_of, target)
+OperandsScout(target)
   see p1 := NodeWithTag(Number, Avail)
       p2 := NodeWithTag(Number, Avail)
       op := NodeWithTag(Operator, Allowed)
@@ -41,5 +41,5 @@ SuccessScout(target)
   => succeeded(winner, target)
 
 ConsumeOperands
-  when Not(Tagged(Done, this)), AllTagged(Avail, consume-operand(this))
+  see Not(Tagged(Done, this)), AllTagged(Avail, consume-operand(this))
   => consumeOperands(this)  # external func; complicated
