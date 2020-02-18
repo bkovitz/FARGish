@@ -20,8 +20,8 @@ def as_name(x):
         return x
 
 def as_expr(x):
-    if hasattr(x, 'expr'):
-        return x.expr()
+    if hasattr(x, 'as_expr'):
+        return x.as_expr()
     else:
         return str(x)
 
@@ -436,13 +436,17 @@ class VarRef(NiceRepr):
     def __init__(self, name):
         self.name = name
 
-    def expr(self):
+    def as_expr(self):
         return self.name
 
 class FuncCall(NiceRepr):
+
     def __init__(self, funcname, args):
         self.funcname = funcname
         self.args = args
+
+    def as_expr(self):
+        return f'''{self.funcname}({', '.join(as_expr(a) for a in self.args)})'''
 
 class Relop(NiceRepr):
     def __init__(self, lhs, op, rhs):
@@ -494,7 +498,7 @@ class AgentExpr(NiceRepr):
     #TODO rm
     def body_gen(self, build_specs, actions):
         build_specs.append(
-            f"BuildSpec({as_name(self.expr)}, LinkSpec('agents', 'behalf_of'))"
+            f"BuildSpec({as_expr(self.expr)}, LinkSpec('agents', 'behalf_of'))"
         )
 
     def add_to_class(self, cl):
@@ -508,9 +512,13 @@ class AgentExpr(NiceRepr):
         ))
 
 class ArgExpr(NiceRepr):
+
     def __init__(self, argname, expr):
         self.argname = argname
         self.expr = expr
+
+    def as_expr(self):
+        return f'''{self.argname}={as_expr(self.expr)}'''
 
 
 #class SeeDoAccumulator(NiceRepr):

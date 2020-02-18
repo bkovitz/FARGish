@@ -98,4 +98,4 @@ Scout3
   else t2 := NodeOfClass(Found)
   => add_tag(Done, t2)
 '''
-        make_python(prog) #DEBUG
+        #make_python(prog) #DEBUG

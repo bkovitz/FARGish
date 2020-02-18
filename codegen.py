@@ -15,7 +15,7 @@ from NodeSpec import BuildSpec
 from bases import ActiveNode
 '''
 
-def make_python(fargish_code, file=None):
+def make_python(fargish_code, file=None, preamble=preamble, postamble=''):
     if file is None:
         file = sys.stdout
     items = parse(fargish_code)
@@ -28,6 +28,7 @@ def make_python(fargish_code, file=None):
     fixup.seek(0)
     for line in fixup:
         print(line, file=file, end='')
+    print(postamble, file=file, end='')
 
 def compile_fargish(fargish_code, filename='<string>'):
     s = StringIO()

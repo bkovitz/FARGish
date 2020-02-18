@@ -1,11 +1,12 @@
 # ModelWrapper.py -- A wrapper class around a FARG model, for runner.py to
-#                     send commands to the model and get a JSON representation
-#                     of it to send to a web browser
+#                    send commands to the model and get a JSON representation
+#                    of it to send to a web browser
 
 import json
 
 #from numbo import NumboGraph, new_graph
 from numbo3 import new_graph, Numble
+  # IN PREVIOUS LINE, CHANGE numbo3 to demo2
 #from numble import Numble
 from numbospec import spec as numbo_spec
 from PortGraph import long_nodestr
