@@ -9,7 +9,9 @@ from PortGraph import pg
 from bases import ActiveNode, CoarseView
 from util import sample_without_replacement
 from exc import FargDone
+import support
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
+from util import as_iter
 
 
 class TimeStepper:
@@ -45,6 +47,9 @@ class TimeStepper:
 
             self.decay_saliences()
 
+            self.propagate_support()
+            support.log_support(self)
+
             self.update_coarse_views()
 
             active_nodes = self.get_active_nodes()
@@ -59,11 +64,6 @@ class TimeStepper:
                 pg(self, active_nodes)
 
             actions = self.collect_actions(active_nodes)
-            if len(actions) == 0:
-                self.consecutive_timesteps_with_no_action += 1
-                #TODO Stop or do something if idle too long
-            else:
-                self.consecutive_timesteps_with_no_action = 0
             if ShowActionList.is_logging():
                 print('ACTIONS COLLECTED')
                 for action in sorted(actions, key=attrgetter('weight')):
@@ -72,6 +72,15 @@ class TimeStepper:
                         action.threshold,
                         action
                     ))
+
+            # Filter out actions whose weight is below their threshold
+            actions = [a for a in actions if a.weight >= a.threshold]
+
+            if len(actions) == 0:
+                self.consecutive_timesteps_with_no_action += 1
+                #TODO Stop or do something if idle too long
+            else:
+                self.consecutive_timesteps_with_no_action = 0
 
             chosen_actions = self.choose_actions(actions)
             if ShowActionsChosen.is_logging():
@@ -127,20 +136,14 @@ class TimeStepper:
         ))
 
     def collect_actions(self, active_nodes):
-        '''Calls .look() on each node in active_nodes, and returns all the
-        returned objects (presumed to be Actions) in a list. Filters out
-        all Action objects whose .weight doesn't match or exceed their
-        .threshold.'''
+        '''Calls .actions() on each node in active_nodes, and returns all the
+        returned objects (presumed to be Actions) in a list.'''
         actions = []
         for node in active_nodes:
             got = self.datum(node).actions(self, node)
-            if got is not None:
-                for action in got:
-                    if (action is not None
-                        and
-                        action.weight >= action.threshold
-                    ):
-                        actions.append(action)
+            for action in as_iter(got):
+                if action is not None:
+                    actions.append(action)
         return actions
 
     def choose_actions(self, actions, k=None):
@@ -149,9 +152,15 @@ class TimeStepper:
         if k is None:
             k = self.max_actions
         return list(sample_without_replacement(
-            actions, k=k, weights=[a.weight for a in actions]
+            actions, k=k, weights=[a.weight - a.threshold for a in actions]
         ))
 
     def update_coarse_views(self):
         for nodeid in self.nodes_of_class(CoarseView):
             self.datum(nodeid).update(self, nodeid)
+
+    def propagate_support(self):
+        for i in range(5):
+            #TODO Why not just put .propagate in self?
+            self.graph['support_propagator'].propagate(self)
+

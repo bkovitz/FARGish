@@ -6,7 +6,7 @@ from random import gauss
 from math import log10, pow
 
 from Action import Action, Build, Fail, Raise
-from PortGraph import PortGraph, Node, pg
+from PortGraph import PortGraph, Node, pg, ps
 import PortGraph as PG
 from bases import ActiveNode
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
@@ -69,6 +69,10 @@ Plus, Times : Operator
 
 make_python(prog)
 exec(compile_fargish(prog), globals())
+
+Workspace.min_support_for = 1.0
+Target.min_support_for = 1.0
+Brick.min_support_for = 1.0
 
 #def rough_estimate(g, nodeid, *args, **kwargs):
 #    g.call_method('rough_estimate', nodeid, *args, **kwargs)
@@ -151,6 +155,26 @@ class Want(Tag, ActiveNode):
 #            SuccessScout, behalf_of=thisid, targetid=targetid
 #        )
         return [s1, s2, s3]
+
+    def update_support(self, g, thisid):
+        #HACK
+        for nodeid in g.nodes_of_class(ConsumeOperands):
+            g.add_support(thisid, nodeid,
+                          weight=self.support_weight(g, thisid, nodeid))
+
+    def support_weight(self, g, thisid, nodeid):
+        rough_target = rough_of(g.value_of(g.neighbor(thisid, 'taggees')))
+        rough = rough_value_of(g, nodeid)
+        #print('ROUGH', nodeid, rough_target, rough)
+        if rough is None:
+            return 0.0
+        else:
+            dist = rough_target - rough
+            if dist < 0:
+                w = 0.05
+            else:
+                w = max(0.05, 2.0 - (rough_target - rough))
+            return w
 
 class OperandsScout(ActiveNode):
 
@@ -257,7 +281,7 @@ class ConsumeOperands(ActiveNode):
 
     def actions(self, g, thisid):
         if self.can_go(g, thisid):
-            result = [self.MyAction(g, thisid)]
+            result = [self.Consume(g, thisid)]
             if not g.has_tag(thisid, RoughEstimate):
                 result.append(
                     self.build_spec.maybe_make_build_action(g, thisid)
@@ -283,12 +307,12 @@ class ConsumeOperands(ActiveNode):
     def my_operands(self, g, thisid):
         return g.neighbors(thisid, port_label='consume-operand')
 
-    class MyAction(Action):
-        threshold = 0.0 # 1.0
-        #IDEA Let probability weight be support - threshold
+    class Consume(Action):
+        threshold = 1.0 # 0.0 # 1.0
 
         def __init__(self, g, thisid):
             self.thisid = thisid
+            self.weight = g.support_for(thisid)
 
         def go(self, g):
             op_class = g.class_of(
@@ -330,7 +354,7 @@ class ConsumeOperands(ActiveNode):
         operand_ids = g.neighbors(
             thisid, port_label='consume-operand'
         )
-        print('ROUGH', thisid, op_class, operand_ids)
+        #print('ROUGHE', thisid, op_class, operand_ids)
         return rough_of(arith_result0(g, op_class, operand_ids))
         
 class NumboSuccess(FargDone):
@@ -443,7 +467,7 @@ def run(seed=None):
     global g
     g = new_graph(seed=seed, numble=Numble([4, 5, 6], 15))
     print('SEED', g.graph['seed'])
-    start_logging(ShowActionsChosen)
+    start_logging([ShowActionsChosen])
     #pg(g)
     g.do_timestep(num=70)
     #ConsumeOperands.fail(g, 23)

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 a = np.loadtxt('support.csv', delimiter=',')
 
-node = 3
+node = 27
 
 # [timestep, support] only for node
 b = a[:, [0, 2]][a[:, 1] == node]

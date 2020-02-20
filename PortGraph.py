@@ -398,6 +398,8 @@ class PortGraph(nx.MultiGraph):
         hop = self.find_hop(node1, port_label1, node2, port_label2)
         if hop:
             key = hop.key
+            if 'weight' in attr:  # HACK: What about other attrs?
+                self[node1][node2][key]['weight'] = attr['weight']
         else:
             key = super(PortGraph, self).add_edge(node1, node2, **attr)
             hop1 = Hop(node1, port_label1, node2, port_label2, key)
@@ -927,6 +929,7 @@ class PortGraph(nx.MultiGraph):
         self.nodes[node]['support'] = support
 
     def add_support(self, node, neighbor, weight=0.2):
+        #print('ADD_S', node, neighbor, weight)
         if weight is None:
             self.add_edge(node, 'support_to', neighbor, 'support_from')
         else:
