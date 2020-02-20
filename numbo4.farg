@@ -1,0 +1,79 @@
+# numbo4.farg -- FARGish code for Numbo with a few simple biases
+
+external { chooseSubclass, arithResult, succeeded, consumeOperands, Fail }
+
+tags -- taggees
+consume-operand -- proposer
+proposed-operator -- proposer
+behalf_of -- agent
+target -- tags
+
+
+Workspace
+ws = Workspace
+
+Tag
+
+Avail, Consumed, Failed, Done, Allowed : Tag
+
+Number(n)
+  value = n
+
+Brick, Target, Block : Number
+
+Operator
+
+Plus, Times : Operator
+
+Want : Tag
+  agent: OperandsScout(target=taggee)
+  agent: SuccessScout(target=taggee)
+
+OperandsScout(target)
+  see p1 := NodeWithTag(Number, Avail)
+      p2 := NodeWithTag(Number, Avail)
+      op := NodeWithTag(Operator, Allowed)
+  => build ConsumeOperands(op, p1, p2)
+  else block := NodeWithTag(Block, Avail), block != target
+  => Fail(block)
+
+SuccessScout(target)
+  see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
+  => succeeded(winner, target)
+
+ConsumeOperands(consume_operand, consume_operand, proposed_operator)
+  see Not(Tagged(Done, this)), AllTagged(Avail, consume-operand(this))
+  => consumeOperands(this)  # external func; complicated
+
+RoughEstimator
+  # A one-shot Scout
+  # Calls ConsumeOperands.make_rough_estimate()
+
+RoughEstimate : Tag
+  value = rough_estimate(taggee)
+
+GettingCloser : Tag
+
+Promising(because_of) : Tag
+
+DistanceToScout(target)
+  see n := Number withTag(Avail) withoutTag(DistanceTo)
+  => applyDistanceTo(n, target)  # external
+
+DistanceTo(from, target) : Tag [abstract]
+
+CloseTo, FarTo : DistanceTo
+# Want to favor adding a small number to 'from'.
+# Want to say:
+#   See a small number, propose adding it
+#
+# The right way to do this is to seek a way to "splice" in a template
+# like "close(n1, target) Plus small(n2) makes target". Even better,
+# let the template have a DistanceTo tag with a rough logarithmic
+# measure of the distance, including above or below.
+
+SplicingScout(targets, bindings, structure)
+  # see missing binding, start BindingScout
+BindingScout(targets, structure, structureElem)
+  # look for plausible candidates in ws, try building a 'bind'
+  # or else propose a 'build' (copying Allowed?)

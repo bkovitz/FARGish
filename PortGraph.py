@@ -574,7 +574,6 @@ class PortGraph(nx.MultiGraph):
         If tag_or_tagclass is a class, builds the tag.
         The tag supports its taggees.'''
         any_exist = any(self.has_node(n) for n in as_iter(node_or_nodes))
-        print('ADD_TAG', tag_or_tagclass, node_or_nodes, any_exist)
         if not any_exist:
             return
 
@@ -614,7 +613,6 @@ class PortGraph(nx.MultiGraph):
         If none of the fromids have such a tag, does nothing.'''
         if self.remove_tag(fromids, tagclass):
             for toid in as_iter(toids):
-                print('MOVE', tagclass, toid)
                 self.add_tag(tagclass, toid)
 
     def has_tag(self, node, tagclass, taggee_port_label='tags'):
@@ -866,6 +864,19 @@ class PortGraph(nx.MultiGraph):
         '''Returns a list of all the datums, i.e. a datum for each node in the
         graph.'''
         return [self.datum(id) for id in self.nodes]
+
+    def call_method(self, nodeid, method_name, *args, **kwargs):
+        '''Returns result of calling method method_name(self, nodeid) on nodeid
+        if nodeid exists and its datum has a callable attr named method_name.
+        Otherwise returns None.'''
+        d = self.datum(nodeid)
+        if d is None:
+            return None
+        m = getattr(d, method_name)
+        if callable(m):
+            return m(self, nodeid, *args, **kwargs)
+        else:
+            return None
 
     def raw_salience(self, node):
         '''Returns node's salience. If no salience has been set explicitly

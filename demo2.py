@@ -2,12 +2,15 @@
 
 from operator import add, mul
 from functools import reduce
+from random import gauss
+from math import log10, pow
+
 from Action import Action, Build, Fail, Raise
 from PortGraph import PortGraph, Node, pg
 import PortGraph as PG
 from bases import ActiveNode
 from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
-    And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups
+    And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups, BuildSpec
 from LinkSpec import LinkSpec
 from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
@@ -15,6 +18,7 @@ from exc import FargDone
 import expr
 import support
 from codegen import make_python, compile_fargish
+from log import *
 from util import as_iter, reseed, intersection
 
 prog = '''
@@ -63,8 +67,30 @@ Plus, Times : Operator
 #  => consumeOperands(this)  # external func; complicated
 '''
 
-#make_python(prog)
+make_python(prog)
 exec(compile_fargish(prog), globals())
+
+#def rough_estimate(g, nodeid, *args, **kwargs):
+#    g.call_method('rough_estimate', nodeid, *args, **kwargs)
+
+def rough_of(x):
+    '''Returns rough numerical perception of x, i.e. a logarithmic view
+    plus some noise.'''
+    #HACK This version won't work right for negative numbers. A proper
+    #version should take into account the expected range and exaggerate
+    #small differences near the ends of the range.
+    mu = log10(x + 1.0)
+    if x == 0.0 or x == 1.0:
+        return mu  # no noise for zero or one
+    else:
+        sigma = mu * 0.02
+        return mu + gauss(0.0, sigma)
+
+def rough_value_of(g, nodeid):
+    if g.is_of_class(nodeid, RoughEstimate):
+        return g.value_of(nodeid)
+    tagid = g.tag_of(nodeid, RoughEstimate)
+    return g.value_of(tagid)
 
 tag_port_label = 'taggees'
 taggee_port_label = 'tags'
@@ -92,6 +118,8 @@ Times.expr_class = expr.Times #HACK
 
 class Want(Tag, ActiveNode):
 
+    min_support_for = 1.0
+
     operands_scout_link = LinkSpec('agents', 'behalf_of')
     backtracking_scout_link = LinkSpec('agents', 'behalf_of')
     done_scout_link = LinkSpec('agents', 'behalf_of')
@@ -111,16 +139,16 @@ class Want(Tag, ActiveNode):
 #            s2 = Build(BacktrackingScout, [self.backtracking_scout_link], [thisid], kwargs=dict(targetid=targetid))
         s3 = None
         if not g.has_neighbor_at(
-            thisid, 'agents', neighbor_class=DoneScout
+            thisid, 'agents', neighbor_class=SuccessScout
         ):
-            s3 = Build(DoneScout, [self.done_scout_link], [thisid],
+            s3 = Build(SuccessScout, [self.done_scout_link], [thisid],
                        kwargs=dict(targetid=targetid))
 #        s1 = Build.maybe_make(OperandsScout, behalf_of=thisid)
 #        s2 = Build.maybe_make(
 #            BacktrackingScout, behalf_of=thisid, targetid=targetid
 #        )
 #        s3 = Build.maybe_make(
-#            DoneScout, behalf_of=thisid, targetid=targetid
+#            SuccessScout, behalf_of=thisid, targetid=targetid
 #        )
         return [s1, s2, s3]
 
@@ -159,7 +187,7 @@ class OperandsScout(ActiveNode):
     def actions(self, g, thisid):
         #TODO on-behalf-of ?
         node_tup = self.nodes_finder.see_one(g)
-        print('NODE_TUP', node_tup)
+        #print('NODE_TUP', node_tup)
         if node_tup is not None:
             return [Build(ConsumeOperands, self.link_specs, node_tup)]
 #        cos_in_progress = list(
@@ -172,7 +200,7 @@ class OperandsScout(ActiveNode):
             co for co in g.nodes_of_class(ConsumeOperands)
                 if g.datum(co).can_go(g, co)
         ]
-        print('COS', cos_in_progress)
+        #print('COS', cos_in_progress)
         if cos_in_progress:
             return []
         # no operands to consume, so fail, i.e. trigger backtracking
@@ -183,22 +211,66 @@ class OperandsScout(ActiveNode):
 def arith_result(g, operator_id):
     operator_class = g.class_of(operator_id)
     operand_ids = g.neighbors(operator_id, port_label='operands')
+    return arith_result0(g, operator_class, operand_ids)
+
+def arith_result0(g, operator_class, operand_ids):
     operand_values = [g.value_of(o) for o in operand_ids]
-    print('ARITH', operand_ids)
     # TODO It would be much better if FARGish let you define these operations
     # as class attributes.
-    if operator_class == Plus:
+    if operator_class is None:
+        return None
+    elif operator_class == Plus:
         return reduce(add, operand_values, 0)
     elif operator_class == Times:
         return reduce(mul, operand_values, 1)
     else:
-        raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
+        #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
+        raise ValueError(f'Unknown operator class {operator_class}.')
+
+
+class RoughEstimate(Tag):
+
+    def __init__(self, value):
+        kwargs = {'value': value}
+        super().__init__(**kwargs)
+
+class RoughEstimateBuilder(ActiveNode):
+
+    def actions(self, g, thisid):
+        clientid = g.neighbor(thisid, 'behalf_of')
+        if clientid is not None and not g.has_tag(clientid, RoughEstimate):
+            rough_value = g.call_method(clientid, 'rough_estimate')
+            if rough_value is not None:
+                build_spec = BuildSpec(
+                    RoughEstimate,
+                    [LinkSpec('tags', 'taggees')],
+                    new_node_args=(rough_value,)
+                )
+                return [build_spec.maybe_make_build_action(g, clientid)]
+                #TODO SelfDestruct if successful
+
 
 class ConsumeOperands(ActiveNode):
 
+    build_spec = \
+        BuildSpec(RoughEstimateBuilder, LinkSpec('agents', 'behalf_of'))
+
     def actions(self, g, thisid):
         if self.can_go(g, thisid):
-            return [self.MyAction(g, thisid)]
+            result = [self.MyAction(g, thisid)]
+            if not g.has_tag(thisid, RoughEstimate):
+                result.append(
+                    self.build_spec.maybe_make_build_action(g, thisid)
+                )
+#            if not g.has_tag(thisid, RoughEstimate):
+#                rough_value = self.estimate_of_result(g, thisid)
+#                if rough_value is not None:
+#                    result.append(Build(
+#                        RoughEstimate, 
+#                        self.rough_estimate_link_specs,
+#                        [thisid],
+#                    ))
+            return result
 
     def can_go(self, g, thisid):
         return (
@@ -250,8 +322,17 @@ class ConsumeOperands(ActiveNode):
         g.add_tag(Failed, thisid)
         for built_id in g.neighbors(thisid, port_label='built'):
             g.add_tag(Failed, built_id)
-        
 
+    def rough_estimate(self, g, thisid):
+        op_class = g.class_of(
+            g.neighbor(thisid, port_label='proposed-operator')
+        )
+        operand_ids = g.neighbors(
+            thisid, port_label='consume-operand'
+        )
+        print('ROUGH', thisid, op_class, operand_ids)
+        return rough_of(arith_result0(g, op_class, operand_ids))
+        
 class NumboSuccess(FargDone):
 
     def __init__(self, expr):
@@ -260,7 +341,7 @@ class NumboSuccess(FargDone):
     def __str__(self):
         return 'Success!  ' + str(self.expr)
 
-class DoneScout(ActiveNode):
+class SuccessScout(ActiveNode):
 
     def __init__(self, targetid):
         self.targetid = targetid
@@ -362,6 +443,7 @@ def run(seed=None):
     global g
     g = new_graph(seed=seed, numble=Numble([4, 5, 6], 15))
     print('SEED', g.graph['seed'])
+    start_logging(ShowActionsChosen)
     #pg(g)
     g.do_timestep(num=70)
     #ConsumeOperands.fail(g, 23)
@@ -370,4 +452,5 @@ def run(seed=None):
     #g.do_timestep()
     # Succeeds at last timestep with above seed and numble.
 
-run(seed=8316664589534836549)
+if __name__ == '__main__':
+    run(seed=8316664589534836549)

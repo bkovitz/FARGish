@@ -123,7 +123,7 @@ class TimeStepper:
         return list(sample_without_replacement(
             active_nodes,
             k=k,
-            weights=[self.salience(node) for node in active_nodes]
+            weights=[self.support_for(node) for node in active_nodes]
         ))
 
     def collect_actions(self, active_nodes):
