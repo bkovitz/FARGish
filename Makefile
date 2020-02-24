@@ -5,7 +5,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNodeParams.TestNodeParams.testAttrParamImplicit
+	$(PY) -m unittest -v testNodeParams.TestNodeParams.testAlreadyBuilt
 	#$(PY) -m unittest -v testCodegen.TestCodegen.testAutoLink
 
 tags:

@@ -6,7 +6,7 @@ import sys
 from inspect import isclass
 
 
-empty_set = frozenset([])
+empty_set = frozenset()
 newline = '\n'
 
 def is_iter(o):
@@ -25,6 +25,13 @@ def as_iter(o):
         return []
     else:
         return [o]
+
+def as_set(o):
+    '''Converts o to a set if it isn't a set already.'''
+    if isinstance(o, set):
+        return o
+    else:
+        return set(as_iter(o))
 
 def is_nodeid(x):
     return isinstance(x, int)

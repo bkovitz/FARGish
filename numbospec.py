@@ -266,16 +266,16 @@ class OperandsScout(ActiveNode):
                     None,
                     [ConsumeOperands.make(g, operandids.choose(k=2))]
                 ))
-                print('ACTIONS', actions)
+                #print('ACTIONS', actions)
                 if actions:
                     break
             else:
-                print('GAVEUP1')
+                #print('GAVEUP1')
                 actions = [FailResult(operandids.nodes)]
         elif len(operandids) == 1:
             actions = [FailResult(operandids.choose1())]
         else:
-            print('GAVEUP2')
+            #print('GAVEUP2')
             actions = []  # TODO GiveUp
         return [ActionSequence(a, Apoptosis(thisid)) for a in actions]
         

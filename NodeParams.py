@@ -3,9 +3,10 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
+from copy import copy
 
 from exc import TooManyArgs0
-from util import as_iter
+from util import as_iter, as_set, empty_set, NiceRepr
 
 
 def add_kwarg(name, arg, kwargs):
@@ -21,7 +22,7 @@ def add_kwarg(name, arg, kwargs):
     else:
         kwargs[name] = [v, arg]
 
-class NodeParam(ABC):
+class NodeParam(ABC, NiceRepr):
     '''An abstract specification of an argument to be passed to a Node's
     constructor.'''
 
@@ -33,7 +34,13 @@ class NodeParam(ABC):
 
     @abstractmethod
     def arg_into_kwargs(self, arg, kwargs):
-        '''Add arg into kwargs as a named argument.'''
+        '''Add arg into kwargs as a named argument. Modifies kwargs.'''
+        pass
+
+    @abstractmethod
+    def is_exact_match(self, g, node, kwargs):
+        '''Does 'node' in graph 'g' have exact same arguments as provided
+        in kwargs?'''
         pass
 
 class MateParam(NodeParam):
@@ -58,22 +65,34 @@ class MateParam(NodeParam):
     def arg_into_kwargs(self, arg, kwargs):
         add_kwarg(self.this_port_label, arg, kwargs)
 
+    def is_exact_match(self, g, node, kwargs):
+        kwarg_mates = as_set(kwargs.get(self.this_port_label, empty_set))
+        node_mates = g.neighbors(node, port_label=self.this_port_label)
+        return kwarg_mates == node_mates
+
 class AttrParam:
     
-    def __init__(self, attr_name):
-        self.attr_name = attr_name
+    def __init__(self, name):
+        self.name = name
 
     def install_arg(self, g, thisid, datum, kwargs):
         try:
-            v = kwargs[self.attr_name]
+            v = kwargs[self.name]
         except KeyError:
             return
-        setattr(datum, self.attr_name, v)
+        setattr(datum, self.name, v)
 
     def arg_into_kwargs(self, arg, kwargs):
-        add_kwarg(self.attr_name, arg, kwargs)
+        add_kwarg(self.name, arg, kwargs)
 
-class NodeParams:
+    def is_exact_match(self, g, node, kwargs):
+        return (
+            g.value_of(node, attr_name=self.name)
+            ==
+            kwargs.get(self.name, None)
+        )
+
+class NodeParams(NiceRepr):
 
     def __init__(self, *params):
         self.params = params  # Each param should be a NodeParam
@@ -83,11 +102,33 @@ class NodeParams:
             param.install_arg(g, thisid, datum, kwargs)
 
     def args_into_kwargs(self, args, kwargs):
-        '''Converts args into named arguments in kwargs. Modifies kwargs.'''
+        '''Converts args into named arguments in kwargs. Returns a new
+        kwargs.'''
+        kwargs = kwargs.copy()
+        if args is None:
+            return kwargs
         if len(args) > len(self.params):
             raise TooManyArgs0(args)
         for arg, param in zip(args, self.params):
             param.arg_into_kwargs(arg, kwargs)
+        return kwargs
+
+    def is_exact_match(self, g, node, kwargs):
+        for param in self.params:
+            if not param.is_exact_match(g, node, kwargs):
+                return False
+        return True
 
     def __len__(self):
         return len(self.params)
+
+#TODO rm
+class Mate:
+
+    def __init__(self, port_label, nodeid):
+        self.port_label = port_label  # other node's port labe
+        self.nodeid = nodeid          # other node
+
+    def candidates(self, g, cl=None):
+        '''Returns set of nodes that could have self.nodeid as a mate.'''
+        return g.neighbors(self.nodeid, port_label=self.port_label)

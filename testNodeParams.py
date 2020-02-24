@@ -39,3 +39,25 @@ class TestNodeParams(unittest.TestCase):
 
     def testAlreadyBuilt(self):
         g = PortGraph()
+        self.assertFalse(g.already_built(Number, (2,)))
+        two = g.make_node(Number(n=2))
+        self.assertTrue(g.already_built(Number, (2,)))
+        three = g.make_node(Number(3))
+        five = g.make_node(Number(5))
+
+        kwargs = {
+            'operands': [two, three],
+            'result': five
+        }
+        potential_neighbors={two, three, five}
+        self.assertFalse(g.already_built(
+            Plus,
+            kwargs=kwargs,
+            potential_neighbors=potential_neighbors
+        ))
+        plus = g.make_node(Plus(operands=[two, three], result=five))
+        self.assertTrue(g.already_built(
+            Plus,
+            kwargs=kwargs,
+            potential_neighbors=potential_neighbors
+        ))

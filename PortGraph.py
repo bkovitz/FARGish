@@ -2,7 +2,7 @@
 
 from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
-        sample_without_replacement, intersection
+        sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs
 
 import networkx as nx
@@ -15,9 +15,6 @@ from random import choice, choices
 from io import StringIO
 
 
-empty_set = frozenset()
-
-
 class Node:
 
     can_need_update = False  # override with True to get NeedsUpdate tag
@@ -25,14 +22,28 @@ class Node:
     initial_support_for = 0.01
     node_params = None       # a NodeParams object
 
-    def on_build(self, g, thisid):
-        if self.node_params is not None:
-            self.node_params.install_args(g, thisid, self, self.kwargs)
+    @classmethod
+    def args_into_kwargs(cls, args, kwargs):
+        if cls.node_params is None:
+            return kwargs.copy()
+        else:
+            return cls.node_params.args_into_kwargs(args, kwargs)
+
+    @classmethod
+    def exactly_matches_kwargs(cls, g, node, kwargs):
+        '''Would building a node with this class and arguments kwargs result
+        in a duplicate of 'node'?'''
+        if g.class_of(node) != cls:
+            return False
+        if cls.node_params is None:
+            return True # SMALL BUG Shouldn't we check node attrs?
+        else:
+            return cls.node_params.is_exact_match(g, node, kwargs)
 
     def __init__(self, *args, **kwargs):
         if self.node_params is not None:
             try:
-                self.node_params.args_into_kwargs(args, kwargs)
+                kwargs = self.node_params.args_into_kwargs(args, kwargs)
             except TooManyArgs0 as exc:
                 num_args = len(exc.args)
                 raise TooManyArgs(
@@ -47,6 +58,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         #TODO Redesign so that attributes passed in kwargs can't name-clash
         #with other attributes of Node, like the methods.
 
+    def on_build(self, g, thisid):
+        if self.node_params is not None:
+            self.node_params.install_args(g, thisid, self, self.kwargs)
+
+    #TODO rm; replaced by .on_build()
     def auto_link(self, thisid, g):
         '''Creates links to mates, if any; should be called immediately upon
         building the node.'''
@@ -348,6 +364,22 @@ class PortGraph(nx.MultiGraph):
         new_attrs = dict((k, attrs[k]) for k in ['_class', 'value']
                                            if k in attrs)
         return self.make_node(new_attrs)
+
+    def already_built(self, cl, args=None, kwargs={}, potential_neighbors=None):
+        '''Is a node of class cl with the given args and kwargs already built?'''
+        #TODO Could we deduce the potential_neighbors from the kwargs?
+        if potential_neighbors is None:
+            potential_nodes = self.nodes
+        else:
+            potential_nodes = set()
+            for potential_neighbor in potential_neighbors:
+                potential_nodes |= self.neighbors(potential_neighbor)
+        kwargs = cl.args_into_kwargs(args, kwargs)
+            # BUG What if cl doesn't have args_into_kwargs?
+        for node in potential_nodes:
+            if cl.exactly_matches_kwargs(self, node, kwargs):
+                return True
+        return False
 
     #TODO rm; replaced by candidate_nodes_wsal
     def candidate_nodes(self, nodeclass=None, exclude=None):
