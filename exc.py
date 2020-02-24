@@ -39,3 +39,13 @@ class FARGishCompilerException(Exception):
 
 class NoUniqueMateError(FARGishCompilerException):
     pass
+
+class FargError(Exception):
+    pass
+
+class TooManyArgs(FargError):
+    pass
+
+class TooManyArgs0(FargError):
+    def __init__(self, args):
+        self.args = args

@@ -2,9 +2,24 @@
 #                 constructing it
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 
+from exc import TooManyArgs0
 from util import as_iter
 
+
+def add_kwarg(name, arg, kwargs):
+    try:
+        v = kwargs[name]
+    except KeyError:
+        kwargs[name] = arg
+        return
+    if isinstance(v, list):
+        v.append(arg)
+    elif isinstance(v, tuple):
+        kwargs[name] = list(v) + [arg]
+    else:
+        kwargs[name] = [v, arg]
 
 class NodeParam(ABC):
     '''An abstract specification of an argument to be passed to a Node's
@@ -14,6 +29,11 @@ class NodeParam(ABC):
     def install_arg(self, g, thisid, datum, kwargs):
         '''Take argument value from kwargs and do whatever initialization is
         appropriate to the node thisid and datum. datum is g.datum(thisid).'''
+        pass
+
+    @abstractmethod
+    def arg_into_kwargs(self, arg, kwargs):
+        '''Add arg into kwargs as a named argument.'''
         pass
 
 class MateParam(NodeParam):
@@ -35,6 +55,9 @@ class MateParam(NodeParam):
                 self.that_port_label
             )
 
+    def arg_into_kwargs(self, arg, kwargs):
+        add_kwarg(self.this_port_label, arg, kwargs)
+
 class AttrParam:
     
     def __init__(self, attr_name):
@@ -47,6 +70,9 @@ class AttrParam:
             return
         setattr(datum, self.attr_name, v)
 
+    def arg_into_kwargs(self, arg, kwargs):
+        add_kwarg(self.attr_name, arg, kwargs)
+
 class NodeParams:
 
     def __init__(self, *params):
@@ -55,3 +81,13 @@ class NodeParams:
     def install_args(self, g, thisid, datum, kwargs):
         for param in self.params:
             param.install_arg(g, thisid, datum, kwargs)
+
+    def args_into_kwargs(self, args, kwargs):
+        '''Converts args into named arguments in kwargs. Modifies kwargs.'''
+        if len(args) > len(self.params):
+            raise TooManyArgs0(args)
+        for arg, param in zip(args, self.params):
+            param.arg_into_kwargs(arg, kwargs)
+
+    def __len__(self):
+        return len(self.params)

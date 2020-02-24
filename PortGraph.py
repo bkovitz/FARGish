@@ -3,6 +3,7 @@
 from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
         sample_without_replacement, intersection
+from exc import TooManyArgs0, TooManyArgs
 
 import networkx as nx
 
@@ -28,7 +29,18 @@ class Node:
         if self.node_params is not None:
             self.node_params.install_args(g, thisid, self, self.kwargs)
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
+        if self.node_params is not None:
+            try:
+                self.node_params.args_into_kwargs(args, kwargs)
+            except TooManyArgs0 as exc:
+                num_args = len(exc.args)
+                raise TooManyArgs(
+f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters ({len(self.node_params)}): {repr(exc.args)}.'''
+                )
+        else:
+            #TODO What about *args?
+            pass
         self.kwargs = kwargs
 #        for k, v in kwargs.items():
 #            setattr(self, k, v)

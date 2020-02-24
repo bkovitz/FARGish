@@ -21,6 +21,12 @@ class TestNodeParams(unittest.TestCase):
         self.assertEqual(len(g), 1)
         self.assertEqual(g.value_of(two, 'n'), 2)
 
+    def testAttrParamImplicit(self):
+        g = PortGraph()
+        two = g.make_node(Number(2))
+        self.assertEqual(len(g), 1)
+        self.assertEqual(g.value_of(two, 'n'), 2)
+
     def testMateParam(self):
         g = PortGraph()
         two = g.make_node(Number(n=2))
@@ -31,3 +37,5 @@ class TestNodeParams(unittest.TestCase):
         self.assertTrue(g.has_hop(plus, 'operands', three, 'consumer'))
         self.assertTrue(g.has_hop(plus, 'result', five, 'source'))
 
+    def testAlreadyBuilt(self):
+        g = PortGraph()
