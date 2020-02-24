@@ -30,7 +30,6 @@ proposed-operator -- proposer
 behalf_of -- agents
 target -- tags
 
-
 Tag
 
 Avail, Consumed, Failed, Done, Allowed : Tag

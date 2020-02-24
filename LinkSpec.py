@@ -64,6 +64,11 @@ class LinkSpec:
         if not node_matcher.is_match(g, old_nodeid):
             #TODO Raise a FARGException instead
             raise ValueError(f"Old node {old_nodeid} doesn't match {self}.")
+        self.raw_make(g, old_nodeid, new_nodeid)
+
+    def raw_make(self, g, old_nodeid, new_nodeid):
+        '''Makes the specified edge, without checking if the nodes match the
+        spec.'''
         g.add_edge(
             old_nodeid,
             self.old_node_port_label,

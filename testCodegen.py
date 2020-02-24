@@ -43,12 +43,13 @@ Brick : Number'''
         self.assertCountEqual(got, expect)
 
     def testAutoLink(self):
+        #TODO Generate code for node_params, not auto_links
         g = PortGraph()
         prog = '''
 target -- tags
 Number(n)
 Scout(target)'''
-        #make_python(prog) #DEBUG
+        make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         nid = g.make_node(Number(3))
         sid = g.make_node(Scout(nid))

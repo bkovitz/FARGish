@@ -22,10 +22,16 @@ class Node:
     can_need_update = False  # override with True to get NeedsUpdate tag
     min_support_for = 0.0
     initial_support_for = 0.01
+    node_params = None       # a NodeParams object
+
+    def on_build(self, g, thisid):
+        if self.node_params is not None:
+            self.node_params.install_args(g, thisid, self, self.kwargs)
 
     def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            setattr(self, k, v)
+        self.kwargs = kwargs
+#        for k, v in kwargs.items():
+#            setattr(self, k, v)
         #TODO Redesign so that attributes passed in kwargs can't name-clash
         #with other attributes of Node, like the methods.
 
@@ -38,12 +44,12 @@ class Node:
         return True
 
     def __repr__(self):
+        exclude = set(['kwargs'])
+        #TODO Ignore self.link_specs; show items other than MateParams
         if isinstance(self.link_specs, Iterable):
-            exclude = set(ls.new_node_port_label for ls in self.link_specs)
-            kvs = [kv for kv in self.__dict__.items()
-                          if kv[0] not in exclude]
-        else:
-            kvs = self.__dict__.items()
+            exclude |= set(ls.new_node_port_label for ls in self.link_specs)
+        kvs = [kv for kv in self.__dict__.items()
+                      if kv[0] not in exclude]
         return repr_str(self.__class__.__name__, kvs)
 
     def datumstr(self, g, node):
@@ -318,8 +324,10 @@ class PortGraph(nx.MultiGraph):
             self.add_edge(i, 'builder', builder, 'built')
         for c in as_iter(container):
             self.add_member_edge(c, i)
-        if hasattr(o, 'auto_link'):
+        if hasattr(o, 'auto_link'): #TODO rm; replaced by on_build
             o.auto_link(i, self)
+        if hasattr(o, 'on_build'):
+            o.on_build(self, i)
         return i
 
     def dup_node(self, h, node):
@@ -833,9 +841,10 @@ class PortGraph(nx.MultiGraph):
         #equality.
         return label == ancestor_label
 
-    def value_of(self, node):
+    def value_of(self, node, attr_name='value'):
         try:
-            v = self.datum(node).value
+            #v = self.datum(node).value
+            v = getattr(self.datum(node), attr_name)
         except AttributeError:
             return None
 #        if v is None and self.is_of_class(node, Tag):

@@ -9,6 +9,17 @@ behalf_of -- agent
 target -- tags
 
 
+minuend, subtrahend : operands
+operands 
+
+lesser, greater : taggees
+
+child(ren)
+
+quantum(quanta)
+
+
+
 Workspace
 ws = Workspace
 

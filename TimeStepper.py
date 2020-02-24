@@ -160,7 +160,11 @@ class TimeStepper:
             self.datum(nodeid).update(self, nodeid)
 
     def propagate_support(self):
+        try:
+            propagator = self.graph['support_propagator']
+        except KeyError:
+            return
         for i in range(5):
             #TODO Why not just put .propagate in self?
-            self.graph['support_propagator'].propagate(self)
+            propagator.propagate(self)
 
