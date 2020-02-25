@@ -5,11 +5,12 @@ from functools import reduce
 from random import gauss
 from math import log10, pow
 
-from Action import Action, Build, Fail, Raise, ActionSeq, SelfDestruct
+from Action import Action, Build, Fail, Raise, ActionSeq, SelfDestruct, \
+    FuncAction
 from PortGraph import PortGraph, Node, pg, ps
 import PortGraph as PG
 from bases import ActiveNode
-from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, \
+from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
     And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups, BuildSpec
 from NodeParams import NodeParams, AttrParam, MateParam
 from LinkSpec import LinkSpec
@@ -173,10 +174,11 @@ class Want(Tag, ActiveNode):
         else:
             #dist = rough_target - rough
             dist = rough_target + 0.01 - rough
+            #print('DIST', g.nodestr(nodeid), dist)
             if dist < 0:
-                w = 0.05
+                w = 0.1
             else:
-                w = max(0.1, (4.0 - dist) / 4.0)
+                w = max(0.1, 2.0 - abs(dist))
             #print('W', w)
             return w
 
@@ -218,7 +220,7 @@ class OperandsScout(ActiveNode):
             co for co in g.nodes_of_class(ConsumeOperands)
                 if g.datum(co).can_go(g, co)
         ]
-        if len(cos_in_progress) < 5:
+        if len(cos_in_progress) < 10:
             node_tup = self.nodes_finder.see_one(g)
             #print('NODE_TUP', node_tup)
             if node_tup is not None:
@@ -256,6 +258,25 @@ def arith_result0(g, operator_class, operand_ids):
         #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
         raise ValueError(f'Unknown operator class {operator_class}.')
 
+def is_landmark(g, nodeid):
+    v = g.value_of(nodeid)
+    if v is None:
+        return False
+    return v % 10 == 0 or v % 5 == 0
+
+class LandmarkScout(ActiveNode):
+    '''This is a HACK. Landmarks should work by activating nodes in the
+    slipnet.'''
+
+    nodes_finder = NodeSpec(tagclass=Avail, pred=is_landmark)
+
+    def actions(self, g, thisid):
+        nodeid = self.nodes_finder.see_one(g)
+        if nodeid is not None:
+            def f(g):
+                #print('BOOST', g.nodestr(nodeid))
+                g.gross_boost_salience(nodeid, addend=2.0)
+            return FuncAction(f)
 
 class RoughEstimate(Tag):
 
@@ -462,6 +483,9 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         if 'numble' in self.graph:
             self.graph['numble'].build(self, ws)
 
+        #HACK
+        self.make_node(LandmarkScout)
+
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
     return g
@@ -537,4 +561,4 @@ if __name__ == '__main__':
     #run(seed=1725458333626496812)
     #run()
     demo()
-    #run(seed=676829436325733665, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=70)
+    #run(seed=None, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=1)

@@ -960,13 +960,19 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             pass
 
-    def boost_salience(self, node, new_salience=None, multiplier=1.1):
+    def boost_salience(
+        self, node, new_salience=None, multiplier=1.1, min_boost=0.1
+    ):
+        old_salience = self.raw_salience(node)
         if new_salience is None:
-            new_salience = max(1.0, self.raw_salience(node)) * multiplier
+            new_salience = max(
+                old_salience + min_boost,
+                self.raw_salience(node) * multiplier
+            )
         self.set_salience(node, new_salience)
 
-    def gross_boost_salience(self, node):
-        self.set_salience(node, self.raw_salience(node) + 1.0)
+    def gross_boost_salience(self, node, addend=1.0):
+        self.set_salience(node, self.raw_salience(node) + addend)
 
     def decay_saliences(self):
         for node in self.nodes:

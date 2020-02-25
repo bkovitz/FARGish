@@ -41,10 +41,11 @@ class BaseNodeSpec(ABC):
 
 class NodeSpec(BaseNodeSpec):
 
-    def __init__(self, nodeclass=None, tagclass=None, value=None):
+    def __init__(self, nodeclass=None, tagclass=None, value=None, pred=None):
         self.nodeclass = nodeclass
         self.tagclass = tagclass
         self.value = value
+        self.pred = pred
 
     def is_match(self, g, nodeid):
         if self.nodeclass is not None:
@@ -54,9 +55,12 @@ class NodeSpec(BaseNodeSpec):
             if not g.has_tag(nodeid, self.tagclass):
                 return False
         if self.value is not None:
-            return g.value_of(nodeid) == self.value
-        else:
-            return True
+            if g.value_of(nodeid) != self.value:
+                return False
+        if self.pred is not None:
+            if not self.pred(g, nodeid):
+                return False
+        return True
 
 class NodeOfClass(BaseNodeSpec):
 
