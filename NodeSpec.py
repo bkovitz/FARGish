@@ -25,7 +25,7 @@ class BaseNodeSpec(ABC):
             nodes = g.nodes # All nodes: inefficient
         return [n for n in nodes if self.is_match(g, n)]
 
-    def see_one(self, g, nodes=None):
+    def see_one(self, g, nodes=None, multiplier=None):
         '''Returns a single node in g that satisfies this NodeSpec, chosen
         randomly if there are more than one, or None. If nodes is not None,
         specifies a subset of nodes in which to search.'''
@@ -170,7 +170,7 @@ class CartesianProduct:
             ) if self.whole_tuple_criterion.is_match(g, tup)
         ]
 
-    def see_one(self, g, nodes=None):
+    def see_one(self, g, nodes=None, multiplier=None):
         '''Returns one tuple of nodes that meets the criterion, chosen
         randomly if more than one exists, or None if no such tuple exists.
         If 'nodes' is not None, it specifies a subset of nodes in which to

@@ -4,6 +4,7 @@ from util import nice_object_repr
 
 
 class FargDone(Exception):
+    succeeded = False
 
     def done_msg(self):
         return 'FargDone' # This should be overridden
@@ -11,6 +12,8 @@ class FargDone(Exception):
     __repr__ = nice_object_repr
 
 class NumboSuccess(FargDone):
+    succeeded = True
+
     def __init__(self, g, target):
         'g must be a NumboGraph.'
         self.g = g
@@ -20,6 +23,7 @@ class NumboSuccess(FargDone):
         return 'Success!  ' + str(self.g.expr_as_equation(self.target))
 
 class TooManyTimestepsWithNoResponse(FargDone):
+
     def __init__(self, num_timesteps):
         self.num_timesteps = num_timesteps
 

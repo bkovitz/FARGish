@@ -249,9 +249,10 @@ class NodeAttrDict(UserDict):
 NodeAndValue = namedtuple('NodeAndValue', ['node', 'value'])
 
 
+#TODO Rename as WeightedNodes. Pass a weight function to __init__.
 class NodesWithSalience:
 
-    def __init__(self, g=None, nodes=[]):
+    def __init__(self, g=None, nodes=[], multiplier=None):
         '''The individual nodes can be tuples.'''
         self.nodes = []
         self.weights = []
@@ -261,6 +262,8 @@ class NodesWithSalience:
                     salience = sum(g.salience(n) for n in node)
                 else:
                     salience = g.salience(node)
+                if callable(multiplier):
+                    salience *= multiplier(g, node)
                 self.add(node, salience)
         else:
             if nodes is not None:
@@ -957,10 +960,13 @@ class PortGraph(nx.MultiGraph):
         except KeyError:
             pass
 
-    def boost_salience(self, node, new_salience=None):
+    def boost_salience(self, node, new_salience=None, multiplier=1.1):
         if new_salience is None:
-            new_salience = max(1.0, self.raw_salience(node)) * 1.1
+            new_salience = max(1.0, self.raw_salience(node)) * multiplier
         self.set_salience(node, new_salience)
+
+    def gross_boost_salience(self, node):
+        self.set_salience(node, self.raw_salience(node) + 1.0)
 
     def decay_saliences(self):
         for node in self.nodes:

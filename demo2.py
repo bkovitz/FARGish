@@ -171,11 +171,12 @@ class Want(Tag, ActiveNode):
         if rough is None:
             return 0.0
         else:
-            dist = rough_target - rough
-            #if dist < 0:
-            #    w = 0.05
-            #else:
-            w = max(0.05, 1.0 - abs(rough_target - rough))
+            #dist = rough_target - rough
+            dist = rough_target + 0.01 - rough
+            if dist < 0:
+                w = 0.05
+            else:
+                w = max(0.1, (4.0 - dist) / 4.0)
             #print('W', w)
             return w
 
@@ -213,20 +214,21 @@ class OperandsScout(ActiveNode):
 
     def actions(self, g, thisid):
         #TODO on-behalf-of ?
-        node_tup = self.nodes_finder.see_one(g)
-        #print('NODE_TUP', node_tup)
-        if node_tup is not None:
-            return [Build(ConsumeOperands, self.link_specs, node_tup)]
+        cos_in_progress = [
+            co for co in g.nodes_of_class(ConsumeOperands)
+                if g.datum(co).can_go(g, co)
+        ]
+        if len(cos_in_progress) < 5:
+            node_tup = self.nodes_finder.see_one(g)
+            #print('NODE_TUP', node_tup)
+            if node_tup is not None:
+                return [Build(ConsumeOperands, self.link_specs, node_tup)]
 #        cos_in_progress = list(
 #            g.nodes_without_tag(Failed,
 #                nodes=g.nodes_without_tag(Done,
 #                    nodes=g.nodes_of_class(ConsumeOperands))
 #            )
 #        )
-        cos_in_progress = [
-            co for co in g.nodes_of_class(ConsumeOperands)
-                if g.datum(co).can_go(g, co)
-        ]
         #print('COS', cos_in_progress)
         if cos_in_progress:
             return []
@@ -313,7 +315,7 @@ class ConsumeOperands(ActiveNode):
 
         def __init__(self, g, thisid):
             self.thisid = thisid
-            self.weight = g.support_for(thisid)
+            self.weight = g.salience(thisid) #g.support_for(thisid)
 
         def go(self, g):
             op_class = g.class_of(
@@ -360,6 +362,7 @@ class ConsumeOperands(ActiveNode):
         return rough_of(arith_result0(g, op_class, operand_ids))
         
 class NumboSuccess(FargDone):
+    succeeded = True
 
     def __init__(self, expr):
         self.expr = expr
@@ -502,7 +505,7 @@ g = None
 
 ShowAnnotations.start_logging()
 
-def demo(seed=None, num=70):
+def demo(seed=None, num=800):
     '''Run this for Doug.'''
     global g
     while True:
@@ -511,7 +514,10 @@ def demo(seed=None, num=70):
             break
         g = new_graph(seed=seed, numble=numble)
         print('\nSEED', g.graph['seed'])
+        print()
         g.do_timestep(num=num)
+        if not g.succeeded():
+            print('Failed')
 
 def run(seed=None, numble=Numble([4, 5, 6], 15), n=70):
     global g
@@ -530,5 +536,5 @@ if __name__ == '__main__':
     #run(seed=8316664589534836549)
     #run(seed=1725458333626496812)
     #run()
-    #demo()
-    run(seed=3130381792996066444, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=10)
+    demo()
+    #run(seed=676829436325733665, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=70)

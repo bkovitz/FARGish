@@ -4,8 +4,9 @@
 # for Actions, chooses Actions, and runs them.
 
 from operator import attrgetter
+from random import choice
 
-from PortGraph import pg
+from PortGraph import NodesWithSalience, pg
 from bases import ActiveNode, CoarseView
 from util import sample_without_replacement
 from exc import FargDone
@@ -79,7 +80,13 @@ class TimeStepper:
 
             if len(actions) == 0:
                 self.consecutive_timesteps_with_no_action += 1
-                #TODO Stop or do something if idle too long
+                #HACK Crude boosting of random nodes to shake things up
+                if self.consecutive_timesteps_with_no_action > 10:
+                    ns = list(self.nodes)
+                    for i in range(10):
+                        nodeid = choice(ns)
+                        #print('GROSS', self.nodestr(nodeid))
+                        self.gross_boost_salience(nodeid)
             else:
                 self.consecutive_timesteps_with_no_action = 0
 
@@ -124,6 +131,13 @@ class TimeStepper:
         try:
             return self.graph['done']
         except KeyError:
+            return False
+
+    def succeeded(self):
+        d = self.done()
+        try:
+            return d.succeeded
+        except AttributeError:
             return False
 
     def get_active_nodes(self):
