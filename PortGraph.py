@@ -98,9 +98,6 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         subclasses.'''
         return None
 
-    def decay_salience(self, g, node):
-        g.set_salience(node, 0.9 * g.salience(node))
-
     def update_support(self, g, node):
         pass
 
@@ -255,11 +252,16 @@ NodeAndValue = namedtuple('NodeAndValue', ['node', 'value'])
 class NodesWithSalience:
 
     def __init__(self, g=None, nodes=[]):
+        '''The individual nodes can be tuples.'''
         self.nodes = []
         self.weights = []
         if g:
             for node in nodes:
-                self.add(node, g.salience(node))
+                if isinstance(node, tuple) or isinstance(node, list):
+                    salience = sum(g.salience(n) for n in node)
+                else:
+                    salience = g.salience(node)
+                self.add(node, salience)
         else:
             if nodes is not None:
                 raise ValueError('NodesWithSalience: nodes provided to constructor without a graph; must provide graph in order to determine salience.')
@@ -962,8 +964,10 @@ class PortGraph(nx.MultiGraph):
 
     def decay_saliences(self):
         for node in self.nodes:
-            datum = self.datum(node)
-            datum.decay_salience(self, node)
+            self.decay_salience(node)
+
+    def decay_salience(self, node):
+        self.set_salience(node, 0.9 * self.raw_salience(node))
 
     #TODO mv to WithSupport mix-in
     def support_for(self, node):
@@ -1240,6 +1244,8 @@ def ps(g, nodes=None, by='support', e=False):
         key = lambda node: g.support_for(node)
     elif by == 'id':
         key = lambda node: node
+    elif by == 'salience':
+        key = lambda node: g.raw_salience(node)
     elif callable(by):
         key = by
     else:

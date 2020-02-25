@@ -18,6 +18,8 @@ class Action(ABC):
     # that implement actions for ActiveNodes should override on_behalf_of
     # in their self.__init__().
 
+    annotation_string = None
+
     @abstractmethod
     def go(self, g):
         '''Updates g (the host graph) and returns None.'''
@@ -26,6 +28,9 @@ class Action(ABC):
         pass
 
     __repr__ = nice_object_repr
+
+    def annotation(self):
+        return self.annotation_string
 
 
 class FuncAction(Action):
@@ -106,5 +111,4 @@ class SelfDestruct(Action):
         self.nodeid = nodeid
 
     def go(self, g):
-        #TODO
-        pass
+        g.remove_node(self.nodeid)

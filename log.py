@@ -30,6 +30,7 @@ ShowActionsChosen = LoggingObject()
 ShowResponseList = LoggingObject()
 ShowResponseResults = LoggingObject()
 ShowOperandCandidates = LoggingObject()
+ShowAnnotations = LoggingObject()
 ShowResults = LoggingObject()
 
 logging.add(ShowResults)

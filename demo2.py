@@ -5,7 +5,7 @@ from functools import reduce
 from random import gauss
 from math import log10, pow
 
-from Action import Action, Build, Fail, Raise
+from Action import Action, Build, Fail, Raise, ActionSeq, SelfDestruct
 from PortGraph import PortGraph, Node, pg, ps
 import PortGraph as PG
 from bases import ActiveNode
@@ -66,7 +66,7 @@ Plus, Times : Operator
 #  => consumeOperands(this)  # external func; complicated
 '''
 
-make_python(prog)
+#make_python(prog)
 exec(compile_fargish(prog), globals())
 
 Workspace.min_support_for = 1.0
@@ -175,7 +175,7 @@ class Want(Tag, ActiveNode):
             #if dist < 0:
             #    w = 0.05
             #else:
-            w = max(0.05, 2.0 - abs(rough_target - rough))
+            w = max(0.05, 1.0 - abs(rough_target - rough))
             #print('W', w)
             return w
 
@@ -271,9 +271,9 @@ class RoughEstimateBuilder(ActiveNode):
                     [LinkSpec('tags', 'taggees')],
                     new_node_args=(rough_value,)
                 )
-                return [build_spec.maybe_make_build_action(g, clientid)]
-                #TODO SelfDestruct if successful
-
+                b = build_spec.maybe_make_build_action(g, clientid)
+                if b is not None:
+                    return [ActionSeq(b, SelfDestruct(thisid))]
 
 class ConsumeOperands(ActiveNode):
 
@@ -332,6 +332,7 @@ class ConsumeOperands(ActiveNode):
             g.move_tag(Avail, operand_ids, result_id)
             g.add_tag(Consumed, operand_ids)
             g.add_tag(Done, self.thisid)
+            self.annotation_string = f"Trying {str(extract_expr(g, result_id))}"
 
     @classmethod
     def fail(cls, g, thisid):
@@ -462,15 +463,63 @@ def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
     return g
     
+# TODO Fix code duplication with numble.py
+def prompt_for_numble():
+    '''Prompts the user to enter bricks and a target at the keyboard.
+    Returns a Numble object, or None if user just hit Enter.'''
+    print()
+    try:
+        while True:
+            brick_str = input('Bricks: ')
+            if not brick_str:
+                return None
+            try:
+                bricks = [int(b) for b in brick_str.split()]
+                if not bricks:
+                    continue #TODO Probably better to throw an exception
+                break
+            except ValueError:
+                print('Please enter the bricks as integers separated by spaces.')
+                continue
+
+        while True:
+            target_str = input('Target: ')
+            if not target_str:
+                return None
+            try:
+                target = int(target_str)
+                break
+            except ValueError:
+                print('Please enter one integer and press Enter.')
+                continue
+
+        return Numble(bricks, target)
+    except EOFError:
+        print()
+        return None
+
 g = None
 
-def run(seed=None):
+ShowAnnotations.start_logging()
+
+def demo(seed=None, num=70):
+    '''Run this for Doug.'''
     global g
-    g = new_graph(seed=seed, numble=Numble([4, 5, 6], 15))
+    while True:
+        numble = prompt_for_numble()
+        if numble is None:
+            break
+        g = new_graph(seed=seed, numble=numble)
+        print('\nSEED', g.graph['seed'])
+        g.do_timestep(num=num)
+
+def run(seed=None, numble=Numble([4, 5, 6], 15), n=70):
+    global g
+    g = new_graph(seed=seed, numble=numble)
     print('SEED', g.graph['seed'])
     start_logging([ShowActionsChosen])
     #pg(g)
-    g.do_timestep(num=70)
+    g.do_timestep(num=n)
     #ConsumeOperands.fail(g, 23)
     #g.do_timestep()
     #g.do_timestep()
@@ -480,4 +529,6 @@ def run(seed=None):
 if __name__ == '__main__':
     #run(seed=8316664589534836549)
     #run(seed=1725458333626496812)
-    run()
+    #run()
+    #demo()
+    run(seed=3130381792996066444, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=10)

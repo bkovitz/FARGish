@@ -10,7 +10,8 @@ from bases import ActiveNode, CoarseView
 from util import sample_without_replacement
 from exc import FargDone
 import support
-from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
+from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
+    ShowResults, ShowAnnotations
 from util import as_iter
 
 
@@ -96,12 +97,13 @@ class TimeStepper:
             for action in chosen_actions:
                 self.do_action(action)
 
+            self.do_touches()
             self.update_all_support()
 
             d = self.done()
             if d:
                 ShowResults(d)
-                print(f"t={self.graph['t']}")
+                print(f"t={self.graph['t']}\n")
                 break
 
     def do_action(self, action):
@@ -110,6 +112,10 @@ class TimeStepper:
             action.go(self)
         except FargDone as exc:
             self.set_done(exc)
+        if ShowAnnotations.is_logging():
+            a = action.annotation()
+            if a is not None:
+                print(a)
 
     def set_done(self, done):
         self.graph['done'] = done
