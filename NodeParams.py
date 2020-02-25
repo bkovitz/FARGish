@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from copy import copy
 
 from exc import TooManyArgs0
-from util import as_iter, as_set, empty_set, NiceRepr
+from util import as_iter, as_set, as_name, empty_set
 
 
 def add_kwarg(name, arg, kwargs):
@@ -22,14 +22,22 @@ def add_kwarg(name, arg, kwargs):
     else:
         kwargs[name] = [v, arg]
 
-class NodeParam(ABC, NiceRepr):
+class NodeParam(ABC):
     '''An abstract specification of an argument to be passed to a Node's
     constructor.'''
 
     @abstractmethod
-    def install_arg(self, g, thisid, datum, kwargs):
+    def on_init(self, datum, kwargs):
         '''Take argument value from kwargs and do whatever initialization is
-        appropriate to the node thisid and datum. datum is g.datum(thisid).'''
+        appropriate to datum (modifying datum). Called from Node.__init__()
+        before the Node is put into the graph.'''
+        pass
+
+    @abstractmethod
+    def on_build(self, g, nodeid, kwargs):
+        '''Take argument value from kwargs and do whatever initialization is
+        appropriate to the node in the graph. Called from PortGraph.make_node()
+        immediately after the Node is put into the graph.'''
         pass
 
     @abstractmethod
@@ -49,7 +57,15 @@ class MateParam(NodeParam):
         self.this_port_label = this_port_label
         self.that_port_label = that_port_label
 
-    def install_arg(self, g, thisid, datum, kwargs):
+    def __repr__(self):
+        this = as_name(self.this_port_label)
+        that = as_name(self.that_port_label)
+        return f'MateParam({repr(this)}, {repr(that)})'
+
+    def on_init(self, datum, kwargs):
+        pass
+
+    def on_build(self, g, thisid, kwargs):
         try:
             mateid = kwargs[self.this_port_label]
         except KeyError:
@@ -70,17 +86,23 @@ class MateParam(NodeParam):
         node_mates = g.neighbors(node, port_label=self.this_port_label)
         return kwarg_mates == node_mates
 
-class AttrParam:
+class AttrParam(NodeParam):
     
     def __init__(self, name):
         self.name = name
 
-    def install_arg(self, g, thisid, datum, kwargs):
+    def __repr__(self):
+        return f'AttrParam({repr(as_name(self.name))})'
+
+    def on_init(self, datum, kwargs):
         try:
             v = kwargs[self.name]
         except KeyError:
             return
         setattr(datum, self.name, v)
+
+    def on_build(self, g, thisid, kwargs):
+        pass
 
     def arg_into_kwargs(self, arg, kwargs):
         add_kwarg(self.name, arg, kwargs)
@@ -92,14 +114,18 @@ class AttrParam:
             kwargs.get(self.name, None)
         )
 
-class NodeParams(NiceRepr):
+class NodeParams:
 
     def __init__(self, *params):
         self.params = params  # Each param should be a NodeParam
 
-    def install_args(self, g, thisid, datum, kwargs):
+    def on_init(self, datum, kwargs):
         for param in self.params:
-            param.install_arg(g, thisid, datum, kwargs)
+            param.on_init(datum, kwargs)
+
+    def on_build(self, g, thisid, kwargs):
+        for param in self.params:
+            param.on_build(g, thisid, kwargs)
 
     def args_into_kwargs(self, args, kwargs):
         '''Converts args into named arguments in kwargs. Returns a new
@@ -121,6 +147,9 @@ class NodeParams(NiceRepr):
 
     def __len__(self):
         return len(self.params)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({", ".join(repr(p) for p in self.params)})'
 
 #TODO rm
 class Mate:

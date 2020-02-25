@@ -13,6 +13,7 @@ preamble = '''from PortGraph import Node
 from LinkSpec import LinkSpec
 from NodeSpec import BuildSpec
 from bases import ActiveNode
+from NodeParams import NodeParams, MateParam, AttrParam
 '''
 
 def make_python(fargish_code, file=None, preamble=preamble, postamble=''):

@@ -5,8 +5,8 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNodeParams.TestNodeParams.testAlreadyBuilt
-	#$(PY) -m unittest -v testCodegen.TestCodegen.testAutoLink
+	#$(PY) -m unittest -v testNodeParams.TestNodeParams.testAlreadyBuilt
+	$(PY) -m unittest -v testCodegen.TestCodegen.testNodeWithArg
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

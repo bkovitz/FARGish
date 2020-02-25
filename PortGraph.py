@@ -49,6 +49,7 @@ class Node:
                 raise TooManyArgs(
 f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters ({len(self.node_params)}): {repr(exc.args)}.'''
                 )
+            self.node_params.on_init(self, kwargs)
         else:
             #TODO What about *args?
             pass
@@ -60,7 +61,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
     def on_build(self, g, thisid):
         if self.node_params is not None:
-            self.node_params.install_args(g, thisid, self, self.kwargs)
+            self.node_params.on_build(g, thisid, self.kwargs)
 
     #TODO rm; replaced by .on_build()
     def auto_link(self, thisid, g):

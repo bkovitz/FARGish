@@ -10,14 +10,9 @@ from io import StringIO
 from Env import EnvItem
 from LinkSpec import LinkSpec
 from NodeSpec import BuildSpec
-from util import as_iter, NiceRepr, newline
+from util import as_iter, as_name, NiceRepr, newline
 from exc import NoUniqueMateError
-
-def as_name(x):
-    try:
-        return x.name
-    except AttributeError:
-        return str(x)
+from NodeParams import NodeParams, AttrParam, MateParam
 
 def as_expr(x):
     if hasattr(x, 'as_expr'):
@@ -108,14 +103,8 @@ class NodeHeader(NiceRepr):
         self.ancestors = ancestors
 
     def make_node_defns(self, body):
-        return [NodeDefn(name_of(name), args_of(name), body, self.ancestors)
+        return [NodeDefn(as_name(name), args_of(name), body, self.ancestors)
                     for name in self.names]
-
-def name_of(x):
-    try:
-        return x.name
-    except AttributeError:
-        return x
 
 def args_of(name):
     try:
@@ -130,10 +119,11 @@ class NameWithArguments(NiceRepr):
 
 class ClassVar(NiceRepr):
 
-    def __init__(self, cl, name, expr):
+    def __init__(self, cl, name, expr, add_after_class_defns=True):
         self.cl = cl  # a Class object
         self.name = name
         self.expr = expr
+        self.add_after_class_defns = add_after_class_defns
 
     def gen(self, file, fixup):
         '''The generated code installs all class variables into classes only
@@ -141,7 +131,13 @@ class ClassVar(NiceRepr):
         between classes (since the expression for the class variable may
         invoke another class, possibly defined after the class that the
         variable is a member of).'''
-        print(f'''{name_of(self.cl)}.{self.name} = {self.expr}''', file=fixup)
+        if self.add_after_class_defns:
+            f = fixup
+            pre = f'{as_name(self.cl)}.'
+        else:
+            f = file
+            pre = '    '
+        print(f'{pre}{self.name} = {self.expr}', file=f)
 
 class AutoLink(NiceRepr):
 
@@ -166,7 +162,7 @@ class Class(NiceRepr):
     def __init__(self, name):
         self.name = name
         self.ancestors = []
-        self.args = []
+        self.params = []  # NodeParam objects
         self.inits = []
         self.class_vars = []
         self.auto_links = []
@@ -176,17 +172,26 @@ class Class(NiceRepr):
     def add_ancestors(self, ancestor):
         self.ancestors += as_iter(ancestor)
 
-    def add_args(self, args):
-        self.args += as_iter(args)
+    def add_params(self, env, param_names):
+        for param_name in as_iter(param_names):
+            #TODO Complain about duplicate param names?
+            self.params.append(make_node_param(env, param_name))
 
     def add_inits(self, inits):
         self.inits += as_iter(inits)
 
-    def add_class_var(self, name_prefix, expr):
+    def add_class_var(
+        self, name_prefix, expr, no_suffix=False, add_after_class_defns=True
+    ):
         '''Returns name assigned to expr.'''
-        name = f'{name_prefix}{self.suffix}'
-        self.suffix += 1
-        self.class_vars.append(ClassVar(self, name, expr))
+        if no_suffix:
+            name = name_prefix
+        else:
+            name = f'{name_prefix}{self.suffix}'
+            self.suffix += 1
+        self.class_vars.append(ClassVar(
+            self, name, expr, add_after_class_defns=add_after_class_defns
+        ))
         return name
 
     def add_actions(self, actions):
@@ -199,9 +204,15 @@ class Class(NiceRepr):
     def gen(self, file, fixup):
         print(f'''class {self.name}({self.str_ancestors()}):''', file=file)
         #len1 = file.seek(0, 1)  # length of file so far
+        self.add_class_var(
+            'node_params',
+            repr(NodeParams(*self.params)),
+            no_suffix=True,
+            add_after_class_defns=False
+        )
         self.gen_class_vars(file, fixup)
         self.gen_init(file, fixup)
-        self.gen_auto_links(file, fixup)
+        #self.gen_auto_links(file, fixup)
         self.gen_actions(file, fixup)
         #if file.seek(0, 1) == len1:  # if body is empty
         #ECCH If file is stdout, then can't test whether anything got printed.
@@ -220,9 +231,10 @@ class Class(NiceRepr):
             class_var.gen(file, fixup)
 
     def gen_init(self, file, fixup):
-        if self.args or self.inits:
+        return #TODO rm the rest
+        if self.params or self.inits:
             #TODO Ideally, we should generate no __init__ function if the
-            #Class has no args not shared by its ancestors and no
+            #Class has no params not shared by its ancestors and no
             #initializers.
             inargs = ', '.join(f'{a}=None' for a in self.args)
             absorb = '\n'.join(f"        kwargs['{a}'] = {a}"
@@ -234,12 +246,12 @@ class Class(NiceRepr):
             for init in self.inits:
                 print(init, file=file)
 
-    def gen_auto_links(self, file, fixup):
-        if self.auto_links:
-            print(f'''
-    def auto_link(self, _thisid, _g):''', file=file)
-            for auto_link in self.auto_links:
-                auto_link.gen(file, fixup)
+#    def gen_auto_links(self, file, fixup):
+#        if self.auto_links:
+#            print(f'''
+#    def auto_link(self, _thisid, _g):''', file=file)
+#            for auto_link in self.auto_links:
+#                auto_link.gen(file, fixup)
             
     def gen_actions(self, file, fixup):
         if self.actions:
@@ -252,10 +264,10 @@ class Class(NiceRepr):
 
     def gen_display_name(self, file, fixup):
         #HACK Should display all non-neighbor args
-        if len(self.args) == 1:
+        if len(self.params) == 1:
             print(f'''
     def display_name(self, g, thisid):
-        return '{self.name}(' + str(self.{as_name(self.args[0])}) + ')' ''', file=file)
+        return '{self.name}(' + str(self.{as_name(self.params[0])}) + ')' ''', file=file)
 
     def __str__(self):
         sio = StringIO()
@@ -267,11 +279,19 @@ class Class(NiceRepr):
             print(line, file=sio, end='')
         return sio.getvalue()
         
+def make_node_param(env, name):
+    defn = env.get(name)
+    if isinstance(defn, PortLabel):
+        return MateParam(name, defn.unique_mate(env))
+    else:
+        # TODO Throw error if name is defined as something inappropriate
+        return AttrParam(name)
 
 class NodeDefn(EnvItem):
-    def __init__(self, name, args, body, ancestors):
+
+    def __init__(self, name, param_names, body, ancestors):
         self.name = name
-        self.args = args
+        self.param_names = param_names
         self.body = body
         self.ancestors = ancestors  # names, not NodeDefns
 
@@ -282,150 +302,36 @@ class NodeDefn(EnvItem):
         cl = Class(self.name)
 
         cl.add_ancestors(self.ancestors)
-        cl.add_args(self.true_args(env))
+        cl.add_params(env, self.true_param_names(env))
 
-        for link_spec in self.link_specs(env):
-            vname = cl.add_class_var('link_spec', repr(link_spec))
-            cl.add_auto_link(vname, link_spec)
+#        for link_spec in self.link_specs(env):
+#            vname = cl.add_class_var('link_spec', repr(link_spec))
+#            cl.add_auto_link(vname, link_spec)
 
         for body_item in self.body:
             body_item.add_to_class(cl)
 
         cl.gen(file, fixup)
 
-    def link_specs(self, env):
-        result = []
-        for arg in self.args:
-            argdef = env.get(arg)
-            if isinstance(argdef, PortLabel):
-                result.append(
-                    LinkSpec(argdef.unique_mate(env).name, argdef.name)
-                )
-        return result
+#    def link_specs(self, env):
+#        result = []
+#        for arg in self.args:
+#            argdef = env.get(arg)
+#            if isinstance(argdef, PortLabel):
+#                result.append(
+#                    LinkSpec(argdef.unique_mate(env).name, argdef.name)
+#                )
+#        return result
 
     #TODO UT
-    def true_args(self, env):
+    def true_param_names(self, env):
         result = []
         for ancestor in self.ancestors:
             #TODO Report error of ancestor undefined
             #TODO Catch circularity
-            result += env[ancestor].true_args(env)
-        result += self.args
+            result += env[ancestor].true_param_names(env)
+        result += self.param_names
         return result
-
-class OLDNodeDefn(EnvItem):
-    def __init__(self, name, args, body, ancestors):
-        self.name = name
-        self.args = args
-        self.body = body
-        self.ancestors = ancestors  # names, not NodeDefns
-
-    def add_to_env(self, env):
-        env.add(self.name, self)
-
-    #TODO UT
-    def true_args(self, env):
-        result = []
-        for ancestor in self.ancestors:
-            #TODO Report error of ancestor undefined
-            #TODO Catch circularity
-            result += env[ancestor].true_args(env)
-        result += self.args
-        return result
-
-    def gen(self, file, env, fixup):
-        #TODO Somewhere check that the args actually passed are appropriate 
-        #to the nodeclass.
-
-        # Code for auto-linking
-        lss = self.link_specs(env)
-        if lss:
-            link_spec_code = '\n'.join(gen_link_spec(ls) for ls in lss)
-            lss_code = f'''    link_specs = [
-{link_spec_code}
-    ]
-'''
-            auto_link_code = '\n'.join(gen_auto_link(ls) for ls in lss)
-            als_code = f'''
-    def auto_link(self, thisid, g):
-{auto_link_code}
-'''
-        else:
-            lss_code = ''
-            als_code = ''
-
-        # Node arguments
-        targs = self.true_args(env)
-        if targs:
-            inargs = ', '.join(f'{t}=None' for t in targs)
-            absorb = '\n'.join(f"        kwargs['{t}'] = {t}" for t in targs)
-            init_code = f'''
-    def __init__(self, {inargs}, **kwargs):
-{absorb}
-        super().__init__(**kwargs)
-'''
-        else:
-            init_code = ''
-
-        # Actions
-        build_specs = []
-        actions = []
-        for body_item in self.body:
-            body_item.body_gen(build_specs, actions)
-
-        if build_specs:
-            bss_code = f'''
-{self.name}.build_specs = [
-{newline.join("    " + b + "," for b in build_specs)}
-]
-'''
-            a_code = f'''
-    def actions(self, g, thisid):
-        return [
-            spec.maybe_make_build_action(g, thisid)
-                for spec in self.build_specs
-        ]
-'''
-        else:
-            bss_code = ''
-            a_code = ''
-    
-        # Now put all the generated code together to define the node class
-        if self.ancestors:
-            ancs = ', '.join(self.ancestors)
-        else:
-            if a_code:
-                ancs = 'ActiveNode'
-            else:
-                ancs = 'Node'
-
-        if lss_code or init_code or als_code or a_code:
-            body_code = f'{lss_code}{init_code}{als_code}{a_code}'
-        else:
-            body_code = '    pass\n'
-
-        print(f'''class {self.name}({ancs}):
-{body_code}''', file=file)
-        if bss_code:
-            print(bss_code, file=fixup)
-
-    def link_specs(self, env):
-        result = []
-        for arg in self.args:
-            argdef = env.get(arg)
-            if isinstance(argdef, PortLabel):
-                result.append(
-                    LinkSpec(argdef.unique_mate(env).name, argdef.name)
-                )
-        return result
-
-def gen_link_spec(link_spec):
-    return f'''        {repr(link_spec)},'''
-
-def gen_auto_link(link_spec):
-    return f'''        _otherid = self.{link_spec.new_node_port_label}
-        if _otherid:
-            g.add_edge(thisid, '{link_spec.new_node_port_label}', _otherid, '{link_spec.old_node_port_label}')'''
 
 class Initializer(NiceRepr):
 
@@ -437,10 +343,12 @@ class Initializer(NiceRepr):
         cl.add_inits(Indent(2, f'''self.{self.name} = {as_expr(self.expr)}'''))
 
 class BuildExpr(NiceRepr):
+
     def __init__(self, expr):
         self.expr = expr
 
 class VarRef(NiceRepr):
+
     def __init__(self, name):
         self.name = name
 

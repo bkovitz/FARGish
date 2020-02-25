@@ -36,7 +36,9 @@ SomeNode
         prog = '''
 Number(n)
 Brick : Number'''
+        #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
+        b = Brick(2)
         g.make_node(Brick(2))
         got = g.all_datums()
         expect = [Brick(n=2)]
@@ -49,7 +51,7 @@ Brick : Number'''
 target -- tags
 Number(n)
 Scout(target)'''
-        make_python(prog) #DEBUG
+        #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         nid = g.make_node(Number(3))
         sid = g.make_node(Scout(nid))

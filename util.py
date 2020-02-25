@@ -33,6 +33,12 @@ def as_set(o):
     else:
         return set(as_iter(o))
 
+def as_name(x):
+    try:
+        return x.name
+    except AttributeError:
+        return str(x)
+
 def is_nodeid(x):
     return isinstance(x, int)
 
@@ -56,7 +62,7 @@ def repr_str(name, items):
     '''items is iterable of (name, value). Returns the string appropriate for
     repr().'''
     if len(items) == 1:
-        return '%s(%s)' % (name, next(iter(items))[1])
+        return '%s(%s)' % (name, nrepr(next(iter(items))[1]))
     elif len(items) == 0:
         return name
     else:
