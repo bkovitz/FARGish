@@ -2,8 +2,9 @@ import unittest
 import itertools
 from pprint import pprint as pp
 
-from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
-    And, Not, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, BuildSpec
+from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
+    HasSameValue, And, Not, CartesianProduct, no_dups, TupAnd, \
+    NotLinkedToSame, BuildSpec
 from LinkSpec import LinkSpec
 from numbospec import *
 from bases import make_link
@@ -56,6 +57,25 @@ class TestNodeSpec(unittest.TestCase):
     def test_node_with_tag(self):
         spec = NodeWithTag(Number, Avail)
         g = TestGraph(Numble([4, 5, 6], 15))
+        expect = [Brick(4), Brick(5), Brick(6)]
+        got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
+        self.assertCountEqual(got, expect)
+
+    def test_nodespec(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+
+        spec = NodeSpec()  # All nodes
+        expect = [Brick(4), Brick(5), Brick(6), Target(15), Workspace(),
+                  WantBuiltFromBricks(), Avail(), Avail(), Avail()]
+        got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
+        self.assertCountEqual(got, expect)
+
+        spec = NodeSpec(nodeclass=Number)
+        expect = [Brick(4), Brick(5), Brick(6), Target(15)]
+        got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
+        self.assertCountEqual(got, expect)
+
+        spec = NodeSpec(tagclass=Avail)
         expect = [Brick(4), Brick(5), Brick(6)]
         got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
         self.assertCountEqual(got, expect)

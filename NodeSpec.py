@@ -10,7 +10,7 @@ from PortGraph import pg
 from util import as_iter, is_nodeid, intersection, nice_object_repr, NiceRepr
 
 
-class NodeSpec(ABC):
+class BaseNodeSpec(ABC):
     '''A specification of a condition for nodes to satisfy.'''
 
     @abstractmethod
@@ -38,7 +38,26 @@ class NodeSpec(ABC):
 
     __repr__ = nice_object_repr
 
-class NodeOfClass(NodeSpec):
+class NodeSpec(BaseNodeSpec):
+
+    def __init__(self, nodeclass=None, tagclass=None, value=None):
+        self.nodeclass = nodeclass
+        self.tagclass = tagclass
+        self.value = value
+
+    def is_match(self, g, nodeid):
+        if self.nodeclass is not None:
+            if not g.is_of_class(nodeid, self.nodeclass):
+                return False
+        if self.tagclass is not None:
+            if not g.has_tag(nodeid, self.tagclass):
+                return False
+        if self.value is not None:
+            return g.value_of(nodeid) == self.value
+        else:
+            return True
+
+class NodeOfClass(BaseNodeSpec):
 
     def __init__(self, nodeclass):
         self.nodeclass = nodeclass
@@ -46,7 +65,7 @@ class NodeOfClass(NodeSpec):
     def is_match(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
 
-class NodeWithTag(NodeSpec):
+class NodeWithTag(BaseNodeSpec):
 
     def __init__(self, nodeclass, tagclass):
         self.nodeclass = nodeclass
@@ -61,7 +80,7 @@ class NodeWithTag(NodeSpec):
 
 #TODO UT
 #TODO Just call PortGraph.has_neighbor_at()
-class NodeWithNeighborAt(NodeSpec):
+class NodeWithNeighborAt(BaseNodeSpec):
 
     def __init__(self, port_label, neighbor_class=None, node_class=None):
         self.port_label = port_label
@@ -83,7 +102,7 @@ class NodeWithNeighborAt(NodeSpec):
                        for neighbor in neighbors)
 
 #TODO UT nodeclass and tagclass
-class NodeWithValue(NodeSpec):
+class NodeWithValue(BaseNodeSpec):
 
     def __init__(self, value, nodeclass=None, tagclass=None):
         self.value = value
@@ -99,7 +118,7 @@ class NodeWithValue(NodeSpec):
                 return False
         return g.value_of(nodeid) == self.value
 
-class HasSameValue(NodeSpec):
+class HasSameValue(BaseNodeSpec):
     '''Matches nodes with same value as targetid, but does not match
     targetid.'''
 
@@ -111,7 +130,7 @@ class HasSameValue(NodeSpec):
             return False
         return g.value_of(nodeid) == g.value_of(self.targetid)
 
-class And(NodeSpec):
+class And(BaseNodeSpec):
 
     def __init__(self, *conjuncts):
         '''Conjuncts are NodeSpecs. And(conjuncts) matches nodes that match
@@ -121,7 +140,7 @@ class And(NodeSpec):
     def is_match(self, g, nodeid):
         return all(c.is_match(g, nodeid) for c in self.conjuncts)
 
-class Not(NodeSpec):
+class Not(BaseNodeSpec):
 
     def __init__(self, nodespec):
         self.nodespec = nodespec

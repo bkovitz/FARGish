@@ -8,7 +8,7 @@ import json
 #from numbo3 import new_graph, Numble
 from demo2 import new_graph, Numble
 #from numble import Numble
-from numbospec import spec as numbo_spec
+from numbospec import spec as numbo_spec  # TODO OBSOLETE!
 from PortGraph import long_nodestr
 
 class ModelWrapper:

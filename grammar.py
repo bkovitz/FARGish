@@ -393,5 +393,5 @@ Brick(x), Block : Number(n)
 Target: A
     '''
     got = parser.parse(prog1)
-    got = parser.parse(prog2)
+    #got = parser.parse(prog2)
     pp(got)

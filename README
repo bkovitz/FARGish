@@ -18,8 +18,6 @@ To stop the web server, hit Ctrl-C in the terminal window.
 
 11-Oct-2019: First running version, still with bugs and missing features.
 
-
-
 5-Dec-2019
   Now in the middle of rewriting the do_timestep and Response code.
   The new way has a mix-in object, TimeStepper, which will replace
@@ -31,6 +29,63 @@ To stop the web server, hit Ctrl-C in the terminal window.
 
   numbo3.py is the current version.
 
-
 18-Feb-2020
   demo2.py is the current version.
+
+========================================================================
+
+The Design of FARGish
+(last updated 24-Feb-2020)
+
+Under FARGish, a FARG model is a port graph plus program code.
+
+PortGraph (inherits from MultiGraph from the networkx library): holds the
+graph. Every edge in a PortGraph links a (nodeid, port label) tuple to another
+(nodeid, port label) tuple. Each nodeid is an integer > 1. Each port label is a
+string.
+
+With every node in the PortGraph is associated an object, called a datum.
+Every datum inherits from Node.
+
+ActiveNode is an abstract class that inherits from Node, and provides an
+.actions() method, which returns a list of Action objects. An Action object's
+.go() method performs some action on the graph. An Action object has a .weight
+and a .threshold, which determine how likely the Action is to be executed on
+a given timestep. An Action is not eligible to be executed unless its .weight
+exceeds its .threshold. (Purpose: a nonzero threshold prevents highly
+consequential Actions from being executed before their ActiveNode has a high
+level of support from other nodes.)
+
+Every node has salience and support. Salience is a number that determines how
+likely a node is to be found in searches. A node's salience is boosted when it
+or its immediate neighbors is "touched", i.e. affected by an Action. Each
+node's salience decays at the start of each timestep. Support is a number that
+determines whether a node can continue to exist and, for ActiveNodes, how
+likely they are to be chosen to perform one of their Actions. Support flows
+from node to node via "support edges": those with labels 'support_to' and
+'support_from'. The exact way in which support flows is determined by a
+Propagator object.
+
+TimeStepper is a mix-in class for PortGraph, which provides a .do_timestep()
+method. .do_timestep() randomly chooses ActiveNodes (based on support), and
+from those ActiveNodes randomly chooses Actions.
+
+The FARGish language provides simple syntax for defining subclasses of Node,
+which port labels mate with which other port labels, and simple Actions
+associated with ActiveNodes and simple conditions for executing them. For
+anything complicated, FARGish provides the ability to call to external Python
+code.
+
+FARGish is compiled into Python by functions in codegen.py. The grammar,
+implemented in PLY, is specified in grammar.py. grammar.parse() generates
+objects defined in gen.py, which in turn have a .gen() method to generate
+Python code.
+
+Visualization of the graph occurs in a web browser and is implemented in
+Javascript in the file forcedirected3.js, invoked by fargish.html. server.py
+implements the web server, calling upon runner.py to interpret HTTP GET
+commands to affect or query the FARG model. runner.py calls upon ModelWrapper
+to directly access the model and to convert between the model's native Python
+objects and the JSON objects sent to the web browser.
+
+@@source files actually in use

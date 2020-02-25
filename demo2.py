@@ -9,8 +9,9 @@ from Action import Action, Build, Fail, Raise
 from PortGraph import PortGraph, Node, pg, ps
 import PortGraph as PG
 from bases import ActiveNode
-from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, HasSameValue, \
+from NodeSpec import NodeOfClass, NodeWithTag, NodeWithValue, \
     And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups, BuildSpec
+from NodeParams import NodeParams, AttrParam, MateParam
 from LinkSpec import LinkSpec
 from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
@@ -34,8 +35,7 @@ Tag
 
 Avail, Consumed, Failed, Done, Allowed : Tag
 
-Number(n)
-  value = n
+Number(value)
 
 Workspace
 
@@ -162,17 +162,21 @@ class Want(Tag, ActiveNode):
                           weight=self.support_weight(g, thisid, nodeid))
 
     def support_weight(self, g, thisid, nodeid):
+        #print('SUPP', thisid, g.datum(thisid), nodeid, g.datum(nodeid), g.neighbors(thisid, 'taggees'))
+        #pg(g)
         rough_target = rough_of(g.value_of(g.neighbor(thisid, 'taggees')))
         rough = rough_value_of(g, nodeid)
-        #print('ROUGH', nodeid, rough_target, rough)
+        #print('ROUGH', rough_target, rough)
+        #print('ROUGH', thisid, nodeid, rough_target, rough)
         if rough is None:
             return 0.0
         else:
             dist = rough_target - rough
-            if dist < 0:
-                w = 0.05
-            else:
-                w = max(0.05, 2.0 - (rough_target - rough))
+            #if dist < 0:
+            #    w = 0.05
+            #else:
+            w = max(0.05, 2.0 - abs(rough_target - rough))
+            #print('W', w)
             return w
 
 class OperandsScout(ActiveNode):
@@ -253,9 +257,7 @@ def arith_result0(g, operator_class, operand_ids):
 
 class RoughEstimate(Tag):
 
-    def __init__(self, value):
-        kwargs = {'value': value}
-        super().__init__(**kwargs)
+    node_params = NodeParams(AttrParam('value'))
 
 class RoughEstimateBuilder(ActiveNode):
 
@@ -476,4 +478,6 @@ def run(seed=None):
     # Succeeds at last timestep with above seed and numble.
 
 if __name__ == '__main__':
-    run(seed=8316664589534836549)
+    #run(seed=8316664589534836549)
+    #run(seed=1725458333626496812)
+    run()
