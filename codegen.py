@@ -20,6 +20,8 @@ def make_python(fargish_code, file=None, preamble=preamble, postamble=''):
     if file is None:
         file = sys.stdout
     items = parse(fargish_code)
+    # To see the objects from gen.py that come out of the parser before
+    # they're compiled into Python, print 'items', i.e. call grammar.parse().
     env = Env(items)
     print(preamble, file=file)
     fixup = StringIO()

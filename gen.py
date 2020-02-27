@@ -195,7 +195,9 @@ class Class(NiceRepr):
         return name
 
     def add_actions(self, actions):
-        '''Each action must support a .gen(file) method.'''
+        '''Each action must support a .gen(file, fixup) method. Text that the
+        action sends to the 'file' object will go inside the 'def actions()'
+        method of the class being generated.'''
         self.actions += as_iter(actions)
 
     def add_auto_link(self, lsname, link_spec):
@@ -342,12 +344,16 @@ class Initializer(NiceRepr):
     def add_to_class(self, cl):
         cl.add_inits(Indent(2, f'''self.{self.name} = {as_expr(self.expr)}'''))
 
-class BuildExpr(NiceRepr):
+class Expr(NiceRepr):
+    '''as_expr() should generate valid Python code for this expression.'''
+    pass
+
+class BuildExpr(Expr):
 
     def __init__(self, expr):
         self.expr = expr
 
-class VarRef(NiceRepr):
+class VarRef(Expr):
 
     def __init__(self, name):
         self.name = name
@@ -355,7 +361,7 @@ class VarRef(NiceRepr):
     def as_expr(self):
         return self.name
 
-class FuncCall(NiceRepr):
+class FuncCall(Expr):
 
     def __init__(self, funcname, args):
         self.funcname = funcname
@@ -364,13 +370,13 @@ class FuncCall(NiceRepr):
     def as_expr(self):
         return f'''{self.funcname}({', '.join(as_expr(a) for a in self.args)})'''
 
-class Relop(NiceRepr):
+class Relop(Expr):
     def __init__(self, lhs, op, rhs):
         self.lhs = lhs
         self.op = op
         self.rhs = rhs
 
-class LetExpr(NiceRepr):
+class LetExpr(Expr):
     def __init__(self, name, expr):
         self.name = name
         self.expr = expr
@@ -390,32 +396,51 @@ class NodesFinder(NiceRepr):
             cl.add_class_var('nodes_finder',
 f'''CartesianProduct({', '.join(repr(ns) for ns in self.nodespecs)}, whole_tuple_criterion=TupAnd({', '.join(cr) for cr in self.whole_tuple_criteria}))''')
 
-class SeeDo(NiceRepr):
-    def __init__(self, conditions, actions, else_conditions, else_actions):
+class ConditionsActions(NiceRepr):
+
+    def __init__(self, conditions, actions):
+        '''conditions: a list (possibly empty) of Exprs and/or ListExprs.
+        actions: a list (with at least one element) of Exprs and/or
+        BuildExprs.'''
         self.conditions = conditions
         self.actions = actions
-        self.else_conditions = else_conditions
-        self.else_actions = else_actions
-
-    #TODO rm
-    def body_gen(self, build_specs, actions):
-        print('SEE')
-        pp(self.conditions)
-        pp(self.actions)
+        
+class SeeDo(NiceRepr):
+    def __init__(self, cas):
+        '''cas is a list of ConditionsActions objects. After the first, each
+        is to be performed only if the previous one did not yield an Action
+        (i.e. implementing an 'else').'''
+        self.cas = cas
 
     def add_to_class(self, cl):
-        pass #TODO
+        pass #TODO Make an ActionGen and then call .add_to_class on it.
+
+class ActionGen(NiceRepr):
+    def __init__(self):
+        self.simple_conditions = []
+        self.whole_tuple_conditions = []
+
+    def add_simple_condition(self, condition):
+        self.simple_conditions += as_iter(condition)
+
+    def add_whole_tuple_condition(self, condition):
+        self.whole_tuple_conditions += as_iter(condition)
+
+    def add_to_class(self, cl):
+        num_node_searches = sum(
+            c.num_node_searches() for c in self.simple_conditions
+        )
+        if num_node_searches <= 1:
+            pass #TODO
+        else:
+            # generate _tup = CartesianProduct(condition exprs, whole).see_one(g)
+            pass #TODO
+
 
 class AgentExpr(NiceRepr):
 
     def __init__(self, expr):
         self.expr = expr
-
-    #TODO rm
-    def body_gen(self, build_specs, actions):
-        build_specs.append(
-            f"BuildSpec({as_expr(self.expr)}, LinkSpec('agents', 'behalf_of'))"
-        )
 
     def add_to_class(self, cl):
         '''cl is a Class object.'''

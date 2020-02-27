@@ -110,7 +110,7 @@ class TimeStepper:
             d = self.done()
             if d:
                 ShowResults(d)
-                print(f"t={self.graph['t']}\n")
+                ShowResults(f"t={self.graph['t']}\n")
                 break
 
     def do_action(self, action):

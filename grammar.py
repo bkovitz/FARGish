@@ -12,7 +12,7 @@ from pprint import pprint as pp
 from Indent1 import Parser
 from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, BuildExpr, VarRef, FuncCall, Relop, LetExpr, SeeDo, AgentExpr, \
-    ArgExpr, Initializer
+    ArgExpr, Initializer, ConditionsActions
 
 
 ##### Grammar for lexical analyzer
@@ -169,6 +169,11 @@ def t_error(t):
 ##### Grammar for syntactic analyzer
 
 def zero_or_more(p, elem_index):
+    '''Helps build up a list of zero or more items parsed in the PLY grammar.
+    If p does not contain an item at elem_index (i.e. p is too short), puts an
+    empty list in p[0]. Otherwise, appends p[elem_index] to the list assumed to
+    be in p[1], and exits with that list in p[0]. If p[elem_index] is itself a
+    list, all its elements are added to the end of the list.'''
     if len(p) <= elem_index:
         p[0] = []
     else:
@@ -179,6 +184,12 @@ def zero_or_more(p, elem_index):
             p[0].append(p[elem_index])
 
 def one_or_more(p, initial_item_index, additional_item_index):
+    '''Helps build up a list of one or more items parsed in the PLY grammar.
+    For the first item, p[initial_item_index] should contain the item and p
+    should contain no elements beyond that one. For all other items,
+    p[initial_item_index] should contain the list built up so far and
+    p[additional_item_index] should contain the next item. On exit, the
+    list so far is in p[0].'''
     if len(p) == initial_item_index + 1:
         p[0] = [p[initial_item_index]]
     else:
@@ -239,21 +250,44 @@ def p_agent_defn(p):
     '''agent_defn : AGENT ':' expr'''
     p[0] = AgentExpr(p[3])
 
-def p_see_do1(p):
-    '''see_do : FAT_RIGHT_ARROW actions'''
-    p[0] = SeeDo([], p[2], [], [])
+def p_implicit_see_do(p):
+    '''see_do : unconditional_actions maybe_else_chain'''
+    p[0] = SeeDo([p[1]] + p[2])
 
-def p_see_do2(p):
-    '''see_do : SEE conditions FAT_RIGHT_ARROW actions'''
-    p[0] = SeeDo(p[2], p[4], [], [])
+def p_explicit_see_do(p):
+    '''see_do : SEE conditional_actions maybe_else_chain'''
+    p[0] = SeeDo([p[2]] + p[3])
 
-def p_see_do3(p):
-    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE FAT_RIGHT_ARROW actions'''
-    p[0] = SeeDo(p[2], p[4], [], p[7])
+def p_unconditional_actions(p):
+    '''unconditional_actions : FAT_RIGHT_ARROW actions'''
+    p[0] = ConditionsActions([], p[2])
 
-def p_see_do4(p):
-    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE conditions FAT_RIGHT_ARROW actions'''
-    p[0] = SeeDo(p[2], p[4], p[6], p[8])
+def p_conditional_actions(p):
+    '''conditional_actions : conditions FAT_RIGHT_ARROW actions'''
+    p[0] = ConditionsActions(p[1], p[3])
+
+def p_maybe_else_chain(p):
+    '''maybe_else_chain : empty
+                        | maybe_else_chain ELSE unconditional_actions
+                        | maybe_else_chain ELSE conditional_actions'''
+    zero_or_more(p, 3)
+
+#def p_see_do1(p):
+#    '''see_do : FAT_RIGHT_ARROW actions'''
+#    p[0] = SeeDo()
+#
+#def p_see_do2(p):
+#    '''see_do : SEE conditions FAT_RIGHT_ARROW actions'''
+#    p[0] = SeeDo(p[2], p[4], [], [])
+#    p[0] = SeeDo([ConditionsActions(p[2], p[4])
+#
+#def p_see_do3(p):
+#    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE FAT_RIGHT_ARROW actions'''
+#    p[0] = SeeDo(p[2], p[4], [], p[7])
+#
+#def p_see_do4(p):
+#    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE conditions FAT_RIGHT_ARROW actions'''
+#    p[0] = SeeDo(p[2], p[4], p[6], p[8])
 
 def p_conditions(p):
     '''conditions : condition

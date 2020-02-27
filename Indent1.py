@@ -1,9 +1,9 @@
 # Indent1.py -- Wrapper classes for PLY's lex and yacc, to replace whitespace
 #               and newlines with INDENT and DEDENT tokens.
 #
-# A caller should Parser and pass it a PLY lexer and PLY semantic parser.
-# The PLY lexer is assumed to output WS and NEWLINE tokens and keep track of
-# parentheses.
+# A caller should create a Parser object, passing it a PLY lexer and PLY
+# semantic parser, and then call .parse() on that object. The PLY lexer is
+# assumed to output WS and NEWLINE tokens and keep track of parentheses.
 
 from ply import lex
 
