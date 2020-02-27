@@ -165,7 +165,9 @@ class Want(Tag, ActiveNode):
     def support_weight(self, g, thisid, nodeid):
         #print('SUPP', thisid, g.datum(thisid), nodeid, g.datum(nodeid), g.neighbors(thisid, 'taggees'))
         #pg(g)
-        rough_target = rough_of(g.value_of(g.neighbor(thisid, 'taggees')))
+        vtarget = g.value_of(g.neighbor(thisid, 'taggees'))
+        v = g.value_of(nodeid)
+        rough_target = rough_of(vtarget)
         rough = rough_value_of(g, nodeid)
         #print('ROUGH', rough_target, rough)
         #print('ROUGH', thisid, nodeid, rough_target, rough)
@@ -173,9 +175,9 @@ class Want(Tag, ActiveNode):
             return 0.0
         else:
             #dist = rough_target - rough
-            dist = rough_target + 0.01 - rough
-            #print('DIST', g.nodestr(nodeid), dist)
-            if dist < 0:
+            dist = rough_target - rough
+            print('DIST', g.nodestr(nodeid), v, vtarget, dist)
+            if dist < -0.1:
                 w = 0.1
             else:
                 w = max(0.1, 2.0 - abs(dist))
@@ -560,5 +562,5 @@ if __name__ == '__main__':
     #run(seed=8316664589534836549)
     #run(seed=1725458333626496812)
     #run()
-    demo()
-    #run(seed=None, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=1)
+    #demo()
+    run(seed=None, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=10)

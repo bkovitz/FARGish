@@ -392,6 +392,11 @@ Brick(x), Block : Number(n)
 
 Target: A
     '''
-    got = parser.parse(prog1)
+    prog3 = '''
+SuccessScout(target)
+  see winner := NodeWithValue(target, nodeclass=Number, tagclass=Avail)
+  => succeeded(winner, target)
+'''
+    got = parser.parse(prog3)
     #got = parser.parse(prog2)
     pp(got)

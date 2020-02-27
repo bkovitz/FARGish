@@ -92,7 +92,7 @@ class TimeStepper:
 
             chosen_actions = self.choose_actions(actions)
             if ShowActionsChosen.is_logging():
-                print('ACTIONS')
+                print('ACTIONS CHOSEN')
                 #TODO OAOO with above
                 for action in sorted(chosen_actions, key=attrgetter('weight')): 
                     print('  %.3f (%.3f) %s' % (
