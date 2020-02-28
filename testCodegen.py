@@ -15,7 +15,7 @@ class TestGraph(TimeStepper, PortGraph):
 
 class TestCodegen(unittest.TestCase):
 
-    def testOneSimpleNode(self):
+    def test_one_simple_node(self):
         g = PortGraph()
         prog = '''
 SomeNode
@@ -31,7 +31,7 @@ SomeNode
         expect = [SomeNode()]
         self.assertCountEqual(got, expect)
 
-    def testNodeWithArg(self):
+    def test_node_with_arg(self):
         g = PortGraph()
         prog = '''
 Number(n)
@@ -44,7 +44,7 @@ Brick : Number'''
         expect = [Brick(n=2)]
         self.assertCountEqual(got, expect)
 
-    def testAutoLink(self):
+    def test_autolink(self):
         #TODO Generate code for node_params, not auto_links
         g = PortGraph()
         prog = '''
@@ -57,7 +57,7 @@ Scout(target)'''
         sid = g.make_node(Scout(nid))
         self.assertTrue(g.has_hop(sid, 'target', nid, 'tags'))
 
-    def testBuildAgent(self):
+    def test_build_agent(self):
         g = TestGraph()
         prog = '''
 Client

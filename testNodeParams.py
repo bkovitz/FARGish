@@ -15,19 +15,19 @@ class Plus(Node):
 
 class TestNodeParams(unittest.TestCase):
 
-    def testAttrParam(self):
+    def test_AttrParam(self):
         g = PortGraph()
         two = g.make_node(Number(n=2))
         self.assertEqual(len(g), 1)
         self.assertEqual(g.value_of(two, 'n'), 2)
 
-    def testAttrParamImplicit(self):
+    def test_AttrParamImplicit(self):
         g = PortGraph()
         two = g.make_node(Number(2))
         self.assertEqual(len(g), 1)
         self.assertEqual(g.value_of(two, 'n'), 2)
 
-    def testMateParam(self):
+    def test_MateParam(self):
         g = PortGraph()
         two = g.make_node(Number(n=2))
         three = g.make_node(Number(n=3))
@@ -37,7 +37,7 @@ class TestNodeParams(unittest.TestCase):
         self.assertTrue(g.has_hop(plus, 'operands', three, 'consumer'))
         self.assertTrue(g.has_hop(plus, 'result', five, 'source'))
 
-    def testAlreadyBuilt(self):
+    def test_already_built(self):
         g = PortGraph()
         self.assertFalse(g.already_built(Number, (2,)))
         two = g.make_node(Number(n=2))

@@ -5,8 +5,8 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testIndenting
-	#$(PY) -m unittest -v testCodegen.TestCodegen.test_see_do
+	#$(PY) -m unittest -v testIndenting
+	$(PY) -m unittest -v testCodegen.TestCodegen.testBuildAgent
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

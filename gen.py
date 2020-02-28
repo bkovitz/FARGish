@@ -13,6 +13,7 @@ from NodeSpec import BuildSpec
 from util import as_iter, as_name, NiceRepr, newline
 from exc import NoUniqueMateError
 from NodeParams import NodeParams, AttrParam, MateParam
+from Indenting import indent
 
 def as_expr(x):
     if hasattr(x, 'as_expr'):
@@ -20,7 +21,7 @@ def as_expr(x):
     else:
         return str(x)
 
-class Indent:
+class XIndent:
 
     prefix = '    '
 
@@ -136,7 +137,7 @@ class ClassVar(NiceRepr):
             pre = f'{as_name(self.cl)}.'
         else:
             f = file
-            pre = '    '
+            pre = ''
         print(f'{pre}{self.name} = {self.expr}', file=f)
 
 class AutoLink(NiceRepr):
@@ -148,11 +149,11 @@ class AutoLink(NiceRepr):
     def gen(self, file, fixup):
         my_label = self.link_spec.new_node_port_label
         other_label = self.link_spec.old_node_port_label
-        print(Indent(2,
+        print(
 f'''_otherid = self.{my_label}
 if _otherid is not None:
-    _g.add_edge(_thisid, '{my_label}', _otherid, '{other_label}')'''
-        ), file=file, end='')
+    _g.add_edge(_thisid, '{my_label}', _otherid, '{other_label}')''',
+        file=file, end='')
 
 class Class(NiceRepr):
     '''Generates a Python class for a Node. Provides various methods that
@@ -205,21 +206,24 @@ class Class(NiceRepr):
 
     def gen(self, file, fixup):
         print(f'''class {self.name}({self.str_ancestors()}):''', file=file)
-        #len1 = file.seek(0, 1)  # length of file so far
-        self.add_class_var(
-            'node_params',
-            repr(NodeParams(*self.params)),
-            no_suffix=True,
-            add_after_class_defns=False
-        )
-        self.gen_class_vars(file, fixup)
-        self.gen_init(file, fixup)
-        #self.gen_auto_links(file, fixup)
-        self.gen_actions(file, fixup)
-        #if file.seek(0, 1) == len1:  # if body is empty
-        #ECCH If file is stdout, then can't test whether anything got printed.
-        self.gen_display_name(file, fixup)
-        print('    pass\n', file=file)
+        file.wrote_any = False
+        with indent(file):
+            #len1 = file.seek(0, 1)  # length of file so far
+            self.add_class_var(
+                'node_params',
+                repr(NodeParams(*self.params)),
+                no_suffix=True,
+                add_after_class_defns=False
+            )
+            self.gen_class_vars(file, fixup)
+            self.gen_init(file, fixup)
+            #self.gen_auto_links(file, fixup)
+            self.gen_actions(file, fixup)
+            self.gen_display_name(file, fixup)
+            if not file.wrote_any:
+                print('pass\n', file=file)
+            else:
+                print(file=file)
 
     def str_ancestors(self):
         if self.actions:
@@ -239,14 +243,14 @@ class Class(NiceRepr):
             #Class has no params not shared by its ancestors and no
             #initializers.
             inargs = ', '.join(f'{a}=None' for a in self.args)
-            absorb = '\n'.join(f"        kwargs['{a}'] = {a}"
+            absorb = '\n'.join(f"kwargs['{a}'] = {a}"
                                    for a in self.args)
-            print(f'''
-    def __init__(self, {inargs}, **kwargs):
-{absorb}
-        super().__init__(**kwargs)''', file=file)
-            for init in self.inits:
-                print(init, file=file)
+            print(f'def __init__(self, {inargs}, **kwargs):', file=file)
+            with indent(file):
+                print(absorb, file=file)
+                print('super().__init__(**kwargs)', file=file)
+                for init in self.inits:
+                    print(init, file=file)
 
 #    def gen_auto_links(self, file, fixup):
 #        if self.auto_links:
@@ -257,19 +261,19 @@ class Class(NiceRepr):
             
     def gen_actions(self, file, fixup):
         if self.actions:
-            print('''
-    def actions(self, _g, _thisid):
-        _result = []''', file=file)
-            for action in self.actions:
-                print(action, file=file, end='')
-            print('''        return _result''', file=file)
+            print('def actions(self, _g, _thisid):', file=file)
+            with indent(file):
+                print('_result = []', file=file)
+                for action in self.actions:
+                    print(action, file=file)
+                print('return _result', file=file)
 
     def gen_display_name(self, file, fixup):
         #HACK Should display all non-neighbor args
         if len(self.params) == 1:
-            print(f'''
-    def display_name(self, g, thisid):
-        return '{self.name}(' + str(self.{as_name(self.params[0])}) + ')' ''', file=file)
+            print('def display_name(self, g, thisid):', file=file)
+            with indent(file):
+                print(f"return '{self.name}(' + str(self.{as_name(self.params[0])}) + ')'", file=file)
 
     def __str__(self):
         sio = StringIO()
@@ -342,7 +346,7 @@ class Initializer(NiceRepr):
         self.expr = expr
 
     def add_to_class(self, cl):
-        cl.add_inits(Indent(2, f'''self.{self.name} = {as_expr(self.expr)}'''))
+        cl.add_inits(f'''self.{self.name} = {as_expr(self.expr)}''')
 
 class Expr(NiceRepr):
     '''as_expr() should generate valid Python code for this expression.'''
@@ -448,9 +452,9 @@ class AgentExpr(NiceRepr):
             'build_spec',
             f"BuildSpec({as_name(self.expr)}, LinkSpec('agents', 'behalf_of'))"
         )
-        cl.add_actions(Indent(2,
+        cl.add_actions(
             f"_result.append(self.{name}.maybe_make_build_action(_g, _thisid))"
-        ))
+        )
 
 class ArgExpr(NiceRepr):
 

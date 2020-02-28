@@ -5,7 +5,7 @@ from exc import FARGishCompilerException
 
 class TestEnv(unittest.TestCase):
 
-    def testBasics(self):
+    def test_basics(self):
         env = Env()
         self.assertEqual(env.get('x'), None)
         env.add('x', 'X-VALUE')
@@ -20,7 +20,7 @@ class TestEnv(unittest.TestCase):
         self.assertEqual(env.get('y'), None)
         self.assertEqual(env.get('x'), 'X-VALUE')
 
-    def testRedefinitionError(self):
+    def test_redefinition_error(self):
         env = Env()
         env.add('x', 'Value1')
         env.add('x', 'Value1')

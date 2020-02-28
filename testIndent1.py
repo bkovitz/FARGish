@@ -145,13 +145,13 @@ parser = Parser(lex.lex(), yacc.yacc())
 
 class TestIndent1(unittest.TestCase):
 
-    def testSimplest(self):
+    def test_simplest(self):
         prog = """class Blah"""
         got = parser.parse(prog)
         expect = [ClassDef('Blah')]
         self.assertEqual(got, expect)
 
-    def testIndent(self):
+    def test_indent(self):
         prog = """
 class Blah
     a
@@ -164,7 +164,7 @@ class Gah
         expect = [ClassDef('Blah', ['a', 'b']), ClassDef('Gah', ['c', 'd'])]
         self.assertEqual(got, expect)
 
-    def testParens(self):
+    def test_parens(self):
         prog = """
 class Blah
     (a
