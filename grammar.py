@@ -11,8 +11,9 @@ from pprint import pprint as pp
 
 from Indent1 import Parser
 from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
-    NodeDefn, BuildExpr, VarRef, FuncCall, Relop, LetExpr, SeeDo, AgentExpr, \
-    ArgExpr, Initializer, ConditionsActions
+    NodeDefn, BuildExpr, VarRef, Constant, FuncCall, MemberChain, \
+    Relexpr, LetExpr, SeeDo, AgentExpr, ArgExpr, Initializer, \
+    ConditionsWithActions
 
 
 ##### Grammar for lexical analyzer
@@ -27,6 +28,10 @@ tokens = (
     'DEDENT',
     'WS', # white space
     'NEWLINE',
+    'INTEGER',
+    'FLOAT',
+    'STRING',
+    'DOT',
     'EXTERNAL',
     'DOUBLE_HYPHEN',
     'AGENT',
@@ -45,6 +50,22 @@ tokens = (
 )
 
 literals = ',:='
+
+def t_FLOAT(t):
+    r'[-+]?[0-9]+(\.([0-9]+)?([eE][-+]?[0-9]+)?|[eE][-+]?[0-9]+)'
+    t.value = float(t.value)
+    # TODO error message if the number is invalid
+    return t
+
+def t_INTEGER(t):
+    r'[-+]?[0-9]+'
+    t.value = int(t.value)
+    # TODO error message if the number is invalid
+    return t
+
+def t_STRING(t):
+    r'(?:"(?:[^"\\n\\r\\\\]|(?:"")|(?:\\\\x[0-9a-fA-F]+)|(?:\\\\.))*")|(?:\'(?:[^\'\\n\\r\\\\]|(?:\'\')|(?:\\\\x[0-9a-fA-F]+)|(?:\\\\.))*\')'
+    return t
 
 def t_FAT_RIGHT_ARROW(t):
     r'=>'
@@ -116,6 +137,8 @@ def t_RBRACE(t):
 def t_DOUBLE_HYPHEN(t):
     r'--'
     return t
+
+t_DOT = r'\.'
     
 KEYWORDS = {
     'external': 'EXTERNAL',
@@ -260,11 +283,11 @@ def p_explicit_see_do(p):
 
 def p_unconditional_actions(p):
     '''unconditional_actions : FAT_RIGHT_ARROW actions'''
-    p[0] = ConditionsActions([], p[2])
+    p[0] = ConditionsWithActions([], p[2])
 
 def p_conditional_actions(p):
     '''conditional_actions : conditions FAT_RIGHT_ARROW actions'''
-    p[0] = ConditionsActions(p[1], p[3])
+    p[0] = ConditionsWithActions(p[1], p[3])
 
 def p_maybe_else_chain(p):
     '''maybe_else_chain : empty
@@ -279,7 +302,7 @@ def p_maybe_else_chain(p):
 #def p_see_do2(p):
 #    '''see_do : SEE conditions FAT_RIGHT_ARROW actions'''
 #    p[0] = SeeDo(p[2], p[4], [], [])
-#    p[0] = SeeDo([ConditionsActions(p[2], p[4])
+#    p[0] = SeeDo([ConditionsWithActions(p[2], p[4])
 #
 #def p_see_do3(p):
 #    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE FAT_RIGHT_ARROW actions'''
@@ -315,17 +338,45 @@ def p_action(p):
     else:
         p[0] = p[1]
 
+def p_expr(p):
+    '''expr : varref
+            | constant
+            | funccall
+            | relexpr
+            | member_chain'''
+    p[0] = p[1]
+
 def p_varref(p):
-    '''expr : NAME'''
+    '''varref : NAME'''
     p[0] = VarRef(p[1])
 
+def p_constant(p):
+    '''constant : INTEGER
+                | FLOAT
+                | STRING'''
+    p[0] = Constant(p[1])
+
 def p_funccall(p):
-    '''expr : NAME LPAREN maybe_args RPAREN'''
+    '''funccall : NAME LPAREN maybe_args RPAREN'''
     p[0] = FuncCall(p[1], p[3])
 
 def p_relexpr(p):
-    '''expr : expr relop expr'''
-    p[0] = Relop(p[1], p[2], p[3])
+    '''relexpr : expr relop expr'''
+    p[0] = Relexpr(p[1], p[2], p[3])
+
+def p_member_chain(p):
+    '''member_chain : objref member_refs'''
+    p[0] = MemberChain([p[1]] + p[2])
+
+def p_objref(p):
+    '''objref : varref
+              | funccall'''
+    p[0] = p[1]
+
+def p_member_refs(p):
+    '''member_refs : DOT objref
+                   | member_refs DOT objref'''
+    one_or_more(p, 2, 3)
 
 def p_relop(p):
     '''relop : EQ
@@ -428,9 +479,12 @@ Target: A
     '''
     prog3 = '''
 SuccessScout(target)
-  see winner := NodeWithValue(target, nodeclass=Number, tagclass=Avail)
+  see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
   => succeeded(winner, target)
 '''
+    prog4 = '''
+Blah
+    agent: Blah(2, 3.4, "foo", 'goo')
+'''
     got = parser.parse(prog3)
-    #got = parser.parse(prog2)
     pp(got)

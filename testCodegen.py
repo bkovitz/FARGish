@@ -65,7 +65,7 @@ Client
 
 Agent
 '''
-        #make_python(prog) #DEBUG
+        make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         client = g.make_node(Client)
         g.do_timestep()
@@ -87,6 +87,12 @@ Tag
 Found, Done, SomethingElse : Tag
 
 Target
+Simplest
+  => do_something()
+
+Builder
+  => build ConsumeOperands(1, 2, 3)
+
 Scout
   see t := NodeOfClass(Target)
   => add_tag(Found, t)
@@ -109,4 +115,4 @@ Scout4
   else t3 := NodeOfClass(SomethingElse)
   => do_something(Found, t2, t3)
 '''
-        #make_python(prog) #DEBUG
+        make_python(prog) #DEBUG

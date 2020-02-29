@@ -21,26 +21,11 @@ def as_expr(x):
     else:
         return str(x)
 
-class XIndent:
-
-    prefix = '    '
-
-    def __init__(self, *args):
-        '''Indent(n, string) or Indent(string). n defaults to 1.
-        str() of the Indent prepends 4 times as many spaces as n.'''
-        if len(args) == 1:
-            self.s = args[0]
-        elif len(args) == 2:
-            self.prefix = self.prefix * args[0]
-            self.s = args[1]
-        else:
-            raise ValueError(f'Indent.__init__ accepts either one or two arguments; was passed {args}.')
-
-    def __str__(self):
-        sio = StringIO()
-        for line in self.s.splitlines():
-            print(f'{self.prefix}{line}', file=sio)
-        return sio.getvalue()
+def gen(o, file, fixup):
+    if hasattr(o, 'gen'):
+        o.gen(file, fixup)
+    else:
+        print(str(o), file=file)
 
 class ExternalName(EnvItem):
     def __init__(self, name):
@@ -140,6 +125,7 @@ class ClassVar(NiceRepr):
             pre = ''
         print(f'{pre}{self.name} = {self.expr}', file=f)
 
+#TODO rm?
 class AutoLink(NiceRepr):
 
     def __init__(self, name, link_spec):
@@ -195,7 +181,7 @@ class Class(NiceRepr):
         ))
         return name
 
-    def add_actions(self, actions):
+    def add_action(self, actions):
         '''Each action must support a .gen(file, fixup) method. Text that the
         action sends to the 'file' object will go inside the 'def actions()'
         method of the class being generated.'''
@@ -234,7 +220,7 @@ class Class(NiceRepr):
         
     def gen_class_vars(self, file, fixup):
         for class_var in self.class_vars:
-            class_var.gen(file, fixup)
+            gen(class_var, file, fixup)
 
     def gen_init(self, file, fixup):
         return #TODO rm the rest
@@ -250,7 +236,7 @@ class Class(NiceRepr):
                 print(absorb, file=file)
                 print('super().__init__(**kwargs)', file=file)
                 for init in self.inits:
-                    print(init, file=file)
+                    gen(init, file, fixup)
 
 #    def gen_auto_links(self, file, fixup):
 #        if self.auto_links:
@@ -265,7 +251,7 @@ class Class(NiceRepr):
             with indent(file):
                 print('_result = []', file=file)
                 for action in self.actions:
-                    print(action, file=file)
+                    gen(action, file, fixup)
                 print('return _result', file=file)
 
     def gen_display_name(self, file, fixup):
@@ -365,6 +351,14 @@ class VarRef(Expr):
     def as_expr(self):
         return self.name
 
+class Constant(Expr):
+
+    def __init__(self, n):
+        self.n = n
+
+    def as_expr(self):
+        return repr(self.n)
+
 class FuncCall(Expr):
 
     def __init__(self, funcname, args):
@@ -374,7 +368,17 @@ class FuncCall(Expr):
     def as_expr(self):
         return f'''{self.funcname}({', '.join(as_expr(a) for a in self.args)})'''
 
-class Relop(Expr):
+class MemberChain(Expr):
+    '''An expression containing one or more "dots", like:
+          target.value
+    '''
+    def __init__(self, items):
+        self.items = items
+
+    def as_expr(self):
+        return '.'.join(self.items)
+
+class Relexpr(Expr):
     def __init__(self, lhs, op, rhs):
         self.lhs = lhs
         self.op = op
@@ -400,7 +404,7 @@ class NodesFinder(NiceRepr):
             cl.add_class_var('nodes_finder',
 f'''CartesianProduct({', '.join(repr(ns) for ns in self.nodespecs)}, whole_tuple_criterion=TupAnd({', '.join(cr) for cr in self.whole_tuple_criteria}))''')
 
-class ConditionsActions(NiceRepr):
+class ConditionsWithActions(NiceRepr):
 
     def __init__(self, conditions, actions):
         '''conditions: a list (possibly empty) of Exprs and/or ListExprs.
@@ -411,34 +415,72 @@ class ConditionsActions(NiceRepr):
         
 class SeeDo(NiceRepr):
     def __init__(self, cas):
-        '''cas is a list of ConditionsActions objects. After the first, each
+        '''cas is a list of ConditionsWithActions objects. After the first, each
         is to be performed only if the previous one did not yield an Action
         (i.e. implementing an 'else').'''
         self.cas = cas
 
     def add_to_class(self, cl):
-        pass #TODO Make an ActionGen and then call .add_to_class on it.
+        first_sdg = sdg = None
+        for ca in self.cas:
+            if sdg is None:
+                first_sdg = sdg = SeeDoGen()
+            else:
+                sdg = sdg.start_else()
+            #ca.add_to_seedogen(sdg)  #TODO
+        cl.add_action(first_sdg)
 
-class ActionGen(NiceRepr):
+class NullConditionGen(NiceRepr):
+    pass  # TODO STUB
+
+class NullActionGen(NiceRepr):
+    pass  # TODO STUB
+
+class SeeDoGen(NiceRepr):
     def __init__(self):
-        self.simple_conditions = []
-        self.whole_tuple_conditions = []
+        self.condition_gen = NullConditionGen()
+        self.action_gen = NullActionGen()
+        self.else_action_gen = None
 
-    def add_simple_condition(self, condition):
-        self.simple_conditions += as_iter(condition)
+    def add_condition(self, condition):
+        self.condition_gen = self.condition_gen.add_condition(condition)
 
-    def add_whole_tuple_condition(self, condition):
-        self.whole_tuple_conditions += as_iter(condition)
+    def add_action(self, action):
+        self.action_gen = self.action_gen.add_action(action)
 
-    def add_to_class(self, cl):
-        num_node_searches = sum(
-            c.num_node_searches() for c in self.simple_conditions
-        )
-        if num_node_searches <= 1:
-            pass #TODO
-        else:
-            # generate _tup = CartesianProduct(condition exprs, whole).see_one(g)
-            pass #TODO
+    def start_else(self):
+        self.else_action_gen = SeeDoGen()
+        return self.else_action_gen
+
+    def gen(self, file, fixup):
+        self.gen_conditions(file, fixup)
+        self.gen_if_stmt(file, fixup)
+        with indent(file):
+            self.gen_actions(file, fixup)
+        if self.else_action_gen:
+            with indent(file):
+                print('else:', file=file)
+                self.else_action_gen.gen(file, fixup)
+
+    def gen_conditions(self, file, fixup):
+        pass #TODO
+
+    def gen_if_stmt(self, file, fixup):
+        pass #TODO
+
+    def gen_actions(self, file, fixup):
+        pass #TODO
+
+
+
+#        num_node_searches = sum(
+#            c.num_node_searches() for c in self.simple_conditions
+#        )
+#        if num_node_searches <= 1:
+#            pass #TODO
+#        else:
+#            # generate _tup = CartesianProduct(condition exprs, whole).see_one(g)
+#            pass #TODO
 
 
 class AgentExpr(NiceRepr):
@@ -452,7 +494,7 @@ class AgentExpr(NiceRepr):
             'build_spec',
             f"BuildSpec({as_name(self.expr)}, LinkSpec('agents', 'behalf_of'))"
         )
-        cl.add_actions(
+        cl.add_action(
             f"_result.append(self.{name}.maybe_make_build_action(_g, _thisid))"
         )
 
