@@ -96,6 +96,9 @@ def rough_value_of(g, nodeid):
     tagid = g.tag_of(nodeid, RoughEstimate)
     return g.value_of(tagid)
 
+def failed(g, nodeid):
+    return g.has_tag(nodeid, Failed)
+
 tag_port_label = 'taggees'
 taggee_port_label = 'tags'
 
@@ -118,7 +121,9 @@ def fail(self, g, thisid): #HACK
 Block.fail = fail
 
 Plus.expr_class = expr.Plus #HACK
+Plus.symbol = '+' #HACK
 Times.expr_class = expr.Times #HACK
+Times.symbol = '*' #HACK
 
 class Want(Tag, ActiveNode):
 
@@ -165,6 +170,8 @@ class Want(Tag, ActiveNode):
     def support_weight(self, g, thisid, nodeid):
         #print('SUPP', thisid, g.datum(thisid), nodeid, g.datum(nodeid), g.neighbors(thisid, 'taggees'))
         #pg(g)
+        if failed(g, nodeid):
+            return 0.0
         vtarget = g.value_of(g.neighbor(thisid, 'taggees'))
         v = g.value_of(nodeid)
         rough_target = rough_of(vtarget)
@@ -176,7 +183,7 @@ class Want(Tag, ActiveNode):
         else:
             #dist = rough_target - rough
             dist = rough_target - rough
-            print('DIST', g.nodestr(nodeid), v, vtarget, dist)
+            #print('DIST', g.nodestr(nodeid), v, vtarget, dist)
             if dist < -0.1:
                 w = 0.1
             else:
@@ -300,6 +307,19 @@ class RoughEstimateBuilder(ActiveNode):
                 if b is not None:
                     return [ActionSeq(b, SelfDestruct(thisid))]
 
+class RoughDistance(Tag):
+
+    node_params = NodeParams(
+        MateParam('taggees', 'tags'),
+        MateParam('relative_to', 'tags'),
+        AttrParam('value')
+    )
+
+#class RoughDistanceBuilder(ActiveNode):
+#
+#    node_params
+#    def actions(
+
 class ConsumeOperands(ActiveNode):
 
     build_spec = \
@@ -326,12 +346,25 @@ class ConsumeOperands(ActiveNode):
         return (
             not g.has_tag(thisid, Done)
             and
+            not g.has_tag(thisid, Failed)
+            and
             g.all_have_tag(Avail, self.my_operands(g, thisid))
+        )
+
+    def datumstr(self, g, thisid):
+        symbol = g.datum(self.my_operator(g, thisid)).symbol
+        return (self.__class__.__name__ + '(' +
+            f' {symbol} '.join(
+                g.datumstr(rand) for rand in self.my_operands(g, thisid)
+            ) + ')'
         )
 
     @classmethod
     def my_operands(self, g, thisid):
         return g.neighbors(thisid, port_label='consume-operand')
+
+    def my_operator(self, g, thisid):
+        return g.neighbor(thisid, port_label='proposed-operator')
 
     class Consume(Action):
         threshold = 1.0 # 0.0 # 1.0
@@ -486,7 +519,7 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             self.graph['numble'].build(self, ws)
 
         #HACK
-        self.make_node(LandmarkScout)
+        #self.make_node(LandmarkScout)
 
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
@@ -549,7 +582,7 @@ def run(seed=None, numble=Numble([4, 5, 6], 15), n=70):
     global g
     g = new_graph(seed=seed, numble=numble)
     print('SEED', g.graph['seed'])
-    start_logging([ShowActionsChosen])
+    #start_logging([ShowActionsChosen])
     #pg(g)
     g.do_timestep(num=n)
     #ConsumeOperands.fail(g, 23)
