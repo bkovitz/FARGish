@@ -6,7 +6,7 @@ from random import gauss
 from math import log10, pow
 
 from Action import Action, Build, Fail, Raise, ActionSeq, SelfDestruct, \
-    FuncAction
+    FuncAction, Build2
 from PortGraph import PortGraph, Node, pg, ps
 import PortGraph as PG
 from bases import ActiveNode
@@ -32,9 +32,11 @@ proposed-operator -- proposer
 behalf_of -- agents
 target -- tags
 
-Tag
+Tag(taggees)
 
-Avail, Consumed, Failed, Done, Allowed : Tag
+Avail, Consumed, Failed, Done, Allowed, Promising, Hopeless : Tag
+
+GettingCloser : Promising
 
 Number(value)
 
@@ -67,7 +69,7 @@ Plus, Times : Operator
 #  => consumeOperands(this)  # external func; complicated
 '''
 
-#make_python(prog)
+make_python(prog)
 exec(compile_fargish(prog), globals())
 
 Workspace.min_support_for = 1.0
@@ -96,8 +98,36 @@ def rough_value_of(g, nodeid):
     tagid = g.tag_of(nodeid, RoughEstimate)
     return g.value_of(tagid)
 
+def rrough_value_of(g, nodeid):  #HACK
+    '''Like rough_value_of, but always returns a value for a Brick or Target.'''
+    if g.is_of_class(nodeid, (Brick, Target, Block)):
+        return rough_of(g.value_of(nodeid))
+    else:
+        return rough_value_of(g, nodeid)
+
+def is_getting_closer(g, nodeid, targetid):
+    re = rough_value_of(g, nodeid)
+    if re is None:
+        return None
+    rough_operands = []
+    for operandid in g.neighbors(nodeid, port_label='consume-operand'):
+        rv = rrough_value_of(g, operandid)
+        if rv is None:
+            return None
+        rough_operands.append(rv)
+    tv = rrough_value_of(g, targetid)
+    mn = min(abs(tv - v) for v in rough_operands)
+    mx = max(abs(tv - v) for v in rough_operands)
+    try:
+        return abs((mx - mn) / (tv - mn))
+    except ZeroDivisionError:
+        return None
+
 def failed(g, nodeid):
     return g.has_tag(nodeid, Failed)
+
+def can_go(g, nodeid):
+    return g.call_method(nodeid, 'can_go')
 
 tag_port_label = 'taggees'
 taggee_port_label = 'tags'
@@ -146,6 +176,13 @@ class Want(Tag, ActiveNode):
 #            thisid, 'agents', neighbor_class=BacktrackingScout
 #        ):
 #            s2 = Build(BacktrackingScout, [self.backtracking_scout_link], [thisid], kwargs=dict(targetid=targetid))
+        if not g.has_neighbor_at(
+            thisid, 'agents', neighbor_class=RoughDistanceTagger
+        ):
+            s2 = Build2(
+                RoughDistanceTagger,
+                kwargs={'relative_to': targetid, 'behalf_of': thisid}
+            )
         s3 = None
         if not g.has_neighbor_at(
             thisid, 'agents', neighbor_class=SuccessScout
@@ -159,7 +196,15 @@ class Want(Tag, ActiveNode):
 #        s3 = Build.maybe_make(
 #            SuccessScout, behalf_of=thisid, targetid=targetid
 #        )
-        return [s1, s2, s3]
+        s4 = None
+        if not g.has_neighbor_at(
+            thisid, 'agents', neighbor_class=GettingCloserTagger
+        ):
+            s4 = Build2(
+                GettingCloserTagger,
+                kwargs={'relative_to': targetid, 'behalf_of': thisid}
+            )
+        return [s1, s2, s3, s4]
 
     def update_support(self, g, thisid):
         #HACK
@@ -168,6 +213,28 @@ class Want(Tag, ActiveNode):
                           weight=self.support_weight(g, thisid, nodeid))
 
     def support_weight(self, g, thisid, nodeid):
+        return (
+            self.dist_weight(g, thisid, nodeid)
+            +
+            self.tags_weight(g, thisid, nodeid)
+        )
+
+    def tags_weight(self, g, thisid, nodeid):
+        values = []
+        # HACK: We're looking at all Promising/Hopeless tags, regardless of
+        # relation to this Want tag.
+        for tagid in g.neighbors(nodeid, neighbor_class=(Promising, Hopeless)):
+            multiplier = 1.0
+            if g.is_of_class(tagid, Hopeless):
+                multiplier = -1.0
+            v = g.value_of(tagid)
+            if v is None:
+                v = 0.5
+            values.append(v)
+        return sum(values)
+
+    #HACK There should be a tag for this
+    def dist_weight(self, g, thisid, nodeid):
         #print('SUPP', thisid, g.datum(thisid), nodeid, g.datum(nodeid), g.neighbors(thisid, 'taggees'))
         #pg(g)
         if failed(g, nodeid):
@@ -187,7 +254,7 @@ class Want(Tag, ActiveNode):
             if dist < -0.1:
                 w = 0.1
             else:
-                w = max(0.1, 2.0 - abs(dist))
+                w = max(0.1, 1.0 - abs(dist))
             #print('W', w)
             return w
 
@@ -229,7 +296,7 @@ class OperandsScout(ActiveNode):
             co for co in g.nodes_of_class(ConsumeOperands)
                 if g.datum(co).can_go(g, co)
         ]
-        if len(cos_in_progress) < 10:
+        if len(cos_in_progress) < 20:  #HACK
             node_tup = self.nodes_finder.see_one(g)
             #print('NODE_TUP', node_tup)
             if node_tup is not None:
@@ -291,7 +358,7 @@ class RoughEstimate(Tag):
 
     node_params = NodeParams(AttrParam('value'))
 
-class RoughEstimateBuilder(ActiveNode):
+class RoughEstimateTagger(ActiveNode):
 
     def actions(self, g, thisid):
         clientid = g.neighbor(thisid, 'behalf_of')
@@ -307,7 +374,7 @@ class RoughEstimateBuilder(ActiveNode):
                 if b is not None:
                     return [ActionSeq(b, SelfDestruct(thisid))]
 
-class RoughDistance(Tag):
+class RoughDistance(ActiveNode):
 
     node_params = NodeParams(
         MateParam('taggees', 'tags'),
@@ -315,15 +382,63 @@ class RoughDistance(Tag):
         AttrParam('value')
     )
 
-#class RoughDistanceBuilder(ActiveNode):
-#
-#    node_params
-#    def actions(
+    def actions(self, g, thisid):
+        taggeeid = g.taggee_of(thisid)
+        if is_hopeless_distance(
+            g, g.neighbor(thisid, 'relative_to'), g.value_of(thisid)
+        ):
+            return [Build2.maybe_make(
+                g,
+                Hopeless,
+                kwargs={'taggees': taggeeid},
+                potential_neighbors=set([taggeeid])
+            )]
+
+def is_hopeless_distance(g, targetid, rough_distance):
+    '''Is it hopeless to go rough_distance to targetid from Avail nodes?'''
+    # HACK Simplistic for now; should consider maximum and minimum that Avails
+    #can go.
+    return not rough_distance >= -0.05
+
+def rough_distance_to(g, target_nodeid, nodeid):
+    '''Rough distance from nodeid to target_nodeid, or None if nodeid has no
+    RoughDistance tag relative_to target_nodeid.'''
+    for tagid in g.tags_of(nodeid, tagclass=RoughDistance):
+        if g.has_hop(tagid, 'relative_to', target_nodeid, 'tags'):
+            return g.value_of(tagid)
+    return None
+
+class RoughDistanceTagger(ActiveNode):
+    min_support_for = 1.0
+    node_params = NodeParams(
+        MateParam('relative_to', 'tags'),
+        MateParam('behalf_of', 'agents')
+    )
+
+    def actions(self, g, thisid):
+        targetid = g.taggee_of(thisid, 'relative_to')
+        rough_target_value = rough_of(g.value_of(targetid))
+        candidates = [
+            nodeid for nodeid in g.nodes_with_tag(RoughEstimate)
+                if rough_distance_to(g, targetid, nodeid) is None
+        ]
+        return [
+            Build2(
+                RoughDistance,
+                kwargs={
+                    'taggees': nodeid,
+                    'relative_to': targetid,
+                    'value': rough_target_value - rough_value_of(g, nodeid)
+                },
+                weight=g.salience(nodeid)
+            )
+                for nodeid in candidates
+        ]
 
 class ConsumeOperands(ActiveNode):
 
     build_spec = \
-        BuildSpec(RoughEstimateBuilder, LinkSpec('agents', 'behalf_of'))
+        BuildSpec(RoughEstimateTagger, LinkSpec('agents', 'behalf_of'))
 
     def actions(self, g, thisid):
         if self.can_go(g, thisid):
@@ -443,6 +558,22 @@ class SuccessScout(ActiveNode):
                             extract_expr(g, winner_id),
                             extract_expr(g, self.targetid)))]
 
+class GettingCloserTagger(ActiveNode):
+
+    node_params = NodeParams(
+        MateParam('relative_to', 'tags'),
+        MateParam('behalf_of', 'agents')
+    )
+
+    nodes_finder = NodeSpec(nodeclass=ConsumeOperands, pred=can_go)
+
+    def actions(self, g, thisid):
+        nodeid = self.nodes_finder.see_one(g)
+        targetid = g.taggee_of(thisid, 'relative_to')
+        if nodeid is not None and is_getting_closer(g, nodeid, targetid):
+            return [
+                Build2.maybe_make(g, GettingCloser, kwargs={'taggees': nodeid})
+            ]
 
 def extract_expr(g, nodeid):
     '''Extracts an Expr tree consisting of nodeid and its sources.'''
@@ -582,7 +713,7 @@ def run(seed=None, numble=Numble([4, 5, 6], 15), n=70):
     global g
     g = new_graph(seed=seed, numble=numble)
     print('SEED', g.graph['seed'])
-    #start_logging([ShowActionsChosen])
+    start_logging([ShowActionsChosen])
     #pg(g)
     g.do_timestep(num=n)
     #ConsumeOperands.fail(g, 23)
@@ -595,5 +726,5 @@ if __name__ == '__main__':
     #run(seed=8316664589534836549)
     #run(seed=1725458333626496812)
     #run()
-    #demo()
-    run(seed=None, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=10)
+    demo()
+    #run(seed=2524266053616371958, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=12)

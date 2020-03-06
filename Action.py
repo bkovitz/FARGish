@@ -83,6 +83,50 @@ class Build(Action):
                 link_spec.old_node_port_label
             )
 
+class Build2(Action):
+    '''Simpler, better version of Build?'''
+
+    def __init__(
+        self,
+        nodeclass,
+        args=(),
+        kwargs={},
+        weight=1.0,
+        threshold=0.0
+    ):
+        self.nodeclass = nodeclass
+        self.args = args
+        self.kwargs = kwargs
+        self.weight = weight
+        self.threshold = threshold
+
+    @classmethod
+    def maybe_make(
+        cls,
+        g,
+        nodeclass,
+        args=(),
+        kwargs={},
+        weight=1.0,
+        threshold=0.0,
+        potential_neighbors=None
+    ):
+        if not g.already_built(
+            nodeclass,
+            args=args,
+            kwargs=kwargs,
+            potential_neighbors=potential_neighbors
+        ):
+            return Build2(nodeclass, args=args, kwargs=kwargs, weight=weight,
+                threshold=threshold)
+
+    def go(self, g):
+        if self.kwargs:
+            datum = self.nodeclass(**self.kwargs)
+        else:
+            datum = self.nodeclass()
+        new_node = g.make_node(datum)
+
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''
 
