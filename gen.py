@@ -326,7 +326,7 @@ class NodeDefn(EnvItem):
 #            cl.add_auto_link(vname, link_spec)
 
         for body_item in self.body:
-            body_item.add_to_class(cl)
+            body_item.add_to_class(cl, env)
 
         cl.gen(file, fixup, env)
 
@@ -356,7 +356,7 @@ class Initializer(NiceRepr):
         self.name = name
         self.expr = expr
 
-    def add_to_class(self, cl):
+    def add_to_class(self, cl, env):
         cl.add_inits(f'''self.{self.name} = {as_expr(self.expr)}''')
 
 class Expr(NiceRepr):
@@ -441,6 +441,9 @@ class ActionExpr(SeeDoElem):
     def __init__(self, expr):
         self.expr = expr
 
+    def action_expr(self, env):
+        return self.expr
+
     def condition_expr(self, env):
         pass  #TODO
 
@@ -473,7 +476,10 @@ class BuildSpecExpr(ActionExpr):
                 args.append(as_expr(arg))
             else:
                 kwargs[arg.argname] = as_expr(arg.expr)
-        return f"Build.maybe_make({cls}, _g, args={args}, kwargs={kwargs})"
+        args_s = '[' + ', '.join(args) + ']'
+        kwargs_s = \
+            '{' + ', '.join(f"{repr(k)}: {v}" for k,v in kwargs.items()) + '}'
+        return f"Build({cls}, args={args_s}, kwargs={kwargs})"
 
     #TODO rm
     def condition_gen(self):
@@ -493,6 +499,9 @@ class NodeclassExpr(NiceRepr):
 
     def __init__(self, name):
         self.name = name
+
+    def as_expr(self):
+        return self.name
 
 class VarRef(Expr):
 
@@ -579,7 +588,7 @@ class NodesFinder(NiceRepr):
         self.nodespecs += as_iter(item.nodespecs())
         self.whole_tuple_criteria += as_iter(item.whole_tuple_criteria())
 
-    def add_to_class(self, cl):
+    def add_to_class(self, cl, env):
         if self.nodespecs:
             cl.add_class_var('nodes_finder',
 f'''CartesianProduct({', '.join(repr(ns) for ns in self.nodespecs)}, whole_tuple_criterion=TupAnd({', '.join(cr) for cr in self.whole_tuple_criteria}))''')
@@ -616,10 +625,13 @@ class ConditionsWithActions(NiceRepr):
         self.conditions = conditions
         self.actions = actions
 
-    def make_gen(self, env):
+    def make_gen(self, env, more):
         '''Returns an object suitable for calling from Class.gen_actions()
         to generate code to perform any specified or implied node searches,
-        check conditions, and append an Action object to _result.'''
+        check conditions, and append an Action object to _result.
+
+        'more' is a list of zero or more ConditionsWithActions to generate
+        inside successive nested 'else' clauses.'''
         condition_prelines = []
         cartprod_elems = []
         cartprod_names = []
@@ -628,7 +640,7 @@ class ConditionsWithActions(NiceRepr):
         action_prelines = []
         action_exprs = []
 
-        #TODO with env.push()
+        env.push()
 
         for condition in self.conditions:
             condition_prelines += as_iter(condition.condition_prelines(env))
@@ -648,39 +660,51 @@ class ConditionsWithActions(NiceRepr):
             action_prelines += as_iter(action.action_prelines(env))
             action_exprs += as_iter(action.action_expr(env))
 
-        # NEXT Assemble into prelines, CartesianProduct (if needed),
-        # if-stmt, action lines
+        nextgen = None
+        if more:
+            nextgen = more[0].make_gen(env, more[1:])
 
-        s = Indenting(StringIO())
-        if cartprod_names:
-            print(' = '.join(nm for nm in cartprod_names + ['None']), file=s)
-        for preline in condition_prelines:
-            print(preline, file=s)
-        if cartprod_elems:
-            found_tup = env.gensym('_found_tup')
-            tup_elems = ', '.join(as_expr(e) for e in cartprod_elems)
-            whole_crit = f"TupAnd({', '.join(whole_tuple_conditions)})"
-            print(f"{found_tup} = CartesianProduct({tup_elems}, whole_tuple_criterion={whole_crit}).see_one(_g)", file=s)
-            print(f"if {found_tup}:", file=s)
-            with indent(s):
-                print(' = '.join(
-                    nm for nm in cartprod_names + [found_tup]), file=s)
-            condition_exprs.insert(0, found_tup)
-        if condition_exprs:
-            print(f"if {' and '.join(condition_exprs)}:", file=s)
-            with indent(s):
-                for action_preline in action_prelines:
-                    print(action_preline, file=s)
-                for action_expr in action_exprs:
-                    print(f"_result.append({as_expr(action_expr)})", file=s)
-        else:
-            # OAOO
-            for action_preline in action_prelines:
-                print(action_preline, file=s)
-            for action_expr in action_exprs:
-                print(f"_result.append({as_expr(action_expr)})", file=s)
+        def genfunc(file, fixup, ignored_env):
+            if cartprod_names:
+                print(' = '.join(nm for nm in cartprod_names + ['None']),
+                      file=file)
+            for preline in condition_prelines:
+                print(preline, file=file)
+            if cartprod_elems:
+                found_tup = env.gensym('_found_tup')
+                tup_elems = ', '.join(as_expr(e) for e in cartprod_elems)
+                whole_crit = f"TupAnd({', '.join(whole_tuple_conditions)})"
+                print(f"{found_tup} = CartesianProduct({tup_elems}, whole_tuple_criterion={whole_crit}).see_one(_g)", file=file)
+                print(f"if {found_tup}:", file=file)
+                with indent(file):
+                    print(' = '.join(
+                        nm for nm in cartprod_names + [found_tup]), file=file)
+                condition_exprs.insert(0, found_tup)
+            if condition_exprs:
+                print(f"if {' and '.join(condition_exprs)}:", file=file)
+                with indent(file):
+                    self.gen_actions(action_prelines, action_exprs, file)
+                if nextgen:
+                    print('else:', file=file)
+                    with indent(file):
+                        gen(nextgen, file, fixup, ignored_env)
+            else:
+                self.gen_actions(action_prelines, action_exprs, file)
+                if nextgen:
+                    nextgen(file, fixup, ignored_env)
 
-        return s.getvalue() #TODO a 'gen' function
+        env.pop()
+
+        return LocalGen(genfunc)
+
+        #return s.getvalue() #TODO a 'gen' function
+
+    @classmethod
+    def gen_actions(cls, action_prelines, action_exprs, file):
+        for action_preline in action_prelines:
+            print(action_preline, file=file)
+        for action_expr in action_exprs:
+            print(f"_result.append({as_expr(action_expr)})", file=file)
         
 class SeeDo(NiceRepr):
     def __init__(self, cas):
@@ -689,8 +713,11 @@ class SeeDo(NiceRepr):
         (i.e. implementing an 'else').'''
         self.cas = cas
 
-    def add_to_class(self, cl):
-        return #TODO Call .make_gen on each ConditionsWithActions.
+    def add_to_class(self, cl, env):
+        if self.cas:
+            return self.cas[0].make_gen(env, self.cas[1:])
+
+        return #TODO rm the rest of this
         first_sdg = sdg = None
         for ca in self.cas:
             if sdg is None:
@@ -738,6 +765,13 @@ class SeeDo(NiceRepr):
 
 
 class LocalGen(NiceRepr):
+    
+    def __init__(self, func):
+        '''func(file, fixup, env) is a code-generation function. The LocalGen
+        object is suitable for passing to the global gen() function.'''
+        self.gen = func
+
+class OLDLocalGen(NiceRepr):
     '''Code generator for an expression that *might* require defining
     named variables and hence multiple lines of code. Caller must call
     .gen_prelines() before .final_expr(), since the former might store
@@ -765,6 +799,7 @@ class LocalGen(NiceRepr):
     def add_preline(self, line):
         self._prelines += as_iter(line)
 
+#TODO rm this whole class?
 class SeeDoGen(NiceRepr):
     '''Generates all the Python code to implement a SeeDo.'''
 
@@ -843,7 +878,7 @@ class AgentExpr(NiceRepr):
     def __init__(self, expr):
         self.expr = expr
 
-    def add_to_class(self, cl):
+    def add_to_class(self, cl, env):
         '''cl is a Class object.'''
         name = cl.add_class_var(
             'build_spec',

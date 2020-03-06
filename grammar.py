@@ -478,6 +478,9 @@ def parse(code, debug=None):
 #TODO rm this test code; make a UT
 if __name__ == '__main__':
     from Env import Env
+    from gen import gen
+    from Indenting import Indenting, indent
+    from io import StringIO
     prog1 = '''external { arithResult, succeeded }
 tags -- taggees
 
@@ -512,8 +515,13 @@ Blah
     #pp(got)
     env = Env(got)
     defn = env['OperandsScout']
-    ca = defn.body[0].cas[0]  # the first conditions-actions pair
-    c = ca.conditions[0]  # The first NodeWithTag
-    gen = ca.make_gen(env)
-    print(gen)
+    cas = defn.body[0].cas
+    #ca = defn.body[0].cas[0]  # the first conditions-actions pair
+    #c = ca.conditions[0]  # The first NodeWithTag
+    g = cas[0].make_gen(env, cas[1:])
+    s1 = StringIO()
+    s2 = StringIO()
+    gen(g, Indenting(s1), Indenting(s2), env)
+    print(s1.getvalue(), end='')
+    print(s2.getvalue(), end='')
     #pp(got[0].body[0])

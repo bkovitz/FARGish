@@ -1,5 +1,6 @@
-    args should be [op, p1, p2], not ['op', 'p1', 'p2']
-    py grammar.py
+        Comma means 'and'
+
+        NotAlreadyBuilt
 
 FARGish
 
@@ -36,17 +37,18 @@ FARGish
 
             Put NodeSpec, NodeWithTag, etc. into FARGish
 
-            Cartesian product for named nodes
+            Cartesian product for named nodes  DONE
 
-            'build' action
+            'build' action  DONE
 
-            'else' with further conditions
-
-            Comma means 'and'
+            'else' with further conditions  DONE
 
             secondary action
 
             see Not(Tagged(Done, this))
+
+            args should be [op, p1, p2], not ['op', 'p1', 'p2']  DONE
+            py grammar.py
 
     extern do_something : Action
 
