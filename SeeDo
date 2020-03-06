@@ -1,0 +1,50 @@
+SeeDo([
+    ConditionsWithActions(
+        conditions=[
+            ConditionExpr([
+                LetExpr(
+                    name='p1',
+                    expr=FuncCall(
+                        funcname='NodeWithTag',
+                        args=[
+                            ArgExpr(argname=None, expr=VarRef('Number')),
+                            ArgExpr(argname=None, expr=VarRef('Avail'))]))]),
+            ConditionExpr([
+                LetExpr(
+                    name='p2',
+                    expr=FuncCall(
+                        funcname='NodeWithTag',
+                        args=[
+                            ArgExpr(argname=None, expr=VarRef('Number')),
+                            ArgExpr(argname=None, expr=VarRef('Avail'))]))]),
+            ConditionExpr([
+                LetExpr(
+                    name='op',
+                    expr=FuncCall(
+                        funcname='NodeWithTag',
+                        args=[
+                            ArgExpr(argname=None, expr=VarRef('Operator')),
+                            ArgExpr(argname=None, expr=VarRef('Allowed'))]))])],
+        actions=[
+            BuildSpecExpr(
+                nodeclass_expr=NodeclassExpr('ConsumeOperands'),
+                args='(')]),
+    ConditionsWithActions(
+        conditions=[
+            ConditionExpr([
+                LetExpr(
+                    name='block',
+                    expr=FuncCall(
+                        funcname='NodeWithTag',
+                        args=[
+                            ArgExpr(argname=None, expr=VarRef('Block')),
+                            ArgExpr(argname=None, expr=VarRef('Avail'))]))]),
+            ConditionExpr([
+                Relexpr(lhs=VarRef('block'), op='!=', rhs=VarRef('target'))])],
+        actions=[
+            ActionExpr(
+                FuncCall(
+                    funcname='Fail',
+                    args=[
+                        ArgExpr(argname=None, expr=VarRef('block'))]))])])
+

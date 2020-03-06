@@ -28,3 +28,24 @@ class TestEnv(unittest.TestCase):
         with self.assertRaises(FARGishCompilerException):
             env.add('x', 'Value2')
         self.assertEqual(env.get('x'), 'Value1')
+
+    def test_gensym(self):
+        env = Env()
+        name1 = env.gensym('x')
+        env.add(name1, 'VALUE1')
+        name2 = env.gensym('x')
+        env.add(name2, 'VALUE2')
+        self.assertEqual(env[name1], 'VALUE1')
+        self.assertEqual(env[name2], 'VALUE2')
+
+        env.push()
+        name3 = env.gensym('x')
+        env.add(name3, 'VALUE3')
+        self.assertEqual(env[name1], 'VALUE1')
+        self.assertEqual(env[name2], 'VALUE2')
+        self.assertEqual(env[name3], 'VALUE3')
+
+        env.pop()
+        self.assertEqual(env[name1], 'VALUE1')
+        self.assertEqual(env[name2], 'VALUE2')
+        self.assertEqual(env.get(name3), None)

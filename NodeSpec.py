@@ -228,6 +228,15 @@ class NotLinkedToSame(TupleCriterion):
         common_mates = intersection(*mate_sets)
         return len(common_mates) == 0
 
+#TODO UT
+class NotAlreadyBuilt(TupleCriterion):
+
+    def __init__(self, nodeclass):
+        self.nodeclass = nodeclass
+
+    def is_match(self, g, tup):
+        return not g.already_built(self.nodeclass, potential_neighbors=tup)
+
 class TupAnd(TupleCriterion):
 
     def __init__(self, *tupcriteria):

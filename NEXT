@@ -1,3 +1,6 @@
+    args should be [op, p1, p2], not ['op', 'p1', 'p2']
+    py grammar.py
+
 FARGish
 
     BNF  DONE
@@ -25,7 +28,7 @@ FARGish
             generate code  DONE
             testBuildAgent  DONE
 
-        Make a general NodeSpec class
+        Make a general NodeSpec class  DONE
 
         see-do
 
@@ -45,6 +48,8 @@ FARGish
 
             see Not(Tagged(Done, this))
 
+    extern do_something : Action
+
     Clean up BuildSpec so it's:
         
         1. Easy to link a new node to several existing nodes.
@@ -53,6 +58,11 @@ FARGish
 
         LinkSpec: include role names?
             This would let a caller specify nodes by the names of their roles.
+
+Clean-up
+
+    rm testNumbospec.py, numbospec.py, numbonodes.py, any others no longer
+    relevant.
 
 
 Detect stuckness.

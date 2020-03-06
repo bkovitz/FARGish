@@ -11,9 +11,10 @@ from pprint import pprint as pp
 
 from Indent1 import Parser
 from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
-    NodeDefn, BuildExpr, VarRef, Constant, FuncCall, MemberChain, \
+    NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo, AgentExpr, ArgExpr, Initializer, \
-    ConditionsWithActions
+    ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
+    BuildSpecExpr, ActionExpr, ConditionExpr
 
 
 ##### Grammar for lexical analyzer
@@ -189,7 +190,7 @@ def t_error(t):
     t.lexer.skip(1)
 
 
-##### Grammar for syntactic analyzer
+##### Helpers for syntactic analyzer
 
 def zero_or_more(p, elem_index):
     '''Helps build up a list of zero or more items parsed in the PLY grammar.
@@ -218,6 +219,9 @@ def one_or_more(p, initial_item_index, additional_item_index):
     else:
         p[0] = p[1]
         p[0].append(p[additional_item_index])
+
+
+##### Grammar for syntactic analyzer
 
 def p_prog(p):
     '''prog : empty
@@ -284,10 +288,12 @@ def p_explicit_see_do(p):
 def p_unconditional_actions(p):
     '''unconditional_actions : FAT_RIGHT_ARROW actions'''
     p[0] = ConditionsWithActions([], p[2])
+    #p[0] = ConditionWithActions(ConditionExpr(), p[2])
 
 def p_conditional_actions(p):
     '''conditional_actions : conditions FAT_RIGHT_ARROW actions'''
     p[0] = ConditionsWithActions(p[1], p[3])
+    #p[0] = ConditionWithActions(p[1], p[3])
 
 def p_maybe_else_chain(p):
     '''maybe_else_chain : empty
@@ -302,7 +308,7 @@ def p_maybe_else_chain(p):
 #def p_see_do2(p):
 #    '''see_do : SEE conditions FAT_RIGHT_ARROW actions'''
 #    p[0] = SeeDo(p[2], p[4], [], [])
-#    p[0] = SeeDo([ConditionsWithActions(p[2], p[4])
+#    p[0] = SeeDo([ConditionWithActions(p[2], p[4])
 #
 #def p_see_do3(p):
 #    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE FAT_RIGHT_ARROW actions'''
@@ -316,27 +322,41 @@ def p_conditions(p):
     '''conditions : condition
                   | conditions ',' condition'''
     one_or_more(p, 1, 3)
+#    # Returns a single ConditionExpr (which may hold multiple conditions)
+#    if len(p) == 2:
+#        p[0] = p[1]
+#    else:
+#        p[0] = p[1].add_condition_expr(p[3])
 
 def p_condition(p):
     '''condition : expr
                  | NAME LET expr'''
     if len(p) == 2:
-        p[0] = p[1]
+        p[0] = ConditionExpr(p[1])
     else:
-        p[0] = LetExpr(p[1], p[3])
+        p[0] = ConditionExpr(LetExpr(p[1], p[3]))
 
 def p_actions(p):
     '''actions : action
                | actions ',' action'''
     one_or_more(p, 1, 3)
 
+# NEXT   Build nodespec_expr
 def p_action(p):
-    '''action : BUILD expr
+    '''action : BUILD buildspec
               | expr'''
     if len(p) == 3:
-        p[0] = BuildExpr(p[2])
+        p[0] = p[2]
     else:
-        p[0] = p[1]
+        p[0] = ActionExpr(p[1])
+
+def p_buildspec(p):
+    '''buildspec : nodeclass LPAREN maybe_args RPAREN'''
+    p[0] = BuildSpecExpr(p[1], p[3])
+
+def p_nodeclass(p):
+    '''nodeclass : NAME'''
+    p[0] = NodeclassExpr(p[1])
 
 def p_expr(p):
     '''expr : varref
@@ -390,6 +410,7 @@ def p_relop(p):
 def p_maybe_args(p):
     '''maybe_args : empty
                   | args'''
+    print('MAYBE', p[1])
     p[0] = p[1]
 
 def p_args(p):
@@ -456,6 +477,7 @@ def parse(code, debug=None):
 
 #TODO rm this test code; make a UT
 if __name__ == '__main__':
+    from Env import Env
     prog1 = '''external { arithResult, succeeded }
 tags -- taggees
 
@@ -486,5 +508,12 @@ SuccessScout(target)
 Blah
     agent: Blah(2, 3.4, "foo", 'goo')
 '''
-    got = parser.parse(prog3)
-    pp(got)
+    got = parser.parse(prog1)
+    #pp(got)
+    env = Env(got)
+    defn = env['OperandsScout']
+    ca = defn.body[0].cas[0]  # the first conditions-actions pair
+    c = ca.conditions[0]  # The first NodeWithTag
+    gen = ca.make_gen(env)
+    print(gen)
+    #pp(got[0].body[0])

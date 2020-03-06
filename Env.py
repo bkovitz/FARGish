@@ -13,6 +13,7 @@ class Env(NiceRepr):
 
     def __init__(self, items=None):
         '''Calls .add_to_env(self) on each item in items.'''
+        self.suffix_num = 1  # suffix appended by .gensym()
         self.stack = [{}]
         if items is not None:
             for item in items:
@@ -59,6 +60,12 @@ class Env(NiceRepr):
             except KeyError:
                 continue
         return None
+
+    def gensym(self, prefix):
+        '''Generates a symbol starting with prefix. Updates .suffix_num.'''
+        name = f'{prefix}_{self.suffix_num}'
+        self.suffix_num += 1
+        return name
 
     #TODO UT
     def __getitem__(self, name):
