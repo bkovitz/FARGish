@@ -1,6 +1,9 @@
-        Comma means 'and'
+        VarArgs needs to insert 'self.' or '_g.neighbor' depending on type
+        of variable.
 
         NotAlreadyBuilt
+
+        Extract from single-element tuple correctly
 
 FARGish
 
@@ -43,12 +46,13 @@ FARGish
 
             'else' with further conditions  DONE
 
-            secondary action
-
-            see Not(Tagged(Done, this))
+            Comma means 'and'  DONE
 
             args should be [op, p1, p2], not ['op', 'p1', 'p2']  DONE
             py grammar.py
+
+            see Not(Tagged(Done, this))
+
 
     extern do_something : Action
 

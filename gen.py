@@ -52,6 +52,14 @@ def gen_prelines(o, file, fixup, env):
     else:
         pass
 
+class Type: pass
+class NodeidT(Type): pass
+class NodeSearchT(Type): pass
+class ActionT(Type): pass
+class PortLabelT(Type): pass
+class NodeClassT(Type): pass
+class ArbitraryT(Type): pass
+
 class ExternalName(EnvItem):
     def __init__(self, name):
         self.name = name
@@ -79,6 +87,10 @@ class PortLabel(EnvItem):
     def add_link_to(self, other):
         '''other should be another PortLabel.'''
         self.links_to.add(other)
+
+    def as_expr(self):
+        # TODO Is this right in general?
+        return f"_g.neighbor(_thisid, {self.name})"
 
     def unique_mate(self, env):
         '''Returns unique PortLabel that is the mate to this PortLabel or
@@ -315,6 +327,9 @@ class NodeDefn(EnvItem):
     def add_to_env(self, env):
         env.add(self.name, self)
 
+    def as_expr(self):
+        return self.name
+
     def gen(self, file, fixup, env):
         cl = Class(self.name)
 
@@ -359,7 +374,7 @@ class Initializer(NiceRepr):
     def add_to_class(self, cl, env):
         cl.add_inits(f'''self.{self.name} = {as_expr(self.expr)}''')
 
-class Expr(NiceRepr):
+class Expr(EnvItem):
     '''as_expr() should generate valid Python code for this expression.'''
 
     def name(self, env):
@@ -374,7 +389,7 @@ class Expr(NiceRepr):
 #    def action_condition_expr_gen(env, self):
 #        return BuildExprGen(
 
-class SeeDoElem(ABC, NiceRepr):
+class SeeDoElem(EnvItem, NiceRepr):
 
 #    @abstractmethod
     def condition_prelines(self, env):
@@ -430,16 +445,25 @@ class ConditionExpr(SeeDoElem):
     def __init__(self, expr):
         self.expr = expr
 
+    def add_to_env(self, env):
+        self.expr.add_to_env(env)
+
     def cartprod_elem_name(self, env):
         return cartprod_elem_name(self.expr, env)
 
     def cartprod_elem_expr(self, env):
         return cartprod_elem_expr(self.expr, env)
 
+    def condition_expr(self, env):
+        return self.expr.condition_expr(env)
+
 class ActionExpr(SeeDoElem):
 
     def __init__(self, expr):
         self.expr = expr
+
+    def add_to_env(self, env):
+        self.expr.add_to_env(env)
 
     def action_expr(self, env):
         return self.expr
@@ -463,6 +487,11 @@ class BuildSpecExpr(ActionExpr):
         self.nodeclass_expr = nodeclass_expr  # a NodeclassExpr
         self.args = args  # a list of ArgExprs
 
+    def add_to_env(self, env):
+        self.nodeclass_expr.add_to_env(env)
+        for arg in self.args:
+            arg.add_to_env(env)
+
     def cartprod_whole_tuple_condition(self, env):
         return f"NotAlreadyBuilt({as_expr(self.nodeclass_expr)})"
 
@@ -479,7 +508,7 @@ class BuildSpecExpr(ActionExpr):
         args_s = '[' + ', '.join(args) + ']'
         kwargs_s = \
             '{' + ', '.join(f"{repr(k)}: {v}" for k,v in kwargs.items()) + '}'
-        return f"Build({cls}, args={args_s}, kwargs={kwargs})"
+        return f"Build2({cls}, args={args_s}, kwargs={kwargs})"
 
     #TODO rm
     def condition_gen(self):
@@ -495,10 +524,14 @@ class BuildSpecExpr(ActionExpr):
 #        LocalGen(
 #            prelines= 
 
-class NodeclassExpr(NiceRepr):
+class NodeclassExpr(Expr):
 
     def __init__(self, name):
         self.name = name
+
+    def add_to_env(self, env):
+        #TODO Raise error if self.name is not defined as a nodeclass
+        pass
 
     def as_expr(self):
         return self.name
@@ -507,9 +540,19 @@ class VarRef(Expr):
 
     def __init__(self, name):
         self.name = name
+        self.o = None
+
+    def add_to_env(self, env):
+        print('VARENV', self.name, env.get(self.name))
+        #TODO Raise error if undefined
+        self.o = env.get(self.name)
 
     def as_expr(self):
-        return self.name
+        # TODO UGLY
+        if isinstance(self.o, PortLabel):
+            return as_expr(self.o)
+        else:
+            return self.name
 
     def action_expr_gen(self):
         return self
@@ -518,6 +561,9 @@ class Constant(Expr):
 
     def __init__(self, n):
         self.n = n
+
+    def add_to_env(self, env):
+        pass
 
     def as_expr(self):
         return repr(self.n)
@@ -530,6 +576,12 @@ class FuncCall(Expr):
     def __init__(self, funcname, args):
         self.funcname = funcname
         self.args = args
+
+    def add_to_env(self, env):
+        #TODO Check that self.funcname really refers to a function
+        #TODO determine type?
+        for arg in self.args:
+            arg.add_to_env(env)
 
     def is_nodesearch(self, env):
         return self.funcname == 'NodeWithTag'  # HACK
@@ -547,6 +599,9 @@ class MemberChain(Expr):
     def __init__(self, items):
         self.items = items
 
+    def add_to_env(self, env):
+        pass #TODO
+
     def as_expr(self):
         return '.'.join(self.items)
 
@@ -560,15 +615,37 @@ class Relexpr(Expr):
         self.op = op
         self.rhs = rhs
 
+    def add_to_env(self, env):
+        #TODO Set type to Boolean?
+        self.lhs.add_to_env(env)
+        self.rhs.add_to_env(env)
+
+    def as_expr(self):
+        lhs = as_expr(self.lhs)
+        op = as_expr(self.op)
+        rhs = as_expr(self.rhs)
+        return f"{lhs} {op} {rhs}"
+
+    def condition_expr(self, env):
+        return as_expr(self)
+
     #TODO UT
     def action_expr_gen(self):
         return self
 
-class LetExpr(Expr):
+class LetExpr(Expr, SeeDoElem):
 
     def __init__(self, name, expr):
         self.name = name
         self.expr = expr
+
+    def as_expr(self):
+        return self.name
+
+    def add_to_env(self, env):
+        self.expr.add_to_env(env)
+        #TODO Set type?
+        env.add(self.name, self.expr)
 
     def cartprod_elem_name(self, env):
         if is_nodesearch(self.expr, env):
@@ -643,6 +720,8 @@ class ConditionsWithActions(NiceRepr):
         env.push()
 
         for condition in self.conditions:
+            print('MAKEC', condition)
+            condition.add_to_env(env)
             condition_prelines += as_iter(condition.condition_prelines(env))
             cartprod_elems += as_iter(condition.cartprod_elem_expr(env))
             cartprod_names += as_iter(condition.cartprod_elem_name(env))
@@ -650,7 +729,11 @@ class ConditionsWithActions(NiceRepr):
                 as_iter(condition.cartprod_whole_tuple_condition(env))
             condition_exprs += as_iter(condition.condition_expr(env))
 
+        print('CONDS', self.conditions)
+        print(condition_exprs)
+
         for action in self.actions:
+            action.add_to_env(env)
             condition_prelines += as_iter(action.condition_prelines(env))
             cartprod_elems += as_iter(action.cartprod_elem_expr(env))
             cartprod_names += as_iter(action.cartprod_elem_name(env))
@@ -677,8 +760,12 @@ class ConditionsWithActions(NiceRepr):
                 print(f"{found_tup} = CartesianProduct({tup_elems}, whole_tuple_criterion={whole_crit}).see_one(_g)", file=file)
                 print(f"if {found_tup}:", file=file)
                 with indent(file):
-                    print(' = '.join(
-                        nm for nm in cartprod_names + [found_tup]), file=file)
+                    if len(cartprod_elems) == 1:
+                        print(f"({cartprod_names[0]},) = {found_tup}",
+                            file=file)
+                    else:
+                        print(' = '.join(nm for nm in
+                            cartprod_names + [found_tup]), file=file)
                 condition_exprs.insert(0, found_tup)
             if condition_exprs:
                 print(f"if {' and '.join(condition_exprs)}:", file=file)
@@ -693,6 +780,7 @@ class ConditionsWithActions(NiceRepr):
                 if nextgen:
                     nextgen(file, fixup, ignored_env)
 
+        print('GEN ENV', str(env))
         env.pop()
 
         return LocalGen(genfunc)
@@ -878,6 +966,9 @@ class AgentExpr(NiceRepr):
     def __init__(self, expr):
         self.expr = expr
 
+    def add_to_env(self, env):
+        pass #TODO
+
     def add_to_class(self, cl, env):
         '''cl is a Class object.'''
         name = cl.add_class_var(
@@ -893,6 +984,9 @@ class ArgExpr(NiceRepr):
     def __init__(self, argname, expr):
         self.argname = argname
         self.expr = expr
+
+    def add_to_env(self, env):
+        self.expr.add_to_env(env)
 
     def as_expr(self):
         if self.argname:

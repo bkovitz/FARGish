@@ -483,8 +483,14 @@ if __name__ == '__main__':
     from io import StringIO
     prog1 = '''external { arithResult, succeeded }
 tags -- taggees
+target -- tags
 
-Brick, Block : Number(n)
+Tag
+Avail, Allowed : Tag
+
+Number(n)
+Brick, Block : Number
+Operator
 
 OperandsScout(behalf_of, target)
   see p1 := NodeWithTag(Number, Avail),

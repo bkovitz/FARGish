@@ -65,3 +65,39 @@ def actions(self, _g, _thisid):
     if _found_tup:
         _result.append(Build2.maybe_make(ConsumeOperands, _g, kwargs={'consume_operands': [p1, p2], 'proposed_operator': op}))
     return _result
+
+'''
+tags -- taggees
+
+Brick, Block : Number(n)
+
+OperandsScout(behalf_of, target)
+  see p1 := NodeWithTag(Number, Avail),
+      p2 := NodeWithTag(Number, Avail),
+      op := NodeWithTag(Operator, Allowed)
+  => build ConsumeOperands(op, p1, p2)
+  else block := NodeWithTag(Block, Avail), block != target
+  => Fail(block)
+'''
+def actions(self, _g, _thisid):
+    _result = []
+    p1 = p2 = op = None
+    _found_tup = CartesianProduct(
+        NodeWithTag(Number, Avail),
+        NodeWithTag(Number, Avail),
+        NodeWithTag(Operator, Allowed),
+        whole_tuple_criterion=TupAnd(
+            no_dups,
+            NotAlreadyBuilt(ConsumeOperands)
+        )
+    ).see_one(_g)
+    if _found_tup:
+        p1, p2, op = _found_tup
+    if _found_tup:
+        _result.append(Build2.maybe_make(ConsumeOperands, _g, kwargs={'consume_operands': [p1, p2], 'proposed_operator': op}))
+    else:
+        block = NodeWithTag(Block, Avail).see_one(_g)
+        if block is not None and block != _g.neighbor(_thisid, 'target'):
+            _result.append(Fail(block))
+    return _result
+

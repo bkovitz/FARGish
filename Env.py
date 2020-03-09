@@ -1,6 +1,7 @@
 # Env.py -- A class that holds the environment (scope) in FARGish
 
 from abc import ABC, abstractmethod
+from io import StringIO
 
 from exc import FARGishCompilerException
 from util import NiceRepr
@@ -76,6 +77,19 @@ class Env(NiceRepr):
             except KeyError:
                 continue
         raise EnvKeyError(name)
+
+    def __str__(self):
+        s = StringIO()
+        for d in self.stack:
+            try:
+                w = max(len(k) for k in d.keys()) + 1
+            except ValueError:
+                w = 0
+            for k in sorted(d.keys()):
+                v = d[k]
+                print(f"{k:{w}}: {v}", file=s)
+            print(file=s)
+        return s.getvalue()
 
 class EnvItem(ABC, NiceRepr):
 
