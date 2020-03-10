@@ -1,9 +1,16 @@
-        VarArgs needs to insert 'self.' or '_g.neighbor' depending on type
-        of variable.
+Demo 10-Mar-2020
 
-        NotAlreadyBuilt
+    Merge branches
 
-        Extract from single-element tuple correctly
+    Minus
+
+    Fail w/o trying hopeless ConsumeOperands
+
+    Landmark arithmetic?
+
+    "Want" a subgoal
+
+    Promisingness tied to subgoal
 
 FARGish
 
@@ -51,8 +58,14 @@ FARGish
             args should be [op, p1, p2], not ['op', 'p1', 'p2']  DONE
             py grammar.py
 
+            NotAlreadyBuilt  DONE but not UT
+
             see Not(Tagged(Done, this))
 
+        VarArgs needs to insert 'self.' or '_g.neighbor' depending on type
+        of variable.  DONE
+
+        Extract from single-element tuple correctly  DONE
 
     extern do_something : Action
 
