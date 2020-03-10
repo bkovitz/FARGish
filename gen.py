@@ -22,6 +22,12 @@ def as_expr(x):
     else:
         return str(x)
 
+def as_varref(x):
+    if hasattr(x, 'as_varref'):
+        return x.as_varref()
+    else:
+        return str(x)
+
 def gen(o, file, fixup, env):
     if hasattr(o, 'gen'):
         o.gen(file, fixup, env)
@@ -88,9 +94,9 @@ class PortLabel(EnvItem):
         '''other should be another PortLabel.'''
         self.links_to.add(other)
 
-    def as_expr(self):
+    def as_varref(self):
         # TODO Is this right in general?
-        return f"_g.neighbor(_thisid, {self.name})"
+        return f"_g.neighbor(_thisid, {repr(self.name)})"
 
     def unique_mate(self, env):
         '''Returns unique PortLabel that is the mate to this PortLabel or
@@ -505,10 +511,16 @@ class BuildSpecExpr(ActionExpr):
                 args.append(as_expr(arg))
             else:
                 kwargs[arg.argname] = as_expr(arg.expr)
+        return self.build2(cls, args, kwargs)
+
+    def build2(self, cls, args, kwargs):
         args_s = '[' + ', '.join(args) + ']'
         kwargs_s = \
             '{' + ', '.join(f"{repr(k)}: {v}" for k,v in kwargs.items()) + '}'
-        return f"Build2({cls}, args={args_s}, kwargs={kwargs})"
+        return f"Build2({cls}, args={args_s}, kwargs={kwargs_s})"
+
+    def as_agent_expr(self):
+        return AgentExpr(self.nodeclass_expr, self.args)
 
     #TODO rm
     def condition_gen(self):
@@ -543,16 +555,12 @@ class VarRef(Expr):
         self.o = None
 
     def add_to_env(self, env):
-        print('VARENV', self.name, env.get(self.name))
+        #print('VARENV', self.name, env.get(self.name))
         #TODO Raise error if undefined
         self.o = env.get(self.name)
 
     def as_expr(self):
-        # TODO UGLY
-        if isinstance(self.o, PortLabel):
-            return as_expr(self.o)
-        else:
-            return self.name
+        return as_varref(self.o)
 
     def action_expr_gen(self):
         return self
@@ -729,8 +737,8 @@ class ConditionsWithActions(NiceRepr):
                 as_iter(condition.cartprod_whole_tuple_condition(env))
             condition_exprs += as_iter(condition.condition_expr(env))
 
-        print('CONDS', self.conditions)
-        print(condition_exprs)
+        #print('CONDS', self.conditions)
+        #print(condition_exprs)
 
         for action in self.actions:
             action.add_to_env(env)
@@ -780,7 +788,7 @@ class ConditionsWithActions(NiceRepr):
                 if nextgen:
                     nextgen(file, fixup, ignored_env)
 
-        print('GEN ENV', str(env))
+        #print('GEN ENV', str(env))
         env.pop()
 
         return LocalGen(genfunc)
@@ -803,7 +811,7 @@ class SeeDo(NiceRepr):
 
     def add_to_class(self, cl, env):
         if self.cas:
-            return self.cas[0].make_gen(env, self.cas[1:])
+            cl.add_action(self.cas[0].make_gen(env, self.cas[1:]))
 
         return #TODO rm the rest of this
         first_sdg = sdg = None
@@ -940,7 +948,6 @@ class SeeDoGen(NiceRepr):
             return False
 
     def gen_actions(self, file, fixup, env):
-        print('GEN_ACTIONS')
         for action_gen in self.action_gens:
             gen_prelines(action_gen, file, fixup, env)
             expr = as_expr(action_gen)
@@ -961,7 +968,7 @@ class SeeDoGen(NiceRepr):
 #            pass #TODO
 
 
-class AgentExpr(NiceRepr):
+class OLDAgentExpr(NiceRepr):
 
     def __init__(self, expr):
         self.expr = expr
@@ -978,6 +985,19 @@ class AgentExpr(NiceRepr):
         cl.add_action(
             f"_result.append(self.{name}.maybe_make_build_action(_g, _thisid))"
         )
+
+class AgentExpr(BuildSpecExpr):
+
+    def cartprod_whole_tuple_condition(self, env):
+        pass
+
+    def build2(self, cls, args, kwargs):
+        if 'behalf_of' not in kwargs:
+            kwargs['behalf_of'] = '_thisid'
+        args_s = '[' + ', '.join(args) + ']'
+        kwargs_s = \
+            '{' + ', '.join(f"{repr(k)}: {v}" for k,v in kwargs.items()) + '}'
+        return f"Build2.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s}, potential_neighbors=[_thisid])"
 
 class ArgExpr(NiceRepr):
 

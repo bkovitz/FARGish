@@ -274,8 +274,10 @@ def p_initializer(p):
     p[0] = Initializer(p[1], p[3])
 
 def p_agent_defn(p):
-    '''agent_defn : AGENT ':' expr'''
-    p[0] = AgentExpr(p[3])
+    #'''agent_defn : AGENT ':' expr'''
+    '''agent_defn : AGENT ':' buildspec'''
+    #p[0] = AgentExpr(p[3])
+    p[0] = SeeDo([ConditionsWithActions([], [p[3].as_agent_expr()])])
 
 def p_implicit_see_do(p):
     '''see_do : unconditional_actions maybe_else_chain'''
@@ -410,7 +412,6 @@ def p_relop(p):
 def p_maybe_args(p):
     '''maybe_args : empty
                   | args'''
-    print('MAYBE', p[1])
     p[0] = p[1]
 
 def p_args(p):

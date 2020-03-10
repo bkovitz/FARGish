@@ -48,9 +48,9 @@ Operator
 
 Plus, Times : Operator
 
-#Want : Tag
-#  agent: OperandsScout(target=taggee)
-#  agent: SuccessScout(target=taggee)
+Want : Tag
+  agent: OperandsScout(target=taggees)
+  agent: SuccessScout(target=taggees)
 
 #OperandsScout(target)
 #  see p1 := NodeWithTag(Number, Avail)
@@ -155,7 +155,7 @@ Plus.symbol = '+' #HACK
 Times.expr_class = expr.Times #HACK
 Times.symbol = '*' #HACK
 
-class Want(Tag, ActiveNode):
+class WantX(Tag, ActiveNode):
 
     min_support_for = 1.0
 
@@ -258,6 +258,12 @@ class Want(Tag, ActiveNode):
             #print('W', w)
             return w
 
+# HACKS: moving fully hand-coded Want class to FARGish-generated Want class
+Want.update_support = WantX.update_support
+Want.support_weight = WantX.support_weight
+Want.tags_weight = WantX.tags_weight
+Want.dist_weight = WantX.dist_weight
+
 class OperandsScout(ActiveNode):
 
     # IDEA Break it down into more scouts: OperatorScout and OperandsScout.
@@ -270,8 +276,13 @@ class OperandsScout(ActiveNode):
     # ANOTHER IDEA Multiple OperandsScouts, each looking at number nodes and
     # deciding how or whether to combine them into a group of operands.
 
-    def __init__(self, targetid):
-        self.targetid = targetid
+    node_params = NodeParams(
+        MateParam('target', 'tags'),
+        MateParam('behalf_of', 'agents')
+    )
+
+#    def __init__(self, targetid):
+#        self.targetid = targetid
 
     link_specs = [
         LinkSpec('proposer', 'consume-operand'),
@@ -312,7 +323,7 @@ class OperandsScout(ActiveNode):
             return []
         # no operands to consume, so fail, i.e. trigger backtracking
         nodeid = NodeWithTag(Block, Avail).see_one(g)
-        if g.value_of(nodeid) != g.value_of(self.targetid):
+        if g.value_of(nodeid) != g.value_of(self.target):
             return [Fail(nodeid)]
 
 def arith_result(g, operator_id):
@@ -543,20 +554,27 @@ class NumboSuccess(FargDone):
 
 class SuccessScout(ActiveNode):
 
-    def __init__(self, targetid):
-        self.targetid = targetid
+    node_params = NodeParams(
+        MateParam('target', 'tags'),
+        MateParam('behalf_of', 'agents')
+    )
+
+#    def __init__(self, targetid):
+#        self.targetid = targetid
 
     def actions(self, g, thisid):
-        v = g.value_of(self.targetid)
+        target = g.neighbor(thisid, port_label='target')
+        v = g.value_of(target)
         #node_ids = NodeWithTag(Number, Avail).see_all(g)
         #winner_id = next((g.value_of(id) == v for id in node_ids), None)
         winner_id = \
             NodeWithValue(v, nodeclass=Number, tagclass=Avail).see_one(g)
+        #print('SSCOUT', target, v, winner_id)
         if winner_id is not None:
             return [Raise(NumboSuccess,
                           expr.Equation(
                             extract_expr(g, winner_id),
-                            extract_expr(g, self.targetid)))]
+                            extract_expr(g, target)))]
 
 class GettingCloserTagger(ActiveNode):
 
@@ -694,6 +712,8 @@ def prompt_for_numble():
 g = None
 
 ShowAnnotations.start_logging()
+#ShowActionList.start_logging()
+#ShowActionsChosen.start_logging()
 
 def demo(seed=None, num=800):
     '''Run this for Doug.'''
@@ -713,7 +733,7 @@ def run(seed=None, numble=Numble([4, 5, 6], 15), n=70):
     global g
     g = new_graph(seed=seed, numble=numble)
     print('SEED', g.graph['seed'])
-    #start_logging([ShowActionsChosen])
+    #start_logging([ShowActionList, ShowActionsChosen])
     #pg(g)
     g.do_timestep(num=n)
     #ConsumeOperands.fail(g, 23)

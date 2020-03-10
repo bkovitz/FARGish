@@ -1,6 +1,17 @@
 Demo 10-Mar-2020
 
-    Merge branches
+    Merge branches  DONE
+
+    Incorporate new code generation into demo2.py
+
+        Why wasn't OperandsScout always beating SuccessScout and generating
+        a Fail action?
+
+        Want  DONE enough for the demo; still need to gen .update_support()
+
+        OperandsScout
+
+        SuccessScout
 
     Minus
 

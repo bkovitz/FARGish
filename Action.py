@@ -130,6 +130,8 @@ class Build2(Action):
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''
 
+    weight = 1.0
+
     def __init__(self, exc_class, *args, **kwargs):
         self.exc_class = exc_class
         self.args = args
