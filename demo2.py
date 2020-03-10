@@ -713,7 +713,7 @@ def run(seed=None, numble=Numble([4, 5, 6], 15), n=70):
     global g
     g = new_graph(seed=seed, numble=numble)
     print('SEED', g.graph['seed'])
-    start_logging([ShowActionsChosen])
+    #start_logging([ShowActionsChosen])
     #pg(g)
     g.do_timestep(num=n)
     #ConsumeOperands.fail(g, 23)
