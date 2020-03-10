@@ -1,6 +1,7 @@
 # Env.py -- A class that holds the environment (scope) in FARGish
 
 from abc import ABC, abstractmethod
+from io import StringIO
 
 from exc import FARGishCompilerException
 from util import NiceRepr
@@ -13,6 +14,7 @@ class Env(NiceRepr):
 
     def __init__(self, items=None):
         '''Calls .add_to_env(self) on each item in items.'''
+        self.suffix_num = 1  # suffix appended by .gensym()
         self.stack = [{}]
         if items is not None:
             for item in items:
@@ -60,6 +62,12 @@ class Env(NiceRepr):
                 continue
         return None
 
+    def gensym(self, prefix):
+        '''Generates a symbol starting with prefix. Updates .suffix_num.'''
+        name = f'{prefix}_{self.suffix_num}'
+        self.suffix_num += 1
+        return name
+
     #TODO UT
     def __getitem__(self, name):
         '''Returns the value of name in current scope or raises KeyError.'''
@@ -69,6 +77,19 @@ class Env(NiceRepr):
             except KeyError:
                 continue
         raise EnvKeyError(name)
+
+    def __str__(self):
+        s = StringIO()
+        for d in self.stack:
+            try:
+                w = max(len(k) for k in d.keys()) + 1
+            except ValueError:
+                w = 0
+            for k in sorted(d.keys()):
+                v = d[k]
+                print(f"{k:{w}}: {v}", file=s)
+            print(file=s)
+        return s.getvalue()
 
 class EnvItem(ABC, NiceRepr):
 

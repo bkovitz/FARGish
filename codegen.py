@@ -17,19 +17,27 @@ from bases import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 '''
 
-def make_python(fargish_code, file=None, preamble=preamble, postamble=''):
+def make_python(
+    fargish_code,
+    file=None,  # If None, print to stdout
+    preamble=preamble,
+    postamble='',
+    debug=False  # If True, print the raw parsed items to stdout
+):
     if file is None:
         file = sys.stdout
     file = Indenting(file)
     items = parse(fargish_code)
-    # To see the objects from gen.py that come out of the parser before
-    # they're compiled into Python, print 'items', i.e. call grammar.parse().
+    if (debug):
+        print('\n')
+        pp(items)
+        print()
     env = Env(items)
     print(preamble, file=file)
     fixup = Indenting(StringIO())
     for item in items:
         if hasattr(item, 'gen'):
-            item.gen(file, env, fixup)
+            item.gen(file, fixup, env)
     fixup.seek(0)
     for line in fixup:
         print(line, file=file, end='')

@@ -78,7 +78,8 @@ Agent
         g.do_timestep()
         self.assertEqual(len(g), 2)
 
-    def test_see_do(self):
+    #TODO unteest
+    def teest_see_do(self):
         g = TestGraph()
         prog = '''
 tags -- taggees
@@ -116,3 +117,62 @@ Scout4
   => do_something(Found, t2, t3)
 '''
         make_python(prog) #DEBUG
+
+    def test_see_do1(self):
+        g = TestGraph()
+        prog = '''
+Scout
+  => do_something()
+'''
+        make_python(prog, debug=True) #DEBUG
+
+        '''
+    _result = []
+    _result.append(do_something())
+    return _result
+'''
+
+    def test_see_do2(self):
+        g = TestGraph()
+        prog = '''
+Scout
+  => predefined_action
+'''
+        make_python(prog, debug=True) #DEBUG
+        '''
+    _result = []
+    _result.append(predefined_action)
+    return _result
+'''
+
+    def test_see_do3(self):
+        g = TestGraph()
+        prog = '''
+Scout
+  => 111  # This is actually crazy and FARGish shouldn't allow it
+'''
+        make_python(prog, debug=True) #DEBUG
+        '''
+    _result = []
+    _result.append(111)
+    return _result
+'''
+
+    def test_see_do4(self):
+        g = TestGraph()
+        prog = '''
+goal -- tags
+
+SuccessScout(goal)
+
+Scout
+    => build SuccessScout(goal=this)
+'''
+        make_python(prog, debug=True) #DEBUG
+        '''
+        _result = []
+        _kwargs = {'goal', _thisid}
+        if not _g.already_built(SuccessScout, kwargs=_kwargs):
+            _result.append(Build(SuccessScout, kwargs=_kwargs))
+        return _result
+'''

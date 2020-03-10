@@ -1,3 +1,17 @@
+Demo 10-Mar-2020
+
+    Merge branches
+
+    Minus
+
+    Fail w/o trying hopeless ConsumeOperands
+
+    Landmark arithmetic?
+
+    "Want" a subgoal
+
+    Promisingness tied to subgoal
+
 FARGish
 
     BNF  DONE
@@ -25,7 +39,7 @@ FARGish
             generate code  DONE
             testBuildAgent  DONE
 
-        Make a general NodeSpec class
+        Make a general NodeSpec class  DONE
 
         see-do
 
@@ -33,17 +47,27 @@ FARGish
 
             Put NodeSpec, NodeWithTag, etc. into FARGish
 
-            Cartesian product for named nodes
+            Cartesian product for named nodes  DONE
 
-            'build' action
+            'build' action  DONE
 
-            'else' with further conditions
+            'else' with further conditions  DONE
 
-            Comma means 'and'
+            Comma means 'and'  DONE
 
-            secondary action
+            args should be [op, p1, p2], not ['op', 'p1', 'p2']  DONE
+            py grammar.py
+
+            NotAlreadyBuilt  DONE but not UT
 
             see Not(Tagged(Done, this))
+
+        VarArgs needs to insert 'self.' or '_g.neighbor' depending on type
+        of variable.  DONE
+
+        Extract from single-element tuple correctly  DONE
+
+    extern do_something : Action
 
     Clean up BuildSpec so it's:
         
@@ -53,6 +77,11 @@ FARGish
 
         LinkSpec: include role names?
             This would let a caller specify nodes by the names of their roles.
+
+Clean-up
+
+    rm testNumbospec.py, numbospec.py, numbonodes.py, any others no longer
+    relevant.
 
 
 Detect stuckness.
