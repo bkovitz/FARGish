@@ -383,6 +383,7 @@ class Initializer(NiceRepr):
 class Expr(EnvItem):
     '''as_expr() should generate valid Python code for this expression.'''
 
+    #TODO Shouldn't we require any subclass to provide the SeeDoElem methods?
     def name(self, env):
         pass
 
@@ -728,7 +729,7 @@ class ConditionsWithActions(NiceRepr):
         env.push()
 
         for condition in self.conditions:
-            print('MAKEC', condition)
+            #print('MAKEC', condition)
             condition.add_to_env(env)
             condition_prelines += as_iter(condition.condition_prelines(env))
             cartprod_elems += as_iter(condition.cartprod_elem_expr(env))
@@ -1014,6 +1015,21 @@ class ArgExpr(NiceRepr):
         else:
             return as_expr(self.expr)
 
+class TupleExpr(Expr):
+
+    def __init__(self, *elem_exprs):
+        self.elem_exprs = elem_exprs
+
+    def add_to_env(self, env):
+        for elem_expr in self.elem_exprs:
+            elem_expr.add_to_env(env)
+
+    def as_expr(self):
+        if not self.elem_exprs:
+            return '()'
+        else:
+            s = ', '.join(as_expr(e) for e in self.elem_exprs)
+            return f"({s},)"
 
 #class SeeDoAccumulator(NiceRepr):
 #    

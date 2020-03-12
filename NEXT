@@ -1,4 +1,10 @@
-Demo 10-Mar-2020
+    Make FuncCall generate correct Python expr in OperandTagger
+
+Demo 12-Mar-2020
+
+    Minus
+        ConsumeOperands.rough_estimate()
+        Make ConsumeOperands build a Minus
 
     Merge branches  DONE
 
@@ -12,8 +18,6 @@ Demo 10-Mar-2020
         OperandsScout
 
         SuccessScout
-
-    Minus
 
     Fail w/o trying hopeless ConsumeOperands
 

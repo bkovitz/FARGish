@@ -14,7 +14,7 @@ from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo, AgentExpr, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
-    BuildSpecExpr, ActionExpr, ConditionExpr
+    BuildSpecExpr, ActionExpr, ConditionExpr, TupleExpr
 
 
 ##### Grammar for lexical analyzer
@@ -223,6 +223,11 @@ def one_or_more(p, initial_item_index, additional_item_index):
 
 ##### Grammar for syntactic analyzer
 
+precedence = (
+    ('left', ','),
+    ('left', 'LPAREN', 'RPAREN'),
+)
+
 def p_prog(p):
     '''prog : empty
             | prog prog_elem'''
@@ -361,12 +366,18 @@ def p_nodeclass(p):
     p[0] = NodeclassExpr(p[1])
 
 def p_expr(p):
-    '''expr : varref
+    '''expr : tuple
             | constant
             | funccall
             | relexpr
-            | member_chain'''
+            | member_chain
+            | varref'''
     p[0] = p[1]
+
+def p_exprs(p):
+    '''exprs : expr
+             | exprs ',' expr'''
+    one_or_more(p, 1, 3)
 
 def p_varref(p):
     '''varref : NAME'''
@@ -408,6 +419,24 @@ def p_relop(p):
              | GT
              | GE'''
     p[0] = p[1]
+
+def p_tuple(p):
+    '''tuple : tuple0
+             | tuple_many
+             | tuple1'''
+    p[0] = p[1]
+
+def p_tuple0(p):
+    '''tuple0 : LPAREN RPAREN'''
+    p[0] = TupleExpr()
+
+def p_tuple1(p):
+    '''tuple1 : LPAREN exprs ',' RPAREN'''
+    p[0] = TupleExpr(*p[2])
+
+def p_tuple_many(p):
+    '''tuple_many : LPAREN exprs RPAREN'''
+    p[0] = TupleExpr(*p[2])
 
 def p_maybe_args(p):
     '''maybe_args : empty
@@ -473,7 +502,7 @@ def p_empty(p):
 
 parser = Parser(lex.lex(), yacc.yacc())
 
-def parse(code, debug=None):
+def parse(code, debug=False):
     return parser.parse(code, debug=debug)
 
 #TODO rm this test code; make a UT

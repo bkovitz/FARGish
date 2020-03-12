@@ -33,20 +33,17 @@ behalf_of -- agents
 target -- tags
 
 Tag(taggees)
-
 Avail, Consumed, Failed, Done, Allowed, Promising, Hopeless : Tag
-
 GettingCloser : Promising
-
-Number(value)
 
 Workspace
 
+Number(value)
 Brick, Target, Block : Number
 
 Operator
-
 Plus, Times : Operator
+Minus(minuend, subtrahend) : Operator
 
 Want : Tag
   agent: OperandsScout(target=taggees)
@@ -154,6 +151,8 @@ Plus.expr_class = expr.Plus #HACK
 Plus.symbol = '+' #HACK
 Times.expr_class = expr.Times #HACK
 Times.symbol = '*' #HACK
+Minus.expr_class = expr.Minus #HACK
+Minus.symbol = '-' #HACK
 
 class WantX(Tag, ActiveNode):
 
@@ -328,8 +327,12 @@ class OperandsScout(ActiveNode):
 
 def arith_result(g, operator_id):
     operator_class = g.class_of(operator_id)
-    operand_ids = g.neighbors(operator_id, port_label='operands')
-    return arith_result0(g, operator_class, operand_ids)
+    print('OCLASS', operator_class)
+    if operator_class == Minus: #HACK
+        return 0.0  # STUB
+    else:
+        operand_ids = g.neighbors(operator_id, port_label='operands')
+        return arith_result0(g, operator_class, operand_ids)
 
 def arith_result0(g, operator_class, operand_ids):
     operand_values = [g.value_of(o) for o in operand_ids]
@@ -631,8 +634,10 @@ class Numble:
             g.add_tag(Avail, brick_id)
         plusid = g.make_node(Plus, container)
         timesid = g.make_node(Times, container)
+        minusid = g.make_node(Minus, container)
         Allowed.add_tag(g, plusid)
         Allowed.add_tag(g, timesid)
+        Allowed.add_tag(g, minusid)
         return container
 
     def as_dict(self):
@@ -746,5 +751,5 @@ if __name__ == '__main__':
     #run(seed=8316664589534836549)
     #run(seed=1725458333626496812)
     #run()
-    demo()
+    demo(seed=4730533389549952010)
     #run(seed=2524266053616371958, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=12)
