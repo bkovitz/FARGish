@@ -1,4 +1,6 @@
-    Make FuncCall generate correct Python expr in OperandTagger
+    In demo2.py, make NotAlreadyBuilt() recognize that CouldBeOperand is
+    already built, tagging a given node. I think currently g.already_built()
+    is always returning False.
 
 Demo 12-Mar-2020
 
@@ -81,6 +83,8 @@ FARGish
         of variable.  DONE
 
         Extract from single-element tuple correctly  DONE
+
+        Make FuncCall generate correct Python expr in OperandTagger  DONE
 
     extern do_something : Action
 

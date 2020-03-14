@@ -17,6 +17,22 @@ class Indent1Lexer:
         self.lexer = lexer
         self.token_stream = None
 
+    @property
+    def lineno(self):
+        return self.lexer.lineno
+
+    @lineno.setter
+    def lineno(self, x):
+        self.lexer.lineno = x
+
+    @property
+    def lexpos(self):
+        return self.lexer.lexpos
+
+    @lexpos.setter
+    def lexpos(self, x):
+        self.lexer.lexpos = x
+
     def input(self, s):
         self.lexer.paren_count = 0  # must be updated by t_LPAREN and t_RPAREN
                                     # to prevent INDENT/DEDENT within
@@ -127,7 +143,9 @@ class Parser:
         self.lexer = Indent1Lexer(ply_lexer)
         self.parser = ply_yacc
 
-    def parse(self, code, debug=False):
+    def parse(self, code, tracking=False, debug=False):
         self.lexer.input(code)
-        result = self.parser.parse(lexer=self.lexer, debug=debug)
+        result = self.parser.parse(
+            lexer=self.lexer, tracking=tracking, debug=debug
+        )
         return result

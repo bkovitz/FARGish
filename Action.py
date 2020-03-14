@@ -121,11 +121,9 @@ class Build2(Action):
                 threshold=threshold)
 
     def go(self, g):
-        if self.kwargs:
-            datum = self.nodeclass(**self.kwargs)
-        else:
-            datum = self.nodeclass()
+        datum = self.nodeclass(*self.args, **self.kwargs)
         new_node = g.make_node(datum)
+        #print('BUILD2', new_node, datum)
 
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''

@@ -5,6 +5,7 @@ from io import StringIO
 from pprint import pprint as pp
 
 from grammar import parse
+from gen import LinkDefn
 from Env import Env
 from Indenting import Indenting, indent
 #from PortGraph import Node
@@ -12,9 +13,13 @@ from Indenting import Indenting, indent
 
 preamble = '''from PortGraph import Node
 from LinkSpec import LinkSpec
-from NodeSpec import BuildSpec
+from NodeSpec import BuildSpec, NodeOfClass, NodeSpec, NodeWithTag, \
+    NodeWithValue, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, \
+    NotAlreadyBuilt
 from bases import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
+from PortMates import PortMates
+from Action import Build2
 '''
 
 def make_python(
@@ -38,6 +43,17 @@ def make_python(
     for item in items:
         if hasattr(item, 'gen'):
             item.gen(file, fixup, env)
+
+    #TODO This really should become a special item in Env, so that .gen code
+    #can derive things from it.
+    # 'port_mates' is global variable. You must pass it explicitly to
+    # PortGraph's ctor.
+    print('port_mates = PortMates()', file=file)
+    for link_defn in (i for i in items if isinstance(i, LinkDefn)):
+        fl = repr(link_defn.from_label.name)
+        tl = repr(link_defn.to_label.name)
+        print(f"port_mates.add({fl}, {tl})", file=file)
+
     fixup.seek(0)
     for line in fixup:
         print(line, file=file, end='')

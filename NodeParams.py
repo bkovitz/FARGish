@@ -37,7 +37,8 @@ class NodeParam(ABC):
     def on_build(self, g, nodeid, kwargs):
         '''Take argument value from kwargs and do whatever initialization is
         appropriate to the node in the graph. Called from PortGraph.make_node()
-        immediately after the Node is put into the graph.'''
+        immediately after the Node is put into the graph. Must return the
+        key from kwargs that was processed, or None.'''
         pass
 
     @abstractmethod
@@ -69,7 +70,7 @@ class MateParam(NodeParam):
         try:
             mateid = kwargs[self.this_port_label]
         except KeyError:
-            return
+            return None
         for thatid in as_iter(mateid):
             g.add_edge(
                 thisid,
@@ -77,6 +78,7 @@ class MateParam(NodeParam):
                 thatid,
                 self.that_port_label
             )
+        return self.this_port_label
 
     def arg_into_kwargs(self, arg, kwargs):
         add_kwarg(self.this_port_label, arg, kwargs)
@@ -102,7 +104,9 @@ class AttrParam(NodeParam):
         setattr(datum, self.name, v)
 
     def on_build(self, g, thisid, kwargs):
-        pass
+        # We don't affect the node; the attribute it assumed to already have
+        # been set in the Datum before the Node was built.
+        return self.name
 
     def arg_into_kwargs(self, arg, kwargs):
         add_kwarg(self.name, arg, kwargs)
@@ -124,8 +128,15 @@ class NodeParams:
             param.on_init(datum, kwargs)
 
     def on_build(self, g, thisid, kwargs):
+        to_do = set(kwargs.keys())
         for param in self.params:
-            param.on_build(g, thisid, kwargs)
+            did = param.on_build(g, thisid, kwargs)
+            if did:
+                to_do.discard(did)
+        # Try viewing any kwargs not covered by NodeParam objects as port
+        # labels, whose values are the node ids to link to.
+        for port_label in to_do:
+            g.auto_link(thisid, port_label, kwargs[port_label])
 
     def args_into_kwargs(self, args, kwargs):
         '''Converts args into named arguments in kwargs. Returns a new

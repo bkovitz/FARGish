@@ -134,7 +134,6 @@ def t_RBRACE(t):
     t.lexer.brace_count -= 1
     return t
 
-#TODO rm?
 def t_DOUBLE_HYPHEN(t):
     r'--'
     return t
@@ -282,6 +281,7 @@ def p_agent_defn(p):
     #'''agent_defn : AGENT ':' expr'''
     '''agent_defn : AGENT ':' buildspec'''
     #p[0] = AgentExpr(p[3])
+    #print('AGDEF', p.lineno(3), p.lexpos(3)) #, p.linespan(3), p.lexspan(3))
     p[0] = SeeDo([ConditionsWithActions([], [p[3].as_agent_expr()])])
 
 def p_implicit_see_do(p):
@@ -358,8 +358,12 @@ def p_action(p):
         p[0] = ActionExpr(p[1])
 
 def p_buildspec(p):
-    '''buildspec : nodeclass LPAREN maybe_args RPAREN'''
-    p[0] = BuildSpecExpr(p[1], p[3])
+    '''buildspec : nodeclass LPAREN maybe_args RPAREN
+                 | nodeclass'''
+    if len(p) == 2:
+        p[0] = BuildSpecExpr(p[1], [])
+    else:
+        p[0] = BuildSpecExpr(p[1], p[3])
 
 def p_nodeclass(p):
     '''nodeclass : NAME'''
@@ -503,7 +507,11 @@ def p_empty(p):
 parser = Parser(lex.lex(), yacc.yacc())
 
 def parse(code, debug=False):
-    return parser.parse(code, debug=debug)
+    return (
+        [LinkDefn('behalf_of', 'agents')]
+        +
+        parser.parse(code, tracking=True, debug=debug)
+    )
 
 #TODO rm this test code; make a UT
 if __name__ == '__main__':

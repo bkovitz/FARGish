@@ -58,15 +58,17 @@ Scout(target)'''
         self.assertTrue(g.has_hop(sid, 'target', nid, 'tags'))
 
     def test_build_agent(self):
-        g = TestGraph()
         prog = '''
 Client
-    agent: Agent
+  agent: Agent
 
 Agent
 '''
-        make_python(prog) #DEBUG
+        #make_python(prog, debug=1) #DEBUG
         exec(compile_fargish(prog), globals())
+        #ShowActionList.start_logging()
+        #ShowActionsChosen.start_logging()
+        g = TestGraph(port_mates=port_mates)
         client = g.make_node(Client)
         g.do_timestep()
         self.assertEqual(len(g), 2)
@@ -75,8 +77,26 @@ Agent
         self.assertTrue(g.has_hop(agent, 'behalf_of', client, 'agents'))
 
         # Once the agent is built, the client should not build another.
-        g.do_timestep()
+        g.do_timestep(num=5)
         self.assertEqual(len(g), 2)
+
+        # Let's build another Client. It should get its own Agent.
+        client2 = g.make_node(Client)
+        g.do_timestep()
+        self.assertEqual(len(g), 4)
+        agent2 = g.neighbor(client2, port_label='agents')
+        self.assertEqual(g.class_of(agent2), Agent)
+        self.assertNotEqual(agent, agent2)
+        g.do_timestep(num=5)
+        self.assertEqual(len(g), 4)
+
+        #TODO There needs to be a unit test that fully exercises the
+        # ability to pass a Node ctor a port_label argument for which it
+        # has not NodeParam, thus forcing it to make a link not explicitly
+        # provided for in the Node's parameters. As of 13-Mar-2013, the
+        # PortGraph.exactly_matches_kwargs() function does not check for
+        # such links. That should cause PortGraph.already_built() to return
+        # a spurious result.
 
     #TODO unteest
     def teest_see_do(self):
@@ -118,7 +138,8 @@ Scout4
 '''
         make_python(prog) #DEBUG
 
-    def test_see_do1(self):
+    #TODO undo teest
+    def teest_see_do1(self):
         g = TestGraph()
         prog = '''
 Scout
@@ -132,7 +153,8 @@ Scout
     return _result
 '''
 
-    def test_see_do2(self):
+    #TODO undo teest
+    def teest_see_do2(self):
         g = TestGraph()
         prog = '''
 Scout
@@ -145,7 +167,8 @@ Scout
     return _result
 '''
 
-    def test_see_do3(self):
+    #TODO undo teest (or maybe not)
+    def teest_see_do3(self):
         g = TestGraph()
         prog = '''
 Scout
@@ -158,7 +181,8 @@ Scout
     return _result
 '''
 
-    def test_see_do4(self):
+    #TODO undo teest
+    def teest_see_do4(self):
         g = TestGraph()
         prog = '''
 goal -- tags

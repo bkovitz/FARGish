@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from pprint import pprint as pp
 from io import StringIO
 from collections import namedtuple
+import traceback
 
 from Env import EnvItem
 from LinkSpec import LinkSpec
@@ -19,12 +20,8 @@ from Indenting import Indenting, indent
 def as_expr(x):
     if hasattr(x, 'as_expr'):
         return x.as_expr()
-    else:
-        return str(x)
-
-def as_varref(x):
-    if hasattr(x, 'as_varref'):
-        return x.as_varref()
+    elif isinstance(x, list) or isinstance(x, tuple):
+        return '[' + (', '.join(as_expr(e) for e in x)) + ']'
     else:
         return str(x)
 
@@ -45,6 +42,8 @@ def cartprod_elem_expr(o, env):
         return o.cartprod_elem_expr(env)
     else:
         pass
+
+nodesearch_names = {'NodeWithTag', 'NodeOfClass', 'NodeSpec'} #HACK
 
 def is_nodesearch(o, env):
     if hasattr(o, 'is_nodesearch'):
@@ -509,15 +508,16 @@ class BuildSpecExpr(ActionExpr):
         for arg in self.args:
             #TODO don't reach inside ArgExpr so much
             if not arg.argname:
-                args.append(as_expr(arg))
+                args.append(arg.expr)
             else:
-                kwargs[arg.argname] = as_expr(arg.expr)
+                kwargs[arg.argname] = arg.expr
         return self.build2(cls, args, kwargs)
 
     def build2(self, cls, args, kwargs):
-        args_s = '[' + ', '.join(args) + ']'
+        #print('BUILD', cls, args, kwargs)
+        args_s = '[' + ', '.join(as_expr(a) for a in args) + ']'
         kwargs_s = \
-            '{' + ', '.join(f"{repr(k)}: {v}" for k,v in kwargs.items()) + '}'
+            '{' + ', '.join(f"{repr(k)}: {as_expr(v)}" for k,v in kwargs.items()) + '}'
         return f"Build2({cls}, args={args_s}, kwargs={kwargs_s})"
 
     def as_agent_expr(self):
@@ -561,7 +561,10 @@ class VarRef(Expr):
         self.o = env.get(self.name)
 
     def as_expr(self):
-        return as_varref(self.o)
+        if hasattr(self.o, 'as_varref'):
+            return self.o.as_varref()
+        else:
+            return self.name
 
     def action_expr_gen(self):
         return self
@@ -593,9 +596,10 @@ class FuncCall(Expr):
             arg.add_to_env(env)
 
     def is_nodesearch(self, env):
-        return self.funcname == 'NodeWithTag'  # HACK
+        return self.funcname in nodesearch_names  # HACK
 
     def as_expr(self):
+        #print('FUNC AS', self)
         return f'''{self.funcname}({', '.join(as_expr(a) for a in self.args)})'''
 
     def action_expr_gen(self):
@@ -664,6 +668,7 @@ class LetExpr(Expr, SeeDoElem):
         if is_nodesearch(self.expr, env):
             return self.expr
 
+#TODO rm
 class NodesFinder(NiceRepr):
 
     def __init__(self):
@@ -995,9 +1000,9 @@ class AgentExpr(BuildSpecExpr):
     def build2(self, cls, args, kwargs):
         if 'behalf_of' not in kwargs:
             kwargs['behalf_of'] = '_thisid'
-        args_s = '[' + ', '.join(args) + ']'
+        args_s = '[' + ', '.join(as_expr(a) for a in args) + ']'
         kwargs_s = \
-            '{' + ', '.join(f"{repr(k)}: {v}" for k,v in kwargs.items()) + '}'
+            '{' + ', '.join(f"{repr(k)}: {as_expr(v)}" for k,v in kwargs.items()) + '}'
         return f"Build2.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s}, potential_neighbors=[_thisid])"
 
 class ArgExpr(NiceRepr):
@@ -1027,9 +1032,12 @@ class TupleExpr(Expr):
     def as_expr(self):
         if not self.elem_exprs:
             return '()'
+        elif len(self.elem_exprs) == 1:
+            s = as_expr(self.elem_exprs[0])
+            return f"({s},)"
         else:
             s = ', '.join(as_expr(e) for e in self.elem_exprs)
-            return f"({s},)"
+            return f"({s})"
 
 #class SeeDoAccumulator(NiceRepr):
 #    

@@ -64,10 +64,10 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
             self.node_params.on_build(g, thisid, self.kwargs)
 
     #TODO rm; replaced by .on_build()
-    def auto_link(self, thisid, g):
-        '''Creates links to mates, if any; should be called immediately upon
-        building the node.'''
-        pass
+#    def auto_link(self, thisid, g):
+#        '''Creates links to mates, if any; should be called immediately upon
+#        building the node.'''
+#        pass
 
     def is_attrs_match(self, other):
         return True
@@ -312,6 +312,8 @@ class PortGraph(nx.MultiGraph):
     default_salience = 0.01
 
     def __init__(self, *args, **kwargs):
+        # In kwargs,
+        # 'port_mates' = PortMates object to deduce port labels for auto-linking
         kws = kwargs.copy()
         kws['seed'] = reseed(kws.get('seed', None))
         #print('KWS', kws)
@@ -332,8 +334,8 @@ class PortGraph(nx.MultiGraph):
         with no arguments and set the datum to the constructed object.
         Otherwise we set the datum to o. We set the salience according
         to o.default_salience (from the object, not the class). Returns the
-        new node's id. If the datum has an attribute named auto_link,
-        we call it with these arguments: obj.auto_link(id, self) where id
+        new node's id. If the datum has an attribute named on_build,
+        we call it with these arguments: obj.on_build(self, id) where id
         is the new node's id.'''
         i = self._bump_nextid()
         if isclass(o):
@@ -358,8 +360,8 @@ class PortGraph(nx.MultiGraph):
             self.add_edge(i, 'builder', builder, 'built')
         for c in as_iter(container):
             self.add_member_edge(c, i)
-        if hasattr(o, 'auto_link'): #TODO rm; replaced by on_build
-            o.auto_link(i, self)
+#        if hasattr(o, 'auto_link'): #TODO rm; replaced by on_build
+#            o.auto_link(i, self)
         if hasattr(o, 'on_build'):
             o.on_build(self, i)
         return i
@@ -534,6 +536,13 @@ class PortGraph(nx.MultiGraph):
 
     def port_labels(self, node):
         return self.nodes[node]['_hops'].from_port_labels()
+
+    def auto_link(self, from_node, port_label, to_node):
+        try:
+            port_mates = self.graph['port_mates']
+        except KeyError:
+            return
+        port_mates.auto_link(self, from_node, port_label, to_node)
 
     def find_hop(self, from_node, from_port_label, to_node, to_port_label):
         '''Returns the Hop if it exists, else None.'''
