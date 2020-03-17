@@ -7,9 +7,13 @@ from util import as_iter
 
 class PortMates:
 
-    def __init__(self):
+    def __init__(self, pairs=None):
+        '''pairs is an iterable of (from_label, to_label).'''
         self.d = defaultdict(set)  # label: set(label)
         self.canonical = {}        # label: label
+        if pairs:
+            for f, t in pairs:
+                self.add(f, t)
 
     def add(self, from_label, to_label):
         for fl in as_iter(from_label):
@@ -29,4 +33,9 @@ class PortMates:
             to_label = self.canonical[port_label]
         except KeyError:
             return  # do nothing if port_label has no mate
-        g.add_edge(from_node, port_label, to_node, to_label)
+        for f in as_iter(from_node):
+            for t in as_iter(to_node):
+                g.add_edge(f, port_label, t, to_label)
+
+    def is_port_label(self, name):
+        return name in self.canonical

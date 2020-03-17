@@ -245,7 +245,7 @@ class TupAnd(TupleCriterion):
     def is_match(self, g, tup):
         return all(c.is_match(g, tup) for c in self.tupcriteria)
 
-class BuildSpec(NiceRepr):
+class OLDBuildSpec(NiceRepr):
     '''Specifies a node to build, including links to existing neighbors.'''
 
     def __init__(self, new_nodeclass, link_specs=None, new_node_args=None):

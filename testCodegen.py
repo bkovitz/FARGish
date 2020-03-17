@@ -7,7 +7,6 @@ from codegen import make_python, compile_fargish
 from PortGraph import PortGraph, Node, pg
 from TimeStepper import TimeStepper
 from LinkSpec import LinkSpec
-from NodeSpec import BuildSpec
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
 
 class TestGraph(TimeStepper, PortGraph):

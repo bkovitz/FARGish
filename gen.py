@@ -11,7 +11,7 @@ import traceback
 
 from Env import EnvItem
 from LinkSpec import LinkSpec
-from NodeSpec import BuildSpec
+#from NodeSpec import BuildSpec
 from util import as_iter, as_name, NiceRepr, newline
 from exc import NoUniqueMateError
 from NodeParams import NodeParams, AttrParam, MateParam

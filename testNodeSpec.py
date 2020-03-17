@@ -4,7 +4,7 @@ from pprint import pprint as pp
 
 from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
     HasSameValue, And, Not, CartesianProduct, no_dups, TupAnd, \
-    NotLinkedToSame, BuildSpec
+    NotLinkedToSame, OLDBuildSpec as BuildSpec
 from LinkSpec import LinkSpec
 from numbospec import *
 from bases import make_link

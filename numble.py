@@ -1,3 +1,4 @@
+#OBSOLETE
 # numble.py  --  Numble class and support
 
 from util import nice_object_repr

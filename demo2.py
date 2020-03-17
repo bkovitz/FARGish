@@ -11,7 +11,8 @@ from PortGraph import PortGraph, Node, pg, ps
 import PortGraph as PG
 from bases import ActiveNode
 from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
-    And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups, BuildSpec
+    And, Not, CartesianProduct, TupAnd, NotLinkedToSame, no_dups, \
+    OLDBuildSpec
 from NodeParams import NodeParams, AttrParam, MateParam
 from LinkSpec import LinkSpec
 from ExprAsEquation import ExprAsEquation
@@ -379,7 +380,7 @@ class RoughEstimateTagger(ActiveNode):
         if clientid is not None and not g.has_tag(clientid, RoughEstimate):
             rough_value = g.call_method(clientid, 'rough_estimate')
             if rough_value is not None:
-                build_spec = BuildSpec(
+                build_spec = OLDBuildSpec(
                     RoughEstimate,
                     [LinkSpec('tags', 'taggees')],
                     new_node_args=(rough_value,)
@@ -452,7 +453,7 @@ class RoughDistanceTagger(ActiveNode):
 class ConsumeOperands(ActiveNode):
 
     build_spec = \
-        BuildSpec(RoughEstimateTagger, LinkSpec('agents', 'behalf_of'))
+        OLDBuildSpec(RoughEstimateTagger, LinkSpec('agents', 'behalf_of'))
 
     def actions(self, g, thisid):
         if self.can_go(g, thisid):

@@ -4,6 +4,8 @@ from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
         sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs
+from BuildSpec import make_buildspec
+from NodeParams import NodeParams
 
 import networkx as nx
 
@@ -15,6 +17,8 @@ from random import choice, choices
 from io import StringIO
 
 
+empty_node_params = NodeParams()
+
 class Node:
 
     can_need_update = False  # override with True to get NeedsUpdate tag
@@ -24,11 +28,22 @@ class Node:
 
     @classmethod
     def args_into_kwargs(cls, args, kwargs):
+        '''kwargs will not be modified.'''
         if cls.node_params is None:
             return kwargs.copy()
         else:
             return cls.node_params.args_into_kwargs(args, kwargs)
 
+    @classmethod
+    def make_filled_params(cls, g, args, kwargs):
+        node_params = cls.node_params
+        if node_params is None:
+            node_params = empty_node_params
+        return node_params.make_filled_params(
+            g, cls.args_into_kwargs(args, kwargs)
+        )
+        
+    #TODO rm?
     @classmethod
     def exactly_matches_kwargs(cls, g, node, kwargs):
         '''Would building a node with this class and arguments kwargs result
@@ -59,9 +74,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         #TODO Redesign so that attributes passed in kwargs can't name-clash
         #with other attributes of Node, like the methods.
 
+    #TODO rm
     def on_build(self, g, thisid):
-        if self.node_params is not None:
-            self.node_params.on_build(g, thisid, self.kwargs)
+#        if self.node_params is not None:
+#            self.node_params.on_build(g, thisid, self.kwargs)
+        pass
 
     #TODO rm; replaced by .on_build()
 #    def auto_link(self, thisid, g):
@@ -73,7 +90,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         return True
 
     def __repr__(self):
-        exclude = set(['kwargs'])
+        exclude = set(['kwargs', 'id'])
         #TODO Ignore self.link_specs; show items other than MateParams
         if isinstance(self.link_specs, Iterable):
             exclude |= set(ls.new_node_port_label for ls in self.link_specs)
@@ -329,7 +346,44 @@ class PortGraph(nx.MultiGraph):
         self.nextid += 1
         return result
 
-    def make_node(self, o, container=None, builder=None):
+    def mknode(self, o):
+        '''Innermost function for making nodes in a FARG model. Most callers
+        should call .make_node() instead.
+
+        Builds a new node and sets its datum. If o is a class, we call it
+        with no arguments and set the datum to the constructed object.
+        Otherwise we set the datum to o. We set the salience according
+        to o.default_salience (from the object, not the class). Returns the
+        new node's id.'''
+        i = self._bump_nextid()
+        if isclass(o):
+            o = o()
+        self.add_node(i, **{'datum': o})
+        try:
+            salience = o.default_salience
+            if salience is not None:
+                self.set_salience(i, salience)
+            self.set_support_for(
+                i,
+                max(o.initial_support_for, o.min_support_for)
+            )
+            if callable(o.after_touch_update):
+                self.after_touch_nodes.add(i)
+        except AttributeError:
+            pass
+        self.new_nodes.add(i)
+        return i
+
+    def make_node(g, nodeclass, *args, **kwargs):
+        '''Builds a new node with specified class and arguments, fills
+        the node's datum with specified attrs, gives the node an 'id' attr
+        holding its id, and links the node to specified mates--unless a node
+        linked in the exact same neighbors already exists. Returns the nodeid
+        if created; otherwise None.'''
+        spec = make_buildspec(g, nodeclass, args=args, kwargs=kwargs)
+        return spec.build(g)
+        
+    def OLDmake_node(self, o, container=None, builder=None):
         '''Builds a new node and sets its datum. If o is a class, we call it
         with no arguments and set the datum to the constructed object.
         Otherwise we set the datum to o. We set the salience according
@@ -362,8 +416,8 @@ class PortGraph(nx.MultiGraph):
             self.add_member_edge(c, i)
 #        if hasattr(o, 'auto_link'): #TODO rm; replaced by on_build
 #            o.auto_link(i, self)
-        if hasattr(o, 'on_build'):
-            o.on_build(self, i)
+#        if hasattr(o, 'on_build'):
+#            o.on_build(self, i)
         return i
 
     def dup_node(self, h, node):
@@ -535,7 +589,15 @@ class PortGraph(nx.MultiGraph):
         )
 
     def port_labels(self, node):
+        #TODO Look at node's NodeParams?
         return self.nodes[node]['_hops'].from_port_labels()
+
+    def is_port_label(self, name):
+        try:
+            port_mates = self.graph['port_mates']
+        except KeyError:
+            return False
+        return port_mates.is_port_label(name)
 
     def auto_link(self, from_node, port_label, to_node):
         try:

@@ -13,7 +13,7 @@ from Indenting import Indenting, indent
 
 preamble = '''from PortGraph import Node
 from LinkSpec import LinkSpec
-from NodeSpec import BuildSpec, NodeOfClass, NodeSpec, NodeWithTag, \
+from NodeSpec import NodeOfClass, NodeSpec, NodeWithTag, \
     NodeWithValue, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, \
     NotAlreadyBuilt
 from bases import ActiveNode
