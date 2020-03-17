@@ -94,6 +94,8 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         #TODO Ignore self.link_specs; show items other than MateParams
         if isinstance(self.link_specs, Iterable):
             exclude |= set(ls.new_node_port_label for ls in self.link_specs)
+        if self.node_params:
+            exclude |= self.node_params.exclude_from_node_repr()
         kvs = [kv for kv in self.__dict__.items()
                       if kv[0] not in exclude]
         return repr_str(self.__class__.__name__, kvs)
@@ -697,7 +699,7 @@ class PortGraph(nx.MultiGraph):
         else:
             return False
 
-    def add_tag(
+    def OLDadd_tag(
         self, tag_or_tagclass, node_or_nodes,
         tag_port_label='taggees', node_port_label='tags'
     ):
@@ -724,6 +726,18 @@ class PortGraph(nx.MultiGraph):
             self.add_edge(tag, tag_port_label, node, node_port_label)
             self.add_support(tag, node)
         return tag
+
+    def add_tag(
+        self, tag_or_tagclass, node_or_nodes,
+        tag_port_label='taggees', node_port_label='tags'
+    ):
+        '''Links a tag to one or more nodes. Returns the tag's id.
+        If tag_or_tagclass is a class, builds the tag.
+        The tag supports its taggees.'''
+        return self.make_node(
+            tag_or_tagclass,
+            **{tag_port_label: node_or_nodes}
+        )
 
     def replace_tag(
         self, node_or_nodes, old_tag_or_tagclass, new_tag_or_tagclass,

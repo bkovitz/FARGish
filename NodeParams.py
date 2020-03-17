@@ -33,6 +33,10 @@ class NodeParam(ABC):
         be stored in a dict.'''
         pass
 
+    #TODO Make this the abstractmethod and as_kv the derived method.
+    def as_key(self):
+        return self.as_kv()[0]
+
     @abstractmethod
     def as_filled_param(self, v):
         '''Return a FilledParam object that knows how to supply v as the
@@ -196,6 +200,10 @@ class NodeParams:
                 return False
         return True
 
+    def exclude_from_node_repr(self):
+        return set(param.as_key() for param in self.params
+                                     if isinstance(param, MateParam))
+
     def __len__(self):
         return len(self.params)
 
@@ -260,7 +268,7 @@ class FilledMate2(FilledParam):
 class FilledAttr(FilledParam):
 
     def __init__(self, attr_param, value):
-        self.attr_param = attr_param
+        self.attr_param = attr_param  # AttrParam or string
         self.value = value
 
     def is_match(self, g, nodeid):
@@ -274,7 +282,11 @@ class FilledAttr(FilledParam):
 
     def apply_to_node(self, g, nodeid):
         datum = g.datum(nodeid)
-        setattr(datum, self.attr_param.name, self.value)
+        try:
+            name = self.attr_param.name
+        except AttributeError:
+            name = self.attr_param
+        setattr(datum, name, self.value)
 
 class FilledParams(NiceRepr):
 

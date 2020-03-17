@@ -9,10 +9,10 @@ def make_buildspec(g, nodeclass, args=(), kwargs=None):
         nodeclass.make_filled_params(g, args, kwargs)
     )
 
-#TODO move this to PortGraph
-def make_node(g, nodeclass, *args, **kwargs):
-    spec = make_buildspec(g, nodeclass, args=args, kwargs=kwargs)
-    return spec.build(g)
+#TODO rm
+#def make_node(g, nodeclass, *args, **kwargs):
+#    spec = make_buildspec(g, nodeclass, args=args, kwargs=kwargs)
+#    return spec.build(g)
 
 class BuildSpec(NiceRepr):
 
