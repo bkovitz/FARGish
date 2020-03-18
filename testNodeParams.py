@@ -62,15 +62,12 @@ class TestNodeParams(unittest.TestCase):
             'operands': [two, three],
             'result': five
         }
-        potential_neighbors={two, three, five}
         self.assertFalse(g.already_built(
             Plus,
-            kwargs=kwargs,
-            potential_neighbors=potential_neighbors
+            kwargs=kwargs
         ))
         plus = g.make_node(Plus, operands=[two, three], result=five)
         self.assertTrue(g.already_built(
             Plus,
-            kwargs=kwargs,
-            potential_neighbors=potential_neighbors
+            kwargs=kwargs
         ))

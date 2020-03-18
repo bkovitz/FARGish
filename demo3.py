@@ -10,7 +10,7 @@ from TimeStepper import TimeStepper
 from log import *
 from PortGraph import PortGraph, Node, pg, ps
 import support
-from Numble import make_numble_class
+from Numble import make_numble_class, prompt_for_numble
 from util import as_iter, reseed, intersection
 
 prog = '''
@@ -104,41 +104,6 @@ def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
     return g
     
-# TODO Fix code duplication with numble.py
-def prompt_for_numble():
-    '''Prompts the user to enter bricks and a target at the keyboard.
-    Returns a Numble object, or None if user just hit Enter.'''
-    print()
-    try:
-        while True:
-            brick_str = input('Bricks: ')
-            if not brick_str:
-                return None
-            try:
-                bricks = [int(b) for b in brick_str.split()]
-                if not bricks:
-                    continue #TODO Probably better to throw an exception
-                break
-            except ValueError:
-                print('Please enter the bricks as integers separated by spaces.')
-                continue
-
-        while True:
-            target_str = input('Target: ')
-            if not target_str:
-                return None
-            try:
-                target = int(target_str)
-                break
-            except ValueError:
-                print('Please enter one integer and press Enter.')
-                continue
-
-        return Numble(bricks, target)
-    except EOFError:
-        print()
-        return None
-
 g = None
 
 ShowAnnotations.start_logging()
@@ -149,7 +114,7 @@ def demo(seed=None, num=800):
     '''Run this for Doug.'''
     global g
     while True:
-        numble = prompt_for_numble()
+        numble = prompt_for_numble(Numble)
         if numble is None:
             break
         g = new_graph(seed=seed, numble=numble)

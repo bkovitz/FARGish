@@ -101,3 +101,11 @@ def actions(self, _g, _thisid):
             _result.append(Fail(block))
     return _result
 
+
+
+_found_tup = CartesianProduct(
+    NodeOfClass((Brick, Block)),
+    whole_tuple_criterion=TupAnd(
+        no_dups,
+        NotAlreadyBuilt(CouldBeOperand, ('_args', 0))
+    ).see_one(_g)

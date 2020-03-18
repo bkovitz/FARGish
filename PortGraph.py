@@ -1,7 +1,7 @@
 # PortGraph.py -- PortGraph class
 
 from watcher import Watcher, Response
-from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
+from util import nice_object_repr, repr_str, as_iter, reseed, \
         sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs
 from BuildSpec import make_buildspec
@@ -432,7 +432,7 @@ class PortGraph(nx.MultiGraph):
                                            if k in attrs)
         return self.make_node(new_attrs)
 
-    def already_built(self, cl, args=None, kwargs={}, potential_neighbors=None):
+    def already_built(self, cl, args=None, kwargs={}):
         '''Is a node of class cl with the given args and kwargs already built?'''
         buildspec = make_buildspec(self, cl, args=args, kwargs=kwargs)
         return buildspec.already_built(self)
@@ -985,12 +985,15 @@ class PortGraph(nx.MultiGraph):
             return self.datum(node).__class__
 
     def is_of_class(self, node, cl):
-        if not isclass(cl):
-            cl = cl.__class__
-        try:
-            return issubclass(self.class_of(node), cl)
-        except TypeError:
-            return False
+        for c in as_iter(cl):
+            if not isclass(c):
+                c = c.__class__
+            try:
+                if issubclass(self.class_of(node), c):
+                    return True
+            except TypeError:
+                continue
+        return False
 
     def label_is_a(self, label, ancestor_label):
         '''Is label the same as or a descendent of ancestor_label?'''

@@ -1,13 +1,12 @@
-    .is_match: Need to handle pre-built datum object (instead of class)
-    correctly. Do we have to cook up fake FilledAttr objects that are
-    just going to return True? Better idea: let FilledAttr.is_match inspect
-    the datum object. Wait a minute: why is FilledAttr.is_match() return True
-    right now? Because, lacking an argument, AttrParam isn't making a
-    FilledAttr.
+    demo3.py:  In gen.py, generate code to tell NotAlreadyBuilt what it needs
+    to know to generate a BuildSpec for the nodes in the tuple provided by
+    CartesianProduct.
+        
+        Manually write code to do that for CouldBeOperand.
 
-    In demo2.py, make NotAlreadyBuilt() recognize that CouldBeOperand is
-    already built, tagging a given node. I think currently g.already_built()
-    is always returning False.
+            Allow tuple of classes to be passed to g.is_of_class()  DONE
+
+            to_args_kwargs(tup)
 
 Demo 12-Mar-2020
 
@@ -105,6 +104,13 @@ FARGish
             This would let a caller specify nodes by the names of their roles.
 
     Build3: Set up a BuildSpec  DONE
+
+    .is_match: Need to handle pre-built datum object (instead of class)
+    correctly. Do we have to cook up fake FilledAttr objects that are
+    just going to return True? Better idea: let FilledAttr.is_match inspect
+    the datum object. Wait a minute: why is FilledAttr.is_match() return True
+    right now? Because, lacking an argument, AttrParam isn't making a
+    FilledAttr.  DONE
 
     Generate a PortGraph class that has port_mates automatically set up
     correctly.

@@ -10,7 +10,17 @@ empty_set = frozenset()
 newline = '\n'
 
 def is_iter(o):
-    return isinstance(o, Iterable) and not isinstance(o, tuple)
+    return (
+        isinstance(o, Iterable)
+        and
+        not isinstance(o, str)
+        and
+        not is_namedtuple(o)
+    )
+
+def is_namedtuple(o):
+    #HACK
+    return hasattr(o, '_fields')
 
 def as_iter(o):
     '''Returns o in a form that the caller can iterate over. If o is already

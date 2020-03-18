@@ -1,6 +1,6 @@
 # BuildSpec.py -- Class for specifying a node to build
 
-from util import NiceRepr
+from util import is_iter, NiceRepr
 
 
 def make_buildspec(g, nodeclass, args=(), kwargs=None):
@@ -10,6 +10,30 @@ def make_buildspec(g, nodeclass, args=(), kwargs=None):
         nodeclass,
         nodeclass.make_filled_params(g, args, kwargs)
     )
+
+def to_args_kwargs(lis, tups):
+    '''Unpacks a list into args and kwargs suitable for passing to
+    make_buildspec(), according to a list of tuples (name, index) telling the
+    name of each value and its index in lis. Returns a tuple (args, kwargs).'''
+    args = []
+    kwargs = {}
+    for tup in tups:
+        name, index = tup
+        value = lis[index]
+        if name == '_args':
+            args.append(value)
+        else:
+            try:
+                v = kwargs[name]
+            except KeyError:
+                kwargs[name] = value
+                continue
+            if is_iter(v):
+                v += [value]
+            else:
+                v = [v] + [value]
+            kwargs[name] = v
+    return (args, kwargs)
 
 class BuildSpec(NiceRepr):
 
