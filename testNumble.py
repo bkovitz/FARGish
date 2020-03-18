@@ -2,33 +2,9 @@
 import unittest
 
 from Numble import make_numble_class
-from PortGraph import PortGraph, Node, pg
-from PortMates import PortMates
-from NodeParams import NodeParams, AttrParam, MateParam
+from PortGraph import PortGraph, pg
+from testNodeClasses import *
 
-
-port_mates = PortMates([('taggees', 'tags'), ('target', 'tags')])
-
-class Number(Node):
-    node_params = NodeParams(AttrParam('value'))
-class Brick(Number):
-    pass
-class Target(Number):
-    pass
-class Tag(Node):
-    node_params = NodeParams(MateParam('taggees', 'tags'))
-class Avail(Tag):
-    pass
-class Allowed(Tag):
-    pass
-class Want(Node):
-    node_params = NodeParams(MateParam('target', 'tags'))
-class Operator(Node):
-    pass
-class Plus(Operator):
-    pass
-class Times(Operator):
-    pass
 
 class TestNumble(unittest.TestCase):
 

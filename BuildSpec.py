@@ -6,7 +6,6 @@ from util import NiceRepr
 def make_buildspec(g, nodeclass, args=(), kwargs=None):
     '''nodeclass can be either a class that inherits from Node or an instance
     of such a class.'''
-    print('MAKE_B', nodeclass)
     return BuildSpec(
         nodeclass,
         nodeclass.make_filled_params(g, args, kwargs)
@@ -21,7 +20,9 @@ class BuildSpec(NiceRepr):
     def already_built(self, g):
         candidates = g.neighbors(self.filled_params.potential_neighbors())
         if not candidates:
-            candidates = set(g.nodes)  # All nodes: OPTIMIZE this?
+            #candidates = set(g.nodes)
+            return False  # HACK This assumes that attr-matches don't count
+                          # for determining if a node is already_built.
         #print('BS_ALR', candidates, g.nodes)
         return any(
             self.filled_params.is_match(g, self.nodeclass, nodeid)

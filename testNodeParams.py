@@ -39,7 +39,6 @@ class TestNodeParams(unittest.TestCase):
         three = g.make_node(Number(n=3))
         five = g.make_node(Number(n=5))
         plus = g.make_node(Plus, operands=[two, three], result=five)
-        pg(g) #DEBUG
         self.assertTrue(g.has_hop(plus, 'operands', two, 'consumer'))
         self.assertTrue(g.has_hop(plus, 'operands', three, 'consumer'))
         self.assertTrue(g.has_hop(plus, 'result', five, 'source'))
@@ -64,13 +63,12 @@ class TestNodeParams(unittest.TestCase):
             'result': five
         }
         potential_neighbors={two, three, five}
-        print('SO_FAR', two, three, five)
         self.assertFalse(g.already_built(
             Plus,
             kwargs=kwargs,
             potential_neighbors=potential_neighbors
         ))
-        plus = g.make_node(Plus(operands=[two, three], result=five))
+        plus = g.make_node(Plus, operands=[two, three], result=five)
         self.assertTrue(g.already_built(
             Plus,
             kwargs=kwargs,

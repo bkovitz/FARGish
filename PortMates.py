@@ -39,3 +39,8 @@ class PortMates:
 
     def is_port_label(self, name):
         return name in self.canonical
+
+    def __repr__(self):
+        #TODO Make repr string set the canonical mate for each port label
+        # correctly.
+        return f"PortMates({', '.join(str(p) for p in self.d.items())})"

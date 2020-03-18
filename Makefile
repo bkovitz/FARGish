@@ -6,7 +6,7 @@ ut:
 # Convenience target for single test current being worked on
 u:
 	#$(PY) -m unittest -v testNumble.TestNumble
-	$(PY) -m unittest -v testNodeParams.TestNodeParams.test_already_built
+	$(PY) -m unittest -v testNodeSpec.TestNodeSpec.test_cartesian_product_not_linked_to_same
 	#$(PY) -m unittest -v testCodegen.TestCodegen.test_build_agent
 
 tags:

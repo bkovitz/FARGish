@@ -150,7 +150,6 @@ class Build3(Action):
         threshold=0.0
     ):
         buildspec = make_buildspec(g, nodeclass, args, kwargs)
-        print('BSPEC', buildspec)
         if buildspec.already_built(g):
             return None
         else:

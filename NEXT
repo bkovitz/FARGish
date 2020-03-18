@@ -5,8 +5,6 @@
     right now? Because, lacking an argument, AttrParam isn't making a
     FilledAttr.
 
-    Build3: Set up a BuildSpec
-
     In demo2.py, make NotAlreadyBuilt() recognize that CouldBeOperand is
     already built, tagging a given node. I think currently g.already_built()
     is always returning False.
@@ -106,8 +104,14 @@ FARGish
         LinkSpec: include role names?
             This would let a caller specify nodes by the names of their roles.
 
+    Build3: Set up a BuildSpec  DONE
+
     Generate a PortGraph class that has port_mates automatically set up
     correctly.
+
+    Revise testNumbospec.py to do a full run with FARGish.
+
+    Update testNodeSpec.py to remove OLDBuildSpec and LinkSpec.
 
 Clean-up
 

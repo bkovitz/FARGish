@@ -10,6 +10,7 @@ from TimeStepper import TimeStepper
 from log import *
 from PortGraph import PortGraph, Node, pg, ps
 import support
+from Numble import make_numble_class
 from util import as_iter, reseed, intersection
 
 prog = '''
@@ -39,6 +40,10 @@ OperandTagger
 make_python(prog, debug=1)
 exec(compile_fargish(prog), globals())
 
+Numble = make_numble_class(
+    Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
+)
+
 ##### Hacks
 
 tag_port_label = 'taggees'
@@ -59,36 +64,9 @@ Tag.add_tag = cls_add_tag  # HACK
 
 ##### The graph class and other generic execution code #####
 
-class Numble:
-    '''Definition of a Numbo problem, a "numble".'''
-
-    def __init__(self, bricks, target):
-        'bricks: a list of integers. target: an integer.'
-        self.bricks = bricks
-        self.target = target
-
-    def build(self, g, container):
-        '''Builds the nodes for the numble as members of the container node
-        in graph g. Returns container.'''
-        target_id = g.make_node(Target(self.target), container)
-        Want.add_tag(g, target_id)
-        g.graph['target'] = target_id
-        for brick in self.bricks:
-            brick_id = g.make_node(Brick(brick), container)
-            #TagWith(Avail, taggee=brick_id).go(g)
-            g.add_tag(Avail, brick_id)
-        plusid = g.make_node(Plus, container)
-        timesid = g.make_node(Times, container)
-        minusid = g.make_node(Minus, container)
-        Allowed.add_tag(g, plusid)
-        Allowed.add_tag(g, timesid)
-        Allowed.add_tag(g, minusid)
-        return container
-
-    def as_dict(self):
-        return { 'bricks': self.bricks, 'target': self.target }
-
 class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
+
+    port_mates = port_mates
 
     default_graph_attrs = dict(
         t=0,

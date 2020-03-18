@@ -1185,6 +1185,20 @@ class PortGraph(nx.MultiGraph):
                 result.append(node)
         return result
 
+    def node_of_class(self, cl, nodes=None):
+        '''Returns a nodeid of a node of class cl, selected from nodes (all
+        nodes in graph if None), or None if no such node exists. If there is
+        more than one node that meets the conditions, the choice is made
+        arbitrarily. Typically you should only call this when you are sure
+        that only one such node exists.'''
+        #TODO UT
+        if nodes is None:
+            nodes = self.nodes
+        for node in nodes:
+            if self.is_of_class(node, cl):
+                return node
+        return None
+
     def nodes_with_tag(self, tagclass, nodes=None, taggee_port_label='tags'):
         'Returns a generator of nodes that have a tag of class tagclass.'
         if nodes is None:

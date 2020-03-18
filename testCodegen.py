@@ -65,7 +65,7 @@ Client
 
 Agent
 '''
-        make_python(prog, debug=1) #DEBUG
+        #make_python(prog, debug=1) #DEBUG
         exec(compile_fargish(prog), globals())
         #ShowActionList.start_logging()
         #ShowActionsChosen.start_logging()
@@ -73,14 +73,12 @@ Agent
         client = g.make_node(Client)
         g.do_timestep()
         self.assertEqual(len(g), 2)
-        pg(g)
         agent = g.neighbor(client, port_label='agents')
         self.assertEqual(g.class_of(agent), Agent)
         self.assertTrue(g.has_hop(agent, 'behalf_of', client, 'agents'))
 
         # Once the agent is built, the client should not build another.
         g.do_timestep(num=5)
-        pg(g)
         self.assertEqual(len(g), 2)
 
         # Let's build another Client. It should get its own Agent.

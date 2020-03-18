@@ -6,16 +6,24 @@ from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
     HasSameValue, And, Not, CartesianProduct, no_dups, TupAnd, \
     NotLinkedToSame, OLDBuildSpec as BuildSpec
 from LinkSpec import LinkSpec
-from numbospec import *
+#from numbospec import *
 from bases import make_link
-from PortGraph import PortGraph, pg
+from PortGraph import PortGraph, Node, pg
 from ExprAsEquation import ExprAsEquation
 from TimeStepper import TimeStepper
+from Numble import make_numble_class
+from testNodeClasses import *
 from util import reseed
 
 reseed(1)
 
+Numble = make_numble_class(
+    Brick, Target, Want, Avail, Allowed, [Plus, Times]
+)
+
 class TestGraph(TimeStepper, ExprAsEquation, PortGraph):
+    port_mates = port_mates  # imported from testNodeClasses
+
     def __init__(self, numble, **kwargs):
         kwargs['seed'] = 1
         super().__init__(**kwargs)
@@ -66,7 +74,8 @@ class TestNodeSpec(unittest.TestCase):
 
         spec = NodeSpec()  # All nodes
         expect = [Brick(4), Brick(5), Brick(6), Target(15), Workspace(),
-                  WantBuiltFromBricks(), Avail(), Avail(), Avail()]
+                  Want(), Plus(), Times(), Allowed(), Allowed(),
+                  Avail(), Avail(), Avail()]
         got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
         self.assertCountEqual(got, expect)
 
@@ -130,8 +139,8 @@ class TestNodeSpec(unittest.TestCase):
 
     def test_cartesian_product_not_linked_to_same(self):
         g = TestGraph(Numble([4, 5, 6], 15))
-        plus = g.make_node(Plus)
-        times = g.make_node(Times)
+        plus = g.node_of_class(Plus)
+        times = g.node_of_class(Plus)
         b4 = NodeWithValue(4).see_one(g)
         b5 = NodeWithValue(5).see_one(g)
         b6 = NodeWithValue(6).see_one(g)
@@ -169,8 +178,8 @@ class TestNodeSpec(unittest.TestCase):
 
     def test_cartesian_product_not_linked_to_same_no_dups(self):
         g = TestGraph(Numble([4, 5, 6], 15))
-        plus = g.make_node(Plus)
-        times = g.make_node(Times)
+        plus = g.node_of_class(Plus)
+        times = g.node_of_class(Plus)
         b4 = NodeWithValue(4).see_one(g)
         b5 = NodeWithValue(5).see_one(g)
         b6 = NodeWithValue(6).see_one(g)
