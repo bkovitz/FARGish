@@ -19,6 +19,7 @@ def make_numble_class(brick, target, want, avail, allowed, rators):
         def build(self, g, container):
             #TODO Put the nodes inside container
             target_id = g.make_node(self.Target, self.target)
+            #g.add_tag(self.Want, target_id)
             #g.add_tag(self.Want, target_id, tag_port_label='target')
             g.make_node(self.Want, target_id)
             g.graph['target'] = target_id

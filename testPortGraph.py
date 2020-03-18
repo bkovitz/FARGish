@@ -46,8 +46,8 @@ class TestPortGraph(unittest.TestCase):
 
     def test_nodes(self):
         g = PortGraph()
-        a = g.make_node('A')
-        b = g.make_node('B')
+        a = g.mknode('A')
+        b = g.mknode('B')
         g.add_edge(a, 'in', b, 'out')
         # g.nodes is all the nodeids in g
         self.assertCountEqual([1, 2], g.nodes)

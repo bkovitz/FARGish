@@ -45,15 +45,17 @@ Brick : Number'''
 
     def test_autolink(self):
         #TODO Generate code for node_params, not auto_links
-        g = PortGraph()
         prog = '''
 target -- tags
 Number(n)
 Scout(target)'''
         #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
-        nid = g.make_node(Number(3))
-        sid = g.make_node(Scout(nid))
+        g = PortGraph(port_mates=port_mates)
+        #nid = g.make_node(Number(3))
+        nid = g.make_node(Number, 3)
+        #sid = g.make_node(Scout(nid))
+        sid = g.make_node(Scout, nid)
         self.assertTrue(g.has_hop(sid, 'target', nid, 'tags'))
 
     def test_build_agent(self):
@@ -63,7 +65,7 @@ Client
 
 Agent
 '''
-        #make_python(prog, debug=1) #DEBUG
+        make_python(prog, debug=1) #DEBUG
         exec(compile_fargish(prog), globals())
         #ShowActionList.start_logging()
         #ShowActionsChosen.start_logging()
@@ -71,12 +73,14 @@ Agent
         client = g.make_node(Client)
         g.do_timestep()
         self.assertEqual(len(g), 2)
+        pg(g)
         agent = g.neighbor(client, port_label='agents')
         self.assertEqual(g.class_of(agent), Agent)
         self.assertTrue(g.has_hop(agent, 'behalf_of', client, 'agents'))
 
         # Once the agent is built, the client should not build another.
         g.do_timestep(num=5)
+        pg(g)
         self.assertEqual(len(g), 2)
 
         # Let's build another Client. It should get its own Agent.

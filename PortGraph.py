@@ -329,12 +329,15 @@ class PortGraph(nx.MultiGraph):
     node_dict_factory = NodeAttrDict
 
     default_salience = 0.01
+    port_mates = None  # Override in subclass to specify default PortMates
 
     def __init__(self, *args, **kwargs):
         # In kwargs,
         # 'port_mates' = PortMates object to deduce port labels for auto-linking
         kws = kwargs.copy()
         kws['seed'] = reseed(kws.get('seed', None))
+        if self.port_mates and 'port_mates' not in kws:
+            kws['port_mates'] = self.port_mates
         #print('KWS', kws)
         super().__init__(*args, **kws)
         self.nextid = 1
@@ -431,19 +434,23 @@ class PortGraph(nx.MultiGraph):
 
     def already_built(self, cl, args=None, kwargs={}, potential_neighbors=None):
         '''Is a node of class cl with the given args and kwargs already built?'''
-        #TODO Could we deduce the potential_neighbors from the kwargs?
-        if potential_neighbors is None:
-            potential_nodes = self.nodes
-        else:
-            potential_nodes = set()
-            for potential_neighbor in potential_neighbors:
-                potential_nodes |= self.neighbors(potential_neighbor)
-        kwargs = cl.args_into_kwargs(args, kwargs)
-            # BUG What if cl doesn't have args_into_kwargs?
-        for node in potential_nodes:
-            if cl.exactly_matches_kwargs(self, node, kwargs):
-                return True
-        return False
+        buildspec = make_buildspec(self, cl, args=args, kwargs=kwargs)
+        return buildspec.already_built(self)
+
+#TODO rm
+#        #TODO Could we deduce the potential_neighbors from the kwargs?
+#        if potential_neighbors is None:
+#            potential_nodes = self.nodes
+#        else:
+#            potential_nodes = set()
+#            for potential_neighbor in potential_neighbors:
+#                potential_nodes |= self.neighbors(potential_neighbor)
+#        kwargs = cl.args_into_kwargs(args, kwargs)
+#            # BUG What if cl doesn't have args_into_kwargs?
+#        for node in potential_nodes:
+#            if cl.exactly_matches_kwargs(self, node, kwargs):
+#                return True
+#        return False
 
     #TODO rm; replaced by candidate_nodes_wsal
     def candidate_nodes(self, nodeclass=None, exclude=None):
@@ -501,7 +508,7 @@ class PortGraph(nx.MultiGraph):
             return datum.datumstr(self, node)
         #return str(self.datum(node))
 
-    def add_edge(self, node1, port_label1, node2, port_label2, **attr):
+    def _add_edge(self, node1, port_label1, node2, port_label2, **attr):
         '''If the edge already exists, doesn't make a new one. Regardless,
         returns the key of the edge. Calls boost_salience on node1 and
         node2. If the edge did not already exist, we "touch" node1 and node2.'''
@@ -527,6 +534,15 @@ class PortGraph(nx.MultiGraph):
         if mutual_support:
             self.add_mutual_support(node1, node2)
         return key
+
+    def add_edge(self, node1, port_label1, node2, port_label2, **attr):
+        '''If the edge already exists, doesn't make a new one. Regardless,
+        returns the key of the edge. Calls boost_salience on node1 and
+        node2. If the edge did not already exist, we "touch" node1 and node2.
+        node1 and node2 can be nodeids, lists, or None.'''
+        for n1 in as_iter(node1):
+            for n2 in as_iter(node2):
+                self._add_edge(n1, port_label1, n2, port_label2, **attr)
 
     def has_edge(self, u, v, w=None, y=None):
         if y is None:
@@ -836,23 +852,27 @@ class PortGraph(nx.MultiGraph):
         return result
         
     #TODO UT port_label as iterable
-    #TODO neighbor_class
     def neighbors(self, node, port_label=None, neighbor_class=None):
         '''Returns a set. If neighbor_class is not None, returns only
         neighbors of that class. If port_label is None, returns all
         neighbors at all of node's ports. If port_label is an iterable,
-        returns the union of all the neighbors at the specified ports.'''
+        returns the union of all the neighbors at the specified ports.
+        node can be a single nodeid or an iterable of nodeids.'''
         if port_label is None:
-            result = super().neighbors(node)
+            #result = super().neighbors(node)
+            result = []
+            for node in as_iter(node):
+                result += super().neighbors(node)
         elif node is None:
             result = []
         else:
             result = set()
             for pl in as_iter(port_label):
-                result.update(
-                    hop.to_node
-                        for hop in self.hops_from_port(node, pl)
-                )
+                for node in as_iter(node):
+                    result.update(
+                        hop.to_node
+                            for hop in self.hops_from_port(node, pl)
+                    )
         if neighbor_class is None:
             return set(result)
         else:
@@ -965,6 +985,8 @@ class PortGraph(nx.MultiGraph):
             return self.datum(node).__class__
 
     def is_of_class(self, node, cl):
+        if not isclass(cl):
+            cl = cl.__class__
         try:
             return issubclass(self.class_of(node), cl)
         except TypeError:

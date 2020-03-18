@@ -1,3 +1,12 @@
+    .is_match: Need to handle pre-built datum object (instead of class)
+    correctly. Do we have to cook up fake FilledAttr objects that are
+    just going to return True? Better idea: let FilledAttr.is_match inspect
+    the datum object. Wait a minute: why is FilledAttr.is_match() return True
+    right now? Because, lacking an argument, AttrParam isn't making a
+    FilledAttr.
+
+    Build3: Set up a BuildSpec
+
     In demo2.py, make NotAlreadyBuilt() recognize that CouldBeOperand is
     already built, tagging a given node. I think currently g.already_built()
     is always returning False.
@@ -96,6 +105,9 @@ FARGish
 
         LinkSpec: include role names?
             This would let a caller specify nodes by the names of their roles.
+
+    Generate a PortGraph class that has port_mates automatically set up
+    correctly.
 
 Clean-up
 

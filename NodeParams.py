@@ -228,16 +228,17 @@ class FilledMate(FilledParam):
 
     def __init__(self, mate_param, mateid):
         self.mate_param = mate_param  # a MateParam
-        self.mateid = mateid  # the nodeid to link to
+        self.mateid = mateid  # the nodeid or nodeids to link to
 
     def is_match(self, g, nodeid):
         return (
             nodeid
             in
-            g.neighbors(nodeid, port_label=self.mate_param.this_port_label)
+            g.neighbors(self.mateid, port_label=self.mate_param.this_port_label)
         )
 
     def potential_neighbors(self):
+        print('MATE_POT', self, as_iter(self.mateid))
         return as_iter(self.mateid)
 
     def apply_to_node(self, g, thisid):
@@ -257,7 +258,10 @@ class FilledMate2(FilledParam):
         self.mateid = mateid
 
     def is_match(self, g, nodeid):
-        return nodeid in g.neighbors(nodeid, port_label=self.this_port_label)
+        neighbors = g.neighbors(
+            nodeid, port_label=self.this_port_label
+        )
+        return all(m in neighbors for m in as_iter(self.mateid))
 
     def potential_neighbors(self):
         return as_iter(self.mateid)
@@ -296,6 +300,9 @@ class FilledParams(NiceRepr):
         self.fps = fps
 
     def is_match(self, g, nodeclass, nodeid):
+        print('FPS', nodeid, nodeclass, g.is_of_class(nodeid, nodeclass))
+        for fp in self.fps.values():  #DEBUG
+            print(f"  {fp} {fp.is_match(g, nodeid)}") #DEBUG
         return (
             g.is_of_class(nodeid, nodeclass)
             and
@@ -303,9 +310,11 @@ class FilledParams(NiceRepr):
         )
 
     def potential_neighbors(self):
-        return chain.from_iterable(
+        result = list(chain.from_iterable(
             fp.potential_neighbors() for fp in self.fps.values()
-        )
+        ))
+        #print('FPS_POT', result)
+        return result
 
     def apply_to_node(self, g, nodeid):
         '''Applies the filled parameters to nodeid: sets specified links, adds

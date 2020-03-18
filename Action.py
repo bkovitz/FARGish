@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 
+from BuildSpec import make_buildspec
 from util import nice_object_repr, as_iter
 
 
@@ -124,6 +125,42 @@ class Build2(Action):
         datum = self.nodeclass(*self.args, **self.kwargs)
         new_node = g.make_node(datum)
         #print('BUILD2', new_node, datum)
+
+class Build3(Action):
+    '''Like Build2 but works through BuildSpec.'''
+
+    def __init__(
+        self,
+        buildspec,
+        weight=1.0,
+        threshold=0.0
+    ):
+        self.buildspec = buildspec
+        self.weight = weight
+        self.threshold = threshold
+
+    @classmethod
+    def maybe_make(
+        cls,
+        g,
+        nodeclass,
+        args=(),
+        kwargs={},
+        weight=1.0,
+        threshold=0.0
+    ):
+        buildspec = make_buildspec(g, nodeclass, args, kwargs)
+        print('BSPEC', buildspec)
+        if buildspec.already_built(g):
+            return None
+        else:
+            return Build3(buildspec, weight=weight, threshold=threshold)
+
+    def go(self, g):
+        self.buildspec.build(g)
+
+def make_build3(nodeclass, args=(), kwargs={}, weight=1.0, threshold=0.0):
+    return Build3(make_buildspec(nodeclass, args, kwargs), weight, threshold)
 
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''

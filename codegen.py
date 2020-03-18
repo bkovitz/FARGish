@@ -19,7 +19,7 @@ from NodeSpec import NodeOfClass, NodeSpec, NodeWithTag, \
 from bases import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from PortMates import PortMates
-from Action import Build2
+from Action import Build3, make_build3
 '''
 
 def make_python(

@@ -5,7 +5,8 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNumble.TestNumble
+	#$(PY) -m unittest -v testNumble.TestNumble
+	$(PY) -m unittest -v testNodeParams.TestNodeParams.test_already_built
 	#$(PY) -m unittest -v testCodegen.TestCodegen.test_build_agent
 
 tags:

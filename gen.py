@@ -518,7 +518,8 @@ class BuildSpecExpr(ActionExpr):
         args_s = '[' + ', '.join(as_expr(a) for a in args) + ']'
         kwargs_s = \
             '{' + ', '.join(f"{repr(k)}: {as_expr(v)}" for k,v in kwargs.items()) + '}'
-        return f"Build2({cls}, args={args_s}, kwargs={kwargs_s})"
+        #return f"Build2({cls}, args={args_s}, kwargs={kwargs_s})"
+        return f"make_build3({cls}, args={args_s}, kwargs={kwargs_s})"
 
     def as_agent_expr(self):
         return AgentExpr(self.nodeclass_expr, self.args)
@@ -1003,7 +1004,8 @@ class AgentExpr(BuildSpecExpr):
         args_s = '[' + ', '.join(as_expr(a) for a in args) + ']'
         kwargs_s = \
             '{' + ', '.join(f"{repr(k)}: {as_expr(v)}" for k,v in kwargs.items()) + '}'
-        return f"Build2.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s}, potential_neighbors=[_thisid])"
+        #return f"Build2.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s}, potential_neighbors=[_thisid])"
+        return f"Build3.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s})"
 
 class ArgExpr(NiceRepr):
 

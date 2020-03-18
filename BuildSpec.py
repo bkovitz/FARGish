@@ -4,15 +4,13 @@ from util import NiceRepr
 
 
 def make_buildspec(g, nodeclass, args=(), kwargs=None):
+    '''nodeclass can be either a class that inherits from Node or an instance
+    of such a class.'''
+    print('MAKE_B', nodeclass)
     return BuildSpec(
         nodeclass,
         nodeclass.make_filled_params(g, args, kwargs)
     )
-
-#TODO rm
-#def make_node(g, nodeclass, *args, **kwargs):
-#    spec = make_buildspec(g, nodeclass, args=args, kwargs=kwargs)
-#    return spec.build(g)
 
 class BuildSpec(NiceRepr):
 
@@ -21,9 +19,13 @@ class BuildSpec(NiceRepr):
         self.filled_params = filled_params
 
     def already_built(self, g):
+        candidates = g.neighbors(self.filled_params.potential_neighbors())
+        if not candidates:
+            candidates = set(g.nodes)  # All nodes: OPTIMIZE this?
+        #print('BS_ALR', candidates, g.nodes)
         return any(
             self.filled_params.is_match(g, self.nodeclass, nodeid)
-                for nodeid in self.filled_params.potential_neighbors()
+                for nodeid in candidates
         )
 
     def build(self, g):
@@ -53,4 +55,6 @@ if __name__ == '__main__':
     sp2 = make_buildspec(g, Blah, kwargs={'from': b1})
     b2 = sp2.build(g)
     n1 = g.make_node(Number, 1, to=b2)
+    n3 = g.make_node(Number(3))
+    n4 = g.make_node(Number(4), to=n3)
     pg(g)
