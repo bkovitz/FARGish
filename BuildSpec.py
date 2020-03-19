@@ -1,6 +1,8 @@
 # BuildSpec.py -- Class for specifying a node to build
 
-from util import is_iter, NiceRepr
+from collections import namedtuple
+
+from util import is_iter, vcat, NiceRepr
 
 
 def make_buildspec(g, nodeclass, args=(), kwargs=None):
@@ -11,28 +13,32 @@ def make_buildspec(g, nodeclass, args=(), kwargs=None):
         nodeclass.make_filled_params(g, args, kwargs)
     )
 
+_Literal = namedtuple('_Literal', ('v',))
+
 def to_args_kwargs(lis, tups):
     '''Unpacks a list into args and kwargs suitable for passing to
     make_buildspec(), according to a list of tuples (name, index) telling the
-    name of each value and its index in lis. Returns a tuple (args, kwargs).'''
+    name of each value and its index in lis. If index is a _Literal, we take
+    the value inside the _Literal instead of looking it up in lis. Returns a
+    tuple (args, kwargs).'''
     args = []
     kwargs = {}
+    def getvalue(index):
+        if isinstance(index, _Literal):
+            return index.v
+        else:
+            return lis[index]
     for tup in tups:
         name, index = tup
-        value = lis[index]
-        if name == '_args':
-            args.append(value)
+        if is_iter(index):
+            value = [getvalue(i) for i in index]
         else:
-            try:
-                v = kwargs[name]
-            except KeyError:
-                kwargs[name] = value
-                continue
-            if is_iter(v):
-                v += [value]
-            else:
-                v = [v] + [value]
-            kwargs[name] = v
+            value = getvalue(index)
+        if name == '_args':
+            args = vcat(args, value)
+        else:
+            v = kwargs.get(name, None)
+            kwargs[name] = vcat(v, value)
     return (args, kwargs)
 
 class BuildSpec(NiceRepr):

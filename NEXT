@@ -6,7 +6,20 @@
 
             Allow tuple of classes to be passed to g.is_of_class()  DONE
 
-            to_args_kwargs(tup)
+            to_args_kwargs(tup)  DONE
+            
+            In gen.py, map node arguments to tuple elements.
+
+                In Env, track the tuple index of each variable passed to
+                make_build3 or Build3.
+
+                Rethink what we pass to Env.add(). We should pass all
+                declarative and definitional information: the symbol's type,
+                its definition, its index in a _found_tup. In
+                demo3.OperandTagger, 'node' should be defined as having
+                type 'nodeid' (from nodesearch), cart_expression
+                'NodeOfClass((Brick, Block))', and tuple reference
+                '_found_tup1 0'.
 
 Demo 12-Mar-2020
 

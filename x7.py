@@ -109,3 +109,9 @@ _found_tup = CartesianProduct(
         no_dups,
         NotAlreadyBuilt(CouldBeOperand, ('_args', 0))
     ).see_one(_g)
+
+_found_tup = CouldBeOperand(
+    NodeOfClass((Brick, Block)),
+    whole_tuple_criterion=TupAnd(
+        no_dups,
+        NotAlreadyBuilt(CouldBeOperand, [('_args', 0), ('whatever', _Literal('abc'))]).see_one(_g)

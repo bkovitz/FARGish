@@ -511,6 +511,7 @@ class BuildSpecExpr(ActionExpr):
                 args.append(arg.expr)
             else:
                 kwargs[arg.argname] = arg.expr
+        #print('ENV NODE', env.get('node'))
         return self.build2(cls, args, kwargs)
 
     def build2(self, cls, args, kwargs):

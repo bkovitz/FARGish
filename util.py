@@ -49,6 +49,26 @@ def as_name(x):
     except AttributeError:
         return str(x)
 
+def vcat(a, b):
+    '''Concatenate value(s). Combines a and b into either a list or a
+    single value, preferring the latter. If a is an iterable, modifies a
+    and returns it. But if a is None or a non-iterable, vcat creates a
+    new list and returns that. So, calling could should look like this:d
+      a = vcat(a, b).'''
+    if a is None:
+        return b
+    if b is None:
+        return a
+    if is_iter(a):
+        if is_iter(b):
+            a += b
+        else:
+            a.append(b)
+        return a
+    if is_iter(b):
+        return [a] + b
+    return [a, b]
+    
 def is_nodeid(x):
     return isinstance(x, int)
 

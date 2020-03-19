@@ -2,7 +2,7 @@
 
 import unittest
 
-from BuildSpec import to_args_kwargs
+from BuildSpec import to_args_kwargs, _Literal
 
 class TestBuildSpec(unittest.TestCase):
 
@@ -33,3 +33,28 @@ class TestBuildSpec(unittest.TestCase):
         args, kwargs = to_args_kwargs(lis, tups)
         self.assertEqual(args, [])
         self.assertEqual(kwargs, {'operands': ['one', 'two', 'three']})
+
+    def test_to_args_kwargs4(self):
+        tups = [('operands', [0, 1, 2])]
+        lis = ['one', 'two', 'three']
+        args, kwargs = to_args_kwargs(lis, tups)
+        self.assertEqual(args, [])
+        self.assertEqual(kwargs, {'operands': ['one', 'two', 'three']})
+
+    def test_to_args_kwargs5(self):
+        tups = [('_args', [0, 1])]
+        lis = ['first', 'second']
+        args, kwargs = to_args_kwargs(lis, tups)
+        self.assertEqual(args, ['first', 'second'])
+        self.assertEqual(kwargs, {})
+
+    def test_to_args_kwargs6(self):
+        tups = [
+            ('_args', _Literal('abc')),
+            ('_args', 1),  # 'second'
+            ('operands', [_Literal('def'), 0])
+        ]
+        lis = ['first', 'second']
+        args, kwargs = to_args_kwargs(lis, tups)
+        self.assertEqual(args, ['abc', 'second'])
+        self.assertEqual(kwargs, {'operands': ['def', 'first']})
