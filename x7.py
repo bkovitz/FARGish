@@ -110,8 +110,22 @@ _found_tup = CartesianProduct(
         NotAlreadyBuilt(CouldBeOperand, ('_args', 0))
     ).see_one(_g)
 
-_found_tup = CouldBeOperand(
+_found_tup = CartesianProduct(
     NodeOfClass((Brick, Block)),
     whole_tuple_criterion=TupAnd(
         no_dups,
         NotAlreadyBuilt(CouldBeOperand, [('_args', 0), ('whatever', _Literal('abc'))]).see_one(_g)
+
+
+target = _g.neighbor(_thisid, 'target')
+
+def _f2(_g, _tup):
+    block, = _tup
+    return block != target
+
+_found_tup_2 = CartesianProduct(
+    NodeWithTag(Block, Avail),
+    whole_tuple_criterion=TupAnd(
+        no_dups,
+        TupFunc(_f2)
+    )).see_one(_g)

@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from io import StringIO
+from contextlib import AbstractContextManager
 
 from exc import FARGishCompilerException
 from util import NiceRepr
@@ -10,7 +11,7 @@ from util import NiceRepr
 class EnvKeyError(LookupError):
     pass
 
-class Env(NiceRepr):
+class Env(AbstractContextManager, NiceRepr):
 
     def __init__(self, items=None):
         '''Calls .add_to_env(self) on each item in items.'''
@@ -52,6 +53,14 @@ class Env(NiceRepr):
 
     def pop(self):
         self.stack.pop()
+
+    def __enter__(self):
+        self.push()
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        self.pop()
+        return None
 
     def get(self, name):
         '''Returns the value of name in current scope, or None if undefined.'''

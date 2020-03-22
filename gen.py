@@ -17,11 +17,11 @@ from exc import NoUniqueMateError
 from NodeParams import NodeParams, AttrParam, MateParam
 from Indenting import Indenting, indent
 
-def as_expr(x):
-    if hasattr(x, 'as_expr'):
-        return x.as_expr()
+def as_pyexpr(x):
+    if hasattr(x, 'as_pyexpr'):
+        return x.as_pyexpr()
     elif isinstance(x, list) or isinstance(x, tuple):
-        return '[' + (', '.join(as_expr(e) for e in x)) + ']'
+        return '[' + (', '.join(as_pyexpr(e) for e in x)) + ']'
     else:
         return str(x)
 
@@ -332,7 +332,7 @@ class NodeDefn(EnvItem):
     def add_to_env(self, env):
         env.add(self.name, self)
 
-    def as_expr(self):
+    def as_pyexpr(self):
         return self.name
 
     def gen(self, file, fixup, env):
@@ -377,12 +377,23 @@ class Initializer(NiceRepr):
         self.expr = expr
 
     def add_to_class(self, cl, env):
-        cl.add_inits(f'''self.{self.name} = {as_expr(self.expr)}''')
+        cl.add_inits(f'''self.{self.name} = {as_pyexpr(self.expr)}''')
 
 class Expr(EnvItem):
-    '''as_expr() should generate valid Python code for this expression.'''
+    '''as_pyexpr() should generate valid Python code for this expression.'''
+
+    @abstractmethod
+    def gen_prelines(self, file, fixup, env):
+        '''Generates any lines of code that must appear before the line
+        containing the Python expression.'''
+        pass
+
+    @abstractmethod
+    def as_pyexpr(self):  # Don't we need to pass env?
+        pass
 
     #TODO Shouldn't we require any subclass to provide the SeeDoElem methods?
+    #TODO rm?
     def name(self, env):
         pass
 
@@ -485,8 +496,9 @@ class ActionExpr(SeeDoElem):
 
     #TODO rm
     def action_gen(self):
-        return LocalGen(expr=as_expr(self.expr))
+        return LocalGen(expr=as_pyexpr(self.expr))
 
+# TODO rm? Replaced by BuildStmt?
 class BuildSpecExpr(ActionExpr):
 
     def __init__(self, nodeclass_expr, args):
@@ -499,10 +511,10 @@ class BuildSpecExpr(ActionExpr):
             arg.add_to_env(env)
 
     def cartprod_whole_tuple_condition(self, env):
-        return f"NotAlreadyBuilt({as_expr(self.nodeclass_expr)})"
+        return f"NotAlreadyBuilt({as_pyexpr(self.nodeclass_expr)})"
 
     def action_expr(self, env):
-        cls = as_expr(self.nodeclass_expr)
+        cls = as_pyexpr(self.nodeclass_expr)
         args = []
         kwargs = {}
         for arg in self.args:
@@ -516,9 +528,9 @@ class BuildSpecExpr(ActionExpr):
 
     def build2(self, cls, args, kwargs):
         #print('BUILD', cls, args, kwargs)
-        args_s = '[' + ', '.join(as_expr(a) for a in args) + ']'
+        args_s = '[' + ', '.join(as_pyexpr(a) for a in args) + ']'
         kwargs_s = \
-            '{' + ', '.join(f"{repr(k)}: {as_expr(v)}" for k,v in kwargs.items()) + '}'
+            '{' + ', '.join(f"{repr(k)}: {as_pyexpr(v)}" for k,v in kwargs.items()) + '}'
         #return f"Build2({cls}, args={args_s}, kwargs={kwargs_s})"
         return f"make_build3({cls}, args={args_s}, kwargs={kwargs_s})"
 
@@ -534,7 +546,7 @@ class BuildSpecExpr(ActionExpr):
 
     #TODO rm
     def action_gen(self):
-        # TODO  f"Build({as_expr(self.nodeclass_expr)}, kwargs= ???)"
+        # TODO  f"Build({as_pyexpr(self.nodeclass_expr)}, kwargs= ???)"
         pass
 #        LocalGen(
 #            prelines= 
@@ -544,11 +556,14 @@ class NodeclassExpr(Expr):
     def __init__(self, name):
         self.name = name
 
+    def gen_prelines(self, file, fixup, env):
+        pass
+
     def add_to_env(self, env):
         #TODO Raise error if self.name is not defined as a nodeclass
         pass
 
-    def as_expr(self):
+    def as_pyexpr(self):
         return self.name
 
 class VarRef(Expr):
@@ -562,7 +577,7 @@ class VarRef(Expr):
         #TODO Raise error if undefined
         self.o = env.get(self.name)
 
-    def as_expr(self):
+    def as_pyexpr(self):
         if hasattr(self.o, 'as_varref'):
             return self.o.as_varref()
         else:
@@ -579,7 +594,7 @@ class Constant(Expr):
     def add_to_env(self, env):
         pass
 
-    def as_expr(self):
+    def as_pyexpr(self):
         return repr(self.n)
 
     def action_expr_gen(self):
@@ -600,9 +615,9 @@ class FuncCall(Expr):
     def is_nodesearch(self, env):
         return self.funcname in nodesearch_names  # HACK
 
-    def as_expr(self):
+    def as_pyexpr(self):
         #print('FUNC AS', self)
-        return f'''{self.funcname}({', '.join(as_expr(a) for a in self.args)})'''
+        return f'''{self.funcname}({', '.join(as_pyexpr(a) for a in self.args)})'''
 
     def action_expr_gen(self):
         return self
@@ -617,7 +632,7 @@ class MemberChain(Expr):
     def add_to_env(self, env):
         pass #TODO
 
-    def as_expr(self):
+    def as_pyexpr(self):
         return '.'.join(self.items)
 
     #TODO UT
@@ -635,14 +650,14 @@ class Relexpr(Expr):
         self.lhs.add_to_env(env)
         self.rhs.add_to_env(env)
 
-    def as_expr(self):
-        lhs = as_expr(self.lhs)
-        op = as_expr(self.op)
-        rhs = as_expr(self.rhs)
+    def as_pyexpr(self):
+        lhs = as_pyexpr(self.lhs)
+        op = as_pyexpr(self.op)
+        rhs = as_pyexpr(self.rhs)
         return f"{lhs} {op} {rhs}"
 
     def condition_expr(self, env):
-        return as_expr(self)
+        return as_pyexpr(self)
 
     #TODO UT
     def action_expr_gen(self):
@@ -654,7 +669,7 @@ class LetExpr(Expr, SeeDoElem):
         self.name = name
         self.expr = expr
 
-    def as_expr(self):
+    def as_pyexpr(self):
         return self.name
 
     def add_to_env(self, env):
@@ -733,82 +748,83 @@ class ConditionsWithActions(NiceRepr):
         action_prelines = []
         action_exprs = []
 
-        env.push()
+        with env:
+            for condition in self.conditions:
+                #print('MAKEC', condition)
+                condition.add_to_env(env)
+                condition_prelines += as_iter(condition.condition_prelines(env))
+                cartprod_elems += as_iter(condition.cartprod_elem_expr(env))
+                cartprod_names += as_iter(condition.cartprod_elem_name(env))
+                whole_tuple_conditions += \
+                    as_iter(condition.cartprod_whole_tuple_condition(env))
+                condition_exprs += as_iter(condition.condition_expr(env))
 
-        for condition in self.conditions:
-            #print('MAKEC', condition)
-            condition.add_to_env(env)
-            condition_prelines += as_iter(condition.condition_prelines(env))
-            cartprod_elems += as_iter(condition.cartprod_elem_expr(env))
-            cartprod_names += as_iter(condition.cartprod_elem_name(env))
-            whole_tuple_conditions += \
-                as_iter(condition.cartprod_whole_tuple_condition(env))
-            condition_exprs += as_iter(condition.condition_expr(env))
+            #print('CONDS', self.conditions)
+            #print(condition_exprs)
 
-        #print('CONDS', self.conditions)
-        #print(condition_exprs)
+            for action in self.actions:
+                action.add_to_env(env)
+                condition_prelines += as_iter(action.condition_prelines(env))
+                cartprod_elems += as_iter(action.cartprod_elem_expr(env))
+                cartprod_names += as_iter(action.cartprod_elem_name(env))
+                whole_tuple_conditions += \
+                    as_iter(action.cartprod_whole_tuple_condition(env))
+                condition_exprs += as_iter(action.condition_expr(env))
+                action_prelines += as_iter(action.action_prelines(env))
+                action_exprs += as_iter(action.action_expr(env))
 
-        for action in self.actions:
-            action.add_to_env(env)
-            condition_prelines += as_iter(action.condition_prelines(env))
-            cartprod_elems += as_iter(action.cartprod_elem_expr(env))
-            cartprod_names += as_iter(action.cartprod_elem_name(env))
-            whole_tuple_conditions += \
-                as_iter(action.cartprod_whole_tuple_condition(env))
-            condition_exprs += as_iter(action.condition_expr(env))
-            action_prelines += as_iter(action.action_prelines(env))
-            action_exprs += as_iter(action.action_expr(env))
+            nextgen = None
+            if more:
+                nextgen = more[0].make_gen(env, more[1:])
 
-        nextgen = None
-        if more:
-            nextgen = more[0].make_gen(env, more[1:])
-
-        def genfunc(file, fixup, ignored_env):
-            if cartprod_names:
-                print(' = '.join(nm for nm in cartprod_names + ['None']),
-                      file=file)
-            for preline in condition_prelines:
-                print(preline, file=file)
-            if cartprod_elems:
-                found_tup = env.gensym('_found_tup')
-                tup_elems = ', '.join(as_expr(e) for e in cartprod_elems)
-                whole_crit = f"TupAnd({', '.join(whole_tuple_conditions)})"
-                print(f"{found_tup} = CartesianProduct({tup_elems}, whole_tuple_criterion={whole_crit}).see_one(_g)", file=file)
-                print(f"if {found_tup}:", file=file)
-                with indent(file):
-                    if len(cartprod_elems) == 1:
-                        print(f"({cartprod_names[0]},) = {found_tup}",
-                            file=file)
-                    else:
-                        print(' = '.join(nm for nm in
-                            cartprod_names + [found_tup]), file=file)
-                condition_exprs.insert(0, found_tup)
-            if condition_exprs:
-                print(f"if {' and '.join(condition_exprs)}:", file=file)
-                with indent(file):
-                    self.gen_actions(action_prelines, action_exprs, file)
-                if nextgen:
-                    print('else:', file=file)
+            def genfunc(file, fixup, ignored_env):
+                if cartprod_names:
+                    print(' = '.join(nm for nm in cartprod_names + ['None']),
+                          file=file)
+                for preline in condition_prelines:
+                    print(preline, file=file)
+                if cartprod_elems:
+                    found_tup = env.gensym('_found_tup')
+                    tup_elems = ', '.join(as_pyexpr(e) for e in cartprod_elems)
+                    whole_crit = f"TupAnd({', '.join(whole_tuple_conditions)})"
+                    print(f"{found_tup} = CartesianProduct({tup_elems}, whole_tuple_criterion={whole_crit}).see_one(_g)", file=file)
+                    print(f"if {found_tup}:", file=file)
                     with indent(file):
-                        gen(nextgen, file, fixup, ignored_env)
-            else:
-                self.gen_actions(action_prelines, action_exprs, file)
-                if nextgen:
-                    nextgen(file, fixup, ignored_env)
+                        if len(cartprod_elems) == 1:
+                            print(f"({cartprod_names[0]},) = {found_tup}",
+                                file=file)
+                        else:
+                            print(' = '.join(nm for nm in
+                                cartprod_names + [found_tup]), file=file)
+                    condition_exprs.insert(0, found_tup)
+                if condition_exprs:
+                    print(f"if {' and '.join(condition_exprs)}:", file=file)
+                    with indent(file):
+                        self.gen_actions(action_prelines, action_exprs, file)
+                    if nextgen:
+                        print('else:', file=file)
+                        with indent(file):
+                            gen(nextgen, file, fixup, ignored_env)
+                else:
+                    self.gen_actions(action_prelines, action_exprs, file)
+                    if nextgen:
+                        nextgen(file, fixup, ignored_env)
 
-        #print('GEN ENV', str(env))
-        env.pop()
+            #print('GEN ENV', str(env))
+        #env.pop()
 
         return LocalGen(genfunc)
 
         #return s.getvalue() #TODO a 'gen' function
 
+    #TODO If we switch to Stmts, change this to let the Stmt gen the
+    #"_result.append(...)
     @classmethod
     def gen_actions(cls, action_prelines, action_exprs, file):
         for action_preline in action_prelines:
             print(action_preline, file=file)
         for action_expr in action_exprs:
-            print(f"_result.append({as_expr(action_expr)})", file=file)
+            print(f"_result.append({as_pyexpr(action_expr)})", file=file)
         
 class SeeDo(NiceRepr):
     def __init__(self, cas):
@@ -820,26 +836,6 @@ class SeeDo(NiceRepr):
     def add_to_class(self, cl, env):
         if self.cas:
             cl.add_action(self.cas[0].make_gen(env, self.cas[1:]))
-
-        return #TODO rm the rest of this
-        first_sdg = sdg = None
-        for ca in self.cas:
-            if sdg is None:
-                first_sdg = sdg = SeeDoGen()
-            else:
-                sdg = sdg.start_else()
-
-            # Add implicit preconditions for actions
-            print('CA', ca)
-            for action_expr in ca.actions:
-                ca.condition.add_condition_expr(action_expr)
-
-            sdg.add_condition_gen(ca.condition.condition_gen())
-            for action in ca.actions:
-                sdg.add_condition_gen(action.condition_gen())
-                sdg.add_action_gen(action.action_gen())
-            #ca.add_to_seedogen(sdg)  #TODO rm
-        cl.add_action(first_sdg)
 
 #class CodeGenerator(ABC, NiceRepr):
 #
@@ -892,7 +888,7 @@ class OLDLocalGen(NiceRepr):
         for preline in self._prelines:
             gen(preline, file, fixup, env)
 
-    def as_expr(self):
+    def as_pyexpr(self):
         '''Returns a Python expression, possibly referring to variables
         defined by code generated by .gen_prelines().'''
         return self.final_expr()
@@ -947,7 +943,7 @@ class SeeDoGen(NiceRepr):
     def gen_if_stmt(self, file, fixup, env):
         '''Returns True iff generated an 'if' statement.'''
         print('GEN_IF', self.condition_gens)
-        exprs = [as_expr(cg) for cg in self.condition_gens]
+        exprs = [as_pyexpr(cg) for cg in self.condition_gens]
         e = ' and '.join(expr for expr in exprs if expr)
         if e:
             print(f'if {e}:', file=file)
@@ -958,7 +954,7 @@ class SeeDoGen(NiceRepr):
     def gen_actions(self, file, fixup, env):
         for action_gen in self.action_gens:
             gen_prelines(action_gen, file, fixup, env)
-            expr = as_expr(action_gen)
+            expr = as_pyexpr(action_gen)
             if expr:
                 print(f'_result.append({expr})', file=file)
         if self.else_action_gen:
@@ -994,6 +990,7 @@ class OLDAgentExpr(NiceRepr):
             f"_result.append(self.{name}.maybe_make_build_action(_g, _thisid))"
         )
 
+# TODO rm; replaced by AgentStmt
 class AgentExpr(BuildSpecExpr):
 
     def cartprod_whole_tuple_condition(self, env):
@@ -1002,9 +999,9 @@ class AgentExpr(BuildSpecExpr):
     def build2(self, cls, args, kwargs):
         if 'behalf_of' not in kwargs:
             kwargs['behalf_of'] = '_thisid'
-        args_s = '[' + ', '.join(as_expr(a) for a in args) + ']'
+        args_s = '[' + ', '.join(as_pyexpr(a) for a in args) + ']'
         kwargs_s = \
-            '{' + ', '.join(f"{repr(k)}: {as_expr(v)}" for k,v in kwargs.items()) + '}'
+            '{' + ', '.join(f"{repr(k)}: {as_pyexpr(v)}" for k,v in kwargs.items()) + '}'
         #return f"Build2.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s}, potential_neighbors=[_thisid])"
         return f"Build3.maybe_make(_g, {cls}, args={args_s}, kwargs={kwargs_s})"
 
@@ -1017,11 +1014,11 @@ class ArgExpr(NiceRepr):
     def add_to_env(self, env):
         self.expr.add_to_env(env)
 
-    def as_expr(self):
+    def as_pyexpr(self):
         if self.argname:
-            return f'''{self.argname}={as_expr(self.expr)}'''
+            return f'''{self.argname}={as_pyexpr(self.expr)}'''
         else:
-            return as_expr(self.expr)
+            return as_pyexpr(self.expr)
 
 class TupleExpr(Expr):
 
@@ -1032,14 +1029,14 @@ class TupleExpr(Expr):
         for elem_expr in self.elem_exprs:
             elem_expr.add_to_env(env)
 
-    def as_expr(self):
+    def as_pyexpr(self):
         if not self.elem_exprs:
             return '()'
         elif len(self.elem_exprs) == 1:
-            s = as_expr(self.elem_exprs[0])
+            s = as_pyexpr(self.elem_exprs[0])
             return f"({s},)"
         else:
-            s = ', '.join(as_expr(e) for e in self.elem_exprs)
+            s = ', '.join(as_pyexpr(e) for e in self.elem_exprs)
             return f"({s})"
 
 #class SeeDoAccumulator(NiceRepr):
@@ -1051,3 +1048,175 @@ class TupleExpr(Expr):
 #        self.conditions.add(condition)
 #
 #    def 
+
+
+# IN-PROGRESS Seeing if this makes sense as calling code.
+class IfStmt(NiceRepr):
+
+    def __init__(self, cond_expr, then_expr, else_expr):
+        self.cond_expr = cond_expr
+        self.then_expr = then_expr
+        self.else_expr = else_expr
+
+    def gen(file, fixup, env):
+        if self.cond_expr:
+            self.cond_expr.gen_prelines(file, fixup, env)
+            print(f"if {as_pyexpr(self.cond_expr)}:", file=file)
+            with indent(file), env:
+                self.gen_then(file, fixup, env)
+            if self.else_expr:
+                print('else:', file=file)
+                with indent(file), env:
+                    self.else_expr.gen_prelines(file, fixup, env)
+        else:
+            self.then_expr(file, fixup, env)
+
+    def gen_then(self, file, fixup, env):
+        self.then_expr.gen(file, fixup, env)
+
+class ConditionExpr2(Expr):
+
+    def gen_prelines(self, file, fixup, env):
+        pass #TODO
+
+    def as_pyexpr(self):
+        return 'True'  # TODO
+
+    def __bool__(self):
+        '''Returns True iff the condition can be optimized out, i.e. if
+        the condition evaluates to True unconditionally.'''
+        return False   # TODO
+
+    def add_condition(self):
+        pass #TODO
+
+
+class Stmt(EnvItem):
+
+    @abstractmethod
+    def implicit_cond_expr(self):
+        pass
+
+    @abstractmethod
+    def gen(self, file, fixup, env):
+        pass
+
+    @abstractmethod
+    def coalesce_with(self, other):
+        # Should the caller expect a new Stmt or self to be modified?
+        # If the former, rename to coalesced_with.
+        pass
+
+    def __bool__(self):
+        '''Only the NullStmt should evaluate False.'''
+        return True
+
+class ActionStmt(Stmt):
+
+    @abstractmethod
+    def action_pyexpr(self):
+        '''Return a string or list of strings, each of which is the Python
+        expression for an Action.'''
+
+    def gen(self, file, fixup, env):
+        for pye in as_iter(self.action_pyexpr()):
+            print(f"_result.append({self.action_expr()})", file=file)
+
+class NullStmt(Stmt):
+
+    def implicit_cond_expr(self):
+        return None
+
+    def gen(self, file, fixup, env):
+        print('pass', file=file)
+
+    def __bool__(self):
+        return False
+
+
+class BuildStmt(ActionStmt):
+
+    def __init__(self, nodeclass_expr, args):
+        self.nodeclass_expr = nodeclass_expr  # a NodeclassExpr
+        self.args = args  # a list of ArgExprs
+
+    #TODO implicit_cond_expr: make the _b variable to hold the BuildSpec to
+    # be referenced in the action_pyexpr.
+
+    def add_to_env(self, env):
+        self.nodeclass_expr.add_to_env(env)
+        for arg in self.args:
+            arg.add_to_env(env)
+
+    def action_pyexpr(self):
+        # TODO .gen_prelines the self.args
+        args_s = '[' + ', '.join(as_pyexpr(a) for a in args) + ']'
+        kwargs_s = '{' + ', '.join(
+                        f"{repr(k)}: {as_pyexpr(v)}"
+                            for k,v in kwargs.items()
+                    ) + '}'
+        return f"_result.append(make_build3({cls}, args={args_s}, kwargs={kwargs_s}))"
+        
+    def as_agent_stmt(self):
+        #STUB Should add an arg 'behalf_of=_thisid'
+        return self
+
+    def implicit_cond_expr(self):
+        #STUB
+        pass
+
+class SeeDo2(NiceRepr):
+
+    def __init__(self, cond_exprs, action_stmts, else_see_do):
+        self.cond_exprs = cond_exprs
+        self.action_stmts = action_stmts
+        self.else_see_do = else_see_do
+        #TODO Add the implicit conditions from the action_stmts to the
+        # cond_exprs
+
+    def add_to_class(self, cl, env):
+        file = Indenting(StringIO())
+        fixup = Indenting(StringIO())
+        ifstmt = self.make_ifstmt()
+        ifstmt.gen(file, fixup, env)
+        cl.add_action(DelayedGen(file, fixup))
+
+    def make_ifstmt(self):
+        return IfStmt(
+            coalesce_conditions(self.cond_exprs),
+            coalesce_stmts(self.action_stmts),
+            self.else_see_do.make_ifstmt() if self.else_see_do else None
+        )
+
+def coalesce_conditions(cond_exprs, action_stmts):
+    cond_exprs = (
+        as_iter(cond_exprs)
+        +
+        as_iter(s.implicit_cond_expr() for s in action_stmts)
+    )
+    if not cond_exprs:
+        return None
+    else:
+        ce = cond_exprs[0]
+        for nextce in cond_exprs[1:]:
+            ce.add_condition(nextce)
+        return ce
+
+def coalesce_stmts(stmts):
+    #NEXT
+    # NullStmt -> Stmt -> StmtSeq
+    
+
+class DelayedGen:
+
+    def __init__(self, file, fixup):
+        self.file = file
+        self.fixup = fixup
+
+    def gen(self, file, fixup, env):
+        self.file.seek(0)
+        self.fixup.seek(0)
+        for line in self.file:
+            print(line, file=file, end='')
+        for line in self.fixup:
+            print(line, file=fixup, end='')

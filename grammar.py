@@ -12,9 +12,9 @@ from pprint import pprint as pp
 from Indent1 import Parser
 from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
-    Relexpr, LetExpr, SeeDo, AgentExpr, ArgExpr, Initializer, \
+    Relexpr, LetExpr, SeeDo2, AgentExpr, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
-    BuildSpecExpr, ActionExpr, ConditionExpr, TupleExpr
+    BuildStmt, ActionExpr, ConditionExpr, TupleExpr
 
 
 ##### Grammar for lexical analyzer
@@ -282,31 +282,48 @@ def p_agent_defn(p):
     '''agent_defn : AGENT ':' buildspec'''
     #p[0] = AgentExpr(p[3])
     #print('AGDEF', p.lineno(3), p.lexpos(3)) #, p.linespan(3), p.lexspan(3))
-    p[0] = SeeDo([ConditionsWithActions([], [p[3].as_agent_expr()])])
+    #p[0] = SeeDo([ConditionsWithActions([], [p[3].as_agent_expr()])])
+    p[0] = SeeDo2(None, p[3].as_agent_stmt(), None)
 
-def p_implicit_see_do(p):
-    '''see_do : unconditional_actions maybe_else_chain'''
-    p[0] = SeeDo([p[1]] + p[2])
+#def p_implicit_see_do(p):
+#    '''see_do : unconditional_actions maybe_else_see_do'''
+#    p[0] = SeeDo([p[1]] + p[2])
+#
+#def p_explicit_see_do(p):
+#    '''see_do : SEE conditional_actions maybe_else_see_do'''
+#    p[0] = SeeDo([p[2]] + p[3])
 
-def p_explicit_see_do(p):
-    '''see_do : SEE conditional_actions maybe_else_chain'''
-    p[0] = SeeDo([p[2]] + p[3])
+def p_see_do(p):
+    '''see_do : SEE conditions FAT_RIGHT_ARROW actions maybe_else_see_do
+              | FAT_RIGHT_ARROW actions maybe_else_see_do'''
+    if len(p) == 6:
+        p[0] = SeeDo2(p[2], p[4], p[5])
+    else:
+        p[0] = SeeDo2(None, p[2], p[3])
 
-def p_unconditional_actions(p):
-    '''unconditional_actions : FAT_RIGHT_ARROW actions'''
-    p[0] = ConditionsWithActions([], p[2])
-    #p[0] = ConditionWithActions(ConditionExpr(), p[2])
+#def p_unconditional_actions(p):
+#    '''unconditional_actions : FAT_RIGHT_ARROW actions'''
+#    p[0] = ConditionsWithActions([], p[2])
+#    #p[0] = ConditionWithActions(ConditionExpr(), p[2])
+#
+#def p_conditional_actions(p):
+#    '''conditional_actions : conditions FAT_RIGHT_ARROW actions'''
+#    p[0] = ConditionsWithActions(p[1], p[3])
+#    #p[0] = ConditionWithActions(p[1], p[3])
 
-def p_conditional_actions(p):
-    '''conditional_actions : conditions FAT_RIGHT_ARROW actions'''
-    p[0] = ConditionsWithActions(p[1], p[3])
-    #p[0] = ConditionWithActions(p[1], p[3])
+def p_maybe_else_see_do(p):
+    '''maybe_else_see_do : empty
+                         | ELSE see_do'''
+    if len(p) == 2:
+        p[0] = None
+    else:
+        p[0] = p[2]
 
-def p_maybe_else_chain(p):
-    '''maybe_else_chain : empty
-                        | maybe_else_chain ELSE unconditional_actions
-                        | maybe_else_chain ELSE conditional_actions'''
-    zero_or_more(p, 3)
+#def p_maybe_else_chain(p):
+#    '''maybe_else_chain : empty
+#                        | maybe_else_chain ELSE unconditional_actions
+#                        | maybe_else_chain ELSE conditional_actions'''
+#    zero_or_more(p, 3)
 
 #def p_see_do1(p):
 #    '''see_do : FAT_RIGHT_ARROW actions'''
@@ -350,20 +367,22 @@ def p_actions(p):
 
 # NEXT   Build nodespec_expr
 def p_action(p):
-    '''action : BUILD buildspec
-              | expr'''
-    if len(p) == 3:
-        p[0] = p[2]
-    else:
-        p[0] = ActionExpr(p[1])
+    '''action : BUILD buildspec'''
+    #          | expr'''   TODO: allow call to external func, wrap it to
+    #                            append the result to _result.
+    p[0] = p[2]
+#    if len(p) == 3:
+#        p[0] = p[2]
+#    else:
+#        p[0] = ActionExpr(p[1])
 
 def p_buildspec(p):
     '''buildspec : nodeclass LPAREN maybe_args RPAREN
                  | nodeclass'''
     if len(p) == 2:
-        p[0] = BuildSpecExpr(p[1], [])
+        p[0] = BuildStmt(p[1], [])
     else:
-        p[0] = BuildSpecExpr(p[1], p[3])
+        p[0] = BuildStmt(p[1], p[3])
 
 def p_nodeclass(p):
     '''nodeclass : NAME'''

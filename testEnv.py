@@ -38,14 +38,14 @@ class TestEnv(unittest.TestCase):
         self.assertEqual(env[name1], 'VALUE1')
         self.assertEqual(env[name2], 'VALUE2')
 
-        env.push()
-        name3 = env.gensym('x')
-        env.add(name3, 'VALUE3')
-        self.assertEqual(env[name1], 'VALUE1')
-        self.assertEqual(env[name2], 'VALUE2')
-        self.assertEqual(env[name3], 'VALUE3')
+        with env:  # env.push()
+            name3 = env.gensym('x')
+            env.add(name3, 'VALUE3')
+            self.assertEqual(env[name1], 'VALUE1')
+            self.assertEqual(env[name2], 'VALUE2')
+            self.assertEqual(env[name3], 'VALUE3')
+            # implicit env.pop(), exiting 'with'
 
-        env.pop()
         self.assertEqual(env[name1], 'VALUE1')
         self.assertEqual(env[name2], 'VALUE2')
         self.assertEqual(env.get(name3), None)

@@ -1,7 +1,7 @@
 # PortGraph.py -- PortGraph class
 
 from watcher import Watcher, Response
-from util import nice_object_repr, repr_str, as_iter, reseed, \
+from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
         sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs
 from BuildSpec import make_buildspec
@@ -270,14 +270,15 @@ NodeAndValue = namedtuple('NodeAndValue', ['node', 'value'])
 
 #TODO Rename as WeightedNodes. Pass a weight function to __init__.
 class NodesWithSalience:
+    '''Each element in 'nodes' can be either a nodeid or a collection of
+    nodeids.'''
 
     def __init__(self, g=None, nodes=[], multiplier=None):
-        '''The individual nodes can be tuples.'''
         self.nodes = []
         self.weights = []
         if g:
             for node in nodes:
-                if isinstance(node, tuple) or isinstance(node, list):
+                if is_iter(node):
                     salience = sum(g.salience(n) for n in node)
                 else:
                     salience = g.salience(node)
