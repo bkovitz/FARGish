@@ -4,7 +4,7 @@ import unittest
 from io import StringIO
 from pprint import pprint as pp
 
-from gen import gen, IfStmt, NullStmt
+from gen import gen, IfStmt, NullStmt, BuildStmt, NodeclassExpr
 from Env import Env
 from Indenting import Indenting
 
@@ -20,10 +20,17 @@ def test_gen(o, env):
 
 class TestGen(unittest.TestCase):
 
-    def test_ifstmt(self):
+    def test_ifstmt0(self):
         env = Env()
         ifstmt = IfStmt(None, NullStmt(), None)
         #DEBUG
         print()
         print(test_gen(ifstmt, env))
 
+    def test_ifstmt1(self):
+        env = Env()
+        then = BuildStmt(NodeclassExpr('Node'), [])
+        ifstmt = IfStmt(None, then, None)
+        #DEBUG
+        print()
+        print(test_gen(ifstmt, env))

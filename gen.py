@@ -1014,6 +1014,9 @@ class ArgExpr(NiceRepr):
     def add_to_env(self, env):
         self.expr.add_to_env(env)
 
+    def is_positional(self):
+        return not self.argname
+
     def as_pyexpr(self):
         if self.argname:
             return f'''{self.argname}={as_pyexpr(self.expr)}'''
@@ -1078,11 +1081,8 @@ class Stmt(EnvItem):
     def gen(self, file, fixup, env):
         pass
 
-    @abstractmethod
-    def coalesced_with(self, other):
-        # Should the caller expect a new Stmt or self to be modified?
-        # If the former, rename to coalesced_with.
-        pass
+    def coalesced_with(self, stmt):
+        return StmtSeq([self, stmt])
 
     def __bool__(self):
         '''Only the NullStmt should evaluate False.'''
@@ -1097,7 +1097,7 @@ class ActionStmt(Stmt):
 
     def gen(self, file, fixup, env):
         for pye in as_iter(self.action_pyexpr()):
-            print(f"_result.append({self.action_expr()})", file=file)
+            print(f"_result.append({self.action_pyexpr()})", file=file)
 
 class NullStmt(Stmt):
 
@@ -1166,9 +1166,6 @@ class IfStmt(Stmt):
         else:
             self.then_expr.gen(file, fixup, env)
 
-    def coalesced_with(self, stmt):
-        return StmtSeq([self, stmt])
-
     def gen_then(self, file, fixup, env):
         self.then_expr.gen(file, fixup, env)
 
@@ -1188,12 +1185,15 @@ class BuildStmt(ActionStmt):
 
     def action_pyexpr(self):
         # TODO .gen_prelines the self.args
-        args_s = '[' + ', '.join(as_pyexpr(a) for a in args) + ']'
+        args_s = '[' + ', '.join(
+            as_pyexpr(a) for a in positional_args(self.args)
+        ) + ']'
         kwargs_s = '{' + ', '.join(
                         f"{repr(k)}: {as_pyexpr(v)}"
-                            for k,v in kwargs.items()
+                            for k,v in keyword_args(self.args)
                     ) + '}'
-        return f"_result.append(make_build3({cls}, args={args_s}, kwargs={kwargs_s}))"
+        cls = as_pyexpr(self.nodeclass_expr)
+        return f"make_build3({cls}, args={args_s}, kwargs={kwargs_s})"
         
     def as_agent_stmt(self):
         #STUB Should add an arg 'behalf_of=_thisid'
@@ -1202,6 +1202,13 @@ class BuildStmt(ActionStmt):
     def implicit_cond_expr(self):
         #STUB
         pass
+
+def positional_args(arg_exprs):
+    return [a for a in arg_exprs if a.is_positional()]
+
+def keyword_args(arg_exprs):
+    '''Returns a list of tuples (name, expr).'''
+    return [(a.argname, a.expr) for a in arg_exprs if not a.is_positional()]
 
 class SeeDo2(NiceRepr):
 
