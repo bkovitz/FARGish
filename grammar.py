@@ -14,7 +14,7 @@ from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo2, AgentExpr, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
-    BuildStmt, ActionExpr, ConditionExpr, TupleExpr
+    BuildStmt, ActionExpr, ConditionExpr2, TupleExpr
 
 
 ##### Grammar for lexical analyzer
@@ -356,9 +356,9 @@ def p_condition(p):
     '''condition : expr
                  | NAME LET expr'''
     if len(p) == 2:
-        p[0] = ConditionExpr(p[1])
+        p[0] = ConditionExpr2(p[1])
     else:
-        p[0] = ConditionExpr(LetExpr(p[1], p[3]))
+        p[0] = ConditionExpr2(LetExpr(p[1], p[3]))
 
 def p_actions(p):
     '''actions : action

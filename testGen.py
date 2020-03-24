@@ -4,7 +4,8 @@ import unittest
 from io import StringIO
 from pprint import pprint as pp
 
-from gen import gen, IfStmt, NullStmt, BuildStmt, NodeclassExpr
+from gen import gen, IfStmt, NullStmt, BuildStmt, NodeclassExpr, FuncCall, \
+    VarRef, TupleExpr, ArgExpr
 from Env import Env
 from Indenting import Indenting
 
@@ -31,6 +32,20 @@ class TestGen(unittest.TestCase):
         env = Env()
         then = BuildStmt(NodeclassExpr('Node'), [])
         ifstmt = IfStmt(None, then, None)
+        #DEBUG
+        print()
+        print(test_gen(ifstmt, env))
+
+    def test_ifstmt_nodesearch(self):
+        env = Env()
+        cond = FuncCall(
+                 funcname='NodeOfClass',
+                 args=[
+                   ArgExpr(
+                     argname=None,
+                     expr=TupleExpr(VarRef(name='Brick'),
+                                    VarRef(name='Block')))])
+        ifstmt = IfStmt(cond, NullStmt(), None)
         #DEBUG
         print()
         print(test_gen(ifstmt, env))

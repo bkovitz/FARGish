@@ -12,7 +12,7 @@ import traceback
 from Env import EnvItem
 from LinkSpec import LinkSpec
 #from NodeSpec import BuildSpec
-from util import as_iter, as_name, NiceRepr, newline
+from util import as_iter, as_list, as_name, NiceRepr, newline
 from exc import NoUniqueMateError
 from NodeParams import NodeParams, AttrParam, MateParam
 from Indenting import Indenting, indent
@@ -397,6 +397,10 @@ class Expr(EnvItem):
     def name(self, env):
         pass
 
+    @abstractmethod
+    def coalesced_with(self, other):
+        pass
+
 #class BuildExpr(Expr):
 #    '''A BuildExpr can never be a condition, only an action.'''
 #
@@ -566,6 +570,10 @@ class NodeclassExpr(Expr):
     def as_pyexpr(self):
         return self.name
 
+    def coalesced_with(self, other):
+        #TODO Does this make any sense?
+        return AndExpr(self, other)
+
 class VarRef(Expr):
 
     def __init__(self, name):
@@ -577,6 +585,9 @@ class VarRef(Expr):
         #TODO Raise error if undefined
         self.o = env.get(self.name)
 
+    def gen_prelines(self, file, fixup, env):
+        pass
+
     def as_pyexpr(self):
         if hasattr(self.o, 'as_varref'):
             return self.o.as_varref()
@@ -585,6 +596,32 @@ class VarRef(Expr):
 
     def action_expr_gen(self):
         return self
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
+
+class AndExpr(Expr):
+
+    def __init__(self, *exprs):
+        print('AND1', exprs)
+        traceback.print_stack()
+        self.exprs = exprs  # TODO Handle null case?
+
+    def add_to_env(self, env):
+        for expr in self.exprs:
+            expr.add_to_env(env)
+
+    def as_pyexpr(self):
+        #TODO Handle null case
+        return ' and '.join(as_pyexpr(e) for e in self.exprs)
+
+    def gen_prelines(self, file, fixup, env):
+        print('AND', self.exprs)
+        for expr in self.exprs:
+            expr.gen_prelines(file, fixup, env)
+
+    def coalesced_with(self, other):
+        return AndExpr(*self.exprs, other)
 
 class Constant(Expr):
 
@@ -603,7 +640,7 @@ class Constant(Expr):
 class FuncCall(Expr):
 
     def __init__(self, funcname, args):
-        self.funcname = funcname
+        self.funcname = funcname  # TODO Treat funcname as an Expr
         self.args = args
 
     def add_to_env(self, env):
@@ -612,6 +649,10 @@ class FuncCall(Expr):
         for arg in self.args:
             arg.add_to_env(env)
 
+    def gen_prelines(self, file, fixup, env):
+        for arg in self.args:
+            arg.gen_prelines(file, fixup, env)
+
     def is_nodesearch(self, env):
         return self.funcname in nodesearch_names  # HACK
 
@@ -619,8 +660,16 @@ class FuncCall(Expr):
         #print('FUNC AS', self)
         return f'''{self.funcname}({', '.join(as_pyexpr(a) for a in self.args)})'''
 
+    #TODO rm?
     def action_expr_gen(self):
         return self
+
+#    def add_condition(self, other):
+#        pass  # TODO Should FuncCall even have an .add_condition()?
+
+    def coalesced_with(self, other):
+        #TODO Handle nodesearch differently
+        return AndExpr(self, other)
 
 class MemberChain(Expr):
     '''An expression containing one or more "dots", like:
@@ -671,6 +720,9 @@ class LetExpr(Expr, SeeDoElem):
 
     def as_pyexpr(self):
         return self.name
+
+    def gen_prelines(self, file, fixup, env):
+        self.expr.gen_prelines(file, fixup, env)
 
     def add_to_env(self, env):
         self.expr.add_to_env(env)
@@ -1011,11 +1063,14 @@ class ArgExpr(NiceRepr):
         self.argname = argname
         self.expr = expr
 
+    def is_positional(self):
+        return not self.argname
+
     def add_to_env(self, env):
         self.expr.add_to_env(env)
 
-    def is_positional(self):
-        return not self.argname
+    def gen_prelines(self, file, fixup, env):
+        self.expr.gen_prelines(file, fixup, env)
 
     def as_pyexpr(self):
         if self.argname:
@@ -1032,6 +1087,10 @@ class TupleExpr(Expr):
         for elem_expr in self.elem_exprs:
             elem_expr.add_to_env(env)
 
+    def gen_prelines(self, file, fixup, env):
+        for elem_expr in self.elem_exprs:
+            elem_expr.gen_prelines(file, fixup, env)
+
     def as_pyexpr(self):
         if not self.elem_exprs:
             return '()'
@@ -1041,6 +1100,9 @@ class TupleExpr(Expr):
         else:
             s = ', '.join(as_pyexpr(e) for e in self.elem_exprs)
             return f"({s})"
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
 
 #class SeeDoAccumulator(NiceRepr):
 #    
@@ -1054,10 +1116,17 @@ class TupleExpr(Expr):
 
 
 # IN-PROGRESS Seeing if IfStmt makes sense as calling code.
-class ConditionExpr2(Expr):
+class ConditionExpr2(Expr):  #TODO Rename to NullConditionExpr
+
+    def __init__(self, *args, **kwargs):
+        self.args = args  # STUB
+        self.kwargs = kwargs  # STUB
 
     def gen_prelines(self, file, fixup, env):
         pass #TODO
+
+    def add_to_env(self, env):
+        pass #STUB
 
     def as_pyexpr(self):
         return 'True'  # TODO
@@ -1065,11 +1134,36 @@ class ConditionExpr2(Expr):
     def __bool__(self):
         '''Returns True iff the condition can be optimized out, i.e. if
         the condition evaluates to True unconditionally.'''
-        return False   # TODO
+        return True   # TODO
 
-    def add_condition(self):
+    def add_condition(self, other):
         pass #TODO
 
+class WholeTupleConditionExpr(Expr):
+
+    def __init__(self):
+        self.tupvar = 'TUPVAR_UNINITIALIZED'
+
+    def gen_prelines(self, file, fixup, env):
+        #print(f"{found_tup} = CartesianProduct({tup_elems}, whole_tuple_criterion={whole_crit}).see_one(_g)", file=file)
+        #print(f"if {found_tup}:", file=file)
+        self.tupvar = env.gensym('_found_tup')
+        print(f"{self.tupvar} = CartesianProduct(STUB).see_one(_g)", file=file)
+
+    def as_pyexpr(self):
+        return self.tupvar
+
+class NotAlreadyBuiltExpr(WholeTupleConditionExpr):
+    
+    def __init__(self, buildstmt):
+        self.buildstmt = buildstmt
+        super().__init__()
+
+    def add_to_env(self, env):
+        pass
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
 
 class Stmt(EnvItem):
 
@@ -1138,7 +1232,7 @@ class StmtSeq(Stmt):
 class IfStmt(Stmt):
 
     def __init__(self, cond_expr, then_expr, else_expr):
-        self.cond_expr = cond_expr
+        self.cond_expr = coalesce_conditions(cond_expr, then_expr)
         self.then_expr = then_expr
         self.else_expr = else_expr
 
@@ -1151,7 +1245,7 @@ class IfStmt(Stmt):
             self.else_expr.add_to_env(env)
 
     def implicit_cond_expr(self):
-        return coalesce_conditions(self.cond_expr, self.then_expr)
+        return None
 
     def gen(self, file, fixup, env):
         if self.cond_expr:
@@ -1200,8 +1294,7 @@ class BuildStmt(ActionStmt):
         return self
 
     def implicit_cond_expr(self):
-        #STUB
-        pass
+        return NotAlreadyBuiltExpr(self)
 
 def positional_args(arg_exprs):
     return [a for a in arg_exprs if a.is_positional()]
@@ -1228,30 +1321,35 @@ class SeeDo2(NiceRepr):
 
     def make_ifstmt(self):
         return IfStmt(
-            coalesce_conditions(self.cond_exprs),
-            coalesce_stmts(self.action_stmts),
+            self.cond_exprs,
+            coalesced_stmts(self.action_stmts),
             self.else_see_do.make_ifstmt() if self.else_see_do else None
         )
 
 def coalesce_conditions(cond_exprs, action_stmts):
     cond_exprs = (
-        as_iter(cond_exprs)
+        as_list(cond_exprs)
         +
-        as_iter(s.implicit_cond_expr() for s in as_iter(action_stmts))
+        as_list(s.implicit_cond_expr() for s in as_iter(action_stmts))
     )
     if not cond_exprs:
         return None
     else:
         ce = cond_exprs[0]
         for nextce in cond_exprs[1:]:
-            ce.add_condition(nextce)
+            if nextce:
+                ce = ce.coalesced_with(nextce)
         return ce
 
-def coalesce_stmts(stmts):
-    pass
-    #NEXT
-    # NullStmt -> Stmt -> StmtSeq
-    
+def coalesced_stmts(stmts):
+    stmts = as_list(stmts)
+    if not stmts:
+        return NullStmt()
+    else:
+        result = stmts[0]
+        for stmt in stmts[1:]:
+            result = result.coalesced_with(stmt)
+        return result
 
 class DelayedGen:
 
