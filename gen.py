@@ -1050,30 +1050,7 @@ class TupleExpr(Expr):
 #    def 
 
 
-# IN-PROGRESS Seeing if this makes sense as calling code.
-class IfStmt(NiceRepr):
-
-    def __init__(self, cond_expr, then_expr, else_expr):
-        self.cond_expr = cond_expr
-        self.then_expr = then_expr
-        self.else_expr = else_expr
-
-    def gen(file, fixup, env):
-        if self.cond_expr:
-            self.cond_expr.gen_prelines(file, fixup, env)
-            print(f"if {as_pyexpr(self.cond_expr)}:", file=file)
-            with indent(file), env:
-                self.gen_then(file, fixup, env)
-            if self.else_expr:
-                print('else:', file=file)
-                with indent(file), env:
-                    self.else_expr.gen_prelines(file, fixup, env)
-        else:
-            self.then_expr(file, fixup, env)
-
-    def gen_then(self, file, fixup, env):
-        self.then_expr.gen(file, fixup, env)
-
+# IN-PROGRESS Seeing if IfStmt makes sense as calling code.
 class ConditionExpr2(Expr):
 
     def gen_prelines(self, file, fixup, env):
@@ -1102,7 +1079,7 @@ class Stmt(EnvItem):
         pass
 
     @abstractmethod
-    def coalesce_with(self, other):
+    def coalesced_with(self, other):
         # Should the caller expect a new Stmt or self to be modified?
         # If the former, rename to coalesced_with.
         pass
@@ -1127,12 +1104,73 @@ class NullStmt(Stmt):
     def implicit_cond_expr(self):
         return None
 
+    def add_to_env(self, env):
+        pass
+
     def gen(self, file, fixup, env):
         print('pass', file=file)
+
+    def coalesced_with(self, stmt):
+        return stmt
 
     def __bool__(self):
         return False
 
+class StmtSeq(Stmt):
+    '''A sequence of statements.'''
+
+    def __init__(self, stmts):
+        '''stmts: a list of Stmt objects.'''
+        self.stmts = stmts
+
+    def implicit_cond_expr(self):
+        return coalesce_conditions(
+            (s.implicit_cond_expr() for s in self.stmts), None
+        )
+
+    def gen(self, file, fixup, env):
+        for stmt in self.stmts:
+            stmt.gen(file, fixup, env)
+
+    def coalesced_with(self, stmt):
+        self.stmts += as_iter(stmt)
+
+class IfStmt(Stmt):
+
+    def __init__(self, cond_expr, then_expr, else_expr):
+        self.cond_expr = cond_expr
+        self.then_expr = then_expr
+        self.else_expr = else_expr
+
+    def add_to_env(self, env):
+        if self.cond_expr:
+            self.cond_expr.add_to_env(env)
+        if self.then_expr:
+            self.then_expr.add_to_env(env)
+        if self.else_expr:
+            self.else_expr.add_to_env(env)
+
+    def implicit_cond_expr(self):
+        return coalesce_conditions(self.cond_expr, self.then_expr)
+
+    def gen(self, file, fixup, env):
+        if self.cond_expr:
+            self.cond_expr.gen_prelines(file, fixup, env)
+            print(f"if {as_pyexpr(self.cond_expr)}:", file=file)
+            with indent(file), env:
+                self.gen_then(file, fixup, env)
+            if self.else_expr:
+                print('else:', file=file)
+                with indent(file), env:
+                    self.else_expr.gen(file, fixup, env)
+        else:
+            self.then_expr.gen(file, fixup, env)
+
+    def coalesced_with(self, stmt):
+        return StmtSeq([self, stmt])
+
+    def gen_then(self, file, fixup, env):
+        self.then_expr.gen(file, fixup, env)
 
 class BuildStmt(ActionStmt):
 
@@ -1192,7 +1230,7 @@ def coalesce_conditions(cond_exprs, action_stmts):
     cond_exprs = (
         as_iter(cond_exprs)
         +
-        as_iter(s.implicit_cond_expr() for s in action_stmts)
+        as_iter(s.implicit_cond_expr() for s in as_iter(action_stmts))
     )
     if not cond_exprs:
         return None
@@ -1203,6 +1241,7 @@ def coalesce_conditions(cond_exprs, action_stmts):
         return ce
 
 def coalesce_stmts(stmts):
+    pass
     #NEXT
     # NullStmt -> Stmt -> StmtSeq
     
