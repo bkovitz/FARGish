@@ -686,6 +686,7 @@ class VarRef(Expr):
         else:
             return self.name
 
+    #TODO rm
     def action_expr_gen(self):
         return self
 
@@ -695,11 +696,25 @@ class VarRef(Expr):
     def __repr__(self):
         return f"VarRef({repr(self.name)})"
 
+class ThisExpr(Expr):
+
+    def add_to_env(self, env):
+        pass
+
+    def gen_prelines(self, file, fixup, env):
+        pass
+
+    def as_pyexpr(self):
+        return '_thisid'
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
+
 class AndExpr(Expr):
 
     def __init__(self, *exprs):
-        print('AND1', exprs)
-        traceback.print_stack()
+        #print('AND1', exprs)
+        #traceback.print_stack()
         self.exprs = exprs  # TODO Handle null case?
 
     def add_to_env(self, env):
@@ -711,7 +726,7 @@ class AndExpr(Expr):
         return ' and '.join(as_pyexpr(e) for e in self.exprs)
 
     def gen_prelines(self, file, fixup, env):
-        print('AND', self.exprs)
+        #print('AND', self.exprs)
         for expr in self.exprs:
             expr.gen_prelines(file, fixup, env)
 
@@ -799,10 +814,21 @@ class MemberChain(Expr):
         self.items = items
 
     def add_to_env(self, env):
-        pass #TODO
+        for item in self.items:
+            if hasattr(item, 'add_to_env'):
+                item.add_to_env(env)
+
+    def gen_prelines(self, file, fixup, env):
+        #HACK
+        pass
 
     def as_pyexpr(self):
-        return '.'.join(self.items)
+        #HACK
+        return f"_g.value_of({as_pyexpr(self.items[0])}, attr_name={repr(as_pyexpr(self.items[1]))})"
+        #return '.'.join(self.items)
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
 
     #TODO UT
     def action_expr_gen(self):

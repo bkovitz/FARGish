@@ -14,7 +14,8 @@ from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo2, AgentExpr, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
-    BuildStmt, ActionExpr, ConditionExpr2, TupleExpr, NodeSearch, CartProdExpr
+    BuildStmt, ActionExpr, ConditionExpr2, TupleExpr, NodeSearch, \
+    ThisExpr, CartProdExpr, coalesce_conditions
 
 
 ##### Grammar for lexical analyzer
@@ -41,6 +42,7 @@ tokens = (
     'ELSE',
     'LET',
     'BUILD',
+    'THIS',
     'NODESEARCH',
     'EQ',
     'NE',
@@ -147,6 +149,7 @@ KEYWORDS = {
     'see': 'SEE',
     'else': 'ELSE',
     'build': 'BUILD',
+    'this': 'THIS',
     'NodeSpec': 'NODESEARCH',
     'NodeOfClass': 'NODESEARCH',
     'NodeWithTag': 'NODESEARCH',
@@ -315,7 +318,10 @@ def make_cartprodexpr(conditions):
             nodesearches.append(condition)
         else:
             whole_tuple_exprs.append(condition)
-    return CartProdExpr(nodesearches, whole_tuple_exprs)
+    if nodesearches:
+        return CartProdExpr(nodesearches, whole_tuple_exprs)
+    else:
+        return coalesce_conditions(whole_tuple_exprs, [])
 
 #def p_unconditional_actions(p):
 #    '''unconditional_actions : FAT_RIGHT_ARROW actions'''
@@ -432,7 +438,8 @@ def p_expr(p):
             | funccall
             | relexpr
             | member_chain
-            | varref'''
+            | varref
+            | this'''
     p[0] = p[1]
 
 def p_exprs(p):
@@ -443,6 +450,10 @@ def p_exprs(p):
 def p_varref(p):
     '''varref : NAME'''
     p[0] = VarRef(p[1])
+
+def p_this(p):
+    '''this : THIS'''
+    p[0] = ThisExpr()
 
 def p_constant(p):
     '''constant : INTEGER

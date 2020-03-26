@@ -126,15 +126,15 @@ Scout2
 Scout3
   see t1 := NodeOfClass(Target)
   => add_tag(Found, t1)
-  else t2 := NodeOfClass(Found)
+  else see t2 := NodeOfClass(Found)
   => add_tag(Done, t2)
 
 Scout4
   see t1 := NodeOfClass(Target)
   => add_tag(Found, t1)
-  else t2 := NodeOfClass(Found)
+  else see t2 := NodeOfClass(Found)
   => add_tag(Done, t2)
-  else t3 := NodeOfClass(SomethingElse)
+  else see t3 := NodeOfClass(SomethingElse)
   => do_something(Found, t2, t3)
 '''
         make_python(prog) #DEBUG
