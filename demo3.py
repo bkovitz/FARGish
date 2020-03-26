@@ -35,6 +35,16 @@ Minus(minuend, subtrahend) : Operator
 OperandTagger
   see node := NodeOfClass((Brick, Block))
   => build CouldBeOperand(node)
+
+ConsumeOperands
+
+OperandsScout(target)
+  see p1 := NodeWithTag(Number, Avail),
+      p2 := NodeWithTag(Number, Avail),
+      op := NodeWithTag(Operator, Allowed)
+  => build ConsumeOperands(op, p1, p2)
+  else block := NodeWithTag(Block, Avail), block != target
+  => Fail(block)
 '''
 
 make_python(prog, debug=1)

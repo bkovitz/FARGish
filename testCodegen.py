@@ -93,7 +93,7 @@ Agent
 
         #TODO There needs to be a unit test that fully exercises the
         # ability to pass a Node ctor a port_label argument for which it
-        # has not NodeParam, thus forcing it to make a link not explicitly
+        # has no NodeParam, thus forcing it to make a link not explicitly
         # provided for in the Node's parameters. As of 13-Mar-2013, the
         # PortGraph.exactly_matches_kwargs() function does not check for
         # such links. That should cause PortGraph.already_built() to return

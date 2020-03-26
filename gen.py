@@ -446,7 +446,7 @@ class CartProdExpr(Expr):
             self._gen_tupfunc(file, fixup, env)
             crit_py = f"TupFunc({self.func_name})"
             if len(self.nodesearches) != 1:
-                crit_py = f"no_dups, {crit_py}"
+                crit_py = f"[no_dups, {crit_py}]"
             wtc_py = f", whole_tuple_criterion={crit_py}"
         else:
             wtc_py = ''
@@ -1448,6 +1448,7 @@ class SeeDo2(NiceRepr):
         fixup = Indenting(StringIO())
         ifstmt = self.make_ifstmt()
         ifstmt.gen(file, fixup, env)
+        #TODO Just pass add_action the IfStmt?
         cl.add_action(DelayedGen(file, fixup))
 
     def make_ifstmt(self):
