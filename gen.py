@@ -570,7 +570,7 @@ class ConditionExpr(SeeDoElem):
     def condition_expr(self, env):
         return self.expr.condition_expr(env)
 
-class ActionExpr(SeeDoElem):
+class ActionExpr0(SeeDoElem):
 
     def __init__(self, expr):
         self.expr = expr
@@ -595,7 +595,7 @@ class ActionExpr(SeeDoElem):
         return LocalGen(expr=as_pyexpr(self.expr))
 
 # TODO rm? Replaced by BuildStmt?
-class BuildSpecExpr(ActionExpr):
+class BuildSpecExpr(ActionExpr0):
 
     def __init__(self, nodeclass_expr, args):
         self.nodeclass_expr = nodeclass_expr  # a NodeclassExpr
@@ -691,6 +691,9 @@ class VarRef(Expr):
 
     def coalesced_with(self, other):
         return AndExpr(self, other)
+
+    def __repr__(self):
+        return f"VarRef({repr(self.name)})"
 
 class AndExpr(Expr):
 
@@ -806,15 +809,20 @@ class MemberChain(Expr):
         return self
 
 class Relexpr(Expr):
+
     def __init__(self, lhs, op, rhs):
-        self.lhs = lhs
-        self.op = op
-        self.rhs = rhs
+        self.lhs = lhs  # An Expr
+        self.op = op    # A string: '==', '!=', etc.
+        self.rhs = rhs  # An Expr
 
     def add_to_env(self, env):
         #TODO Set type to Boolean?
         self.lhs.add_to_env(env)
         self.rhs.add_to_env(env)
+
+    def gen_prelines(self, file, fixup, env):
+        self.lhs.gen_prelines(file, fixup, env)
+        self.rhs.gen_prelines(file, fixup, env)
 
     def as_pyexpr(self):
         lhs = as_pyexpr(self.lhs)
@@ -825,7 +833,10 @@ class Relexpr(Expr):
     def condition_expr(self, env):
         return as_pyexpr(self)
 
-    #TODO UT
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
+
+    #TODO rm?
     def action_expr_gen(self):
         return self
 
@@ -886,19 +897,19 @@ f'''CartesianProduct({', '.join(repr(ns) for ns in self.nodespecs)}, whole_tuple
 
 ConditionWithActions = namedtuple('ConditionWithActions', [
     'condition',  # a ConditionExpr (holding zero or more conditions)
-    'actions'     # a list of at least one ActionExpr
+    'actions'     # a list of at least one ActionExpr0
 ])
         
 #ConditionsWithActions = namedtuple('ConditionsWithActions', [
 #    'conditions',  # a list of zero or more ConditionExprs
-#    'actions'     # a list of at least one ActionExpr
+#    'actions'     # a list of at least one ActionExpr0
 #])
 
 class ConditionsWithActions(NiceRepr):
 
     def __init__(self, conditions, actions):
         '''conditions: a list of zero or more ConditionExprs
-           actions:    a list of at least one ActionExpr'''
+           actions:    a list of at least one ActionExpr0'''
         self.conditions = conditions
         self.actions = actions
 
@@ -1314,10 +1325,30 @@ class ActionStmt(Stmt):
     def action_pyexpr(self):
         '''Return a string or list of strings, each of which is the Python
         expression for an Action.'''
+        pass
 
     def gen(self, file, fixup, env):
         for pye in as_iter(self.action_pyexpr()):
             print(f"_result.append({self.action_pyexpr()})", file=file)
+
+class ActionExpr(ActionStmt):
+    '''An Expr to be treated as an ActionStmt.'''
+
+    def __init__(self, expr):
+        self.expr = expr
+
+    def add_to_env(self, env):
+        self.expr.add_to_env(env)
+
+    def action_pyexpr(self):
+        return as_pyexpr(self.expr)
+
+    def gen(self, file, fixup, env):
+        self.expr.gen_prelines(file, fixup, env)
+        super().gen(file, fixup, env)
+
+    def implicit_cond_expr(self):
+        return None
 
 class NullStmt(Stmt):
 
@@ -1384,7 +1415,7 @@ class IfStmt(Stmt):
                 with indent(file), env:
                     self.else_expr.gen(file, fixup, env)
         else:
-            self.then_expr.gen(file, fixup, env)
+            self.gen_then(file, fixup, env)
 
     def gen_then(self, file, fixup, env):
         self.then_expr.gen(file, fixup, env)
@@ -1447,6 +1478,7 @@ class SeeDo2(NiceRepr):
         file = Indenting(StringIO())
         fixup = Indenting(StringIO())
         ifstmt = self.make_ifstmt()
+        ifstmt.add_to_env(env)
         ifstmt.gen(file, fixup, env)
         #TODO Just pass add_action the IfStmt?
         cl.add_action(DelayedGen(file, fixup))

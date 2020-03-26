@@ -300,12 +300,22 @@ def p_agent_defn(p):
 #    p[0] = SeeDo([p[2]] + p[3])
 
 def p_see_do(p):
-    '''see_do : SEE nodesearches FAT_RIGHT_ARROW actions maybe_else_see_do
+    '''see_do : SEE conditions FAT_RIGHT_ARROW actions maybe_else_see_do
               | FAT_RIGHT_ARROW actions maybe_else_see_do'''
     if len(p) == 6:
-        p[0] = SeeDo2(CartProdExpr(p[2], []), p[4], p[5])
+        p[0] = SeeDo2(make_cartprodexpr(p[2]), p[4], p[5])
     else:
         p[0] = SeeDo2(None, p[2], p[3])
+
+def make_cartprodexpr(conditions):
+    nodesearches = []
+    whole_tuple_exprs = []
+    for condition in conditions:
+        if isinstance(condition, NodeSearch):
+            nodesearches.append(condition)
+        else:
+            whole_tuple_exprs.append(condition)
+    return CartProdExpr(nodesearches, whole_tuple_exprs)
 
 #def p_unconditional_actions(p):
 #    '''unconditional_actions : FAT_RIGHT_ARROW actions'''
@@ -360,16 +370,19 @@ def p_conditions(p):
 
 def p_condition(p):
     '''condition : expr
-                 | NAME LET expr'''
+                 | nodesearch'''
+                 #| NAME LET expr'''
     if len(p) == 2:
-        p[0] = ConditionExpr2(p[1])
+        p[0] = p[1] #ConditionExpr2(p[1])
     else:
-        p[0] = ConditionExpr2(LetExpr(p[1], p[3]))
+        p[0] = ConditionExpr2(LetExpr(p[1], p[3]))  #TODO Just LetExpr?
 
-def p_nodesearches(p):
-    '''nodesearches : nodesearch
-                    | nodesearches ',' nodesearch'''
-    one_or_more(p, 1, 3)
+# def p_nodesearches(p):
+#     '''nodesearches : nodesearch
+#                     | expr
+#                     | nodesearches ',' nodesearch
+#                     | nodesearches ',' expr'''
+#     one_or_more(p, 1, 3)
 
 def p_nodesearch(p):
     '''nodesearch : NODESEARCH
@@ -382,8 +395,10 @@ def p_nodesearch(p):
         p[0] = NodeSearch('_', FuncCall(p[1], p[3]))
     elif len(p) == 4:
         p[0] = NodeSearch(p[1], FuncCall(p[3], []))
-    else:
+    elif len(p) == 7:
         p[0] = NodeSearch(p[1], FuncCall(p[3], p[5]))
+    else:
+        assert(False, "Shouldn't get here.")
 
 def p_actions(p):
     '''actions : action
@@ -392,14 +407,12 @@ def p_actions(p):
 
 # NEXT   Build nodespec_expr
 def p_action(p):
-    '''action : BUILD buildspec'''
-    #          | expr'''   TODO: allow call to external func, wrap it to
-    #                            append the result to _result.
-    p[0] = p[2]
-#    if len(p) == 3:
-#        p[0] = p[2]
-#    else:
-#        p[0] = ActionExpr(p[1])
+    '''action : BUILD buildspec
+              | expr'''
+    if len(p) == 3:
+        p[0] = p[2]
+    else:
+        p[0] = ActionExpr(p[1])
 
 def p_buildspec(p):
     '''buildspec : nodeclass LPAREN maybe_args RPAREN

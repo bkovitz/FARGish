@@ -43,7 +43,7 @@ OperandsScout(target)
       p2 := NodeWithTag(Number, Avail),
       op := NodeWithTag(Operator, Allowed)
   => build ConsumeOperands(op, p1, p2)
-  else block := NodeWithTag(Block, Avail), block != target
+  else see block := NodeWithTag(Block, Avail), block != target
   => Fail(block)
 '''
 
