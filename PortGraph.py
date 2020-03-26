@@ -436,7 +436,9 @@ class PortGraph(nx.MultiGraph):
     def already_built(self, cl, args=None, kwargs={}):
         '''Is a node of class cl with the given args and kwargs already built?'''
         buildspec = make_buildspec(self, cl, args=args, kwargs=kwargs)
-        return buildspec.already_built(self)
+        result = buildspec.already_built(self)
+        #print('ALR', cl, result)
+        return result
 
 #TODO rm
 #        #TODO Could we deduce the potential_neighbors from the kwargs?

@@ -14,7 +14,7 @@ from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo2, AgentExpr, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
-    BuildStmt, ActionExpr, ConditionExpr2, TupleExpr
+    BuildStmt, ActionExpr, ConditionExpr2, TupleExpr, NodeSearch, CartProdExpr
 
 
 ##### Grammar for lexical analyzer
@@ -41,6 +41,7 @@ tokens = (
     'ELSE',
     'LET',
     'BUILD',
+    'NODESEARCH',
     'EQ',
     'NE',
     'LT',
@@ -145,7 +146,12 @@ KEYWORDS = {
     'agent': 'AGENT',
     'see': 'SEE',
     'else': 'ELSE',
-    'build': 'BUILD'
+    'build': 'BUILD',
+    'NodeSpec': 'NODESEARCH',
+    'NodeOfClass': 'NODESEARCH',
+    'NodeWithTag': 'NODESEARCH',
+    'NodeWithValue': 'NODESEARCH',
+    'NodeWithNeighborAt': 'NODESEARCH'
 }
 
 def t_NAME(t):
@@ -294,10 +300,10 @@ def p_agent_defn(p):
 #    p[0] = SeeDo([p[2]] + p[3])
 
 def p_see_do(p):
-    '''see_do : SEE conditions FAT_RIGHT_ARROW actions maybe_else_see_do
+    '''see_do : SEE nodesearches FAT_RIGHT_ARROW actions maybe_else_see_do
               | FAT_RIGHT_ARROW actions maybe_else_see_do'''
     if len(p) == 6:
-        p[0] = SeeDo2(p[2], p[4], p[5])
+        p[0] = SeeDo2(CartProdExpr(p[2], []), p[4], p[5])
     else:
         p[0] = SeeDo2(None, p[2], p[3])
 
@@ -359,6 +365,25 @@ def p_condition(p):
         p[0] = ConditionExpr2(p[1])
     else:
         p[0] = ConditionExpr2(LetExpr(p[1], p[3]))
+
+def p_nodesearches(p):
+    '''nodesearches : nodesearch
+                    | nodesearches ',' nodesearch'''
+    one_or_more(p, 1, 3)
+
+def p_nodesearch(p):
+    '''nodesearch : NODESEARCH
+                  | NODESEARCH LPAREN maybe_args RPAREN
+                  | NAME LET NODESEARCH
+                  | NAME LET NODESEARCH LPAREN maybe_args RPAREN'''
+    if len(p) == 2:
+        p[0] = NodeSearch('_', FuncCall(p[1], []))
+    elif len(p) == 5:
+        p[0] = NodeSearch('_', FuncCall(p[1], p[3]))
+    elif len(p) == 4:
+        p[0] = NodeSearch(p[1], FuncCall(p[3], []))
+    else:
+        p[0] = NodeSearch(p[1], FuncCall(p[3], p[5]))
 
 def p_actions(p):
     '''actions : action

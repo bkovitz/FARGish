@@ -212,6 +212,14 @@ class NoDups(TupleCriterion):
 
 no_dups = NoDups()
 
+class TupFunc(TupleCriterion):
+
+    def __init__(self, f):
+        self.f = f
+
+    def is_match(self, g, tup):
+        return self.f(g, tup)
+
 class NotLinkedToSame(TupleCriterion):
     '''Disallows a tuple of nodes where the nodes all link to a single node
     via specified port labels.'''

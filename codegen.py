@@ -15,7 +15,7 @@ preamble = '''from PortGraph import Node
 from LinkSpec import LinkSpec
 from NodeSpec import NodeOfClass, NodeSpec, NodeWithTag, \
     NodeWithValue, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, \
-    NotAlreadyBuilt
+    NotAlreadyBuilt, TupFunc
 from bases import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from PortMates import PortMates

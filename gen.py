@@ -388,6 +388,18 @@ class Expr(EnvItem):
         containing the Python expression.'''
         pass
 
+    def gen_prelines2(self, file, fixup, env):
+        pass #STUB
+        # if nodesearches
+        #    if whole_tuple_criterion
+        #        define a function for it
+        #    make a variable for the tup
+        #    assign it a CartesianProduct
+        # if names defined
+        #    predefine them to None
+
+        # IDEA Convert self into a CartProdExpr if needed
+
     @abstractmethod
     def as_pyexpr(self):  # Don't we need to pass env?
         pass
@@ -400,6 +412,80 @@ class Expr(EnvItem):
     @abstractmethod
     def coalesced_with(self, other):
         pass
+
+NodeSearch = namedtuple('NodeSearch', ('name', 'expr'))
+
+class CartProdExpr(Expr):
+
+    def __init__(self, nodesearches, whole_tuple_criteria):
+        self.nodesearches = nodesearches  # list of NodeSearch objects
+            # A CartProdExpr must have at least one NodeSearch
+        self.whole_tuple_criteria = whole_tuple_criteria # list of Exprs
+        self.func_name = None
+        self.tup_name = None
+
+    def add_to_env(self, env):
+        for ns in self.nodesearches:
+            ns.expr.add_to_env(env)
+        for wtc in self.whole_tuple_criteria:
+            wtc.add_to_env(env)
+
+    def gen_prelines(self, file, fixup, env):
+        self.tup_name = env.gensym('_found_tup')
+        print(f"{self.elem_names_comma()} = None", file=file)
+        for ns in self.nodesearches:
+            ns.expr.gen_prelines(file, fixup, env)
+        ns_py = ', '.join(as_pyexpr(ns.expr) for ns in self.nodesearches)
+        if self.whole_tuple_criteria:
+            self._gen_tupfunc(file, fixup, env)
+            crit_py = f"TupFunc({self.func_name})"
+            if len(self.nodesearches) != 1:
+                crit_py = f"no_dups, {crit_py}"
+            wtc_py = f", whole_tuple_criterion={crit_py}"
+        else:
+            wtc_py = ''
+        print(
+            f"{self.tup_name} = CartesianProduct({ns_py}{wtc_py}).see_one(_g)",
+            file=file
+        )
+        print(f"if {self.tup_name}:", file=file)
+        with indent(file):
+            self._gen_unpack(self.tup_name, file, fixup, env)
+
+    def _gen_tupfunc(self, file, fixup, env):
+        '''Sets .func_name and generates the definition for the function to
+        be passed to TupFunc.'''
+        self.func_name = env.gensym('_f')
+        print(f"def {self.func_name}(_g, _tup):", file=file)
+        with indent(file):
+            self._gen_unpack('_tup', file, fixup, env)
+            for wtc in self.whole_tuple_criteria:
+                wtc.gen_prelines(file, fixup, env)
+            wtcs_py = ' and '.join(
+                as_pyexpr(wtc) for wtc in self.whole_tuple_criteria
+            )
+            print(f"return {wtcs_py}", file=file)
+
+    def _gen_unpack(self, tupname, file, fixup, env):
+        print(f"{self.elem_names_comma()}, = {tupname}", file=file)
+        
+    def elem_names_comma(self):
+        elem_names = [ns.name for ns in self.nodesearches]
+        return ', '.join(elem_names)
+
+    def as_pyexpr(self):
+        return self.tup_name
+
+    def coalesced_with(self, other):
+        if isinstance(other, CartProdExpr):
+            return CartProdExpr(
+                self.nodesearches + other.nodesearches,
+                self.whole_tuple_criteria + other.whole_tuple_criteria
+            )
+        else:
+            return CartProdExpr(
+                self.nodesearches, self.whole_tuple_criteria + [other]
+            )
 
 #class BuildExpr(Expr):
 #    '''A BuildExpr can never be a condition, only an action.'''
@@ -536,7 +622,7 @@ class BuildSpecExpr(ActionExpr):
         kwargs_s = \
             '{' + ', '.join(f"{repr(k)}: {as_pyexpr(v)}" for k,v in kwargs.items()) + '}'
         #return f"Build2({cls}, args={args_s}, kwargs={kwargs_s})"
-        return f"make_build3({cls}, args={args_s}, kwargs={kwargs_s})"
+        return f"make_build3(_g, {cls}, args={args_s}, kwargs={kwargs_s})"
 
     def as_agent_expr(self):
         return AgentExpr(self.nodeclass_expr, self.args)
@@ -1153,7 +1239,7 @@ class WholeTupleConditionExpr(Expr):
     def as_pyexpr(self):
         return self.tupvar
 
-class NotAlreadyBuiltExpr(WholeTupleConditionExpr):
+class NotAlreadyBuiltExpr(Expr):
     
     def __init__(self, buildstmt):
         self.buildstmt = buildstmt
@@ -1161,6 +1247,15 @@ class NotAlreadyBuiltExpr(WholeTupleConditionExpr):
 
     def add_to_env(self, env):
         pass
+
+    def gen_prelines(self, file, fixup, env):
+        #TODO Do we need to call .gen_prelines on all the args and kwargs
+        #or does BuildStmt already do that?
+        pass
+
+    def as_pyexpr(self):
+        return \
+            f"not _g.already_built({self.buildstmt.buildargs_py()})"
 
     def coalesced_with(self, other):
         return AndExpr(self, other)
@@ -1279,15 +1374,18 @@ class BuildStmt(ActionStmt):
 
     def action_pyexpr(self):
         # TODO .gen_prelines the self.args
-        args_s = '[' + ', '.join(
+        return f"make_build3(_g, {self.buildargs_py()})"
+        
+    def buildargs_py(self):
+        args_py = '[' + ', '.join(
             as_pyexpr(a) for a in positional_args(self.args)
         ) + ']'
-        kwargs_s = '{' + ', '.join(
+        kwargs_py = '{' + ', '.join(
                         f"{repr(k)}: {as_pyexpr(v)}"
                             for k,v in keyword_args(self.args)
                     ) + '}'
-        cls = as_pyexpr(self.nodeclass_expr)
-        return f"make_build3({cls}, args={args_s}, kwargs={kwargs_s})"
+        cl_py = as_pyexpr(self.nodeclass_expr)
+        return f"{cl_py}, args={args_py}, kwargs={kwargs_py}"
         
     def as_agent_stmt(self):
         #STUB Should add an arg 'behalf_of=_thisid'

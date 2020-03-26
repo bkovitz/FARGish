@@ -139,7 +139,7 @@ def run(seed=None, numble=Numble([4, 5, 6], 15), num=70):
 
 if __name__ == '__main__':
     #run(seed=8316664589534836549)
-    run(seed=1725458333626496812, num=3)
+    run(seed=1725458333626496812, num=6)
     #run()
     #demo(seed=4730533389549952010)
     #run(seed=2524266053616371958, numble=Numble([10, 10, 1, 2, 3, 4], 100), n=12)

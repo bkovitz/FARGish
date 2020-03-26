@@ -158,8 +158,8 @@ class Build3(Action):
     def go(self, g):
         self.buildspec.build(g)
 
-def make_build3(nodeclass, args=(), kwargs={}, weight=1.0, threshold=0.0):
-    return Build3(make_buildspec(nodeclass, args, kwargs), weight, threshold)
+def make_build3(g, nodeclass, args=(), kwargs={}, weight=1.0, threshold=0.0):
+    return Build3(make_buildspec(g, nodeclass, args, kwargs), weight, threshold)
 
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''
