@@ -65,7 +65,7 @@ Client
 
 Agent
 '''
-        #make_python(prog, debug=1) #DEBUG
+        make_python(prog, debug=1) #DEBUG
         exec(compile_fargish(prog), globals())
         #ShowActionList.start_logging()
         #ShowActionsChosen.start_logging()

@@ -31,39 +31,44 @@ def gen(o, file, fixup, env):
     else:
         print(str(o), file=file)
 
+#TODO rm?
 def cartprod_elem_name(o, env):
     if hasattr(o, 'cartprod_elem_name'):
         return o.cartprod_elem_name(env)
     else:
         pass
 
+#TODO rm?
 def cartprod_elem_expr(o, env):
     if hasattr(o, 'cartprod_elem_expr'):
         return o.cartprod_elem_expr(env)
     else:
         pass
 
+#TODO rm?
 nodesearch_names = {'NodeWithTag', 'NodeOfClass', 'NodeSpec'} #HACK
 
+#TODO rm?
 def is_nodesearch(o, env):
     if hasattr(o, 'is_nodesearch'):
         return o.is_nodesearch(env)
     else:
         return False
 
+#TODO rm?
 def gen_prelines(o, file, fixup, env):
     if hasattr(o, 'gen_prelines'):
         o.gen_prelines(file, fixup, env)
     else:
         pass
 
-class Type: pass
-class NodeidT(Type): pass
-class NodeSearchT(Type): pass
-class ActionT(Type): pass
-class PortLabelT(Type): pass
-class NodeClassT(Type): pass
-class ArbitraryT(Type): pass
+# class Type: pass
+# class NodeidT(Type): pass
+# class NodeSearchT(Type): pass
+# class ActionT(Type): pass
+# class PortLabelT(Type): pass
+# class NodeClassT(Type): pass
+# class ArbitraryT(Type): pass
 
 class ExternalName(EnvItem):
     def __init__(self, name):
@@ -229,6 +234,7 @@ class Class(NiceRepr):
         method of the class being generated.'''
         self.actions += as_iter(actions)
 
+    #TODO rm?
     def add_auto_link(self, lsname, link_spec):
         self.auto_links.append(AutoLink(lsname, link_spec))
 
@@ -711,17 +717,42 @@ class AndExpr(Expr):
 
 class Constant(Expr):
 
-    def __init__(self, n):
-        self.n = n
+    def __init__(self, x):
+        self.x = x
 
     def add_to_env(self, env):
         pass
 
     def as_pyexpr(self):
-        return repr(self.n)
+        return repr(self.x)
+
+    def gen_prelines(self, file, fixup, env):
+        pass
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
 
     def action_expr_gen(self):
         return self
+
+class PyLiteralExpr(Expr):
+    '''An Expr consisting of a Python expression. A PyLiteralExpr appears in
+    generated code as-is, with no modification.'''
+
+    def __init__(self, x):
+        self.x = x
+
+    def add_to_env(self, env):
+        pass
+
+    def as_pyexpr(self):
+        return self.x
+
+    def gen_prelines(self, file, fixup, env):
+        pass
+
+    def coalesced_with(self, other):
+        return AndExpr(self, other)
 
 class FuncCall(Expr):
 
@@ -1358,6 +1389,8 @@ class IfStmt(Stmt):
     def gen_then(self, file, fixup, env):
         self.then_expr.gen(file, fixup, env)
 
+agent_argexpr = ArgExpr('behalf_of', PyLiteralExpr('_thisid'))
+
 class BuildStmt(ActionStmt):
 
     def __init__(self, nodeclass_expr, args):
@@ -1389,7 +1422,7 @@ class BuildStmt(ActionStmt):
         
     def as_agent_stmt(self):
         #STUB Should add an arg 'behalf_of=_thisid'
-        return self
+        return BuildStmt(self.nodeclass_expr, self.args + [agent_argexpr])
 
     def implicit_cond_expr(self):
         return NotAlreadyBuiltExpr(self)
