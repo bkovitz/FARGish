@@ -33,6 +33,15 @@ class Env(AbstractContextManager, NiceRepr):
         except KeyError:
             self.stack[-1][name] = o
 
+    def get(self, name):
+        '''Returns the value of name in current scope, or None if undefined.'''
+        for d in reversed(self.stack):
+            try:
+                return d[name]
+            except KeyError:
+                continue
+        return None
+
     #TODO UT
     def get_or_add(self, name, o):
         '''If name is already defined in innermost scope, returns the object
@@ -60,15 +69,6 @@ class Env(AbstractContextManager, NiceRepr):
 
     def __exit__(self, *args, **kwargs):
         self.pop()
-        return None
-
-    def get(self, name):
-        '''Returns the value of name in current scope, or None if undefined.'''
-        for d in reversed(self.stack):
-            try:
-                return d[name]
-            except KeyError:
-                continue
         return None
 
     def gensym(self, prefix):

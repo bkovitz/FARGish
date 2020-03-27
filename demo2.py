@@ -25,7 +25,7 @@ from log import *
 from util import as_iter, reseed, intersection
 
 prog = '''
-external { chooseSubclass, arithResult, succeeded, consumeOperands, Fail }
+funcs { chooseSubclass, arithResult, succeeded, consumeOperands, Fail }
 
 tags -- taggees
 consume-operand -- proposer

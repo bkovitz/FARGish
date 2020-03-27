@@ -62,31 +62,42 @@ def gen_prelines(o, file, fixup, env):
     else:
         pass
 
-# class Type: pass
+class CallGenerator(ABC):
+    '''Mix-in for items that can represent functions to call from FARGish.'''
+
+    @abstractmethod
+    def pycall(self, argexprs):
+        '''Should return a string containing appropriate Python code to call
+        whatever 'self' represents.'''
+        pass
+
+class Type: pass
 # class NodeidT(Type): pass
 # class NodeSearchT(Type): pass
 # class ActionT(Type): pass
 # class PortLabelT(Type): pass
 # class NodeClassT(Type): pass
 # class ArbitraryT(Type): pass
+class GFuncT(Type): pass  # A function with "_g" as implicit first arg
+class Func(Type): pass    # A function with no implicit args
 
-class ExternalName(EnvItem):
-    def __init__(self, name):
-        self.name = name
+# class ExternalName(EnvItem):
+#     def __init__(self, name):
+#         self.name = name
+# 
+#     def add_to_env(self, env):
+#         env.add(self.name, self)
+#         
+# class ExternalList(EnvItem):
+#     def __init__(self, names):
+#         '''names: a list of external function names'''
+#         self.names = [ExternalName(name) for name in names]
+# 
+#     def add_to_env(self, env):
+#         for name in self.names:
+#             name.add_to_env(env)
 
-    def add_to_env(self, env):
-        env.add(self.name, self)
-        
-class ExternalList(EnvItem):
-    def __init__(self, names):
-        '''names: a list of external function names'''
-        self.names = [ExternalName(name) for name in names]
-
-    def add_to_env(self, env):
-        for name in self.names:
-            name.add_to_env(env)
-
-class PortLabel(EnvItem):
+class PortLabel(EnvItem, CallGenerator):
     def __init__(self, name):
         self.name = name
         self.links_to = set()   # a set of PortLabels
@@ -119,7 +130,13 @@ class PortLabel(EnvItem):
 f"Port label '{self.name}' has multiple mates defined: {mates}."
             )
 
+    def pycall(self, argexprs):
+        assert len(argexprs) == 1  # HACK Should raise a compilation error
+        nodeexpr = argexprs[0]
+        return f"_g.neighbors({as_pyexpr(nodeexpr)}, port_label={repr(self.name)})"
+
 class LinkDefn(EnvItem):
+
     def __init__(self, from_label, to_label):
         self.from_label = PortLabel(from_label)
         self.to_label = PortLabel(to_label)
@@ -129,6 +146,29 @@ class LinkDefn(EnvItem):
         plto = env.get_or_add(self.to_label.name, self.to_label)
         plfrom.add_link_to(plto)
         plto.add_link_to(plfrom)
+
+class ExtFunc(CallGenerator, EnvItem):
+    '''An external function, i.e. a Python function accessible from FARGish.'''
+
+    def __init__(self, name):
+        self.name = name
+
+    def add_to_env(self, env):
+        env.add(self.name, self)
+
+    def pycall(self, argexprs):
+        pyargs = ', '.join(as_pyexpr(a) for a in argexprs)
+        return f'''{self.name}({pyargs})'''
+
+class ExtGFunc(ExtFunc):
+    '''An external function that takes the current PortGraph as its first
+    argument. This class supplies "_g" as that argument implicitly, so it
+    doesn't need to be specified in FARGish code.'''
+
+    def pycall(self, argexprs):
+        pyargs = ', '.join(['_g'] + [as_pyexpr(a) for a in argexprs])
+        return f'''{self.name}({pyargs})'''
+        
 
 class NodeHeader(NiceRepr):
     def __init__(self, names, ancestors):
@@ -777,10 +817,11 @@ class FuncCall(Expr):
     def __init__(self, funcname, args):
         self.funcname = funcname  # TODO Treat funcname as an Expr
         self.args = args
+        self.callgen = None
 
     def add_to_env(self, env):
         #TODO Check that self.funcname really refers to a function
-        #TODO determine type?
+        self.callgen = env.get(self.funcname)
         for arg in self.args:
             arg.add_to_env(env)
 
@@ -792,8 +833,13 @@ class FuncCall(Expr):
         return self.funcname in nodesearch_names  # HACK
 
     def as_pyexpr(self):
-        #print('FUNC AS', self)
-        return f'''{self.funcname}({', '.join(as_pyexpr(a) for a in self.args)})'''
+        try:
+            make_pycall = self.callgen.pycall
+        except AttributeError:
+            pyargs = ', '.join(as_pyexpr(a) for a in self.args)
+            return f'''{self.funcname}({pyargs})'''
+        else:
+            return make_pycall(self.args)
 
     #TODO rm?
     def action_expr_gen(self):

@@ -5,10 +5,11 @@ from io import StringIO
 from pprint import pprint as pp
 
 from grammar import parse
-from gen import LinkDefn
+from gen import LinkDefn, ExtGFunc, ExtFunc
 from Env import Env
 from Indenting import Indenting, indent
 #from PortGraph import Node
+from Predefs import Tagged, AllTagged, Not
 
 
 preamble = '''from PortGraph import Node
@@ -20,11 +21,20 @@ from bases import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from PortMates import PortMates
 from Action import Build3, make_build3
+from Predefs import Tagged, AllTagged, Not
 '''
+
+predefs = [
+    LinkDefn('behalf_of', 'agents'),
+    ExtGFunc('Tagged'),
+    ExtGFunc('AllTagged'),
+    ExtFunc('Not')
+]
 
 def make_python(
     fargish_code,
     file=None,  # If None, print to stdout
+    predefs=predefs,
     preamble=preamble,
     postamble='',
     debug=False  # If True, print the raw parsed items to stdout
@@ -32,7 +42,7 @@ def make_python(
     if file is None:
         file = sys.stdout
     file = Indenting(file)
-    items = parse(fargish_code)
+    items = parse(fargish_code, predefs=predefs)
     if (debug):
         print('\n')
         pp(items)
@@ -46,7 +56,7 @@ def make_python(
 
     #TODO This really should become a special item in Env, so that .gen code
     #can derive things from it.
-    # 'port_mates' is global variable. You must pass it explicitly to
+    # 'port_mates' is a global variable. You must pass it explicitly to
     # PortGraph's ctor.
     print('port_mates = PortMates()', file=file)
     for link_defn in (i for i in items if isinstance(i, LinkDefn)):

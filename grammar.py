@@ -10,12 +10,13 @@ import ply.yacc as yacc
 from pprint import pprint as pp
 
 from Indent1 import Parser
-from gen import ExternalList, LinkDefn, NodeHeader, NameWithArguments, \
+from gen import ExtFunc, ExtGFunc, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo2, AgentExpr, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
     BuildStmt, ActionExpr, ConditionExpr2, TupleExpr, NodeSearch, \
     ThisExpr, CartProdExpr, coalesce_conditions
+from util import as_iter, as_list
 
 
 ##### Grammar for lexical analyzer
@@ -34,7 +35,8 @@ tokens = (
     'FLOAT',
     'STRING',
     'DOT',
-    'EXTERNAL',
+    'FUNCS',
+    'GFUNCS',
     'DOUBLE_HYPHEN',
     'AGENT',
     'FAT_RIGHT_ARROW',
@@ -144,7 +146,8 @@ def t_DOUBLE_HYPHEN(t):
 t_DOT = r'\.'
     
 KEYWORDS = {
-    'external': 'EXTERNAL',
+    'funcs': 'FUNCS',
+    'gfuncs': 'GFUNCS',
     'agent': 'AGENT',
     'see': 'SEE',
     'else': 'ELSE',
@@ -242,14 +245,19 @@ def p_prog(p):
     zero_or_more(p, 2)
 
 def p_prog_elem(p):
-    '''prog_elem : external_list
+    '''prog_elem : funcs
+                 | gfuncs
                  | link_defn
                  | node_defn'''
     p[0] = p[1]
 
-def p_external_list(p):
-    '''external_list : EXTERNAL LBRACE maybe_names RBRACE'''
-    p[0] = ExternalList(p[3])
+def p_funcs(p):
+    '''funcs : FUNCS LBRACE maybe_names RBRACE'''
+    p[0] = [ExtFunc(name) for name in p[3]]
+
+def p_gfuncs(p):
+    '''gfuncs : GFUNCS LBRACE maybe_names RBRACE'''
+    p[0] = [ExtGFunc(name) for name in p[3]]
 
 def p_link_defn(p):
     '''link_defn : NAME DOUBLE_HYPHEN NAME'''
@@ -574,12 +582,12 @@ def p_empty(p):
 
 parser = Parser(lex.lex(), yacc.yacc())
 
-def parse(code, debug=False):
-    return (
-        [LinkDefn('behalf_of', 'agents')]
-        +
-        parser.parse(code, tracking=True, debug=debug)
-    )
+def parse(code, predefs=None, debug=False):
+    result = as_list(predefs)
+    for i in parser.parse(code, tracking=True, debug=debug):
+        for item in as_iter(i):
+            result.append(item)
+    return result
 
 #TODO rm this test code; make a UT
 if __name__ == '__main__':
@@ -587,7 +595,7 @@ if __name__ == '__main__':
     from gen import gen
     from Indenting import Indenting, indent
     from io import StringIO
-    prog1 = '''external { arithResult, succeeded }
+    prog1 = '''funcs { arithResult, succeeded }
 tags -- taggees
 target -- tags
 
