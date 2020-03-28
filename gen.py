@@ -478,7 +478,8 @@ class CartProdExpr(Expr):
 
     def gen_prelines(self, file, fixup, env):
         self.tup_name = env.gensym('_found_tup')
-        print(f"{self.elem_names_comma()} = None", file=file)
+        #print(f"{self.elem_names_comma()} = None", file=file)
+        print(' = '.join(self.elem_names() + ['None']), file=file)
         for ns in self.nodesearches:
             ns.expr.gen_prelines(file, fixup, env)
         ns_py = ', '.join(as_pyexpr(ns.expr) for ns in self.nodesearches)
@@ -486,7 +487,7 @@ class CartProdExpr(Expr):
             self._gen_tupfunc(file, fixup, env)
             crit_py = f"TupFunc({self.func_name})"
             if len(self.nodesearches) != 1:
-                crit_py = f"[no_dups, {crit_py}]"
+                crit_py = f"TupAnd(no_dups, {crit_py})"
             wtc_py = f", whole_tuple_criterion={crit_py}"
         else:
             wtc_py = ''
@@ -516,8 +517,10 @@ class CartProdExpr(Expr):
         print(f"{self.elem_names_comma()}, = {tupname}", file=file)
         
     def elem_names_comma(self):
-        elem_names = [ns.name for ns in self.nodesearches]
-        return ', '.join(elem_names)
+        return ', '.join(self.elem_names())
+
+    def elem_names(self):
+        return [ns.name for ns in self.nodesearches]
 
     def as_pyexpr(self):
         return self.tup_name

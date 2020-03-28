@@ -85,11 +85,11 @@ if _found_tup_1:
         ], whole_tuple_criteria=[])
         ifstmt = IfStmt(cond, then, None)
         self.assertEqual(test_gen(ifstmt, env), '''
-p1, p2, op = None
+p1 = p2 = op = None
 def _f_2(_g, _tup):
     p1, p2, op, = _tup
     return not _g.already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
-_found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=[no_dups, TupFunc(_f_2)]).see_one(_g)
+_found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=TupAnd(no_dups, TupFunc(_f_2))).see_one(_g)
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
 if _found_tup_1:
@@ -135,11 +135,11 @@ if _found_tup_1:
         ifstmt.add_to_env(env)
 
         self.assertEqual(test_gen(ifstmt, env), '''
-p1, p2, op = None
+p1 = p2 = op = None
 def _f_2(_g, _tup):
     p1, p2, op, = _tup
     return not _g.already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
-_found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=[no_dups, TupFunc(_f_2)]).see_one(_g)
+_found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=TupAnd(no_dups, TupFunc(_f_2))).see_one(_g)
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
 if _found_tup_1:

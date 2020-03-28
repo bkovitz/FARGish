@@ -346,6 +346,7 @@ class PortGraph(nx.MultiGraph):
         self.touched_nodes = set()
         self.new_nodes = set()
         self.after_touch_nodes = set()
+        self.builder = None  #HACK: For auto-linking new nodes to current "builder"
 
     def _bump_nextid(self):
         result = self.nextid
@@ -365,6 +366,8 @@ class PortGraph(nx.MultiGraph):
         if isclass(o):
             o = o()
         self.add_node(i, **{'datum': o})
+        if self.builder is not None:
+            self.add_edge(i, 'builder', self.builder, 'built')
         try:
             salience = o.default_salience
             if salience is not None:

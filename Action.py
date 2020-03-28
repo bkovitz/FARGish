@@ -18,6 +18,7 @@ class Action(ABC):
     # The ActiveNode, if any, that produced this action. Descendant classes
     # that implement actions for ActiveNodes should override on_behalf_of
     # in their self.__init__().
+    actor = None
 
     annotation_string = None
 

@@ -115,10 +115,12 @@ class TimeStepper:
 
     def do_action(self, action):
         '''action: an Action object'''
+        self.builder = action.actor
         try:
             action.go(self)
         except FargDone as exc:
             self.set_done(exc)
+        self.builder = None
         if ShowAnnotations.is_logging():
             a = action.annotation()
             if a is not None:
@@ -161,9 +163,11 @@ class TimeStepper:
         returned objects (presumed to be Actions) in a list.'''
         actions = []
         for node in active_nodes:
+            #print('COLL', node, self.datum(node))
             got = self.datum(node).actions(self, node)
             for action in as_iter(got):
                 if action is not None:
+                    action.actor = node
                     actions.append(action)
         return actions
 
