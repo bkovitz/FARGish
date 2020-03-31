@@ -25,7 +25,8 @@ from Predefs import Tagged, AllTagged, Not
 '''
 
 predefs = [
-    LinkDefn('behalf_of', 'agents'),
+    LinkDefn('agents', 'behalf_of'),
+    LinkDefn('members', 'member_of'),
     ExtGFunc('Tagged'),
     ExtGFunc('AllTagged'),
     ExtFunc('Not')

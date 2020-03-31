@@ -18,16 +18,18 @@ def make_numble_class(brick, target, want, avail, allowed, rators):
 
         def build(self, g, container):
             #TODO Put the nodes inside container
-            target_id = g.make_node(self.Target, self.target)
+            target_id = g.make_node(
+                self.Target, self.target, member_of=container
+            )
             #g.add_tag(self.Want, target_id)
             #g.add_tag(self.Want, target_id, tag_port_label='target')
             g.make_node(self.Want, target_id)
             g.graph['target'] = target_id
             for brick in self.bricks:
-                brick_id = g.make_node(self.Brick, brick)
+                brick_id = g.make_node(self.Brick, brick, member_of=container)
                 g.add_tag(self.Avail, brick_id)
             for operator in self.operators:
-                operator_id = g.make_node(operator)
+                operator_id = g.make_node(operator, member_of=container)
                 g.add_tag(self.Allowed, operator_id)
             return container
             

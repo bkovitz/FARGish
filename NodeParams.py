@@ -258,7 +258,7 @@ class FilledMate(FilledParam):
         )
 
 class FilledMate2(FilledParam):
-    '''Like FilledMate, but we don't the port label to link to, so we'll
+    '''Like FilledMate, but we don't know the port label to link to, so we'll
     have to figure it out by looking at the node we're linking to.'''
     
     def __init__(self, this_port_label, mateid):

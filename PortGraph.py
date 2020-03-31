@@ -90,7 +90,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         return True
 
     def __repr__(self):
-        exclude = set(['kwargs', 'id'])
+        exclude = set(['kwargs', 'id', 'member_of'])
         #TODO Ignore self.link_specs; show items other than MateParams
         if isinstance(self.link_specs, Iterable):
             exclude |= set(ls.new_node_port_label for ls in self.link_specs)
@@ -382,6 +382,17 @@ class PortGraph(nx.MultiGraph):
             pass
         self.new_nodes.add(i)
         return i
+
+    def add_edge_to_default_container(self, nodeid):
+        '''If nodeid has no member_of link, add link to the "lowest common
+        denominator" member_of all its neighbors.'''
+        if self.has_neighbor_at(nodeid, 'member_of'):
+            return
+        containers = intersection(*(
+            self.neighbors(n1, 'member_of') for n1 in self.neighbors(nodeid)
+        ))
+        for c in containers:
+            self.add_edge(nodeid, 'member_of', c, 'members')
 
     def make_node(g, nodeclass, *args, **kwargs):
         '''Builds a new node with specified class and arguments, fills
