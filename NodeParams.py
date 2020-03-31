@@ -7,7 +7,7 @@ from copy import copy
 from itertools import chain
 
 from exc import TooManyArgs0
-from util import as_iter, as_set, as_name, empty_set, NiceRepr
+from util import as_iter, as_set, as_name, empty_set, NiceRepr, filter_none
 
 
 def add_kwarg(name, arg, kwargs):
@@ -76,6 +76,12 @@ class NodeParam(ABC):
         Returns None if this param should not be shown in .display_name().'''
         return None
 
+    def as_node_repr_kv(self, datum):
+        '''Returns a tuple (key, value), extracting 'value' from 'datum', if
+        this NodeParam should appear in the string returned by Node.__repr__().
+        Otherwise returns None.'''
+        return None
+
 class MateParam(NodeParam):
 
     def __init__(self, this_port_label, that_port_label):
@@ -125,6 +131,9 @@ class AttrParam(NodeParam):
 
     def as_kv(self):
         return (self.name, self)
+
+    def as_node_repr_kv(self, datum):
+        return (self.name, getattr(datum, self.name, None))
 
     def as_filled_param(self, v):
         return FilledAttr(self, v)
@@ -210,9 +219,17 @@ class NodeParams:
                 return False
         return True
 
-    def exclude_from_node_repr(self):
-        return set(param.as_key() for param in self.params
-                                     if isinstance(param, MateParam))
+#    def exclude_from_node_repr(self):
+#        return set(param.as_key() for param in self.params
+#                                     if isinstance(param, MateParam))
+
+    def node_repr_kvs(self, datum):
+        '''Returns a list of (name, value) for each NodeParam that should
+        appear in the string returned by Node.__repr__().'''
+        return filter_none(
+            lambda p: p.as_node_repr_kv(datum),
+            self.params
+        )
 
     def __len__(self):
         return len(self.params)

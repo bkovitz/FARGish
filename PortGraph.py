@@ -15,6 +15,7 @@ from inspect import isclass
 from operator import attrgetter, itemgetter
 from random import choice, choices
 from io import StringIO
+import traceback
 
 
 empty_node_params = NodeParams()
@@ -90,15 +91,22 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         return True
 
     def __repr__(self):
-        exclude = set(['kwargs', 'id', 'member_of'])
-        #TODO Ignore self.link_specs; show items other than MateParams
-        if isinstance(self.link_specs, Iterable):
-            exclude |= set(ls.new_node_port_label for ls in self.link_specs)
+#        exclude = set(['kwargs', 'id'])  #, 'member_of'])
+#        #TODO Ignore self.link_specs; show items other than MateParams
+#        if isinstance(self.link_specs, Iterable):
+#            exclude |= set(ls.new_node_port_label for ls in self.link_specs)
+#        if self.node_params:
+#            exclude |= self.node_params.exclude_from_node_repr()
+#        kvs = [kv for kv in self.__dict__.items()
+#                      if kv[0] not in exclude]
+
         if self.node_params:
-            exclude |= self.node_params.exclude_from_node_repr()
-        kvs = [kv for kv in self.__dict__.items()
-                      if kv[0] not in exclude]
-        return repr_str(self.__class__.__name__, kvs)
+            return repr_str(
+                self.__class__.__name__,
+                self.node_params.node_repr_kvs(self)
+            )
+        else:
+            return self.__class__.__name__
 
     def datumstr(self, g, node):
         return repr(self)  # Override to exploit g
