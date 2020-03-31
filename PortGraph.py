@@ -858,12 +858,20 @@ class PortGraph(nx.MultiGraph):
         return result
         
     #TODO UT port_label as iterable
-    def neighbors(self, node, port_label=None, neighbor_class=None):
+    def neighbors(
+        self,
+        node,
+        port_label=None,
+        neighbor_class=None,
+        nbr_label=None
+    ):
         '''Returns a set. If neighbor_class is not None, returns only
         neighbors of that class. If port_label is None, returns all
         neighbors at all of node's ports. If port_label is an iterable,
         returns the union of all the neighbors at the specified ports.
-        node can be a single nodeid or an iterable of nodeids.'''
+        If nbr_label is not None, returns only neighbors playing the role
+        nbr_label in relation to node. node can be a single nodeid or an
+        iterable of nodeids.'''
         if port_label is None:
             #result = super().neighbors(node)
             result = []
@@ -879,10 +887,17 @@ class PortGraph(nx.MultiGraph):
                         hop.to_node
                             for hop in self.hops_from_port(node, pl)
                     )
-        if neighbor_class is None:
-            return set(result)
-        else:
-            return set(n for n in result if self.is_of_class(n, neighbor_class))
+        if neighbor_class:
+            result = set(
+                n for n in result if self.is_of_class(n, neighbor_class)
+            )
+        # INEFFICIENT
+        if nbr_label:
+            result = set(
+                n for n in result if self.is_in_role(n, nbr_label)
+            )
+
+        return result
 
     def neighbor(self, node, port_label=None):
         '''Returns 'first' neighbor of node, at optional port_label. If there

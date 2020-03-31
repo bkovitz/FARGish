@@ -79,6 +79,7 @@ Times.symbol = '*' #HACK
 
 @classmethod
 def c_o_fail(cls, g, thisid):
+    '''Failure for ConsumeOperandsAction.'''
     #print('c_o_fail') #DEBUG
     built_number_ids = g.neighbors(
         thisid, port_label='built', neighbor_class=Number
@@ -90,7 +91,7 @@ def c_o_fail(cls, g, thisid):
         g.move_tag(Avail, built_number_ids, operand_ids)
         g.remove_tag(operand_ids, Consumed)
     g.add_tag(Failed, thisid)
-    for built_id in g.neighbors(thisid, port_label='built'):
+    for built_id in g.neighbors(thisid, nbr_label='proposer'):
         g.add_tag(Failed, built_id)
 ConsumeOperands.fail = c_o_fail
 
