@@ -64,7 +64,7 @@ ConsumeOperands(proposed_operator, consume_operand, consume_operand)
   => ConsumeOperandsAction()
 '''
 
-make_python(prog, debug=1)
+#make_python(prog, debug=1)
 exec(compile_fargish(prog), globals())
 
 def fail(self, g, thisid): #HACK
@@ -79,7 +79,7 @@ Times.symbol = '*' #HACK
 
 @classmethod
 def c_o_fail(cls, g, thisid):
-    print('c_o_fail') #DEBUG
+    #print('c_o_fail') #DEBUG
     built_number_ids = g.neighbors(
         thisid, port_label='built', neighbor_class=Number
     )
@@ -191,18 +191,27 @@ def new_graph(numble, seed=None):
 
 g = None
 
-ShowAnnotations.start_logging()
-ShowActionList.start_logging()
-ShowActionsChosen.start_logging()
+class TestBrute(unittest.TestCase):
+
+    def setUp(self):
+        stop_all_logging()
+
+    def test_brute(self):
+        run(seed=4730533389549952010)
+        self.assertTrue(isinstance(g.done(), NumboSuccess))
 
 def run(seed=None, numble=Numble([4, 5, 6], 15), num=70):
     global g
     g = new_graph(seed=seed, numble=numble)
-    print('SEED', g.graph['seed'])
+    #print('SEED', g.graph['seed'])
     #start_logging([ShowActionList, ShowActionsChosen])
     #pg(g)
     g.do_timestep(num=num)
 
 if __name__ == '__main__':
+    ShowAnnotations.start_logging()
+    ShowActionList.start_logging()
+    ShowActionsChosen.start_logging()
+
     run(seed=4730533389549952010)
     pass

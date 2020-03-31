@@ -5,7 +5,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testCodegen.TestCodegen.test_see_do
+	$(PY) -m unittest -v testBrute
 	#$(PY) -m unittest -v testCodegen.TestCodegen.test_build_agent
 
 tags:
