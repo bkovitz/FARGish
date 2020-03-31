@@ -1370,6 +1370,7 @@ def pn(g):
         print(g.nodestr(node))
 
 def long_nodestr(g, node):
+    #TODO Correct behavior if node does not exist
     sio = StringIO()
     print('%s\n\n  support=%.3f\n  salience=%.3f\n' % (
         g.nodestr(node),

@@ -40,6 +40,7 @@ class ModelWrapper:
         print('SEED', self.g.graph['seed']) #TODO Show this in the browser
 
     def nodeinfo(self, node):
+        #print('NODEINFO', node)
         return json.dumps(long_nodestr(self.g, node))
 
     def get_model(self):

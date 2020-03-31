@@ -5,6 +5,7 @@ import sys
 import signal
 from urllib.parse import urlparse, parse_qs
 import argparse
+from pprint import pprint as pp
 
 from ModelWrapper import ModelWrapper
 from log import ShowResponseList, ShowResponseResults
@@ -26,6 +27,7 @@ else:
 
 def write_fifo(s):
     s = s.strip()
+    print('WRITE', s)
     fout.write(s)
     fout.write('\n\n')
     fout.flush()
