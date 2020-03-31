@@ -30,6 +30,7 @@ source_filenames = [
     'FARGSpec.py',
     'ModelWrapper.py',
     'NodeSpec.py',
+    'Numble.py',
     'PortGraph.py',
     'View.py',
     'demo1.py',
@@ -39,7 +40,6 @@ source_filenames = [
     'expr.py',
     'gen.py',
     'log.py',
-    'numble.py',
     'numbo.py',
     'numbo2.py',
     'numbonodes.py',
@@ -51,6 +51,7 @@ source_filenames = [
     'server.py',
     'submatch.py',
     'support.py',
+    'testBrute.py',
     'util.py',
     'watcher.py'
 ]

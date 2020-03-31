@@ -64,8 +64,8 @@ ConsumeOperands(proposed_operator, consume_operand, consume_operand)
   => ConsumeOperandsAction()
 '''
 
-#make_python(prog, debug=1)
-exec(compile_fargish(prog), globals())
+#make_python(prog, debug=1)  # Uncomment this to see generated code
+exec(compile_fargish(prog, saveto='testBrute.gen.py'), globals())
 
 def fail(self, g, thisid): #HACK
     for builder in g.neighbors(thisid, port_label='builder'):
@@ -199,6 +199,10 @@ class TestBrute(unittest.TestCase):
     def test_brute(self):
         run(seed=4730533389549952010)
         self.assertTrue(isinstance(g.done(), NumboSuccess))
+        self.assertCountEqual(
+            [g.display_name(n) for n in g.nodes_of_class((Brick, Want))],
+            ['Want', 'Brick(4)', 'Brick(5)', 'Brick(6)']
+        )
 
 def run(seed=None, numble=Numble([4, 5, 6], 15), num=70):
     global g

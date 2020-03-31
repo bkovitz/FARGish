@@ -1,6 +1,9 @@
 #OBSOLETE
 # numble.py  --  Numble class and support
 
+# Renamed numble0.py to avoid name conflict with Numble.py on OSX.
+# TODO rm this file completely and everything that depends on it.
+
 from util import nice_object_repr
 from numbonodes import Brick, Target, Avail, WantFullySourced
 

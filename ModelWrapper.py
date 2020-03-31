@@ -6,8 +6,9 @@ import json
 
 #from numbo import NumboGraph, new_graph
 #from numbo3 import new_graph, Numble
-from demo2 import new_graph, Numble
 #from numble import Numble
+#from demo2 import new_graph, Numble
+from testBrute import new_graph, Numble  # TODO Don't hardcode this
 from numbospec import spec as numbo_spec  # TODO OBSOLETE!
 from PortGraph import long_nodestr
 

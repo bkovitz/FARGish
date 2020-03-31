@@ -43,3 +43,4 @@ d_parser*.md5
 parser.out
 parsetab.py
 tmp.py
+*.gen.py

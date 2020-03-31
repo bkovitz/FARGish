@@ -1055,6 +1055,9 @@ class PortGraph(nx.MultiGraph):
         else:
             return None
 
+    def display_name(self, nodeid):
+        return self.call_method(nodeid, 'display_name')
+
     def raw_salience(self, node):
         '''Returns node's salience. If no salience has been set explicitly
         for node, returns default_salience. If node does not exist,

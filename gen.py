@@ -12,7 +12,7 @@ import traceback
 from Env import EnvItem
 from LinkSpec import LinkSpec
 #from NodeSpec import BuildSpec
-from util import as_iter, as_list, as_name, NiceRepr, newline
+from util import as_iter, as_list, as_name, NiceRepr, newline, filter_none
 from exc import NoUniqueMateError
 from NodeParams import NodeParams, AttrParam, MateParam
 from Indenting import Indenting, indent
@@ -344,10 +344,14 @@ class Class(NiceRepr):
 
     def gen_display_name(self, file, fixup, env):
         #HACK Should display all non-neighbor args
-        if len(self.params) == 1:
-            print('def display_name(self, g, thisid):', file=file)
+        pyexprs = filter_none(lambda p: p.display_name_pyexpr(), self.params)
+        if pyexprs:
+            print('def display_name(self, _g, _thisid):', file=file)
+            s = ', '.join(f"{{{p}}}" for p in pyexprs)
             with indent(file):
-                print(f"return '{self.name}(' + str(self.{as_name(self.params[0])}) + ')'", file=file)
+                print(#f"return '{self.name}(' + {s} + ')'",
+                      f"return f\"{self.name}({s})\"",
+                      file=file)
 
     def __str__(self):
         sio = StringIO()

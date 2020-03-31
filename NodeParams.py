@@ -70,6 +70,12 @@ class NodeParam(ABC):
         in kwargs?'''
         pass
 
+    def display_name_pyexpr(self):
+        '''Returns Python expression that evaluates to the param's value,
+        suitable for generating in a nodeclass's .display_name() method.
+        Returns None if this param should not be shown in .display_name().'''
+        return None
+
 class MateParam(NodeParam):
 
     def __init__(self, this_port_label, that_port_label):
@@ -122,6 +128,9 @@ class AttrParam(NodeParam):
 
     def as_filled_param(self, v):
         return FilledAttr(self, v)
+
+    def display_name_pyexpr(self):
+        return f"self.{self.name}"
 
     def __repr__(self):
         return f'AttrParam({repr(as_name(self.name))})'

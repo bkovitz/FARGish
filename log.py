@@ -12,7 +12,7 @@ class LoggingObject:
         logging_objects.add(self)
 
     def __call__(self, s):
-        if self in logging:
+        if self:
             print(s)
 
     def start_logging(self):
@@ -23,6 +23,9 @@ class LoggingObject:
 
     def stop_logging(self):
         logging.discard(self)
+
+    def __bool__(self):
+        return self in logging
 
 ShowActiveNodes = LoggingObject()
 ShowActionList = LoggingObject()

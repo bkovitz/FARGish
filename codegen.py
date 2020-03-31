@@ -69,9 +69,16 @@ def make_python(
         print(line, file=file, end='')
     print(postamble, file=file, end='')
 
-def compile_fargish(fargish_code, filename='<string>'):
+def compile_fargish(fargish_code, saveto=None):
+    '''saveto is name of file to hold a copy of the generated Python code,
+    or None to not save it.'''
     s = StringIO()
     make_python(fargish_code, file=s)
+    filename = '<string>'
+    if saveto:
+        with open(saveto, 'w') as sf:
+            sf.write(s.getvalue())
+        filename = saveto
     return compile(s.getvalue(), filename, 'exec')
 
 
