@@ -228,7 +228,7 @@ if _otherid is not None:
     _g.add_edge(_thisid, '{my_label}', _otherid, '{other_label}')''',
         file=file, end='')
 
-class Class(NiceRepr):
+class Class:
     '''Generates a Python class for a Node. Provides various methods that
     accumulate elements of the class.'''
     #TODO Make this into an Env, which shadows an enclosing Env
@@ -242,6 +242,10 @@ class Class(NiceRepr):
         self.auto_links = []
         self.actions = []
         self.suffix = 1  # suffix for generating symbols
+        if self.name == 'Tag':
+            self.add_class_var(
+                'is_tag', 'True', no_suffix=True, add_after_class_defns=False
+            )
 
     def add_ancestors(self, ancestor):
         self.ancestors += as_iter(ancestor)
@@ -352,6 +356,9 @@ class Class(NiceRepr):
                 print(#f"return '{self.name}(' + {s} + ')'",
                       f"return f\"{self.name}({s})\"",
                       file=file)
+
+    def __repr__(self):
+        return f"Class({repr(self.name)})"
 
     def __str__(self):
         sio = StringIO()

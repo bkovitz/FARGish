@@ -67,8 +67,6 @@ ConsumeOperands(proposed_operator, consume_operand, consume_operand)
 #make_python(prog, debug=1)  # Uncomment this to see generated code
 exec(compile_fargish(prog, saveto='testBrute.gen.py'), globals())
 
-Tag.is_tag = True  #HACK
-
 def fail(self, g, thisid): #HACK
     for builder in g.neighbors(thisid, port_label='builder'):
         g.datum(builder).fail(g, builder)
