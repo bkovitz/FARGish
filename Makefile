@@ -11,4 +11,7 @@ u:
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
 
-.PHONY: ut tags
+clean:
+	rm *.gen.py
+
+.PHONY: ut tags clean
