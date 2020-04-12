@@ -411,43 +411,6 @@ class PortGraph(nx.MultiGraph):
         spec = make_buildspec(g, nodeclass, args=args, kwargs=kwargs)
         return spec.build(g)
         
-    def OLDmake_node(self, o, container=None, builder=None):
-        '''Builds a new node and sets its datum. If o is a class, we call it
-        with no arguments and set the datum to the constructed object.
-        Otherwise we set the datum to o. We set the salience according
-        to o.default_salience (from the object, not the class). Returns the
-        new node's id. If the datum has an attribute named on_build,
-        we call it with these arguments: obj.on_build(self, id) where id
-        is the new node's id.'''
-        i = self._bump_nextid()
-        if isclass(o):
-            #print('CLASS', o)
-            o = o()
-        self.add_node(i, **{'datum': o})
-        try:
-            salience = o.default_salience
-            if salience is not None:
-                self.set_salience(i, salience)
-            self.set_support_for(
-                i,
-                max(o.initial_support_for, o.min_support_for)
-            )
-            if callable(o.after_touch_update):
-                self.after_touch_nodes.add(i)
-        except AttributeError:
-            pass
-        self.new_nodes.add(i)
-        #TODO Document this automatic linking or remove it.
-        if builder is not None:
-            self.add_edge(i, 'builder', builder, 'built')
-        for c in as_iter(container):
-            self.add_member_edge(c, i)
-#        if hasattr(o, 'auto_link'): #TODO rm; replaced by on_build
-#            o.auto_link(i, self)
-#        if hasattr(o, 'on_build'):
-#            o.on_build(self, i)
-        return i
-
     def dup_node(self, h, node):
         'h is another PortGraph, which must contain node.'
         attrs = h.nodes[node]
@@ -462,65 +425,18 @@ class PortGraph(nx.MultiGraph):
         #print('ALR', cl, result)
         return result
 
-#TODO rm
-#        #TODO Could we deduce the potential_neighbors from the kwargs?
-#        if potential_neighbors is None:
-#            potential_nodes = self.nodes
-#        else:
-#            potential_nodes = set()
-#            for potential_neighbor in potential_neighbors:
-#                potential_nodes |= self.neighbors(potential_neighbor)
-#        kwargs = cl.args_into_kwargs(args, kwargs)
-#            # BUG What if cl doesn't have args_into_kwargs?
-#        for node in potential_nodes:
-#            if cl.exactly_matches_kwargs(self, node, kwargs):
-#                return True
-#        return False
-
-    #TODO rm; replaced by candidate_nodes_wsal
-    def candidate_nodes(self, nodeclass=None, exclude=None):
-        '''Candidate nodes to consider for searching or choosing from.
-        Future version should consider focal point and maybe salience.
-        In current version, simply returns all the nodes in the graph
-        of nodeclass except 'exclude'. Either argument may be omitted.
-        Returns an iterable, which may or may not be a set.'''
-        #TODO Better: return a set of nodes with saliences, to faciliate
-        # "scouting" by weighted random choice.
-        if nodeclass is None:
-            result = self.nodes
-        else:
-            result = self.nodes_of_class(nodeclass)
-        if exclude is not None:
-            result = set(result)
-            for e in as_iter(exclude):
-                result.remove(e)
-        return result
-
     def candidate_nodes_wsal(self, nodeclass=None, exclude=None, nodes=None):
-        '''Candidate nodes to consider for searching or choosing from.
-        Future version should consider focal point and maybe salience.
-        In current version, simply returns all the nodes of nodeclass except
-        'exclude'. Either argument may be omitted.  Returns a
-        NodesWithSalience.'''
+        '''"Candidate nodes with salience." Candidate nodes to consider for
+        searching or choosing from.  Future version should consider focal point
+        and maybe salience.  In current version, simply returns all the nodes
+        of nodeclass except 'exclude'. Either argument may be omitted.  Returns
+        a NodesWithSalience.'''
         if nodeclass:
             nodes = self.nodes_of_class(nodeclass, nodes=nodes)
         if nodes is None:
             nodes = self.nodes
         nodes = set.difference(set(nodes), as_iter(exclude))
         return NodesWithSalience(self, nodes)
-
-#    def nodestr(self, node):
-#        attrs = self.nodes[node]
-#        cl = attrs.get('_class', None)
-#        value = attrs.get('value', None)
-#        if cl is not None:
-#            class_name = cl.__name__
-#            if value is not None:
-#                return '%s: %s(%s)' % (node, class_name, value)
-#            else:
-#                return '%s: %s' % (node, class_name)
-#        else:
-#            return str(node)
 
     def nodestr(self, node):
         return str(node) + ': ' + self.datumstr(node)

@@ -12,9 +12,9 @@ from pprint import pprint as pp
 from Indent1 import Parser
 from gen import ExtFunc, ExtGFunc, LinkDefn, NodeHeader, NameWithArguments, \
     NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
-    Relexpr, LetExpr, SeeDo2, AgentExpr, ArgExpr, Initializer, \
+    Relexpr, LetExpr, SeeDo, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
-    BuildStmt, ActionExpr, ConditionExpr2, TupleExpr, NodeSearch, \
+    BuildStmt, ActionExpr, TupleExpr, NodeSearch, \
     ThisExpr, CartProdExpr, coalesce_conditions
 from util import as_iter, as_list
 
@@ -295,28 +295,16 @@ def p_initializer(p):
     p[0] = Initializer(p[1], p[3])
 
 def p_agent_defn(p):
-    #'''agent_defn : AGENT ':' expr'''
     '''agent_defn : AGENT ':' buildspec'''
-    #p[0] = AgentExpr(p[3])
-    #print('AGDEF', p.lineno(3), p.lexpos(3)) #, p.linespan(3), p.lexspan(3))
-    #p[0] = SeeDo([ConditionsWithActions([], [p[3].as_agent_expr()])])
-    p[0] = SeeDo2(None, p[3].as_agent_stmt(), None)
-
-#def p_implicit_see_do(p):
-#    '''see_do : unconditional_actions maybe_else_see_do'''
-#    p[0] = SeeDo([p[1]] + p[2])
-#
-#def p_explicit_see_do(p):
-#    '''see_do : SEE conditional_actions maybe_else_see_do'''
-#    p[0] = SeeDo([p[2]] + p[3])
+    p[0] = SeeDo(None, p[3].as_agent_stmt(), None)
 
 def p_see_do(p):
     '''see_do : SEE conditions FAT_RIGHT_ARROW actions maybe_else_see_do
               | FAT_RIGHT_ARROW actions maybe_else_see_do'''
     if len(p) == 6:
-        p[0] = SeeDo2(make_cartprodexpr(p[2]), p[4], p[5])
+        p[0] = SeeDo(make_cartprodexpr(p[2]), p[4], p[5])
     else:
-        p[0] = SeeDo2(None, p[2], p[3])
+        p[0] = SeeDo(None, p[2], p[3])
 
 def make_cartprodexpr(conditions):
     nodesearches = []
@@ -331,16 +319,6 @@ def make_cartprodexpr(conditions):
     else:
         return coalesce_conditions(whole_tuple_exprs, [])
 
-#def p_unconditional_actions(p):
-#    '''unconditional_actions : FAT_RIGHT_ARROW actions'''
-#    p[0] = ConditionsWithActions([], p[2])
-#    #p[0] = ConditionWithActions(ConditionExpr(), p[2])
-#
-#def p_conditional_actions(p):
-#    '''conditional_actions : conditions FAT_RIGHT_ARROW actions'''
-#    p[0] = ConditionsWithActions(p[1], p[3])
-#    #p[0] = ConditionWithActions(p[1], p[3])
-
 def p_maybe_else_see_do(p):
     '''maybe_else_see_do : empty
                          | ELSE see_do'''
@@ -349,38 +327,10 @@ def p_maybe_else_see_do(p):
     else:
         p[0] = p[2]
 
-#def p_maybe_else_chain(p):
-#    '''maybe_else_chain : empty
-#                        | maybe_else_chain ELSE unconditional_actions
-#                        | maybe_else_chain ELSE conditional_actions'''
-#    zero_or_more(p, 3)
-
-#def p_see_do1(p):
-#    '''see_do : FAT_RIGHT_ARROW actions'''
-#    p[0] = SeeDo()
-#
-#def p_see_do2(p):
-#    '''see_do : SEE conditions FAT_RIGHT_ARROW actions'''
-#    p[0] = SeeDo(p[2], p[4], [], [])
-#    p[0] = SeeDo([ConditionWithActions(p[2], p[4])
-#
-#def p_see_do3(p):
-#    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE FAT_RIGHT_ARROW actions'''
-#    p[0] = SeeDo(p[2], p[4], [], p[7])
-#
-#def p_see_do4(p):
-#    '''see_do : SEE conditions FAT_RIGHT_ARROW actions ELSE conditions FAT_RIGHT_ARROW actions'''
-#    p[0] = SeeDo(p[2], p[4], p[6], p[8])
-
 def p_conditions(p):
     '''conditions : condition
                   | conditions ',' condition'''
     one_or_more(p, 1, 3)
-#    # Returns a single ConditionExpr (which may hold multiple conditions)
-#    if len(p) == 2:
-#        p[0] = p[1]
-#    else:
-#        p[0] = p[1].add_condition_expr(p[3])
 
 def p_condition(p):
     '''condition : expr
@@ -390,13 +340,6 @@ def p_condition(p):
         p[0] = p[1] #ConditionExpr2(p[1])
     else:
         p[0] = ConditionExpr2(LetExpr(p[1], p[3]))  #TODO Just LetExpr?
-
-# def p_nodesearches(p):
-#     '''nodesearches : nodesearch
-#                     | expr
-#                     | nodesearches ',' nodesearch
-#                     | nodesearches ',' expr'''
-#     one_or_more(p, 1, 3)
 
 def p_nodesearch(p):
     '''nodesearch : NODESEARCH
