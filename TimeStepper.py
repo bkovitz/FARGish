@@ -126,6 +126,8 @@ class TimeStepper:
             if a is not None:
                 print(a)
 
+    do = do_action
+
     def set_done(self, done):
         self.graph['done'] = done
 

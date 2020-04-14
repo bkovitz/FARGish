@@ -1184,6 +1184,7 @@ class Postamble(EnvItem):
     def print(self, file):
         with open(self.filename, 'r') as f:
             print(file=file)
+            print('#' + (72 * '-'), file=file)
             for line in f:
                 print(line, file=file, end='')
 

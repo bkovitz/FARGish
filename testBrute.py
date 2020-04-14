@@ -1,3 +1,5 @@
+# testBrute.py -- Unit test for brute-force numble solver
+
 import unittest
 
 from brute import run, NumboSuccess, Brick, Want
