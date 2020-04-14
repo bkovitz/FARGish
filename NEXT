@@ -10,7 +10,7 @@ GlomMerge
 
     g.partition_nodes()
 
-    postamble
+    postamble  DONE
 
 
 demo3.py:  In gen.py, generate code to tell NotAlreadyBuilt what it needs

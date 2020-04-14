@@ -1199,6 +1199,18 @@ class PortGraph(nx.MultiGraph):
                ):
                 yield node
 
+    def partition_nodes(self, nodeids, gpred):
+        '''Returns a tuple of lists: (those satisfying gpred, those not).
+        gpred takes two arguments: g, nodeid.'''
+        yes = []
+        no = []
+        for nodeid in nodeids:
+            if gpred(self, nodeid):
+                yes.append(nodeid)
+            else:
+                no.append(nodeid)
+        return yes, no
+
     def choose_by_salience(self, nodes, k=1):
         return choices(
             list(nodes), k=k, weights=[self.salience(n) for n in nodes]

@@ -1,6 +1,7 @@
 import unittest
 
 from PortGraph import PortGraph, Hop
+from testNodeClasses import *
 
 empty_set = frozenset([])
 
@@ -55,3 +56,16 @@ class TestPortGraph(unittest.TestCase):
         self.assertCountEqual([(1, 2, 0)], g.edges)
         # In a PortGraph, you're probably more interested in hops than edges:
         self.assertCountEqual([Hop(a, 'in', b, 'out', 0)], list(g.all_hops()))
+
+    def test_partition_nodes(self):
+        g = PortGraph()
+        n1 = g.make_node(Number(1))
+        n2 = g.make_node(Number(2))
+        n3 = g.make_node(Number(3))
+        n4 = g.make_node(Number(4))
+        even, odd = g.partition_nodes(g.nodes, is_even)
+        self.assertCountEqual(even, [n2, n4])
+        self.assertCountEqual(odd, [n1, n3])
+
+def is_even(g, nodeid):
+    return g.datum(nodeid).value & 1 == 0
