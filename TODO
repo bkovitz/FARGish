@@ -1,0 +1,47 @@
+Main pieces of FARGish/Numbo still to be done
+
+
+Pass ModelWrapper an argument specifying which model to run.
+
+    A unit test for ModelWrapper.
+
+Remove all obsolete versions of numbo and numbo classes.
+
+
+Numbo
+
+    Minus
+
+    See appropriate operator first.
+
+        Fine-grained glomming.
+
+    Memorized addition and multiplication tables.
+
+    See 40, 50; invoke 4+5=9.
+
+
+
+Document how FARGish works.
+
+    Support network.
+
+
+FARGish features
+
+    One-shot active nodes (self-delete upon run).
+
+    Some minimal type-checking.
+        A function where an action is expected should return an Action.
+
+    Sequenced neighbors/groups, such as for operands of Minus.
+
+    "non-unique" modified for Node classes (so already_built always returns
+    False).
+
+
+Visualization
+
+    Align like nodes horizontally.
+
+    Turn on/off display of whole types of nodes.

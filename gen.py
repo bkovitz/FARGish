@@ -1175,3 +1175,17 @@ class DelayedGen:
             print(line, file=file, end='')
         for line in self.fixup:
             print(line, file=fixup, end='')
+
+class Postamble(EnvItem):
+
+    def __init__(self, filename):
+        self.filename = filename
+
+    def print(self, file):
+        with open(self.filename, 'r') as f:
+            print(file=file)
+            for line in f:
+                print(line, file=file, end='')
+
+    def add_to_env(self, env):
+        pass

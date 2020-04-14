@@ -11,7 +11,7 @@ from pprint import pprint as pp
 
 from Indent1 import Parser
 from gen import ExtFunc, ExtGFunc, LinkDefn, NodeHeader, NameWithArguments, \
-    NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
+    Postamble, NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
     Relexpr, LetExpr, SeeDo, ArgExpr, Initializer, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
     BuildStmt, ActionExpr, TupleExpr, NodeSearch, \
@@ -37,6 +37,7 @@ tokens = (
     'DOT',
     'FUNCS',
     'GFUNCS',
+    'POSTAMBLE',
     'DOUBLE_HYPHEN',
     'AGENT',
     'FAT_RIGHT_ARROW',
@@ -148,6 +149,7 @@ t_DOT = r'\.'
 KEYWORDS = {
     'funcs': 'FUNCS',
     'gfuncs': 'GFUNCS',
+    'postamble': 'POSTAMBLE',
     'agent': 'AGENT',
     'see': 'SEE',
     'else': 'ELSE',
@@ -247,6 +249,7 @@ def p_prog(p):
 def p_prog_elem(p):
     '''prog_elem : funcs
                  | gfuncs
+                 | postamble
                  | link_defn
                  | node_defn'''
     p[0] = p[1]
@@ -258,6 +261,10 @@ def p_funcs(p):
 def p_gfuncs(p):
     '''gfuncs : GFUNCS LBRACE maybe_names RBRACE'''
     p[0] = [ExtGFunc(name) for name in p[3]]
+
+def p_postamble(p):
+    '''postamble : POSTAMBLE LBRACE maybe_names RBRACE'''
+    p[0] = [Postamble(filename + '.py') for filename in p[3]]
 
 def p_link_defn(p):
     '''link_defn : NAME DOUBLE_HYPHEN NAME'''

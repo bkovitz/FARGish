@@ -1,37 +1,52 @@
-    demo3.py:  In gen.py, generate code to tell NotAlreadyBuilt what it needs
-    to know to generate a BuildSpec for the nodes in the tuple provided by
-    CartesianProduct.
+GlomMerge
+
+    Two nodes
+
+    Glom + node
+
+    Glom + glom
+
+    UT
+
+    g.partition_nodes()
+
+    postamble
+
+
+demo3.py:  In gen.py, generate code to tell NotAlreadyBuilt what it needs
+to know to generate a BuildSpec for the nodes in the tuple provided by
+CartesianProduct.
+    
+    Manually write code to do that for CouldBeOperand.
+
+        Allow tuple of classes to be passed to g.is_of_class()  DONE
+
+        to_args_kwargs(tup)  DONE
+
+        In to_args_kwargs, change from _Literal to _AtIndex?
         
-        Manually write code to do that for CouldBeOperand.
+        In gen.py, map node arguments to tuple elements.
 
-            Allow tuple of classes to be passed to g.is_of_class()  DONE
+            In Env, track the tuple index of each variable passed to
+            make_build3 or Build3.
 
-            to_args_kwargs(tup)  DONE
+            Rethink what we pass to Env.add(). We should pass all
+            declarative and definitional information: the symbol's type,
+            its definition, its index in a _found_tup. In
+            demo3.OperandTagger, 'node' should be defined as having
+            type 'nodeid' (from nodesearch), cart_expression
+            'NodeOfClass((Brick, Block))', and tuple reference
+            '_found_tup1 0'.
 
-            In to_args_kwargs, change from _Literal to _AtIndex?
-            
-            In gen.py, map node arguments to tuple elements.
+        See if SeeDo could rewrite itself as IfStmt.
 
-                In Env, track the tuple index of each variable passed to
-                make_build3 or Build3.
+            Write code to coalesce SeeDo conditions into a ConditionExpr2.
 
-                Rethink what we pass to Env.add(). We should pass all
-                declarative and definitional information: the symbol's type,
-                its definition, its index in a _found_tup. In
-                demo3.OperandTagger, 'node' should be defined as having
-                type 'nodeid' (from nodesearch), cart_expression
-                'NodeOfClass((Brick, Block))', and tuple reference
-                '_found_tup1 0'.
+            Need a delayed .gen to make in .add_to_class().
 
-            See if SeeDo could rewrite itself as IfStmt.
+            Rewrite SeeDo parsing code in grammar.py.
 
-                Write code to coalesce SeeDo conditions into a ConditionExpr2.
-
-                Need a delayed .gen to make in .add_to_class().
-
-                Rewrite SeeDo parsing code in grammar.py.
-
-                    Parse Stmt, not ActionExpr.
+                Parse Stmt, not ActionExpr.
 
 Demo 12-Mar-2020
 

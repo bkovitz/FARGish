@@ -5,7 +5,7 @@ from io import StringIO
 from pprint import pprint as pp
 
 from grammar import parse
-from gen import LinkDefn, ExtGFunc, ExtFunc
+from gen import LinkDefn, ExtGFunc, ExtFunc, Postamble
 from Env import Env
 from Indenting import Indenting, indent
 #from PortGraph import Node
@@ -68,6 +68,9 @@ def make_python(
     fixup.seek(0)
     for line in fixup:
         print(line, file=file, end='')
+
+    for pa in (i for i in items if isinstance(i, Postamble)):
+        pa.print(file)
     print(postamble, file=file, end='')
 
 def compile_fargish(fargish_code, saveto=None):

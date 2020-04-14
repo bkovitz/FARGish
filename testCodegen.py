@@ -201,3 +201,13 @@ Scout
             _result.append(Build(SuccessScout, kwargs=_kwargs))
         return _result
 '''
+
+    def test_postamble(self):
+        prog = '''
+postamble { testPostamble }
+
+Blah
+'''
+        #make_python(prog, debug=True) #DEBUG
+        exec(compile_fargish(prog), globals())
+        self.assertEqual(postamble_f(), Blah)
