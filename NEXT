@@ -8,7 +8,7 @@ GlomMerge
 
     UT
 
-    g.partition_nodes()
+    g.partition_nodes()  DONE
 
     postamble  DONE
 

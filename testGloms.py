@@ -28,7 +28,7 @@ class TestGloms(unittest.TestCase):
     def setUp(self):
         stop_all_logging()
 
-    def test_glom_2_nodes(self):
+    def test_glom_basics(self):
         g = TestGraph()
         b4 = g.make_node(Brick(4))
         b5 = g.make_node(Brick(5))
@@ -39,3 +39,23 @@ class TestGloms(unittest.TestCase):
         self.assertTrue(g.has_hop(glomid, 'glommees', b4, 'glom'))
         self.assertTrue(g.has_hop(glomid, 'glommees', b5, 'glom'))
         self.assertFalse(g.has_hop(glomid, 'glommees', b6, 'glom'))
+
+        #Now, extend the glom
+        g.do(GlomMerge([glomid, b6]))
+        self.assertEqual(len(g), 4)
+        self.assertTrue(g.has_hop(glomid, 'glommees', b6, 'glom'))
+
+    def test_from_one_glom_to_another(self):
+        g = TestGraph()
+        b4 = g.make_node(Brick(4))
+        b5 = g.make_node(Brick(5))
+        b6 = g.make_node(Brick(6))
+        b7 = g.make_node(Brick(7))
+        g.do(GlomMerge([b4, b5]))
+        g.do(GlomMerge([b6, b7]))
+        gl1 = g.neighbor(b4, 'glom')
+        gl2 = g.neighbor(b6, 'glom')
+        g.do(GlomMerge([b4, gl2]))
+        #pg(g)
+        #print(g.hops_from_port(b4, 'glom'))
+        self.assertCountEqual(g.neighbors(b4, port_label='glom'), [gl2])

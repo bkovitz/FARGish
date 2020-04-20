@@ -1,8 +1,8 @@
 # PortGraph.py -- PortGraph class
 
 from watcher import Watcher, Response
-from util import nice_object_repr, repr_str, as_iter, is_iter, reseed, \
-        sample_without_replacement, intersection, empty_set
+from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
+    reseed, sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs
 from BuildSpec import make_buildspec
 from NodeParams import NodeParams
@@ -511,7 +511,7 @@ class PortGraph(nx.MultiGraph):
 
     def remove_hop(self, hop_or_hops):
         #Unlike remove_edge, remove_hop doesn't touch the nodes
-        for hop in as_iter(hop_or_hops):
+        for hop in as_list(hop_or_hops):
             node1 = hop.from_node
             node2 = hop.to_node
             self.nodes[node1]['_hops'].remove(hop)
@@ -541,6 +541,9 @@ class PortGraph(nx.MultiGraph):
             return self.nodes[node]['_hops'].hops_from_port_label(port_label)
         except KeyError:
             return []
+
+    def remove_hops_from_port(self, node, port_label):
+        self.remove_hop(self.hops_from_port(node, port_label))
 
     def hops_to_neighbor(self, node, neighbor_node):
         return (

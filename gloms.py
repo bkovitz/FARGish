@@ -21,5 +21,5 @@ class GlomMerge(Action):
             glomid = glomids[0]
         #TODO 2 or more existing gloms
         for nodeid in nodeids:
-            #TODO rm from old gloms
+            g.remove_hops_from_port(nodeid, 'glom')
             g.add_edge(glomid, 'glommees', nodeid, 'glom')
