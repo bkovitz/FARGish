@@ -4,6 +4,7 @@ import unittest
 
 from brute import run, NumboSuccess, Brick, Want
 from log import *
+from PortGraph import PortGraph, pg, ps
 
 class TestBrute(unittest.TestCase):
 

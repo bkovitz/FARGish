@@ -56,6 +56,4 @@ class TestGloms(unittest.TestCase):
         gl1 = g.neighbor(b4, 'glom')
         gl2 = g.neighbor(b6, 'glom')
         g.do(GlomMerge([b4, gl2]))
-        #pg(g)
-        #print(g.hops_from_port(b4, 'glom'))
         self.assertCountEqual(g.neighbors(b4, port_label='glom'), [gl2])

@@ -548,6 +548,7 @@ class VarRef(Expr):
         pass
 
     def as_pyexpr(self):
+        #TODO Need to insert "self." for attribute variables
         if hasattr(self.o, 'as_varref'):
             return self.o.as_varref()
         else:

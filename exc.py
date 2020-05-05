@@ -38,6 +38,15 @@ class FargCantRespond(Exception):
 class Fizzle(Exception):
     pass
 
+class NeedArg(Fizzle):
+    def __init__(self, name):
+        self.name = name
+    def __str__(self):
+        return f"NeedArg({repr(self.name)})"
+
+class GeneratorDone(Fizzle):
+    pass
+
 class FARGishCompilerException(Exception):
     pass
 

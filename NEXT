@@ -1,8 +1,27 @@
+Port-label inheritance
+
+    Hierarchy class
+
+    UT: Identical PortLabels
+
+    UT: Is sub-label an instance of super-label?
+
+    Data structure like PortMates to hold inheritance relations.
+
+    FARGish syntax
+
+    Parse
+
+    Generate code
+
+    Update UT for FARGish PortLabels
+
+
 GlomMerge
 
-    Two nodes
+    Two nodes  DONE
 
-    Glom + node
+    Glom + node  DONE
 
     Glom + glom
 
@@ -11,6 +30,13 @@ GlomMerge
     g.partition_nodes()  DONE
 
     postamble  DONE
+
+    Proposal(GlomMerge)  DONE
+
+    Proposal should not generate action if Done.
+
+    Proposal should tag itself Done
+        Done(Action)? Dont(Action) Might make generic Done tag.
 
 
 demo3.py:  In gen.py, generate code to tell NotAlreadyBuilt what it needs
