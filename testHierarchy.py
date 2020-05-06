@@ -18,3 +18,5 @@ class TestHierarchy(unittest.TestCase):
 
         h.parent('parent', 'child2')
         self.assertTrue(h.isa('child2', 'grandparent'))
+
+        print('HIER', h)

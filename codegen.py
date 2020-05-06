@@ -5,7 +5,7 @@ from io import StringIO
 from pprint import pprint as pp
 
 from grammar import parse
-from gen import LinkDefn, ExtGFunc, ExtFunc, Postamble
+from gen import LinkDefn, PortLabelParent, ExtGFunc, ExtFunc, Postamble
 from Env import Env
 from Indenting import Indenting, indent
 #from PortGraph import Node
@@ -20,6 +20,7 @@ from NodeSpec import NodeOfClass, NodeSpec, NodeWithTag, \
 from bases import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from PortMates import PortMates
+from Hierarchy import Hierarchy
 from Action import Build3, make_build3
 from Predefs import Tagged, AllTagged, Not
 '''
@@ -64,6 +65,12 @@ def make_python(
         fl = repr(link_defn.from_label.name)
         tl = repr(link_defn.to_label.name)
         print(f"port_mates.add({fl}, {tl})", file=file)
+
+    print('port_hierarchy = Hierarchy()', file=file)
+    for chpa in (i for i in items if isinstance(i, PortLabelParent)):
+        ch = repr(chpa.child)
+        pa = repr(chpa.parent)
+        print(f'port_hierarchy.parent({pa}, {ch})', file=file)
 
     fixup.seek(0)
     for line in fixup:

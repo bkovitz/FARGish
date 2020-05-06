@@ -1,20 +1,29 @@
 Port-label inheritance
 
-    Hierarchy class
+    Hierarchy class  DONE
 
-    UT: Identical PortLabels
+    UT: Identical PortLabels  DONE
 
-    UT: Is sub-label an instance of super-label?
+    UT: Is sub-label an instance of super-label?  DONE
 
     Data structure like PortMates to hold inheritance relations.
 
     FARGish syntax
+      IDEA: Require 'Node' or 'port_label' explicitly at top of inheritance
+      hierarchy.  NO
 
-    Parse
+      Better: LCNAME, UCNAME, name  DONE
 
-    Generate code
+      Allow multiple : on one inheritance line.  DONE
+
+    Parse  DONE
+
+    Generate code  DONE
 
     Update UT for FARGish PortLabels
+        Finding 'mate' port?
+        Finding neighbors of 'operand' port? (Should cover 'minuend' and
+        'subtrahend'.)
 
 
 GlomMerge

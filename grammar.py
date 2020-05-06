@@ -12,7 +12,7 @@ from pprint import pprint as pp
 from Indent1 import Parser
 from gen import ExtFunc, ExtGFunc, LinkDefn, NodeHeader, NameWithArguments, \
     Postamble, NodeDefn, VarRef, Constant, FuncCall, MemberChain, \
-    Relexpr, LetExpr, SeeDo, ArgExpr, Initializer, \
+    Relexpr, LetExpr, SeeDo, ArgExpr, Initializer, PortLabelParent, \
     ConditionsWithActions, ConditionWithActions, NodeclassExpr, \
     BuildStmt, ActionExpr, TupleExpr, NodeSearch, \
     ThisExpr, CartProdExpr, coalesce_conditions
@@ -22,7 +22,8 @@ from util import as_iter, as_list
 ##### Grammar for lexical analyzer
 
 tokens = (
-    'NAME',
+    'LCNAME',  # a name (an identifier) starting with a lower-case letter
+    'UCNAME',  # a name (an identifier) starting with a upper-case letter
     'LPAREN',
     'RPAREN',
     'LBRACE',
@@ -164,7 +165,14 @@ KEYWORDS = {
 
 def t_NAME(t):
     r'[-a-zA-Z_\<>!\?][-a-zA-Z0-9_<>!\?]*'
-    t.type = KEYWORDS.get(t.value, 'NAME')
+    #t.type = KEYWORDS.get(t.value, 'NAME')
+    try:
+        t.type = KEYWORDS[t.value]
+    except KeyError:
+        if t.value[0].isupper():
+            t.type = 'UCNAME'
+        else:
+            t.type = 'LCNAME'
     return t
 
 # t_comment appears ahead of t_WS so that t_comment consumes entire lines
@@ -251,6 +259,7 @@ def p_prog_elem(p):
                  | gfuncs
                  | postamble
                  | link_defn
+                 | port_inheritance
                  | node_defn'''
     p[0] = p[1]
 
@@ -267,8 +276,30 @@ def p_postamble(p):
     p[0] = [Postamble(filename + '.py') for filename in p[3]]
 
 def p_link_defn(p):
-    '''link_defn : NAME DOUBLE_HYPHEN NAME'''
+    '''link_defn : LCNAME DOUBLE_HYPHEN LCNAME'''
     p[0] = LinkDefn(p[1], p[3])
+
+def p_port_inheritance(p):
+    '''port_inheritance : port_labels port_parents'''
+    chain = [p[1]] + p[2] # each elem of chain is a list of port labels
+    print('INH', chain)
+    p[0] = []
+    for i in range(len(chain) - 1):
+        children = chain[i]
+        parents = chain[i + 1]
+        for ch in children:
+            for pa in parents:
+                p[0].append(PortLabelParent(ch, pa))
+
+def p_port_parents(p):
+    '''port_parents : ':' port_labels
+                    | port_parents ':' port_labels'''
+    one_or_more(p, 2, 3)
+
+def p_port_labels(p):
+    '''port_labels : LCNAME
+                   | port_labels ',' LCNAME'''
+    one_or_more(p, 1, 3)
 
 def p_node_defn(p):
     '''node_defn : node_header
@@ -297,8 +328,13 @@ def p_node_body_elem(p):
                       | see_do'''
     p[0] = p[1]
 
+def p_name(p):
+    '''name : UCNAME
+            | LCNAME'''
+    p[0] = p[1]
+
 def p_initializer(p):
-    '''initializer : NAME '=' expr'''
+    '''initializer : name '=' expr'''
     p[0] = Initializer(p[1], p[3])
 
 def p_agent_defn(p):
@@ -351,8 +387,8 @@ def p_condition(p):
 def p_nodesearch(p):
     '''nodesearch : NODESEARCH
                   | NODESEARCH LPAREN maybe_args RPAREN
-                  | NAME LET NODESEARCH
-                  | NAME LET NODESEARCH LPAREN maybe_args RPAREN'''
+                  | name LET NODESEARCH
+                  | name LET NODESEARCH LPAREN maybe_args RPAREN'''
     if len(p) == 2:
         p[0] = NodeSearch('_', FuncCall(p[1], []))
     elif len(p) == 5:
@@ -387,7 +423,7 @@ def p_buildspec(p):
         p[0] = BuildStmt(p[1], p[3])
 
 def p_nodeclass(p):
-    '''nodeclass : NAME'''
+    '''nodeclass : UCNAME'''
     p[0] = NodeclassExpr(p[1])
 
 def p_expr(p):
@@ -406,7 +442,7 @@ def p_exprs(p):
     one_or_more(p, 1, 3)
 
 def p_varref(p):
-    '''varref : NAME'''
+    '''varref : name'''
     p[0] = VarRef(p[1])
 
 def p_this(p):
@@ -420,7 +456,7 @@ def p_constant(p):
     p[0] = Constant(p[1])
 
 def p_funccall(p):
-    '''funccall : NAME LPAREN maybe_args RPAREN'''
+    '''funccall : name LPAREN maybe_args RPAREN'''
     p[0] = FuncCall(p[1], p[3])
 
 def p_relexpr(p):
@@ -480,7 +516,7 @@ def p_args(p):
 
 def p_arg(p):
     '''arg : expr
-           | NAME '=' expr'''
+           | name '=' expr'''
     if len(p) == 2:
         p[0] = ArgExpr(None, p[1])
     else:
@@ -492,16 +528,16 @@ def p_node_names(p):
     one_or_more(p, 1, 3)
 
 def p_node_name(p):
-    '''node_name : NAME
-                 | NAME LPAREN names RPAREN'''
+    '''node_name : UCNAME
+                 | UCNAME LPAREN names RPAREN'''
     if len(p) == 2:
         p[0] = p[1]
     else:
         p[0] = NameWithArguments(p[1], p[3])
 
 def p_names(p):
-    '''names : NAME
-             | names ',' NAME'''
+    '''names : name
+             | names ',' name'''
     one_or_more(p, 1, 3)
 
 def p_maybe_names(p):

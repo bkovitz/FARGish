@@ -135,6 +135,15 @@ f"Port label '{self.name}' has multiple mates defined: {mates}."
         nodeexpr = argexprs[0]
         return f"_g.neighbors({as_pyexpr(nodeexpr)}, port_label={repr(self.name)})"
 
+class PortLabelParent(EnvItem):
+
+    def __init__(self, child, parent):
+        self.child = child
+        self.parent = parent
+
+    def add_to_env(self, env):
+        pass
+
 class LinkDefn(EnvItem):
 
     def __init__(self, from_label, to_label):
