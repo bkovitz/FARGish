@@ -193,6 +193,11 @@ def intersection(*sets):
     else:
         return set()
 
+def first(iterable):
+    '''Returns first element in iterable, or None if iterable is empty.'''
+    for x in iterable:
+        return x
+
 def input_integers(prompt):
     '''Prompts the user to enter a list of integers separated by spaces.
     Returns a list of numbers, or None if user just hit Enter.'''

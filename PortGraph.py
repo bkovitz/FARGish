@@ -100,7 +100,9 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 #        kvs = [kv for kv in self.__dict__.items()
 #                      if kv[0] not in exclude]
 
-        if self.node_params:
+        if self.name:
+            return self.name
+        elif self.node_params:
             return repr_str(
                 self.__class__.__name__,
                 self.node_params.node_repr_kvs(self)
@@ -112,7 +114,10 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         return repr(self)  # Override to exploit g
 
     def display_name(self, g, node):
-        return self.__class__.__name__
+        if self.name:
+            return self.name
+        else:
+            return self.__class__.__name__
 
     def __eq__(self, other):
         return repr(self) == repr(other)
@@ -689,15 +694,19 @@ class PortGraph(nx.MultiGraph):
 
     def add_tag(
         self, tag_or_tagclass, node_or_nodes,
-        tag_port_label='taggees', node_port_label='tags'
+        tag_port_label='taggees', node_port_label='tags',
+        mutual_support=False
     ):
         '''Links a tag to one or more nodes. Returns the tag's id.
         If tag_or_tagclass is a class, builds the tag.
         The tag supports its taggees.'''
-        return self.make_node(
+        tagid = self.make_node(
             tag_or_tagclass,
             **{tag_port_label: node_or_nodes}
         )
+        if mutual_support:
+            for taggee in self.taggees_of(tagid, port_label=tag_port_label):
+                self.add_mutual_support(tagid, taggee)
 
     def replace_tag(
         self, node_or_nodes, old_tag_or_tagclass, new_tag_or_tagclass,
@@ -854,6 +863,17 @@ class PortGraph(nx.MultiGraph):
         else:
             return any(self.is_of_class(neighbor, neighbor_class)
                           for neighbor in self.neighbors(node, port_label))
+
+    def at_last_step(self, nodeid, *steps):
+        '''Returns set of nodes reached at last 'step', starting at 'nodeid'.
+        Each 'step' is a nodeclass.'''
+        result = set([nodeid])
+        for step in steps:
+            next_result = set()
+            for nid in result:
+                next_result |= self.neighbors(nid, neighbor_class=step)
+            result = next_result
+        return result
 
     def taggees_of(self, tag, port_label='taggees'):
         return self.neighbors(tag, port_label=port_label)
