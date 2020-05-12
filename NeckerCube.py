@@ -66,11 +66,13 @@ def diffz_between(g, cornerid1, cornerid2):
 def new_graph(seed=None):
     g = NeckerCubeGraph(
         seed=seed,
-        support_propagator=support.Propagator(max_total_support=70,  #300
-                                              positive_feedback_rate=0.1,
+        support_propagator=support.Propagator(max_total_support=200,  #300
+                                              positive_feedback_rate=0.5,
                                               sigmoid_p=0.5,
-                                              alpha=0.95
-                                             )
+                                              alpha=0.20,
+                                              noise=0.01
+                                             ),
+        support_steps=2
     )
     c1, c2, c3, c4, c5, c6, c7, c8 = [
         g.make_node(Corner, name=f"c{i+1}") for i in range(8)
@@ -96,7 +98,7 @@ def new_graph(seed=None):
     for c in corners:
         z0 = g.make_node(ZTag, value=0, taggees=c)
         z1 = g.make_node(ZTag, value=1, taggees=c)
-        g.add_mutual_opposition(z0, z1)
+        g.add_mutual_opposition(z0, z1, weight=-0.1)
 
     level_corner_pairs = [
         (c1, c2), (c2, c6), (c6, c5), (c5, c1),
@@ -122,6 +124,24 @@ def new_graph(seed=None):
 
     return g
 
+def cz(g, cid):
+    '''Returns the z-value of cid, i.e. the value of the ZTag attached to cid
+    with the most support.'''
+    zids = g.neighbors(cid, neighbor_class=ZTag)
+    return max(zids, key=lambda id: g.support_for(id))
+
+def pn(g):
+    '''Prints the z-values of the Corners in g, in a somewhat nice text
+    format.'''
+    def cstr(cid):
+        name = g.display_name(cid)
+        z = g.value_of(cz(g, cid))
+        return f"{name}={z}"
+
+    for cid in sorted(g.nodes_of_class(Corner)):
+        print(cstr(cid))
+
 if __name__ == '__main__':
     g = new_graph(seed=1)
+    g.do_timestep(num=40)
     #pg(g)

@@ -34,6 +34,8 @@ class TimeStepper:
             kws['t'] = 0
         if 'done' not in kws:
             kws['done'] = False
+        if 'support_steps' not in kws:
+            kws['support_steps'] = 5  # number of support steps per timestep
         super().__init__(*args, **kws)
 
     def do_timestep(self, num=1):
@@ -191,7 +193,7 @@ class TimeStepper:
             propagator = self.graph['support_propagator']
         except KeyError:
             return
-        for i in range(5):
+        for i in range(self.graph['support_steps']):
             #TODO Why not just put .propagate in self?
             propagator.propagate(self)
 

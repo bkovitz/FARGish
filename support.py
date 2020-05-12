@@ -3,6 +3,7 @@
 # Nodes give support to other nodes.
 
 import csv
+from random import gauss
 
 from util import nice_object_repr
 
@@ -24,6 +25,7 @@ def normalize(d, max_total_support=10.0, p=0.5):
     the sum of all the support does not exceed max_total_support.'''
     result = {}
     total_support = sum(d.values())
+    print('NORMALIZE', total_support)
     if total_support <= max_total_support:
         return d
     #scale_down = 1.0 / total_support  # to scale the initial sum down to 1.0
@@ -52,13 +54,16 @@ class Propagator:
             # continuity constant; decay rate
         sigmoid_p = 0.5,
             # exponent for reverse_sigmoid
-        max_total_support = 10.0
+        max_total_support = 10.0,
             # total support points allowed at end of timestep
+        noise = 0.01,
+            # sigma parameter for noise added to support
     ):
         self.positive_feedback_rate = positive_feedback_rate
         self.alpha = alpha
         self.sigmoid_p = sigmoid_p
         self.max_total_support = max_total_support
+        self.noise = noise
 
     def propagate(self, g, nodes=None):
         old_d = support_dict(g, nodes=nodes)  # old support
@@ -69,8 +74,9 @@ class Propagator:
             new_support = old * self.alpha + sum(
                 (1 - self.alpha) * (positive_feedback * old_d[neighbor])
                 * g.hop_weight(neighbor, 'support_to', node, 'support_from')
+                * gauss(1.0, self.noise)
                     for neighbor in incoming_neighbors
-            ) 
+            )
             new_d[node] = max(g.min_support_for(node), new_support)
         new_d = normalize(
             new_d,

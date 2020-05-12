@@ -1105,7 +1105,7 @@ class PortGraph(nx.MultiGraph):
         self.oppose(node1, node2, weight=weight)
         self.oppose(node2, node1, weight=weight)
 
-    def add_mutual_support(self, node, neighbor, weight=0.2):
+    def add_mutual_support(self, node, neighbor, weight=0.2):  # 0.2
         self.add_support(node, neighbor, weight=weight)
         self.add_support(neighbor, node, weight=weight)
         #if self.datum(neighbor).gives_reciprocal_support: #HACK
@@ -1126,6 +1126,11 @@ class PortGraph(nx.MultiGraph):
 
     def supports(self, from_node, to_node):
         return self.has_edge(from_node, 'support_to', to_node, 'support_from')
+
+    def total_support(self, nodes=None):
+        if nodes is None:
+            nodes = self.nodes
+        return sum(self.support_for(node) for node in nodes)
 
     def update(self, node_or_nodes):
         for nodeid in as_iter(node_or_nodes):

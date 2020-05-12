@@ -1,7 +1,7 @@
 # testSupport.py -- Unit tests for support.py
 
 from support import Propagator, support_dict
-from PortGraph import PortGraph, Hop
+from PortGraph import PortGraph, Hop, Node, pg, ps
 
 import unittest
 
@@ -12,7 +12,8 @@ class TestSupport(unittest.TestCase):
         p = Propagator(
             positive_feedback_rate=0.2,
             alpha=0.9,
-            max_total_support=1.0
+            max_total_support=1.0,
+            noise=0.0
         )
         g.add_nodes_from(['A', 'B', 'O'])
         g.add_edge('A', 'in', 'B', 'out')
@@ -33,3 +34,33 @@ class TestSupport(unittest.TestCase):
     def test_min_support_for(self):
         #TODO
         pass
+
+if __name__ == '__main__':
+    from TimeStepper import TimeStepper
+    class TestGraph(TimeStepper, PortGraph):
+        pass
+    g = TestGraph(
+            seed=1,
+            support_propagator=Propagator(max_total_support=4,  #300
+                                          positive_feedback_rate=0.1,
+                                          sigmoid_p=0.9,
+        # The high sigmoid_p here seems to make a smoother transition once
+        # max_total_support is reached.
+                                          alpha=0.95
+                                         ),
+            support_steps=1
+    )
+
+    n1 = g.make_node(Node)
+    n2 = g.make_node(Node)
+    n3 = g.make_node(Node)
+    n4 = g.make_node(Node)
+    g.add_mutual_support(n1, n2)
+    g.add_mutual_opposition(n2, n3)
+    g.add_mutual_support(n3, n4)
+    g.set_support_for(n1, 1.0)
+    g.set_support_for(n2, 0.1)
+    g.set_support_for(n3, 0.1)
+    g.set_support_for(n4, 2.0)
+    g.do_timestep(num=82)
+    ps(g)
