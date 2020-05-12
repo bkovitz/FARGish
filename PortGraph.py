@@ -344,6 +344,8 @@ class PortGraph(nx.MultiGraph):
 
     default_salience = 0.01
     port_mates = None  # Override in subclass to specify default PortMates
+    default_support_weight = 0.2
+    default_opposition_weight = -0.1
 
     def __init__(self, *args, **kwargs):
         # In kwargs,
@@ -352,6 +354,10 @@ class PortGraph(nx.MultiGraph):
         kws['seed'] = reseed(kws.get('seed', None))
         if self.port_mates and 'port_mates' not in kws:
             kws['port_mates'] = self.port_mates
+        if 'default_support_weight' in kws:
+            self.default_support_weight = kws['default_support_weight']
+        if 'default_opposition_weight' in kws:
+            self.default_opposition_weight = kws['default_opposition_weight']
         #print('KWS', kws)
         super().__init__(*args, **kws)
         self.nextid = 1
@@ -1090,22 +1096,23 @@ class PortGraph(nx.MultiGraph):
     def set_support_for(self, node, support):
         self.nodes[node]['support'] = support
 
-    def add_support(self, node, neighbor, weight=0.2):
+    def add_support(self, node, neighbor, weight=None):
         #print('ADD_S', node, neighbor, weight)
         if weight is None:
-            self.add_edge(node, 'support_to', neighbor, 'support_from')
-        else:
-            self.add_edge(node, 'support_to', neighbor, 'support_from',
-                **{'weight': weight})
+            weight = self.default_support_weight
+        self.add_edge(node, 'support_to', neighbor, 'support_from',
+            **{'weight': weight})
 
-    def oppose(self, node, neighbor, weight=-0.1):
+    def oppose(self, node, neighbor, weight=None):
+        if weight is None:
+            weight = self.default_opposition_weight
         self.add_support(node, neighbor, weight=weight)
 
-    def add_mutual_opposition(self, node1, node2, weight=-0.1):
+    def add_mutual_opposition(self, node1, node2, weight=None):
         self.oppose(node1, node2, weight=weight)
         self.oppose(node2, node1, weight=weight)
 
-    def add_mutual_support(self, node, neighbor, weight=0.2):  # 0.2
+    def add_mutual_support(self, node, neighbor, weight=None):
         self.add_support(node, neighbor, weight=weight)
         self.add_support(neighbor, node, weight=weight)
         #if self.datum(neighbor).gives_reciprocal_support: #HACK
@@ -1370,7 +1377,11 @@ def pg(g, nodes=None):
 def ps(g, nodes=None, by='support', e=False):
     '''Prints each node with its support and salience (but not its edges).
     e=True to see support edges.'''
-    pt(g)
+    try:
+        t = g.graph['t']
+    except KeyError:
+        t = '?'
+    print('t=%d  nodes=%d  total_support=%.3f' % (t, len(g), g.total_support()))
     if nodes is None:
         nodes = g.nodes
     elif isclass(nodes):
@@ -1387,7 +1398,7 @@ def ps(g, nodes=None, by='support', e=False):
     else:
         raise ValueError('invalid argument for by: %s' % repr(by))
     for node in sorted(as_iter(nodes), key=key):
-        print('supp=%.3f rawsal=%.3f  %s' % (
+        print('supp=%.10f rawsal=%.3f  %s' % (
             g.support_for(node),
             g.raw_salience(node),
             g.nodestr(node)

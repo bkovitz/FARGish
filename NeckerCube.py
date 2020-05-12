@@ -22,6 +22,7 @@ Corner, Line : Feature
 exec(compile_fargish(prog, saveto='necker.gen.py'), globals())
 
 Feature.min_support_for = 1.0
+Tag.initial_support_for = 1.0
 
 class NeckerCubeGraph(TimeStepper, PortGraph):
     port_mates = port_mates
@@ -66,13 +67,15 @@ def diffz_between(g, cornerid1, cornerid2):
 def new_graph(seed=None):
     g = NeckerCubeGraph(
         seed=seed,
-        support_propagator=support.Propagator(max_total_support=200,  #300
+        support_propagator=support.Propagator(max_total_support=84,  #300
                                               positive_feedback_rate=0.5,
-                                              sigmoid_p=0.5,
-                                              alpha=0.20,
-                                              noise=0.01
+                                              sigmoid_p=0.9,
+                                              alpha=0.95,
+                                              noise=0.00
                                              ),
-        support_steps=2
+        support_steps=5,
+        default_support_weight=1.0,
+        default_opposition_weight=-0.2
     )
     c1, c2, c3, c4, c5, c6, c7, c8 = [
         g.make_node(Corner, name=f"c{i+1}") for i in range(8)
@@ -98,7 +101,7 @@ def new_graph(seed=None):
     for c in corners:
         z0 = g.make_node(ZTag, value=0, taggees=c)
         z1 = g.make_node(ZTag, value=1, taggees=c)
-        g.add_mutual_opposition(z0, z1, weight=-0.1)
+        g.add_mutual_opposition(z0, z1)
 
     level_corner_pairs = [
         (c1, c2), (c2, c6), (c6, c5), (c5, c1),
@@ -143,5 +146,9 @@ def pn(g):
 
 if __name__ == '__main__':
     g = new_graph(seed=1)
+    #ps(g, ZTag)
+    g.set_support_for(z1_of(g, 1), 1.1)
     g.do_timestep(num=40)
     #pg(g)
+    pn(g)
+    ps(g, ZTag)
