@@ -1,0 +1,74 @@
+FARGish/Numbo features and what implements them
+-----------------------------------------------
+
+
+Necker Cube
+
+
+Search memorized equations by spreading activation
+
+
+Support network
+
+
+Salience
+
+
+Backtracking
+
+
+Diagnosis and repair
+
+
+Promisingness
+
+
+Focus of attention
+
+
+Expectations and surprise
+  Expectations easily assumed true
+
+
+Expected "path" of solution
+
+
+Coarse representations
+  Coarse "watchers"
+
+
+Gloms
+
+
+Scout -> Tester -> Builder
+
+
+Construct equation by analogy with something else
+
+
+Spatial representation
+
+
+Drive by temporal trace
+  Many old memories "vote" on how current trace should proceed
+
+
+"Consume" operation
+
+
+Don't repeat a Consume with an identical brick
+
+
+"Proposal" that needs to exceed a threshold of support to run
+
+
+Visualization of the model's behavior
+
+
+Analogies without explicit rules (generators)
+
+
+Promisingness
+
+
+
