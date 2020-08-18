@@ -4,10 +4,15 @@
 from codegen import make_python, compile_fargish
 from TimeStepper import TimeStepper
 from log import *
+from util import as_iter, reseed, intersection
 from PortGraph import PortGraph, Node, pg, ps
 import support
 from Numble import make_numble_class, prompt_for_numble
-from util import as_iter, reseed, intersection
+from ExprAsEquation import ExprAsEquation
+from bases import ActiveNode
+from Action import Action, make_build3
+from BuildSpec import make_buildspec
+from criteria import Tagged, HasValue, OfClass
 
 prog = '''
 tags -- taggees
@@ -16,6 +21,8 @@ target -- tags
 Workspace
 
 Tag(taggees)
+Want, Avail, Allowed : Tag
+Glom : Tag
 
 Number(value)
 Brick, Target, Block : Number
@@ -49,6 +56,25 @@ def cls_add_tag(cls, g, taggees):  # HACK
     return tag
 
 Tag.add_tag = cls_add_tag  # HACK
+
+##### Nodeclasses defined in Python
+
+#class GlomThem(Action):
+#
+#    def __init__(self, nodes_to_glom):
+#        self.nodes_to_glom = nodes_to_glom
+#        self.
+#
+#    def go(self, g):
+
+is_number = OfClass(Number)
+        
+class SameNumberGlommer(ActiveNode):
+    
+    def actions(self, g, thisid):
+        number_node = g.look_for(is_number)
+        all_with_same_value = g.find_all(HasValue(g.value_of(number_node)))
+        return [make_build3(g, Glom, [], dict(taggees=all_with_same_value))]
 
 ##### The graph class and other generic execution code #####
 
@@ -86,7 +112,7 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
 
         #HACK
         #self.make_node(LandmarkScout)
-        self.make_node(OperandTagger)
+        self.make_node(SameNumberGlommer)
 
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
@@ -98,3 +124,14 @@ ShowAnnotations.start_logging()
 ShowActionList.start_logging()
 ShowActionsChosen.start_logging()
 
+if __name__ == '__main__':
+    g = new_graph(Numble([1, 1, 1, 1, 1], 5))
+    #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
+    #bspec = make_buildspec(g, Glom, [], dict(taggees=[4, 6, 8]))
+    #glom1 = bspec.build(g)
+    #glom2 = bspec.build(g)  # Should be None
+    #pg(g)
+    #print(glom1, glom2)
+    g.do_timestep()
+    pg(g)
+    cr = OfClass(Number)

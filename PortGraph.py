@@ -1153,16 +1153,25 @@ class PortGraph(nx.MultiGraph):
                     return member
         return None
 
+    # TODO UT
     def look_for(self, *criteria):
         '''Returns one node that meets criteria, or None if not found.
         criteria are functions that take two arguments: g, nodeid, and
         return a true value if nodeid matches the criterion.'''
+        nodes = self.find_all(*criteria)
+        return choice(nodes) # TODO choose by salience?
+
+    # TODO UT
+    def find_all(self, *criteria):
+        '''Returns list of all nodes that meet criteria. criteria are functions
+        that take two arguments: g and nodeid. A criterion function returns
+        a true value if nodeid matches the criteria, false if not.'''
         nodes = self.nodes() # Start with all nodes (INEFFICIENT)
         for c in criteria:
             nodes = [n for n in nodes if c(self, n)]
             if not nodes:
-                return False
-        return choice(nodes) # TODO choose by salience?
+                return []
+        return nodes
 
     def nodes_of_class(self, cl, nodes=None):
         #TODO UT

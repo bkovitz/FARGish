@@ -16,7 +16,7 @@ class TestNumble(unittest.TestCase):
         numble = Numble([4, 5, 6], 15)
         numble.build(g, None)
 
-        pg(g) #DEBUG
+        #pg(g) #DEBUG
 
         ids = g.nodes_of_class(Target)
         self.assertEqual(len(ids), 1)

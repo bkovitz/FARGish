@@ -25,7 +25,7 @@ def normalize(d, max_total_support=10.0, p=0.5):
     the sum of all the support does not exceed max_total_support.'''
     result = {}
     total_support = sum(d.values())
-    print('NORMALIZE', total_support)
+    #print('NORMALIZE', total_support)
     if total_support <= max_total_support:
         return d
     #scale_down = 1.0 / total_support  # to scale the initial sum down to 1.0
