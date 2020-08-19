@@ -17,12 +17,16 @@ from criteria import Tagged, HasValue, OfClass
 prog = '''
 tags -- taggees
 target -- tags
+members -- member_of
 
 Workspace
 
 Tag(taggees)
 Want, Avail, Allowed : Tag
-Glom : Tag
+Count(value) : Tag
+
+Group(members)
+Glom : Group
 
 Number(value)
 Brick, Target, Block : Number
@@ -74,7 +78,19 @@ class SameNumberGlommer(ActiveNode):
     def actions(self, g, thisid):
         number_node = g.look_for(is_number)
         all_with_same_value = g.find_all(HasValue(g.value_of(number_node)))
-        return [make_build3(g, Glom, [], dict(taggees=all_with_same_value))]
+        return [make_build3(g, Glom, [all_with_same_value], {})]
+
+class MemberCounter(ActiveNode):
+
+    def actions(self, g, thisid):
+        group_node = g.look_for(OfClass(Group))
+        if group_node is None:
+            return
+        num_members = len(g.neighbors(group_node, port_label='members'))
+        # TODO No action without group_node
+        return [make_build3(g, Count, [], {
+            'taggees': [group_node], 'value': num_members
+        })]
 
 ##### The graph class and other generic execution code #####
 
@@ -111,8 +127,8 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             self.graph['numble'].build(self, ws)
 
         #HACK
-        #self.make_node(LandmarkScout)
         self.make_node(SameNumberGlommer)
+        self.make_node(MemberCounter)
 
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
@@ -132,6 +148,6 @@ if __name__ == '__main__':
     #glom2 = bspec.build(g)  # Should be None
     #pg(g)
     #print(glom1, glom2)
-    g.do_timestep()
+    g.do_timestep(num=10)
     pg(g)
     cr = OfClass(Number)

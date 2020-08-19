@@ -444,7 +444,10 @@ class PortGraph(nx.MultiGraph):
         return NodesWithSalience(self, nodes)
 
     def nodestr(self, node):
-        return str(node) + ': ' + self.datumstr(node)
+        if node is None:
+            return 'None'
+        else:
+            return str(node) + ': ' + self.datumstr(node)
 
     def datumstr(self, node):
         datum = self.datum(node)
@@ -823,7 +826,8 @@ class PortGraph(nx.MultiGraph):
             #result = super().neighbors(node)
             result = []
             for node in as_iter(node):
-                result += super().neighbors(node)
+                if node is not None:
+                    result += super().neighbors(node)
         elif node is None:
             result = []
         else:
@@ -1159,7 +1163,10 @@ class PortGraph(nx.MultiGraph):
         criteria are functions that take two arguments: g, nodeid, and
         return a true value if nodeid matches the criterion.'''
         nodes = self.find_all(*criteria)
-        return choice(nodes) # TODO choose by salience?
+        try:
+            return choice(nodes) # TODO choose by salience?
+        except IndexError:
+            return None
 
     # TODO UT
     def find_all(self, *criteria):
@@ -1179,6 +1186,7 @@ class PortGraph(nx.MultiGraph):
         if nodes is None:
             nodes = self.nodes
         for node in nodes:
+            #print('NODES_OF_CLASS', cl, nodes, node) #DEBUG
             datum = self.nodes[node]['datum']
             if issubclass(datum.__class__, cl):
                 result.append(node)

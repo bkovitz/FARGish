@@ -122,6 +122,11 @@ class TimeStepper:
             action.go(self)
         except FargDone as exc:
             self.set_done(exc)
+        except:
+            print('EXCEPTION in do_action')
+            print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')
+            print(f'ACTION: {action}')
+            raise
         self.builder = None
         if ShowAnnotations.is_logging():
             a = action.annotation()
