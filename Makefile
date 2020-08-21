@@ -5,9 +5,9 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v testGloms.TestGloms.test_from_one_glom_to_another
+	$(PY) -m unittest -v testPortGraph.TestPortGraph.test_seed
 	#$(PY) -m unittest -v testHierarchy.TestHierarchy
-	$(PY) -m unittest -v testNumble
+	#$(PY) -m unittest -v testNumble
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

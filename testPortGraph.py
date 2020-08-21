@@ -67,5 +67,10 @@ class TestPortGraph(unittest.TestCase):
         self.assertCountEqual(even, [n2, n4])
         self.assertCountEqual(odd, [n1, n3])
 
+    def test_seed(self):
+        '''This shows how to get the value of a graph attribute.'''
+        g = PortGraph(seed=25)
+        self.assertEqual(g.graph['seed'], 25)
+
 def is_even(g, nodeid):
     return g.datum(nodeid).value & 1 == 0
