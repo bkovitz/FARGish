@@ -7,7 +7,9 @@ from copy import copy
 from itertools import chain
 
 from exc import TooManyArgs0
-from util import as_iter, as_set, as_name, empty_set, NiceRepr, filter_none
+from util import as_iter, as_set, as_name, empty_set, NiceRepr, filter_none, \
+    short
+from log import ShowIsMatch
 
 
 def add_kwarg(name, arg, kwargs):
@@ -98,6 +100,11 @@ class MateParam(NodeParam):
         this = as_name(self.this_port_label)
         that = as_name(self.that_port_label)
         return f'MateParam({repr(this)}, {repr(that)})'
+
+    def short(self):
+        this = as_name(self.this_port_label)
+        that = as_name(self.that_port_label)
+        return f'{this} -> {that}'
 
     def on_init(self, datum, kwargs):
         pass
@@ -274,6 +281,9 @@ class FilledMate(FilledParam):
             self.mate_param.that_port_label
         )
 
+    def __str__(self):
+        return f'FilledMate({short(self.mate_param)}, {self.mateid})'
+
 class FilledMate2(FilledParam):
     '''Like FilledMate, but we don't know the port label to link to, so we'll
     have to figure it out by looking at the node we're linking to.'''
@@ -301,10 +311,15 @@ class FilledAttr(FilledParam):
         self.value = value
 
     def is_match(self, g, nodeid):
-        '''Always returns False, so that it's possible to make multiple
-        instances of nodes like Numbers, Letters, etc.'''
-        return False
-        #return g.value_of(nodeid, self.attr_param.name) == self.value
+        ##'''Always returns False, so that it's possible to make multiple
+        ##instances of nodes like Numbers, Letters, etc.'''
+        ##return False
+        #HACK to allow Bricks, etc. to have multiple instances with the same
+        # value: we always return false if the node does not inherit from
+        # class Tag.
+        if not g.is_tag(nodeid):
+            return False
+        return g.value_of(nodeid, self.attr_param.name) == self.value
 
     def potential_neighbors(self):
         return []
@@ -317,6 +332,9 @@ class FilledAttr(FilledParam):
             name = self.attr_param
         setattr(datum, name, self.value)
 
+    def __str__(self):
+        return f'FilledAttr({self.attr_param}={self.value})'
+
 class FilledParams(NiceRepr):
 
     def __init__(self, fps):
@@ -328,11 +346,16 @@ class FilledParams(NiceRepr):
         #print('FPS', nodeid, nodeclass, g.is_of_class(nodeid, nodeclass))
         #for fp in self.fps.values():  #DEBUG
         #    print(f"  {fp} {fp.is_match(g, nodeid)}") #DEBUG
-        return (
+        result = (
             g.is_of_class(nodeid, nodeclass)
             and
             all(fp.is_match(g, nodeid) for fp in self.fps.values())
         )
+        if ShowIsMatch.is_logging():
+            ioc = g.is_of_class(nodeid, nodeclass)
+            fps = all(fp.is_match(g, nodeid) for fp in self.fps.values())
+            print(f'IS_MATCH {self} nodeid={nodeid} ioc={ioc} fps={fps} result={result}')
+        return result
 
     def potential_neighbors(self):
         result = list(chain.from_iterable(
@@ -349,6 +372,10 @@ class FilledParams(NiceRepr):
         datum.id = nodeid
         for fp in self.fps.values():
             fp.apply_to_node(g, nodeid)
+
+    def __str__(self):
+        params = ', '.join(f'{name}={val}' for name, val in self.fps.items())
+        return f'FilledParams({params})'
 
 #TODO rm
 class Mate:

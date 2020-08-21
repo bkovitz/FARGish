@@ -978,6 +978,9 @@ class PortGraph(nx.MultiGraph):
                 continue
         return False
 
+    def is_tag(self, node):
+        return self.datum(node).is_tag
+
     def label_is_a(self, label, ancestor_label):
         '''Is label the same as or a descendent of ancestor_label?'''
         #TODO Implement port-label inheritance. This version just tests

@@ -4,8 +4,8 @@ numbo5
 
     Count elements in Glom
 
-       Tag the Glom only once
-       Why is already_built() not already stopping multiple tags?
+       Tag the Glom only once  DONE
+       Why is already_built() not already stopping multiple tags?  DONE
 
     See that the number of elements matches the Target
 

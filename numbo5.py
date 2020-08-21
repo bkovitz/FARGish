@@ -10,7 +10,7 @@ import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
 from bases import ActiveNode
-from Action import Action, make_build3
+from Action import Action, Build3, make_build3
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass
 
@@ -77,8 +77,11 @@ class SameNumberGlommer(ActiveNode):
     
     def actions(self, g, thisid):
         number_node = g.look_for(is_number)
-        all_with_same_value = g.find_all(HasValue(g.value_of(number_node)))
-        return [make_build3(g, Glom, [all_with_same_value], {})]
+        all_with_same_value = g.find_all(
+            is_number, HasValue(g.value_of(number_node))
+        )
+        #return [make_build3(g, Glom, [all_with_same_value], {})]
+        return Build3.maybe_make(g, Glom, [all_with_same_value], {})
 
 class MemberCounter(ActiveNode):
 
@@ -139,15 +142,16 @@ g = None
 ShowAnnotations.start_logging()
 ShowActionList.start_logging()
 ShowActionsChosen.start_logging()
+ShowIsMatch.start_logging()
 
 if __name__ == '__main__':
-    g = new_graph(Numble([1, 1, 1, 1, 1], 5))
+    g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)
     #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
     #bspec = make_buildspec(g, Glom, [], dict(taggees=[4, 6, 8]))
     #glom1 = bspec.build(g)
     #glom2 = bspec.build(g)  # Should be None
     #pg(g)
     #print(glom1, glom2)
-    g.do_timestep(num=10)
+    g.do_timestep(num=5)
     pg(g)
     cr = OfClass(Number)

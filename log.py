@@ -1,4 +1,4 @@
-# logging.py -- Functions and classes for logging behavior of a FARG model
+# log.py -- Functions and classes for logging behavior of a FARG model
 
 from util import as_iter
 
@@ -34,6 +34,7 @@ ShowResponseList = LoggingObject()
 ShowResponseResults = LoggingObject()
 ShowOperandCandidates = LoggingObject()
 ShowAnnotations = LoggingObject()
+ShowIsMatch = LoggingObject()
 ShowResults = LoggingObject()
 
 logging.add(ShowResults)

@@ -52,6 +52,14 @@ def as_name(x):
     except AttributeError:
         return str(x)
 
+def short(x):
+    '''Returns a short string representation of x. If x has a .short() method
+    define, we call it and return its result. Otherwise we return str(x).'''
+    try:
+        return x.short()
+    except AttributeError:
+        return str(x)
+
 def vcat(a, b):
     '''Concatenate value(s). Combines a and b into either a list or a
     single value, preferring the latter. If a is an iterable, modifies a
