@@ -2,12 +2,26 @@ numbo5
 
     SameNumberGlommer  DONE
 
-    Count elements in Glom
+    Count elements in Glom  DONE
 
        Tag the Glom only once  DONE
        Why is already_built() not already stopping multiple tags?  DONE
 
     See that the number of elements matches the Target
+
+        SameValueTagger  DONE
+
+        Build Gloms and SameValue tags reasonably, so we don't get Gloms
+        like { Brick(1), Brick(1), Count(1), Brick(1) }.
+
+    AT these things so far
+        Try writing one test, see why it's hard.
+
+    Get a demo-able model running again.
+    It should be able to solve any numble (or fail interestingly).
+
+    Rewrite numbo5's ActiveNodes so they search for tuples the same way
+    generated code does.
 
 
 

@@ -7,7 +7,7 @@ import unittest
 
 class TestSupport(unittest.TestCase):
 
-    def test_basics(self):
+    def test_support(self):
         g = PortGraph()
         p = Propagator(
             positive_feedback_rate=0.2,

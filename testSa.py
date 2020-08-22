@@ -8,7 +8,7 @@ import unittest
 
 class TestSpreadingActivation(unittest.TestCase):
 
-    def test_basics(self):
+    def test_spreading_activation(self):
         g = PortGraph()
         g.add_nodes_from(['A', 'B', 'O'])
         g.add_edge('A', 'sa', 'B', 'sa')

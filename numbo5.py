@@ -12,7 +12,8 @@ from ExprAsEquation import ExprAsEquation
 from bases import ActiveNode
 from Action import Action, Build3, make_build3
 from BuildSpec import make_buildspec
-from criteria import Tagged, HasValue, OfClass
+from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
+    HasAttr, NotNode
 
 prog = '''
 tags -- taggees
@@ -23,13 +24,14 @@ Workspace
 
 Tag(taggees)
 Want, Avail, Allowed : Tag
-Count(value) : Tag
+SameValue : Tag
 
 Group(members)
 Glom : Group
 
 Number(value)
 Brick, Target, Block : Number
+Count : Tag, Number
 
 Operator
 Plus, Times : Operator
@@ -95,6 +97,26 @@ class MemberCounter(ActiveNode):
             'taggees': [group_node], 'value': num_members
         })]
 
+class SameValueTagger(ActiveNode):
+
+    def actions(self, g, thisid):
+        first_node = g.look_for(HasAttr('value'))
+        if first_node is None:
+            return
+        value = g.value_of(first_node)
+        second_node = g.look_for(
+            NotNode(first_node),
+            HasValue(value),
+            NotTaggedTogetherWith(first_node, SameValue)
+        )
+        if second_node is None:
+            return
+        return make_build3(g, SameValue, [], {
+            'taggees': [first_node, second_node],
+            'value': value
+        })
+
+
 ##### The graph class and other generic execution code #####
 
 class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
@@ -132,6 +154,7 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         #HACK
         self.make_node(SameNumberGlommer)
         self.make_node(MemberCounter)
+        self.make_node(SameValueTagger)
 
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
@@ -142,7 +165,7 @@ g = None
 ShowAnnotations.start_logging()
 ShowActionList.start_logging()
 ShowActionsChosen.start_logging()
-ShowIsMatch.start_logging()
+#ShowIsMatch.start_logging()
 
 if __name__ == '__main__':
     g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)

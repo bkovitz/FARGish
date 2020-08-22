@@ -1,6 +1,6 @@
 # exc.py -- Custom exceptions for FARGish
 
-from util import nice_object_repr
+from util import nice_object_repr, NiceRepr
 
 
 class FargDone(Exception):
@@ -53,12 +53,16 @@ class FARGishCompilerException(Exception):
 class NoUniqueMateError(FARGishCompilerException):
     pass
 
-class FargError(Exception):
+class FargError(Exception, NiceRepr):
     pass
 
 class TooManyArgs(FargError):
     pass
 
 class TooManyArgs0(FargError):
-    def __init__(self, args):
+    def __init__(self, node_params, args):
+        self.node_params = node_params
         self.args = args
+
+    def __str__(self):
+        return f'TooManyArgs0: {self.node_params} args={self.args}'

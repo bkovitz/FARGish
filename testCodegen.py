@@ -211,3 +211,22 @@ Blah
         #make_python(prog, debug=True) #DEBUG
         exec(compile_fargish(prog), globals())
         self.assertEqual(postamble_f(), Blah)
+
+    def test_multiply_inherit_param(self):
+        prog = '''
+tags -- taggees
+Tag(taggees)
+Number(value)
+#Count(value) : Tag, Number  # You can't do this! You get two 'value'
+                             # params. The code generator can't coalesce the
+                             # 'value' params because some nodes need the
+                             # same param multiple times; e.g. ConsumeOperands
+                             # in brute.py takes two consume_operand params.
+Count : Tag, Number
+'''
+        exec(compile_fargish(prog), globals())
+        g = TestGraph(port_mates=port_mates)
+        number = g.make_node(Number, 10)
+        count = g.make_node(Count, taggees=[number], value=1)
+        self.assertEqual(g.datumstr(count), 'Count(1)')
+        self.assertTrue(g.has_hop(number, 'tags', count, 'taggees'))

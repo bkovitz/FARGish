@@ -4,7 +4,7 @@ from Hierarchy import Hierarchy
 
 class TestHierarchy(unittest.TestCase):
 
-    def test_basics(self):
+    def test_hierarchy(self):
         h = Hierarchy()
         self.assertFalse(h.isa('child1', 'parent'))
 

@@ -5,7 +5,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testPortGraph.TestPortGraph.test_seed
+	$(PY) -m unittest -v testCodegen.TestCodegen.test_multiply_inherit_param
 	#$(PY) -m unittest -v testHierarchy.TestHierarchy
 	#$(PY) -m unittest -v testNumble
 

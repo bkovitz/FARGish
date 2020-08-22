@@ -5,7 +5,7 @@ from exc import FARGishCompilerException
 
 class TestEnv(unittest.TestCase):
 
-    def test_basics(self):
+    def test_env(self):
         env = Env()
         self.assertEqual(env.get('x'), None)
         env.add('x', 'X-VALUE')

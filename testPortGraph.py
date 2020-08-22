@@ -7,7 +7,7 @@ empty_set = frozenset([])
 
 class TestPortGraph(unittest.TestCase):
 
-    def test_basics(self):
+    def test_port_graph(self):
         g = PortGraph()
         g.add_nodes_from(['A', 'B', 'O'])
         g.add_edge('A', 'in', 'B', 'out')

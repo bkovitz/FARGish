@@ -260,7 +260,9 @@ class Class:
 
     def add_params(self, env, param_names):
         for param_name in as_iter(param_names):
-            #TODO Complain about duplicate param names?
+            #if not any(param.as_key() == param_name for param in self.params):
+            #Skipping duplicate parameters doesn't work because sometimes
+            #we want multiple parameters with the same name.
             self.params.append(make_node_param(env, param_name))
 
     def add_inits(self, inits):

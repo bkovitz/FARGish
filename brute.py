@@ -3,8 +3,8 @@
 # Suitable for copying as a start for a cognitive model.
 #
 # brute.py is tested by testBrute.py. brute.py exercises most of the FARGish
-# system and also pretty simple, so it serves as a nice "unit" test to verify
-# that the whole system works.
+# system and is also pretty simple, so it serves as a nice "unit" test to
+# verify that the whole system works.
 
 from operator import add, mul
 from functools import reduce

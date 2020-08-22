@@ -12,7 +12,7 @@ class Plus(Node):
 
 class TestLinkSpec(unittest.TestCase):
 
-    def test_basics(self):
+    def test_linkspec(self):
         g = PortGraph()
         b4 = g.make_node(Number(4))
         b5 = g.make_node(Number(5))

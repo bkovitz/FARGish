@@ -215,7 +215,7 @@ class NodeParams:
         if args is None:
             return kwargs
         if len(args) > len(self.params):
-            raise TooManyArgs0(args)
+            raise TooManyArgs0(self, args)
         for arg, param in zip(args, self.params):
             param.arg_into_kwargs(arg, kwargs)
         return kwargs

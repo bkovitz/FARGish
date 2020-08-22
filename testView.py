@@ -20,7 +20,7 @@ g = None
 
 class TestView(unittest.TestCase):
 
-    def test_basics(self):
+    def test_view(self):
         global g
         g = PortGraph(port_mates=port_mates)
         v = g.make_node(View(NodeCriterion(nodeclass=Number, tagclass=Avail)))

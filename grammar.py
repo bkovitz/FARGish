@@ -282,7 +282,7 @@ def p_link_defn(p):
 def p_port_inheritance(p):
     '''port_inheritance : port_labels port_parents'''
     chain = [p[1]] + p[2] # each elem of chain is a list of port labels
-    print('INH', chain)
+    #print('INH', chain)
     p[0] = []
     for i in range(len(chain) - 1):
         children = chain[i]
