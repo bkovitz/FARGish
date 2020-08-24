@@ -243,7 +243,7 @@ class NotAlreadyBuilt(TupleCriterion):
         self.nodeclass = nodeclass
 
     def is_match(self, g, tup):
-        return not g.already_built(self.nodeclass, potential_neighbors=tup)
+        return not g.is_already_built(self.nodeclass, potential_neighbors=tup)
 
 class TupAnd(TupleCriterion):
 
@@ -261,7 +261,7 @@ class OLDBuildSpec(NiceRepr):
         self.link_specs = link_specs
         self.new_node_args = new_node_args
 
-    def already_built(self, g, old_nodeid=None):
+    def is_already_built(self, g, old_nodeid=None):
         #TODO old_nodeid should somehow override the old_node in
         #self.link_specs.
         '''Has a node meeting the spec in relation to old_nodeid already been
@@ -293,7 +293,7 @@ class OLDBuildSpec(NiceRepr):
         )
 
     def build(self, g, old_nodeid):
-        #TODO Don't build if .already_built()
+        #TODO Don't build if .is_already_built()
         if self.new_node_args:
             new_nodeid = g.make_node(self.new_nodeclass(*self.new_node_args))
         else:
@@ -302,7 +302,7 @@ class OLDBuildSpec(NiceRepr):
             ls.make(g, old_nodeid, new_nodeid)
 
     def maybe_make_build_action(self, g, old_nodeid):
-        if self.already_built(g, old_nodeid):
+        if self.is_already_built(g, old_nodeid):
             return None
         else:
             return FuncAction(self.build, old_nodeid)

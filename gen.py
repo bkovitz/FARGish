@@ -957,7 +957,7 @@ class NotAlreadyBuiltExpr(Expr):
 
     def as_pyexpr(self):
         return \
-            f"not _g.already_built({self.buildstmt.buildargs_py()})"
+            f"not _g.is_already_built({self.buildstmt.buildargs_py()})"
 
     def coalesced_with(self, other):
         return AndExpr(self, other)

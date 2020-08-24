@@ -113,7 +113,7 @@ class Build2(Action):
         threshold=0.0,
         potential_neighbors=None
     ):
-        if not g.already_built(
+        if not g.is_already_built(
             nodeclass,
             args=args,
             kwargs=kwargs,
@@ -151,7 +151,7 @@ class Build3(Action):
         threshold=0.0
     ):
         buildspec = make_buildspec(g, nodeclass, args, kwargs)
-        if buildspec.already_built(g):
+        if buildspec.is_already_built(g):
             return None
         else:
             return Build3(buildspec, weight=weight, threshold=threshold)

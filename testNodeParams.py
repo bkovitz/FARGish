@@ -45,16 +45,16 @@ class TestNodeParams(unittest.TestCase):
 
     def test_already_built(self):
         g = TestGraph()
-        self.assertFalse(g.already_built(Number, (2,)))
-        self.assertFalse(g.already_built(Number(2)))
+        self.assertFalse(g.is_already_built(Number, (2,)))
+        self.assertFalse(g.is_already_built(Number(2)))
         two = g.make_node(Number(n=2))
 
-        #self.assertTrue(g.already_built(Number, (2,)))
+        #self.assertTrue(g.is_already_built(Number, (2,)))
         # Commented out because as of 18-Mar-2020 we're ignoring attr values
-        # when determining whether a node is already_built.
+        # when determining whether a node is is_already_built.
 
-        self.assertFalse(g.already_built(Number, (3,)))
-        self.assertFalse(g.already_built(Number(3)))
+        self.assertFalse(g.is_already_built(Number, (3,)))
+        self.assertFalse(g.is_already_built(Number(3)))
         three = g.make_node(Number(3))
         five = g.make_node(Number(5))
 
@@ -62,12 +62,12 @@ class TestNodeParams(unittest.TestCase):
             'operands': [two, three],
             'result': five
         }
-        self.assertFalse(g.already_built(
+        self.assertFalse(g.is_already_built(
             Plus,
             kwargs=kwargs
         ))
         plus = g.make_node(Plus, operands=[two, three], result=five)
-        self.assertTrue(g.already_built(
+        self.assertTrue(g.is_already_built(
             Plus,
             kwargs=kwargs
         ))

@@ -44,7 +44,7 @@ pass
         then = BuildStmt(NodeclassExpr('Node'), [])
         ifstmt = IfStmt(None, then, None)
         self.assertEqual(test_gen(ifstmt, env), '''
-if not _g.already_built(Node, args=[], kwargs={}):
+if not _g.is_already_built(Node, args=[], kwargs={}):
     _result.append(make_build3(_g, Node, args=[], kwargs={}))
 ''')
 
@@ -88,7 +88,7 @@ if _found_tup_1:
 p1 = p2 = op = None
 def _f_2(_g, _tup):
     p1, p2, op, = _tup
-    return not _g.already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
+    return not _g.is_already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
 _found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=TupAnd(no_dups, TupFunc(_f_2))).see_one(_g)
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
@@ -138,7 +138,7 @@ if _found_tup_1:
 p1 = p2 = op = None
 def _f_2(_g, _tup):
     p1, p2, op, = _tup
-    return not _g.already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
+    return not _g.is_already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
 _found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=TupAnd(no_dups, TupFunc(_f_2))).see_one(_g)
 if _found_tup_1:
     p1, p2, op, = _found_tup_1

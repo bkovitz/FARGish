@@ -230,10 +230,10 @@ class TestBuildSpec(unittest.TestCase):
                 LinkSpec('consumer', 'source', Number)
             ]
         )
-        self.assertFalse(spec.already_built(g))
+        self.assertFalse(spec.is_already_built(g))
         spec.build(g) #TODO Think of some satisfactory way to specify b4, b5, t9
                       # as the "old nodes" that the new Plus node should link to
-        self.assertTrue(spec.already_built(g))
+        self.assertTrue(spec.is_already_built(g))
 
     def test_agent(self):
         g = PortGraph()
@@ -242,9 +242,9 @@ class TestBuildSpec(unittest.TestCase):
             Agent,
             LinkSpec('agents', 'behalf_of')
         )
-        self.assertFalse(spec.already_built(g, w))
+        self.assertFalse(spec.is_already_built(g, w))
         spec.build(g, w)
-        self.assertTrue(spec.already_built(g, w))
+        self.assertTrue(spec.is_already_built(g, w))
         self.assertEqual(len(g), 2)
 
     def test_agent_func_action(self):

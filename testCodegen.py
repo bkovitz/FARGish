@@ -96,7 +96,7 @@ Agent
         # has no NodeParam, thus forcing it to make a link not explicitly
         # provided for in the Node's parameters. As of 13-Mar-2013, the
         # PortGraph.exactly_matches_kwargs() function does not check for
-        # such links. That should cause PortGraph.already_built() to return
+        # such links. That should cause PortGraph.is_already_built() to return
         # a spurious result.
 
     #TODO unteest
@@ -197,7 +197,7 @@ Scout
         '''
         _result = []
         _kwargs = {'goal', _thisid}
-        if not _g.already_built(SuccessScout, kwargs=_kwargs):
+        if not _g.is_already_built(SuccessScout, kwargs=_kwargs):
             _result.append(Build(SuccessScout, kwargs=_kwargs))
         return _result
 '''

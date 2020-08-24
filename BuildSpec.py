@@ -47,7 +47,7 @@ class BuildSpec(NiceRepr):
         self.nodeclass = nodeclass
         self.filled_params = filled_params
 
-    def already_built(self, g):
+    def is_already_built(self, g):
         candidates = g.neighbors(self.filled_params.potential_neighbors())
         if not candidates:
             #candidates = set(g.nodes)
@@ -64,7 +64,7 @@ class BuildSpec(NiceRepr):
         new node, or None if not built. Adds links as specified, adds
         attrs to the datum object, as specified, and adds an .id member
         to the datum, holding the nodeid.'''
-        if not self.already_built(g):
+        if not self.is_already_built(g):
             nodeid = g.mknode(self.nodeclass)
             self.filled_params.apply_to_node(g, nodeid)
             g.add_edge_to_default_container(nodeid)

@@ -423,10 +423,10 @@ class PortGraph(nx.MultiGraph):
                                            if k in attrs)
         return self.make_node(new_attrs)
 
-    def already_built(self, cl, args=None, kwargs={}):
+    def is_already_built(self, cl, args=None, kwargs={}):
         '''Is a node of class cl with the given args and kwargs already built?'''
         buildspec = make_buildspec(self, cl, args=args, kwargs=kwargs)
-        result = buildspec.already_built(self)
+        result = buildspec.is_already_built(self)
         #print('ALR', cl, result)
         return result
 
