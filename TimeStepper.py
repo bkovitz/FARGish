@@ -5,9 +5,11 @@
 
 from operator import attrgetter
 from random import choice
+from typing import Union
 
 from PortGraph import NodesWithSalience, pg
 from bases import ActiveNode, CoarseView
+from Action import Action
 from util import sample_without_replacement
 from exc import FargDone
 import support
@@ -38,7 +40,7 @@ class TimeStepper:
             kws['support_steps'] = 5  # number of support steps per timestep
         super().__init__(*args, **kws)
 
-    def do_timestep(self, num=1):
+    def do_timestep(self, num=1, action: Union[Action, None]=None):
         '''Executes n timesteps.
 
         On each timestep, we decay saliences, choose active nodes, generate
@@ -56,55 +58,13 @@ class TimeStepper:
 
             self.update_coarse_views()
 
-            active_nodes = self.get_active_nodes()
-
-            if (self.max_active_nodes is not None
-                and
-                len(active_nodes) > self.max_active_nodes
-            ):
-                active_nodes = self.choose_active_nodes(active_nodes)
-            if ShowActiveNodes.is_logging():
-                print('ACTIVE NODES')
-                pg(self, active_nodes)
-
-            actions = self.collect_actions(active_nodes)
-            if ShowActionList.is_logging():
-                print('ACTIONS COLLECTED')
-                for action in sorted(actions, key=attrgetter('weight')):
-                    print('  %.3f (%.3f) %s' % (
-                        action.weight,
-                        action.threshold,
-                        action
-                    ))
-
-            # Filter out actions whose weight is below their threshold
-            actions = [a for a in actions if a.weight >= a.threshold]
-
-            if len(actions) == 0:
-                self.consecutive_timesteps_with_no_action += 1
-                #HACK Crude boosting of random nodes to shake things up
-                if self.consecutive_timesteps_with_no_action > 10:
-                    ns = list(self.nodes)
-                    for i in range(10):
-                        nodeid = choice(ns)
-                        #print('GROSS', self.nodestr(nodeid))
-                        self.gross_boost_salience(nodeid)
+            if action:
+                actions_to_do = as_iter(action)
             else:
-                self.consecutive_timesteps_with_no_action = 0
+                actions_to_do = self.get_actions_from_graph()
 
-            chosen_actions = self.choose_actions(actions)
-            if ShowActionsChosen.is_logging():
-                print('ACTIONS CHOSEN')
-                #TODO OAOO with above
-                for action in sorted(chosen_actions, key=attrgetter('weight')): 
-                    print('  %.3f (%.3f) %s' % (
-                        action.weight,
-                        action.threshold,
-                        action
-                    ))
-
-            for action in chosen_actions:
-                self.do_action(action)
+            for a in actions_to_do:
+                self.do_action(a)
 
             self.do_touches()
             self.update_all_support()
@@ -117,7 +77,11 @@ class TimeStepper:
 
     def do_action(self, action):
         '''action: an Action object'''
-        self.builder = action.actor
+        try:
+            self.builder = action.actor
+        except AttributeError:
+            self.builder = None
+
         try:
             action.go(self)
         except FargDone as exc:
@@ -127,6 +91,7 @@ class TimeStepper:
             print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')
             print(f'ACTION: {action}')
             raise
+
         self.builder = None
         if ShowAnnotations.is_logging():
             a = action.annotation()
@@ -150,6 +115,57 @@ class TimeStepper:
             return d.succeeded
         except AttributeError:
             return False
+
+    def get_actions_from_graph(self):
+        '''Polls all the ActiveNodes for Actions and chooses which to
+        do on this timestep.'''
+        active_nodes = self.get_active_nodes()
+
+        if (self.max_active_nodes is not None
+            and
+            len(active_nodes) > self.max_active_nodes
+        ):
+            active_nodes = self.choose_active_nodes(active_nodes)
+        if ShowActiveNodes.is_logging():
+            print('ACTIVE NODES')
+            pg(self, active_nodes)
+
+        actions = self.collect_actions(active_nodes)
+        if ShowActionList.is_logging():
+            print('ACTIONS COLLECTED')
+            for action in sorted(actions, key=attrgetter('weight')):
+                print('  %.3f (%.3f) %s' % (
+                    action.weight,
+                    action.threshold,
+                    action
+                ))
+
+        # Filter out actions whose weight is below their threshold
+        actions = [a for a in actions if a.weight >= a.threshold]
+
+        if len(actions) == 0:
+            self.consecutive_timesteps_with_no_action += 1
+            #HACK Crude boosting of random nodes to shake things up
+            if self.consecutive_timesteps_with_no_action > 10:
+                ns = list(self.nodes)
+                for i in range(10):
+                    nodeid = choice(ns)
+                    #print('GROSS', self.nodestr(nodeid))
+                    self.gross_boost_salience(nodeid)
+        else:
+            self.consecutive_timesteps_with_no_action = 0
+
+        chosen_actions = self.choose_actions(actions)
+        if ShowActionsChosen.is_logging():
+            print('ACTIONS CHOSEN')
+            #TODO OAOO with above
+            for action in sorted(chosen_actions, key=attrgetter('weight')): 
+                print('  %.3f (%.3f) %s' % (
+                    action.weight,
+                    action.threshold,
+                    action
+                ))
+        return chosen_actions
 
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''

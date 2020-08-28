@@ -7,6 +7,7 @@ import unittest
 from TimeStepper import TimeStepper
 from PortGraph import PortGraph, Node, pg
 from bases import ActiveNode, Action
+from NodeParams import NodeParams, MateParam, AttrParam
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
         stop_all_logging
 
@@ -15,10 +16,8 @@ stop_all_logging()
 # Node definitions for TestGraph
 
 class Seeker(ActiveNode):
-
-    def __init__(self, value):
-        '''A Seeker seeks a Sought with the same .value.'''
-        self.value = value
+    '''A Seeker seeks a Sought with the same .value.'''
+    node_params = NodeParams(AttrParam('value'))
 
     # Required: Returns list of Action objects
     def actions(self, g, thisid):
@@ -38,10 +37,8 @@ class Seeker(ActiveNode):
         )
 
 class Sought(Node):
-
-    def __init__(self, value):
-        '''A Sought passively (without generating Actions) awaits a Seeker.'''
-        self.value = value
+    '''A Sought passively (without generating Actions) awaits a Seeker.'''
+    node_params = NodeParams(AttrParam('value'))
 
 # Action definitions
 
@@ -80,3 +77,14 @@ class TestTimeStepper(unittest.TestCase):
         g.do_timestep()
         self.assertEqual(len(g.edges()), 2) # nothing left to do
         #pg(g)
+
+    def test_do_specified_action(self):
+        # Forcing a specified Action by passing it to do_timestep().
+        g = TestGraph(seed=1)
+        for i in range(100):
+            g.make_node(Sought(100))
+            g.make_node(Seeker(100))
+        sought2 = g.make_node(Sought(2))
+        seeker2 = g.make_node(Seeker(2))
+        g.do_timestep(action=MakeLink(seeker2, sought2))
+        self.assertTrue(g.has_hop(seeker2, 'found', sought2, 'seeker'))

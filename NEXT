@@ -7,6 +7,12 @@ numbo5
        Tag the Glom only once  DONE
        Why is already_built() not already stopping multiple tags?  DONE
 
+    "Interpreter" for sequence of Actions
+
+        do_timestep(action)
+
+        "Replay" Glom(all the Bricks)
+
     See that the number of elements matches the Target
 
         SameValueTagger  DONE
