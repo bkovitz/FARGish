@@ -1,10 +1,20 @@
 # criteria.py -- Criterion classes to pass to PortGraph.look_for()
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+
 from PortGraph import Node
 
 
-class Tagged:
+class Criterion(ABC):
+    '''A callable object that takes two parameters: g, nodeid; and returns
+    true iff nodeid meets a given criterion.'''
+
+    @abstractmethod
+    def __call__(self, g, nodeid):
+        pass
+
+class Tagged(Criterion):
 
     def __init__(self, tagclass):
         self.tagclass = tagclass
@@ -12,7 +22,7 @@ class Tagged:
     def __call__(self, g, nodeid):
         return g.has_tag(nodeid, self.tagclass)
 
-class HasValue:
+class HasValue(Criterion):
 
     def __init__(self, value):
         self.value = value
@@ -21,14 +31,14 @@ class HasValue:
         return g.value_of(nodeid) == self.value
 
 @dataclass
-class OfClass:
+class OfClass(Criterion):
     nodeclass: Node
 
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
 
 @dataclass
-class HasAttr:
+class HasAttr(Criterion):
     '''Does the given node have an attr named attr_name with a value other than
     None?'''
     attr_name: str
@@ -37,7 +47,7 @@ class HasAttr:
         return g.value_of(nodeid, attr_name=self.attr_name) is not None
 
 @dataclass
-class NotTaggedTogetherWith:
+class NotTaggedTogetherWith(Criterion):
     '''Are the given node and first_node tagged with the same tag of class
     tagclass?'''
     first_node: int
@@ -47,7 +57,7 @@ class NotTaggedTogetherWith:
         return not g.tags_of([self.first_node, nodeid], self.tagclass)
 
 @dataclass
-class NotNode:
+class NotNode(Criterion):
     '''Is the node not this_node?'''
     this_node: int
 

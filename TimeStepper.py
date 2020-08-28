@@ -52,6 +52,7 @@ class TimeStepper:
 
         for i in range(num):
             self.graph['t'] += 1
+            self.clear_touched_and_new()
 
             self.decay_saliences()
 

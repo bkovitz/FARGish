@@ -13,7 +13,8 @@ from bases import ActiveNode
 from Action import Action, Build3, make_build3
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
-    HasAttr, NotNode
+    HasAttr, NotNode, Criterion
+from typing import Union, List
 
 prog = '''
 tags -- taggees
@@ -65,14 +66,6 @@ Tag.add_tag = cls_add_tag  # HACK
 
 ##### Nodeclasses defined in Python
 
-#class GlomThem(Action):
-#
-#    def __init__(self, nodes_to_glom):
-#        self.nodes_to_glom = nodes_to_glom
-#        self.
-#
-#    def go(self, g):
-
 is_number = OfClass(Number)
         
 class SameNumberGlommer(ActiveNode):
@@ -116,6 +109,26 @@ class SameValueTagger(ActiveNode):
             'value': value
         })
 
+##### Custom Actions
+
+class SeekAndGlom(Action):
+
+    def __init__(
+        self,
+        criteria: Union[Criterion, List[Criterion], None],
+        within: int
+    ):
+        self.criteria = criteria
+        self.within = within
+
+    def go(self, g):
+        glommees = g.find_all(*as_iter(self.criteria), within=self.within)
+        if glommees:
+            action = Build3.maybe_make(g, Glom, [glommees], {})
+            if action:
+                #print('ACTION', action)
+                action.go(g)
+                #print('NEW', g.new_nodes)
 
 ##### The graph class and other generic execution code #####
 
@@ -169,12 +182,24 @@ ShowActionsChosen.start_logging()
 
 if __name__ == '__main__':
     g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)
+    ws = g.graph['ws']
+
     #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
     #bspec = make_buildspec(g, Glom, [], dict(taggees=[4, 6, 8]))
     #glom1 = bspec.build(g)
     #glom2 = bspec.build(g)  # Should be None
     #pg(g)
     #print(glom1, glom2)
-    g.do_timestep(num=5)
+
+    # Just run
+#    g.do_timestep(num=5)
+#    pg(g)
+#    cr = OfClass(Number)
+
+    # Force Glomming Bricks
+    g.do_action_sequence([
+        SeekAndGlom(OfClass(Brick), ws),
+        SeekAndGlom(OfClass(Brick), ws),
+        SeekAndGlom(OfClass(Brick), ws),
+    ])
     pg(g)
-    cr = OfClass(Number)

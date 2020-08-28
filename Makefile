@@ -2,7 +2,7 @@ PY = python3.7
 
 # Convenience target for "do whatever I'm currently working on".
 current: ut
-	$(PY) numbo5.py
+	$(PY) -i numbo5.py
 
 ut:
 	$(PY) -m unittest -v

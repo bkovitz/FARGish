@@ -9,9 +9,11 @@ numbo5
 
     "Interpreter" for sequence of Actions
 
-        do_timestep(action)
+        do_timestep(action)  DONE
 
-        "Replay" Glom(all the Bricks)
+        "Replay" Glom(all the Bricks)  DONE
+
+        "Replay" seeing that all the Bricks are 1
 
     See that the number of elements matches the Target
 

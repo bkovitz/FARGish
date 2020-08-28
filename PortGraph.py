@@ -1,14 +1,5 @@
 # PortGraph.py -- PortGraph class
 
-from watcher import Watcher, Response
-from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
-    reseed, sample_without_replacement, intersection, empty_set
-from exc import TooManyArgs0, TooManyArgs
-from BuildSpec import make_buildspec
-from NodeParams import NodeParams
-
-import networkx as nx
-
 from collections import defaultdict, namedtuple, UserDict
 from collections.abc import Iterable
 from inspect import isclass
@@ -16,6 +7,16 @@ from operator import attrgetter, itemgetter
 from random import choice, choices
 from io import StringIO
 import traceback
+from typing import Union, List
+
+import networkx as nx
+
+from watcher import Watcher, Response
+from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
+    reseed, sample_without_replacement, intersection, empty_set
+from exc import TooManyArgs0, TooManyArgs
+from BuildSpec import make_buildspec
+from NodeParams import NodeParams
 
 
 empty_node_params = NodeParams()
@@ -404,6 +405,7 @@ class PortGraph(nx.MultiGraph):
         containers = intersection(*(
             self.neighbors(n1, 'member_of') for n1 in self.neighbors(nodeid)
         ))
+        containers.discard(nodeid)
         for c in containers:
             self.add_edge(nodeid, 'member_of', c, 'members')
 
@@ -657,6 +659,9 @@ class PortGraph(nx.MultiGraph):
                 )
             else:
                 self.after_touch_nodes.remove(tn)
+        self.clear_touched_and_new()
+
+    def clear_touched_and_new(self):
         self.touched_nodes.clear()
         self.new_nodes.clear()
 
@@ -1172,11 +1177,14 @@ class PortGraph(nx.MultiGraph):
             return None
 
     # TODO UT
-    def find_all(self, *criteria):
+    def find_all(self, *criteria, within: Union[int, None]=None):
         '''Returns list of all nodes that meet criteria. criteria are functions
         that take two arguments: g and nodeid. A criterion function returns
         a true value if nodeid matches the criteria, false if not.'''
-        nodes = self.nodes() # Start with all nodes (INEFFICIENT)
+        if within is None:
+            nodes = self.nodes() # Start with all nodes (INEFFICIENT)
+        else:
+            nodes = self.members_recursive(within)
         for c in criteria:
             nodes = [n for n in nodes if c(self, n)]
             if not nodes:
