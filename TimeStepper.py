@@ -5,7 +5,7 @@
 
 from operator import attrgetter
 from random import choice
-from typing import Union
+from typing import Union, List
 
 from PortGraph import NodesWithSalience, pg
 from bases import ActiveNode, CoarseView
@@ -40,7 +40,9 @@ class TimeStepper:
             kws['support_steps'] = 5  # number of support steps per timestep
         super().__init__(*args, **kws)
 
-    def do_timestep(self, num=1, action: Union[Action, None]=None):
+    def do_timestep(
+        self, num=1, action: Union[Action, List[Action], None]=None
+    ) -> None:
         '''Executes n timesteps.
 
         On each timestep, we decay saliences, choose active nodes, generate
@@ -58,7 +60,7 @@ class TimeStepper:
 
             self.update_coarse_views()
 
-            if action:
+            if action is not None:
                 actions_to_do = as_iter(action)
             else:
                 actions_to_do = self.get_actions_from_graph()
@@ -74,6 +76,13 @@ class TimeStepper:
                 ShowResults(d)
                 ShowResults(f"t={self.graph['t']}\n")
                 break
+
+    def do_action_sequence(self, actions: Union[List[Action], Action, None]):
+        '''Force a sequence of actions, one per timestep. If a single Action
+        is an iterable, then all the Actions it contains will be performed
+        on its timestep.'''
+        for a in as_iter(actions):
+            self.do_timestep(action=a)
 
     def do_action(self, action):
         '''action: an Action object'''

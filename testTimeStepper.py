@@ -88,3 +88,23 @@ class TestTimeStepper(unittest.TestCase):
         seeker2 = g.make_node(Seeker(2))
         g.do_timestep(action=MakeLink(seeker2, sought2))
         self.assertTrue(g.has_hop(seeker2, 'found', sought2, 'seeker'))
+        self.assertEqual(g.graph['t'], 1)
+
+    def test_do_action_sequence(self):
+        # Forcing a sequence of Actions, one per timestep.
+        g = TestGraph(seed=1)
+        for i in range(100):
+            g.make_node(Sought(100))
+            g.make_node(Seeker(100))
+        sought2 = g.make_node(Sought(2))
+        seeker2 = g.make_node(Seeker(2))
+        sought3 = g.make_node(Sought(3))
+        seeker3 = g.make_node(Seeker(3))
+        sought4 = g.make_node(Sought(4))
+        seeker4 = g.make_node(Seeker(4))
+        g.do_action_sequence([
+            MakeLink(seeker2, sought2),
+            MakeLink(seeker3, sought3),
+            MakeLink(seeker4, sought4),
+        ])
+        self.assertEqual(g.graph['t'], 3)
