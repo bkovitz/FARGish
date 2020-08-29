@@ -2,6 +2,7 @@
 #              1 1 1 1 1; 5.
 
 from codegen import make_python, compile_fargish
+from dataclasses import dataclass
 from TimeStepper import TimeStepper
 from log import *
 from util import as_iter, reseed, intersection
@@ -14,7 +15,7 @@ from Action import Action, Build3, make_build3
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
-from typing import Union, List
+from typing import Union, List, Any
 
 prog = '''
 tags -- taggees
@@ -111,15 +112,10 @@ class SameValueTagger(ActiveNode):
 
 ##### Custom Actions
 
+@dataclass
 class SeekAndGlom(Action):
-
-    def __init__(
-        self,
-        criteria: Union[Criterion, List[Criterion], None],
-        within: int
-    ):
-        self.criteria = criteria
-        self.within = within
+    criteria: Union[Criterion, List[Criterion], None]
+    within: int
 
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
@@ -129,6 +125,16 @@ class SeekAndGlom(Action):
                 #print('ACTION', action)
                 action.go(g)
                 #print('NEW', g.new_nodes)
+
+@dataclass
+class NoticeAllSameValue(Action):
+    within: int
+    value: Any
+
+    def go(self, g):
+        # Test that all members of 'within' have value 'value'.
+        # If so, tag 'within' AllMembersSameValue
+        pass
 
 ##### The graph class and other generic execution code #####
 
@@ -199,7 +205,6 @@ if __name__ == '__main__':
     # Force Glomming Bricks
     g.do_action_sequence([
         SeekAndGlom(OfClass(Brick), ws),
-        SeekAndGlom(OfClass(Brick), ws),
-        SeekAndGlom(OfClass(Brick), ws),
+        #NoticeAllSameValueAction(within= , value=1),
     ])
     pg(g)

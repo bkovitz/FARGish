@@ -7,7 +7,7 @@ from operator import attrgetter, itemgetter
 from random import choice, choices
 from io import StringIO
 import traceback
-from typing import Union, List
+from typing import Union, List, Set
 
 import networkx as nx
 
@@ -931,7 +931,7 @@ class PortGraph(nx.MultiGraph):
             return None
 
     #TODO UT
-    def members_recursive(self, group_node):
+    def members_recursive(self, group_node) -> Set[int]:
         result = set()
         visited = set()
         to_visit = set([group_node])
@@ -1166,18 +1166,19 @@ class PortGraph(nx.MultiGraph):
         return None
 
     # TODO UT
-    def look_for(self, *criteria):
+    def look_for(self, *criteria, within: Union[int, None]=None) -> \
+    Union[int, None]:
         '''Returns one node that meets criteria, or None if not found.
         criteria are functions that take two arguments: g, nodeid, and
         return a true value if nodeid matches the criterion.'''
-        nodes = self.find_all(*criteria)
+        nodes = self.find_all(*criteria, within=within)
         try:
             return choice(nodes) # TODO choose by salience?
         except IndexError:
             return None
 
     # TODO UT
-    def find_all(self, *criteria, within: Union[int, None]=None):
+    def find_all(self, *criteria, within: Union[int, None]=None) -> List[int]:
         '''Returns list of all nodes that meet criteria. criteria are functions
         that take two arguments: g and nodeid. A criterion function returns
         a true value if nodeid matches the criteria, false if not.'''
@@ -1189,7 +1190,7 @@ class PortGraph(nx.MultiGraph):
             nodes = [n for n in nodes if c(self, n)]
             if not nodes:
                 return []
-        return nodes
+        return as_list(nodes)
 
     def nodes_of_class(self, cl, nodes=None):
         #TODO UT
