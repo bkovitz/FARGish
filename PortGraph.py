@@ -359,6 +359,7 @@ class PortGraph(nx.MultiGraph):
         self.during_touch = False
         self.touched_nodes = set()
         self.new_nodes = set()
+        self.prev_new_nodes = set()
         self.after_touch_nodes = set()
         self.builder = None  #HACK: For auto-linking new nodes to current "builder"
 
@@ -659,6 +660,7 @@ class PortGraph(nx.MultiGraph):
                 )
             else:
                 self.after_touch_nodes.remove(tn)
+        self.prev_new_nodes = set(self.new_nodes)
         self.clear_touched_and_new()
 
     def clear_touched_and_new(self):

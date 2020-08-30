@@ -85,8 +85,11 @@ class TimeStepper:
         for a in as_iter(actions):
             self.do_timestep(action=a)
 
-    def do_action(self, action):
+    def do_action(self, action: Union[Action, None]):
         '''action: an Action object'''
+        if action is None:
+            return
+
         try:
             self.builder = action.actor
         except AttributeError:

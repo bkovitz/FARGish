@@ -5,7 +5,7 @@ from codegen import make_python, compile_fargish
 from dataclasses import dataclass
 from TimeStepper import TimeStepper
 from log import *
-from util import as_iter, reseed, intersection
+from util import as_iter, reseed, intersection, first
 from PortGraph import PortGraph, Node, pg, ps
 import support
 from Numble import make_numble_class, prompt_for_numble
@@ -26,7 +26,7 @@ Workspace
 
 Tag(taggees)
 Want, Avail, Allowed : Tag
-SameValue : Tag
+SameValue, AllMembersSameValue : Tag
 
 Group(members)
 Glom : Group
@@ -120,21 +120,27 @@ class SeekAndGlom(Action):
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
-            action = Build3.maybe_make(g, Glom, [glommees], {})
-            if action:
-                #print('ACTION', action)
-                action.go(g)
-                #print('NEW', g.new_nodes)
+            g.do(Build3.maybe_make(g, Glom, [glommees], {}))
+        # else: FAILED
 
 @dataclass
 class NoticeAllSameValue(Action):
-    within: int
+    #within: int
     value: Any
 
     def go(self, g):
         # Test that all members of 'within' have value 'value'.
         # If so, tag 'within' AllMembersSameValue
-        pass
+
+        # HACK  Need to find 'within' node left by SeekAndGlom or whatever
+        # process set up the node in which we should NoticeAllSameValue.
+        within = first(g.prev_new_nodes)
+        if all(
+            g.value_of(memberid) == self.value
+                for memberid in g.members_of(within)
+        ):
+            g.do(Build3.maybe_make(g, AllMembersSameValue, [within], {}))
+        # else: FAILED
 
 ##### The graph class and other generic execution code #####
 
@@ -205,6 +211,21 @@ if __name__ == '__main__':
     # Force Glomming Bricks
     g.do_action_sequence([
         SeekAndGlom(OfClass(Brick), ws),
-        #NoticeAllSameValueAction(within= , value=1),
+        NoticeAllSameValue(value=1),
     ])
     pg(g)
+
+
+
+#    g.do_action_sequence([
+#        catcher(SeekAndGlom(OfClass(Brick), ws), built),
+#        NoticeAllSameValue(within=catcher.get('built'), value=1),
+#    ])
+
+
+
+#    g.do_action_sequence([
+#        SeekAndGlom(OfClass(Brick), ws),
+#        SaveBuiltAs('glom'),
+#        NoticeAllSameValue(within=Saved('glom'), value=1),
+#    ])
