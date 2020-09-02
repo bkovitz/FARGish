@@ -6,7 +6,8 @@ import unittest
 
 from TimeStepper import TimeStepper
 from PortGraph import PortGraph, Node, pg
-from bases import ActiveNode, Action
+from bases import ActiveNode #, Action
+from Action import Action
 from NodeParams import NodeParams, MateParam, AttrParam
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
         stop_all_logging
@@ -51,6 +52,16 @@ class MakeLink(Action):
     # Required override: performs the action
     def go(self, g):
         g.add_edge(self.on_behalf_of, 'found', self.soughtid, 'seeker')
+
+class MakeNode(Action):
+
+    def __init__(self, nodeclass, *args, **kwargs):
+        self.nodeclass = nodeclass
+        self.args = args
+        self.kwargs = kwargs
+
+    def go(self, g):
+        g.make_node(self.nodeclass, *self.args, **self.kwargs)
 
 
 # This is all you have to do to make a FARG model
@@ -107,4 +118,15 @@ class TestTimeStepper(unittest.TestCase):
             MakeLink(seeker3, sought3),
             MakeLink(seeker4, sought4),
         ])
+        self.assertTrue(g.has_hop(seeker2, 'found', sought2, 'seeker'))
+        self.assertTrue(g.has_hop(seeker3, 'found', sought3, 'seeker'))
+        self.assertTrue(g.has_hop(seeker4, 'found', sought4, 'seeker'))
         self.assertEqual(g.graph['t'], 3)
+
+    def test_prev_new_nodes(self):
+        g = TestGraph(seed=1)
+        g.do_timestep(action=MakeNode(Sought, 2))
+        self.assertEqual(len(g.prev_new_nodes), 1)
+        new_node = list(g.prev_new_nodes)[0]
+        self.assertEqual(g.class_of(new_node), Sought)
+        self.assertEqual(g.value_of(new_node), 2)

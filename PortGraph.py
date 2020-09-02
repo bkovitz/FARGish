@@ -1180,14 +1180,22 @@ class PortGraph(nx.MultiGraph):
             return None
 
     # TODO UT
-    def find_all(self, *criteria, within: Union[int, None]=None) -> List[int]:
+    def find_all(
+        self,
+        *criteria,
+        within: Union[int, None]=None,
+        subset: Union[Set[int], None]=None
+    ) -> List[int]:
         '''Returns list of all nodes that meet criteria. criteria are functions
         that take two arguments: g and nodeid. A criterion function returns
         a true value if nodeid matches the criteria, false if not.'''
         if within is None:
-            nodes = self.nodes() # Start with all nodes (INEFFICIENT)
+            nodes = self.nodes()  # Start with all nodes (INEFFICIENT)
         else:
             nodes = self.members_recursive(within)
+        if subset is not None:
+            nodes = subset.intersection(nodes)
+
         for c in criteria:
             nodes = [n for n in nodes if c(self, n)]
             if not nodes:

@@ -2,8 +2,10 @@
 
 from abc import ABC, abstractmethod
 
-from BuildSpec import make_buildspec
 from util import nice_object_repr, as_iter
+from BuildSpec import make_buildspec
+from bases import ActiveNode
+from NodeParams import NodeParams, AttrParam, MateParam
 
 
 class Action(ABC):
@@ -193,3 +195,8 @@ class SelfDestruct(Action):
 
     def go(self, g):
         g.remove_node(self.nodeid)
+
+class ActionNode(ActiveNode):
+    node_params = NodeParams(AttrParam('action'))
+
+    #NEXT

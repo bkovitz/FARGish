@@ -9,7 +9,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testTimeStepper.TestTimeStepper.test_do_specified_action
+	$(PY) -m unittest -v testTimeStepper.TestTimeStepper.test_prev_new_nodes
 	#$(PY) -m unittest -v testTimeStepper
 	#$(PY) -m unittest -v testHierarchy.TestHierarchy
 	#$(PY) -m unittest -v testNumble

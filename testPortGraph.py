@@ -68,7 +68,7 @@ class TestPortGraph(unittest.TestCase):
         self.assertCountEqual(odd, [n1, n3])
 
     def test_seed(self):
-        '''This shows how to get the value of a graph attribute.'''
+        # This shows how to get the value of a graph attribute.
         g = PortGraph(seed=25)
         self.assertEqual(g.graph['seed'], 25)
 

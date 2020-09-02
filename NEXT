@@ -13,7 +13,15 @@ numbo5
 
         "Replay" Glom(all the Bricks)  DONE
 
-        "Replay" seeing that all the Bricks are 1
+        "Replay" seeing that all the Bricks are 1  DONE
+
+    Make a principled way to connect the Glom id with the 'within' argument
+    of NoticeAllSameValue and other stored follow-up actions.
+
+        And make that work if the Glom was already built before SeekAndGlom
+        was invoked.
+
+NEXT    ActionNode
 
     See that the number of elements matches the Target
 

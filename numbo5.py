@@ -121,11 +121,11 @@ class SeekAndGlom(Action):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
             g.do(Build3.maybe_make(g, Glom, [glommees], {}))
-        # else: FAILED
+        # TODO else: FAILED
 
 @dataclass
 class NoticeAllSameValue(Action):
-    #within: int
+    #within: Union[int, None]
     value: Any
 
     def go(self, g):
@@ -140,7 +140,7 @@ class NoticeAllSameValue(Action):
                 for memberid in g.members_of(within)
         ):
             g.do(Build3.maybe_make(g, AllMembersSameValue, [within], {}))
-        # else: FAILED
+        # TODO else: FAILED
 
 ##### The graph class and other generic execution code #####
 
@@ -186,6 +186,13 @@ def new_graph(numble, seed=None):
     return g
     
 g = None
+ws = None
+
+def newg():
+    global g, ws
+    g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)
+    ws = g.graph['ws']
+    return g
 
 ShowAnnotations.start_logging()
 ShowActionList.start_logging()
@@ -193,8 +200,7 @@ ShowActionsChosen.start_logging()
 #ShowIsMatch.start_logging()
 
 if __name__ == '__main__':
-    g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)
-    ws = g.graph['ws']
+    newg()
 
     #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
     #bspec = make_buildspec(g, Glom, [], dict(taggees=[4, 6, 8]))
@@ -211,10 +217,9 @@ if __name__ == '__main__':
     # Force Glomming Bricks
     g.do_action_sequence([
         SeekAndGlom(OfClass(Brick), ws),
-        NoticeAllSameValue(value=1),
+        #NoticeAllSameValue(value=1),
     ])
     pg(g)
-
 
 
 #    g.do_action_sequence([
