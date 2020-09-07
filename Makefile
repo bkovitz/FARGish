@@ -9,7 +9,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNodeParams.TestNodeParams.test_missing_arg
+	$(PY) -m unittest -v testActionNode.TestActionNode
 	#$(PY) -m unittest -v testHierarchy.TestHierarchy
 	#$(PY) -m unittest -v testNumble
 

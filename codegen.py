@@ -17,7 +17,7 @@ from LinkSpec import LinkSpec
 from NodeSpec import NodeOfClass, NodeSpec, NodeWithTag, \
     NodeWithValue, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, \
     NotAlreadyBuilt, TupFunc
-from bases import ActiveNode
+from ActiveNode import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from PortMates import PortMates
 from Hierarchy import Hierarchy

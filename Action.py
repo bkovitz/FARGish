@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 
 from util import nice_object_repr, as_iter
 from BuildSpec import make_buildspec
-from bases import ActiveNode
-from NodeParams import NodeParams, AttrParam, MateParam
 
 
 class Action(ABC):
@@ -206,14 +204,3 @@ class SelfDestruct(Action):
 
     def go(self, g):
         g.remove_node(self.nodeid)
-
-class ActionNode(ActiveNode):
-    node_params = NodeParams(AttrParam('action'))
-    #NEXT Start the ActionNode off with a state of 'NotDone'.
-
-    def actions(self, g, thisid):
-        # If action has any missing args, make scout actions to fill them in.
-
-        # Otherwise return a version of the action with those args filled in.
-        pass
-

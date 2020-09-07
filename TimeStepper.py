@@ -8,8 +8,9 @@ from random import choice
 from typing import Union, List
 
 from PortGraph import NodesWithSalience, pg
-from bases import ActiveNode, CoarseView
+from bases import CoarseView
 from Action import Action
+from ActiveNode import ActiveNode
 from util import sample_without_replacement
 from exc import FargDone
 import support
@@ -231,3 +232,10 @@ class TimeStepper:
             #TODO Why not just put .propagate in self?
             propagator.propagate(self)
 
+
+    def new_state(self, node, state):
+        datum = self.datum(node)
+        try:
+            datum.state = state
+        except AttributeError:
+            pass

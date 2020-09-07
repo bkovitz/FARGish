@@ -6,8 +6,8 @@ import unittest
 
 from TimeStepper import TimeStepper
 from PortGraph import PortGraph, Node, pg
-from bases import ActiveNode #, Action
 from Action import Action
+from ActiveNode import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
         stop_all_logging

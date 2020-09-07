@@ -10,8 +10,8 @@ from PortGraph import PortGraph, Node, pg, ps
 import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from bases import ActiveNode
 from Action import Action, Build3, make_build3
+from ActiveNode import ActiveNode
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
