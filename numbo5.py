@@ -86,7 +86,6 @@ class MemberCounter(ActiveNode):
         if group_node is None:
             return
         num_members = len(g.neighbors(group_node, port_label='members'))
-        # TODO No action without group_node
         return [make_build3(g, Count, [], {
             'taggees': [group_node], 'value': num_members
         })]
@@ -141,6 +140,17 @@ class NoticeAllSameValue(Action):
         ):
             g.do(Build3.maybe_make(g, AllMembersSameValue, [within], {}))
         # TODO else: FAILED
+
+@dataclass
+class CountMembers(Action):
+    within: Union[int, None]
+
+    def go(self, g):
+        if self.within is None:
+            return None  # TODO FAIL so something can repair this and try again
+        num_members = len(g.neighbors(self.within, port_label='members'))
+        g.make_node(Count, taggees=[self.within], value=num_members)
+
 
 ##### The graph class and other generic execution code #####
 
@@ -217,8 +227,10 @@ if __name__ == '__main__':
     # Force Glomming Bricks
     g.do_action_sequence([
         SeekAndGlom(OfClass(Brick), ws),
-        #NoticeAllSameValue(value=1),
+        NoticeAllSameValue(value=1),
     ])
+    cm = CountMembers(23)
+    g.do_action(cm)
     pg(g)
 
 

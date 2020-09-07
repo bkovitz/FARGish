@@ -70,7 +70,9 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         else:
             #TODO What about *args?
             pass
-        self.kwargs = kwargs
+        self.kwargs = kwargs  # TODO Is saving kwargs basically useless now
+                              # that make_filled_params() fills in params
+                              # after the Node object has been constructed?
 #        for k, v in kwargs.items():
 #            setattr(self, k, v)
         #TODO Redesign so that attributes passed in kwargs can't name-clash
@@ -410,14 +412,14 @@ class PortGraph(nx.MultiGraph):
         for c in containers:
             self.add_edge(nodeid, 'member_of', c, 'members')
 
-    def make_node(g, nodeclass, *args, **kwargs):
+    def make_node(self, nodeclass, *args, **kwargs):
         '''Builds a new node with specified class and arguments, fills
         the node's datum with specified attrs, gives the node an 'id' attr
         holding its id, and links the node to specified mates--unless a node
         linked in the exact same neighbors already exists. Returns the nodeid
         if created; otherwise None.'''
-        spec = make_buildspec(g, nodeclass, args=args, kwargs=kwargs)
-        return spec.build(g)
+        spec = make_buildspec(self, nodeclass, args=args, kwargs=kwargs)
+        return spec.build(self)
         
     def dup_node(self, h, node):
         'h is another PortGraph, which must contain node.'

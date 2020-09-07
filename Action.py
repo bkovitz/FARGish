@@ -49,6 +49,7 @@ class FuncAction(Action):
     def go(self, g):
         return self.func(g, *self.args, **self.kwargs)
 
+# TODO rm? As of 5-Sep-2020, invoked only in demo2.py.
 class ActionSeq(Action):
     '''A sequence of Actions. Later Actions will be performed even if
     earlier Actions fail.'''
@@ -59,6 +60,16 @@ class ActionSeq(Action):
     def go(self, g):
         for action in self.actions:
             action.go(g)
+
+class ActionChain(Action):
+    '''A sequence of Actions. Later Actions will only be performed if all
+    earlier Actions succeeded.'''
+
+    def __init__(self, *actions: Action):
+        self.actions = actions
+
+    def go(self, g):
+        pass #TODO
 
 class Build(Action):
     '''Builds a node and links it to specified existing nodes.'''
@@ -198,5 +209,11 @@ class SelfDestruct(Action):
 
 class ActionNode(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
+    #NEXT Start the ActionNode off with a state of 'NotDone'.
 
-    #NEXT
+    def actions(self, g, thisid):
+        # If action has any missing args, make scout actions to fill them in.
+
+        # Otherwise return a version of the action with those args filled in.
+        pass
+

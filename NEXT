@@ -21,7 +21,14 @@ numbo5
         And make that work if the Glom was already built before SeekAndGlom
         was invoked.
 
-NEXT    ActionNode
+        Make an ActionSequence ActiveNode that simply performs each of a
+        sequence of ActionNodes when the previous one has run.
+
+NEXT        ActionNode
+
+            Make each ActionNode start with a state of NotDone.
+
+                StateParam?
 
     See that the number of elements matches the Target
 

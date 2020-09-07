@@ -38,12 +38,12 @@ class TestNodeParams(unittest.TestCase):
         two = g.make_node(Number(n=2))
         three = g.make_node(Number(n=3))
         five = g.make_node(Number(n=5))
-        plus = g.make_node(Plus, operands=[two, three], result=five)
+        plus = g.make_node(    Plus, operands=[two, three], result=five)
         self.assertTrue(g.has_hop(plus, 'operands', two, 'consumer'))
         self.assertTrue(g.has_hop(plus, 'operands', three, 'consumer'))
         self.assertTrue(g.has_hop(plus, 'result', five, 'source'))
 
-    def test_already_built(self):
+    def test_is_already_built(self):
         g = TestGraph()
         self.assertFalse(g.is_already_built(Number, (2,)))
         self.assertFalse(g.is_already_built(Number(2)))
@@ -71,3 +71,12 @@ class TestNodeParams(unittest.TestCase):
             Plus,
             kwargs=kwargs
         ))
+
+    def test_missing_arg(self):
+        pass
+
+if __name__ == '__main__':
+    g = TestGraph()
+    plus = g.make_node(Plus)
+    print('\n', g.datumstr(plus))
+    pg(g)
