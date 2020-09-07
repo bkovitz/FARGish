@@ -29,6 +29,14 @@ class ActiveNode(ABC, Node):
         node.'''
         return not self.state.is_active(g, thisid)
 
+    def on_completion(self, g, thisid):
+        '''Called when the ActiveNode has completed its business.
+
+        The default implementation cuts all support and opposition.'''
+        #TODO Notify any "parent" ActionNode.
+        #TODO Remove excitation/inhibition edges, not support edges
+        g.remove_support_edges(thisid)
+
 
 class ActiveNodeState:
 
@@ -37,6 +45,12 @@ class ActiveNodeState:
         '''Should TimeStepper even bother to call the ActiveNode's .actions()
         method?'''
         return True
+
+    @classmethod
+    def is_completed(self, g, thisid):
+        '''Does this state mean that the ActiveNode has finished its
+        business?'''
+        return False
 
 class Start(ActiveNodeState):
     pass
@@ -48,11 +62,13 @@ class Dormant(ActiveNodeState):
         return False
 
 class Completed(Dormant):
-    pass
+
+    def is_completed(self, g, thisid):
+        return True
 
 
 class ActionNode(ActiveNode):
-    '''A node that performs an action.'''
+    '''A node that holds an action and tries to perform it.'''
     node_params = NodeParams(AttrParam('action'), AttrParam('state'))
 
     def actions(self, g, thisid):
@@ -74,8 +90,8 @@ class ActionSeqNode(Node):
         # following members.
         members = as_iter(self.action_nodes)
         for i, member in enumerate(members):
-            g.add_support(thisid, member, 0.5)
+            g.add_support(thisid, member, 0.3)
             for later_member in members[i+1:]:
                 #TODO This should be done with a quantity other than support.
                 #Maybe add an 'activation' quantity to every ActiveNode.
-                g.oppose(member, later_member)
+                g.oppose(member, later_member, -1.0)

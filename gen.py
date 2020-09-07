@@ -1098,7 +1098,7 @@ class BuildStmt(ActionStmt):
 
     def action_pyexpr(self):
         # TODO .gen_prelines the self.args
-        return f"make_build3(_g, {self.buildargs_py()})"
+        return f"make_build(_g, {self.buildargs_py()})"
         
     def buildargs_py(self):
         args_py = '[' + ', '.join(

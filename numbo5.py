@@ -10,7 +10,7 @@ from PortGraph import PortGraph, Node, pg, ps
 import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Build3, make_build3
+from Action import Action, Build, make_build
 from ActiveNode import ActiveNode
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
@@ -77,7 +77,7 @@ class SameNumberGlommer(ActiveNode):
             is_number, HasValue(g.value_of(number_node))
         )
         #return [make_build3(g, Glom, [all_with_same_value], {})]
-        return Build3.maybe_make(g, Glom, [all_with_same_value], {})
+        return Build.maybe_make(g, Glom, [all_with_same_value], {})
 
 class MemberCounter(ActiveNode):
 
@@ -119,7 +119,7 @@ class SeekAndGlom(Action):
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
-            g.do(Build3.maybe_make(g, Glom, [glommees], {}))
+            g.do(Build.maybe_make(g, Glom, [glommees], {}))
         # TODO else: FAILED
 
 @dataclass
@@ -138,7 +138,7 @@ class NoticeAllSameValue(Action):
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(within)
         ):
-            g.do(Build3.maybe_make(g, AllMembersSameValue, [within], {}))
+            g.do(Build.maybe_make(g, AllMembersSameValue, [within], {}))
         # TODO else: FAILED
 
 @dataclass

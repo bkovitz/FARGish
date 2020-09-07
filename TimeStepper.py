@@ -147,15 +147,15 @@ class TimeStepper:
         actions = self.collect_actions(active_nodes)
         if ShowActionList.is_logging():
             print('ACTIONS COLLECTED')
-            for action in sorted(actions, key=attrgetter('weight')):
+            for action in sorted(actions, key=lambda a: a.weight(self)):
                 print('  %.3f (%.3f) %s' % (
-                    action.weight,
+                    action.weight(self),
                     action.threshold,
                     action
                 ))
 
         # Filter out actions whose weight is below their threshold
-        actions = [a for a in actions if a.weight >= a.threshold]
+        actions = [a for a in actions if a.weight(self) >= a.threshold]
 
         if len(actions) == 0:
             self.consecutive_timesteps_with_no_action += 1
@@ -173,9 +173,9 @@ class TimeStepper:
         if ShowActionsChosen.is_logging():
             print('ACTIONS CHOSEN')
             #TODO OAOO with above
-            for action in sorted(chosen_actions, key=attrgetter('weight')): 
+            for action in sorted(chosen_actions, key=lambda a: a.weight(self)): 
                 print('  %.3f (%.3f) %s' % (
-                    action.weight,
+                    action.weight(self),
                     action.threshold,
                     action
                 ))
@@ -184,7 +184,9 @@ class TimeStepper:
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''
         return list(node for node in self.nodes_of_class(ActiveNode)
-                             if not self.datum(node).dormant(self, node))
+                             #if not self.datum(node).dormant(self, node)
+                             if not self.is_dormant(node)
+        )
 
     def choose_active_nodes(self, active_nodes, k=None):
         '''Randomly chooses up to k Actions, weighted by .weight.
@@ -216,7 +218,9 @@ class TimeStepper:
         if k is None:
             k = self.max_actions
         return list(sample_without_replacement(
-            actions, k=k, weights=[a.weight - a.threshold for a in actions]
+            actions,
+            k=k,
+            weights=[a.weight(self) - a.threshold for a in actions]
         ))
 
     def update_coarse_views(self):
@@ -228,15 +232,15 @@ class TimeStepper:
             propagator = self.graph['support_propagator']
         except KeyError:
             return
-        print('HERE')
         for i in range(self.graph['support_steps']):
             #TODO Why not just put .propagate in self?
             propagator.propagate(self)
-
 
     def new_state(self, node, state):
         datum = self.datum(node)
         try:
             datum.state = state
+            if state.is_completed:
+                datum.on_completion(self, node)
         except AttributeError:
             pass

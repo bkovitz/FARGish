@@ -45,7 +45,7 @@ pass
         ifstmt = IfStmt(None, then, None)
         self.assertEqual(test_gen(ifstmt, env), '''
 if not _g.is_already_built(Node, args=[], kwargs={}):
-    _result.append(make_build3(_g, Node, args=[], kwargs={}))
+    _result.append(make_build(_g, Node, args=[], kwargs={}))
 ''')
 
     def test_ifstmt_nodesearch(self):
@@ -93,7 +93,7 @@ _found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, 
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
 if _found_tup_1:
-    _result.append(make_build3(_g, ConsumeOperands, args=[op, p1, p2], kwargs={}))
+    _result.append(make_build(_g, ConsumeOperands, args=[op, p1, p2], kwargs={}))
 ''')
 
     def test_ifstmt_everything(self):
@@ -143,7 +143,7 @@ _found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, 
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
 if _found_tup_1:
-    _result.append(make_build3(_g, ConsumeOperands, args=[op, p1, p2], kwargs={}))
+    _result.append(make_build(_g, ConsumeOperands, args=[op, p1, p2], kwargs={}))
 else:
     block = None
     def _f_4(_g, _tup):

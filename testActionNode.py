@@ -63,7 +63,7 @@ class TestGraph(TimeStepper, PortGraph):
             max_total_support=20,
             positive_feedback_rate=0.1,
             sigmoid_p=0.5,
-            alpha=0.95
+            alpha=0.98
         )
     )
 
@@ -102,18 +102,21 @@ class TestActionNode(unittest.TestCase):
 class TestActionSequence(unittest.TestCase):
 
     def test_simple_action_sequence(self):
-        pass
+        g = TestGraph()
+        anode1 = g.make_node(ActionNode, action=FirstAction())
+        anode2 = g.make_node(ActionNode, action=SecondAction())
+        anode3 = g.make_node(ActionNode, action=ThirdAction())
+        seqnode = g.make_node(
+            ActionSeqNode,
+            action_nodes=[anode1, anode2, anode3],
+            members=[anode1, anode2, anode3],
+            min_support_for=5.0  # HACK Without this, support for seqnode falls
+                                 # too low to activate the last couple
+                                 # ActionNodes.
+        )
+        g.set_support_for(seqnode, 10.0)
+        g.do_timestep(num=20)
+        self.assertEqual(g.graph['Actions'], 'FirstSecondThird')
 
 if __name__ == '__main__':
-    g = TestGraph()
-    anode1 = g.make_node(ActionNode, action=FirstAction())
-    anode2 = g.make_node(ActionNode, action=SecondAction())
-    anode3 = g.make_node(ActionNode, action=ThirdAction())
-    seqnode = g.make_node(
-        ActionSeqNode,
-        action_nodes=[anode1, anode2, anode3],
-        members=[anode1, anode2, anode3]
-    )
-    #g.datum(seqnode).min_support_for = 1.0
-    g.set_support_for(seqnode, 10.0)
-    pg(g)
+    pass

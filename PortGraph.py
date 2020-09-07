@@ -1124,6 +1124,11 @@ class PortGraph(nx.MultiGraph):
         self.remove_edge(node, 'support_to', neighbor, 'support_from')
         self.remove_edge(neighbor, 'support_to', node, 'support_from')
 
+    def remove_support_edges(self, node):
+        '''Removes all support_to and support_from edges connected to node.'''
+        self.remove_hops_from_port(node, 'support_to')
+        self.remove_hops_from_port(node, 'support_from')
+
     def update_support(self, node):
         datum = self.datum(node)
         if datum is not None:
@@ -1290,6 +1295,11 @@ class PortGraph(nx.MultiGraph):
     def is_in_role(self, node, role):
         'role is the port label of a neighbor of node.'
         return any(self.hopdict(node).hops_to_port_label(role))
+
+    def is_dormant(self, node):
+        '''Is node in a dormant state, i.e. not capable of generating any
+        Actions right now?'''
+        return self.call_method(node, 'dormant')
 
 class ValueOf:
     '''Function that returns the value of a nodeid in graph g. Returns None
