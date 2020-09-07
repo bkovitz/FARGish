@@ -2,13 +2,16 @@
 
 import unittest
 from pprint import pprint as pp
+import inspect
 
 from Action import Action
-from ActiveNode import ActionNode, Start, Dormant, Completed
+from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed
 from PortGraph import PortGraph, Node, pg
 from log import *
 from TimeStepper import TimeStepper
-import inspect
+import support
+from util import reseed
+
 
 class MyAction(Action):
 
@@ -19,14 +22,65 @@ class MyAction(Action):
             g.graph['MyAction_ran'] = 1
         g.new_state(self.actor, Completed)
 
+class FirstAction(Action):
+
+    threshold = 1.0
+
+    def go(self, g):
+        try:
+            g.graph['Actions'] += 'First'
+        except KeyError:
+            g.graph['Actions'] = 'First'
+        g.new_state(self.actor, Completed)
+
+class SecondAction(Action):
+
+    threshold = 1.0
+
+    def go(self, g):
+        try:
+            g.graph['Actions'] += 'Second'
+        except KeyError:
+            g.graph['Actions'] = 'Second'
+        g.new_state(self.actor, Completed)
+
+class ThirdAction(Action):
+
+    threshold = 1.0
+
+    def go(self, g):
+        try:
+            g.graph['Actions'] += 'Third'
+        except KeyError:
+            g.graph['Actions'] = 'Third'
+        g.new_state(self.actor, Completed)
 
 class TestGraph(TimeStepper, PortGraph):
-    pass
+    default_graph_attrs = dict(
+        seed=1,
+        num_timesteps=40,
+        support_propagator=support.Propagator(
+            max_total_support=20,
+            positive_feedback_rate=0.1,
+            sigmoid_p=0.5,
+            alpha=0.95
+        )
+    )
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        kws = self.default_graph_attrs.copy()
+        kws.update(kwargs)
+        if kws.get('num_timesteps', None) is None:
+            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
+        kws['seed'] = reseed(kws.get('seed', None))
+        super().__init__(**kws)
+        self.consecutive_timesteps_with_no_response = 0
 
 
 #ShowActiveNodes.start_logging()
-#ShowActionList.start_logging()
-#ShowActionsChosen.start_logging()
+ShowActionList.start_logging()
+ShowActionsChosen.start_logging()
 
 class TestActionNode(unittest.TestCase):
     
@@ -44,6 +98,22 @@ class TestActionNode(unittest.TestCase):
         g = TestGraph()
         g.new_state(1, Completed)
 
+
+class TestActionSequence(unittest.TestCase):
+
+    def test_simple_action_sequence(self):
+        pass
+
 if __name__ == '__main__':
     g = TestGraph()
-    node = g.make_node(ActionNode, **dict(action=MyAction))
+    anode1 = g.make_node(ActionNode, action=FirstAction())
+    anode2 = g.make_node(ActionNode, action=SecondAction())
+    anode3 = g.make_node(ActionNode, action=ThirdAction())
+    seqnode = g.make_node(
+        ActionSeqNode,
+        action_nodes=[anode1, anode2, anode3],
+        members=[anode1, anode2, anode3]
+    )
+    #g.datum(seqnode).min_support_for = 1.0
+    g.set_support_for(seqnode, 10.0)
+    pg(g)

@@ -30,29 +30,6 @@ class GroupDescriptor(Tag):
     pass
 
 
-#class Action(ABC):
-#    '''An action to be performed on the graph.'''
-#
-#    threshold = 0.0
-#    # weight must be >= threshold for Action.go() to be called
-#
-#    weight = 0.1
-#
-#    on_behalf_of = None
-#    # The ActiveNode, if any, that produced this action. Descendant classes
-#    # that implement actions for ActiveNodes should override on_behalf_of
-#    # in their self.__init__().
-#
-#    @abstractmethod
-#    def go(self, g):
-#        '''Updates g (the host graph) and returns None.'''
-#        #TODO .go should return some sort of result or disposition, if only
-#        #to print in log files.
-#        pass
-#
-#    __repr__ = nice_object_repr
-
-
 class NodeIsA:
     '''A function that returns true iff a given node is an instance of
     nodeclass.'''

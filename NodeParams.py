@@ -159,7 +159,7 @@ class AttrParam(NodeParam):
         setattr(datum, self.name, v)
 
     def on_build(self, g, thisid, kwargs):
-        # We don't affect the node; the attribute it assumed to already have
+        # We don't affect the node; the attribute is assumed to already have
         # been set in the Datum before the Node was built.
         return self.name
 

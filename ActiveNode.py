@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 
 from PortGraph import Node
 from NodeParams import NodeParams, AttrParam, MateParam
+from util import as_iter
 
 
 class ActiveNode(ABC, Node):
@@ -51,12 +52,30 @@ class Completed(Dormant):
 
 
 class ActionNode(ActiveNode):
+    '''A node that performs an action.'''
     node_params = NodeParams(AttrParam('action'), AttrParam('state'))
-    #NEXT Start the ActionNode off with a state of 'NotDone'.
 
     def actions(self, g, thisid):
         return [self.action]
         # TODO If action has any missing args, make scout actions to fill them in.
 
         # Otherwise return a version of the action with those args filled in.
-        pass
+
+
+class ActionSeqNode(Node):
+    '''A group node whose members are a sequence of ActionNodes.'''
+    node_params = NodeParams(
+        MateParam('members', 'member_of'),
+        AttrParam('action_nodes')  # HACK: must be a list, to indicate sequence
+    )
+
+    def on_build(self, g, thisid):
+        # Give activation to each member and make each member inhibit all
+        # following members.
+        members = as_iter(self.action_nodes)
+        for i, member in enumerate(members):
+            g.add_support(thisid, member, 0.5)
+            for later_member in members[i+1:]:
+                #TODO This should be done with a quantity other than support.
+                #Maybe add an 'activation' quantity to every ActiveNode.
+                g.oppose(member, later_member)

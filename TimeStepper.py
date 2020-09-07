@@ -228,6 +228,7 @@ class TimeStepper:
             propagator = self.graph['support_propagator']
         except KeyError:
             return
+        print('HERE')
         for i in range(self.graph['support_steps']):
             #TODO Why not just put .propagate in self?
             propagator.propagate(self)

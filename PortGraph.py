@@ -78,17 +78,10 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         #TODO Redesign so that attributes passed in kwargs can't name-clash
         #with other attributes of Node, like the methods.
 
-    #TODO rm
     def on_build(self, g, thisid):
-#        if self.node_params is not None:
-#            self.node_params.on_build(g, thisid, self.kwargs)
+        '''Called by BuildSpec.build() after the node's NodeParams have been
+        set and after the node has been linked to its default container.'''
         pass
-
-    #TODO rm; replaced by .on_build()
-#    def auto_link(self, thisid, g):
-#        '''Creates links to mates, if any; should be called immediately upon
-#        building the node.'''
-#        pass
 
     def is_attrs_match(self, other):
         return True

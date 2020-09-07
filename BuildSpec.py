@@ -68,6 +68,7 @@ class BuildSpec(NiceRepr):
             nodeid = g.mknode(self.nodeclass)
             self.filled_params.apply_to_node(g, nodeid)
             g.add_edge_to_default_container(nodeid)
+            g.call_method(nodeid, 'on_build')
             return nodeid
         else:
             return None

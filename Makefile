@@ -9,9 +9,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testActionNode.TestActionNode
-	#$(PY) -m unittest -v testHierarchy.TestHierarchy
-	#$(PY) -m unittest -v testNumble
+	$(PY) -m unittest -v testActionNode.TestActionSequence.test_simple_action_sequence
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
