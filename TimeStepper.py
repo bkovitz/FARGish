@@ -144,6 +144,15 @@ class TimeStepper:
             len(active_nodes) > self.max_active_nodes
         ):
             active_nodes = self.choose_active_nodes(active_nodes)
+        if (
+            ShowActiveNodes.is_logging()
+            or
+            ShowActionList.is_logging()
+            or
+            ShowActionsChosen.is_logging()
+        ):
+            print(f'{chr(10)}t={self.graph["t"]}')
+
         if ShowActiveNodes.is_logging():
             print('ACTIVE NODES')
             pg(self, active_nodes)

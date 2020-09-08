@@ -247,6 +247,10 @@ def newg():
     ws = g.graph['ws']
     return g
 
+def p():
+    '''Print just the four nodes of interest for the demo.'''
+    pg(g, [20, 21, 22, 23, 24])
+
 ShowAnnotations.start_logging()
 ShowActionList.start_logging()
 ShowActionsChosen.start_logging()
@@ -293,3 +297,5 @@ if __name__ == '__main__':
 
     g.do_timestep()
     pg(g)
+    # Now call g.do_timestep() 11 times and the model will "notice" that
+    # all the Bricks are 1, and the number of Bricks = the Target.
