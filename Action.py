@@ -4,13 +4,18 @@ from abc import ABC, abstractmethod
 
 from util import nice_object_repr, as_iter
 from BuildSpec import make_buildspec
+from exc import NeedArg
 
 
 class Action(ABC):
     '''An action to be performed on the graph.'''
 
+    def __init__(self, **kwargs):
+        '''kwargs is any additional arguments needed to run .go().'''
+        self.kwargs = kwargs
+
     threshold = 0.0
-    # weight must be >= threshold for Action.go() to be called
+    # .weight() must be >= threshold for Action.go() to be called
 
     #weight = 0.1
     min_weight = 0.1
@@ -32,6 +37,12 @@ class Action(ABC):
 
     def weight(self, g):
         return max(g.support_for(self.actor), self.min_weight)
+
+    def get_kwarg(self, name):
+        try:
+            return self.kwargs[name]
+        except KeyError:
+            raise NeedArg(self, name)
 
     __repr__ = nice_object_repr
 

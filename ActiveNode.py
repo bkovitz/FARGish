@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 
 from PortGraph import Node
 from NodeParams import NodeParams, AttrParam, MateParam
+from Action import Action
 from util import as_iter
+from exc import Fizzle, NeedArg
 
 
 class ActiveNode(ABC, Node):
@@ -23,8 +25,7 @@ class ActiveNode(ABC, Node):
         Should return a collection of Action objects.'''
         pass
 
-    # TODO replace with is_dormant
-    def dormant(self, g, thisid):
+    def is_dormant(self, g, thisid):
         '''Return True to prevent TimeStepper from calling .actions() on this
         node.'''
         return not self.state.is_active(g, thisid)
@@ -72,10 +73,15 @@ class ActionNode(ActiveNode):
     node_params = NodeParams(AttrParam('action'), AttrParam('state'))
 
     def actions(self, g, thisid):
-        return [self.action]
-        # TODO If action has any missing args, make scout actions to fill them in.
+        if not self.is_dormant(g, thisid):
+            return [self.action]
+        # TODO If action has any missing args, make scout actions to fill them
+        # in.
 
         # Otherwise return a version of the action with those args filled in.
+
+    def action_failed(self, g, thisid, exc: Fizzle):
+        pass #TODO
 
 
 class ActionSeqNode(Node):
@@ -95,3 +101,12 @@ class ActionSeqNode(Node):
                 #TODO This should be done with a quantity other than support.
                 #Maybe add an 'activation' quantity to every ActiveNode.
                 g.oppose(member, later_member, -1.0)
+
+def make_action_sequence(g, *actions: Action, **kwargs):
+    '''Makes an ActionNode to hold each Action, and an ActionSeqNode that
+    contains them, in sequence. Returns the nodeid of the ActionSeqNode.'''
+    action_nodes = [g.make_node(ActionNode, action=a) for a in actions]
+    seqnode = g.make_node(
+        ActionSeqNode, action_nodes=action_nodes, members=action_nodes, **kwargs
+    )
+    return seqnode

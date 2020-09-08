@@ -14,7 +14,7 @@ import networkx as nx
 from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
     reseed, sample_without_replacement, intersection, empty_set
-from exc import TooManyArgs0, TooManyArgs
+from exc import TooManyArgs0, TooManyArgs, NodeLacksMethod
 from BuildSpec import make_buildspec
 from NodeParams import NodeParams
 
@@ -1028,6 +1028,8 @@ class PortGraph(nx.MultiGraph):
         '''Returns result of calling method method_name(self, nodeid) on nodeid
         if nodeid exists and its datum has a callable attr named method_name.
         Otherwise returns None.'''
+        '''EXPERIMENT 9-Sep-2020: raise NodeLacksMethod if the method does not
+        exist.'''
         d = self.datum(nodeid)
         if d is None:
             return None
@@ -1035,7 +1037,7 @@ class PortGraph(nx.MultiGraph):
         if callable(m):
             return m(self, nodeid, *args, **kwargs)
         else:
-            return None
+            raise NodeLacksMethod(nodeid, method_name, args, kwargs)
 
     def display_name(self, nodeid):
         return self.call_method(nodeid, 'display_name')
@@ -1299,7 +1301,7 @@ class PortGraph(nx.MultiGraph):
     def is_dormant(self, node):
         '''Is node in a dormant state, i.e. not capable of generating any
         Actions right now?'''
-        return self.call_method(node, 'dormant')
+        return self.call_method(node, 'is_dormant')
 
 class ValueOf:
     '''Function that returns the value of a nodeid in graph g. Returns None

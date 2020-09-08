@@ -6,13 +6,14 @@
 from operator import attrgetter
 from random import choice
 from typing import Union, List
+import inspect
 
 from PortGraph import NodesWithSalience, pg
 from bases import CoarseView
 from Action import Action
 from ActiveNode import ActiveNode
 from util import sample_without_replacement
-from exc import FargDone
+from exc import FargDone, NeedArg
 import support
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
     ShowResults, ShowAnnotations
@@ -100,6 +101,9 @@ class TimeStepper:
             action.go(self)
         except FargDone as exc:
             self.set_done(exc)
+        except NeedArg as exc:
+            print('NEEDARG')
+            self.call_method(exc.actor, 'action_failed', exc)
         except:
             print('EXCEPTION in do_action')
             print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')

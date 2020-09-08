@@ -65,6 +65,49 @@ def cls_add_tag(cls, g, taggees):  # HACK
 
 Tag.add_tag = cls_add_tag  # HACK
 
+##### Custom Actions
+
+@dataclass
+class SeekAndGlom(Action):
+    criteria: Union[Criterion, List[Criterion], None]
+    within: int
+
+    def go(self, g):
+        glommees = g.find_all(*as_iter(self.criteria), within=self.within)
+        if glommees:
+            g.do(Build.maybe_make(g, Glom, [glommees], {}))
+        # TODO else: FAILED
+
+@dataclass
+class NoticeAllSameValue(Action):
+    #within: Union[int, None]
+    value: Any
+
+    def go(self, g):
+        # Test that all members of 'within' have value 'value'.
+        # If so, tag 'within' AllMembersSameValue
+
+        # HACK  Need to find 'within' node left by SeekAndGlom or whatever
+        # process set up the node in which we should NoticeAllSameValue.
+        within = first(g.prev_new_nodes)
+        if all(
+            g.value_of(memberid) == self.value
+                for memberid in g.members_of(within)
+        ):
+            g.do(Build.maybe_make(g, AllMembersSameValue, [within], {}))
+        # TODO else: FAILED
+
+@dataclass
+class CountMembers(Action):
+    within: Union[int, None]
+
+    def go(self, g):
+        if self.within is None:
+            return None  # TODO FAIL so something can repair this and try again
+        num_members = len(g.neighbors(self.within, port_label='members'))
+        g.make_node(Count, taggees=[self.within], value=num_members)
+
+
 ##### Nodeclasses defined in Python
 
 is_number = OfClass(Number)
@@ -109,49 +152,6 @@ class SameValueTagger(ActiveNode):
             'value': value
         })
 
-##### Custom Actions
-
-@dataclass
-class SeekAndGlom(Action):
-    criteria: Union[Criterion, List[Criterion], None]
-    within: int
-
-    def go(self, g):
-        glommees = g.find_all(*as_iter(self.criteria), within=self.within)
-        if glommees:
-            g.do(Build.maybe_make(g, Glom, [glommees], {}))
-        # TODO else: FAILED
-
-@dataclass
-class NoticeAllSameValue(Action):
-    #within: Union[int, None]
-    value: Any
-
-    def go(self, g):
-        # Test that all members of 'within' have value 'value'.
-        # If so, tag 'within' AllMembersSameValue
-
-        # HACK  Need to find 'within' node left by SeekAndGlom or whatever
-        # process set up the node in which we should NoticeAllSameValue.
-        within = first(g.prev_new_nodes)
-        if all(
-            g.value_of(memberid) == self.value
-                for memberid in g.members_of(within)
-        ):
-            g.do(Build.maybe_make(g, AllMembersSameValue, [within], {}))
-        # TODO else: FAILED
-
-@dataclass
-class CountMembers(Action):
-    within: Union[int, None]
-
-    def go(self, g):
-        if self.within is None:
-            return None  # TODO FAIL so something can repair this and try again
-        num_members = len(g.neighbors(self.within, port_label='members'))
-        g.make_node(Count, taggees=[self.within], value=num_members)
-
-
 ##### The graph class and other generic execution code #####
 
 class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
@@ -165,11 +165,12 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         seed=None,
         running=False,
         port_mates=port_mates,
-        support_propagator=support.Propagator(max_total_support=70,  #300
-                                              positive_feedback_rate=0.1,
-                                              sigmoid_p=0.5,
-                                              alpha=0.95
-                                             )
+        support_propagator=support.Propagator(
+            max_total_support=70,  #300
+            positive_feedback_rate=0.1,
+            sigmoid_p=0.5,
+            alpha=0.95
+        )
     )
 
     def __init__(self, **kwargs):

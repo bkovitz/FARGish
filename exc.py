@@ -1,5 +1,8 @@
 # exc.py -- Custom exceptions for FARGish
 
+from dataclasses import dataclass
+from typing import List, Dict
+
 from util import nice_object_repr, NiceRepr
 
 
@@ -39,10 +42,22 @@ class Fizzle(Exception):
     pass
 
 class NeedArg(Fizzle):
-    def __init__(self, name):
+    def __init__(self, action, name):
+        self.action = action
         self.name = name
+    def _get_actor(self):
+        return self.action.actor
+    actor = property(_get_actor)
     def __str__(self):
-        return f"NeedArg({repr(self.name)})"
+        return f"NeedArg({repr(self.action)}, {repr(self.name)})"
+
+@dataclass
+class NodeLacksMethod(Fizzle):
+    nodeid: int
+    method_name: str
+    method_args: List
+    method_kwargs: Dict
+
 
 class GeneratorDone(Fizzle):
     pass

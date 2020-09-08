@@ -5,7 +5,8 @@ from pprint import pprint as pp
 import inspect
 
 from Action import Action
-from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed
+from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
+    make_action_sequence
 from PortGraph import PortGraph, Node, pg
 from log import *
 from TimeStepper import TimeStepper
@@ -23,7 +24,6 @@ class MyAction(Action):
         g.new_state(self.actor, Completed)
 
 class FirstAction(Action):
-
     threshold = 1.0
 
     def go(self, g):
@@ -34,7 +34,6 @@ class FirstAction(Action):
         g.new_state(self.actor, Completed)
 
 class SecondAction(Action):
-
     threshold = 1.0
 
     def go(self, g):
@@ -45,7 +44,6 @@ class SecondAction(Action):
         g.new_state(self.actor, Completed)
 
 class ThirdAction(Action):
-
     threshold = 1.0
 
     def go(self, g):
@@ -54,6 +52,13 @@ class ThirdAction(Action):
         except KeyError:
             g.graph['Actions'] = 'Third'
         g.new_state(self.actor, Completed)
+
+class WriteString(Action):
+
+    def go(self, g):
+        g.graph['Actions'] = self.get_kwarg('string')
+        g.new_state(self.actor, Completed)
+
 
 class TestGraph(TimeStepper, PortGraph):
     default_graph_attrs = dict(
@@ -98,6 +103,14 @@ class TestActionNode(unittest.TestCase):
         g = TestGraph()
         g.new_state(1, Completed)
 
+    def test_action_kwarg(self):
+        g = TestGraph()
+        g.graph['Actions'] = 'NOT DONE'
+        node = g.make_node(ActionNode, action=WriteString())
+        g.do_timestep()
+        pg(g)
+        print(g.graph['Actions'])
+
 
 class TestActionSequence(unittest.TestCase):
 
@@ -117,6 +130,16 @@ class TestActionSequence(unittest.TestCase):
         g.set_support_for(seqnode, 10.0)
         g.do_timestep(num=20)
         self.assertEqual(g.graph['Actions'], 'FirstSecondThird')
+
+    def test_make_action_sequence(self):
+        g = TestGraph()
+        seqnode = make_action_sequence(
+            g, FirstAction(), SecondAction(), ThirdAction(), min_support_for=5.0
+        )
+        g.set_support_for(seqnode, 10.0)
+        g.do_timestep(num=20)
+        self.assertEqual(g.graph['Actions'], 'FirstSecondThird')
+
 
 if __name__ == '__main__':
     pass
