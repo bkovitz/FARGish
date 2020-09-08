@@ -11,7 +11,7 @@ import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
 from Action import Action, Build, make_build
-from ActiveNode import ActiveNode
+from ActiveNode import ActiveNode, make_action_sequence, Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
@@ -72,16 +72,21 @@ class SeekAndGlom(Action):
     criteria: Union[Criterion, List[Criterion], None]
     within: int
 
+    threshold = 1.0
+
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
             g.do(Build.maybe_make(g, Glom, [glommees], {}))
+            g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
 @dataclass
 class NoticeAllSameValue(Action):
-    #within: Union[int, None]
+    within: Union[int, None]
     value: Any
+
+    threshold = 1.0
 
     def go(self, g):
         # Test that all members of 'within' have value 'value'.
@@ -89,24 +94,53 @@ class NoticeAllSameValue(Action):
 
         # HACK  Need to find 'within' node left by SeekAndGlom or whatever
         # process set up the node in which we should NoticeAllSameValue.
-        within = first(g.prev_new_nodes)
+        #within = first(g.prev_new_nodes)
+        if not self.within:
+            self.within = g.look_for(OfClass(Glom))
+            if not self.within:
+                return # TODO FAIL
         if all(
             g.value_of(memberid) == self.value
-                for memberid in g.members_of(within)
+                for memberid in g.members_of(self.within)
         ):
-            g.do(Build.maybe_make(g, AllMembersSameValue, [within], {}))
+            g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
+            g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
 @dataclass
 class CountMembers(Action):
     within: Union[int, None]
 
+    threshold = 1.0
+
     def go(self, g):
-        if self.within is None:
-            return None  # TODO FAIL so something can repair this and try again
+        if not self.within:  # HACK
+            self.within = g.look_for(OfClass(Glom))
+            if not self.within:
+                return # TODO FAIL
         num_members = len(g.neighbors(self.within, port_label='members'))
         g.make_node(Count, taggees=[self.within], value=num_members)
+        g.new_state(self.actor, Completed)
 
+@dataclass
+class NoticeSameValue(Action):
+    node1: Union[int, None]
+    node2: Union[int, None]
+
+    threshold = 1.0
+
+    def go(self, g):
+        if not self.node2:   # HACK
+            self.node2 = g.look_for(OfClass(Count))
+            if not self.node2:
+                return # TODO FAIL
+        if g.value_of(self.node1) == g.value_of(self.node2):
+            g.do(
+                Build.maybe_make(
+                    g, SameValue, [], dict(taggees=[self.node1, self.node2])
+                )
+            )
+            g.new_state(self.actor, Completed)
 
 ##### Nodeclasses defined in Python
 
@@ -188,9 +222,17 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             self.graph['numble'].build(self, ws)
 
         #HACK
-        self.make_node(SameNumberGlommer)
-        self.make_node(MemberCounter)
-        self.make_node(SameValueTagger)
+        #self.make_node(SameNumberGlommer)
+        #self.make_node(MemberCounter)
+        #self.make_node(SameValueTagger)
+        make_action_sequence(
+            self,
+            SeekAndGlom(within=ws, criteria=OfClass(Brick)),
+            NoticeAllSameValue(value=1, within=None),
+            CountMembers(within=None),
+            NoticeSameValue(node1=self.look_for(OfClass(Target)), node2=None),
+            min_support_for=6.0
+        )
 
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
@@ -226,13 +268,13 @@ if __name__ == '__main__':
 #    cr = OfClass(Number)
 
     # Force Glomming Bricks
-    g.do_action_sequence([
-        SeekAndGlom(OfClass(Brick), ws),
-        NoticeAllSameValue(value=1),
-    ])
-    cm = CountMembers(23)
-    g.do_action(cm)
-    pg(g)
+#    g.do_action_sequence([
+#        SeekAndGlom(OfClass(Brick), ws),
+#        NoticeAllSameValue(value=1),
+#    ])
+#    cm = CountMembers(23)
+#    g.do_action(cm)
+#    pg(g)
 
 
 #    g.do_action_sequence([
@@ -247,3 +289,7 @@ if __name__ == '__main__':
 #        SaveBuiltAs('glom'),
 #        NoticeAllSameValue(within=Saved('glom'), value=1),
 #    ])
+
+
+    g.do_timestep()
+    pg(g)
