@@ -439,6 +439,10 @@ class PortGraph(nx.MultiGraph):
         #print('ALR', cl, result)
         return result
 
+    def is_built_by(self, node, builder_node) -> bool:
+        '''Was node built by builder_node, as shown in the graph?'''
+        return self.has_edge(node, 'builder', builder_node, 'built')
+
     def candidate_nodes_wsal(self, nodeclass=None, exclude=None, nodes=None):
         '''"Candidate nodes with salience." Candidate nodes to consider for
         searching or choosing from.  Future version should consider focal point

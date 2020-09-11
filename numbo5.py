@@ -1,6 +1,8 @@
 # numbo5.py -- Rebuilding Numbo from scratch again, this time starting with
 #              1 1 1 1 1; 5.
 
+from typing import Union, List, Any
+
 from codegen import make_python, compile_fargish
 from dataclasses import dataclass
 from TimeStepper import TimeStepper
@@ -15,7 +17,7 @@ from ActiveNode import ActiveNode, make_action_sequence, Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
-from typing import Union, List, Any
+from exc import NeedArg
 
 prog = '''
 tags -- taggees
@@ -95,10 +97,12 @@ class NoticeAllSameValue(Action):
         # HACK  Need to find 'within' node left by SeekAndGlom or whatever
         # process set up the node in which we should NoticeAllSameValue.
         #within = first(g.prev_new_nodes)
+#        if not self.within:
+#            self.within = g.look_for(OfClass(Glom))
+#            if not self.within:
+#                return # TODO FAIL
         if not self.within:
-            self.within = g.look_for(OfClass(Glom))
-            if not self.within:
-                return # TODO FAIL
+            raise NeedArg(self, 'within')
         if all(
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(self.within)
@@ -141,6 +145,23 @@ class NoticeSameValue(Action):
                 )
             )
             g.new_state(self.actor, Completed)
+
+@dataclass
+class ArgScout(Action):
+    for_node: int
+    port_label: str
+    nodeclass: Node
+    
+    def go(self, g):
+        found_node = g.look_for(OfClass(self.nodeclass))
+        if found_node:
+            g.add_override_node(self.for_node, self.port_label, found_node)
+            g.new_state(self.actor, Completed)
+            g.boost_salience(self.for_node)
+
+@dataclass
+class StartScout(Action):
+    pass
 
 ##### Nodeclasses defined in Python
 
@@ -186,11 +207,19 @@ class SameValueTagger(ActiveNode):
             'value': value
         })
 
+class Failed(ActiveNode, Tag):
+    node_params = NodeParams(MateParam('taggees', 'tags'), AttrParam('reason'))
+
+    def actions(self, g, thisid):
+        pass
+
+
 ##### The graph class and other generic execution code #####
 
 class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
-
     port_mates = port_mates
+    nodeclasses = nodeclasses
+    nodeclasses['Failed'] = Failed
 
     default_graph_attrs = dict(
         t=0,
@@ -295,7 +324,12 @@ if __name__ == '__main__':
 #    ])
 
 
-    g.do_timestep()
-    pg(g)
+    #g.do_timestep()
+    #pg(g)
     # Now call g.do_timestep() 11 times and the model will "notice" that
     # all the Bricks are 1, and the number of Bricks = the Target.
+
+    g.do_timestep(num=6)
+    pg(g)
+    # Now manually call  g.do(ArgScout(21, 'within', Glom))
+    # Then  g.do_timestep()  and NoticeAllSameValue will succeed.

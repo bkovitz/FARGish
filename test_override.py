@@ -166,7 +166,8 @@ class TestOverride(unittest.TestCase):
         # Action lacks 'within' arg
         noticer = g.make_node(
             ActionNode,
-            NoticeAllSameValue(within=None, value=1, threshold=0.0)
+            NoticeAllSameValue(within=None, value=1, threshold=0.0),
+            min_support_for=1.0
         )
 
         # There are no overrides yet
@@ -175,7 +176,7 @@ class TestOverride(unittest.TestCase):
         self.assertEqual(g.get_overrides(noticer, param_names), {})
 
         # Verify that nothing happens without override
-        g.do_timestep(actor=noticer)
+        g.do_timestep()
         self.assertEqual(g.nodes_of_class(AllMembersSameValue), [])
 
         # Override 'within' by linking from ActionNode's 'within' port
@@ -184,11 +185,16 @@ class TestOverride(unittest.TestCase):
         self.assertEqual(new_action.within, glom)
 
         # Let the noticer run again: it should tag the Glom this time
-        g.do_timestep(actor=noticer)
+        g.do_timestep()
+        #pg(g)
         tags = g.find_all(OfClass(AllMembersSameValue))
         self.assertEqual(len(tags), 1,
             'Failed to tag the glom with AllMembersSameValue'
         )
+        # TODO
+#        self.assertTrue(g.is_built_by(tags[0], noticer),
+#            'The AllMembersSameValue tag has not been marked as built by the Noticer.'
+#        )
 
     def test_failed_tag(self):
         g = new_graph()
@@ -214,3 +220,4 @@ class TestOverride(unittest.TestCase):
         reason = g.value_of(tag, 'reason')
         self.assertTrue(isinstance(reason, NeedArg))
         self.assertEqual(reason.name, 'within')
+        self.assertTrue(g.is_built_by(tag, noticer))

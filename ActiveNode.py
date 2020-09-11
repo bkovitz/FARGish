@@ -81,7 +81,8 @@ class ActionNode(ActiveNode):
         # Otherwise return a version of the action with those args filled in.
 
     def action_failed(self, g, thisid, exc: Fizzle):
-        g.make_node('Failed', reason=exc, taggees=[thisid])
+        failed_tag = g.make_node('Failed', reason=exc, taggees=[thisid])
+        g.add_support(thisid, failed_tag, 1.0)
 
 
 class ActionSeqNode(Node):
@@ -101,6 +102,9 @@ class ActionSeqNode(Node):
                 #TODO This should be done with a quantity other than support.
                 #Maybe add an 'activation' quantity to every ActiveNode.
                 g.oppose(member, later_member, -1.0)
+                g.add_edge(thisid, 'child_action', member, 'parent_action')
+            for next_member in members[i+1:i+2]:
+                g.add_edge(member, 'next_action', next_member, 'prev_action')
 
 def make_action_sequence(g, *actions: Action, **kwargs):
     '''Makes an ActionNode to hold each Action, and an ActionSeqNode that
