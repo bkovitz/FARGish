@@ -13,7 +13,7 @@ import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
 from Action import Action, Build, make_build
-from ActiveNode import ActiveNode, make_action_sequence, Completed
+from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
@@ -147,7 +147,7 @@ class NoticeSameValue(Action):
             g.new_state(self.actor, Completed)
 
 @dataclass
-class ArgScout(Action):
+class SeekArg(Action):
     for_node: int
     port_label: str
     nodeclass: Node
@@ -158,10 +158,16 @@ class ArgScout(Action):
             g.add_override_node(self.for_node, self.port_label, found_node)
             g.new_state(self.actor, Completed)
             g.boost_salience(self.for_node)
+            g.new_state(self.actor, Completed)
 
 @dataclass
 class StartScout(Action):
-    pass
+    action: Action
+
+    def go(self, g):
+        g.make_node(ActionNode, action=self.action)
+        g.new_state(self.actor, Completed)
+
 
 ##### Nodeclasses defined in Python
 
@@ -211,7 +217,15 @@ class Failed(ActiveNode, Tag):
     node_params = NodeParams(MateParam('taggees', 'tags'), AttrParam('reason'))
 
     def actions(self, g, thisid):
-        pass
+        return [
+            StartScout(
+                SeekArg(
+                    g.neighbor(thisid, 'taggees'),
+                    self.reason.name,
+                    Glom  # HACK
+                )
+            )
+        ]
 
 
 ##### The graph class and other generic execution code #####
@@ -331,5 +345,5 @@ if __name__ == '__main__':
 
     g.do_timestep(num=6)
     pg(g)
-    # Now manually call  g.do(ArgScout(21, 'within', Glom))
+    # Now manually call  g.do(SeekArg(21, 'within', Glom))
     # Then  g.do_timestep()  and NoticeAllSameValue will succeed.
