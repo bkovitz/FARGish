@@ -127,7 +127,7 @@ class NoticeSameValue(Action):
     node1: Union[int, None]
     node2: Union[int, None]
 
-    threshold = 1.0
+    threshold: float = 1.0
 
     def go(self, g):
         if not self.node2:   # HACK

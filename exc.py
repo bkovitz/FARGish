@@ -49,7 +49,7 @@ class NeedArg(Fizzle):
         return self.action.actor
     actor = property(_get_actor)
     def __str__(self):
-        return f"NeedArg({repr(self.action)}, {repr(self.name)})"
+        return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={actor})"
 
 @dataclass
 class NodeLacksMethod(Fizzle):

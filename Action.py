@@ -12,6 +12,7 @@ class Action(ABC):
 
     def __init__(self, **kwargs):
         '''kwargs is any additional arguments needed to run .go().'''
+        print('INIT', self.__class__, kwargs)
         self.kwargs = kwargs
 
     threshold = 0.0
@@ -45,6 +46,20 @@ class Action(ABC):
             raise NeedArg(self, name)
 
     __repr__ = nice_object_repr
+
+    def param_names(self):
+        '''Returns a set containing the names of all the parameters of
+        interest to this Action.'''
+        return set(self.kwargs.keys())
+
+    def with_overrides_from(self, g, nodeid):
+        '''Returns an Action with arguments taken from mates of nodeid.
+        If there are no overrides, returns this Action.'''
+        override_d = g.get_overrides(nodeid, self.param_names())
+        if override_d:
+            return self.__class__(dict(self.kwargs, **override_d))
+        else:
+            return self
 
     def annotation(self):
         return self.annotation_string

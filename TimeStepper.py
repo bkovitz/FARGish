@@ -43,15 +43,21 @@ class TimeStepper:
         super().__init__(*args, **kws)
 
     def do_timestep(
-        self, num=1, action: Union[Action, List[Action], None]=None
+        self,
+        num=1,
+        action: Union[Action, List[Action], None]=None,
+        actor: Union[int, None]=None
     ) -> None:
         '''Executes n timesteps.
 
         On each timestep, we decay saliences, choose active nodes, generate
         Action objects from the active nodes, choose which Actions to
         perform, execute those Actions, and update support.
-        '''
 
+        If action is non-None, we run the specified Action unconditionally.
+
+        Otherwise, if actor is non-None, we run all the Actions provided by the
+        actor (assumed to be an ActiveNode) unconditionally.'''
         for i in range(num):
             self.graph['t'] += 1
             self.clear_touched_and_new()
@@ -65,6 +71,8 @@ class TimeStepper:
 
             if action is not None:
                 actions_to_do = as_iter(action)
+            elif actor is not None:
+                actions_to_do = self.collect_actions([actor])
             else:
                 actions_to_do = self.get_actions_from_graph()
 
@@ -102,7 +110,7 @@ class TimeStepper:
         except FargDone as exc:
             self.set_done(exc)
         except NeedArg as exc:
-            print('NEEDARG')
+            #print('NEEDARG')
             self.call_method(exc.actor, 'action_failed', exc)
         except:
             print('EXCEPTION in do_action')

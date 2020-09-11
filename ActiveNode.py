@@ -74,7 +74,7 @@ class ActionNode(ActiveNode):
 
     def actions(self, g, thisid):
         if not self.is_dormant(g, thisid):
-            return [self.action]
+            return [self.action.with_overrides_from(g, thisid)]
         # TODO If action has any missing args, make scout actions to fill them
         # in.
 

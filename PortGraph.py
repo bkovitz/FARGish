@@ -7,7 +7,7 @@ from operator import attrgetter, itemgetter
 from random import choice, choices
 from io import StringIO
 import traceback
-from typing import Union, List, Set
+from typing import Union, List, Set, Dict, Any
 
 import networkx as nx
 
@@ -1302,6 +1302,21 @@ class PortGraph(nx.MultiGraph):
         '''Is node in a dormant state, i.e. not capable of generating any
         Actions right now?'''
         return self.call_method(node, 'is_dormant')
+
+    def add_override_node(self, node: int, port_label, overriding_node: int):
+        '''Adds an edge from node.port_label to overriding_node.overriding.
+        This signifies that overriding_node should be the value of the
+        argument named port_label when running any Action inside node.'''
+        self.add_edge(node, port_label, overriding_node, 'overriding')
+
+    def get_overrides(self, node: int, names: Set[str]) -> Dict[str, Any]:
+        result = {}
+        for name in names:
+            n = self.neighbor(node, name)
+            if n:
+                result[name] = n
+        return result
+
 
 class ValueOf:
     '''Function that returns the value of a nodeid in graph g. Returns None
