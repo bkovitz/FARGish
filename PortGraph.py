@@ -14,7 +14,7 @@ import networkx as nx
 from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
     reseed, sample_without_replacement, intersection, empty_set
-from exc import TooManyArgs0, TooManyArgs, NodeLacksMethod
+from exc import TooManyArgs0, TooManyArgs, NodeLacksMethod, NoSuchNodeclass
 from BuildSpec import make_buildspec
 from NodeParams import NodeParams
 
@@ -405,14 +405,25 @@ class PortGraph(nx.MultiGraph):
         for c in containers:
             self.add_edge(nodeid, 'member_of', c, 'members')
 
-    def make_node(self, nodeclass, *args, **kwargs):
+    def make_node(self, nodeclass: Union[Node, str], *args, **kwargs):
         '''Builds a new node with specified class and arguments, fills
         the node's datum with specified attrs, gives the node an 'id' attr
         holding its id, and links the node to specified mates--unless a node
         linked in the exact same neighbors already exists. Returns the nodeid
         if created; otherwise None.'''
+        if not isinstance(nodeclass, Node) and not isclass(nodeclass):
+            try:
+                nodeclass = self.get_nodeclass(nodeclass)
+            except NoSuchNodeclass as exc:
+                raise exc.with_args(args, kwargs)
         spec = make_buildspec(self, nodeclass, args=args, kwargs=kwargs)
         return spec.build(self)
+
+    def get_nodeclass(self, nodeclass_name: str):
+        try:
+            return self.nodeclasses[nodeclass_name]
+        except AttributeError:
+            raise NoSuchNodeclass(nodeclass_name)
         
     def dup_node(self, h, node):
         'h is another PortGraph, which must contain node.'

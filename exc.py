@@ -1,7 +1,8 @@
 # exc.py -- Custom exceptions for FARGish
 
 from dataclasses import dataclass
-from typing import List, Dict
+import dataclasses
+from typing import List, Dict, Union, Any
 
 from util import nice_object_repr, NiceRepr
 
@@ -50,6 +51,18 @@ class NeedArg(Fizzle):
     actor = property(_get_actor)
     def __str__(self):
         return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={actor})"
+
+@dataclass
+class NoSuchNodeclass(Exception):
+    name: str
+    class_args: Union[List[Any], None]=None
+    class_kwargs: Union[Dict[str, Any], None]=None
+
+    def with_args(self, args, kwargs) -> 'NoSuchNodeclass':
+        return dataclasses.replace(self, class_args=args, class_kwargs=kwargs)
+
+    def __str__(self):
+        return f'No such node class: {self.name}. args={self.class_args} kwargs={self.class_kwargs}'
 
 @dataclass
 class NodeLacksMethod(Fizzle):

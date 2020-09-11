@@ -32,6 +32,7 @@ Workspace
 Tag(taggees)
 Want, Avail, Allowed : Tag
 SameValue, AllMembersSameValue : Tag
+Failed(reason) : Tag
 
 Group(members)
 Glom : Group
@@ -45,7 +46,7 @@ Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
 '''
 
-make_python(prog, debug=1)
+make_python(prog) #, debug=1, file=open('test_override.gen.py', 'w'))
 exec(compile_fargish(prog), globals())
 
 Numble = make_numble_class(
@@ -107,19 +108,10 @@ class NoticeAllSameValue(Action):
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
-    def param_names(self):
-        return set(field.name for field in dataclasses.fields(self))
-
-    def with_overrides_from(self, g, nodeid):
-        override_d = g.get_overrides(nodeid, self.param_names())
-        if override_d:
-            return dataclasses.replace(self, **override_d)
-        else:
-            return self
-        
 
 class TestGraph(TimeStepper, PortGraph):
     port_mates = port_mates
+    nodeclasses = nodeclasses
 
     default_graph_attrs = dict(
         t=0,
@@ -154,9 +146,9 @@ class TestGraph(TimeStepper, PortGraph):
 def new_graph(numble=Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491):
     return TestGraph(numble=numble, seed=seed)
 
-ShowAnnotations.start_logging()
-ShowActionList.start_logging()
-ShowActionsChosen.start_logging()
+#ShowAnnotations.start_logging()
+#ShowActionList.start_logging()
+#ShowActionsChosen.start_logging()
 #ShowIsMatch.start_logging()
 
 class TestOverride(unittest.TestCase):
@@ -197,3 +189,28 @@ class TestOverride(unittest.TestCase):
         self.assertEqual(len(tags), 1,
             'Failed to tag the glom with AllMembersSameValue'
         )
+
+    def test_failed_tag(self):
+        g = new_graph()
+        ws = g.graph['ws']
+        g.do_timestep(action=SeekAndGlom(
+            criteria=OfClass(Brick),
+            within=ws
+        ))
+        glom = g.look_for(OfClass(Glom))
+        assert glom is not None
+
+        # Action lacks 'within' arg
+        noticer = g.make_node(
+            ActionNode,
+            NoticeAllSameValue(within=None, value=1, threshold=0.0)
+        )
+
+        # ...So performing it should make a Failed tag
+        g.do_timestep(actor=noticer)
+        tag = g.tag_of(noticer, Failed)
+        self.assertTrue(g.is_tag(tag))
+        self.assertTrue(g.is_of_class(tag, Failed))
+        reason = g.value_of(tag, 'reason')
+        self.assertTrue(isinstance(reason, NeedArg))
+        self.assertEqual(reason.name, 'within')

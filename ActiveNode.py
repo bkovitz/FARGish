@@ -81,7 +81,7 @@ class ActionNode(ActiveNode):
         # Otherwise return a version of the action with those args filled in.
 
     def action_failed(self, g, thisid, exc: Fizzle):
-        pass #TODO
+        g.make_node('Failed', reason=exc, taggees=[thisid])
 
 
 class ActionSeqNode(Node):

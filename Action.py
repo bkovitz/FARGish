@@ -1,24 +1,21 @@
 # Action.py -- The base Action class and some ancillary code
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+import dataclasses
 
 from util import nice_object_repr, as_iter
 from BuildSpec import make_buildspec
 from exc import NeedArg
 
 
+@dataclass
 class Action(ABC):
     '''An action to be performed on the graph.'''
-
-    def __init__(self, **kwargs):
-        '''kwargs is any additional arguments needed to run .go().'''
-        print('INIT', self.__class__, kwargs)
-        self.kwargs = kwargs
 
     threshold = 0.0
     # .weight() must be >= threshold for Action.go() to be called
 
-    #weight = 0.1
     min_weight = 0.1
 
     on_behalf_of = None
@@ -48,18 +45,15 @@ class Action(ABC):
     __repr__ = nice_object_repr
 
     def param_names(self):
-        '''Returns a set containing the names of all the parameters of
-        interest to this Action.'''
-        return set(self.kwargs.keys())
+        return set(field.name for field in dataclasses.fields(self))
 
     def with_overrides_from(self, g, nodeid):
-        '''Returns an Action with arguments taken from mates of nodeid.
-        If there are no overrides, returns this Action.'''
         override_d = g.get_overrides(nodeid, self.param_names())
         if override_d:
-            return self.__class__(dict(self.kwargs, **override_d))
+            return dataclasses.replace(self, **override_d)
         else:
             return self
+        
 
     def annotation(self):
         return self.annotation_string

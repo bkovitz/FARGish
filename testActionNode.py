@@ -84,8 +84,8 @@ class TestGraph(TimeStepper, PortGraph):
 
 
 #ShowActiveNodes.start_logging()
-ShowActionList.start_logging()
-ShowActionsChosen.start_logging()
+#ShowActionList.start_logging()
+#ShowActionsChosen.start_logging()
 
 class TestActionNode(unittest.TestCase):
     
@@ -102,14 +102,6 @@ class TestActionNode(unittest.TestCase):
     def test_new_state_on_nonexistent_node(self):
         g = TestGraph()
         g.new_state(1, Completed)
-
-    def test_action_kwarg(self):
-        g = TestGraph()
-        g.graph['Actions'] = 'NOT DONE'
-        node = g.make_node(ActionNode, action=WriteString())
-        g.do_timestep()
-        pg(g)
-        print(g.graph['Actions'])
 
 
 class TestActionSequence(unittest.TestCase):
