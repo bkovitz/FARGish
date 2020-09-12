@@ -221,3 +221,28 @@ class TestOverride(unittest.TestCase):
         self.assertTrue(isinstance(reason, NeedArg))
         self.assertEqual(reason.name, 'within')
         self.assertTrue(g.is_built_by(tag, noticer))
+
+    def test_no_dup_failed(self):
+        # Make sure that NoticeAllSameValue only gets one Failed tag no
+        # matter how many times it fails.
+        g = new_graph()
+        ws = g.graph['ws']
+        g.do_timestep(action=SeekAndGlom(
+            criteria=OfClass(Brick),
+            within=ws
+        ))
+        glom = g.look_for(OfClass(Glom))
+        assert glom is not None
+
+        # Action lacks 'within' arg
+        noticer = g.make_node(
+            ActionNode,
+            NoticeAllSameValue(within=None, value=1, threshold=0.0),
+            min_support_for=1.0
+        )
+
+        # Verify that nothing happens without override
+        g.do_timestep(actor=noticer)
+        g.do_timestep(actor=noticer)
+        faileds = g.neighbors(noticer, port_label='tags', neighbor_class=Failed)
+        self.assertEqual(len(faileds), 1)

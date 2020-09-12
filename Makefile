@@ -9,7 +9,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v test_override.TestOverride.test_override
+	$(PY) -m unittest -v test_override.TestOverride.test_no_dup_failed
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 tags:

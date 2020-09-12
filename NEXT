@@ -22,13 +22,14 @@ numbo5
         was invoked.
 
         Make an ActionSequence ActiveNode that simply performs each of a
-        sequence of ActionNodes when the previous one has run.
+        sequence of ActionNodes when the previous one has run.  DONE
 
-NEXT        ActionNode
+            ActionNode  DONE
 
-            Make each ActionNode start with a state of NotDone.
+            Make each ActionNode start with a state of Start.  DONE
 
-                StateParam?
+NEXT    Figure out a principled way to fill in the 'within' argument in
+        NoticeAllSameValue and CountMembers.
 
     See that the number of elements matches the Target
 

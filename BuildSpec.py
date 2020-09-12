@@ -49,6 +49,7 @@ class BuildSpec(NiceRepr):
 
     def is_already_built(self, g):
         candidates = g.neighbors(self.filled_params.potential_neighbors())
+        #print('CAND', candidates)
         if not candidates:
             #candidates = set(g.nodes)
             return False  # HACK This assumes that attr-matches don't count

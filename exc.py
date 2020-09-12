@@ -42,15 +42,17 @@ class FargCantRespond(Exception):
 class Fizzle(Exception):
     pass
 
+@dataclass
 class NeedArg(Fizzle):
-    def __init__(self, action, name):
-        self.action = action
-        self.name = name
+    action: 'Action'
+    name: str
+
     def _get_actor(self):
         return self.action.actor
     actor = property(_get_actor)
+
     def __str__(self):
-        return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={actor})"
+        return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
 
 @dataclass
 class NoSuchNodeclass(Exception):

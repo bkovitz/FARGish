@@ -354,6 +354,8 @@ class FilledParams(NiceRepr):
         if ShowIsMatch.is_logging():
             ioc = g.is_of_class(nodeid, nodeclass)
             fps = all(fp.is_match(g, nodeid) for fp in self.fps.values())
+            for fp in self.fps.values():
+                print(fp.is_match(g, nodeid), fp)
             print(f'IS_MATCH {self} nodeid={nodeid} ioc={ioc} fps={fps} result={result}')
         return result
 
