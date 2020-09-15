@@ -167,7 +167,8 @@ class TestOverride(unittest.TestCase):
         noticer = g.make_node(
             ActionNode,
             NoticeAllSameValue(within=None, value=1, threshold=0.0),
-            min_support_for=1.0
+            min_support_for=1.0,
+            member_of=ws
         )
 
         # There are no overrides yet

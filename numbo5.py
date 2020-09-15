@@ -41,6 +41,7 @@ SameValue, AllMembersSameValue : Tag
 
 Group(members)
 Glom : Group
+Slipnet: Group
 
 Number(value)
 Brick, Target, Block(source, consumer) : Number
@@ -154,6 +155,10 @@ class NoticeSameValue(Action):
             self.node2 = g.look_for(OfClass(Count))
             if not self.node2:
                 return # TODO FAIL
+        if not self.node1:
+            raise NeedArg(self, 'node1')
+        if not self.node2:
+            raise NeedArg(self, 'node2')
         if g.value_of(self.node1) == g.value_of(self.node2):
             g.do(
                 Build.maybe_make(
@@ -277,13 +282,19 @@ class SameValueTagger(ActiveNode):
 class Failed(ActiveNode, Tag):
     node_params = NodeParams(MateParam('taggees', 'tags'), AttrParam('reason'))
 
+    port_label_to_nodeclass = dict(   # HACK
+        within=Glom,
+        node1=Target,
+        node2=Count,
+    )
+
     def actions(self, g, thisid):
         return [
             StartScout(
                 action=SeekArg(
                     g.neighbor(thisid, 'taggees'),
-                    self.reason.name,
-                    Glom  # HACK
+                    self.reason.name,  # HACK: assumes NeedArg
+                    self.port_label_to_nodeclass[self.reason.name]  # HACK
                 ),
                 rm_on_success=thisid
             )
@@ -321,8 +332,16 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         kws['seed'] = reseed(kws.get('seed', None))
         super().__init__(**kws)
         self.consecutive_timesteps_with_no_response = 0
+
         ws = self.make_node(Workspace)
         self.graph['ws'] = ws
+
+        slipnet = self.make_node(Slipnet)
+        self.graph['slipnet'] = slipnet
+        self.fill_slipnet(slipnet)
+
+        # Make initial nodes
+
         if 'numble' in self.graph:
             self.graph['numble'].build(self, ws)
 
@@ -330,18 +349,22 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         #self.make_node(SameNumberGlommer)
         #self.make_node(MemberCounter)
         #self.make_node(SameValueTagger)
+
         targetid = self.look_for(OfClass(Target))
+        self.make_node(SuccessScout, target=targetid, min_support_for=1.0)
+        self.make_node(NoticeAllBricksAvail, member_of=ws)
+
+    def fill_slipnet(self, slipnet: int):
         make_action_sequence(
             self,
             SeekAndGlom(within=ws, criteria=OfClass(Brick)),
             NoticeAllSameValue(value=1, within=None),
             CountMembers(within=None),
-            NoticeSameValue(node1=targetid, node2=None),
+            NoticeSameValue(node1=None, node2=None),
             AddAllInGlom(),
-            min_support_for=6.0
+            min_support_for=6.0,
+            member_of=slipnet,
         )
-        #self.make_node(SuccessScout, target=targetid, min_support_for=1.0)
-        self.make_node(NoticeAllBricksAvail)
 
     def consume_operands(
         self,
@@ -485,9 +508,12 @@ if __name__ == '__main__':
     # Now call g.do_timestep() 11 times and the model will "notice" that
     # all the Bricks are 1, and the number of Bricks = the Target.
 
-    g.do_timestep(num=6)
+    g.do_timestep(num=1)
     #bs = g.find_all(OfClass(Brick))
     #g.consume_operands(bs, Plus)
-    pg(g)
+    print("\nARTIFICIAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
+    g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
+    g.do_timestep(num=25)
+    #pg(g)
     # Now manually call  g.do(SeekArg(21, 'within', Glom))
     # Then  g.do_timestep()  and NoticeAllSameValue will succeed.

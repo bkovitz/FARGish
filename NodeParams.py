@@ -319,6 +319,7 @@ class FilledAttr(FilledParam):
         # class Tag.
         if not g.is_tag(nodeid):
             return False
+        #print('FILLED', nodeid, self.attr_param)
         return g.value_of(nodeid, self.attr_param.name) == self.value
 
     def potential_neighbors(self):

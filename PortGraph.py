@@ -8,6 +8,7 @@ from random import choice, choices
 from io import StringIO
 import traceback
 from typing import Union, List, Set, Dict, Any
+from copy import deepcopy, copy
 
 import networkx as nx
 
@@ -16,7 +17,7 @@ from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
     reseed, sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs, NodeLacksMethod, NoSuchNodeclass
 from BuildSpec import BuildSpec, make_buildspec
-from NodeParams import NodeParams
+from NodeParams import NodeParams, MateParam
 
 
 empty_node_params = NodeParams()
@@ -85,6 +86,18 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
     def is_attrs_match(self, other):
         return True
+
+    # HACK Until BEN can figure out how to do this right  15-Sep-2020
+    # TODO Copy overridden class variables appropriately, too.
+    # TODO UT
+    def __copy__(self):
+        kwargs = {}
+        # TODO Make NodeParams iterable
+        for node_param in self.node_params.params:  
+            if not isinstance(node_param, MateParam):
+                param_name = node_param.as_key()
+                kwargs[param_name] = getattr(self, param_name)
+        return self.__class__(**kwargs)
 
     def __repr__(self):
 #        exclude = set(['kwargs', 'id'])  #, 'member_of'])
@@ -402,6 +415,7 @@ class PortGraph(nx.MultiGraph):
             self.neighbors(n1, 'member_of') for n1 in self.neighbors(nodeid)
         ))
         containers.discard(nodeid)
+        #print('CONTAINERS', nodeid, self.neighbors(nodeid), containers)
         for c in containers:
             self.add_edge(nodeid, 'member_of', c, 'members')
 
@@ -1357,6 +1371,52 @@ class PortGraph(nx.MultiGraph):
             if n:
                 result[name] = n
         return result
+
+    def activate_slipnode(
+        self,
+        slipnode: int,
+        trigger: Union[int, List[int], None],
+        ws: Union[int, None]=None
+    ):
+        if not ws:
+            ws = self.graph['ws']
+        #TODO Copy slipnode and all its members recursively into ws
+        self.copy_group(slipnode, into=ws)
+
+    #TODO UT
+    def copy_group(self, original_group_node: int, destination_group_node: int):
+        '''Returns nodeid of new group node.'''
+        d = {}  # Maps source nodes to new nodes
+
+        # Copy the nodes
+        old_nodes = (
+            self.members_recursive(original_group_node)
+            |
+            {original_group_node}
+        )
+        for old_node in old_nodes:
+            # HACK Should be deepcopy, but getting an error: NoneType is not
+            # callable.
+            datum = copy(self.datum(old_node))
+            d[old_node] = self.mknode(datum)
+
+        # Link to destination_group_node
+        self.add_edge(
+            original_group_node, 'member_of', destination_group_node, 'members'
+        )
+
+        # Copy the edges
+        for old_node, new_node in d.items():
+            for hop in self.hops_from_node(old_node):
+                try:
+                    new_mate = d[hop.to_node]
+                except KeyError:
+                    continue
+                self.add_edge(
+                    new_node, hop.from_port_label, new_mate, hop.to_port_label
+                )
+
+        return d[original_group_node]
 
 
 class ValueOf:

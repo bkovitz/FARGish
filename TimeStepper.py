@@ -169,9 +169,10 @@ class TimeStepper:
         if ShowActionList.is_logging():
             print('ACTIONS COLLECTED')
             for action in sorted(actions, key=lambda a: a.weight(self)):
-                print('  %.3f (%.3f) %s' % (
+                print('  %.3f (%.3f) %4d %s' % (
                     action.weight(self),
                     action.threshold,
+                    action.actor,
                     action
                 ))
 
@@ -195,18 +196,32 @@ class TimeStepper:
             print('ACTIONS CHOSEN')
             #TODO OAOO with above
             for action in sorted(chosen_actions, key=lambda a: a.weight(self)): 
-                print('  %.3f (%.3f) %s' % (
+                print('  %.3f (%.3f) %4d %s' % (
                     action.weight(self),
                     action.threshold,
+                    action.actor,
                     action
                 ))
         return chosen_actions
 
+    def allowable_active_nodes(self):
+        '''Returns all nodes in the 'ws' (the workspace), if a 'ws' has been
+        set. Otherwise returns all nodes.'''
+        try:
+            ws = self.graph['ws']
+        except KeyError:
+            return self.nodes
+        return self.members_recursive(ws)
+
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''
-        return list(node for node in self.nodes_of_class(ActiveNode)
-                             #if not self.datum(node).dormant(self, node)
-                             if not self.is_dormant(node)
+        return list(
+            node for node in self.nodes_of_class(
+                    ActiveNode,
+                    nodes=self.allowable_active_nodes()
+                )
+                    #if not self.datum(node).dormant(self, node)
+                    if not self.is_dormant(node)
         )
 
     def choose_active_nodes(self, active_nodes, k=None):
