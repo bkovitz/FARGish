@@ -8,6 +8,8 @@ from util import is_iter, vcat, NiceRepr
 def make_buildspec(g, nodeclass, args=(), kwargs=None):
     '''nodeclass can be either a class that inherits from Node or an instance
     of such a class.'''
+    if kwargs is None:
+        kwargs = {}
     return BuildSpec(
         nodeclass,
         nodeclass.make_filled_params(g, args, kwargs)

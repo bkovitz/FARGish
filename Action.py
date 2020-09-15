@@ -153,3 +153,5 @@ class SelfDestruct(Action):
 
     def go(self, g):
         g.remove_node(self.nodeid)
+
+RemoveNode = SelfDestruct

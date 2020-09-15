@@ -15,12 +15,13 @@ from PortGraph import PortGraph, Node, pg, ps
 import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Build, make_build, Raise
+from Action import Action, Build, make_build, Raise, SelfDestruct
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
 from exc import NeedArg, FargDone
+from Predefs import AllTagged
 
 prog = '''
 gfuncs { succeeded }
@@ -35,6 +36,7 @@ Workspace
 
 Tag(taggees)
 Want, Avail, Consumed, Allowed, Done : Tag
+#AllBricksAvail : Tag
 SameValue, AllMembersSameValue : Tag
 
 Group(members)
@@ -67,21 +69,21 @@ Numble = make_numble_class(
 
 ##### Hacks
 
-tag_port_label = 'taggees'
-taggee_port_label = 'tags'
-
-@classmethod
-def cls_add_tag(cls, g, taggees):  # HACK
-    taggees = list(as_iter(taggees))
-    taggee_containers = intersection(
-        *[g.member_of(ee) for ee in as_iter(taggees)]
-    )
-    tag = g.make_node(cls, container=taggee_containers)
-    for taggee in as_iter(taggees):
-        g.add_edge(tag, tag_port_label, taggee, taggee_port_label)
-    return tag
-
-Tag.add_tag = cls_add_tag  # HACK
+#tag_port_label = 'taggees'
+#taggee_port_label = 'tags'
+#
+#@classmethod
+#def cls_add_tag(cls, g, taggees):  # HACK
+#    taggees = list(as_iter(taggees))
+#    taggee_containers = intersection(
+#        *[g.member_of(ee) for ee in as_iter(taggees)]
+#    )
+#    tag = g.make_node(cls, container=taggee_containers)
+#    for taggee in as_iter(taggees):
+#        g.add_edge(tag, tag_port_label, taggee, taggee_port_label)
+#    return tag
+#
+#Tag.add_tag = cls_add_tag  # HACK
 
 ##### Custom Actions
 
@@ -206,6 +208,31 @@ class StartScout(Action):
 ##### Nodeclasses defined in Python
 
 is_number = OfClass(Number)
+
+class AllBricksAvail(Tag, ActiveNode):
+
+    initial_support_for = 1.0
+
+    def actions(self, g, thisid):
+        bricks = g.find_all(OfClass(Brick))
+        if not AllTagged(g, Avail, bricks):
+            return [SelfDestruct(thisid)]
+        
+
+class NoticeAllBricksAvail(ActiveNode):
+
+    min_support_for = 1.0
+
+    def actions(self, g, thisid):
+        bricks = g.find_all(OfClass(Brick))
+        buildspec = make_buildspec(
+            g, AllBricksAvail, kwargs=dict(taggees=bricks)
+        )
+        if not g.is_already_built(buildspec):
+            if AllTagged(g, Avail, bricks):
+                return [Build(buildspec)]
+                #TODO When a Brick is no longer Avail, this tag needs to get
+                #removed.
         
 class SameNumberGlommer(ActiveNode):
     
@@ -313,7 +340,8 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             AddAllInGlom(),
             min_support_for=6.0
         )
-        self.make_node(SuccessScout, target=targetid, min_support_for=1.0)
+        #self.make_node(SuccessScout, target=targetid, min_support_for=1.0)
+        self.make_node(NoticeAllBricksAvail)
 
     def consume_operands(
         self,

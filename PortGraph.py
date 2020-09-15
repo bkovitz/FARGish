@@ -15,7 +15,7 @@ from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
     reseed, sample_without_replacement, intersection, empty_set
 from exc import TooManyArgs0, TooManyArgs, NodeLacksMethod, NoSuchNodeclass
-from BuildSpec import make_buildspec
+from BuildSpec import BuildSpec, make_buildspec
 from NodeParams import NodeParams
 
 
@@ -432,9 +432,14 @@ class PortGraph(nx.MultiGraph):
                                            if k in attrs)
         return self.make_node(new_attrs)
 
-    def is_already_built(self, cl, args=None, kwargs={}):
-        '''Is a node of class cl with the given args and kwargs already built?'''
-        buildspec = make_buildspec(self, cl, args=args, kwargs=kwargs)
+    def is_already_built(self, cl, args=None, kwargs=None):
+        '''Is a node of class cl with the given args and kwargs already built?
+        Alternatively, just pass a BuildSpec.'''
+
+        if isinstance(cl, BuildSpec):
+            buildspec = cl
+        else:
+            buildspec = make_buildspec(self, cl, args=args, kwargs=kwargs)
         result = buildspec.is_already_built(self)
         #print('ALR', cl, result)
         return result
