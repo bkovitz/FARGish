@@ -151,10 +151,6 @@ class NoticeSameValue(Action):
     threshold: float = 1.0
 
     def go(self, g):
-        if not self.node2:   # HACK
-            self.node2 = g.look_for(OfClass(Count))
-            if not self.node2:
-                return # TODO FAIL
         if not self.node1:
             raise NeedArg(self, 'node1')
         if not self.node2:
@@ -511,7 +507,7 @@ if __name__ == '__main__':
     g.do_timestep(num=1)
     #bs = g.find_all(OfClass(Brick))
     #g.consume_operands(bs, Plus)
-    print("\nARTIFICIAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
+    print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
     g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
     g.do_timestep(num=25)
     #pg(g)
