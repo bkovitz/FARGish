@@ -156,16 +156,21 @@ class SeekArg(Action):
         found_node = g.look_for(OfClass(self.nodeclass))
         if found_node:
             g.add_override_node(self.for_node, self.port_label, found_node)
-            g.new_state(self.actor, Completed)
             g.boost_salience(self.for_node)
             g.new_state(self.actor, Completed)
+            g.remove_node(g.neighbors(self.actor, 'rm_on_success'))
 
 @dataclass
 class StartScout(Action):
     action: Action
+    rm_on_success: Union[int, None]=None
 
     def go(self, g):
-        g.make_node(ActionNode, action=self.action)
+        g.make_node(
+            ActionNode,
+            action=self.action,
+            rm_on_success=self.rm_on_success
+        )
         g.new_state(self.actor, Completed)
 
 
@@ -219,11 +224,12 @@ class Failed(ActiveNode, Tag):
     def actions(self, g, thisid):
         return [
             StartScout(
-                SeekArg(
+                action=SeekArg(
                     g.neighbor(thisid, 'taggees'),
                     self.reason.name,
                     Glom  # HACK
-                )
+                ),
+                rm_on_success=thisid
             )
         ]
 

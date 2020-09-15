@@ -28,7 +28,11 @@ class ActiveNode(ABC, Node):
     def is_dormant(self, g, thisid):
         '''Return True to prevent TimeStepper from calling .actions() on this
         node.'''
-        return not self.state.is_active(g, thisid)
+        return (
+            not self.state.is_active(g, thisid)
+            or
+            g.is_failed(thisid)
+        )
 
     def on_completion(self, g, thisid):
         '''Called when the ActiveNode has completed its business.
@@ -70,7 +74,11 @@ class Completed(Dormant):
 
 class ActionNode(ActiveNode):
     '''A node that holds an action and tries to perform it.'''
-    node_params = NodeParams(AttrParam('action'), AttrParam('state'))
+    node_params = NodeParams(
+        AttrParam('action'),
+        AttrParam('state'),
+        MateParam('rm_on_success', 'tags')
+    )
 
     def actions(self, g, thisid):
         if not self.is_dormant(g, thisid):

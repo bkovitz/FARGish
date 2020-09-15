@@ -224,7 +224,7 @@ class TimeStepper:
         '''Calls .actions() on each node in active_nodes, and returns all the
         returned objects (presumed to be Actions) in a list.'''
         actions = []
-        for node in active_nodes:
+        for node in as_iter(active_nodes):
             #print('COLL', node, self.datum(node))
             got = self.datum(node).actions(self, node)
             for action in as_iter(got):

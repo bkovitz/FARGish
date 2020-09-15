@@ -184,6 +184,9 @@ class TestOverride(unittest.TestCase):
         new_action = g.datum(noticer).action.with_overrides_from(g, noticer)
         self.assertEqual(new_action.within, glom)
 
+        # Also remove the Failed tag
+        g.remove_tag(noticer, Failed)
+
         # Let the noticer run again: it should tag the Glom this time
         g.do_timestep()
         #pg(g)
@@ -221,6 +224,9 @@ class TestOverride(unittest.TestCase):
         self.assertTrue(isinstance(reason, NeedArg))
         self.assertEqual(reason.name, 'within')
         self.assertTrue(g.is_built_by(tag, noticer))
+
+        # And with a Failed tag, the noticer should not generate an action
+        self.assertTrue(g.is_dormant(noticer))
 
     def test_no_dup_failed(self):
         # Make sure that NoticeAllSameValue only gets one Failed tag no

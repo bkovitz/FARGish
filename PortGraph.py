@@ -749,11 +749,25 @@ class PortGraph(nx.MultiGraph):
             for toid in as_iter(toids):
                 self.add_tag(tagclass, toid)
 
-    def has_tag(self, node, tagclass, taggee_port_label='tags'):
+    def has_tag(
+        self,
+        node: int,
+        tagclass: Union[Node, str, int],
+        taggee_port_label='tags'
+    ):
         '''Returns True iff node has at least one tag of class tagclass.
         tagclass can be an integer, specifying the nodeid of a specific
         tag node; if so, returns True iff node is linked to that node at
         taggee_port_label.'''
+        # TODO Document str and Failed in docstring.
+        if isinstance(tagclass, str):
+            try:
+                tagclass = self.get_nodeclass(tagclass)
+            except NoSuchNodeclass as exc:
+                if tagclass == 'Failed':
+                    return False
+                else:
+                    raise
         if isclass(tagclass):
             try:
                 return any(
@@ -781,7 +795,7 @@ class PortGraph(nx.MultiGraph):
             nodes, tagclass=tagclass, taggee_port_label=taggee_port_label
         ))
 
-    def tags_of(self, nodes, tagclass=Tag, taggee_port_label='tags'):
+    def tags_of(self, nodes, tagclass=[Tag, str], taggee_port_label='tags'):
         '''Returns a generator. nodes can be a single node id or an iterable
         of node ids.'''
         #TODO Should be able to specify tagclass more narrowly.
@@ -1317,6 +1331,9 @@ class PortGraph(nx.MultiGraph):
         '''Is node in a dormant state, i.e. not capable of generating any
         Actions right now?'''
         return self.call_method(node, 'is_dormant')
+
+    def is_failed(self, node):
+        return self.has_tag(node, 'Failed')  # TODO not if Failed is canceled
 
     def add_override_node(self, node: int, port_label, overriding_node: int):
         '''Adds an edge from node.port_label to overriding_node.overriding.
