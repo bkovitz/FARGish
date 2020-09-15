@@ -2,48 +2,64 @@
 #              1 1 1 1 1; 5.
 
 from typing import Union, List, Any
+from operator import add, mul
+from functools import reduce
 
 from codegen import make_python, compile_fargish
 from dataclasses import dataclass
 from TimeStepper import TimeStepper
 from log import *
+import expr
 from util import as_iter, reseed, intersection, first
 from PortGraph import PortGraph, Node, pg, ps
 import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Build, make_build
+from Action import Action, Build, make_build, Raise
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
-from exc import NeedArg
+from exc import NeedArg, FargDone
 
 prog = '''
+gfuncs { succeeded }
+
 tags -- taggees
 target -- tags
 members -- member_of
+operands -- consumer
+result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 
 Workspace
 
 Tag(taggees)
-Want, Avail, Allowed : Tag
+Want, Avail, Consumed, Allowed, Done : Tag
 SameValue, AllMembersSameValue : Tag
 
 Group(members)
 Glom : Group
 
 Number(value)
-Brick, Target, Block : Number
-Count : Tag, Number
+Brick, Target, Block(source, consumer) : Number
+Count : Tag #, Number
 
-Operator
+Operator(operands, consumer)
 Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
+
+SuccessScout(target)
+  see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
+  => succeeded(winner, target)
 '''
 
 make_python(prog, debug=1)
-exec(compile_fargish(prog), globals())
+exec(compile_fargish(prog, saveto='numbo5.gen.py'), globals())
+
+Plus.expr_class = expr.Plus #HACK
+Plus.symbol = '+' #HACK
+Times.expr_class = expr.Times #HACK
+Times.symbol = '*' #HACK
 
 Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
@@ -118,10 +134,8 @@ class CountMembers(Action):
     threshold = 1.0
 
     def go(self, g):
-        if not self.within:  # HACK
-            self.within = g.look_for(OfClass(Glom))
-            if not self.within:
-                return # TODO FAIL
+        if not self.within:
+            raise NeedArg(self, 'within')
         num_members = len(g.neighbors(self.within, port_label='members'))
         g.make_node(Count, taggees=[self.within], value=num_members)
         g.new_state(self.actor, Completed)
@@ -145,6 +159,21 @@ class NoticeSameValue(Action):
                 )
             )
             g.new_state(self.actor, Completed)
+
+@dataclass
+class AddAllInGlom(Action):
+    within: Union[int, None]=None
+
+    threshold: float = 1.0
+
+    def go(self, g):
+        if not self.within:
+            raise NeedArg(self, 'within')
+        g.consume_operands(
+            g.find_all(OfClass(Number), within=self.within),
+            Plus
+        )
+        g.new_state(self.actor, Completed)
 
 @dataclass
 class SeekArg(Action):
@@ -274,14 +303,93 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         #self.make_node(SameNumberGlommer)
         #self.make_node(MemberCounter)
         #self.make_node(SameValueTagger)
+        targetid = self.look_for(OfClass(Target))
         make_action_sequence(
             self,
             SeekAndGlom(within=ws, criteria=OfClass(Brick)),
             NoticeAllSameValue(value=1, within=None),
             CountMembers(within=None),
-            NoticeSameValue(node1=self.look_for(OfClass(Target)), node2=None),
+            NoticeSameValue(node1=targetid, node2=None),
+            AddAllInGlom(),
             min_support_for=6.0
         )
+        self.make_node(SuccessScout, target=targetid, min_support_for=1.0)
+
+    def consume_operands(
+        self,
+        operand_ids: List[int],
+        operator_class: Operator,
+        actor=None
+    ):
+        # Check that all the nodes are Avail
+        operator_id = self.make_node(
+            operator_class, 
+            operands=operand_ids,
+            builder=actor,
+        )
+        result_id = self.make_node(
+            Block,
+            value=arith_result0(self, operator_class, operand_ids),
+            source=operator_id,
+            builder=actor,
+        )
+        g.move_tag(Avail, operand_ids, result_id)
+        g.add_tag(Consumed, operand_ids)
+        g.add_tag(Done, actor)
+
+def arith_result(g, operator_id):
+    operator_class = g.class_of(operator_id)
+    #print('OCLASS', operator_class)
+    if operator_class == Minus: #HACK
+        return 0.0  # STUB
+    else:
+        operand_ids = g.neighbors(operator_id, port_label='operands')
+        return arith_result0(g, operator_class, operand_ids)
+
+def arith_result0(g, operator_class, operand_ids):
+    operand_values = [g.value_of(o) for o in operand_ids]
+    # TODO It would be much better if FARGish let you define these operations
+    # as class attributes.
+    if operator_class is None:
+        return None
+    elif operator_class == Plus:
+        return reduce(add, operand_values, 0)
+    elif operator_class == Times:
+        return reduce(mul, operand_values, 1)
+    else:
+        #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
+        raise ValueError(f'Unknown operator class {operator_class}.')
+
+class NumboSuccess(FargDone):
+    succeeded = True
+
+    def __init__(self, expr):
+        self.expr = expr
+
+    def __str__(self):
+        return 'Success!  ' + str(self.expr)
+
+def succeeded(g, winnerid, targetid):
+    return Raise(NumboSuccess,
+                 expr.Equation(
+                   extract_expr(g, winnerid),
+                   extract_expr(g, targetid)))
+
+def extract_expr(g, nodeid):
+    '''Extracts an Expr tree consisting of nodeid and its sources.'''
+    nodeclass = g.class_of(nodeid)
+    if issubclass(nodeclass, Block):
+        return extract_expr(g, g.neighbor(nodeid, 'source'))
+    elif issubclass(nodeclass, Number):
+        return expr.Number(g.value_of(nodeid))
+    elif issubclass(nodeclass, Operator):
+        operand_exprs = (
+            extract_expr(g, n)
+                for n in g.neighbors(nodeid, ['source', 'operands'])
+        )
+        return g.datum(nodeid).expr_class(*operand_exprs)
+    else:
+        raise ValueError(f'extract_expr: node {nodeid} has unrecognized class {nodeclass}')
 
 def new_graph(numble, seed=None):
     g = DemoGraph(numble=numble, seed=seed)
@@ -350,6 +458,8 @@ if __name__ == '__main__':
     # all the Bricks are 1, and the number of Bricks = the Target.
 
     g.do_timestep(num=6)
+    #bs = g.find_all(OfClass(Brick))
+    #g.consume_operands(bs, Plus)
     pg(g)
     # Now manually call  g.do(SeekArg(21, 'within', Glom))
     # Then  g.do_timestep()  and NoticeAllSameValue will succeed.

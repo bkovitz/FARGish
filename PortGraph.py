@@ -719,7 +719,11 @@ class PortGraph(nx.MultiGraph):
     ):
         '''Links a tag to one or more nodes. Returns the tag's id.
         If tag_or_tagclass is a class, builds the tag.
-        The tag supports its taggees.'''
+        The tag supports its taggees. Does nothing if there are no
+        taggees (i.e. node_or_nodes).'''
+        node_or_nodes = as_list(node_or_nodes)
+        if not node_or_nodes:
+            return
         tagid = self.make_node(
             tag_or_tagclass,
             **{tag_port_label: node_or_nodes}
