@@ -156,6 +156,7 @@ class AttrParam(NodeParam):
             v = kwargs[self.name]
         except KeyError:
             return
+        print('ATTRINIT', self.name, v, kwargs)
         setattr(datum, self.name, v)
 
     def on_build(self, g, thisid, kwargs):
@@ -373,6 +374,7 @@ class FilledParams(NiceRepr):
         holding the node's nodeid.'''
         datum = g.datum(nodeid)
         datum.id = nodeid
+        print('APPLY', nodeid, self)
         for fp in self.fps.values():
             fp.apply_to_node(g, nodeid)
 

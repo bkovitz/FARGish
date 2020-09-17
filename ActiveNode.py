@@ -15,7 +15,7 @@ class ActiveNode(ABC, Node):
     An ActiveNode always has a .state member, of type ActiveNodeState.'''
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, *kwargs)
+        super().__init__(*args, **kwargs)
         if self.state is None:
             self.state = Start
         

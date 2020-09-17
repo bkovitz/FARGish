@@ -4,6 +4,7 @@
 from typing import Union, List, Any
 from operator import add, mul
 from functools import reduce
+from copy import copy, deepcopy
 
 from codegen import make_python, compile_fargish
 from dataclasses import dataclass
@@ -16,7 +17,8 @@ import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
 from Action import Action, Build, make_build, Raise, SelfDestruct
-from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Completed
+from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
+    Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
@@ -505,11 +507,15 @@ if __name__ == '__main__':
     # all the Bricks are 1, and the number of Bricks = the Target.
 
     g.do_timestep(num=1)
-    #bs = g.find_all(OfClass(Brick))
-    #g.consume_operands(bs, Plus)
-    print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
-    g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
-    g.do_timestep(num=25)
+    #print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
+    #g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
+    #g.do_timestep(num=25)
     #pg(g)
     # Now manually call  g.do(SeekArg(21, 'within', Glom))
     # Then  g.do_timestep()  and NoticeAllSameValue will succeed.
+
+
+    dt = g.datum(3)
+    dt2 = copy(dt)
+    kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
+    an = ActionNode(**kwargs)

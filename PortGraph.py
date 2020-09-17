@@ -59,6 +59,7 @@ class Node:
             return cls.node_params.is_exact_match(g, node, kwargs)
 
     def __init__(self, *args, **kwargs):
+        print('INIT0', repr(self), kwargs)
         if self.node_params is not None:
             try:
                 kwargs = self.node_params.args_into_kwargs(args, kwargs)
@@ -67,7 +68,9 @@ class Node:
                 raise TooManyArgs(
 f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters ({len(self.node_params)}): {repr(exc.args)}.'''
                 )
+            print('INIT1', repr(self), kwargs)
             self.node_params.on_init(self, kwargs)
+            print('INIT2', repr(self), kwargs)
         else:
             #TODO What about *args?
             pass
@@ -97,6 +100,8 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
             if not isinstance(node_param, MateParam):
                 param_name = node_param.as_key()
                 kwargs[param_name] = getattr(self, param_name)
+                print('COPY', param_name, kwargs[param_name], getattr(self, param_name))
+        print('COPYK', kwargs)
         return self.__class__(**kwargs)
 
     def __repr__(self):
@@ -1402,7 +1407,8 @@ class PortGraph(nx.MultiGraph):
 
         # Link to destination_group_node
         self.add_edge(
-            original_group_node, 'member_of', destination_group_node, 'members'
+            d[original_group_node], 'member_of',
+            destination_group_node, 'members'
         )
 
         # Copy the edges
