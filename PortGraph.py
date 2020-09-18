@@ -59,7 +59,10 @@ class Node:
             return cls.node_params.is_exact_match(g, node, kwargs)
 
     def __init__(self, *args, **kwargs):
-        print('INIT0', repr(self), kwargs)
+        kw_nps = kwargs.get('node_params', None)
+        if kw_nps is not None and kw_nps is not self.node_params:
+            self.node_params = kw_nps
+        self.filled_params = kwargs.get('filled_params', None)
         if self.node_params is not None:
             try:
                 kwargs = self.node_params.args_into_kwargs(args, kwargs)
@@ -68,9 +71,7 @@ class Node:
                 raise TooManyArgs(
 f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters ({len(self.node_params)}): {repr(exc.args)}.'''
                 )
-            print('INIT1', repr(self), kwargs)
             self.node_params.on_init(self, kwargs)
-            print('INIT2', repr(self), kwargs)
         else:
             #TODO What about *args?
             pass
@@ -94,14 +95,15 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     # TODO Copy overridden class variables appropriately, too.
     # TODO UT
     def __copy__(self):
-        kwargs = {}
+        kwargs = dict(
+            node_params=self.node_params,
+            filled_params=self.filled_params
+        )
         # TODO Make NodeParams iterable
         for node_param in self.node_params.params:  
             if not isinstance(node_param, MateParam):
                 param_name = node_param.as_key()
                 kwargs[param_name] = getattr(self, param_name)
-                print('COPY', param_name, kwargs[param_name], getattr(self, param_name))
-        print('COPYK', kwargs)
         return self.__class__(**kwargs)
 
     def __repr__(self):
@@ -1200,6 +1202,10 @@ class PortGraph(nx.MultiGraph):
     def supports(self, from_node, to_node):
         return self.has_edge(from_node, 'support_to', to_node, 'support_from')
 
+    def support_from_to(self, from_node, to_node):
+        '''Returns weight of support link from from_node to to_node.'''
+        return self.hop_weight(from_node, 'support_to', to_node, 'support_from')
+
     def total_support(self, nodes=None):
         if nodes is None:
             nodes = self.nodes
@@ -1404,6 +1410,9 @@ class PortGraph(nx.MultiGraph):
             # callable.
             datum = copy(self.datum(old_node))
             d[old_node] = self.mknode(datum)
+            datum.filled_params.apply_to_node_except_mateparams(
+                self, d[old_node]
+            )
 
         # Link to destination_group_node
         self.add_edge(
@@ -1419,7 +1428,8 @@ class PortGraph(nx.MultiGraph):
                 except KeyError:
                     continue
                 self.add_edge(
-                    new_node, hop.from_port_label, new_mate, hop.to_port_label
+                    new_node, hop.from_port_label, new_mate, hop.to_port_label,
+                    weight=self.hop_weight(hop)
                 )
 
         return d[original_group_node]

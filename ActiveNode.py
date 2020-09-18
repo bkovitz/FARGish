@@ -106,11 +106,11 @@ class ActionSeqNode(Node):
         members = as_iter(self.action_nodes)
         for i, member in enumerate(members):
             g.add_support(thisid, member, 0.3)
+            g.add_edge(thisid, 'child_action', member, 'parent_action')
             for later_member in members[i+1:]:
                 #TODO This should be done with a quantity other than support.
                 #Maybe add an 'activation' quantity to every ActiveNode.
                 g.oppose(member, later_member, -1.0)
-                g.add_edge(thisid, 'child_action', member, 'parent_action')
             for next_member in members[i+1:i+2]:
                 g.add_edge(member, 'next_action', next_member, 'prev_action')
 

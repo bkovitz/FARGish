@@ -156,7 +156,6 @@ class AttrParam(NodeParam):
             v = kwargs[self.name]
         except KeyError:
             return
-        print('ATTRINIT', self.name, v, kwargs)
         setattr(datum, self.name, v)
 
     def on_build(self, g, thisid, kwargs):
@@ -252,6 +251,12 @@ class FilledParam(ABC, NiceRepr):
         pass
 
     @abstractmethod
+    def is_mateparam(self, g, nodeid):
+        '''Should return True iff the FilledParam represents a link to
+        another node, i.e. a mate.'''
+        pass
+
+    @abstractmethod
     def potential_neighbors(self):
         pass
 
@@ -264,6 +269,9 @@ class FilledMate(FilledParam):
     def __init__(self, mate_param, mateid):
         self.mate_param = mate_param  # a MateParam
         self.mateid = mateid  # the nodeid or nodeids to link to
+
+    def is_mateparam(self):
+        return True
 
     def is_match(self, g, nodeid):
         neighbors = g.neighbors(
@@ -293,6 +301,9 @@ class FilledMate2(FilledParam):
         self.this_port_label = this_port_label
         self.mateid = mateid
 
+    def is_mateparam(self):
+        return True
+
     def is_match(self, g, nodeid):
         neighbors = g.neighbors(
             nodeid, port_label=self.this_port_label
@@ -310,6 +321,9 @@ class FilledAttr(FilledParam):
     def __init__(self, attr_param, value):
         self.attr_param = attr_param  # AttrParam or string
         self.value = value
+
+    def is_mateparam(self):
+        return False
 
     def is_match(self, g, nodeid):
         ##'''Always returns False, so that it's possible to make multiple
@@ -374,9 +388,20 @@ class FilledParams(NiceRepr):
         holding the node's nodeid.'''
         datum = g.datum(nodeid)
         datum.id = nodeid
-        print('APPLY', nodeid, self)
+        datum.filled_params = self
         for fp in self.fps.values():
             fp.apply_to_node(g, nodeid)
+
+    def apply_to_node_except_mateparams(self, g, nodeid):
+        '''Applies the filled parameters to nodeid, except for MateParams.
+        This enables copying just params that exist inside the node.'''
+        newfps = self.__class__(dict(
+            (name, fp)
+                for name, fp in self.fps.items()
+                    if not fp.is_mateparam()
+        ))
+        newfps.apply_to_node(g, nodeid)
+        
 
     def __str__(self):
         params = ', '.join(f'{name}={val}' for name, val in self.fps.items())

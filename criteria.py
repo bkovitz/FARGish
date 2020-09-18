@@ -4,6 +4,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from PortGraph import Node
+from Action import Action
+from ActiveNode import ActionNode
 
 
 class Criterion(ABC):
@@ -36,6 +38,17 @@ class OfClass(Criterion):
 
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
+
+@dataclass
+class IsAction(Criterion):
+    action: Action
+
+    def __call__(self, g, nodeid):
+        return (
+            g.is_of_class(nodeid, ActionNode)
+            and
+            g.value_of(nodeid, 'action') == self.action
+        )
 
 @dataclass
 class HasAttr(Criterion):

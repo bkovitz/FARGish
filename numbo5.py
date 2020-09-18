@@ -93,7 +93,7 @@ Numble = make_numble_class(
 @dataclass
 class SeekAndGlom(Action):
     criteria: Union[Criterion, List[Criterion], None]
-    within: int
+    within: Union[int, None]=None
 
     threshold = 1.0
 
@@ -106,8 +106,8 @@ class SeekAndGlom(Action):
 
 @dataclass
 class NoticeAllSameValue(Action):
-    within: Union[int, None]
     value: Any
+    within: Union[int, None]=None
 
     threshold = 1.0
 
@@ -134,7 +134,7 @@ class NoticeAllSameValue(Action):
 
 @dataclass
 class CountMembers(Action):
-    within: Union[int, None]
+    within: Union[int, None]=None
 
     threshold = 1.0
 
@@ -457,12 +457,12 @@ def p():
     '''Print just the four nodes of interest for the demo.'''
     pg(g, [20, 21, 22, 23, 24])
 
-ShowAnnotations.start_logging()
-ShowActionList.start_logging()
-ShowActionsChosen.start_logging()
-#ShowIsMatch.start_logging()
-
 if __name__ == '__main__':
+    ShowAnnotations.start_logging()
+    ShowActionList.start_logging()
+    ShowActionsChosen.start_logging()
+    #ShowIsMatch.start_logging()
+
     newg()
 
     #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
@@ -508,14 +508,12 @@ if __name__ == '__main__':
 
     g.do_timestep(num=1)
     #print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
-    #g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
-    #g.do_timestep(num=25)
+    g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
+    g.do_timestep(num=29)
     #pg(g)
-    # Now manually call  g.do(SeekArg(21, 'within', Glom))
-    # Then  g.do_timestep()  and NoticeAllSameValue will succeed.
 
 
-    dt = g.datum(3)
-    dt2 = copy(dt)
-    kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
-    an = ActionNode(**kwargs)
+    #dt = g.datum(3)
+    #dt2 = copy(dt)
+    #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
+    #an = ActionNode(**kwargs)
