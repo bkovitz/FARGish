@@ -38,9 +38,9 @@ class TestCopyGroup(unittest.TestCase):
         #pg(g, new_members | {new_seq})
         self.assertEqual(len(new_members), 5)
         for new_member in new_members:
-            sft = g.support_from_to(new_seq, new_member)
-            self.assertEqual(sft, 0.3,
-                f'Support from {new_seq} to {new_member} is {sft}'
+            aft = g.activation_from_to(new_seq, new_member)
+            self.assertEqual(aft, 0.3,
+                f'Activation from {new_seq} to {new_member} is {aft}'
             )
             self.assertTrue(g.has_hop(
                 new_seq, 'child_action', new_member, 'parent_action'
@@ -73,9 +73,9 @@ class TestCopyGroup(unittest.TestCase):
                 g.has_hop(prev, 'next_action', next, 'prev_action'),
                 f'Missing next-prev link: {prev, next}'
             )
-            sft = g.support_from_to(prev, next)
-            self.assertEqual(sft, -1.0,
-                f'Support from {prev} to {next} is {sft}.'
+            aft = g.activation_from_to(prev, next)
+            self.assertEqual(aft, -1.0,
+                f'Support from {prev} to {next} is {aft}.'
             )
 
         self.assertEqual(g.min_support_for(new_seq), 6.0)

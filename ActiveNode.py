@@ -37,10 +37,13 @@ class ActiveNode(ABC, Node):
     def on_completion(self, g, thisid):
         '''Called when the ActiveNode has completed its business.
 
-        The default implementation cuts all support and opposition.'''
+        The default implementation cuts all activation and inhibition.'''
         #TODO Notify any "parent" ActionNode.
         #TODO Remove excitation/inhibition edges, not support edges
-        g.remove_support_edges(thisid)
+        #g.remove_support_edges(thisid)
+        # TODO Better: zero the weights rather than remove the edges.
+        g.remove_outgoing_activation_edges(thisid)
+        g.remove_incoming_activation_edges(thisid)
 
 
 class ActiveNodeState:
@@ -105,12 +108,10 @@ class ActionSeqNode(Node):
         # following members.
         members = as_iter(self.action_nodes)
         for i, member in enumerate(members):
-            g.add_support(thisid, member, 0.3)
+            g.set_activation_from_to(thisid, member, 0.3)
             g.add_edge(thisid, 'child_action', member, 'parent_action')
             for later_member in members[i+1:]:
-                #TODO This should be done with a quantity other than support.
-                #Maybe add an 'activation' quantity to every ActiveNode.
-                g.oppose(member, later_member, -1.0)
+                g.set_activation_from_to(member, later_member, -1.0)
             for next_member in members[i+1:i+2]:
                 g.add_edge(member, 'next_action', next_member, 'prev_action')
 

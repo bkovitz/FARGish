@@ -9,7 +9,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v test_slipnet.TestCopyGroup.test_copy_group
+	$(PY) -m unittest -v testActionNode.TestActionSequence.test_simple_action_sequence
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 tags:

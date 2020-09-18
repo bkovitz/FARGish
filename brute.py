@@ -185,6 +185,7 @@ class BruteGraph(TimeStepper, ExprAsEquation, PortGraph):
         self.graph['ws'] = ws
         if 'numble' in self.graph:
             self.graph['numble'].build(self, ws)
+        # TODO Put in a WithActivation.Propagator
 
 def new_graph(numble, seed=None):
     g = BruteGraph(numble=numble, seed=seed)

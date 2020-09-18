@@ -18,9 +18,10 @@ import support
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
     ShowResults, ShowAnnotations
 from util import as_iter
+from WithActivation import WithActivation
 
 
-class TimeStepper:
+class TimeStepper(WithActivation):
     '''This class must be mixed in with a PortGraph.'''
 
     max_active_nodes = None  # maximum number of ActiveNodes to consider in
@@ -40,6 +41,8 @@ class TimeStepper:
             kws['done'] = False
         if 'support_steps' not in kws:
             kws['support_steps'] = 5  # number of support steps per timestep
+        if 'activation_steps' not in kws:
+            kws['activation_steps'] = 5  # number of activation steps per timestep
         super().__init__(*args, **kws)
 
     def do_timestep(
@@ -62,10 +65,14 @@ class TimeStepper:
             self.graph['t'] += 1
             self.clear_touched_and_new()
 
-            self.decay_saliences()
+            self.decay_saliences()  # TODO rm
+            self.decay_activations()
 
             self.propagate_support()
             support.log_support(self)
+
+            self.propagate_activation()
+            #TODO log activation
 
             self.update_coarse_views()
 
@@ -269,6 +276,15 @@ class TimeStepper:
         except KeyError:
             return
         for i in range(self.graph['support_steps']):
+            #TODO Why not just put .propagate in self?
+            propagator.propagate(self)
+
+    def propagate_activation(self):
+        try:
+            propagator = self.graph['activation_propagator']
+        except KeyError:
+            return
+        for i in range(self.graph['activation_steps']):
             #TODO Why not just put .propagate in self?
             propagator.propagate(self)
 

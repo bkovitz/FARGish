@@ -2,6 +2,7 @@
 
 from View import View, NodeCriterion
 from PortGraph import PortGraph, Node, pg, ps
+from WithActivation import WithActivation
 from NodeParams import NodeParams, AttrParam, MateParam
 from PortMates import PortMates
 #from numbonodes import Number, Avail
@@ -16,13 +17,16 @@ class Avail(Node):
 
 port_mates = PortMates([('taggees', 'tags')])
 
+class TestGraph(WithActivation, PortGraph):
+    pass
+
 g = None
 
 class TestView(unittest.TestCase):
 
     def test_view(self):
         global g
-        g = PortGraph(port_mates=port_mates)
+        g = TestGraph(port_mates=port_mates)
         v = g.make_node(View(NodeCriterion(nodeclass=Number, tagclass=Avail)))
         dv = g.datum(v)
         n5 = g.make_node(Number(5))

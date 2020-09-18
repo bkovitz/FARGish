@@ -20,25 +20,25 @@ def reverse_sigmoid(x, p=0.5):
         x = -x
     return x ** p / (x ** p + (1 - x) ** p)
 
-def normalize(d, max_total_support=10.0, p=0.5):
+def normalize(d, max_total=10.0, p=0.5):
     '''d is dictionary {node: support for node}. Returns d normalized so
-    the sum of all the support does not exceed max_total_support.'''
+    the sum of all the support does not exceed max_total.'''
     result = {}
-    total_support = sum(d.values())
-    #print('NORMALIZE', total_support)
-    if total_support <= max_total_support:
+    total = sum(d.values())
+    #print('NORMALIZE', total)
+    if total <= max_total:
         return d
-    #scale_down = 1.0 / total_support  # to scale the initial sum down to 1.0
-    #scale_down = max_total_support / total_support
+    #scale_down = 1.0 / total  # to scale the initial sum down to 1.0
+    #scale_down = max_total / total
     scale_down = 1.0 / max(d.values())
     for node, support in d.items():
         result[node] = reverse_sigmoid(scale_down * support, p=p)
-    scale_up = max_total_support / sum(result.values())
+    scale_up = max_total / sum(result.values())
     #print()
     #ddre = dict((n, s * scale_down) for n, s in d.items())
     #print('D-RE', ddre, sum(ddre.values()))
     #print('RESULT0', result)
-    #print('SCALE', total_support, scale_down, scale_up, max_total_support, sum(result.values()))
+    #print('SCALE', total, scale_down, scale_up, max_total, sum(result.values()))
     for node in result:
         result[node] *= scale_up
     return result
@@ -80,7 +80,7 @@ class Propagator:
             new_d[node] = max(g.min_support_for(node), new_support)
         new_d = normalize(
             new_d,
-            max_total_support=self.max_total_support,
+            max_total=self.max_total_support,
             p=self.sigmoid_p
         )
         for node, new_support in new_d.items():

@@ -7,7 +7,8 @@ import inspect
 from Action import Action
 from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
     make_action_sequence
-from PortGraph import PortGraph, Node, pg
+import WithActivation
+from PortGraph import PortGraph, Node, pg, ps, pa
 from log import *
 from TimeStepper import TimeStepper
 import support
@@ -68,7 +69,14 @@ class TestGraph(TimeStepper, PortGraph):
             max_total_support=20,
             positive_feedback_rate=0.1,
             sigmoid_p=0.5,
-            alpha=0.98
+            alpha=0.98,
+            # TODO noise=0.0
+        ),
+        activation_propagator=WithActivation.Propagator(
+            max_total_activation=20,
+            sigmoid_p=0.5,
+            alpha=0.98,
+            # TODO noise=0.0
         )
     )
 
@@ -84,8 +92,8 @@ class TestGraph(TimeStepper, PortGraph):
 
 
 #ShowActiveNodes.start_logging()
-#ShowActionList.start_logging()
-#ShowActionsChosen.start_logging()
+ShowActionList.start_logging()
+ShowActionsChosen.start_logging()
 
 class TestActionNode(unittest.TestCase):
     
@@ -115,20 +123,20 @@ class TestActionSequence(unittest.TestCase):
             ActionSeqNode,
             action_nodes=[anode1, anode2, anode3],
             members=[anode1, anode2, anode3],
-            min_support_for=5.0  # HACK Without this, support for seqnode falls
+            min_activation=10.0  # HACK Without this, seqnode's activation falls
                                  # too low to activate the last couple
                                  # ActionNodes.
         )
-        g.set_support_for(seqnode, 10.0)
+        g.set_activation(seqnode, 12.0)
         g.do_timestep(num=20)
         self.assertEqual(g.graph['Actions'], 'FirstSecondThird')
 
     def test_make_action_sequence(self):
         g = TestGraph()
         seqnode = make_action_sequence(
-            g, FirstAction(), SecondAction(), ThirdAction(), min_support_for=5.0
+            g, FirstAction(), SecondAction(), ThirdAction(), min_activation=5.0
         )
-        g.set_support_for(seqnode, 10.0)
+        g.set_activation(seqnode, 10.0)
         g.do_timestep(num=20)
         self.assertEqual(g.graph['Actions'], 'FirstSecondThird')
 

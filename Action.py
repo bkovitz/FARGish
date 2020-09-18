@@ -16,6 +16,7 @@ class Action(ABC):
     threshold = 0.0
     # .weight() must be >= threshold for Action.go() to be called
 
+    # TODO rname 'min_urgency'
     min_weight = 0.1
 
     on_behalf_of = None
@@ -33,8 +34,14 @@ class Action(ABC):
         #to print in log files.
         pass
 
+    # TODO rename 'urgency'
     def weight(self, g):
-        return max(g.support_for(self.actor), self.min_weight)
+        return max(
+            g.support_for(self.actor),
+            g.activation(self.actor),
+            #g.salience(self.actor),  # HACK TODO rm
+            self.min_weight
+        )
 
     def get_kwarg(self, name):
         try:

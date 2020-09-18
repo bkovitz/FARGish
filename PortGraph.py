@@ -27,6 +27,8 @@ class Node:
     can_need_update = False  # override with True to get NeedsUpdate tag
     min_support_for = 0.0
     initial_support_for = 0.01
+    min_activation = 0.0
+    initial_activation = 0.01
     node_params = None       # a NodeParams object
 
     @classmethod
@@ -406,6 +408,10 @@ class PortGraph(nx.MultiGraph):
                 i,
                 max(o.initial_support_for, o.min_support_for)
             )
+            self.set_activation(
+                i,
+                max(o.initial_activation, o.min_activation)
+            )
             if callable(o.after_touch_update):
                 self.after_touch_nodes.add(i)
         except AttributeError:
@@ -671,11 +677,13 @@ class PortGraph(nx.MultiGraph):
         them.'''
         self.touched_nodes.add(node)
 
+    # TODO mv to TimeStepper
     def do_touch(self, node):
         if not self.during_touch:
             self.during_touch = True
-            s = self.salience(node) #DEBUG
-            self.boost_salience(node)
+            #s = self.salience(node) #DEBUG
+            self.boost_salience(node) # TODO rm
+            self.boost_activation(node)
             #print('DO_TOUCH %50s  %.3f  %.3f' % (
             #    self.nodestr(node), s, self.salience(node)
             #))
@@ -683,6 +691,7 @@ class PortGraph(nx.MultiGraph):
                 self.add_tag(NeedsUpdate, node)
             self.during_touch = False
 
+    # TODO mv to TimeStepper
     def do_touches(self):
         '''Calls all follow-ups for all touched nodes, including
         after_touch_nodes, and then clears .touched_nodes and .new_nodes.'''
@@ -1533,8 +1542,9 @@ def pg(g, nodes=None):
     elif isclass(nodes) and issubclass(nodes, Node):
         nodes = g.nodes_of_class(nodes)
     for node in as_iter(nodes):
-        print('%s  supp=%.3f sal=%.3f' % (
+        print('%s  a=%.3f supp=%.3f sal=%.3f' % (
             g.nodestr(node),
+            g.activation(node),
             g.support_for(node),
             g.salience(node)
         ))
@@ -1563,6 +1573,8 @@ def ps(g, nodes=None, by='support', e=False):
         key = lambda node: node
     elif by == 'salience':
         key = lambda node: g.raw_salience(node)
+    elif by == 'activation':
+        key = lambda node: g.activation(node)
     elif callable(by):
         key = by
     else:
@@ -1579,6 +1591,42 @@ def ps(g, nodes=None, by='support', e=False):
             if s_froms:
                 print('  <-- %s' % ', '.join(g.nodestr(n) for n in s_froms))
             s_tos = list(g.neighbors(node, port_label='support_to'))
+            if s_tos:
+                print('  --> %s' % ', '.join(g.nodestr(n) for n in s_tos))
+
+def pa(g, nodes=None, by='activation', e=False):
+    '''Prints each node with its activation and salience (but not its edges).
+    e=True to see activation edges.'''
+    pt(g)
+    if nodes is None:
+        nodes = g.nodes
+    elif isclass(nodes):
+        nodes = g.nodes_of_class(nodes)
+
+    if by == 'support':
+        key = lambda node: g.support_for(node)
+    elif by == 'id':
+        key = lambda node: node
+    elif by == 'salience':
+        key = lambda node: g.raw_salience(node)
+    elif by == 'activation':
+        key = lambda node: g.activation(node)
+    elif callable(by):
+        key = by
+    else:
+        raise ValueError('invalid argument for by: %s' % repr(by))
+    for node in sorted(as_iter(nodes), key=key):
+        print('a=%.3f rawsal=%.3f  %s' % (
+            g.activation(node),
+            g.raw_salience(node),
+            g.nodestr(node)
+        ))
+        if e:
+            s_froms = list(g.neighbors(node, port_label='activation_from'))
+            #TODO Separate activation from inhibition
+            if s_froms:
+                print('  <-- %s' % ', '.join(g.nodestr(n) for n in s_froms))
+            s_tos = list(g.neighbors(node, port_label='activation_to'))
             if s_tos:
                 print('  --> %s' % ', '.join(g.nodestr(n) for n in s_tos))
 

@@ -12,7 +12,8 @@ from TimeStepper import TimeStepper
 from log import *
 import expr
 from util import as_iter, reseed, intersection, first
-from PortGraph import PortGraph, Node, pg, ps
+from PortGraph import PortGraph, Node, pg, ps, pa
+import WithActivation
 import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
@@ -318,6 +319,12 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             positive_feedback_rate=0.1,
             sigmoid_p=0.5,
             alpha=0.95
+        ),
+        activation_propagator=WithActivation.Propagator(
+            max_total_activation=20,
+            sigmoid_p=0.5,
+            alpha=0.98,
+            # TODO noise=0.0
         )
     )
 
@@ -360,6 +367,7 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             CountMembers(within=None),
             NoticeSameValue(node1=None, node2=None),
             AddAllInGlom(),
+            min_activation=6.0,
             min_support_for=6.0,
             member_of=slipnet,
         )
