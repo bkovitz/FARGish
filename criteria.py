@@ -40,6 +40,12 @@ class OfClass(Criterion):
         return g.is_of_class(nodeid, self.nodeclass)
 
 @dataclass
+class Activated(Criterion):
+
+    def __call__(self, g, nodeid):
+        return g.activation(nodeid) >= 1.0
+
+@dataclass
 class IsAction(Criterion):
     action: Action
 

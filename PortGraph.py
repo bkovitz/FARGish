@@ -14,7 +14,7 @@ import networkx as nx
 
 from watcher import Watcher, Response
 from util import nice_object_repr, repr_str, as_iter, is_iter, as_list, \
-    reseed, sample_without_replacement, intersection, empty_set
+    reseed, sample_without_replacement, intersection, empty_set, as_set
 from exc import TooManyArgs0, TooManyArgs, NodeLacksMethod, NoSuchNodeclass
 from BuildSpec import BuildSpec, make_buildspec
 from NodeParams import NodeParams, MateParam
@@ -1271,7 +1271,7 @@ class PortGraph(nx.MultiGraph):
         else:
             nodes = self.members_recursive(within)
         if subset is not None:
-            nodes = subset.intersection(nodes)
+            nodes = as_set(subset).intersection(nodes)
 
         for c in criteria:
             nodes = [n for n in nodes if c(self, n)]

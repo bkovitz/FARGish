@@ -218,7 +218,7 @@ class TimeStepper(WithActivation):
             ws = self.graph['ws']
         except KeyError:
             return self.nodes
-        return self.members_recursive(ws)
+        return self.members_recursive(ws) | {self.graph['slipnet']} #HACK
 
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''

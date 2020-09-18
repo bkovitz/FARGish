@@ -22,7 +22,7 @@ from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
-    HasAttr, NotNode, Criterion
+    HasAttr, NotNode, Criterion, Activated
 from exc import NeedArg, FargDone
 from Predefs import AllTagged
 
@@ -44,7 +44,6 @@ SameValue, AllMembersSameValue : Tag
 
 Group(members)
 Glom : Group
-Slipnet: Group
 
 Number(value)
 Brick, Target, Block(source, consumer) : Number
@@ -90,6 +89,16 @@ Numble = make_numble_class(
 #Tag.add_tag = cls_add_tag  # HACK
 
 ##### Custom Actions
+
+@dataclass
+class ActivateSlipnode(Action):
+    slipnode: int
+
+    def go(self, g):
+        ws = g.graph['ws']  # TODO OAOO
+        new_node = g.copy_group(self.slipnode, ws)
+        g.set_activation(new_node, 6.0)
+        g.set_activation(self.slipnode, 0.1)
 
 @dataclass
 class SeekAndGlom(Action):
@@ -213,14 +222,28 @@ class StartScout(Action):
 
 is_number = OfClass(Number)
 
+class Slipnet(Group, ActiveNode):
+
+    min_support_for = 1.0
+    min_activation = 2.0
+
+    def actions(self, g, thisid):
+        actives = g.find_all(Activated(), subset=g.members_of(thisid))
+        print('ACTIVE SLIPNODES', actives)
+        return [ActivateSlipnode(slipnode) for slipnode in actives]
+
 class AllBricksAvail(Tag, ActiveNode):
 
     initial_support_for = 1.0
+    initial_activation = 10.0  # HACK
 
     def actions(self, g, thisid):
         bricks = g.find_all(OfClass(Brick))
         if not AllTagged(g, Avail, bricks):
             return [SelfDestruct(thisid)]
+
+    def on_build(self, g, thisid):
+        g.set_mutual_activation(thisid, g.find_archetype(thisid), weight=1.0)
         
 
 class NoticeAllBricksAvail(ActiveNode):
@@ -360,16 +383,22 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         self.make_node(NoticeAllBricksAvail, member_of=ws)
 
     def fill_slipnet(self, slipnet: int):
-        make_action_sequence(
+        seqnode = make_action_sequence(
             self,
             SeekAndGlom(within=ws, criteria=OfClass(Brick)),
             NoticeAllSameValue(value=1, within=None),
             CountMembers(within=None),
             NoticeSameValue(node1=None, node2=None),
             AddAllInGlom(),
-            min_activation=6.0,
-            min_support_for=6.0,
             member_of=slipnet,
+        )
+        aba = self.make_node(AllBricksAvail, member_of=slipnet)
+        self.set_activation_from_to(aba, seqnode, weight=1.0)
+
+    def find_archetype(self, node):
+        slipnet = self.graph['slipnet']  # TODO OAOO
+        return self.find_all(
+            OfClass(self.class_of(node)), subset=self.members_of(slipnet)
         )
 
     def consume_operands(
@@ -515,9 +544,10 @@ if __name__ == '__main__':
     # all the Bricks are 1, and the number of Bricks = the Target.
 
     g.do_timestep(num=1)
+    pg(g)
     #print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
-    g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
-    g.do_timestep(num=29)
+    #g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
+    #g.do_timestep(num=29)
     #pg(g)
 
 

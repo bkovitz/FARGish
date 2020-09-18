@@ -45,6 +45,10 @@ class WithActivation:
                 weight=weight
             )
 
+    def set_mutual_activation(self, node1, node2, weight=0.2):
+        self.set_activation_from_to(node1, node2, weight=weight)
+        self.set_activation_from_to(node2, node1, weight=weight)
+
     def activation_from_to(self, from_node, to_node):
         return self.hop_weight(
             from_node, 'activation_to', to_node, 'activation_from'
