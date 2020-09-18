@@ -5,6 +5,9 @@ from PortGraph import PortGraph, Hop, Node, pg, ps
 
 import unittest
 
+class AutoSupportedNode(Node):
+    min_support_for = 4.0
+
 class TestSupport(unittest.TestCase):
 
     def test_support(self):
@@ -32,8 +35,10 @@ class TestSupport(unittest.TestCase):
         self.assertAlmostEqual(d['O'], 0.11107952571123292)
 
     def test_min_support_for(self):
-        #TODO
-        pass
+        g = PortGraph()
+        node = g.make_node(AutoSupportedNode)
+        self.assertAlmostEqual(g.min_support_for(node), 4.0)
+        self.assertAlmostEqual(g.support_for(node), 4.0)
 
 if __name__ == '__main__':
     from TimeStepper import TimeStepper

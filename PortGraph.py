@@ -1146,7 +1146,10 @@ class PortGraph(nx.MultiGraph):
     #TODO mv to WithSupport mix-in
     def support_for(self, node):
         try:
-            return self.nodes[node]['support']
+            return max(
+                self.nodes[node]['support'],
+                self.min_support_for(node)
+            )
         except KeyError:
             return 0.0
 
