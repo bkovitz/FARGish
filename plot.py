@@ -4,9 +4,10 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
-a = np.loadtxt('support.csv', delimiter=',')
+#a = np.loadtxt('support.csv', delimiter=',')
+a = np.loadtxt('activation.csv', delimiter=',')
 
-node = 27
+node = 36
 
 # [timestep, support] only for node
 b = a[:, [0, 2]][a[:, 1] == node]

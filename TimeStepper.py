@@ -12,13 +12,13 @@ from PortGraph import NodesWithSalience, pg
 from bases import CoarseView
 from Action import Action
 from ActiveNode import ActiveNode
-from util import sample_without_replacement
+from util import sample_without_replacement, empty_set
 from exc import FargDone, NeedArg
 import support
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
     ShowResults, ShowAnnotations
 from util import as_iter
-from WithActivation import WithActivation
+from WithActivation import WithActivation, log_activation
 
 
 class TimeStepper(WithActivation):
@@ -72,7 +72,7 @@ class TimeStepper(WithActivation):
             support.log_support(self)
 
             self.propagate_activation()
-            #TODO log activation
+            log_activation(self)
 
             self.update_coarse_views()
 
@@ -218,7 +218,11 @@ class TimeStepper(WithActivation):
             ws = self.graph['ws']
         except KeyError:
             return self.nodes
-        return self.members_recursive(ws) | {self.graph['slipnet']} #HACK
+        try:
+            slipnet = {self.graph['slipnet']}  # TODO OAOO
+        except KeyError:
+            slipnet = empty_set
+        return self.members_recursive(ws) | slipnet #HACK
 
     def get_active_nodes(self):
         '''Must return a collection of nodes.'''

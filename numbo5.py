@@ -97,6 +97,7 @@ class ActivateSlipnode(Action):
     def go(self, g):
         ws = g.graph['ws']  # TODO OAOO
         new_node = g.copy_group(self.slipnode, ws)
+        g.datum(new_node).min_activation = 6.0
         g.set_activation(new_node, 6.0)
         g.set_activation(self.slipnode, 0.1)
 
@@ -228,7 +229,10 @@ class Slipnet(Group, ActiveNode):
     min_activation = 2.0
 
     def actions(self, g, thisid):
-        actives = g.find_all(Activated(), subset=g.members_of(thisid))
+        actives = g.find_all(
+            Activated(), OfClass(ActiveNode),
+            subset=g.members_of(thisid)
+        )
         print('ACTIVE SLIPNODES', actives)
         return [ActivateSlipnode(slipnode) for slipnode in actives]
 

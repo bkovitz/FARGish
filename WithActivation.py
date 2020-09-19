@@ -1,7 +1,8 @@
 # WithActivation.py -- Mix-in to add activation to PortGraph
 
-from dataclasses import dataclass
+import csv
 from random import gauss
+from dataclasses import dataclass
 
 from PortGraph import PortGraph
 from support import normalize
@@ -119,3 +120,15 @@ class Propagator:
         #print('NEWA', new_d)
         for node, new_activation in new_d.items():
             g.set_activation(node, new_activation)
+
+
+def log_activation(g):
+    '''Log file format:  timestep, node, activation'''
+    t = g.graph['t']
+    mode = 'a'
+    if t <= 1:
+        mode = 'w'
+    with open('activation.csv', mode=mode, newline='') as csvfile:
+        writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+        for node, a in activation_dict(g).items():
+            writer.writerow([t, node, a])

@@ -96,12 +96,15 @@ class ActionNode(ActiveNode):
         g.add_support(thisid, failed_tag, 1.0)
 
 
-class ActionSeqNode(Node):
+class ActionSeqNode(ActiveNode):
     '''A group node whose members are a sequence of ActionNodes.'''
     node_params = NodeParams(
         MateParam('members', 'member_of'),
         AttrParam('action_nodes')  # HACK: must be a list, to indicate sequence
     )
+
+    def actions(self, g, thisid):
+        return None
 
     def on_build(self, g, thisid):
         # Give activation to each member and make each member inhibit all

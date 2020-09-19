@@ -37,8 +37,7 @@ class Action(ABC):
     # TODO rename 'urgency'
     def weight(self, g):
         return max(
-            g.support_for(self.actor),
-            g.activation(self.actor),
+            g.support_for(self.actor) + g.activation(self.actor),
             #g.salience(self.actor),  # HACK TODO rm
             self.min_weight
         )
