@@ -3,6 +3,7 @@
 from collections import namedtuple
 
 from util import is_iter, vcat, NiceRepr
+from log import *
 
 
 def make_buildspec(g, nodeclass, args=(), kwargs=None):
@@ -72,6 +73,9 @@ class BuildSpec(NiceRepr):
             self.filled_params.apply_to_node(g, nodeid)
             g.add_edge_to_default_container(nodeid)
             g.call_method(nodeid, 'on_build')
+            if ShowActionsPerformed.is_logging():
+                print(f'    built {g.long_nodestr(nodeid)}')
+                g.print_edges(nodeid, '                ')
             return nodeid
         else:
             return None

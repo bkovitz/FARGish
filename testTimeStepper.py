@@ -71,6 +71,9 @@ class TestGraph(TimeStepper, PortGraph):
 
 class TestTimeStepper(unittest.TestCase):
 
+    def setUp(self):
+        stop_all_logging()
+
     def test_time_stepper(self):
         #ShowActiveNodes.start_logging()
         #ShowActionList.start_logging()

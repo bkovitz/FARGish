@@ -30,6 +30,7 @@ class LoggingObject:
 ShowActiveNodes = LoggingObject()
 ShowActionList = LoggingObject()
 ShowActionsChosen = LoggingObject()
+ShowActionsPerformed = LoggingObject()
 ShowResponseList = LoggingObject()
 ShowResponseResults = LoggingObject()
 ShowOperandCandidates = LoggingObject()

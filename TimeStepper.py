@@ -5,7 +5,7 @@
 
 from operator import attrgetter
 from random import choice
-from typing import Union, List
+from typing import Union, List, Tuple
 import inspect
 
 from PortGraph import NodesWithSalience, pg
@@ -16,7 +16,7 @@ from util import sample_without_replacement, empty_set
 from exc import FargDone, NeedArg
 import support
 from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
-    ShowResults, ShowAnnotations
+    ShowResults, ShowAnnotations, ShowActionsPerformed
 from util import as_iter
 from WithActivation import WithActivation, log_activation
 
@@ -83,7 +83,13 @@ class TimeStepper(WithActivation):
             else:
                 actions_to_do = self.get_actions_from_graph()
 
+            if ShowActionsPerformed.is_logging():
+                print('ACTIONS PERFORMED')
+                if not actions_to_do:
+                    print('  (none)')
             for a in actions_to_do:
+                if ShowActionsPerformed.is_logging():
+                    print(f'  {a.actor}: {a}')
                 self.do_action(a)
 
             self.do_touches()
@@ -149,6 +155,31 @@ class TimeStepper(WithActivation):
         except AttributeError:
             return False
 
+    def action_sorting_key(self, action: Action) -> Tuple:
+        return (
+            self.urgency(action),
+            self.activation(action.actor),
+            self.support_for(action.actor)
+        )
+
+    def print_actions(self, actions: List[Action]):
+        if not len(actions):
+            print('  (none)')
+            return
+        headingfmt = '  %5s %5s %7s %5s %7s %4s %s'
+        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'node', 'action')
+        print(headingfmt % headings)
+        for action in sorted(actions, key=self.action_sorting_key):
+            print(fmt % (self.urgency(action),
+                         self.activation(action.actor),
+                         action.threshold,
+                         self.support_for(action.actor),
+                         action.support_threshold,
+                         action.actor,
+                         action))
+
+
     def get_actions_from_graph(self):
         '''Polls all the ActiveNodes for Actions and chooses which to
         do on this timestep.'''
@@ -175,16 +206,11 @@ class TimeStepper(WithActivation):
         actions = self.collect_actions(active_nodes)
         if ShowActionList.is_logging():
             print('ACTIONS COLLECTED')
-            for action in sorted(actions, key=lambda a: a.weight(self)):
-                print('  %.3f (%.3f) %4d %s' % (
-                    action.weight(self),
-                    action.threshold,
-                    action.actor,
-                    action
-                ))
+            self.print_actions(actions)
 
         # Filter out actions whose weight is below their threshold
-        actions = [a for a in actions if a.weight(self) >= a.threshold]
+        #actions = [a for a in actions if a.weight(self) >= a.threshold]
+        actions = [a for a in actions if self.urgency(a) > 0.0]
 
         if len(actions) == 0:
             self.consecutive_timesteps_with_no_action += 1
@@ -201,14 +227,7 @@ class TimeStepper(WithActivation):
         chosen_actions = self.choose_actions(actions)
         if ShowActionsChosen.is_logging():
             print('ACTIONS CHOSEN')
-            #TODO OAOO with above
-            for action in sorted(chosen_actions, key=lambda a: a.weight(self)): 
-                print('  %.3f (%.3f) %4d %s' % (
-                    action.weight(self),
-                    action.threshold,
-                    action.actor,
-                    action
-                ))
+            self.print_actions(chosen_actions)
         return chosen_actions
 
     def allowable_active_nodes(self):
@@ -231,19 +250,19 @@ class TimeStepper(WithActivation):
                     ActiveNode,
                     nodes=self.allowable_active_nodes()
                 )
-                    #if not self.datum(node).dormant(self, node)
                     if not self.is_dormant(node)
         )
 
     def choose_active_nodes(self, active_nodes, k=None):
-        '''Randomly chooses up to k Actions, weighted by .weight.
+        '''Randomly chooses up to k Actions, weighted by activation.
         Returns a collection. k defaults to self.max_active_nodes.'''
         if k is None:
             k = self.max_active_nodes
         return list(sample_without_replacement(
             active_nodes,
             k=k,
-            weights=[self.support_for(node) for node in active_nodes]
+            #weights=[self.support_for(node) for node in active_nodes]
+            weights=[self.activation(node) for node in active_nodes]
         ))
 
     def collect_actions(self, active_nodes):
@@ -260,19 +279,31 @@ class TimeStepper(WithActivation):
         return actions
 
     def choose_actions(self, actions, k=None):
-        '''Randomly chooses up to k Actions, weighted by .weight.
+        '''Randomly chooses up to k Actions, weighted by .urgency.
         Returns a collection. k defaults to self.max_actions.'''
         if k is None:
             k = self.max_actions
         return list(sample_without_replacement(
             actions,
             k=k,
-            weights=[a.weight(self) - a.threshold for a in actions]
+            weights=[self.urgency(a) for a in actions]
         ))
 
     def update_coarse_views(self):
         for nodeid in self.nodes_of_class(CoarseView):
             self.datum(nodeid).update(self, nodeid)
+
+    def urgency(self, action: Action) -> float:
+        support = self.support_for(action.actor)
+        if support < action.support_threshold:
+            return action.min_urgency
+        activation = self.activation(action.actor)
+        if activation < action.threshold:
+            return action.min_urgency
+        return max(
+            activation - action.threshold,
+            action.min_urgency
+        )
 
     def propagate_support(self):
         try:

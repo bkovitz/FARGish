@@ -26,9 +26,9 @@ class Node:
 
     can_need_update = False  # override with True to get NeedsUpdate tag
     min_support_for = 0.0
-    initial_support_for = 0.01
+    initial_support_for = 0.1
     min_activation = 0.0
-    initial_activation = 0.01
+    initial_activation = 0.1
     node_params = None       # a NodeParams object
 
     @classmethod
@@ -492,7 +492,28 @@ class PortGraph(nx.MultiGraph):
         if node is None:
             return 'None'
         else:
-            return str(node) + ': ' + self.datumstr(node)
+            return f'{node:4d}: {self.datumstr(node)}'
+            #return str(node) + ': ' + self.datumstr(node)
+
+    def long_nodestr(self, node):
+        return '%s  a=%.3f supp=%.3f sal=%.3f' % (
+            self.nodestr(node),
+            self.activation(node),
+            self.support_for(node),
+            self.salience(node)
+        )
+
+    def print_edges(self, node, prefix=''):
+        for hop in sorted(
+            self.hops_from_node(node), key=attrgetter('from_port_label')
+        ):
+            print('%s%s --> %s %s (%.3f)' % (
+                prefix,
+                hop.from_port_label,
+                self.nodestr(hop.to_node),
+                hop.to_port_label,
+                self.hop_weight(hop)
+            ))
 
     def datumstr(self, node):
         datum = self.datum(node)
@@ -1542,21 +1563,8 @@ def pg(g, nodes=None):
     elif isclass(nodes) and issubclass(nodes, Node):
         nodes = g.nodes_of_class(nodes)
     for node in as_iter(nodes):
-        print('%s  a=%.3f supp=%.3f sal=%.3f' % (
-            g.nodestr(node),
-            g.activation(node),
-            g.support_for(node),
-            g.salience(node)
-        ))
-        for hop in sorted(
-            g.hops_from_node(node), key=attrgetter('from_port_label')
-        ):
-            print('  %s --> %s %s (%.3f)' % (
-                hop.from_port_label,
-                g.nodestr(hop.to_node),
-                hop.to_port_label,
-                g.hop_weight(hop)
-            ))
+        print(g.long_nodestr(node))
+        g.print_edges(node, prefix='      ')
 
 def ps(g, nodes=None, by='support', e=False):
     '''Prints each node with its support and salience (but not its edges).

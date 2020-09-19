@@ -10,9 +10,12 @@ class TestBrute(unittest.TestCase):
 
     def setUp(self):
         stop_all_logging()
+        #ShowActionList.start_logging()
+        #ShowActionsPerformed.start_logging()
 
     def test_brute(self):
         g = run(seed=4730533389549952010)
+        #pg(g)
         self.assertTrue(
             isinstance(g.done(), NumboSuccess),
             'Did not solve numble'

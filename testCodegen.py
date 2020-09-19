@@ -7,15 +7,18 @@ from codegen import make_python, compile_fargish
 from PortGraph import PortGraph, Node, pg
 from TimeStepper import TimeStepper
 from LinkSpec import LinkSpec
-from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, ShowResults
+from log import *
 
 class TestGraph(TimeStepper, PortGraph):
     pass
 
 class TestCodegen(unittest.TestCase):
 
+    def setUp(self):
+        stop_all_logging()
+
     def test_one_simple_node(self):
-        g = PortGraph()
+        g = TestGraph()
         prog = '''
 SomeNode
 '''
@@ -31,7 +34,7 @@ SomeNode
         self.assertCountEqual(got, expect)
 
     def test_node_with_arg(self):
-        g = PortGraph()
+        g = TestGraph()
         prog = '''
 Number(n)
 Brick : Number'''
@@ -51,7 +54,7 @@ Number(n)
 Scout(target)'''
         #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
-        g = PortGraph(port_mates=port_mates)
+        g = TestGraph(port_mates=port_mates)
         #nid = g.make_node(Number(3))
         nid = g.make_node(Number, 3)
         #sid = g.make_node(Scout(nid))

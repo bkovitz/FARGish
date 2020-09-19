@@ -13,11 +13,11 @@ from exc import NeedArg
 class Action(ABC):
     '''An action to be performed on the graph.'''
 
-    threshold = 0.0
+    threshold = 0.01   # activation threshold
+    support_threshold = 0.0
     # .weight() must be >= threshold for Action.go() to be called
 
-    # TODO rname 'min_urgency'
-    min_weight = 0.1
+    min_urgency = 0.0
 
     on_behalf_of = None
     # The ActiveNode, if any, that produced this action. Descendant classes
@@ -33,14 +33,6 @@ class Action(ABC):
         #TODO .go should return some sort of result or disposition, if only
         #to print in log files.
         pass
-
-    # TODO rename 'urgency'
-    def weight(self, g):
-        return max(
-            g.support_for(self.actor) + g.activation(self.actor),
-            #g.salience(self.actor),  # HACK TODO rm
-            self.min_weight
-        )
 
     def get_kwarg(self, name):
         try:
