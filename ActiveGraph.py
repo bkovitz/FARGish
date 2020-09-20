@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 NodeId = NewType('NodeId', int)
@@ -15,15 +15,27 @@ PortLabels = Union[PortLabel, None, Iterable[PortLabel]]
 
 @dataclass
 class Node:
-    id: NodeId
+    '''.id and .g should be filled in by ActiveGraph._add_node() as soon as
+    the actual node is created in the graph. We allow them to be uninitialized
+    so you can create a Node object before passing it to _add_node(). This is
+    also useful in unit tests.
+
+    Two nodes are 'equal' (as concerns __eq__) if they hold the same attributes,
+    even if they have different NodeIds and come from different graphs.'''
+
+    id: NodeId = field(init=False, compare=False)
+    g: 'ActiveGraph' = field(init=False, compare=False)
 
     is_tag = False
+
+    def is_same_node(self, other: 'Node') -> bool:
+        return self.id == other.id and self == other
 
 
 NRef = Union[NodeId, Node, None]   # A Node reference
 NRefs = Union[NRef, Iterable[NRef]]
 
-@dataclass
+@dataclass(frozen=True)
 class Hop:
     from_node: NodeId
     from_port_label: PortLabel
@@ -55,7 +67,9 @@ class PortGraphPrimitives(ABC):
         pass
 
     @abstractmethod
-    def _add_node(self, nodeid: NodeId, datum: Node):
+    def _add_node(self, datum: Node) -> NodeId:
+        '''Should assign the node a unique nodeid, set datum.id to that id,
+        set datum.g to the graph, and return the nodeid.'''
         pass
 
     @abstractmethod
@@ -84,12 +98,28 @@ class PortGraphPrimitives(ABC):
         pass
 
     @abstractmethod
-    def _neighbors(self, nodeid: NodeId) -> List[NodeId]:
+    def _neighbors(self, nodeid: NodeId) -> Iterable[NodeId]:
         pass
 
     @abstractmethod
     def remove_hop(self, hop: Hops):
         pass
+
+    def find_hop(
+        self,
+        from_node: NodeId,
+        from_port_label: PortLabel,
+        to_node: NodeId,
+        to_port_label: PortLabel
+    ) -> Union[Hop, None]:
+        '''Returns the Hop if it exists, else None.'''
+        try:
+            return next(hop for hop in self.hops_to_neighbor(from_node, to_node)
+                                if hop.from_port_label == from_port_label
+                                    and
+                                    hop.to_port_label == to_port_label)
+        except StopIteration:
+            return None
 
     @abstractmethod
     def hops_from_node(self, nodeid: MaybeNodeId) -> FrozenSet[Hop]:
@@ -102,13 +132,37 @@ class PortGraphPrimitives(ABC):
         pass
 
     @abstractmethod
-    def port_labels(self, nodeid: MaybeNodeId) -> PortLabels:
+    def hops_to_neighbor(
+        self, nodeid: NodeId, neighborid: NodeId
+    ) -> FrozenSet[Hop]:
         pass
 
-    @property
     @abstractmethod
-    def nodes(self) -> Iterable[Node]:
+    def _port_labels(self, nodeid: MaybeNodeId) -> PortLabels:
+        '''Should return only port labels on nodeid that actually have
+        Hops connected to them.'''
         pass
+
+    @abstractmethod
+    def _nodeids(self) -> Iterable[NodeId]:
+        '''Should return all NodeIds.'''
+        pass
+
+    @abstractmethod
+    def _nodes(self) -> Iterable[Node]:
+        '''Should return all Nodes (datum, not nodeid).'''
+        pass
+
+    @abstractmethod
+    def num_nodes(self) -> int:
+        pass
+
+    @abstractmethod
+    def num_edges(self) -> int:
+        pass
+
+    def __len__(self):
+        return self.num_nodes()
 
 class ActiveGraphPrimitives(PortGraphPrimitives):
     @abstractmethod

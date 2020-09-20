@@ -11,7 +11,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testActionNode.TestActionNode.test_simplest_action_node
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
-	$(PY) -m unittest -v test_networkx
+	$(PY) -m unittest -v testNetworkxPortGraph
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
