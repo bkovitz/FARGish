@@ -10,7 +10,8 @@ ut:
 # Convenience target for single test current being worked on
 u:
 	#$(PY) -m unittest -v testActionNode.TestActionNode.test_simplest_action_node
-	$(PY) -m unittest -v testBrute.TestBrute.test_brute
+	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
+	$(PY) -m unittest -v test_networkx
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
