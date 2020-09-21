@@ -2,7 +2,8 @@
 #                   supporting classes
 
 from abc import ABC, abstractmethod
-from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type
+from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
+    ClassVar
 from dataclasses import dataclass, field
 
 
@@ -26,8 +27,13 @@ class Node:
     id: NodeId = field(init=False, compare=False)
     g: 'ActiveGraph' = field(init=False, compare=False)
 
-    is_tag = False
+    node_params: ClassVar[Union[NodeParams, None]] = None
+    is_tag: ClassVar[bool] = False
+    is_duplicable: ClassVar[bool] = False  # May multiple instances of this
+                                           # exist at the same time?
 
+    def __init__(self, *args, **kwargs):
+        
     def is_same_node(self, other: 'Node') -> bool:
         return self.id == other.id and self == other
 
@@ -166,6 +172,18 @@ class PortGraphPrimitives(ABC):
 
 class ActiveGraphPrimitives(PortGraphPrimitives):
     @abstractmethod
+    def add_node(
+        self,
+        node: Union[Type[Node], Node],
+        *args,
+        **kwargs
+    ) -> Node:
+        '''If node is a Node object, creates the node and fills in its .id.
+        If node is a Node class, creates the Node object from args and
+        kwargs. Either way, returns the Node object.'''
+        pass
+
+    @abstractmethod
     def add_edge(
         self,
         node1: NRefs,
@@ -200,6 +218,9 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
     ) -> Set[NodeId]:
         pass
 
+    def nodes(self) -> Set[Node]:
+        return set(self._nodes())
+
 class Building(ActiveGraphPrimitives):
     pass
 
@@ -218,6 +239,56 @@ class Members(ActiveGraphPrimitives):
 class ActiveGraph(
     Building, Activation, Support, Touches, Members, ActiveGraphPrimitives 
 ):
+    # Overrides for ActiveGraphPrimitives
+
+    def add_node(
+        self,
+        node: Union[Type[Node], Node],
+        *args,
+        **kwargs
+    ) -> Node:
+        if isinstance(node, Node):
+            self._add_node(node)
+            # TODO Apply link FilledParams
+        else:
+            assert issubclass(node, Node), f'{node} is not a subclass of Node'
+            node: Node = node(*args, **kwargs)
+            self._add_node(node)
+            # TODO Link the FilledParams
+        return node
+
+    def add_edge(
+        self,
+        node1: NRefs,
+        port_label1: PortLabels,
+        node2: NRefs,
+        port_label2: PortLabels,
+        **attr
+    ):
+        pass
+
+    def has_edge(self, u, v, w=None, y=None) -> bool:
+        pass
+
+    def remove_edge(
+        self,
+        node1: NRefs,
+        port_label1: PortLabels,
+        node2: NRefs,
+        port_label2: PortLabels,
+    ):
+        pass
+
+    def neighbors(
+        self,
+        node: NRefs,
+        port_label: PortLabels,
+        neighbor_class: Union[Type[Node], NodeId, None],
+        neighbor_label: PortLabels
+    ) -> Set[NodeId]:
+        pass
+
+    # Additional methods (not overrides)
 
     def do_action(self, action: 'Action'):
         pass

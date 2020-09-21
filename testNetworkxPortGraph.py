@@ -105,6 +105,10 @@ class TestNetworkxPortGraph(unittest.TestCase):
         self.assertCountEqual(g.hops_to_neighbor(nodeid1, nodeid2), [])
         self.assertCountEqual(g.hops_to_neighbor(nodeid2, nodeid1), [])
 
+        # ._port_labels()
+        self.assertCountEqual(g._port_labels(nodeid1), ['to'])
+        self.assertCountEqual(g._port_labels(nodeid2), ['from'])
+
     def test_networkx_port_graph_remove_node(self):
         g = NetworkxPortGraph()
         
