@@ -6,6 +6,9 @@ from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
     ClassVar
 from dataclasses import dataclass, field
 
+from NodeParams import NodeParams, FilledParams
+from util import repr_str
+
 
 NodeId = NewType('NodeId', int)
 MaybeNodeId = Union[NodeId, None]
@@ -33,10 +36,39 @@ class Node:
                                            # exist at the same time?
 
     def __init__(self, *args, **kwargs):
+        if len(args) == 1 and isinstance(args[0], FilledParams):
+            #TODO apply FilledParams, just Attrs
+            pass
+        else:
+            # Initialize via .node_params, but since we don't have access to
+            # the graph here in __init__, we only call .node_params.on_init().
+            try:
+                kwargs = self.node_params.args_into_kwargs(args, kwargs)
+            except TooManyArgs0 as exc:
+                num_args = len(exc.args)
+                raise TooManyArgs(
+f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters ({len(self.node_params)}): {repr(exc.args)}.'''
+                )
+            self.node_params.on_init(self, kwargs)
         
     def is_same_node(self, other: 'Node') -> bool:
         return self.id == other.id and self == other
 
+    def __repr__(self):
+        if self.name:
+            return self.name
+        elif self.node_params:
+            return repr_str(
+                self.__class__.__name__,
+                self.node_params.node_repr_kvs(self)
+            )
+        else:
+            return self.__class__.__name__
+
+    def __getattr__(self, name):
+        '''All attrs default to None, to make them easy to override in
+        subclasses.'''
+        return None
 
 NRef = Union[NodeId, Node, None]   # A Node reference
 NRefs = Union[NRef, Iterable[NRef]]
@@ -218,8 +250,11 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
     ) -> Set[NodeId]:
         pass
 
-    def nodes(self) -> Set[Node]:
-        return set(self._nodes())
+    def nodes(self) -> Iterable[Node]:
+        return self._nodes()
+
+    def nodeids(self) -> Set[NodeId]:
+        return set(self._nodeids())
 
 class Building(ActiveGraphPrimitives):
     pass
@@ -243,18 +278,30 @@ class ActiveGraph(
 
     def add_node(
         self,
-        node: Union[Type[Node], Node],
+        node: Union[Type[Node], Node, str],
         *args,
         **kwargs
     ) -> Node:
+        # Check is_already_built
         if isinstance(node, Node):
             self._add_node(node)
             # TODO Apply link FilledParams
         else:
+            # If node is a str, get_nodeclass
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
-            node: Node = node(*args, **kwargs)
+            filled_params = node.node_params.make_filled_params(
+                self, node.node_params.args_into_kwargs(args, kwargs)
+            )
+            node: Node = node()
             self._add_node(node)
+            filled_params.apply_to_node(self, node.id)
+
             # TODO Link the FilledParams
+        # add_edge_to_default_container
+        # on_build
+        # built_by
+        # logging
+        # touches
         return node
 
     def add_edge(

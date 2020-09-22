@@ -436,8 +436,8 @@ class PortGraph(nx.MultiGraph):
         '''Builds a new node with specified class and arguments, fills
         the node's datum with specified attrs, gives the node an 'id' attr
         holding its id, and links the node to specified mates--unless a node
-        linked in the exact same neighbors already exists. Returns the nodeid
-        if created; otherwise None.'''
+        linked to the exact same neighbors by the exact same port labels
+        already exists. Returns the nodeid if created; otherwise None.'''
         if not isinstance(nodeclass, Node) and not isclass(nodeclass):
             try:
                 nodeclass = self.get_nodeclass(nodeclass)
