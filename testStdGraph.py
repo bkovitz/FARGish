@@ -5,42 +5,91 @@ from pprint import pprint as pp
 import inspect
 
 from StdGraph import Graph, pg 
-from ActiveGraph import Node, NodeId, NRef, as_nodeid, as_node
+from ActiveGraph import Node, NodeId, NRef, as_nodeid, as_node, as_nodeids, \
+    as_nodes
 from NodeParams import NodeParams, AttrParam, MateParam
 
 class Brick(Node):
     node_params = NodeParams(AttrParam('value'))
+    is_duplicable = True
 
 class Avail(Node):
     is_tag = True
     node_params = NodeParams(MateParam('taggees', 'tags'))
 
+class UniqueNumber(Node):
+    node_params = NodeParams(AttrParam('value'))
+
 
 class TestStdGraph(unittest.TestCase):
 
-    def test_stdgraph(self):
+    def test_stdgraph_nodebuilding(self):
         g = Graph()
 
+        # Make two Bricks
         b1 = g.add_node(Brick, value=1)
         b2 = g.add_node(Brick(2))
+
         self.assertEqual(str(b1), 'Brick(1)')
         self.assertEqual(str(b2), 'Brick(2)')
+        self.assertNotEqual(b1.id, b2.id)
+
         self.assertIs(as_node(g, b1.id), b1)
         self.assertIs(as_node(g, b2.id), b2)
         self.assertEqual(as_nodeid(b1), b1.id)
         self.assertEqual(as_nodeid(b2), b2.id)
 
+        self.assertCountEqual(as_nodeids([b1, b2, None]), [b1.id, b2.id])
+        self.assertCountEqual(as_nodes(g, [b1.id, b2, None]), [b1, b2])
+
+        # Tag one Brick Avail
         a1 = g.add_node(Avail, b1)
-        pg(g)
+
+        self.assertTrue(g.has_edge(b1, 'tags', a1, 'taggees'))
+        self.assertEqual(len(g.hops_from_port(b1, 'tags')), 1)
+
+        alr = g.already_built(Avail, b1)
+        self.assertIs(a1, alr)
+
+        # Try to double-tag it: nothing should happen
+        a1_a = g.add_node(Avail, b1)
+
+        #pg(g)
+        self.assertEqual(len(g.hops_from_port(b1, 'tags')), 1)
+        self.assertIs(a1_a, a1)
+
+    def test_unique_node_via__init__(self):
+        g = Graph()
+
+        # Make the nodes by calling Node.__init__
+        u1 = g.add_node(UniqueNumber(1))
+        u1_a = g.add_node(UniqueNumber(1))
+        u2 = g.add_node(UniqueNumber(2))
+
+        self.assertIs(g.already_built(UniqueNumber(1)), u1)
+        self.assertIs(u1, u1_a)
+        self.assertIsNot(u1, u2)
+        self.assertEqual(g.num_nodes(), 2)
+
+    def test_unique_node(self):
+        g = Graph()
+
+        # Make the nodes by getting g.add_node() to construct them
+        u1 = g.add_node(UniqueNumber, 1)
+        u1_a = g.add_node(UniqueNumber, 1)
+        u2 = g.add_node(UniqueNumber, 2)
+
+        self.assertIs(g.already_built(UniqueNumber, 1), u1)
+        self.assertIs(u1, u1_a)
+        self.assertIsNot(u1, u2)
+        self.assertEqual(g.num_nodes(), 2)
 
 
 if __name__ == '__main__':
-    class Brick(Node):
-        node_params = NodeParams(AttrParam('value'))
-
     g = Graph()
     b1 = g.add_node(Brick, value=1)
     b2 = g.add_node(Brick(2))
     a1 = g.add_node(Avail, [b1])
     a11 = g.add_node(Avail, [b1])
     pg(g)
+    print(g.hops_from_node(b1))

@@ -5,87 +5,13 @@ from abc import ABC, abstractmethod
 from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
     ClassVar
 from dataclasses import dataclass, field
+from inspect import isclass
 
-from NodeParams import NodeParams, FilledParams
-from util import repr_str
+from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, \
+    NRef, NRefs, CRef, CRefs, as_nodeid, as_node, as_nodeids, as_nodes
+from PortMates import PortMates
+from util import as_iter, as_list, repr_str
 
-
-NodeId = NewType('NodeId', int)
-MaybeNodeId = Union[NodeId, None]
-
-PortLabel = NewType('PortLabel', str)
-PortLabels = Union[PortLabel, None, Iterable[PortLabel]]
-
-
-@dataclass
-class Node:
-    '''.id and .g should be filled in by ActiveGraph._add_node() as soon as
-    the actual node is created in the graph. We allow them to be uninitialized
-    so you can create a Node object before passing it to _add_node(). This is
-    also useful in unit tests.
-
-    Two nodes are 'equal' (as concerns __eq__) if they hold the same attributes,
-    even if they have different NodeIds and come from different graphs.'''
-
-    id: NodeId = field(init=False, compare=False)
-    g: 'ActiveGraph' = field(init=False, compare=False)
-
-    node_params: ClassVar[Union[NodeParams, None]] = None
-    is_tag: ClassVar[bool] = False
-    is_duplicable: ClassVar[bool] = False  # May multiple instances of this
-                                           # exist at the same time?
-
-    def __init__(self, *args, **kwargs):
-        if len(args) == 1 and isinstance(args[0], FilledParams):
-            #TODO apply FilledParams, just Attrs
-            pass
-        else:
-            # Initialize via .node_params, but since we don't have access to
-            # the graph here in __init__, we only call .node_params.on_init().
-            # TODO Should we raise an error if kwargs specified a node to link
-            # to?
-            try:
-                kwargs = self.node_params.args_into_kwargs(args, kwargs)
-            except TooManyArgs0 as exc:
-                num_args = len(exc.args)
-                raise TooManyArgs(
-f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters ({len(self.node_params)}): {repr(exc.args)}.'''
-                )
-            self.node_params.on_init(self, kwargs)
-        
-    def is_same_node(self, other: 'Node') -> bool:
-        return self.id == other.id and self == other
-
-    def __repr__(self):
-        if self.name:
-            return self.name
-        elif self.node_params:
-            return repr_str(
-                self.__class__.__name__,
-                self.node_params.node_repr_kvs(self)
-            )
-        else:
-            return self.__class__.__name__
-
-    def __getattr__(self, name):
-        '''All attrs default to None, to make them easy to override in
-        subclasses.'''
-        return None
-
-NRef = Union[NodeId, Node, None]   # A Node reference
-NRefs = Union[NRef, Iterable[NRef]]
-
-def as_nodeid(nref: NRef) -> Union[NodeId, None]:
-    if isinstance(nref, int) or nref is None:
-        return nref
-    assert isinstance(nref, Node)
-    return nref.id
-
-def as_node(g: 'ActiveGraph', nref: NRef) -> Union[Node, None]:
-    if isinstance(nref, Node) or nref is None:
-        return nref
-    assert isinstance(nref, int)
-    return g.datum(nref)
 
 @dataclass(frozen=True)
 class Hop:
@@ -232,9 +158,9 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
     @abstractmethod
     def add_edge(
         self,
-        node1: NRefs,
+        nodes1: NRefs,
         port_label1: PortLabels,
-        node2: NRefs,
+        nodes2: NRefs,
         port_label2: PortLabels,
         **attr
     ):
@@ -297,6 +223,10 @@ class Members(ActiveGraphPrimitives):
 class ActiveGraph(
     Building, Activation, Support, Touches, Members, ActiveGraphPrimitives 
 ):
+    port_mates = PortMates([
+        ('members', 'members_of'), ('tags', 'taggees')
+    ])
+
     # Overrides for ActiveGraphPrimitives
 
     def add_node(
@@ -307,19 +237,22 @@ class ActiveGraph(
     ) -> Node:
         # Check is_already_built
         if isinstance(node, Node):
+            already = self.already_built(node, *args, **kwargs)
+            if already:
+                return already
             self._add_node(node)
-            # TODO Apply link FilledParams
+            # TODO Apply link FilledParams?
         else:
             # If node is a str, get_nodeclass
+            already = self.already_built(node, *args, **kwargs)
+            if already:
+                return already
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
-            filled_params = node.node_params.make_filled_params(
-                self, node.node_params.args_into_kwargs(args, kwargs)
-            )
-            node: Node = node()
+            filled_params = node.make_filled_params(self, *args, **kwargs)
+            node: Node = node()  # Create the Node object
             self._add_node(node)
             filled_params.apply_to_node(self, node.id)
 
-            # TODO Link the FilledParams
         # add_edge_to_default_container
         # on_build
         # built_by
@@ -329,16 +262,44 @@ class ActiveGraph(
 
     def add_edge(
         self,
-        node1: NRefs,
+        nodes1: NRefs,
         port_label1: PortLabels,
-        node2: NRefs,
+        nodes2: NRefs,
         port_label2: PortLabels,
         **attr
     ):
-        pass
+        for fromid in as_nodeids(nodes1):
+            for fromlabel in as_iter(port_label1):
+                for toid in as_nodeids(nodes2):
+                    for tolabel in as_iter(port_label2):
+                        self._add_edge(fromid, fromlabel, toid, tolabel)
 
-    def has_edge(self, u, v, w=None, y=None) -> bool:
-        pass
+    def has_edge(
+        self,
+        nodes1: NRefs,
+        port_label1: PortLabels,
+        nodes2: NRefs,
+        port_label2: PortLabels
+    ) -> bool:
+        '''Returns True iff all the nodes specified have edges between all
+        the port labels specified.'''
+        for fromid in as_nodeids(nodes1):
+            for fromlabel in as_iter(port_label1):
+                for toid in as_nodeids(nodes2):
+                    for tolabel in as_iter(port_label2):
+                        if not self.find_hop(fromid, fromlabel, toid, tolabel):
+                            return False
+        return True
+
+    def has_hop(self, from_node, from_port_label, to_node, to_port_label):
+        return bool(
+            self.find_hop(
+                self.as_nodeid(from_node),
+                from_port_label,
+                self.as_nodeid(to_node),
+                to_port_label
+            )
+        )
 
     def remove_edge(
         self,
@@ -347,23 +308,136 @@ class ActiveGraph(
         node2: NRefs,
         port_label2: PortLabels,
     ):
-        pass
+        '''It is not an error to remove an edge that does not exist. If the
+        edge did exist, we remove it and "touch" both nodes.'''
+        raise NotImplementedError
 
+    # TODO UT
     def neighbors(
         self,
-        node: NRefs,
-        port_label: PortLabels,
-        neighbor_class: Union[Type[Node], NodeId, None],
-        neighbor_label: PortLabels
+        nodes: NRefs,
+        port_label: PortLabels = None,
+        neighbor_class: Union[Type[Node], NRef] = None,
+        neighbor_label: PortLabels = None
     ) -> Set[NodeId]:
-        pass
+        result = set()
+        if port_label is None:
+            for node in as_iter(nodes):
+                result.update(self._neighbors(as_nodeid(node)))
+        else:
+            for node in as_iter(nodes):
+                for pl in as_iter(port_label):
+                    result.update(
+                        hop.to_node
+                            for hop in self.hops_from_port(node, pl)
+                    )
+
+        # Now pare down the neighbors to just those specified
+        if neighbor_class:
+            for nodeid in result:
+                if self.is_of_class(nodeid, neighbor_class):
+                    result.discard(nodeid)
+        if neighbor_label:
+            #TODO
+            raise NotImplementedError
+
+        return result
 
     # Additional methods (not overrides)
+
+    def as_nodeid(self, nref: NRef) -> Union[NodeId, None]:
+        return as_nodeid(nref)
+
+    def as_nodeids(self, nrefs: NRefs) -> Set[NodeId]:
+        return as_nodeids(nrefs)
 
     def as_node(self, nref: NRef) -> Union[Node, None]:
         return as_node(self, nref)
 
+    def as_nodes(self, nrefs: NRefs) -> Iterable[Node]:
+        return as_nodes(self, nrefs)
+
+    def already_built(
+        self,
+        nodeclass: Union[Type[Node], Node],
+        *args,     # ignored if nodeclass is a Node
+        **kwargs   # ignored if nodeclass is a Node
+    ) -> Union[Node, None]:
+        '''Returns None if the specified node is not already built, or the
+        Node if it is. A nodeclass with .is_duplicable == True is never
+        deemed already built. If nodeclass is a Node object, we look for
+        existing nodes with the same class and parameters, getting the
+        Node object's parameters by calling its .regen_kwargs() method.'''
+        if isinstance(nodeclass, Node):
+            args = ()
+            kwargs = nodeclass.regen_kwargs()
+            nodeclass = nodeclass.__class__
+        if nodeclass.is_duplicable:
+            return None
+        filled_params = nodeclass.make_filled_params(self, *args, **kwargs)
+        if filled_params.specifies_attrs():
+            candidates = self.nodes()
+        else:
+            candidates = self.neighbors(filled_params.potential_neighbors())
+        try:
+            return self.as_node(next(
+                candidate
+                    for candidate in candidates
+                        if filled_params.is_match(self, nodeclass, candidate)
+            ))
+        except StopIteration:
+            return None
+
+    def is_of_class(self, nrefs: NRefs, nodeclasses: CRefs) -> bool:
+        '''Returns True iff all nodes referenced are instances of all the
+        nodeclasses referenced. Returns False if there are no node references
+        or no nodeclasses.'''
+        nodes = as_list(self.as_nodes(nrefs))
+        if not nodes:
+            return False
+        nodeclasses = self.as_nodeclasses(nodeclasses)
+        if not nodeclasses:
+            return False
+        return all(
+            isinstance(node, cl)
+                for node in nodes
+                    for cl in nodeclasses
+        )
+
+    def value_of(self, nref: NRef, attr_name: str='value') -> Any:
+        try:
+            return getattr(self.as_node(nref), attr_name)
+        except AttributeError:
+            return None
+
+    def as_nodeclasses(self, crefs: Union[CRefs, None]) -> List[Type[Node]]:
+        return [self.as_nodeclass(cref) for cref in as_iter(crefs)]
+
+    def as_nodeclass(self, cref: CRef) -> Type[Node]:
+        if isclass(cref):
+            assert issubclass(cref, Node)
+            return cref
+        elif isinstance(cref, int):
+            node = self.as_node(cref)
+            if not node:
+                raise NoSuchNode(node)
+            return node.__class__
+        else:
+            assert isinstance(cref, str)
+            #TODO
+            raise NotImplementedError
+        
+    def is_port_label(self, name: str) -> bool:
+        print('ISPO', name, self.port_mates.is_port_label(name))
+        return self.port_mates.is_port_label(name)
+
     def do_action(self, action: 'Action'):
-        pass
+        raise NotImplementedError
+
+    def dict_str(self, nref: NRef) -> Union[str, None]:
+        try:
+            return self.as_node(nref).dict_str()
+        except AttributeError:
+            return None
 
 G = ActiveGraph

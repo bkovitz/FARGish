@@ -264,6 +264,12 @@ class FilledParam(ABC, NiceRepr):
     def apply_to_node(self, g, thisid):
         pass
 
+    @abstractmethod
+    def specifies_attrs(self) -> bool:
+        '''Does this FilledParams specify any attributes (as opposed to
+        mates)?'''
+        pass
+
 class FilledMate(FilledParam):
 
     def __init__(self, mate_param, mateid):
@@ -277,7 +283,8 @@ class FilledMate(FilledParam):
         neighbors = g.neighbors(
             nodeid, port_label=self.mate_param.this_port_label
         )
-        return all(m in neighbors for m in as_iter(self.mateid))
+        #return all(m in neighbors for m in as_iter(self.mateid))
+        return all(m in neighbors for m in g.as_nodeids(self.mateid))
 
     def potential_neighbors(self):
         return as_iter(self.mateid)
@@ -289,6 +296,9 @@ class FilledMate(FilledParam):
             self.mateid,
             self.mate_param.that_port_label
         )
+
+    def specifies_attrs(self) -> bool:
+        return False
 
     def __str__(self):
         return f'FilledMate({short(self.mate_param)}, {self.mateid})'
@@ -316,6 +326,9 @@ class FilledMate2(FilledParam):
     def apply_to_node(self, g, thisid):
         g.auto_link(thisid, self.this_port_label, self.mateid)
 
+    def specifies_attrs(self) -> bool:
+        return False
+
 class FilledAttr(FilledParam):
 
     def __init__(self, attr_param, value):
@@ -326,16 +339,7 @@ class FilledAttr(FilledParam):
         return False
 
     def is_match(self, g, nodeid):
-        ##'''Always returns False, so that it's possible to make multiple
-        ##instances of nodes like Numbers, Letters, etc.'''
-        ##return False
-        #HACK to allow Bricks, etc. to have multiple instances with the same
-        # value: we always return false if the node does not inherit from
-        # class Tag.
-        if not g.is_tag(nodeid):
-            return False
-        #print('FILLED', nodeid, self.attr_param)
-        return g.value_of(nodeid, self.attr_param.name) == self.value
+        return g.value_of(nodeid, self.name()) == self.value
 
     def potential_neighbors(self):
         return []
@@ -347,6 +351,15 @@ class FilledAttr(FilledParam):
         except AttributeError:
             name = self.attr_param
         setattr(datum, name, self.value)
+
+    def name(self) -> str:
+        try:
+            return self.attr_param.name
+        except AttributeError:
+            return self.attr_param
+
+    def specifies_attrs(self) -> bool:
+        return True
 
     def __str__(self):
         return f'FilledAttr({self.attr_param}={self.value})'
@@ -375,6 +388,7 @@ class FilledParams(NiceRepr):
             print(f'IS_MATCH {self} nodeid={nodeid} ioc={ioc} fps={fps} result={result}')
         return result
 
+    # TODO Rename this: very confusing!  potential_mates()?
     def potential_neighbors(self):
         result = list(chain.from_iterable(
             fp.potential_neighbors() for fp in self.fps.values()
@@ -401,7 +415,11 @@ class FilledParams(NiceRepr):
                     if not fp.is_mateparam()
         ))
         newfps.apply_to_node(g, nodeid)
-        
+
+    def specifies_attrs(self) -> bool:
+        '''Does this FilledParams specify any attributes (as opposed to
+        mates)?'''
+        return any(fp.specifies_attrs() for fp in self.fps.values())
 
     def __str__(self):
         params = ', '.join(f'{name}={val}' for name, val in self.fps.items())

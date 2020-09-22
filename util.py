@@ -4,6 +4,8 @@ from collections.abc import Iterable
 import random
 import sys
 from inspect import isclass
+from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar
 
 
 empty_set = frozenset()
@@ -45,6 +47,13 @@ def as_set(o):
         return o
     else:
         return set(as_iter(o))
+
+# TODO UT
+def omit(d: Dict, keys: Iterable) -> Dict:
+    '''Returns copy of 'd' with all members of 'keys' omitted.'''
+    return dict(
+        (k, v) for k, v in d.items() if k not in as_set(keys)
+    )
 
 def as_name(x):
     try:

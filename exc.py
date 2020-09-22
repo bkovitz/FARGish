@@ -54,6 +54,9 @@ class NeedArg(Fizzle):
     def __str__(self):
         return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
 
+class NoSuchNode(Exception):
+    pass
+
 @dataclass
 class NoSuchNodeclass(Exception):
     name: str

@@ -9,7 +9,7 @@ ut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testStdGraph.TestStdGraph.test_stdgraph
+	$(PY) -m unittest -v testNodeParams.TestNodeParams.test_is_already_built
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 	#$(PY) -m unittest -v testNetworkxPortGraph
 
