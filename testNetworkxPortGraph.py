@@ -40,12 +40,12 @@ class TestNetworkxPortGraph(unittest.TestCase):
 
         # Verify that there are no edges or ports yet
         self.assertCountEqual(g._neighbors(nodeid1), [])
-        self.assertCountEqual(g.hops_from_node(nodeid1), [])
-        self.assertCountEqual(g.hops_from_node(nodeid2), [])
-        self.assertCountEqual(g.hops_from_node(nodeid1), [])
-        self.assertCountEqual(g.hops_from_node(nodeid2), [])
-        self.assertCountEqual(g.hops_from_port(nodeid1, 'to'), [])
-        self.assertCountEqual(g.hops_from_port(nodeid2, 'from'), [])
+        self.assertCountEqual(g._hops_from_node(nodeid1), [])
+        self.assertCountEqual(g._hops_from_node(nodeid2), [])
+        self.assertCountEqual(g._hops_from_node(nodeid1), [])
+        self.assertCountEqual(g._hops_from_node(nodeid2), [])
+        self.assertCountEqual(g._hops_from_port(nodeid1, 'to'), [])
+        self.assertCountEqual(g._hops_from_port(nodeid2, 'from'), [])
         self.assertCountEqual(g._port_labels(nodeid1), [])
 
         # Create an edge between the nodes
@@ -55,33 +55,33 @@ class TestNetworkxPortGraph(unittest.TestCase):
         self.assertCountEqual(g._neighbors(nodeid1), [nodeid2])
         self.assertCountEqual(g._neighbors(nodeid2), [nodeid1])
 
-        # .hops_from_node()
+        # ._hops_from_node()
         self.assertCountEqual(
-            g.hops_from_node(nodeid1),
+            g._hops_from_node(nodeid1),
             [Hop(nodeid1, 'to', nodeid2, 'from', 0)]
         )
         self.assertCountEqual(
-            g.hops_from_node(nodeid2),
+            g._hops_from_node(nodeid2),
             [Hop(nodeid2, 'from', nodeid1, 'to', 0)]
         )
 
-        # .hops_from_port()
+        # ._hops_from_port()
         self.assertCountEqual(
-            g.hops_from_port(nodeid1, 'to'),
+            g._hops_from_port(nodeid1, 'to'),
             [Hop(nodeid1, 'to', nodeid2, 'from', 0)]
         )
         self.assertCountEqual(
-            g.hops_from_port(nodeid2, 'from'),
+            g._hops_from_port(nodeid2, 'from'),
             [Hop(nodeid2, 'from', nodeid1, 'to', 0)]
         )
 
-        # .hops_to_neighbor()
+        # ._hops_to_neighbor()
         self.assertCountEqual(
-            g.hops_to_neighbor(nodeid1, nodeid2),
+            g._hops_to_neighbor(nodeid1, nodeid2),
             [Hop(nodeid1, 'to', nodeid2, 'from', 0)]
         )
         self.assertCountEqual(
-            g.hops_to_neighbor(nodeid2, nodeid1),
+            g._hops_to_neighbor(nodeid2, nodeid1),
             [Hop(nodeid2, 'from', nodeid1, 'to', 0)]
         )
 
@@ -93,17 +93,17 @@ class TestNetworkxPortGraph(unittest.TestCase):
         self.assertCountEqual(g._neighbors(nodeid1), [])
         self.assertCountEqual(g._neighbors(nodeid2), [])
 
-        # .hops_from_node()
-        self.assertCountEqual(g.hops_from_node(nodeid1), [])
-        self.assertCountEqual(g.hops_from_node(nodeid2), [])
+        # ._hops_from_node()
+        self.assertCountEqual(g._hops_from_node(nodeid1), [])
+        self.assertCountEqual(g._hops_from_node(nodeid2), [])
 
-        # .hops_from_port()
-        self.assertCountEqual(g.hops_from_port(nodeid1, 'to'), [])
-        self.assertCountEqual(g.hops_from_port(nodeid2, 'from'), [])
+        # ._hops_from_port()
+        self.assertCountEqual(g._hops_from_port(nodeid1, 'to'), [])
+        self.assertCountEqual(g._hops_from_port(nodeid2, 'from'), [])
 
-        # .hops_to_neighbor()
-        self.assertCountEqual(g.hops_to_neighbor(nodeid1, nodeid2), [])
-        self.assertCountEqual(g.hops_to_neighbor(nodeid2, nodeid1), [])
+        # ._hops_to_neighbor()
+        self.assertCountEqual(g._hops_to_neighbor(nodeid1, nodeid2), [])
+        self.assertCountEqual(g._hops_to_neighbor(nodeid2, nodeid1), [])
 
         # ._port_labels()
         self.assertCountEqual(g._port_labels(nodeid1), ['to'])
@@ -122,8 +122,8 @@ class TestNetworkxPortGraph(unittest.TestCase):
 
         self.assertEqual(g.num_nodes(), 1)
 
-        self.assertCountEqual(g.hops_from_node(nodeid2), [])
-        self.assertCountEqual(g.hops_from_port(nodeid2, 'from'), [])
-        self.assertCountEqual(g.hops_to_neighbor(nodeid2, nodeid1), [])
+        self.assertCountEqual(g._hops_from_node(nodeid2), [])
+        self.assertCountEqual(g._hops_from_port(nodeid2, 'from'), [])
+        self.assertCountEqual(g._hops_to_neighbor(nodeid2, nodeid1), [])
         self.assertCountEqual(g._neighbors(nodeid2), [])
         self.assertEqual(g.num_edges(), 0)

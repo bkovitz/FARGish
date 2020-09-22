@@ -149,10 +149,10 @@ class NetworkxPortGraph(PortGraphPrimitives):
             self.g.nodes[node2]['hops'].remove(hop.reverse())
             self.g.remove_edge(node1, node2, hop.key)
 
-    def hops_from_node(self, nodeid) -> FrozenSet[Hop]:
+    def _hops_from_node(self, nodeid) -> FrozenSet[Hop]:
         return self.g.nodes[nodeid]['hops'].all_hops()
         
-    def hops_from_port(self, nodeid, port_label) -> FrozenSet[Hop]:
+    def _hops_from_port(self, nodeid, port_label) -> FrozenSet[Hop]:
         try:
             return self.g.nodes[nodeid]['hops'].hops_from_port_label(
                 port_label
@@ -160,9 +160,9 @@ class NetworkxPortGraph(PortGraphPrimitives):
         except KeyError:
             return empty_set
         
-    def hops_to_neighbor(self, node, neighbor_node):
+    def _hops_to_neighbor(self, nodeid, neighbor_nodeid):
         return (
-            self.g.nodes[node]['hops'].hops_to_neighbor(neighbor_node)
+            self.g.nodes[nodeid]['hops'].hops_to_neighbor(neighbor_nodeid)
         )
 
     def _port_labels(self, nodeid: NodeId) -> PortLabels:

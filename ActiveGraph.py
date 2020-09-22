@@ -42,6 +42,8 @@ class Node:
         else:
             # Initialize via .node_params, but since we don't have access to
             # the graph here in __init__, we only call .node_params.on_init().
+            # TODO Should we raise an error if kwargs specified a node to link
+            # to?
             try:
                 kwargs = self.node_params.args_into_kwargs(args, kwargs)
             except TooManyArgs0 as exc:
@@ -72,6 +74,18 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
 NRef = Union[NodeId, Node, None]   # A Node reference
 NRefs = Union[NRef, Iterable[NRef]]
+
+def as_nodeid(nref: NRef) -> Union[NodeId, None]:
+    if isinstance(nref, int) or nref is None:
+        return nref
+    assert isinstance(nref, Node)
+    return nref.id
+
+def as_node(g: 'ActiveGraph', nref: NRef) -> Union[Node, None]:
+    if isinstance(nref, Node) or nref is None:
+        return nref
+    assert isinstance(nref, int)
+    return g.datum(nref)
 
 @dataclass(frozen=True)
 class Hop:
@@ -152,7 +166,7 @@ class PortGraphPrimitives(ABC):
     ) -> Union[Hop, None]:
         '''Returns the Hop if it exists, else None.'''
         try:
-            return next(hop for hop in self.hops_to_neighbor(from_node, to_node)
+            return next(hop for hop in self._hops_to_neighbor(from_node, to_node)
                                 if hop.from_port_label == from_port_label
                                     and
                                     hop.to_port_label == to_port_label)
@@ -160,17 +174,17 @@ class PortGraphPrimitives(ABC):
             return None
 
     @abstractmethod
-    def hops_from_node(self, nodeid: MaybeNodeId) -> FrozenSet[Hop]:
+    def _hops_from_node(self, nodeid: MaybeNodeId) -> FrozenSet[Hop]:
         pass
 
     @abstractmethod
-    def hops_from_port(
+    def _hops_from_port(
         self, nodeid: MaybeNodeId, port_label: PortLabel
     ) -> FrozenSet[Hop]:
         pass
 
     @abstractmethod
-    def hops_to_neighbor(
+    def _hops_to_neighbor(
         self, nodeid: NodeId, neighborid: NodeId
     ) -> FrozenSet[Hop]:
         pass
@@ -256,6 +270,15 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
     def nodeids(self) -> Set[NodeId]:
         return set(self._nodeids())
 
+    def hops_from_node(self, node: NRef):
+        return self._hops_from_node(as_nodeid(node))
+
+    def hops_from_port(self, node: NRef, port_label: PortLabel):
+        return self._hops_from_port(as_nodeid(node), port_label)
+
+    def hops_to_neighbor(self, node: NRef, neighbor: NRef):
+        return self._hops_to_neighbor(as_nodeid(node), as_nodeid(neighbor))
+
 class Building(ActiveGraphPrimitives):
     pass
 
@@ -337,9 +360,10 @@ class ActiveGraph(
 
     # Additional methods (not overrides)
 
+    def as_node(self, nref: NRef) -> Union[Node, None]:
+        return as_node(self, nref)
+
     def do_action(self, action: 'Action'):
         pass
 
-if __name__ == '__main__':
-    g = ActiveGraph()
-    
+G = ActiveGraph
