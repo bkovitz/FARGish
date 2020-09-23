@@ -9,17 +9,34 @@ from ActiveGraph import Node, NodeId, NRef, as_nodeid, as_node, as_nodeids, \
     as_nodes
 from NodeParams import NodeParams, AttrParam, MateParam
 
+class Tag(Node):
+    is_tag = True
+    node_params = NodeParams(MateParam('taggees', 'tags'))
+
 class Brick(Node):
     node_params = NodeParams(AttrParam('value'))
     is_duplicable = True
 
-class Avail(Node):
-    is_tag = True
-    node_params = NodeParams(MateParam('taggees', 'tags'))
+class Avail(Tag):
+    pass
 
 class UniqueNumber(Node):
     node_params = NodeParams(AttrParam('value'))
 
+class Group(Node):
+    node_params = NodeParams(MateParam('members', 'member_of'))
+
+class Workspace(Group):
+    pass
+
+class Numble(Group):
+    pass
+
+class TestGraph(Graph):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.port_mates += [('bricks', 'numble')]
 
 class TestStdGraph(unittest.TestCase):
 
@@ -83,6 +100,25 @@ class TestStdGraph(unittest.TestCase):
         self.assertIs(u1, u1_a)
         self.assertIsNot(u1, u2)
         self.assertEqual(g.num_nodes(), 2)
+
+    def test_auto_membership(self):
+        g = TestGraph()
+        ws = g.add_node(Workspace)
+
+        # Explicit membership
+        numble = g.add_node(Numble, member_of=ws)
+        self.assertTrue(g.is_port_label('members'))
+        self.assertTrue(g.is_port_label('member_of'))
+        self.assertTrue(g.has_hop(ws, 'members', numble, 'member_of'))
+
+        b1 = g.add_node(Brick, value=1, member_of=numble)
+
+        # Implicit membership
+        numble_tag = g.add_node(Tag, numble)
+        self.assertTrue(g.is_member(numble_tag, ws))
+
+        brick_tag = g.add_node(Tag, b1)
+        self.assertTrue(g.is_member(brick_tag, numble))
 
 
 if __name__ == '__main__':

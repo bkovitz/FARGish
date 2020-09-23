@@ -28,7 +28,7 @@ class Node:
     id: NodeId = field(init=False, compare=False)
     g: 'ActiveGraph' = field(init=False, compare=False)
 
-    node_params: ClassVar[Union[NodeParams, None]] = None
+    node_params: ClassVar[Union[NodeParams, None]] = NodeParams()
     is_tag: ClassVar[bool] = False
     is_duplicable: ClassVar[bool] = False  # May multiple instances of this
                                            # exist at the same time?
@@ -59,6 +59,8 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         )
 
     def regen_kwargs(self) -> Dict[str, Any]:
+        '''From the kwargs dict returned by this function, you can reconstruct
+        the node, excluding its links.'''
         return omit(self.__dict__, self.attrs_not_to_copy)
         
     def is_same_node(self, other: 'Node') -> bool:
@@ -95,6 +97,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
 # TODO Disallow None in NRef? Should have MaybeNRef.
 NRef = Union[NodeId, Node, None]     # A Node reference
+MaybeNRef = Union[NRef, None]
 NRefs = Union[NRef, Iterable[NRef]]
 
 CRef = Union[Type[Node], NRef, str]  # A reference to a nodeclass

@@ -7,11 +7,14 @@ current: ut
 ut:
 	$(PY) -m unittest -v
 
+lut:
+	$(PY) -m unittest -v `cat LIVETEST`
+
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNodeParams.TestNodeParams.test_is_already_built
+	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_auto_membership
+	$(PY) -m unittest -v testStdGraph.TestStdGraph
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
-	#$(PY) -m unittest -v testNetworkxPortGraph
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

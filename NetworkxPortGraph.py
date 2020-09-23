@@ -2,7 +2,7 @@
 #                         networkx library to hold the graph
 
 from typing import Union, List, Set, Iterable, Any, NewType, Type, FrozenSet, \
-    Dict
+    Dict, ClassVar
 from dataclasses import dataclass
 from collections import UserDict
 

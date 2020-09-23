@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from copy import copy
 from itertools import chain
+from dataclasses import dataclass
 
 from exc import TooManyArgs0
 from util import as_iter, as_set, as_name, empty_set, NiceRepr, filter_none, \
@@ -173,11 +174,12 @@ class AttrParam(NodeParam):
             kwargs.get(self.name, None)
         )
 
+@dataclass(frozen=True)
 class NodeParams:
 
-    def __init__(self, *params):
-        self.params = params  # Each param should be a NodeParam
-        self.d = dict(p.as_kv() for p in self.params)
+    def __init__(self, *params: NodeParam):
+        object.__setattr__(self, 'params', params)
+        object.__setattr__(self, 'd', dict(p.as_kv() for p in self.params))
 
     def on_init(self, datum, kwargs):
         for param in self.params:

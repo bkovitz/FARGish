@@ -6,11 +6,13 @@ from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
     ClassVar
 from dataclasses import dataclass, field
 from inspect import isclass
+from copy import copy
 
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, \
-    NRef, NRefs, CRef, CRefs, as_nodeid, as_node, as_nodeids, as_nodes
+    NRef, NRefs, CRef, CRefs, MaybeNRef, \
+    as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
-from util import as_iter, as_list, repr_str
+from util import as_iter, as_list, repr_str, intersection
 
 
 @dataclass(frozen=True)
@@ -223,9 +225,12 @@ class Members(ActiveGraphPrimitives):
 class ActiveGraph(
     Building, Activation, Support, Touches, Members, ActiveGraphPrimitives 
 ):
-    port_mates = PortMates([
-        ('members', 'members_of'), ('tags', 'taggees')
+    std_port_mates = PortMates([
+        ('members', 'member_of'), ('tags', 'taggees')
     ])
+
+    def __init__(self):
+        self.port_mates = copy(self.std_port_mates)
 
     # Overrides for ActiveGraphPrimitives
 
@@ -235,7 +240,6 @@ class ActiveGraph(
         *args,
         **kwargs
     ) -> Node:
-        # Check is_already_built
         if isinstance(node, Node):
             already = self.already_built(node, *args, **kwargs)
             if already:
@@ -243,19 +247,23 @@ class ActiveGraph(
             self._add_node(node)
             # TODO Apply link FilledParams?
         else:
-            # If node is a str, get_nodeclass
+            if isinstance(node, str):
+                # TODO If node is a str, get_nodeclass
+                raise NotImplementedError
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
+            print('FILLED', filled_params)
             node: Node = node()  # Create the Node object
             self._add_node(node)
             filled_params.apply_to_node(self, node.id)
 
+        self.add_implicit_membership(node)
         # add_edge_to_default_container
-        # on_build
         # built_by
+        # on_build
         # logging
         # touches
         return node
@@ -291,15 +299,29 @@ class ActiveGraph(
                             return False
         return True
 
-    def has_hop(self, from_node, from_port_label, to_node, to_port_label):
-        return bool(
-            self.find_hop(
-                self.as_nodeid(from_node),
-                from_port_label,
-                self.as_nodeid(to_node),
-                to_port_label
-            )
+    def has_hop(
+        self,
+        from_node: NRefs,
+        from_port_label: PortLabels,
+        to_node: NRefs,
+        to_port_label: PortLabels
+    ):
+        return all(
+            self.find_hop(fromid, fromlabel, toid, tolabel)
+                for fromid in as_nodeids(from_node)
+                    for fromlabel in as_iter(from_port_label)
+                        for toid in as_nodeids(to_node)
+                            for tolabel in as_iter(to_port_label)
         )
+
+#        return bool(
+#            self.find_hop(
+#                self.as_nodeid(from_node),
+#                from_port_label,
+#                self.as_nodeid(to_node),
+#                to_port_label
+#            )
+#        )
 
     def remove_edge(
         self,
@@ -343,6 +365,22 @@ class ActiveGraph(
 
         return result
 
+    #TODO UT
+    def has_neighbor_at(
+        self,
+        node: NRefs,
+        port_label: PortLabels = None,
+        neighbor_class: Union[Type[Node], NRef] = None,
+        neighbor_label: PortLabels = None
+    ) -> bool:
+        '''Returns True if at least one node given has a neighbor with the
+        specified characteristics.'''
+        # INEFFICIENT Instead of calling .neighbors(), should stop searching
+        # at first match.
+        return bool(self.neighbors(
+            node, port_label, neighbor_class, neighbor_label
+        ))
+
     # Additional methods (not overrides)
 
     def as_nodeid(self, nref: NRef) -> Union[NodeId, None]:
@@ -374,6 +412,7 @@ class ActiveGraph(
             nodeclass = nodeclass.__class__
         if nodeclass.is_duplicable:
             return None
+
         filled_params = nodeclass.make_filled_params(self, *args, **kwargs)
         if filled_params.specifies_attrs():
             candidates = self.nodes()
@@ -404,6 +443,24 @@ class ActiveGraph(
                     for cl in nodeclasses
         )
 
+    def is_member(self, node: NRefs, group_node: NRefs):
+        return self.has_hop(group_node, 'members', node, 'member_of')
+
+    def add_implicit_membership(self, node: Node):
+        '''If nodeid has no member_of link, add link to the "lowest common
+        denominator" member_of all its neighbors.'''
+        if self.has_neighbor_at(node, 'member_of'):
+            return
+        containers = intersection(*(
+            self.neighbors(n1, 'member_of') for n1 in self.neighbors(node)
+        ))
+        containers.discard(as_nodeid(node))
+        for c in containers:
+            self.put_in_container(node, c)
+
+    def put_in_container(self, node: NRefs, container: NRefs):
+        self.add_edge(node, 'member_of', container, 'members')
+
     def value_of(self, nref: NRef, attr_name: str='value') -> Any:
         try:
             return getattr(self.as_node(nref), attr_name)
@@ -430,6 +487,11 @@ class ActiveGraph(
     def is_port_label(self, name: str) -> bool:
         print('ISPO', name, self.port_mates.is_port_label(name))
         return self.port_mates.is_port_label(name)
+
+    def auto_link(self, from_node: NRef, port_label: PortLabel, to_node: NRef):
+        '''Links from_node.port_label to to_node at appropriate port_label
+        for to_node, or throws an exception.'''
+        self.port_mates.auto_link(self, from_node, port_label, to_node)
 
     def do_action(self, action: 'Action'):
         raise NotImplementedError

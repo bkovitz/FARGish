@@ -1,7 +1,10 @@
 # PortMates.py -- PortMates class: records which port labels link to each other
 
 from collections import defaultdict
+from typing import Union, List, Set, Iterable, Any, NewType, Type, FrozenSet, \
+    Dict, ClassVar
 
+from Node import NRef, PortLabel
 from util import as_iter
 
 
@@ -26,13 +29,25 @@ class PortMates:
             self.canonical[label1] = label2
         self.d[label1].add(label2)
 
-    def auto_link(self, g, from_node, port_label, to_node):
+    def __iadd__(self, pairs: List['PortMates']):
+        for f, t in pairs:
+            self.add(f, t)
+        return self
+        
+    def auto_link(
+        self,
+        g: 'ActiveGraph',
+        from_node: NRef,
+        port_label: PortLabel,
+        to_node: NRef
+    ):
         # TODO This should select a more appropriate port_label for to_node
         # if one is available, like a port that to_node already has.
         try:
             to_label = self.canonical[port_label]
         except KeyError:
-            return  # do nothing if port_label has no mate
+            #return  # do nothing if port_label has no mate
+            raise NotImplemented
         for f in as_iter(from_node):
             for t in as_iter(to_node):
                 g.add_edge(f, port_label, t, to_label)
