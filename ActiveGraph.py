@@ -223,11 +223,13 @@ class ActiveGraph(
     Building, Activation, Support, Touches, Members, ActiveGraphPrimitives 
 ):
     std_port_mates = PortMates([
-        ('members', 'member_of'), ('tags', 'taggees')
+        ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built')
     ])
 
     def __init__(self):
-        self.port_mates = copy(self.std_port_mates)
+        self.port_mates: PortMates = copy(self.std_port_mates)
+        self.builder: MaybeNRef = None  # Node that is currently "building"
+                                        # other nodes
 
     # Overrides for ActiveGraphPrimitives
 
@@ -257,8 +259,7 @@ class ActiveGraph(
             filled_params.apply_to_node(self, node.id)
 
         self.add_implicit_membership(node)
-        # add_edge_to_default_container
-        # built_by
+        self.mark_builder(node, self.builder)
         # on_build
         # logging
         # touches
@@ -352,6 +353,19 @@ class ActiveGraph(
 
         return result
 
+    #TODO UT
+    def neighbor(
+        self,
+        node: NRef,
+        port_label: PortLabels = None,
+        neighbor_class: Union[Type[Node], NRef] = None,
+        neighbor_label: PortLabels = None
+    ) -> MaybeNRef:
+        '''Returns the 'first' neighbor. TODO Define 'first' better.'''
+        return first(self.neighbors(
+            node, port_label, neighbor_class, neighbor_label
+        ))
+
     # as_ functions
 
     def as_nodeid(self, nref: NRef) -> Union[NodeId, None]:
@@ -431,6 +445,9 @@ class ActiveGraph(
         for c in containers:
             self.put_in_container(node, c)
 
+    def mark_builder(self, built_node: MaybeNRef, builder: MaybeNRef):
+        self.add_edge(built_node, 'built_by', builder, 'built')
+
     # Interrogating nodes
 
     def is_of_class(self, nrefs: NRefs, nodeclasses: CRefs) -> bool:
@@ -457,6 +474,9 @@ class ActiveGraph(
             return getattr(self.as_node(nref), attr_name)
         except AttributeError:
             return None
+
+    def builder_of(self, node: MaybeNRef):
+        return self.neighbor(node, port_label='built_by')
 
     #TODO UT
     def has_neighbor_at(

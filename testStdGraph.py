@@ -8,6 +8,8 @@ from StdGraph import Graph, pg
 from ActiveGraph import Node, NodeId, NRef, as_nodeid, as_node, as_nodeids, \
     as_nodes
 from NodeParams import NodeParams, AttrParam, MateParam
+from util import PushAttr
+
 
 class Tag(Node):
     is_tag = True
@@ -124,6 +126,18 @@ class TestStdGraph(unittest.TestCase):
 
         brick_tag = g.add_node(Tag, b1)
         self.assertTrue(g.is_member(brick_tag, numble))
+
+    def test_mark_builder(self):
+        g = TestGraph()
+
+        node1 = g.add_node(Node)
+
+        with PushAttr(g, 'builder'):
+            g.builder = node1
+            node2 = g.add_node(Node)
+
+        self.assertTrue(g.builder_of(node2), node1)
+
 
 
 if __name__ == '__main__':
