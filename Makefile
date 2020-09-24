@@ -13,7 +13,7 @@ lut:
 # Convenience target for single test current being worked on
 u:
 	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_auto_membership
-	$(PY) -m unittest -v testStdGraph.TestStdGraph
+	$(PY) -m unittest -v testTimeStepper
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 tags:

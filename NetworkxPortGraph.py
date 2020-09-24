@@ -8,8 +8,8 @@ from collections import UserDict
 
 import networkx as nx
 
-from ActiveGraph import PortGraphPrimitives, Node, NodeId, NRef, PortLabel, \
-    PortLabels, Hop, Hops
+from ActiveGraph import PortGraphPrimitives, Hop, Hops
+from Node import Node, NodeId, NRef, PortLabel, PortLabels, as_nodeid
 from util import as_iter, as_list, empty_set
 
 
@@ -94,9 +94,9 @@ class NetworkxPortGraph(PortGraphPrimitives):
         self.g = NetworkxPortGraphImpl()
         super().__init__(*args, **kwargs)
 
-    def datum(self, nodeid: NRef) -> Union[Node, None]:
+    def datum(self, node: NRef) -> Union[Node, None]:
         try:
-            return self.g.nodes[nodeid]['datum']
+            return self.g.nodes[as_nodeid(node)]['datum']
         except KeyError:
             return None
 

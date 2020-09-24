@@ -3,15 +3,13 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import dataclasses
-from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
-    ClassVar
 
 from util import nice_object_repr, as_iter
-from Node import MaybeNRef
 from BuildSpec import make_buildspec
 from exc import NeedArg
 
 
+@dataclass
 class Action(ABC):
     '''An action to be performed on the graph.'''
 
@@ -21,17 +19,16 @@ class Action(ABC):
 
     min_urgency = 0.0
 
-    on_behalf_of: MaybeNRef = None
+    on_behalf_of = None
     # The ActiveNode, if any, that produced this action. Descendant classes
     # that implement actions for ActiveNodes should override on_behalf_of
     # in their self.__init__().
-
-    actor: MaybeNRef = None
+    actor = None
 
     annotation_string = None
 
     @abstractmethod
-    def go(self, g: 'G'):
+    def go(self, g):
         '''Updates g (the host graph) and returns None.'''
         #TODO .go should return some sort of result or disposition, if only
         #to print in log files.
@@ -54,11 +51,10 @@ class Action(ABC):
             return dataclasses.replace(self, **override_d)
         else:
             return self
+        
 
     def annotation(self):
         return self.annotation_string
-
-Actions = Union[Action, Iterable[Action], None]
 
 
 class FuncAction(Action):

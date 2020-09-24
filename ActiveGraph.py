@@ -12,7 +12,12 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
-from util import as_iter, as_list, repr_str, first, intersection, reseed
+from Action import Action, Actions
+from ActiveNode import ActiveNode
+from util import as_iter, as_list, repr_str, first, intersection, reseed, \
+    empty_set, sample_without_replacement
+from exc import NodeLacksMethod, NoSuchNodeclass
+from log import *
 
 
 @dataclass(frozen=True)
@@ -204,11 +209,11 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
     def hops_to_neighbor(self, node: NRef, neighbor: NRef):
         return self._hops_to_neighbor(as_nodeid(node), as_nodeid(neighbor))
 
-class Building(ActiveGraphPrimitives):
-    pass
-
 class Activation(ActiveGraphPrimitives):
-    pass
+
+    def activation(self, node: NRef) -> float:
+        #TODO
+        return 1.0
 
 class Support(ActiveGraphPrimitives):
     pass
@@ -220,17 +225,32 @@ class Members(ActiveGraphPrimitives):
     pass
 
 class ActiveGraph(
-    Building, Activation, Support, Touches, Members, ActiveGraphPrimitives 
+    Activation, Support, Touches, Members, ActiveGraphPrimitives 
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built')
     ])
 
-    def __init__(self, seed: Union[int, None]=None):
+    def __init__(self, seed: Union[int, None]=None, t: Union[int, None]=None):
+        self.seed = reseed(seed)
+
         self.port_mates: PortMates = copy(self.std_port_mates)
+        self.nodeclasses: Dict[str, Type[Node]] = {}
+
+        self.max_active_nodes: Union[int, None] = None
+        self.max_actions: int = 1
+
         self.builder: MaybeNRef = None  # Node that is currently "building"
                                         # other nodes
-        self.seed = reseed(seed)
+        self.new_nodes: Set[NodeId] = set()        # Nodes built this timestep
+        self.prev_new_nodes: Set[NodeId] = set()   # Nodes built last timestep
+
+        if t is None:
+            t = 0
+        self.t = t
+
+        self.ws: MaybeNRef = None
+        self.slipnet: MaybeNRef = None
 
     # Overrides for ActiveGraphPrimitives
 
@@ -259,11 +279,19 @@ class ActiveGraph(
             self._add_node(node)
             filled_params.apply_to_node(self, node.id)
 
+        classname = node.__class__.__name__
+        if not self.ws and classname == 'Workspace':
+            self.ws = node
+        if not self.slipnet and classname == 'Slipnet':
+            self.slipnet = slipnet
+        if classname not in self.nodeclasses:
+            self.nodeclasses[classname] = node.__class__
+
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
         node.on_build()
-        # on_build
         # logging
+        self.new_nodes.add(self.as_nodeid(node))
         # touches
         return node
 
@@ -396,8 +424,10 @@ class ActiveGraph(
             return node.__class__
         else:
             assert isinstance(cref, str)
-            #TODO
-            raise NotImplementedError
+            try:
+                return self.nodeclasses[cref]
+            except KeyError:
+                raise NoSuchNodeclass(cref)
         
     # Node-building
 
@@ -452,6 +482,14 @@ class ActiveGraph(
 
     # Interrogating nodes
 
+    def class_of(self, node: NRef) -> Union[Type[Node], None]:
+        '''Returns None if node does not exist.'''
+        datum = self.datum(node)
+        if datum is None:
+            return None
+        else:
+            return datum.__class__
+            
     def is_of_class(self, nrefs: NRefs, nodeclasses: CRefs) -> bool:
         '''Returns True iff all nodes referenced are instances of all the
         nodeclasses referenced. Returns False if there are no node references
@@ -468,14 +506,42 @@ class ActiveGraph(
                     for cl in nodeclasses
         )
 
-    def is_member(self, node: NRefs, group_node: NRefs):
-        return self.has_hop(group_node, 'members', node, 'member_of')
+    def is_member(self, node: NRefs, container_node: NRefs):
+        return self.has_hop(container_node, 'members', node, 'member_of')
 
     def value_of(self, nref: NRef, attr_name: str='value') -> Any:
         try:
             return getattr(self.as_node(nref), attr_name)
         except AttributeError:
             return None
+
+    def has_tag(
+        self,
+        node: NRefs,
+        tagclass: Union[Type[Node], NodeId, Node, str]='Tag',
+        taggee_port_label: PortLabel='tags'
+    ) -> bool:
+        '''Returns True iff all the nodes have the given tag.'''
+        if isinstance(tagclass, str):
+            try:
+                tagclass = self.as_nodeclass(tagclass)
+            except NoSuchNodeclass:
+                if tagclass == 'Failed':
+                    return False
+                else:
+                    raise
+        if isclass(tagclass):
+            return all(
+                self.has_neighbor_at(
+                    n, port_label=taggee_port_label, neighbor_class=tagclass
+                )
+                    for n in as_iter(node)
+            )
+        else: #tagclass is actually a node, not a class
+            return all(
+                tagclass in self.neighbors(n, port_label=taggee_port_label)
+                    for n in as_iter(node)
+            )
 
     def builder_of(self, node: MaybeNRef):
         return self.neighbor(node, port_label='built_by')
@@ -496,6 +562,36 @@ class ActiveGraph(
             node, port_label, neighbor_class, neighbor_label
         ))
 
+    # Querying the graph
+
+    # TODO Better: Pass OfClass to .nodes()
+    def nodes_of_class(self, cl: Type[Node], nodes: NRefs=None) -> List[NRef]:
+        result = []
+        if nodes is None:
+            nodes = self.nodes()
+        for node in nodes:
+            if isinstance(self.as_node(node), cl):
+                result.append(node)
+        return result
+
+    def members_of(self, container_node: NRefs) -> List[NodeId]:
+        return list(self.neighbors(container_node, 'members'))
+
+    #TODO UT
+    def members_recursive(self, container_node: MaybeNRef) -> Set[NodeId]:
+        result = set()
+        visited = set()
+        to_visit = set([container_node])
+        while to_visit:
+            members = set()
+            for node in to_visit:
+                for m in self.members_of(node):
+                    members.add(m)
+            result |= members
+            visited |= to_visit
+            to_visit = members - visited
+        return result
+
     # Port labels
 
     def is_port_label(self, name: str) -> bool:
@@ -503,13 +599,224 @@ class ActiveGraph(
 
     # Doing things
 
-    def do_action(self, action: 'Action'):
-        raise NotImplementedError
+    def do_action(self, action: 'Action', actor: MaybeNRef=None):
+        if actor:
+            action.actor = actor
+        action.go(self)
+
+    do = do_action
+
+    def set_attr(self, nrefs: NRefs, name: str, v: Any):
+        for nref in as_iter(nrefs):
+            if nref:
+                setattr(self.as_node(nref), name, v)
 
     def put_in_container(self, node: NRefs, container: NRefs):
         #TODO Don't allow a node to contain itself. Or should that get caught
         # by some "proofreading" process in the model?
         self.add_edge(node, 'member_of', container, 'members')
+
+    def is_dormant(self, nref: NRef):
+        '''Is node in a dormant state, i.e. not capable of generating any
+        Actions right now?'''
+        return self.call_method(nref, 'is_dormant')
+
+    def is_failed(self, node):
+        return self.has_tag(node, 'Failed')  # TODO not if Failed is canceled
+
+    def call_method(self, nref: MaybeNRef, method_name: str, *args, **kwargs):
+        '''Returns result of calling method method_name(self, nodeid) on nodeid
+        if nodeid exists and its datum has a callable attr named method_name.
+        Otherwise returns None.'''
+        '''EXPERIMENT 9-Sep-2020: raise NodeLacksMethod if the method does not
+        exist.'''
+        d = self.datum(nref)
+        if d is None:
+            return None
+        m = getattr(d, method_name)
+        if callable(m):
+            return m(self, nref, *args, **kwargs)
+        else:
+            raise NodeLacksMethod(nref, method_name, args, kwargs)
+
+    # Timestepping (TODO: make this section into a mix-in)
+
+    def do_timestep(
+        self,
+        num=1,
+        action: Union[Action, List[Action], None]=None,
+        actor: MaybeNRef=None
+    ) -> None:
+        for i in range(num):
+            self.t += 1
+            self.prev_new_nodes = set(self.new_nodes)
+            self.new_nodes.clear()
+
+            if any(
+                l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
+            ):
+                print(f'{chr(10)}t={self.graph["t"]}')
+
+            #self.clear_touched_and_new()
+            #self.decay_activations()
+
+            #self.propagate_support()
+            #support.log_support(self)
+
+            #self.propagate_activation()
+            #log_activation(self)
+
+            #self.update_coarse_views()
+
+            if action is not None:
+                actions_to_do = as_iter(action)
+            elif actor is not None:
+                actions_to_do = self.collect_actions([actor])
+            else:
+                actions_to_do = self.collect_actions_from_graph()
+
+            if ShowActionsPerformed.is_logging():
+                print('ACTIONS PERFORMED')
+                if not actions_to_do:
+                    print('  (none)')
+            for a in actions_to_do:
+                if ShowActionsPerformed.is_logging():
+                    print(f'  {a.actor}: {a}')
+                self.do_action(a)
+
+            #self.do_touches()
+            #self.update_all_support()
+
+            d = self.done()
+            if d:
+                ShowResults(d)
+                ShowResults(f"t={self.graph['t']}\n")
+                break
+
+    def do_actions1(self, actions: Actions):
+        '''Force a sequence of actions, one per timestep. If a single Action
+        is an iterable, then all the Actions it contains will be performed
+        on its timestep.'''
+        for a in as_iter(actions):
+            self.do_timestep(action=a)
+
+    def collect_actions_from_graph(self):
+        active_nodes = self.collect_active_nodes()
+        if ShowActiveNodes.is_logging():
+            print('ACTIVE NODES')
+            raise NotImplementedError
+            #pg(self, active_nodes)
+
+        actions = self.collect_actions(active_nodes)
+        if ShowActionList.is_logging():
+            print('ACTIONS COLLECTED')
+            self.print_actions(actions)
+
+        actions = [a for a in actions if self.urgency(a) > 0.0]
+
+        # TODO Boost activation or lower standards if too many timesteps
+        # have gone by with no action.
+
+        chosen_actions = self.choose_actions(actions)
+        if ShowActionsChosen.is_logging():
+            print('ACTIONS CHOSEN')
+            self.print_actions(chosen_actions)
+        return chosen_actions
+
+    def collect_active_nodes(self) -> List[NRef]:
+        return self.choose_active_nodes(list(
+            node for node in self.nodes_of_class(
+                    ActiveNode,
+                    nodes=self.allowable_active_nodes()
+                )
+                    if not self.is_dormant(node)
+        ))
+
+    def choose_active_nodes(
+        self,
+        active_nodes: List[NRef],
+        k: Union[int, None]=None
+    ) -> List[NRef]:
+        if k is None:
+            k = self.max_active_nodes
+        if (self.max_active_nodes is None
+            or
+            len(active_nodes) <= self.max_active_nodes
+        ):
+            return active_nodes
+        return list(sample_without_replacement(
+            active_nodes,
+            k=k,
+            #weights=[self.support_for(node) for node in active_nodes]
+            weights=[self.activation(node) for node in active_nodes]
+        ))
+
+    def collect_actions(self, active_nodes: NRefs) -> List[Action]:
+        actions = []
+        for node in as_iter(active_nodes):
+            got = self.datum(node).actions(self)
+            for action in as_iter(got):
+                if action:
+                    action.actor = node
+                    actions.append(action)
+        return actions
+
+    def choose_actions(self, actions: Actions, k: Union[int, None]=None):
+        '''Randomly chooses up to k Actions, weighted by .urgency.
+        Returns a collection. k defaults to self.max_actions.'''
+        if k is None:
+            k = self.max_actions
+        return list(sample_without_replacement(
+            actions,
+            k=k,
+            weights=[self.urgency(a) for a in actions]
+        ))
+        
+    def allowable_active_nodes(self):
+        '''Returns all nodes in the 'ws' (the workspace), if a 'ws' has been
+        set. Otherwise returns all nodes.'''
+        if not self.ws:
+            return self.nodes()
+        result = self.members_recursive(self.ws)
+        if self.slipnet:
+            result.add(slipnet)
+        return result
+
+    def urgency(self, action: Action) -> float:
+        return 1.0
+        #TODO
+        support = self.support_for(action.actor)
+        if support < action.support_threshold:
+            return action.min_urgency
+        activation = self.activation(action.actor)
+        if activation < action.threshold:
+            return action.min_urgency
+        return max(
+            activation - action.threshold,
+            action.min_urgency
+        )
+
+        
+    def done(self) -> Any:
+        # TODO Make this return a meaningful result. Maybe self.final_result?
+        return False
+
+    def print_actions(self, actions: List[Action]):
+        if not len(actions):
+            print('  (none)')
+            return
+        headingfmt = '  %5s %5s %7s %5s %7s %4s %s'
+        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'node', 'action')
+        print(headingfmt % headings)
+        for action in sorted(actions, key=self.action_sorting_key):
+            print(fmt % (self.urgency(action),
+                         self.activation(action.actor),
+                         action.threshold,
+                         self.support_for(action.actor),
+                         action.support_threshold,
+                         action.actor,
+                         action))
 
     # Printing
 

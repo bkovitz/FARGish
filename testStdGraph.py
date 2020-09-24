@@ -5,7 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from StdGraph import Graph, pg 
-from ActiveGraph import Node, NodeId, NRef, as_nodeid, as_node, as_nodeids, \
+from Node import Node, NodeId, NRef, as_nodeid, as_node, as_nodeids, \
     as_nodes
 from NodeParams import NodeParams, AttrParam, MateParam
 from util import PushAttr
