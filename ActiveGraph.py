@@ -2,8 +2,8 @@
 #                   supporting classes
 
 from abc import ABC, abstractmethod
-from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
-    ClassVar
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar
 from dataclasses import dataclass, field
 from inspect import isclass
 from copy import copy
@@ -14,8 +14,9 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
 from PortMates import PortMates
 from Action import Action, Actions
 from ActiveNode import ActiveNode
+from WithActivation import WithActivation, Propagator as ActivationPropagator
 from util import as_iter, as_list, repr_str, first, intersection, reseed, \
-    empty_set, sample_without_replacement
+    empty_set, sample_without_replacement, PushAttr
 from exc import NodeLacksMethod, NoSuchNodeclass
 from log import *
 
@@ -66,6 +67,16 @@ class PortGraphPrimitives(ABC):
         port_label2: PortLabel,
         **attr
     ) -> int:
+        pass
+
+    @abstractmethod
+    def _edge_weight(
+        node1: NodeId,
+        port_label1: PortLabel,
+        node2: NodeId,
+        port_label2: PortLabel,
+    ) -> float:
+        '''A non-existent edge has weight 0.0.'''
         pass
 
     @abstractmethod
@@ -209,6 +220,58 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
     def hops_to_neighbor(self, node: NRef, neighbor: NRef):
         return self._hops_to_neighbor(as_nodeid(node), as_nodeid(neighbor))
 
+    def remove_hops_from_port(self, node: NRef, port_label: PortLabel):
+        self.remove_hop(self.hops_from_port(node, port_label))
+
+class ActivationPrimitives(ABC):
+
+    @abstractmethod
+    def activation(self, node: NRef) -> float:
+        '''A non-existent node must have activation 0.0.'''
+        pass
+
+    @abstractmethod
+    def min_activation(self, node: NRef) -> float:
+        pass
+
+    @abstractmethod
+    def set_activation(self, node: NRef, a: float):
+        pass
+
+    @abstractmethod
+    def set_activation_from_to(self, from_node: NRef, to_node: NRef):
+        pass
+
+    @abstractmethod
+    def activation_from_to(
+        self, from_node: NRef, to_node: NRef, weight: float
+    ):
+        pass
+
+    @abstractmethod
+    def remove_outgoing_activation_edges(self, node: NRef):
+        pass
+
+    @abstractmethod
+    def remove_incoming_activation_edges(self, node: NRef):
+        pass
+
+    @abstractmethod
+    def activation_dict(
+        self, nodes=Union[Iterable[NRef], None]
+    ) -> Dict[NodeId, float]:
+        pass
+
+class ActivationPolicy(ABC):
+
+    @abstractmethod
+    def boost_activation(self, node: NRef, boost_amount: float):
+        pass
+
+    @abstractmethod
+    def propagate_activations(self):
+        pass
+
 class Activation(ActiveGraphPrimitives):
 
     def activation(self, node: NRef) -> float:
@@ -216,7 +279,10 @@ class Activation(ActiveGraphPrimitives):
         return 1.0
 
 class Support(ActiveGraphPrimitives):
-    pass
+
+    def support_for(self, node: NRef) -> float:
+        #TODO
+        return 1.0
 
 class Touches:
     pass
@@ -225,14 +291,23 @@ class Members(ActiveGraphPrimitives):
     pass
 
 class ActiveGraph(
-    Activation, Support, Touches, Members, ActiveGraphPrimitives 
+    Support, Touches, Members, ActivationPrimitives, ActiveGraphPrimitives 
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built')
     ])
 
-    def __init__(self, seed: Union[int, None]=None, t: Union[int, None]=None):
+    def __init__(
+        self,
+        seed: Union[int, None]=None,
+        t: Union[int, None]=None,
+        num_timesteps: Union[int, None]=None,
+        *args,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
         self.seed = reseed(seed)
+        self.num_timesteps = num_timesteps
 
         self.port_mates: PortMates = copy(self.std_port_mates)
         self.nodeclasses: Dict[str, Type[Node]] = {}
@@ -251,6 +326,14 @@ class ActiveGraph(
 
         self.ws: MaybeNRef = None
         self.slipnet: MaybeNRef = None
+
+        #TODO Allow this as a class variable
+        self.activation_propagator = ActivationPropagator(
+            max_total_activation=20,
+            sigmoid_p=0.5,
+            alpha=0.98,
+            # TODO noise=0.0
+        )
 
     # Overrides for ActiveGraphPrimitives
 
@@ -289,6 +372,7 @@ class ActiveGraph(
 
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
+        print('NODE', node)
         node.on_build()
         # logging
         self.new_nodes.add(self.as_nodeid(node))
@@ -562,6 +646,14 @@ class ActiveGraph(
             node, port_label, neighbor_class, neighbor_label
         ))
 
+    def get_overrides(self, node: NRef, names: Set[str]) -> Dict[str, Any]:
+        result = {}
+        for name in names:
+            n = self.neighbor(node, name)
+            if n:
+                result[name] = n
+        return result
+
     # Querying the graph
 
     # TODO Better: Pass OfClass to .nodes()
@@ -602,7 +694,9 @@ class ActiveGraph(
     def do_action(self, action: 'Action', actor: MaybeNRef=None):
         if actor:
             action.actor = actor
-        action.go(self)
+        with PushAttr(self, 'builder'):
+            self.builder = actor
+            action.go(self)
 
     do = do_action
 
@@ -635,9 +729,16 @@ class ActiveGraph(
             return None
         m = getattr(d, method_name)
         if callable(m):
-            return m(self, nref, *args, **kwargs)
+            return m(self, *args, **kwargs)
         else:
             raise NodeLacksMethod(nref, method_name, args, kwargs)
+
+    def new_state(self, node: NRef, state: 'ActiveNodeState'):
+        node = self.as_node(node)
+        if node:
+            node.state = state
+            if state.is_completed:
+                node.on_completion()
 
     # Timestepping (TODO: make this section into a mix-in)
 
@@ -655,10 +756,9 @@ class ActiveGraph(
             if any(
                 l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
             ):
-                print(f'{chr(10)}t={self.graph["t"]}')
+                print(f'{chr(10)}t={self.t}')
 
             #self.clear_touched_and_new()
-            #self.decay_activations()
 
             #self.propagate_support()
             #support.log_support(self)
@@ -801,6 +901,13 @@ class ActiveGraph(
         # TODO Make this return a meaningful result. Maybe self.final_result?
         return False
 
+    def action_sorting_key(self, action: Action) -> Tuple:
+        return (
+            self.urgency(action),
+            self.activation(action.actor),
+            self.support_for(action.actor)
+        )
+
     def print_actions(self, actions: List[Action]):
         if not len(actions):
             print('  (none)')
@@ -815,7 +922,7 @@ class ActiveGraph(
                          action.threshold,
                          self.support_for(action.actor),
                          action.support_threshold,
-                         action.actor,
+                         self.as_nodeid(action.actor),
                          action))
 
     # Printing

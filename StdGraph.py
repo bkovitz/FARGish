@@ -1,11 +1,11 @@
 # StdGraph.py -- The usual ActiveGraph class that represents the FARG model
 
 from ActiveGraph import ActiveGraph
-from NetworkxPortGraph import NetworkxPortGraph
+from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
 
 
-class Graph(NetworkxPortGraph, ActiveGraph):
+class Graph(ActiveGraph, NetworkxActivation, NetworkxPortGraph):
     pass
 
 def pg(g):

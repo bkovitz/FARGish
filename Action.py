@@ -12,23 +12,24 @@ from BuildSpec import make_buildspec
 from exc import NeedArg
 
 
-class Action(ABC):
+class BaseAction(ABC):
     '''An action to be performed on the graph.'''
 
     threshold = 0.01   # activation threshold
     support_threshold = 0.0
-    # .weight() must be >= threshold for Action.go() to be called
 
     min_urgency = 0.0
 
-    on_behalf_of: MaybeNRef = None
-    # The ActiveNode, if any, that produced this action. Descendant classes
-    # that implement actions for ActiveNodes should override on_behalf_of
-    # in their self.__init__().
-
-    actor: MaybeNRef = None
-
     annotation_string = None
+
+    def __init__(self, *args, **kwargs):
+        assert dataclasses.is_dataclass(self)
+        self.actor: MaybeNRef = None
+
+        self.on_behalf_of: MaybeNRef = None
+        # The ActiveNode, if any, that produced this action. Descendant classes
+        # that implement actions for ActiveNodes should override on_behalf_of
+        # in their self.__init__().
 
     @abstractmethod
     def go(self, g: 'G'):
@@ -43,7 +44,13 @@ class Action(ABC):
         except KeyError:
             raise NeedArg(self, name)
 
-    __repr__ = nice_object_repr
+    #__repr__ = nice_object_repr
+
+    def annotation(self):
+        return self.annotation_string
+
+@dataclass
+class Action(BaseAction):
 
     def param_names(self):
         return set(field.name for field in dataclasses.fields(self))
@@ -52,11 +59,11 @@ class Action(ABC):
         override_d = g.get_overrides(nodeid, self.param_names())
         if override_d:
             return dataclasses.replace(self, **override_d)
+#            new_action = copy(self)
+#            for param_name, value in override_d.items():
+#                setattr(new_action, param_name, value)
         else:
             return self
-
-    def annotation(self):
-        return self.annotation_string
 
 Actions = Union[Action, Iterable[Action], None]
 

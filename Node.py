@@ -35,6 +35,11 @@ class Node:
     is_tag: ClassVar[bool] = False
     is_duplicable: ClassVar[bool] = False  # May multiple instances of this
                                            # exist at the same time?
+    min_support_for: float = 0.0
+    initial_support_for: float = 0.1
+    min_activation: float = 0.0
+    initial_activation: float = 0.1
+
     attrs_not_to_copy: ClassVar[Set[str]] = frozenset(['id', 'g'])
 
     def __init__(self, *args, **kwargs):
@@ -119,6 +124,8 @@ def as_nodeid(nref: NRef) -> Union[NodeId, None]:
     return nref.id
 
 def as_node(g: 'ActiveGraph', nref: NRef) -> Union[Node, None]:
+    '''If nref is Node, we just return it, without checking if the node still
+    exists.'''
     if isinstance(nref, Node) or nref is None:
         return nref
     assert isinstance(nref, int)

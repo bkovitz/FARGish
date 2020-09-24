@@ -8,8 +8,9 @@ from collections import UserDict
 
 import networkx as nx
 
-from ActiveGraph import PortGraphPrimitives, Hop, Hops
-from Node import Node, NodeId, NRef, PortLabel, PortLabels, as_nodeid
+from ActiveGraph import PortGraphPrimitives, ActivationPrimitives, Hop, Hops, \
+    ActiveGraphPrimitives
+from Node import Node, NodeId, NRef, PortLabel, PortLabels, as_nodeid, as_node
 from util import as_iter, as_list, empty_set
 
 
@@ -88,6 +89,9 @@ class NodeAttrDict(UserDict):
 class NetworkxPortGraphImpl(nx.MultiGraph):
     node_dict_factory = NodeAttrDict
 
+    def __str__(self):
+        return 'NNNXXX'  #  DEBUG
+
 class NetworkxPortGraph(PortGraphPrimitives):
 
     def __init__(self, *args, **kwargs):
@@ -110,7 +114,9 @@ class NetworkxPortGraph(PortGraphPrimitives):
     def _add_edge(self, node1, port_label1, node2, port_label2, **attr) -> int:
         '''If the edge already exists, doesn't make a new one. Regardless,
         returns the key of the edge. Even if the edge already exists, we
-        update its weight from attr.'''
+        update its weight from attr.
+
+        Has no effect if either node does not exist.''' # TODO UT that.
         hop = self.find_hop(node1, port_label1, node2, port_label2)
         if hop:
             key = hop.key
@@ -123,6 +129,17 @@ class NetworkxPortGraph(PortGraphPrimitives):
             self.g.nodes[node1]['hops'].add(hop1)
             self.g.nodes[node2]['hops'].add(hop2)
         return key
+
+    def _edge_weight(self, nodeid1, port_label1, nodeid2, port_label2) -> float:
+        hop = self.find_hop(nodeid1, port_label1, nodeid2, port_label2)
+        if hop:
+            edge = (nodeid1, nodeid2, hop.key)
+            try:
+                return self.g.edges[edge]['weight']
+            except KeyError:
+                return 0.0
+        else:
+            return 0.0
 
     def _remove_node(self, nodeid):
         self._remove_all_hops_to(nodeid)
@@ -142,7 +159,7 @@ class NetworkxPortGraph(PortGraphPrimitives):
             self.g.nodes[neighbor]['hops'].remove_all_hops_to(nodeid)
 
     def remove_hop(self, hops: Hops):
-        for hop in as_iter(hops):
+        for hop in as_list(hops):
             node1 = hop.from_node
             node2 = hop.to_node
             self.g.nodes[node1]['hops'].remove(hop)
@@ -179,3 +196,67 @@ class NetworkxPortGraph(PortGraphPrimitives):
 
     def _nodes(self):
         return (self.datum(n) for n in self._nodeids())
+
+class NetworkxActivation(
+    ActivationPrimitives, ActiveGraphPrimitives, NetworkxPortGraph
+):
+
+    # TODO _activation takes nodeid ?
+    def activation(self, node: NRef) -> float:
+        '''A non-existent node must have activation 0.0.'''
+        nodeid = as_nodeid(node)
+        if nodeid not in self.g.nodes:
+            return 0.0
+        try:
+            a = self.g.nodes[nodeid]['A']
+        except KeyError:
+            a = 0.0
+        return max(a, self.min_activation(node))
+
+    def min_activation(self, node: NRef) -> float:
+        return as_node(self, node).min_activation
+
+    def set_activation(self, node: NRef, a: float):
+        nodeid = as_nodeid(node)
+        if nodeid not in self.g.nodes:
+            return
+        self.g.nodes[nodeid]['A'] = a
+
+    def set_activation_from_to(
+        self, from_node: NRef, to_node: NRef, weight: float
+    ):
+        from_nodeid = as_nodeid(from_node)
+        to_nodeid = as_nodeid(to_node)
+        if abs(weight) < 0.001:
+            self._remove_edge(
+                from_nodeid, 'activation_to', to_nodeid, 'activation_from',
+                weight=weight
+            )
+        else:
+            self._add_edge(
+                from_nodeid, 'activation_to', to_nodeid, 'activation_from',
+                weight=weight
+            )
+
+    def activation_from_to(self, from_node: NRef, to_node: NRef):
+        return self._edge_weight(
+            from_node, 'activation_to', to_node, 'activation_from'
+        )
+
+    def remove_outgoing_activation_edges(self, node: NRef):
+        self.remove_hops_from_port(node, 'activation_to')
+
+    def remove_incoming_activation_edges(self, node: NRef):
+        self.remove_hops_from_port(node, 'activation_from')
+
+    def activation_dict(
+        self, nodes: Union[Iterable[NRef], None]=None
+    ) -> Dict[NodeId, float]:
+        if nodes is None:
+            nodes = self._nodeids()  # TODO self.nodeids() ?
+        # INEFFICIENT Calling as_nodeid() unnecessarily if nodes==None
+        return dict(
+            (nodeid, self.activation(nodeid))
+                for nodeid in map(as_nodeid, nodes)
+        )
+    

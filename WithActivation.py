@@ -4,7 +4,8 @@ import csv
 from random import gauss
 from dataclasses import dataclass
 
-from PortGraph import PortGraph
+#from PortGraph import PortGraph
+from Node import as_nodeid
 from support import normalize
 
 
@@ -20,7 +21,7 @@ class WithActivation:
     def activation(self, node) -> float:
         try:
             return max(
-                self.nodes[node]['A'],
+                self._nodeids()[as_nodeid(node)]['A'],
                 self.min_activation(node)
             )
         except KeyError:
@@ -33,7 +34,7 @@ class WithActivation:
             return 0.0
 
     def set_activation(self, node, a: float):
-        self.nodes[node]['A'] = a
+        self._nodeids()[as_nodeid(node)]['A'] = a
 
     def set_activation_from_to(self, from_node, to_node, weight=0.2):
         if weight is None or abs(weight) < 0.001:
@@ -74,7 +75,7 @@ class WithActivation:
 
     # TODO rm, since already done by Propagator?
     def decay_activations(self):
-        for node in self.nodes:
+        for node in self._nodeids():
             self.decay_activation(node)
 
     # TODO rm, since already done by Propagator?
@@ -83,7 +84,7 @@ class WithActivation:
 
 def activation_dict(g, nodes=None):
     if nodes is None:
-        nodes = g.nodes
+        nodes = g._nodeids()
     return dict((node, g.activation(node)) for node in nodes)
 
 

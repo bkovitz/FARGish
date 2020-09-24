@@ -1,14 +1,18 @@
 # testNetworkxPortGraph.py -- Unit tests for NetworkxPortGraph
 
 import unittest
-from dataclasses import dataclass
 
-from NetworkxPortGraph import NetworkxPortGraph
-from ActiveGraph import Node, Hop
+from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
+from ActiveGraph import ActiveGraph, Hop
+from Node import Node, as_node, as_nodeid
+from NodeParams import NodeParams, AttrParam
 
-@dataclass
 class MyNode(Node):
-    name: str
+    node_params = NodeParams(AttrParam('name'))
+    initial_activation = 0.5
+
+class NodeWithMinActivation(MyNode):
+    min_activation = 1.0
 
 
 class TestNetworkxPortGraph(unittest.TestCase):
@@ -127,3 +131,57 @@ class TestNetworkxPortGraph(unittest.TestCase):
         self.assertCountEqual(g._hops_to_neighbor(nodeid2, nodeid1), [])
         self.assertCountEqual(g._neighbors(nodeid2), [])
         self.assertEqual(g.num_edges(), 0)
+
+class GraphWithNetworkxActivation(
+    ActiveGraph,
+    NetworkxActivation,
+    NetworkxPortGraph
+):
+    pass
+
+class TestNetworkxActivation(unittest.TestCase):
+
+    def test_networkx_activation(self):
+        g = GraphWithNetworkxActivation()
+
+        # Non-existent node has 0.0 activation
+        self.assertEqual(g.activation(1), 0.0)
+
+        a = g._add_node(MyNode('A'))
+        b = g._add_node(NodeWithMinActivation('B'))
+
+        # Node has no activation until we give it some
+        self.assertEqual(g.activation(a), 0.0)
+        # ...unless it has min_activation
+        print('B', as_node(g, b).min_activation)
+        self.assertEqual(g.activation(b), 1.0)
+
+        self.assertTrue(isinstance(g.min_activation(a), float))
+        self.assertEqual(g.min_activation(b), 1.0)
+
+        self.assertEqual(g.activation_from_to(a, b), 0.0)
+
+        # Flow activation from a to b
+        g.set_activation_from_to(a, b, 1.0)
+
+        self.assertEqual(g.activation_from_to(a, b), 1.0)
+        self.assertEqual(g.activation_from_to(b, a), 0.0)
+
+        # Activation dictionary
+        self.assertEqual(
+            g.activation_dict(),
+            {as_nodeid(a): 0.0, as_nodeid(b): 1.0}
+        )
+
+        # Manually set activation
+        g.set_activation(a, 2.0)
+        self.assertEqual(g.activation(a), 2.0)
+
+        g.set_activation_from_to(b, a, 1.5)
+        self.assertEqual(g.activation_from_to(b, a), 1.5)
+
+        # Now remove the activation edges
+        g.remove_outgoing_activation_edges(a)
+        self.assertEqual(g.activation_from_to(a, b), 0.0)
+        g.remove_incoming_activation_edges(a)
+        self.assertEqual(g.activation_from_to(b, a), 0.0)

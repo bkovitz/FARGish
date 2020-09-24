@@ -21,21 +21,22 @@ class ActiveNode(ABC, Node):
             self.state = Start
         
     @abstractmethod
-    def actions(self, g) -> Actions:
-        '''g is the current graph, and thisid is the id of the ActiveNode.
-        Should return a collection of Action objects.'''
+    def actions(self, g: 'G') -> Actions:
+        '''g is the current graph.  Should return a collection of Action
+        objects.'''
         pass
 
-    def is_dormant(self, g, thisid):
+    #TODO No g param
+    def is_dormant(self, g=None):
         '''Return True to prevent TimeStepper from calling .actions() on this
         node.'''
         return (
-            not self.state.is_active(g, thisid)
+            not self.state.is_active(self.g, self)
             or
-            g.is_failed(thisid)
+            self.g.is_failed(self)
         )
 
-    def on_completion(self, g, thisid):
+    def on_completion(self):
         '''Called when the ActiveNode has completed its business.
 
         The default implementation cuts all activation and inhibition.'''
@@ -43,8 +44,8 @@ class ActiveNode(ABC, Node):
         #TODO Remove excitation/inhibition edges, not support edges
         #g.remove_support_edges(thisid)
         # TODO Better: zero the weights rather than remove the edges.
-        g.remove_outgoing_activation_edges(thisid)
-        g.remove_incoming_activation_edges(thisid)
+        self.g.remove_outgoing_activation_edges(self)
+        self.g.remove_incoming_activation_edges(self)
 
 
 class ActiveNodeState:
@@ -84,16 +85,16 @@ class ActionNode(ActiveNode):
         MateParam('rm_on_success', 'tags')
     )
 
-    def actions(self, g, thisid):
-        if not self.is_dormant(g, thisid):
-            return [self.action.with_overrides_from(g, thisid)]
+    def actions(self, g: 'G') -> Actions:
+        if not self.is_dormant():
+            return [self.action.with_overrides_from(g, self)]
         # TODO If action has any missing args, make scout actions to fill them
         # in.
 
         # Otherwise return a version of the action with those args filled in.
 
     def action_failed(self, g, thisid, exc: Fizzle):
-        failed_tag = g.make_node('Failed', reason=exc, taggees=[thisid])
+        failed_tag = g.add_node('Failed', reason=exc, taggees=[thisid])
         g.add_support(thisid, failed_tag, 1.0)
 
 
@@ -104,26 +105,26 @@ class ActionSeqNode(ActiveNode):
         AttrParam('action_nodes')  # HACK: must be a list, to indicate sequence
     )
 
-    def actions(self, g, thisid):
+    def actions(self, g: 'G') -> Actions:
         return None
 
-    def on_build(self, g, thisid):
+    def on_build(self):
         # Give activation to each member and make each member inhibit all
         # following members.
         members = as_iter(self.action_nodes)
         for i, member in enumerate(members):
-            g.set_activation_from_to(thisid, member, 0.3)
-            g.add_edge(thisid, 'child_action', member, 'parent_action')
+            self.g.set_activation_from_to(self, member, 0.3)
+            self.g.add_edge(self, 'child_action', member, 'parent_action')
             for later_member in members[i+1:]:
-                g.set_activation_from_to(member, later_member, -1.0)
+                self.g.set_activation_from_to(member, later_member, -1.0)
             for next_member in members[i+1:i+2]:
-                g.add_edge(member, 'next_action', next_member, 'prev_action')
+                self.g.add_edge(member, 'next_action', next_member, 'prev_action')
 
 def make_action_sequence(g, *actions: Action, **kwargs):
     '''Makes an ActionNode to hold each Action, and an ActionSeqNode that
     contains them, in sequence. Returns the nodeid of the ActionSeqNode.'''
-    action_nodes = [g.make_node(ActionNode, action=a) for a in actions]
-    seqnode = g.make_node(
+    action_nodes = [g.add_node(ActionNode, action=a) for a in actions]
+    seqnode = g.add_node(
         ActionSeqNode, action_nodes=action_nodes, members=action_nodes, **kwargs
     )
     return seqnode
