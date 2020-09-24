@@ -61,6 +61,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
             g, cls.node_params.args_into_kwargs(args, kwargs)
         )
 
+    def on_build(self):
+        '''Called just after node is built. Enables the node to do any
+        needed set-up. The default implementation does nothing.'''
+        pass
+
     def regen_kwargs(self) -> Dict[str, Any]:
         '''From the kwargs dict returned by this function, you can reconstruct
         the node, excluding its links.'''

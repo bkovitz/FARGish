@@ -260,6 +260,7 @@ class ActiveGraph(
 
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
+        node.on_build()
         # on_build
         # logging
         # touches

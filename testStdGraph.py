@@ -138,6 +138,17 @@ class TestStdGraph(unittest.TestCase):
 
         self.assertTrue(g.builder_of(node2), node1)
 
+    def test_on_build(self):
+        class NodeWithOnBuild(Node):
+            def on_build(self):
+                self.late_attr = 'ON_BUILD'
+
+        g = TestGraph()
+
+        self.assertIs(NodeWithOnBuild().late_attr, None)
+
+        node = g.add_node(NodeWithOnBuild)
+        self.assertEqual(g.value_of(node, 'late_attr'), 'ON_BUILD')
 
 
 if __name__ == '__main__':
