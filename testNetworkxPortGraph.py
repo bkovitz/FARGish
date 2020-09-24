@@ -59,6 +59,11 @@ class TestNetworkxPortGraph(unittest.TestCase):
         self.assertCountEqual(g._neighbors(nodeid1), [nodeid2])
         self.assertCountEqual(g._neighbors(nodeid2), [nodeid1])
 
+        self.assertEqual(g._edge_weight(nodeid1, 'to', nodeid2, 'from'), 0.0)
+        # Change its weight
+        g._add_edge(nodeid1, 'to', nodeid2, 'from', weight=0.6)
+        self.assertEqual(g._edge_weight(nodeid1, 'to', nodeid2, 'from'), 0.6)
+
         # ._hops_from_node()
         self.assertCountEqual(
             g._hops_from_node(nodeid1),

@@ -121,7 +121,7 @@ class NetworkxPortGraph(PortGraphPrimitives):
         if hop:
             key = hop.key
             if 'weight' in attr:  # HACK: What about other attrs?
-                self[node1][node2][key]['weight'] = attr['weight']
+                self.g[node1][node2][key]['weight'] = attr['weight']
         else:  # create edge and two hops, one for each direction
             key = self.g.add_edge(node1, node2, **attr)
             hop1 = Hop(node1, port_label1, node2, port_label2, key)
