@@ -59,6 +59,9 @@ class TestStdGraph(unittest.TestCase):
         self.assertCountEqual(as_nodeids([b1, b2, None]), [b1.id, b2.id])
         self.assertCountEqual(as_nodes(g, [b1.id, b2, None]), [b1, b2])
 
+        self.assertEqual(g.value_of(b1), 1)
+        self.assertEqual(g.value_of(b2), 2)
+
         # Tag one Brick Avail
         a1 = g.add_node(Avail, b1)
 
@@ -90,6 +93,8 @@ class TestStdGraph(unittest.TestCase):
 
     def test_unique_node(self):
         g = Graph()
+
+        self.assertIs(g.already_built(UniqueNumber(1)), None)
 
         # Make the nodes by getting g.add_node() to construct them
         u1 = g.add_node(UniqueNumber, 1)

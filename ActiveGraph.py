@@ -8,11 +8,11 @@ from dataclasses import dataclass, field
 from inspect import isclass
 from copy import copy
 
-from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, \
+from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
-from util import as_iter, as_list, repr_str, intersection
+from util import as_iter, as_list, repr_str, first, intersection
 
 
 @dataclass(frozen=True)
@@ -93,13 +93,10 @@ class PortGraphPrimitives(ABC):
         to_port_label: PortLabel
     ) -> Union[Hop, None]:
         '''Returns the Hop if it exists, else None.'''
-        try:
-            return next(hop for hop in self._hops_to_neighbor(from_node, to_node)
-                                if hop.from_port_label == from_port_label
-                                    and
-                                    hop.to_port_label == to_port_label)
-        except StopIteration:
-            return None
+        return first(hop for hop in self._hops_to_neighbor(from_node, to_node)
+                            if hop.from_port_label == from_port_label
+                                and
+                                hop.to_port_label == to_port_label)
 
     @abstractmethod
     def _hops_from_node(self, nodeid: MaybeNodeId) -> FrozenSet[Hop]:
@@ -255,7 +252,6 @@ class ActiveGraph(
                 return already
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
-            print('FILLED', filled_params)
             node: Node = node()  # Create the Node object
             self._add_node(node)
             filled_params.apply_to_node(self, node.id)
@@ -314,15 +310,6 @@ class ActiveGraph(
                             for tolabel in as_iter(to_port_label)
         )
 
-#        return bool(
-#            self.find_hop(
-#                self.as_nodeid(from_node),
-#                from_port_label,
-#                self.as_nodeid(to_node),
-#                to_port_label
-#            )
-#        )
-
     def remove_edge(
         self,
         node1: NRefs,
@@ -365,23 +352,7 @@ class ActiveGraph(
 
         return result
 
-    #TODO UT
-    def has_neighbor_at(
-        self,
-        node: NRefs,
-        port_label: PortLabels = None,
-        neighbor_class: Union[Type[Node], NRef] = None,
-        neighbor_label: PortLabels = None
-    ) -> bool:
-        '''Returns True if at least one node given has a neighbor with the
-        specified characteristics.'''
-        # INEFFICIENT Instead of calling .neighbors(), should stop searching
-        # at first match.
-        return bool(self.neighbors(
-            node, port_label, neighbor_class, neighbor_label
-        ))
-
-    # Additional methods (not overrides)
+    # as_ functions
 
     def as_nodeid(self, nref: NRef) -> Union[NodeId, None]:
         return as_nodeid(nref)
@@ -394,6 +365,25 @@ class ActiveGraph(
 
     def as_nodes(self, nrefs: NRefs) -> Iterable[Node]:
         return as_nodes(self, nrefs)
+
+    def as_nodeclasses(self, crefs: Union[CRefs, None]) -> List[Type[Node]]:
+        return [self.as_nodeclass(cref) for cref in as_iter(crefs)]
+
+    def as_nodeclass(self, cref: CRef) -> Type[Node]:
+        if isclass(cref):
+            assert issubclass(cref, Node)
+            return cref
+        elif is_nodeid(cref):
+            node = self.as_node(cref)
+            if not node:
+                raise NoSuchNode(node)
+            return node.__class__
+        else:
+            assert isinstance(cref, str)
+            #TODO
+            raise NotImplementedError
+        
+    # Node-building
 
     def already_built(
         self,
@@ -418,14 +408,30 @@ class ActiveGraph(
             candidates = self.nodes()
         else:
             candidates = self.neighbors(filled_params.potential_neighbors())
-        try:
-            return self.as_node(next(
-                candidate
-                    for candidate in candidates
-                        if filled_params.is_match(self, nodeclass, candidate)
-            ))
-        except StopIteration:
-            return None
+        return self.as_node(first(
+            candidate
+                for candidate in candidates
+                    if filled_params.is_match(self, nodeclass, candidate)
+        ))
+
+    def auto_link(self, from_node: NRef, port_label: PortLabel, to_node: NRef):
+        '''Links from_node.port_label to to_node at appropriate port_label
+        for to_node, or throws an exception.'''
+        self.port_mates.auto_link(self, from_node, port_label, to_node)
+
+    def add_implicit_membership(self, node: Node):
+        '''If nodeid has no member_of link, add link to the "lowest common
+        denominator" member_of all its neighbors.'''
+        if self.has_neighbor_at(node, 'member_of'):
+            return
+        containers = intersection(*(
+            self.neighbors(n1, 'member_of') for n1 in self.neighbors(node)
+        ))
+        containers.discard(as_nodeid(node))
+        for c in containers:
+            self.put_in_container(node, c)
+
+    # Interrogating nodes
 
     def is_of_class(self, nrefs: NRefs, nodeclasses: CRefs) -> bool:
         '''Returns True iff all nodes referenced are instances of all the
@@ -446,55 +452,44 @@ class ActiveGraph(
     def is_member(self, node: NRefs, group_node: NRefs):
         return self.has_hop(group_node, 'members', node, 'member_of')
 
-    def add_implicit_membership(self, node: Node):
-        '''If nodeid has no member_of link, add link to the "lowest common
-        denominator" member_of all its neighbors.'''
-        if self.has_neighbor_at(node, 'member_of'):
-            return
-        containers = intersection(*(
-            self.neighbors(n1, 'member_of') for n1 in self.neighbors(node)
-        ))
-        containers.discard(as_nodeid(node))
-        for c in containers:
-            self.put_in_container(node, c)
-
-    def put_in_container(self, node: NRefs, container: NRefs):
-        self.add_edge(node, 'member_of', container, 'members')
-
     def value_of(self, nref: NRef, attr_name: str='value') -> Any:
         try:
             return getattr(self.as_node(nref), attr_name)
         except AttributeError:
             return None
 
-    def as_nodeclasses(self, crefs: Union[CRefs, None]) -> List[Type[Node]]:
-        return [self.as_nodeclass(cref) for cref in as_iter(crefs)]
+    #TODO UT
+    def has_neighbor_at(
+        self,
+        node: NRefs,
+        port_label: PortLabels = None,
+        neighbor_class: Union[Type[Node], NRef] = None,
+        neighbor_label: PortLabels = None
+    ) -> bool:
+        '''Returns True if at least one node given has a neighbor with the
+        specified characteristics.'''
+        # INEFFICIENT Instead of calling .neighbors(), should stop searching
+        # at first match.
+        return bool(self.neighbors(
+            node, port_label, neighbor_class, neighbor_label
+        ))
 
-    def as_nodeclass(self, cref: CRef) -> Type[Node]:
-        if isclass(cref):
-            assert issubclass(cref, Node)
-            return cref
-        elif isinstance(cref, int):
-            node = self.as_node(cref)
-            if not node:
-                raise NoSuchNode(node)
-            return node.__class__
-        else:
-            assert isinstance(cref, str)
-            #TODO
-            raise NotImplementedError
-        
+    # Port labels
+
     def is_port_label(self, name: str) -> bool:
-        print('ISPO', name, self.port_mates.is_port_label(name))
         return self.port_mates.is_port_label(name)
 
-    def auto_link(self, from_node: NRef, port_label: PortLabel, to_node: NRef):
-        '''Links from_node.port_label to to_node at appropriate port_label
-        for to_node, or throws an exception.'''
-        self.port_mates.auto_link(self, from_node, port_label, to_node)
+    # Doing things
 
     def do_action(self, action: 'Action'):
         raise NotImplementedError
+
+    def put_in_container(self, node: NRefs, container: NRefs):
+        #TODO Don't allow a node to contain itself. Or should that get caught
+        # by some "proofreading" process in the model?
+        self.add_edge(node, 'member_of', container, 'members')
+
+    # Printing
 
     def dict_str(self, nref: NRef) -> Union[str, None]:
         try:

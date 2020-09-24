@@ -14,6 +14,9 @@ MaybeNodeId = Union[NodeId, None]
 PortLabel = NewType('PortLabel', str)
 PortLabels = Union[PortLabel, None, Iterable[PortLabel]]
 
+def is_nodeid(x):
+    return isinstance(x, int)
+
 
 @dataclass
 class Node:
@@ -105,7 +108,7 @@ CRefs = Union[CRef, Iterable[CRef]]
 
 
 def as_nodeid(nref: NRef) -> Union[NodeId, None]:
-    if isinstance(nref, int) or nref is None:
+    if is_nodeid(nref) or nref is None:
         return nref
     assert isinstance(nref, Node)
     return nref.id

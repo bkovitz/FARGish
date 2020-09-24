@@ -6,6 +6,11 @@ import sys
 from inspect import isclass
 from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
+from contextlib import AbstractContextManager
+from dataclasses import dataclass
+from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar
+from types import SimpleNamespace
 
 
 empty_set = frozenset()
@@ -89,6 +94,7 @@ def vcat(a, b):
         return [a] + b
     return [a, b]
     
+# TODO rm (OAOO Node.py)
 def is_nodeid(x):
     return isinstance(x, int)
 
@@ -249,3 +255,17 @@ class ReprEq:
 
     def __hash__(self):
         return hash(repr(self))
+
+@dataclass
+class PushAttr(AbstractContextManager):
+    o: SimpleNamespace
+    attr_name: str
+    saved_value: Any = None
+
+    def __enter__(self):
+        self.saved_value = getattr(self.o, self.attr_name)
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        setattr(self.o, self.attr_name, self.saved_value)
+        return None
