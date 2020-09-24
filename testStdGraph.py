@@ -150,6 +150,11 @@ class TestStdGraph(unittest.TestCase):
         node = g.add_node(NodeWithOnBuild)
         self.assertEqual(g.value_of(node, 'late_attr'), 'ON_BUILD')
 
+    def test_seed(self):
+        g = TestGraph(seed=25)
+        self.assertEqual(g.seed, 25)
+        g = TestGraph()
+        self.assertTrue(isinstance(g.seed, int))
 
 if __name__ == '__main__':
     g = Graph()

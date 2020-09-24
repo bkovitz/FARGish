@@ -12,7 +12,7 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
-from util import as_iter, as_list, repr_str, first, intersection
+from util import as_iter, as_list, repr_str, first, intersection, reseed
 
 
 @dataclass(frozen=True)
@@ -226,10 +226,11 @@ class ActiveGraph(
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built')
     ])
 
-    def __init__(self):
+    def __init__(self, seed: Union[int, None]=None):
         self.port_mates: PortMates = copy(self.std_port_mates)
         self.builder: MaybeNRef = None  # Node that is currently "building"
                                         # other nodes
+        self.seed = reseed(seed)
 
     # Overrides for ActiveGraphPrimitives
 
