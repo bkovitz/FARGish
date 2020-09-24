@@ -152,13 +152,12 @@ class TestNetworkxActivation(unittest.TestCase):
         # Non-existent node has 0.0 activation
         self.assertEqual(g.activation(1), 0.0)
 
-        a = g._add_node(MyNode('A'))
-        b = g._add_node(NodeWithMinActivation('B'))
+        a = g.add_node(MyNode('A'))
+        b = g.add_node(NodeWithMinActivation('B'))
 
         # Node has no activation until we give it some
         self.assertEqual(g.activation(a), 0.0)
         # ...unless it has min_activation
-        print('B', as_node(g, b).min_activation)
         self.assertEqual(g.activation(b), 1.0)
 
         self.assertTrue(isinstance(g.min_activation(a), float))

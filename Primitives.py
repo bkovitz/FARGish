@@ -239,6 +239,10 @@ class ActivationPrimitives(ABC):
         pass
 
     @abstractmethod
+    def incoming_activation_neighbors(self, node: NRef) -> Iterable[NodeId]:
+        pass
+
+    @abstractmethod
     def remove_outgoing_activation_edges(self, node: NRef):
         pass
 

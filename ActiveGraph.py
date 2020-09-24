@@ -118,7 +118,6 @@ class ActiveGraph(
 
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
-        print('NODE', node)
         node.on_build()
         # logging
         self.new_nodes.add(self.as_nodeid(node))
@@ -138,6 +137,18 @@ class ActiveGraph(
                 for toid in as_nodeids(nodes2):
                     for tolabel in as_iter(port_label2):
                         self._add_edge(fromid, fromlabel, toid, tolabel)
+
+    def edge_weight(
+        self,
+        node1: NRef,
+        port_label1: PortLabel,
+        node2: NRef,
+        port_label2: PortLabel,
+    ):
+        return self._edge_weight(
+            self.as_nodeid(node1), port_label1,
+            self.as_nodeid(node2), port_label2
+        )
 
     def has_edge(
         self,

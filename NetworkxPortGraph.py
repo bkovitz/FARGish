@@ -239,9 +239,12 @@ class NetworkxActivation(
             )
 
     def activation_from_to(self, from_node: NRef, to_node: NRef):
-        return self._edge_weight(
+        return self.edge_weight(
             from_node, 'activation_to', to_node, 'activation_from'
         )
+
+    def incoming_activation_neighbors(self, node: NRef) -> Iterable[NodeId]:
+        return self.neighbors(node, 'activation_from')
 
     def remove_outgoing_activation_edges(self, node: NRef):
         self.remove_hops_from_port(node, 'activation_to')
