@@ -97,9 +97,9 @@ class ActionNode(ActiveNode):
 
         # Otherwise return a version of the action with those args filled in.
 
-    def action_failed(self, g, thisid, exc: Fizzle):
-        failed_tag = g.add_node('Failed', reason=exc, taggees=[thisid])
-        g.add_support(thisid, failed_tag, 1.0)
+    def action_failed(self, g, exc: Fizzle):
+        failed_tag = g.add_node('Failed', reason=exc, taggees=self)
+        g.add_support(self, failed_tag, 1.0)
 
 
 class ActionSeqNode(ActiveNode):

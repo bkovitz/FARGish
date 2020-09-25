@@ -30,15 +30,22 @@ class Propagator(ABC):
         # sigma parameter for normal dist. sampled and added
 
     def propagate(self, g, old_d: Dict[NodeId, float]):
+        # TODO Think about positive_feedback_rate with a zero or nearly-
+        # zero neighbor. Also, positive_feedback_rate should apply to this
+        # node, not the neighbor.
         new_d: Dict[NodeId, float] = {}
         for node, old in old_d.items():
             new_value = old * self.alpha + sum(
                 (1.0 - self.alpha) *
-                (self.positive_feedback_rate * old_d[neighbor]) *
+                #(self.positive_feedback_rate * old_d[neighbor]) *
+                old_d[neighbor] *
                 self.hop_weight(g, neighbor, node) *
                 gauss(1.0, self.noise)
                     for neighbor in self.incoming_neighbors(g, node)
             )
+#            print('LOOP', node, old, new_value)
+#            for neighbor in self.incoming_neighbors(g, node):
+#                print(neighbor, self.hop_weight(g, neighbor, node))
             new_d[node] = max(self.min_value(g, node), new_value)
         new_d = self.normalize(new_d)
         for node, new_value in new_d.items():
@@ -65,6 +72,7 @@ class Propagator(ABC):
         exceed self.max_total.'''
         result = {}
         total = sum(d.values())
+        print('NORM', total, self.max_total)
         if total <= self.max_total:
             return d
         scale_down = 1.0 / max(d.values())

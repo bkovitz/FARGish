@@ -1,5 +1,6 @@
 # StdGraph.py -- The usual ActiveGraph class that represents the FARG model
 
+from dataclasses import dataclass
 from inspect import isclass
 
 from ActiveGraph import ActiveGraph
@@ -10,6 +11,7 @@ from Propagator import Propagator
 from Node import NRef
 
 
+@dataclass
 class StdActivationPropagator(Propagator):
 
     def incoming_neighbors(self, g, nodeid):
@@ -27,10 +29,10 @@ class StdActivationPropagator(Propagator):
 class StdActivationPolicy(ActivationPolicy):
 
     activation_propagator = StdActivationPropagator(
-        positive_feedback_rate=0.95,
-        alpha=0.98,
-        max_total=50.0,
-        noise=0.05
+        positive_feedback_rate=1.1,
+        alpha=0.95,
+        max_total=100.0,
+        noise=0.02
     )
 
     def boost_activation(self, node: NRef, boost_amount: float=0.2):

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import dataclasses
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
+from copy import copy
 
 from util import nice_object_repr, as_iter
 from Node import MaybeNRef, CRef
@@ -63,7 +64,8 @@ class Action(BaseAction):
 #            for param_name, value in override_d.items():
 #                setattr(new_action, param_name, value)
         else:
-            return self
+            #return self
+            return copy(self)  # HACK Because Actions are getting shared
 
 Actions = Union[Action, Iterable[Action], None]
 

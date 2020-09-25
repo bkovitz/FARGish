@@ -338,7 +338,8 @@ class FilledAttr(FilledParam):
 
     def __init__(self, attr_param, value):
         self.attr_param = attr_param  # AttrParam or string
-        self.value = value
+        self.value = copy(value) if isinstance(value, object) else value
+          #HACK
 
     def is_mateparam(self):
         return False

@@ -45,6 +45,7 @@ class OfClass(Criterion):
 class Activated(Criterion):
 
     def __call__(self, g, nodeid):
+        print('ACTIVATED', nodeid, g.activation(nodeid))
         return g.activation(nodeid) >= 1.0
 
 @dataclass

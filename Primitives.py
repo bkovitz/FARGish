@@ -161,6 +161,10 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
         pass
 
     @abstractmethod
+    def remove_node(self, node: NRefs):
+        pass
+
+    @abstractmethod
     def add_edge(
         self,
         nodes1: NRefs,

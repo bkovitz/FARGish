@@ -3,6 +3,7 @@
 from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from dataclasses import dataclass, field
+from copy import deepcopy
 
 from NodeParams import NodeParams, FilledParams
 from util import as_iter, as_list, repr_str, omit
@@ -75,6 +76,18 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         '''From the kwargs dict returned by this function, you can reconstruct
         the node, excluding its links.'''
         return omit(self.__dict__, self.attrs_not_to_copy)
+#        result = {}
+#        for param_name, v in self.__dict__.items():
+#            if param_name in self.attrs_not_to_copy:
+#                continue
+#            if isinstance(v, object):
+#                if isinstance(v, Node):
+#                    v = v.id  # HACK because can't deepcopy a Node
+#                else:
+#                    print('DEEP', v)
+#                    v = deepcopy(v)
+#            result[param_name] = v
+#        return result
         
     def is_same_node(self, other: 'Node') -> bool:
         return self.id == other.id and self == other
@@ -115,7 +128,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
     def inhibit_all_next(self):
         for n in self.g.walk(self, 'next'):
-            self.g.set_activation_from_to(self, n, -1.0)
+            self.g.set_activation_from_to(self, n, -0.2)
 
 # TODO Disallow None in NRef? Should have MaybeNRef.
 NRef = Union[NodeId, Node, None]     # A Node reference

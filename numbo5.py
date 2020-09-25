@@ -22,7 +22,7 @@ from Action import Action, Build, make_build, Raise, SelfDestruct, \
     NEWBuild
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
-from BuildSpec import make_buildspec
+#from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion, Activated
 from exc import NeedArg, FargDone
@@ -77,6 +77,8 @@ Numble = make_numble_class(
 
 ##### Hacks
 
+Number.is_duplicable = True
+
 #tag_port_label = 'taggees'
 #taggee_port_label = 'tags'
 #
@@ -103,9 +105,11 @@ class ActivateSlipnode(Action):
         ws = g.ws
         new_node = g.as_node(g.copy_group(self.slipnode, ws))
         print('ASLIP', self.slipnode, g.nodestr(new_node))
-        new_node.min_activation = 6.0
-        g.set_activation(new_node, 6.0)
+        new_node.min_activation = 6.0 # HACK
+        #g.set_activation(new_node, 10.0)
         g.deactivate(self.slipnode)
+        g.as_node(self.slipnode).dont_activate_slipnode = True   # HACK
+
         new_node.on_build()  # HACK for ActionSeqNode 
 
 @dataclass
@@ -118,7 +122,8 @@ class SeekAndGlom(Action):
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
-            g.do(Build.maybe_make(g, Glom, [glommees], {}))
+            #g.do(Build.maybe_make(g, Glom, [glommees], {}))
+            g.do(NEWBuild.maybe_make(g, Glom, glommees))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
@@ -146,7 +151,8 @@ class NoticeAllSameValue(Action):
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(self.within)
         ):
-            g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
+            #g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
+            g.do(NEWBuild.maybe_make(g, AllMembersSameValue, self.within))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
@@ -177,8 +183,11 @@ class NoticeSameValue(Action):
             raise NeedArg(self, 'node2')
         if g.value_of(self.node1) == g.value_of(self.node2):
             g.do(
-                Build.maybe_make(
-                    g, SameValue, [], dict(taggees=[self.node1, self.node2])
+#                Build.maybe_make(
+#                    g, SameValue, [], dict(taggees=[self.node1, self.node2])
+#                )
+                NEWBuild.maybe_make(
+                    g, SameValue, taggees=[self.node1, self.node2]
                 )
             )
             g.new_state(self.actor, Completed)
@@ -208,7 +217,7 @@ class SeekArg(Action):
         found_node = g.look_for(OfClass(self.nodeclass))
         if found_node:
             g.add_override_node(self.for_node, self.port_label, found_node)
-            g.boost_salience(self.for_node)
+            g.boost_activation(self.for_node)
             g.new_state(self.actor, Completed)
             g.remove_node(g.neighbors(self.actor, 'rm_on_success'))
 
@@ -233,7 +242,7 @@ is_number = OfClass(Number)
 class Slipnet(Group, ActiveNode):
 
     min_support_for = 1.0
-    min_activation = 2.0
+    min_activation = 1.1
 
     def actions(self, g):
         actives = g.find_all(
@@ -242,7 +251,11 @@ class Slipnet(Group, ActiveNode):
             #TODO within=self ?
         )
         print('ACTIVE SLIPNODES', actives)
-        return [ActivateSlipnode(slipnode) for slipnode in actives]
+        return [
+            ActivateSlipnode(slipnode)
+                for slipnode in actives
+                    if not g.as_node(slipnode).dont_activate_slipnode
+        ]
 
 class AllBricksAvail(Tag, ActiveNode):
 
@@ -267,6 +280,7 @@ class NoticeAllBricksAvail(ActiveNode):
         bricks = g.find_all(OfClass(Brick))
         if AllTagged(g, Avail, bricks):
             return NEWBuild.maybe_make(g, AllBricksAvail, taggees=bricks)
+            self.g.deactivate(self)
 #        bricks = g.find_all(OfClass(Brick))
 #        buildspec = make_buildspec(
 #            g, AllBricksAvail, kwargs=dict(taggees=bricks)
@@ -285,7 +299,8 @@ class SameNumberGlommer(ActiveNode):
             is_number, HasValue(g.value_of(number_node))
         )
         #return [make_build3(g, Glom, [all_with_same_value], {})]
-        return Build.maybe_make(g, Glom, [all_with_same_value], {})
+        #return Build.maybe_make(g, Glom, [all_with_same_value], {})
+        return NEWBuild.maybe_make(g, Glom, all_with_same_value)
 
 class MemberCounter(ActiveNode):
 
@@ -378,6 +393,7 @@ class DemoGraph(ExprAsEquation, Graph):
 #        super().__init__(**kws)
 #        self.consecutive_timesteps_with_no_response = 0
         self.nodeclasses.update(nodeclasses)
+        self.nodeclasses['Failed'] = Failed
         self.port_mates += port_mates
 
         # Make initial nodes
@@ -512,6 +528,7 @@ def p():
 
 if __name__ == '__main__':
     ShowAnnotations.start_logging()
+    ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
     ShowActionsChosen.start_logging()
     #ShowIsMatch.start_logging()

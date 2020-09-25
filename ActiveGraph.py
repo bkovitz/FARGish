@@ -79,14 +79,6 @@ class ActiveGraph(
         self.ws: MaybeNRef = None
         self.slipnet: MaybeNRef = None
 
-        #TODO Allow this as a class variable
-        self.activation_propagator = ActivationPropagator(
-            max_total_activation=20,
-            sigmoid_p=0.5,
-            alpha=0.98,
-            # TODO noise=0.0
-        )
-
     # Overrides for ActiveGraphPrimitives
 
     def add_node(
@@ -109,7 +101,8 @@ class ActiveGraph(
         else:
             if isinstance(node, str):
                 # TODO If node is a str, get_nodeclass
-                raise NotImplementedError
+                #raise NotImplementedError
+                node = self.as_nodeclass(node)
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already
@@ -135,6 +128,11 @@ class ActiveGraph(
         self.new_nodes.add(self.as_nodeid(node))
         # touches
         return node
+
+    #TODO UT
+    def remove_node(self, node: NRefs):
+        for n in as_iter(node):
+            self._remove_node(self.as_nodeid(n))
 
     def add_edge(
         self,
@@ -503,6 +501,12 @@ class ActiveGraph(
             node, port_label, neighbor_class, neighbor_label
         ))
 
+    def add_override_node(self, node: int, port_label, overriding_node: int):
+        '''Adds an edge from node.port_label to overriding_node.overriding.
+        This signifies that overriding_node should be the value of the
+        argument named port_label when running any Action inside node.'''
+        self.add_edge(node, port_label, overriding_node, 'overriding')
+
     def get_overrides(self, node: NRef, names: Set[str]) -> Dict[str, Any]:
         result = {}
         for name in names:
@@ -658,6 +662,58 @@ class ActiveGraph(
             if state.is_completed:
                 node.on_completion()
 
+    #TODO UT
+    def move_tag(self, tagclass, fromids, toids):
+        '''Moves all tags of class tagclass from fromids to toids. fromids and
+        toids can be either a single integer or a list of integer node ids.
+        If none of the fromids have such a tag, does nothing.'''
+        if self.remove_tag(fromids, tagclass):
+            for toid in as_iter(toids):
+                self.add_tag(tagclass, toid)
+
+    def tags_of(self, nodes, tagclass=['Tag', str], taggee_port_label='tags'):
+        '''Returns a generator. nodes can be a single node id or an iterable
+        of node ids.'''
+        #TODO Should be able to specify tagclass more narrowly.
+        tag_sets = (
+            set(tag
+                for node in as_iter(nodes)
+                    for tag in self.neighbors(
+                            node, port_label=taggee_port_label
+                        )
+                        if self.is_of_class(tag, tagclass)
+            )
+        )
+        return set.intersection(tag_sets)
+
+    def tag_of(self, node, tagclass='Tag', taggee_port_label='tags'):
+        #TODO Handle multiple taggees, different port labels
+        try:
+            return next(iter(self.tags_of(
+                node, tagclass=tagclass, taggee_port_label=taggee_port_label
+            )))
+        except StopIteration:
+            return None
+        
+    #TODO Consistent argument order: put tag_or_tagclass first?
+    def remove_tag(self, node_or_nodes, tag_or_tagclass):
+        '''Removes all tags of node that match tagclass. Returns True iff at
+        last one of node_or_nodes was actually so tagged.'''
+        #TODO Should only remove the edge if the tag tags other nodes, too.
+        #TODO Should be able to specify the tagclass more narrowly (e.g.
+        # by value, by other taggees).
+        result = False
+        if isclass(tag_or_tagclass):
+            tagids = list(self.tags_of(node_or_nodes, tagclass=tag_or_tagclass))
+            if tagids:
+                self.remove_node(tagids)
+            result = True
+        else:
+            self.remove_node(tag_or_tagclass)
+            result = True # HACK BUG We should check that node_or_nodes really
+                          # has the given tag node.
+        return result
+
     # Timestepping (TODO: make this section into a mix-in)
 
     def do_timestep(
@@ -681,7 +737,9 @@ class ActiveGraph(
             #self.propagate_support()
             #support.log_support(self)
 
-            self.propagate_activation()
+            #TODO Put num into Propagator
+            for _ in range(4):
+                self.propagate_activation()
             #log_activation(self)
 
             #self.update_coarse_views()
@@ -722,8 +780,8 @@ class ActiveGraph(
         active_nodes = self.collect_active_nodes()
         if ShowActiveNodes.is_logging():
             print('ACTIVE NODES')
-            raise NotImplementedError
-            #pg(self, active_nodes)
+            for node in active_nodes:
+                print(self.nodestr(node))
 
         actions = self.collect_actions(active_nodes)
         if ShowActionList.is_logging():
@@ -883,5 +941,10 @@ class ActiveGraph(
                 hop.to_port_label,
                 self._hop_weight(hop)
             ))
+
+    # Unimplemented  # TODO
+
+    def add_support(self, from_node, to_node, weight=None):
+        return
 
 G = ActiveGraph
