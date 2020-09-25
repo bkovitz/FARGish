@@ -9,6 +9,7 @@ from Node import Node, NodeId, NRef, as_nodeid, as_node, as_nodeids, \
     as_nodes
 from NodeParams import NodeParams, AttrParam, MateParam
 from util import PushAttr
+from log import *
 
 
 class Tag(Node):
@@ -17,6 +18,7 @@ class Tag(Node):
 
 class Brick(Node):
     node_params = NodeParams(AttrParam('value'))
+    initial_activation = 0.72
     is_duplicable = True
 
 class Avail(Tag):
@@ -42,6 +44,9 @@ class TestGraph(Graph):
 
 class TestStdGraph(unittest.TestCase):
 
+    def setUp(self):
+        stop_all_logging()
+
     def test_stdgraph_nodebuilding(self):
         g = Graph()
 
@@ -63,6 +68,8 @@ class TestStdGraph(unittest.TestCase):
 
         self.assertEqual(g.value_of(b1), 1)
         self.assertEqual(g.value_of(b2), 2)
+
+        self.assertEqual(g.activation(b1), 0.72)
 
         # Tag one Brick Avail
         a1 = g.add_node(Avail, b1)
@@ -149,6 +156,23 @@ class TestStdGraph(unittest.TestCase):
 
         node = g.add_node(NodeWithOnBuild)
         self.assertEqual(g.value_of(node, 'late_attr'), 'ON_BUILD')
+
+    def test_spreading_activation(self):
+        g = TestGraph()
+        b1 = g.add_node(Brick, value=1)
+        b2 = g.add_node(Brick(2))
+
+        b1_before = g.activation(b1)
+        g.boost_activation(b1)
+        b1_after = g.activation(b1)
+        self.assertGreater(b1_after, b1_before)
+
+        g.set_activation_from_to(b1, b2)
+
+        pg(g)
+        g.do_timestep()
+        self.assertGreater(g.activation(b2), Brick.initial_activation)
+        self.assertLess(g.activation(b1), b1_after)
 
     def test_seed(self):
         g = TestGraph(seed=25)

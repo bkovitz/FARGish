@@ -12,9 +12,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_auto_membership
+	$(PY) -m unittest -v testStdGraph.TestStdGraph.test_spreading_activation
 	#$(PY) -m unittest -v testActionNode
-	$(PY) -m unittest -v testPropagator
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 tags:

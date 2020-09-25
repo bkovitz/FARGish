@@ -36,9 +36,9 @@ class Node:
     is_duplicable: ClassVar[bool] = False  # May multiple instances of this
                                            # exist at the same time?
     min_support_for: float = 0.0
-    initial_support_for: float = 0.1
+    initial_support_for: float = 1.0
     min_activation: float = 0.0
-    initial_activation: float = 0.1
+    initial_activation: float = 1.0
 
     attrs_not_to_copy: ClassVar[Set[str]] = frozenset(['id', 'g'])
 

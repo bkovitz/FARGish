@@ -141,6 +141,17 @@ class NetworkxPortGraph(PortGraphPrimitives):
         else:
             return 0.0
 
+    # TODO UT
+    def _hop_weight(self, hop: Hop) -> float:
+        '''0.0 if hop does not exist. 1.0 if hop exists but has no weight
+        specified.'''
+        if hop is None:
+            return 0.0
+        try:
+            return self.g[hop.from_node][hop.to_node][hop.key].get('weight', 1.0)
+        except KeyError:
+            return 0.0
+
     def _remove_node(self, nodeid):
         self._remove_all_hops_to(nodeid)
         self.g.remove_node(nodeid)
@@ -223,7 +234,7 @@ class NetworkxActivation(
         self.g.nodes[nodeid]['A'] = a
 
     def set_activation_from_to(
-        self, from_node: NRef, to_node: NRef, weight: float
+        self, from_node: NRef, to_node: NRef, weight: float=1.0
     ):
         from_nodeid = as_nodeid(from_node)
         to_nodeid = as_nodeid(to_node)

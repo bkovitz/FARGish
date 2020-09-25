@@ -7,6 +7,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from dataclasses import dataclass, field
 from inspect import isclass
 from copy import copy
+from operator import attrgetter, itemgetter
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     ActivationPrimitives, ActivationPolicy
@@ -36,7 +37,8 @@ class Members(ActiveGraphPrimitives):
     pass
 
 class ActiveGraph(
-    Support, Touches, Members, ActivationPrimitives, ActiveGraphPrimitives 
+    Support, Touches, Members, ActivationPolicy, ActivationPrimitives,
+    ActiveGraphPrimitives 
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
@@ -116,6 +118,7 @@ class ActiveGraph(
         if classname not in self.nodeclasses:
             self.nodeclasses[classname] = node.__class__
 
+        self.set_activation(node, node.initial_activation)
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
         node.on_build()
@@ -520,7 +523,7 @@ class ActiveGraph(
             #self.propagate_support()
             #support.log_support(self)
 
-            #self.propagate_activation()
+            self.propagate_activation()
             #log_activation(self)
 
             #self.update_coarse_views()
@@ -684,10 +687,36 @@ class ActiveGraph(
 
     # Printing
 
+    def nodestr(self, node: MaybeNRef) -> str:
+        node = self.as_node(node)
+        if node is None:
+            return 'None'
+        else:
+            return f'{node.id:4d}: {repr(node)}'
+
+    def long_nodestr(self, node):
+        return '%s  a=%.3f supp=%.3f' % (
+            self.nodestr(node),
+            self.activation(node),
+            self.support_for(node),
+        )
+
     def dict_str(self, nref: NRef) -> Union[str, None]:
         try:
             return self.as_node(nref).dict_str()
         except AttributeError:
             return None
+
+    def print_edges(self, node, prefix=''):
+        for hop in sorted(
+            self.hops_from_node(node), key=attrgetter('from_port_label')
+        ):
+            print('%s%-20s --> %s %s (%.3f)' % (
+                prefix,
+                hop.from_port_label,
+                self.nodestr(hop.to_node),
+                hop.to_port_label,
+                self._hop_weight(hop)
+            ))
 
 G = ActiveGraph

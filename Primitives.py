@@ -263,5 +263,5 @@ class ActivationPolicy(ABC):
         pass
 
     @abstractmethod
-    def propagate_activations(self):
+    def propagate_activation(self):
         pass

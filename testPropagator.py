@@ -26,6 +26,7 @@ class MyPropagator(Propagator):
 
 class MyNode(Node):
     node_params = NodeParams(AttrParam('name'))
+    initial_activation = 0.0
 
 class TestPropagator(unittest.TestCase):
 

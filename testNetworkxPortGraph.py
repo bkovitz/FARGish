@@ -6,6 +6,8 @@ from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from ActiveGraph import ActiveGraph, Hop
 from Node import Node, as_node, as_nodeid
 from NodeParams import NodeParams, AttrParam
+from StdGraph import StdActivationPolicy
+
 
 class MyNode(Node):
     node_params = NodeParams(AttrParam('name'))
@@ -140,6 +142,7 @@ class TestNetworkxPortGraph(unittest.TestCase):
 class GraphWithNetworkxActivation(
     ActiveGraph,
     NetworkxActivation,
+    StdActivationPolicy, # not tested here
     NetworkxPortGraph
 ):
     pass
@@ -155,9 +158,8 @@ class TestNetworkxActivation(unittest.TestCase):
         a = g.add_node(MyNode('A'))
         b = g.add_node(NodeWithMinActivation('B'))
 
-        # Node has no activation until we give it some
-        self.assertEqual(g.activation(a), 0.0)
-        # ...unless it has min_activation
+        # Verify initial activation
+        self.assertEqual(g.activation(a), 0.5)
         self.assertEqual(g.activation(b), 1.0)
 
         self.assertTrue(isinstance(g.min_activation(a), float))
@@ -174,7 +176,7 @@ class TestNetworkxActivation(unittest.TestCase):
         # Activation dictionary
         self.assertEqual(
             g.activation_dict(),
-            {as_nodeid(a): 0.0, as_nodeid(b): 1.0}
+            {as_nodeid(a): 0.5, as_nodeid(b): 1.0}
         )
 
         # Manually set activation
