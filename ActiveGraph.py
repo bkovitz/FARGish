@@ -643,8 +643,6 @@ class ActiveGraph(
         return result
 
     def urgency(self, action: Action) -> float:
-        return 1.0
-        #TODO
         support = self.support_for(action.actor)
         if support < action.support_threshold:
             return action.min_urgency
@@ -656,6 +654,9 @@ class ActiveGraph(
             action.min_urgency
         )
 
+    def support_for(self, nref: NRef) -> float:
+        #TODO
+        return 1.0
         
     def done(self) -> Any:
         # TODO Make this return a meaningful result. Maybe self.final_result?

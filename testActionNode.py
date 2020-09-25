@@ -97,8 +97,8 @@ class TestGraph(Graph):
 
 
 #ShowActiveNodes.start_logging()
-ShowActionList.start_logging()
-ShowActionsChosen.start_logging()
+#ShowActionList.start_logging()
+#ShowActionsChosen.start_logging()
 
 class TestActionNode(unittest.TestCase):
     

@@ -169,7 +169,6 @@ class TestStdGraph(unittest.TestCase):
 
         g.set_activation_from_to(b1, b2)
 
-        pg(g)
         g.do_timestep()
         self.assertGreater(g.activation(b2), Brick.initial_activation)
         self.assertLess(g.activation(b1), b1_after)

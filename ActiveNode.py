@@ -84,6 +84,7 @@ class ActionNode(ActiveNode):
         AttrParam('state'),
         MateParam('rm_on_success', 'tags')
     )
+    initial_activation = 0.1
 
     def actions(self, g: 'G') -> Actions:
         if not self.is_dormant():
