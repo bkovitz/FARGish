@@ -1,5 +1,7 @@
 # StdGraph.py -- The usual ActiveGraph class that represents the FARG model
 
+from inspect import isclass
+
 from ActiveGraph import ActiveGraph
 from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam

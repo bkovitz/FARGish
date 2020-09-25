@@ -95,11 +95,16 @@ class ActiveGraph(
         *args,
         **kwargs
     ) -> Node:
+        print('ADD', isinstance(node, Node), node)
         if isinstance(node, Node):
             already = self.already_built(node, *args, **kwargs)
             if already:
+                print('ALREADY', already)
                 return already
-            self._add_node(node)
+            id = self._add_node(node)
+            node.id = id
+            node.g = self
+            print('QUE', self.nodestr(node))
             # TODO Apply link FilledParams?
         else:
             if isinstance(node, str):
@@ -244,6 +249,38 @@ class ActiveGraph(
             node, port_label, neighbor_class, neighbor_label
         ))
 
+    # TODO UT
+    def walk(
+        self,
+        nodes: NRefs,
+        port_label: PortLabels = None,
+        neighbor_class: Union[Type[Node], NRef] = None,
+        neighbor_label: PortLabels = None
+    ) -> Iterable[NodeId]:
+        seen: Set[NodeId] = self.as_nodeids(nodes)
+        to_visit: List[NodeId] = [
+            self.as_nodeid(node) for node in as_iter(nodes)
+        ]
+        while to_visit:
+            nodeid = to_visit.pop(0)
+            for n in self.neighbors(
+                nodeid, port_label, neighbor_class, neighbor_label
+            ):
+                if n not in seen:
+                    yield n
+                    seen.add(n)
+                    to_visit.append(n)
+
+    # TODO UT
+    def link_sequence(self, nodes: Iterable[NRef]):
+        nodes = list(nodes)
+        for prev, next in zip(nodes[:-1], nodes[1:]):
+            self.add_edge(prev, 'next', next, 'prev')
+
+    def inhibit_all_next(self, node: NRefs):
+        for n in as_iter(node):
+            self.as_node(n).inhibit_all_next()
+
     # as_ functions
 
     def as_nodeid(self, nref: NRef) -> Union[NodeId, None]:
@@ -340,9 +377,12 @@ class ActiveGraph(
         self,
         original_group_node: NRef,
         destination_group_node: NRef
-    ):
+    ) -> Union[NodeId, None]:
+        # TODO Handle case where nothing gets copied, or disallow it.
         '''Returns nodeid of new group node.'''
         d = {}  # Maps source nodes to new nodes
+        original_group_node = self.as_nodeid(original_group_node)
+        destination_group_node = self.as_nodeid(destination_group_node)
 
         # Copy the nodes
         old_nodes = (
@@ -353,8 +393,9 @@ class ActiveGraph(
         for old_node in old_nodes:
             # HACK Should be deepcopy, but getting an error: NoneType is not
             # callable.
-            datum = copy(self.as_node(old_node))
-            d[old_node] = self.add_node(datum)
+            old_node = self.as_node(old_node)
+            datum = copy(old_node)
+            d[old_node.id] = self.add_node(datum)
 
         # Link to destination_group_node
         self.add_edge(
@@ -374,6 +415,7 @@ class ActiveGraph(
                     weight=self._hop_weight(hop)
                 )
 
+        print('COPY', original_group_node, d[original_group_node])
         return d[original_group_node]
 
     def mark_builder(self, built_node: MaybeNRef, builder: MaybeNRef):

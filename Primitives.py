@@ -273,3 +273,7 @@ class ActivationPolicy(ActivationPrimitives):
             for n2 in as_iter(node2):
                 self.set_activation_from_to(n1, n2, weight=weight)
                 self.set_activation_from_to(n2, n1, weight=weight)
+
+    def deactivate(self, node: NRefs):
+        for n in as_iter(node):
+            self.set_activation(n, 0.0)

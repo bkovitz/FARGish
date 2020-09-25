@@ -86,6 +86,8 @@ class ActionNode(ActiveNode):
         MateParam('rm_on_success', 'tags')
     )
     initial_activation = 0.1
+    is_duplicable = True  # HACK  TODO include 'triggered_by' as a NodeParam
+                          #       to allow duplication
 
     def actions(self, g: 'G') -> Actions:
         if not self.is_dormant():
@@ -104,8 +106,9 @@ class ActionSeqNode(ActiveNode):
     '''A group node whose members are a sequence of ActionNodes.'''
     node_params = NodeParams(
         MateParam('members', 'member_of'),
-        AttrParam('action_nodes')  # HACK: must be a list, to indicate sequence
+        #AttrParam('action_nodes')  # HACK: must be a list, to indicate sequence
     )
+    is_duplicable = True  # HACK
 
     def actions(self, g: 'G') -> Actions:
         return None
@@ -113,20 +116,26 @@ class ActionSeqNode(ActiveNode):
     def on_build(self):
         # Give activation to each member and make each member inhibit all
         # following members.
-        members = as_iter(self.action_nodes)
-        for i, member in enumerate(members):
+#        members = as_iter(self.action_nodes)
+#        for i, member in enumerate(members):
+#            self.g.set_activation_from_to(self, member, 0.3)
+#            self.g.add_edge(self, 'child_action', member, 'parent_action')
+#            for later_member in members[i+1:]:
+#                self.g.set_activation_from_to(member, later_member, -1.0)
+#            for next_member in members[i+1:i+2]:
+#                self.g.add_edge(member, 'next_action', next_member, 'prev_action')
+        print('ONB', self.id, self.g.members_of(self))
+        for member in self.g.members_of(self):
             self.g.set_activation_from_to(self, member, 0.3)
-            self.g.add_edge(self, 'child_action', member, 'parent_action')
-            for later_member in members[i+1:]:
-                self.g.set_activation_from_to(member, later_member, -1.0)
-            for next_member in members[i+1:i+2]:
-                self.g.add_edge(member, 'next_action', next_member, 'prev_action')
+            self.g.inhibit_all_next(member)
 
 def make_action_sequence(g, *actions: Action, **kwargs):
     '''Makes an ActionNode to hold each Action, and an ActionSeqNode that
     contains them, in sequence. Returns the nodeid of the ActionSeqNode.'''
     action_nodes = [g.add_node(ActionNode, action=a) for a in actions]
+    g.link_sequence(action_nodes)
     seqnode = g.add_node(
-        ActionSeqNode, action_nodes=action_nodes, members=action_nodes, **kwargs
+        #ActionSeqNode, action_nodes=action_nodes, members=action_nodes, **kwargs
+        ActionSeqNode, members=action_nodes, **kwargs
     )
     return seqnode

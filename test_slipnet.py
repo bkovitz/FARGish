@@ -35,7 +35,7 @@ class TestCopyGroup(unittest.TestCase):
         # Check that the members were copied, have the right attributes, and
         # are linked to each other correctly.
         new_members = g.members_recursive(new_seq)
-        #pg(g, new_members | {new_seq})
+        #pg(g, new_members | {new_seq.id})
         self.assertEqual(len(new_members), 5)
         for new_member in new_members:
             aft = g.activation_from_to(new_seq, new_member)

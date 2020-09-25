@@ -111,6 +111,12 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
             between_parens = ','.join(attr_strings) + '\n'
         return f"{self.__class__.__name__}({between_parens})"
 
+    # Methods that edit the graph
+
+    def inhibit_all_next(self):
+        for n in self.g.walk(self, 'next'):
+            self.g.set_activation_from_to(self, n, -1.0)
+
 # TODO Disallow None in NRef? Should have MaybeNRef.
 NRef = Union[NodeId, Node, None]     # A Node reference
 MaybeNRef = Union[NRef, None]

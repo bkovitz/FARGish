@@ -101,10 +101,12 @@ class ActivateSlipnode(Action):
 
     def go(self, g):
         ws = g.ws
-        new_node = g.copy_group(self.slipnode, ws)
-        g.datum(new_node).min_activation = 6.0
+        new_node = g.as_node(g.copy_group(self.slipnode, ws))
+        print('ASLIP', self.slipnode, g.nodestr(new_node))
+        new_node.min_activation = 6.0
         g.set_activation(new_node, 6.0)
-        g.set_activation(self.slipnode, 0.1)
+        g.deactivate(self.slipnode)
+        new_node.on_build()  # HACK for ActionSeqNode 
 
 @dataclass
 class SeekAndGlom(Action):
