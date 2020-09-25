@@ -8,9 +8,11 @@ from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
 from LinkSpec import LinkSpec
 #from numbospec import *
 from bases import make_link
-from PortGraph import PortGraph, Node, pg
+#from PortGraph import PortGraph, Node, pg
+from Node import Node
+from StdGraph import Graph, pg
 from ExprAsEquation import ExprAsEquation
-from TimeStepper import TimeStepper
+#from TimeStepper import TimeStepper
 from Numble import make_numble_class
 from testNodeClasses import *
 from util import reseed
@@ -21,14 +23,14 @@ Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times]
 )
 
-class TestGraph(TimeStepper, ExprAsEquation, PortGraph):
+class TestGraph(ExprAsEquation, Graph):
     port_mates = port_mates  # imported from testNodeClasses
 
     def __init__(self, numble, **kwargs):
         kwargs['seed'] = 1
         super().__init__(**kwargs)
-        self.graph['numble'] = numble
-        self.ws = self.make_node(Workspace)
+        self.numble = numble # TODO rm?
+        self.ws = self.add_node(Workspace)
         numble.build(self, self.ws)
 
 class ConsumeOperands(Node):
@@ -41,13 +43,13 @@ class ConsumeOperands(Node):
 
     @classmethod
     def build_and_link(cls, g, operand1id, operand2id, operatorid):
-        nodeid = g.make_node(cls)
+        nodeid = g.add_node(cls)
         old_nodes = [operand1id, operand2id, operatorid]
         for link_spec, old_node in zip(cls.link_specs, old_nodes):
             make_link(g, link_spec, nodeid, old_node)
 
-class Want(Node):
-    pass
+#class Want(Node):
+#    pass
 class Agent(Node):
     pass
 
@@ -56,7 +58,7 @@ class TestNodeSpec(unittest.TestCase):
     def test_node_of_class(self):
         spec = NodeOfClass(Number)
         g = TestGraph(Numble([4, 5, 6], 15))
-        expect = {Brick(4), Brick(5), Brick(6), Target(15)}
+        expect = [Brick(4), Brick(5), Brick(6), Target(15)]
         got = [g.datum(nodeid) for nodeid in spec.see_all(g)]
         self.assertCountEqual(got, expect)
 
@@ -218,10 +220,10 @@ class TestNodeSpec(unittest.TestCase):
 class TestBuildSpec(unittest.TestCase):
 
     def teest_plus(self):
-        g = PortGraph()
-        b4 = g.make_node(Number(4))
-        b5 = g.make_node(Number(5))
-        t9 = g.make_node(Target(9))
+        g = Graph()
+        b4 = g.add_node(Number(4))
+        b5 = g.add_node(Number(5))
+        t9 = g.add_node(Target(9))
         spec = BuildSpec(
             Plus,
             [
@@ -236,8 +238,8 @@ class TestBuildSpec(unittest.TestCase):
         self.assertTrue(spec.is_already_built(g))
 
     def test_agent(self):
-        g = PortGraph()
-        w = g.make_node(Want)
+        g = Graph()
+        w = g.add_node(Want)
         spec = BuildSpec(
             Agent,
             LinkSpec('agents', 'behalf_of')
@@ -248,8 +250,8 @@ class TestBuildSpec(unittest.TestCase):
         self.assertEqual(len(g), 2)
 
     def test_agent_func_action(self):
-        g = PortGraph()
-        w = g.make_node(Want)
+        g = Graph()
+        w = g.add_node(Want)
         spec = BuildSpec(
             Agent,
             LinkSpec('agents', 'behalf_of')

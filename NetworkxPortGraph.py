@@ -89,9 +89,6 @@ class NodeAttrDict(UserDict):
 class NetworkxPortGraphImpl(nx.MultiGraph):
     node_dict_factory = NodeAttrDict
 
-    def __str__(self):
-        return 'NNNXXX'  #  DEBUG
-
 class NetworkxPortGraph(PortGraphPrimitives):
 
     def __init__(self, *args, **kwargs):

@@ -2,6 +2,7 @@
 
 import expr
 
+#TODO inherit ActiveGraph
 class ExprAsEquation:
     '''Mix-in for PortGraph. Provides a method expr_as_equation.'''
 

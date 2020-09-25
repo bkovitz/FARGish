@@ -3,11 +3,11 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import dataclasses
-from typing import Union, List, Set, FrozenSet, Iterable, Any, NewType, Type, \
-    ClassVar
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable
 
 from util import nice_object_repr, as_iter
-from Node import MaybeNRef
+from Node import MaybeNRef, CRef
 from BuildSpec import make_buildspec
 from exc import NeedArg
 
@@ -102,6 +102,7 @@ class ActionChain(Action):
     def go(self, g):
         pass #TODO
 
+# TODO rm
 class Build(Action):
     '''Builds a node according to a BuildSpec.'''
 
@@ -133,6 +134,25 @@ class Build(Action):
 
 def make_build(g, nodeclass, args=(), kwargs={}, threshold=0.0):
     return Build(make_buildspec(g, nodeclass, args, kwargs), threshold)
+
+@dataclass
+class NEWBuild(Action):
+    cl: CRef
+    args: Tuple
+    kwargs: Dict
+
+    def __init__(self, cl: CRef, *args, **kwargs):
+        self.cl = cl
+        self.args = args
+        self.kwargs = kwargs
+
+    def go(self, g):
+        g.add_node(self.cl, *self.args, **self.kwargs)
+
+    @classmethod
+    def maybe_make(cls, g, cl: CRef, *args, **kwargs) -> Union['NEWBuild', None]:
+        if not g.already_built(cl, *args, **kwargs):
+            return cls(cl, *args, **kwargs)
 
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''

@@ -809,6 +809,7 @@ class PortGraph(nx.MultiGraph):
             for toid in as_iter(toids):
                 self.add_tag(tagclass, toid)
 
+    # TODO UT
     def has_tag(
         self,
         node: int,
@@ -1427,7 +1428,6 @@ class PortGraph(nx.MultiGraph):
         #TODO Copy slipnode and all its members recursively into ws
         self.copy_group(slipnode, into=ws)
 
-    #TODO UT
     def copy_group(self, original_group_node: int, destination_group_node: int):
         '''Returns nodeid of new group node.'''
         d = {}  # Maps source nodes to new nodes

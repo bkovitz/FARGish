@@ -8,3 +8,8 @@ PortMates.py
 Action.py
 Primitives.py
 Propagator.py
+Numble.py
+Criteria.py
+
+NodeSpec.py
+BuildSpec.py

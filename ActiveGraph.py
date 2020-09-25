@@ -3,11 +3,12 @@
 
 from abc import ABC, abstractmethod
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar
+    NewType, Type, ClassVar, Callable
 from dataclasses import dataclass, field
 from inspect import isclass
 from copy import copy
 from operator import attrgetter, itemgetter
+from random import choice
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     ActivationPrimitives, ActivationPolicy
@@ -18,9 +19,9 @@ from PortMates import PortMates
 from Action import Action, Actions
 from ActiveNode import ActiveNode
 from WithActivation import WithActivation, Propagator as ActivationPropagator
-from util import as_iter, as_list, repr_str, first, intersection, reseed, \
-    empty_set, sample_without_replacement, PushAttr
-from exc import NodeLacksMethod, NoSuchNodeclass
+from util import as_iter, as_list, as_set, repr_str, first, intersection, \
+    reseed, empty_set, sample_without_replacement, PushAttr
+from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg
 from log import *
 
 
@@ -50,6 +51,7 @@ class ActiveGraph(
         seed: Union[int, None]=None,
         t: Union[int, None]=None,
         num_timesteps: Union[int, None]=None,
+        port_mates: Union[PortMates, None]=None,
         *args,
         **kwargs
     ):
@@ -58,6 +60,8 @@ class ActiveGraph(
         self.num_timesteps = num_timesteps
 
         self.port_mates: PortMates = copy(self.std_port_mates)
+        if port_mates:
+            self.port_mates += port_mates
         self.nodeclasses: Dict[str, Type[Node]] = {}
 
         self.max_active_nodes: Union[int, None] = None
@@ -114,7 +118,7 @@ class ActiveGraph(
         if not self.ws and classname == 'Workspace':
             self.ws = node
         if not self.slipnet and classname == 'Slipnet':
-            self.slipnet = slipnet
+            self.slipnet = node
         if classname not in self.nodeclasses:
             self.nodeclasses[classname] = node.__class__
 
@@ -218,8 +222,8 @@ class ActiveGraph(
 
         # Now pare down the neighbors to just those specified
         if neighbor_class:
-            for nodeid in result:
-                if self.is_of_class(nodeid, neighbor_class):
+            for nodeid in list(result):
+                if not self.is_of_class(nodeid, neighbor_class):
                     result.discard(nodeid)
         if neighbor_label:
             #TODO
@@ -320,6 +324,57 @@ class ActiveGraph(
         containers.discard(as_nodeid(node))
         for c in containers:
             self.put_in_container(node, c)
+
+    def add_tag(self, tag: Union[Type[Node], str, NRef, None], node: NRefs) \
+    -> MaybeNRef:
+        if isclass(tag) or isinstance(tag, str):
+            #assert tag.is_tag
+            return self.add_node(tag, taggees=node)
+        else:
+            # If all the nodes already have the tag, return it.
+            # If some do, extend it.
+            # If none do, build it.
+            raise NotImplementedError
+
+    def copy_group(
+        self,
+        original_group_node: NRef,
+        destination_group_node: NRef
+    ):
+        '''Returns nodeid of new group node.'''
+        d = {}  # Maps source nodes to new nodes
+
+        # Copy the nodes
+        old_nodes = (
+            self.members_recursive(original_group_node)
+            |
+            {original_group_node}
+        )
+        for old_node in old_nodes:
+            # HACK Should be deepcopy, but getting an error: NoneType is not
+            # callable.
+            datum = copy(self.as_node(old_node))
+            d[old_node] = self.add_node(datum)
+
+        # Link to destination_group_node
+        self.add_edge(
+            d[original_group_node], 'member_of',
+            destination_group_node, 'members'
+        )
+
+        # Copy the edges
+        for old_node, new_node in d.items():
+            for hop in self.hops_from_node(old_node):
+                try:
+                    new_mate = d[hop.to_node]
+                except KeyError:
+                    continue
+                self.add_edge(
+                    new_node, hop.from_port_label, new_mate, hop.to_port_label,
+                    weight=self._hop_weight(hop)
+                )
+
+        return d[original_group_node]
 
     def mark_builder(self, built_node: MaybeNRef, builder: MaybeNRef):
         self.add_edge(built_node, 'built_by', builder, 'built')
@@ -426,12 +481,60 @@ class ActiveGraph(
                 result.append(node)
         return result
 
+    def node_of_class(self, cl: Type[Node], nodes=None) -> MaybeNRef:
+        # TODO Choose in a more principled way. And maybe call look_for()
+        # to do the search.
+        if nodes is None:
+            nodes = self.nodes()
+        for node in as_iter(nodes):
+            if self.is_of_class(node, cl):
+                return node
+        return None
+
+    # TODO UT
+    def look_for(self, *criteria, within: Union[int, None]=None) -> \
+    Union[int, None]:
+        '''Returns one node that meets criteria, or None if not found.
+        criteria are functions that take two arguments: g, nodeid, and
+        return a true value if nodeid matches the criterion.'''
+        nodes = self.find_all(*criteria, within=within)
+        try:
+            return choice(nodes) # TODO choose by salience?
+        except IndexError:
+            return None
+
+    # TODO UT
+    def find_all(
+        self,
+        *criteria,
+        within: Union[NRef, None]=None,
+        subset: Union[Set[NodeId], None]=None
+    ) -> List[int]:
+        '''Returns list of all nodes that meet criteria. criteria are functions
+        that take two arguments: g and nodeid. A criterion function returns
+        a true value if nodeid matches the criteria, false if not.'''
+        if within is None:
+            nodes = self.nodeids()  # Start with all nodes (INEFFICIENT)
+        else:
+            nodes = self.members_recursive(within)
+        if subset is not None:
+            nodes = as_set(subset).intersection(nodes)
+
+        for c in criteria:
+            nodes = [n for n in nodes if c(self, n)]
+            if not nodes:
+                return []
+        return as_list(nodes)
+
     def members_of(self, container_node: NRefs) -> List[NodeId]:
         return list(self.neighbors(container_node, 'members'))
 
     #TODO UT
     def members_recursive(self, container_node: MaybeNRef) -> Set[NodeId]:
         result = set()
+        if not container_node:
+            return result
+        container_node = as_nodeid(container_node)
         visited = set()
         to_visit = set([container_node])
         while to_visit:
@@ -451,12 +554,25 @@ class ActiveGraph(
 
     # Doing things
 
-    def do_action(self, action: 'Action', actor: MaybeNRef=None):
+    def do_action(self, action: Union['Action', None], actor: MaybeNRef=None):
+        if not action:
+            return
         if actor:
             action.actor = actor
         with PushAttr(self, 'builder'):
             self.builder = actor
-            action.go(self)
+            try:
+                action.go(self)
+            except NeedArg as exc:
+                self.call_method(exc.actor, 'action_failed', exc)
+            except:
+                print('EXCEPTION in do_action')
+                try:
+                    print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')
+                except AttributeError:
+                    pass
+                print(f'ACTION: {action}')
+                raise
 
     do = do_action
 
@@ -614,7 +730,13 @@ class ActiveGraph(
     def collect_actions(self, active_nodes: NRefs) -> List[Action]:
         actions = []
         for node in as_iter(active_nodes):
-            got = self.datum(node).actions(self)
+            try:
+                got = self.datum(node).actions(self)
+            except:
+                print('EXCEPTION in .actions()')
+                print(f'NODE: {self.nodestr(node)}')
+                raise
+
             for action in as_iter(got):
                 if action:
                     action.actor = node
@@ -639,7 +761,7 @@ class ActiveGraph(
             return self.nodes()
         result = self.members_recursive(self.ws)
         if self.slipnet:
-            result.add(slipnet)
+            result.add(self.slipnet.id)
         return result
 
     def urgency(self, action: Action) -> float:
@@ -712,7 +834,7 @@ class ActiveGraph(
         for hop in sorted(
             self.hops_from_node(node), key=attrgetter('from_port_label')
         ):
-            print('%s%-20s --> %s %s (%.3f)' % (
+            print('%s%-15s --> %s %s (%.3f)' % (
                 prefix,
                 hop.from_port_label,
                 self.nodestr(hop.to_node),

@@ -20,6 +20,7 @@ class ActiveNode(ABC, Node):
         if self.state is None:
             self.state = Start
         
+    #TODO No g param
     @abstractmethod
     def actions(self, g: 'G') -> Actions:
         '''g is the current graph.  Should return a collection of Action

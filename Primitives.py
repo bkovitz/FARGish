@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
-from util import first
+from util import first, as_iter
 
 
 @dataclass(frozen=True)
@@ -229,13 +229,13 @@ class ActivationPrimitives(ABC):
         pass
 
     @abstractmethod
-    def set_activation_from_to(self, from_node: NRef, to_node: NRef):
+    def set_activation_from_to(
+        self, from_node: NRef, to_node: NRef, weight: float
+    ):
         pass
 
     @abstractmethod
-    def activation_from_to(
-        self, from_node: NRef, to_node: NRef, weight: float
-    ):
+    def activation_from_to(self, from_node: NRef, to_node: NRef):
         pass
 
     @abstractmethod
@@ -256,7 +256,7 @@ class ActivationPrimitives(ABC):
     ) -> Dict[NodeId, float]:
         pass
 
-class ActivationPolicy(ABC):
+class ActivationPolicy(ActivationPrimitives):
 
     @abstractmethod
     def boost_activation(self, node: NRef, boost_amount: float):
@@ -265,3 +265,11 @@ class ActivationPolicy(ABC):
     @abstractmethod
     def propagate_activation(self):
         pass
+
+    def set_mutual_activation(
+        self, node1: NRefs, node2: NRefs, weight: float=1.0
+    ):
+        for n1 in as_iter(node1):
+            for n2 in as_iter(node2):
+                self.set_activation_from_to(n1, n2, weight=weight)
+                self.set_activation_from_to(n2, n1, weight=weight)

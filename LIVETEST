@@ -6,3 +6,9 @@ testAction.py
 testTimeStepper.py
 testActionNode.py
 testPropagator.py
+testNumble.py
+testNodeClasses.py
+
+testNodeSpec.py
+testBuildSpec.py
+test_slipnet.py

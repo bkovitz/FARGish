@@ -111,7 +111,7 @@ class PortLabel(EnvItem, CallGenerator):
 
     def as_varref(self):
         # TODO Is this right in general?
-        return f"_g.neighbor(_thisid, {repr(self.name)})"
+        return f"_g.neighbor(self, {repr(self.name)})"
 
     def unique_mate(self, env):
         '''Returns unique PortLabel that is the mate to this PortLabel or
@@ -234,7 +234,7 @@ class AutoLink(NiceRepr):
         print(
 f'''_otherid = self.{my_label}
 if _otherid is not None:
-    _g.add_edge(_thisid, '{my_label}', _otherid, '{other_label}')''',
+    _g.add_edge(self, '{my_label}', _otherid, '{other_label}')''',
         file=file, end='')
 
 class Class:
@@ -336,7 +336,7 @@ class Class:
 
     def gen_actions(self, file, fixup, env):
         if self.actions:
-            print('def actions(self, _g, _thisid):', file=file)
+            print('def actions(self, _g):', file=file)
             with indent(file):
                 print('_result = []', file=file)
                 for action in self.actions:
@@ -347,7 +347,7 @@ class Class:
         #HACK Should display all non-neighbor args
         pyexprs = filter_none(lambda p: p.display_name_pyexpr(), self.params)
         if pyexprs:
-            print('def display_name(self, _g, _thisid):', file=file)
+            print('def display_name(self, _g):', file=file)
             s = ', '.join(f"{{{p}}}" for p in pyexprs)
             with indent(file):
                 print(#f"return '{self.name}(' + {s} + ')'",
@@ -580,7 +580,7 @@ class ThisExpr(Expr):
         pass
 
     def as_pyexpr(self):
-        return '_thisid'
+        return 'self'
 
     def coalesced_with(self, other):
         return AndExpr(self, other)
@@ -1080,7 +1080,7 @@ class IfStmt(Stmt):
     def gen_then(self, file, fixup, env):
         self.then_expr.gen(file, fixup, env)
 
-agent_argexpr = ArgExpr('behalf_of', PyLiteralExpr('_thisid'))
+agent_argexpr = ArgExpr('behalf_of', PyLiteralExpr('self'))
 
 class BuildStmt(ActionStmt):
 
@@ -1112,7 +1112,7 @@ class BuildStmt(ActionStmt):
         return f"{cl_py}, args={args_py}, kwargs={kwargs_py}"
         
     def as_agent_stmt(self):
-        #STUB Should add an arg 'behalf_of=_thisid'
+        #STUB Should add an arg 'behalf_of=self'
         return BuildStmt(self.nodeclass_expr, self.args + [agent_argexpr])
 
     def implicit_cond_expr(self):

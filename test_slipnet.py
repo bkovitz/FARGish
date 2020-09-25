@@ -7,7 +7,7 @@ import inspect
 from log import *
 from ActiveNode import make_action_sequence, ActionSeqNode, Start
 from criteria import OfClass, IsAction
-from PortGraph import pg
+from StdGraph import pg
 
 # HACK: We're drawing upon numbo5.py, which is ever-changing demo code.
 # Properly, this test should only depend on stable production code and other
@@ -20,8 +20,8 @@ class TestCopyGroup(unittest.TestCase):
     def test_copy_group(self):
         # TODO Simplify this UT. It's way more complicated than it needs to be.
         g = newg()
-        slipnet = g.graph['slipnet']
-        ws = g.graph['ws']
+        slipnet = g.slipnet
+        ws = g.ws
         ns = g.find_all(OfClass(ActionSeqNode), within=slipnet)
         assert len(ns) == 1, 'numbo5 no longer has only one ActionSeqNode in the slipnet. Need to revise (unhack) this test.'
         old_action_seq_node = ns[0]
@@ -30,7 +30,7 @@ class TestCopyGroup(unittest.TestCase):
         # Copy the ActionSeqNode from the slipnet to the ws
         new_seq = g.copy_group(old_action_seq_node, ws)
         self.assertTrue(g.is_of_class(new_seq, ActionSeqNode))
-        self.assertTrue(g.is_member(ws, new_seq))
+        self.assertTrue(g.is_member(new_seq, ws))
 
         # Check that the members were copied, have the right attributes, and
         # are linked to each other correctly.

@@ -1,23 +1,25 @@
 # numbo5.py -- Rebuilding Numbo from scratch again, this time starting with
 #              1 1 1 1 1; 5.
 
-from typing import Union, List, Any
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar
 from operator import add, mul
 from functools import reduce
 from copy import copy, deepcopy
 
 from codegen import make_python, compile_fargish
 from dataclasses import dataclass
-from TimeStepper import TimeStepper
+#from TimeStepper import TimeStepper
 from log import *
 import expr
 from util import as_iter, reseed, intersection, first
-from PortGraph import PortGraph, Node, pg, ps, pa
-import WithActivation
-import support
+#from PortGraph import PortGraph, Node, pg, ps, pa
+#import WithActivation
+#import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Build, make_build, Raise, SelfDestruct
+from Action import Action, Build, make_build, Raise, SelfDestruct, \
+    NEWBuild
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 from BuildSpec import make_buildspec
@@ -25,6 +27,9 @@ from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion, Activated
 from exc import NeedArg, FargDone
 from Predefs import AllTagged
+
+from StdGraph import Graph, pg
+from Node import Node
 
 prog = '''
 gfuncs { succeeded }
@@ -81,7 +86,7 @@ Numble = make_numble_class(
 #    taggee_containers = intersection(
 #        *[g.member_of(ee) for ee in as_iter(taggees)]
 #    )
-#    tag = g.make_node(cls, container=taggee_containers)
+#    tag = g.add_node(cls, container=taggee_containers)
 #    for taggee in as_iter(taggees):
 #        g.add_edge(tag, tag_port_label, taggee, taggee_port_label)
 #    return tag
@@ -95,7 +100,7 @@ class ActivateSlipnode(Action):
     slipnode: int
 
     def go(self, g):
-        ws = g.graph['ws']  # TODO OAOO
+        ws = g.ws
         new_node = g.copy_group(self.slipnode, ws)
         g.datum(new_node).min_activation = 6.0
         g.set_activation(new_node, 6.0)
@@ -153,7 +158,7 @@ class CountMembers(Action):
         if not self.within:
             raise NeedArg(self, 'within')
         num_members = len(g.neighbors(self.within, port_label='members'))
-        g.make_node(Count, taggees=[self.within], value=num_members)
+        g.add_node(Count, taggees=[self.within], value=num_members)
         g.new_state(self.actor, Completed)
 
 @dataclass
@@ -195,7 +200,7 @@ class AddAllInGlom(Action):
 class SeekArg(Action):
     for_node: int
     port_label: str
-    nodeclass: Node
+    nodeclass: Type[Node]
     
     def go(self, g):
         found_node = g.look_for(OfClass(self.nodeclass))
@@ -211,7 +216,7 @@ class StartScout(Action):
     rm_on_success: Union[int, None]=None
 
     def go(self, g):
-        g.make_node(
+        g.add_node(
             ActionNode,
             action=self.action,
             rm_on_success=self.rm_on_success
@@ -228,10 +233,11 @@ class Slipnet(Group, ActiveNode):
     min_support_for = 1.0
     min_activation = 2.0
 
-    def actions(self, g, thisid):
+    def actions(self, g):
         actives = g.find_all(
             Activated(), OfClass(ActiveNode),
-            subset=g.members_of(thisid)
+            subset=g.members_of(self)
+            #TODO within=self ?
         )
         print('ACTIVE SLIPNODES', actives)
         return [ActivateSlipnode(slipnode) for slipnode in actives]
@@ -241,33 +247,37 @@ class AllBricksAvail(Tag, ActiveNode):
     initial_support_for = 1.0
     initial_activation = 10.0  # HACK
 
-    def actions(self, g, thisid):
+    def actions(self, g):
         bricks = g.find_all(OfClass(Brick))
         if not AllTagged(g, Avail, bricks):
-            return [SelfDestruct(thisid)]
+            return [SelfDestruct(self)]
 
-    def on_build(self, g, thisid):
-        g.set_mutual_activation(thisid, g.find_archetype(thisid), weight=1.0)
-        
+    def on_build(self):
+        self.g.set_mutual_activation(
+            self, self.g.find_archetype(self), weight=1.0
+        )
 
 class NoticeAllBricksAvail(ActiveNode):
 
     min_support_for = 1.0
 
-    def actions(self, g, thisid):
+    def actions(self, g):
         bricks = g.find_all(OfClass(Brick))
-        buildspec = make_buildspec(
-            g, AllBricksAvail, kwargs=dict(taggees=bricks)
-        )
-        if not g.is_already_built(buildspec):
-            if AllTagged(g, Avail, bricks):
-                return [Build(buildspec)]
+        if AllTagged(g, Avail, bricks):
+            return NEWBuild.maybe_make(g, AllBricksAvail, taggees=bricks)
+#        bricks = g.find_all(OfClass(Brick))
+#        buildspec = make_buildspec(
+#            g, AllBricksAvail, kwargs=dict(taggees=bricks)
+#        )
+#        if not g.is_already_built(buildspec):
+#            if AllTagged(g, Avail, bricks):
+#                return [Build(buildspec)]
                 #TODO When a Brick is no longer Avail, this tag needs to get
                 #removed.
         
 class SameNumberGlommer(ActiveNode):
     
-    def actions(self, g, thisid):
+    def actions(self, g):
         number_node = g.look_for(is_number)
         all_with_same_value = g.find_all(
             is_number, HasValue(g.value_of(number_node))
@@ -277,7 +287,7 @@ class SameNumberGlommer(ActiveNode):
 
 class MemberCounter(ActiveNode):
 
-    def actions(self, g, thisid):
+    def actions(self, g):
         group_node = g.look_for(OfClass(Group))
         if group_node is None:
             return
@@ -288,7 +298,7 @@ class MemberCounter(ActiveNode):
 
 class SameValueTagger(ActiveNode):
 
-    def actions(self, g, thisid):
+    def actions(self, g):
         first_node = g.look_for(HasAttr('value'))
         if first_node is None:
             return
@@ -314,77 +324,77 @@ class Failed(ActiveNode, Tag):
         node2=Count,
     )
 
-    def actions(self, g, thisid):
+    def actions(self, g):
         return [
             StartScout(
                 action=SeekArg(
-                    g.neighbor(thisid, 'taggees'),
+                    g.neighbor(self, 'taggees'),
                     self.reason.name,  # HACK: assumes NeedArg
                     self.port_label_to_nodeclass[self.reason.name]  # HACK
                 ),
-                rm_on_success=thisid
+                rm_on_success=self
             )
         ]
 
 
 ##### The graph class and other generic execution code #####
 
-class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
-    port_mates = port_mates
-    nodeclasses = nodeclasses
-    nodeclasses['Failed'] = Failed
+#class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
+class DemoGraph(ExprAsEquation, Graph):
+#    port_mates = port_mates
+#    nodeclasses = nodeclasses
+#    nodeclasses['Failed'] = Failed
+#
+#    default_graph_attrs = dict(
+#        t=0,
+#        done=False,
+#        num_timesteps=40,
+#        seed=None,
+#        running=False,
+#        port_mates=port_mates,
+#        support_propagator=support.Propagator(
+#            max_total_support=70,  #300
+#            positive_feedback_rate=0.1,
+#            sigmoid_p=0.5,
+#            alpha=0.95
+#        ),
+#        activation_propagator=WithActivation.Propagator(
+#            max_total_activation=20,
+#            sigmoid_p=0.5,
+#            alpha=0.98,
+#            # TODO noise=0.0
+#        )
+#    )
 
-    default_graph_attrs = dict(
-        t=0,
-        done=False,
-        num_timesteps=40,
-        seed=None,
-        running=False,
-        port_mates=port_mates,
-        support_propagator=support.Propagator(
-            max_total_support=70,  #300
-            positive_feedback_rate=0.1,
-            sigmoid_p=0.5,
-            alpha=0.95
-        ),
-        activation_propagator=WithActivation.Propagator(
-            max_total_activation=20,
-            sigmoid_p=0.5,
-            alpha=0.98,
-            # TODO noise=0.0
-        )
-    )
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        kws = self.default_graph_attrs.copy()
-        kws.update(kwargs)
-        if kws.get('num_timesteps', None) is None:
-            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
-        kws['seed'] = reseed(kws.get('seed', None))
-        super().__init__(**kws)
-        self.consecutive_timesteps_with_no_response = 0
-
-        ws = self.make_node(Workspace)
-        self.graph['ws'] = ws
-
-        slipnet = self.make_node(Slipnet)
-        self.graph['slipnet'] = slipnet
-        self.fill_slipnet(slipnet)
+    def __init__(self, numble, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+#        kws = self.default_graph_attrs.copy()
+#        kws.update(kwargs)
+#        if kws.get('num_timesteps', None) is None:
+#            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
+#        kws['seed'] = reseed(kws.get('seed', None))
+#        super().__init__(**kws)
+#        self.consecutive_timesteps_with_no_response = 0
+        self.nodeclasses.update(nodeclasses)
+        self.port_mates += port_mates
 
         # Make initial nodes
 
-        if 'numble' in self.graph:
-            self.graph['numble'].build(self, ws)
+        ws = self.add_node(Workspace)
+
+        slipnet = self.add_node(Slipnet)
+        self.fill_slipnet(slipnet)
+
+        numble.build(self, ws)
 
         #HACK
-        #self.make_node(SameNumberGlommer)
-        #self.make_node(MemberCounter)
-        #self.make_node(SameValueTagger)
+        #self.add_node(SameNumberGlommer)
+        #self.add_node(MemberCounter)
+        #self.add_node(SameValueTagger)
 
         targetid = self.look_for(OfClass(Target))
-        self.make_node(SuccessScout, target=targetid, min_support_for=1.0)
-        self.make_node(NoticeAllBricksAvail, member_of=ws)
+        self.add_node(SuccessScout, target=targetid, min_support_for=1.0)
+        self.add_node(NoticeAllBricksAvail, member_of=ws)
 
     def fill_slipnet(self, slipnet: int):
         seqnode = make_action_sequence(
@@ -396,13 +406,13 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
             AddAllInGlom(),
             member_of=slipnet,
         )
-        aba = self.make_node(AllBricksAvail, member_of=slipnet)
+        aba = self.add_node(AllBricksAvail, member_of=slipnet)
         self.set_activation_from_to(aba, seqnode, weight=1.0)
 
     def find_archetype(self, node):
-        slipnet = self.graph['slipnet']  # TODO OAOO
         return self.find_all(
-            OfClass(self.class_of(node)), subset=self.members_of(slipnet)
+            OfClass(self.class_of(node)), subset=self.members_of(self.slipnet)
+            # TODO within?
         )
 
     def consume_operands(
@@ -412,12 +422,12 @@ class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
         actor=None
     ):
         # Check that all the nodes are Avail
-        operator_id = self.make_node(
+        operator_id = self.add_node(
             operator_class, 
             operands=operand_ids,
             builder=actor,
         )
-        result_id = self.make_node(
+        result_id = self.add_node(
             Block,
             value=arith_result0(self, operator_class, operand_ids),
             source=operator_id,
@@ -491,7 +501,7 @@ ws = None
 def newg():
     global g, ws
     g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)
-    ws = g.graph['ws']
+    ws = g.ws
     return g
 
 def p():

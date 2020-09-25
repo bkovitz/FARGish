@@ -6,7 +6,7 @@ import inspect
 
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar
+    NewType, Type, ClassVar, Callable
 
 from StdGraph import Graph, pg 
 from Action import Action

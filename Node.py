@@ -95,6 +95,9 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         subclasses.'''
         return None
 
+    def __copy__(self):
+        return self.__class__(**self.regen_kwargs())
+
     def dict_str(self):
         '''String that shows the entire contents of this Node's __dict__,
         without any processing. Useful in debugging when you need to see
@@ -120,7 +123,7 @@ CRefs = Union[CRef, Iterable[CRef]]
 def as_nodeid(nref: NRef) -> Union[NodeId, None]:
     if is_nodeid(nref) or nref is None:
         return nref
-    assert isinstance(nref, Node)
+    assert isinstance(nref, Node), f'nref is not a Node: {repr(nref)}'
     return nref.id
 
 def as_node(g: 'ActiveGraph', nref: NRef) -> Union[Node, None]:

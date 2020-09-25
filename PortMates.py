@@ -1,8 +1,8 @@
 # PortMates.py -- PortMates class: records which port labels link to each other
 
 from collections import defaultdict
-from typing import Union, List, Set, Iterable, Any, NewType, Type, FrozenSet, \
-    Dict, ClassVar
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar
 
 from Node import NRef, PortLabel
 from util import as_iter
@@ -29,10 +29,19 @@ class PortMates:
             self.canonical[label1] = label2
         self.d[label1].add(label2)
 
-    def __iadd__(self, pairs: List['PortMates']):
+    # TODO UT
+    def __iadd__(self, pairs: Union['PortMates', List[Tuple[str, str]]]):
+        if isinstance(pairs, PortMates):
+            pairs = pairs.pairs()
         for f, t in pairs:
             self.add(f, t)
         return self
+        
+    # TODO UT
+    def pairs(self) -> Iterable[Tuple[str, str]]:
+        for f, ts in self.d.items():
+            for t in ts:
+                yield (f, t)
         
     def auto_link(
         self,

@@ -272,6 +272,7 @@ class FilledParam(ABC, NiceRepr):
         mates)?'''
         pass
 
+#TODO UT
 class FilledMate(FilledParam):
 
     def __init__(self, mate_param, mateid):
@@ -305,6 +306,7 @@ class FilledMate(FilledParam):
     def __str__(self):
         return f'FilledMate({short(self.mate_param)}, {self.mateid})'
 
+#TODO UT
 class FilledMate2(FilledParam):
     '''Like FilledMate, but we don't know the port label to link to, so we'll
     have to figure it out by looking at the node we're linking to.'''
@@ -320,7 +322,8 @@ class FilledMate2(FilledParam):
         neighbors = g.neighbors(
             nodeid, port_label=self.this_port_label
         )
-        return all(m in neighbors for m in as_iter(self.mateid))
+        #return all(m in neighbors for m in as_iter(self.mateid))
+        return all(m in neighbors for m in g.as_nodeids(self.mateid))
 
     def potential_neighbors(self):
         return as_iter(self.mateid)

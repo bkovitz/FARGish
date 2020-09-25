@@ -1,9 +1,11 @@
-# criteria.py -- Criterion classes to pass to PortGraph.look_for()
+# criteria.py -- Criterion classes to pass to ActiveGraph.look_for()
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar
 
-from PortGraph import Node
+from Node import Node, NRef
 from Action import Action
 from ActiveNode import ActionNode
 
@@ -34,7 +36,7 @@ class HasValue(Criterion):
 
 @dataclass
 class OfClass(Criterion):
-    nodeclass: Node
+    nodeclass: Type[Node]
 
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
@@ -70,7 +72,7 @@ class NotTaggedTogetherWith(Criterion):
     '''Are the given node and first_node tagged with the same tag of class
     tagclass?'''
     first_node: int
-    tagclass: Node
+    tagclass: Type[Node]
 
     def __call__(self, g, nodeid):
         return not g.tags_of([self.first_node, nodeid], self.tagclass)
@@ -78,7 +80,7 @@ class NotTaggedTogetherWith(Criterion):
 @dataclass
 class NotNode(Criterion):
     '''Is the node not this_node?'''
-    this_node: int
+    this_node: NRef
 
     def __call__(self, g, nodeid):
         return nodeid != self.this_node

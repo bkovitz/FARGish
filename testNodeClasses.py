@@ -3,7 +3,8 @@
 # This enables unit tests to be written that create nodes in a PortGraph
 # without needing to invoke any of the FARGish code-generation code.
 
-from PortGraph import PortGraph, Node, pg
+#from PortGraph import PortGraph, Node, pg
+from Node import Node
 from PortMates import PortMates
 from NodeParams import NodeParams, AttrParam, MateParam
 

@@ -13,7 +13,7 @@ from Indenting import Indenting, indent
 from Predefs import Tagged, AllTagged, Not
 
 
-preamble = '''from PortGraph import Node
+preamble = '''from Node import Node
 from LinkSpec import LinkSpec
 from NodeSpec import NodeOfClass, NodeSpec, NodeWithTag, \
     NodeWithValue, CartesianProduct, no_dups, TupAnd, NotLinkedToSame, \

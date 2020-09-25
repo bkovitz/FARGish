@@ -3,7 +3,8 @@
 import unittest
 
 from Numble import make_numble_class
-from PortGraph import PortGraph, pg
+#from PortGraph import PortGraph, pg
+from StdGraph import Graph, pg
 from testNodeClasses import *
 
 
@@ -13,7 +14,7 @@ class TestNumble(unittest.TestCase):
         Numble = make_numble_class(
             Brick, Target, Want, Avail, Allowed, [Plus, Times]
         )
-        g = PortGraph(port_mates=port_mates)
+        g = Graph(port_mates=port_mates)
         numble = Numble([4, 5, 6], 15)
         numble.build(g, None)
 
