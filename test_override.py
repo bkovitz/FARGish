@@ -9,10 +9,11 @@ from typing import Union, List, Any
 
 from codegen import make_python, compile_fargish
 from Numble import make_numble_class, prompt_for_numble
-from Action import Action
+from Action import Action, NEWBuild
 from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
     make_action_sequence
-from PortGraph import PortGraph, Node, pg
+from StdGraph import Graph, pg
+#from Node import Node
 from log import *
 from TimeStepper import TimeStepper
 import support
@@ -64,7 +65,7 @@ def cls_add_tag(cls, g, taggees):  # HACK
     taggee_containers = intersection(
         *[g.member_of(ee) for ee in as_iter(taggees)]
     )
-    tag = g.make_node(cls, container=taggee_containers)
+    tag = g.add_node(cls, container=taggee_containers)
     for taggee in as_iter(taggees):
         g.add_edge(tag, tag_port_label, taggee, taggee_port_label)
     return tag
@@ -83,7 +84,7 @@ class SeekAndGlom(Action):
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
-            g.do(Build.maybe_make(g, Glom, [glommees], {}))
+            g.do(NEWBuild.maybe_make(g, Glom, glommees))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
@@ -104,12 +105,12 @@ class NoticeAllSameValue(Action):
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(self.within)
         ):
-            g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
+            g.do(NEWBuild.maybe_make(g, AllMembersSameValue, self.within))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
 
-class TestGraph(TimeStepper, PortGraph):
+class TestGraph(Graph):
     port_mates = port_mates
     nodeclasses = nodeclasses
 
@@ -128,19 +129,22 @@ class TestGraph(TimeStepper, PortGraph):
         )
     )
 
-    def __init__(self, **kwargs):
-        super().__init__()
-        kws = self.default_graph_attrs.copy()
-        kws.update(kwargs)
-        if kws.get('num_timesteps', None) is None:
-            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
-        kws['seed'] = reseed(kws.get('seed', None))
-        super().__init__(**kws)
-        self.consecutive_timesteps_with_no_response = 0
-        ws = self.make_node(Workspace)
-        self.graph['ws'] = ws
-        if 'numble' in self.graph:
-            self.graph['numble'].build(self, ws)
+    def __init__(self, numble, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+#        kws = self.default_graph_attrs.copy()
+#        kws.update(kwargs)
+#        if kws.get('num_timesteps', None) is None:
+#            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
+#        kws['seed'] = reseed(kws.get('seed', None))
+#        super().__init__(**kws)
+#        self.consecutive_timesteps_with_no_response = 0
+        self.nodeclasses.update(nodeclasses)
+        self.port_mates += port_mates
+
+        ws = self.add_node(Workspace)
+        numble.build(self, ws)
+#        if 'numble' in self.graph:
+#            self.graph['numble'].build(self, ws)
 
 
 def new_graph(numble=Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491):
@@ -149,26 +153,26 @@ def new_graph(numble=Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491):
 #ShowAnnotations.start_logging()
 #ShowActionList.start_logging()
 #ShowActionsChosen.start_logging()
+#ShowActionsPerformed.start_logging()
 #ShowIsMatch.start_logging()
 
 class TestOverride(unittest.TestCase):
 
     def test_override(self):
         g = new_graph()
-        ws = g.graph['ws']
         g.do_timestep(action=SeekAndGlom(
             criteria=OfClass(Brick),
-            within=ws
+            within=g.ws
         ))
         glom = g.look_for(OfClass(Glom))
         assert glom is not None
 
         # Action lacks 'within' arg
-        noticer = g.make_node(
+        noticer = g.add_node(
             ActionNode,
             NoticeAllSameValue(within=None, value=1, threshold=0.0),
             min_support_for=1.0,
-            member_of=ws
+            member_of=g.ws
         )
 
         # There are no overrides yet
@@ -202,16 +206,15 @@ class TestOverride(unittest.TestCase):
 
     def test_failed_tag(self):
         g = new_graph()
-        ws = g.graph['ws']
         g.do_timestep(action=SeekAndGlom(
             criteria=OfClass(Brick),
-            within=ws
+            within=g.ws
         ))
         glom = g.look_for(OfClass(Glom))
         assert glom is not None
 
         # Action lacks 'within' arg
-        noticer = g.make_node(
+        noticer = g.add_node(
             ActionNode,
             NoticeAllSameValue(within=None, value=1, threshold=0.0)
         )
@@ -233,16 +236,15 @@ class TestOverride(unittest.TestCase):
         # Make sure that NoticeAllSameValue only gets one Failed tag no
         # matter how many times it fails.
         g = new_graph()
-        ws = g.graph['ws']
         g.do_timestep(action=SeekAndGlom(
             criteria=OfClass(Brick),
-            within=ws
+            within=g.ws
         ))
         glom = g.look_for(OfClass(Glom))
         assert glom is not None
 
         # Action lacks 'within' arg
-        noticer = g.make_node(
+        noticer = g.add_node(
             ActionNode,
             NoticeAllSameValue(within=None, value=1, threshold=0.0),
             min_support_for=1.0

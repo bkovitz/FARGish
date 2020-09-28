@@ -116,17 +116,9 @@ class ActionSeqNode(ActiveNode):
     def on_build(self):
         # Give activation to each member and make each member inhibit all
         # following members.
-#        members = as_iter(self.action_nodes)
-#        for i, member in enumerate(members):
-#            self.g.set_activation_from_to(self, member, 0.3)
-#            self.g.add_edge(self, 'child_action', member, 'parent_action')
-#            for later_member in members[i+1:]:
-#                self.g.set_activation_from_to(member, later_member, -1.0)
-#            for next_member in members[i+1:i+2]:
-#                self.g.add_edge(member, 'next_action', next_member, 'prev_action')
-        print('ONB', self.id, self.g.members_of(self))
+        #print('ONB', self.id, self.g.members_of(self))
         for member in self.g.members_of(self):
-            self.g.set_activation_from_to(self, member, 0.3)
+            self.g.set_activation_from_to(self, member, 0.5)
             self.g.inhibit_all_next(member)
 
 def make_action_sequence(g, *actions: Action, **kwargs):

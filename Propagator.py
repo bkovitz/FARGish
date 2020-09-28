@@ -35,15 +35,22 @@ class Propagator(ABC):
         # node, not the neighbor.
         new_d: Dict[NodeId, float] = {}
         for node, old in old_d.items():
+            #pos_feedback_for_node = self.positive_feedback_rate * old
+            #print('POS', node, pos_feedback_for_node)
+            # TODO Restore positive feedback; probably will need to loop
+            # by outgoing neighbors, since positive feedback should emphasize
+            # the most active/supported nodes *among the the outgoing
+            # connections of the node giving activation/support*.
             new_value = old * self.alpha + sum(
                 (1.0 - self.alpha) *
                 #(self.positive_feedback_rate * old_d[neighbor]) *
+                #pos_feedback_for_node *
                 old_d[neighbor] *
                 self.hop_weight(g, neighbor, node) *
                 gauss(1.0, self.noise)
                     for neighbor in self.incoming_neighbors(g, node)
             )
-#            print('LOOP', node, old, new_value)
+#            print('PROPLOOP', node, old, new_value)
 #            for neighbor in self.incoming_neighbors(g, node):
 #                print(neighbor, self.hop_weight(g, neighbor, node))
             new_d[node] = max(self.min_value(g, node), new_value)
@@ -72,7 +79,7 @@ class Propagator(ABC):
         exceed self.max_total.'''
         result = {}
         total = sum(d.values())
-        print('NORM', total, self.max_total)
+        #print('NORM', total, self.max_total)
         if total <= self.max_total:
             return d
         scale_down = 1.0 / max(d.values())

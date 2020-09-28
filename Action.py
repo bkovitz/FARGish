@@ -23,14 +23,13 @@ class BaseAction(ABC):
 
     annotation_string = None
 
+    actor: MaybeNRef = None
+    #on_behalf_of: MaybeNRef = None
+
     def __init__(self, *args, **kwargs):
         assert dataclasses.is_dataclass(self)
-        self.actor: MaybeNRef = None
+        print('ACTOR', self.__class__.__name__, args, kwargs, self.actor)
 
-        self.on_behalf_of: MaybeNRef = None
-        # The ActiveNode, if any, that produced this action. Descendant classes
-        # that implement actions for ActiveNodes should override on_behalf_of
-        # in their self.__init__().
 
     @abstractmethod
     def go(self, g: 'G'):
@@ -147,6 +146,7 @@ class NEWBuild(Action):
         self.cl = cl
         self.args = args
         self.kwargs = kwargs
+        super().__init__()
 
     def go(self, g):
         g.add_node(self.cl, *self.args, **self.kwargs)

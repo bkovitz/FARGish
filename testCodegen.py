@@ -4,12 +4,13 @@ import unittest
 from pprint import pprint as pp
 
 from codegen import make_python, compile_fargish
-from PortGraph import PortGraph, Node, pg
+#from PortGraph import PortGraph, Node, pg
+from StdGraph import Graph, pg
 from TimeStepper import TimeStepper
 from LinkSpec import LinkSpec
 from log import *
 
-class TestGraph(TimeStepper, PortGraph):
+class TestGraph(Graph):
     pass
 
 class TestCodegen(unittest.TestCase):
@@ -28,8 +29,8 @@ SomeNode
         # exec to add classes to our local variables. This is unfortunate,
         # because each unit test leaves its class definitions in the global
         # space, potentially influencing unit tests that run later.
-        g.make_node(SomeNode)
-        got = g.all_datums()
+        g.add_node(SomeNode)
+        got = g.nodes()
         expect = [SomeNode()]
         self.assertCountEqual(got, expect)
 
@@ -41,8 +42,8 @@ Brick : Number'''
         #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         b = Brick(2)
-        g.make_node(Brick(2))
-        got = g.all_datums()
+        g.add_node(Brick(2))
+        got = g.nodes()
         expect = [Brick(n=2)]
         self.assertCountEqual(got, expect)
 
@@ -55,10 +56,10 @@ Scout(target)'''
         #make_python(prog) #DEBUG
         exec(compile_fargish(prog), globals())
         g = TestGraph(port_mates=port_mates)
-        #nid = g.make_node(Number(3))
-        nid = g.make_node(Number, 3)
-        #sid = g.make_node(Scout(nid))
-        sid = g.make_node(Scout, nid)
+        #nid = g.add_node(Number(3))
+        nid = g.add_node(Number, 3)
+        #sid = g.add_node(Scout(nid))
+        sid = g.add_node(Scout, nid)
         self.assertTrue(g.has_hop(sid, 'target', nid, 'tags'))
 
     def test_build_agent(self):
@@ -73,7 +74,7 @@ Agent
         #ShowActionList.start_logging()
         #ShowActionsChosen.start_logging()
         g = TestGraph(port_mates=port_mates)
-        client = g.make_node(Client)
+        client = g.add_node(Client)
         g.do_timestep()
         self.assertEqual(len(g), 2)
         agent = g.neighbor(client, port_label='agents')
@@ -85,7 +86,7 @@ Agent
         self.assertEqual(len(g), 2)
 
         # Let's build another Client. It should get its own Agent.
-        client2 = g.make_node(Client)
+        client2 = g.add_node(Client)
         g.do_timestep()
         self.assertEqual(len(g), 4)
         agent2 = g.neighbor(client2, port_label='agents')
@@ -229,7 +230,7 @@ Count : Tag, Number
 '''
         exec(compile_fargish(prog), globals())
         g = TestGraph(port_mates=port_mates)
-        number = g.make_node(Number, 10)
-        count = g.make_node(Count, taggees=[number], value=1)
-        self.assertEqual(g.datumstr(count), 'Count(1)')
+        number = g.add_node(Number, 10)
+        count = g.add_node(Count, taggees=[number], value=1)
+        self.assertEqual(repr(count), 'Count(1)')
         self.assertTrue(g.has_hop(number, 'tags', count, 'taggees'))

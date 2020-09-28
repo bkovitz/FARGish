@@ -3,16 +3,18 @@
 # These tests also show how to make and run a minimal FARG model.
 
 import unittest
+from dataclasses import dataclass
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable
 
 from TimeStepper import TimeStepper
 #from PortGraph import PortGraph, Node, pg
 from StdGraph import Graph, pg
-from Node import Node
+from Node import Node, MaybeNRef, CRef
 from Action import Action
 from ActiveNode import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
-from log import ShowActiveNodes, ShowActionList, ShowActionsChosen, \
-        stop_all_logging
+from log import *
 
 stop_all_logging()
 
@@ -45,22 +47,25 @@ class Sought(Node):
 
 # Action definitions
 
+@dataclass
 class MakeLink(Action):
+    on_behalf_of: MaybeNRef
+    soughtid: MaybeNRef
 
-    def __init__(self, thisid, soughtid):
-        self.on_behalf_of = thisid
-        self.soughtid = soughtid
-
-    # Required override: performs the action
     def go(self, g):
         g.add_edge(self.on_behalf_of, 'found', self.soughtid, 'seeker')
 
+@dataclass
 class MakeNode(Action):
+    nodeclass: CRef
+    args: Tuple
+    kwargs: Dict
 
     def __init__(self, nodeclass, *args, **kwargs):
         self.nodeclass = nodeclass
         self.args = args
         self.kwargs = kwargs
+        super().__init__()
 
     def go(self, g):
         g.add_node(self.nodeclass, *self.args, **self.kwargs)
@@ -68,7 +73,6 @@ class MakeNode(Action):
 
 # This is all you have to do to make a FARG model
 
-#class TestGraph(TimeStepper, PortGraph):
 class TestGraph(Graph):
     pass
 
@@ -78,9 +82,6 @@ class TestTimeStepper(unittest.TestCase):
         stop_all_logging()
 
     def test_time_stepper(self):
-        #ShowActiveNodes.start_logging()
-        #ShowActionList.start_logging()
-        #ShowActionsChosen.start_logging()
         g = TestGraph()
         g.add_node(Sought(1))
         g.add_node(Sought(2))

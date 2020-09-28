@@ -119,31 +119,32 @@ class TestActionNode(unittest.TestCase):
 
 class TestActionSequence(unittest.TestCase):
 
-    def test_simple_action_sequence(self):
-        g = TestGraph()
-        anode1 = g.add_node(ActionNode, action=FirstAction())
-        anode2 = g.add_node(ActionNode, action=SecondAction())
-        anode3 = g.add_node(ActionNode, action=ThirdAction())
-        seqnode = g.add_node(
-            ActionSeqNode,
-            action_nodes=[anode1, anode2, anode3],
-            members=[anode1, anode2, anode3],
-            min_activation=10.0  # HACK Without this, seqnode's activation falls
-                                 # too low to activate the last couple
-                                 # ActionNodes.
-        )
-        g.set_activation(seqnode, 12.0)
-        g.do_timestep(num=20)
-        self.assertEqual(g.Actions, 'FirstSecondThird')
-
     def test_make_action_sequence(self):
         g = TestGraph()
         seqnode = make_action_sequence(
             g, FirstAction(), SecondAction(), ThirdAction(), min_activation=5.0
         )
         g.set_activation(seqnode, 10.0)
-        g.do_timestep(num=20)
-        self.assertEqual(g.Actions, 'FirstSecondThird')
+        #g.do_timestep(num=20)
+        for i in range(20):
+            g.do_timestep()
+            self.no_more_than_one_activated(g, seqnode)
+        #pg(g)
+        self.assertTrue(hasattr(g, 'Actions'), 'No ActionNode ever fired.')
+        self.assertEqual(g.Actions, 'FirstSecondThird',
+            'ActionNodes fired in wrong sequence.'
+        )
+
+    def no_more_than_one_activated(self, g, seqnode):
+        active_members = [
+            node
+                for node in g.members_of(seqnode)
+                    if not g.is_dormant(node) and g.activation(node) >= 1.0
+        ]
+        #pg(g)
+        self.assertLessEqual(len(active_members), 1,
+            f'More than one ActionNode is active: {active_members}'
+        )
 
 
 if __name__ == '__main__':

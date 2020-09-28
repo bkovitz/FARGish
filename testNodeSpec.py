@@ -217,47 +217,48 @@ class TestNodeSpec(unittest.TestCase):
         # Brick more than once.
         self.assertCountEqual(got, expect)
 
-class TestBuildSpec(unittest.TestCase):
-
-    def teest_plus(self):
-        g = Graph()
-        b4 = g.add_node(Number(4))
-        b5 = g.add_node(Number(5))
-        t9 = g.add_node(Target(9))
-        spec = BuildSpec(
-            Plus,
-            [
-                LinkSpec('source', 'consumer', Number),
-                LinkSpec('source', 'consumer', Number),
-                LinkSpec('consumer', 'source', Number)
-            ]
-        )
-        self.assertFalse(spec.is_already_built(g))
-        spec.build(g) #TODO Think of some satisfactory way to specify b4, b5, t9
-                      # as the "old nodes" that the new Plus node should link to
-        self.assertTrue(spec.is_already_built(g))
-
-    def test_agent(self):
-        g = Graph()
-        w = g.add_node(Want)
-        spec = BuildSpec(
-            Agent,
-            LinkSpec('agents', 'behalf_of')
-        )
-        self.assertFalse(spec.is_already_built(g, w))
-        spec.build(g, w)
-        self.assertTrue(spec.is_already_built(g, w))
-        self.assertEqual(len(g), 2)
-
-    def test_agent_func_action(self):
-        g = Graph()
-        w = g.add_node(Want)
-        spec = BuildSpec(
-            Agent,
-            LinkSpec('agents', 'behalf_of')
-        )
-        action = spec.maybe_make_build_action(g, w)
-        action.go(g)
-        self.assertEqual(len(g), 2)
-        a = g.neighbor(w, port_label='agents')
-        self.assertTrue(g.has_hop(a, 'behalf_of', w, 'agents'))
+# TODO 28-Sep-2020 Can we get rid of LinkSpec?
+#class TestBuildSpec(unittest.TestCase):
+#
+#    def teest_plus(self):
+#        g = Graph()
+#        b4 = g.add_node(Number(4))
+#        b5 = g.add_node(Number(5))
+#        t9 = g.add_node(Target(9))
+#        spec = BuildSpec(
+#            Plus,
+#            [
+#                LinkSpec('source', 'consumer', Number),
+#                LinkSpec('source', 'consumer', Number),
+#                LinkSpec('consumer', 'source', Number)
+#            ]
+#        )
+#        self.assertFalse(spec.is_already_built(g))
+#        spec.build(g) #TODO Think of some satisfactory way to specify b4, b5, t9
+#                      # as the "old nodes" that the new Plus node should link to
+#        self.assertTrue(spec.is_already_built(g))
+#
+#    def test_agent(self):
+#        g = Graph()
+#        w = g.add_node(Want)
+#        spec = BuildSpec(
+#            Agent,
+#            LinkSpec('agents', 'behalf_of')
+#        )
+#        self.assertFalse(spec.is_already_built(g, w))
+#        spec.build(g, w)
+#        self.assertTrue(spec.is_already_built(g, w))
+#        self.assertEqual(len(g), 2)
+#
+#    def test_agent_func_action(self):
+#        g = Graph()
+#        w = g.add_node(Want)
+#        spec = BuildSpec(
+#            Agent,
+#            LinkSpec('agents', 'behalf_of')
+#        )
+#        action = spec.maybe_make_build_action(g, w)
+#        action.go(g)
+#        self.assertEqual(len(g), 2)
+#        a = g.neighbor(w, port_label='agents')
+#        self.assertTrue(g.has_hop(a, 'behalf_of', w, 'agents'))

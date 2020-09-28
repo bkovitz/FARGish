@@ -362,6 +362,7 @@ class PortGraph(nx.MultiGraph):
 
     default_salience = 0.01
     port_mates = None  # Override in subclass to specify default PortMates
+    nodeclasses = {}   # Overrite in subclass
 
     def __init__(self, *args, **kwargs):
         # In kwargs,
@@ -447,6 +448,7 @@ class PortGraph(nx.MultiGraph):
         return spec.build(self)
 
     def get_nodeclass(self, nodeclass_name: str):
+        print('GNC', repr(nodeclass_name))
         try:
             return self.nodeclasses[nodeclass_name]
         except AttributeError:

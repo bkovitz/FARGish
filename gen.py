@@ -347,7 +347,8 @@ class Class:
         #HACK Should display all non-neighbor args
         pyexprs = filter_none(lambda p: p.display_name_pyexpr(), self.params)
         if pyexprs:
-            print('def display_name(self, _g):', file=file)
+            #print('def display_name(self, _g):', file=file)
+            print('def display_name(self):', file=file)
             s = ', '.join(f"{{{p}}}" for p in pyexprs)
             with indent(file):
                 print(#f"return '{self.name}(' + {s} + ')'",
@@ -957,7 +958,7 @@ class NotAlreadyBuiltExpr(Expr):
 
     def as_pyexpr(self):
         return \
-            f"not _g.is_already_built({self.buildstmt.buildargs_py()})"
+            f"not _g.already_built({self.buildstmt.buildargs_py()})"
 
     def coalesced_with(self, other):
         return AndExpr(self, other)
@@ -1098,7 +1099,8 @@ class BuildStmt(ActionStmt):
 
     def action_pyexpr(self):
         # TODO .gen_prelines the self.args
-        return f"make_build(_g, {self.buildargs_py()})"
+        #return f"make_build(_g, {self.buildargs_py()})"
+        return f"NEWBuild.maybe_make(_g, {self.buildargs_py()})"
         
     def buildargs_py(self):
         args_py = '[' + ', '.join(
@@ -1109,7 +1111,8 @@ class BuildStmt(ActionStmt):
                             for k,v in keyword_args(self.args)
                     ) + '}'
         cl_py = as_pyexpr(self.nodeclass_expr)
-        return f"{cl_py}, args={args_py}, kwargs={kwargs_py}"
+        #return f"{cl_py}, args={args_py}, kwargs={kwargs_py}"
+        return f"{cl_py}, *{args_py}, **{kwargs_py}"
         
     def as_agent_stmt(self):
         #STUB Should add an arg 'behalf_of=self'

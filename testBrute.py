@@ -4,12 +4,13 @@ import unittest
 
 from brute import run, NumboSuccess, Brick, Want
 from log import *
-from PortGraph import PortGraph, pg, ps
+from StdGraph import pg
 
 class TestBrute(unittest.TestCase):
 
     def setUp(self):
         stop_all_logging()
+        #ShowActiveNodes.start_logging()
         #ShowActionList.start_logging()
         #ShowActionsPerformed.start_logging()
 

@@ -8,7 +8,12 @@ testActionNode.py
 testPropagator.py
 testNumble.py
 testNodeClasses.py
+test_slipnet.py
+test_override.py
+testIndent1.py
+testIndenting.py
+testCodegen.py
+testGen.py
 
 testNodeSpec.py
 testBuildSpec.py
-test_slipnet.py

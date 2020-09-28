@@ -19,9 +19,9 @@ from PortMates import PortMates
 from Action import Action, Actions
 from ActiveNode import ActiveNode
 from WithActivation import WithActivation, Propagator as ActivationPropagator
-from util import as_iter, as_list, as_set, repr_str, first, intersection, \
-    reseed, empty_set, sample_without_replacement, PushAttr
-from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg
+from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
+    intersection, empty_set, sample_without_replacement, PushAttr
+from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone
 from log import *
 
 
@@ -58,6 +58,7 @@ class ActiveGraph(
         super().__init__(*args, **kwargs)
         self.seed = reseed(seed)
         self.num_timesteps = num_timesteps
+        self.final_result: Union[FargDone, None] = None
 
         self.port_mates: PortMates = copy(self.std_port_mates)
         if port_mates:
@@ -87,17 +88,16 @@ class ActiveGraph(
         *args,
         **kwargs
     ) -> Node:
-        print('ADD', isinstance(node, Node), node)
         if isinstance(node, Node):
             already = self.already_built(node, *args, **kwargs)
             if already:
-                print('ALREADY', already)
                 return already
             id = self._add_node(node)
             node.id = id
             node.g = self
-            print('QUE', self.nodestr(node))
-            # TODO Apply link FilledParams?
+            # TODO Apply link FilledParams?  DONE?
+            filled_params = node.make_filled_params(self, *args, **kwargs)
+            filled_params.apply_to_node(self, node.id)
         else:
             if isinstance(node, str):
                 # TODO If node is a str, get_nodeclass
@@ -146,7 +146,7 @@ class ActiveGraph(
             for fromlabel in as_iter(port_label1):
                 for toid in as_nodeids(nodes2):
                     for tolabel in as_iter(port_label2):
-                        self._add_edge(fromid, fromlabel, toid, tolabel)
+                        self._add_edge(fromid, fromlabel, toid, tolabel, **attr)
 
     def edge_weight(
         self,
@@ -211,27 +211,47 @@ class ActiveGraph(
         neighbor_class: Union[Type[Node], NRef] = None,
         neighbor_label: PortLabels = None
     ) -> Set[NodeId]:
-        result = set()
-        if port_label is None:
-            for node in as_iter(nodes):
-                result.update(self._neighbors(as_nodeid(node)))
-        else:
-            for node in as_iter(nodes):
+#        result = set()
+#        if port_label is None:
+#            for node in as_iter(nodes):
+#                result.update(self._neighbors(as_nodeid(node)))
+#        else:
+#            for node in as_iter(nodes):
+#                for pl in as_iter(port_label):
+#                    result.update(
+#                        hop.to_node
+#                            for hop in self.hops_from_port(node, pl)
+#                    )
+#
+#        # Now pare down the neighbors to just those specified
+#        if neighbor_class:
+#            for nodeid in list(result):
+#                if not self.is_of_class(nodeid, neighbor_class):
+#                    result.discard(nodeid)
+#        if neighbor_label:
+#            #TODO
+#            raise NotImplementedError
+        hops = set()
+        for node in as_iter(nodes):
+            if port_label is None:
+                hops |= self.hops_from_node(node)
+            else:
                 for pl in as_iter(port_label):
-                    result.update(
-                        hop.to_node
-                            for hop in self.hops_from_port(node, pl)
-                    )
+                    hops |= self.hops_from_port(node, pl)
+        if neighbor_class is not None:
+            for hop in list(hops):
+                if not self.is_of_class(hop.to_node, neighbor_class):
+                    hops.discard(hop)
 
-        # Now pare down the neighbors to just those specified
-        if neighbor_class:
-            for nodeid in list(result):
-                if not self.is_of_class(nodeid, neighbor_class):
-                    result.discard(nodeid)
-        if neighbor_label:
-            #TODO
-            raise NotImplementedError
-
+        if neighbor_label is None:
+            result = set(hop.to_node for hop in hops)
+        else:
+            pls = as_set(neighbor_label)
+            result = set(
+                hop.to_node
+                    for hop in hops
+                        if hop.to_port_label in pls
+            )
         return result
 
     #TODO UT
@@ -413,7 +433,6 @@ class ActiveGraph(
                     weight=self._hop_weight(hop)
                 )
 
-        print('COPY', original_group_node, d[original_group_node])
         return d[original_group_node]
 
     def mark_builder(self, built_node: MaybeNRef, builder: MaybeNRef):
@@ -482,8 +501,18 @@ class ActiveGraph(
                     for n in as_iter(node)
             )
 
+    def is_tag(self, node: NRefs) -> bool:
+        return all(n and n.is_tag for n in self.as_nodes(node))
+
     def builder_of(self, node: MaybeNRef):
         return self.neighbor(node, port_label='built_by')
+
+    def is_built_by(self, node: NRefs, builder_node: MaybeNRef) -> bool:
+        '''Was node built by builder_node, as shown in the graph?'''
+        return all(
+            self.has_edge(n, 'built_by', builder_node, 'built')
+                for n in self.as_nodes(node)
+        )
 
     #TODO UT
     def has_neighbor_at(
@@ -593,6 +622,31 @@ class ActiveGraph(
             to_visit = members - visited
         return result
 
+    def list(self, *nodes, **kwargs) -> List[NodeId]:
+        '''For debugging. Called by pg() to get ordered list of nodes to
+        print.'''
+        if not nodes:
+            return sorted(self.nodeids())
+
+        result: List[NodeId] = []
+        def add(nref: MaybeNRef):
+            nodeid = self.as_nodeid(nref)
+            if nodeid and nodeid not in result:
+                result.append(nodeid)
+
+        def iterate(nodes: Iterable[MaybeNRef]):
+            for node in nodes:
+                if is_nodeid(node) or isinstance(node, Node):
+                    add(node)
+                elif is_iter(node):
+                    iterate(node)
+                elif isclass(node):
+                    for n in self.nodes_of_class(node):
+                        add(n)
+
+        iterate(nodes)
+        return result
+
     # Port labels
 
     def is_port_label(self, name: str) -> bool:
@@ -606,15 +660,18 @@ class ActiveGraph(
         if actor:
             action.actor = actor
         with PushAttr(self, 'builder'):
-            self.builder = actor
+            self.builder = action.actor
             try:
                 action.go(self)
             except NeedArg as exc:
                 self.call_method(exc.actor, 'action_failed', exc)
+            except FargDone:
+                raise
             except:
                 print('EXCEPTION in do_action')
                 try:
-                    print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')
+                    #print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')
+                    print(f'ACTOR: {self.nodestr(action.actor)}')
                 except AttributeError:
                     pass
                 print(f'ACTION: {action}')
@@ -722,52 +779,56 @@ class ActiveGraph(
         action: Union[Action, List[Action], None]=None,
         actor: MaybeNRef=None
     ) -> None:
-        for i in range(num):
-            self.t += 1
-            self.prev_new_nodes = set(self.new_nodes)
-            self.new_nodes.clear()
+        try:
+            for i in range(num):
+                self.t += 1
+                self.prev_new_nodes = set(self.new_nodes)
+                self.new_nodes.clear()
 
-            if any(
-                l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
-            ):
-                print(f'{chr(10)}t={self.t}')
+                if any(
+                    l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
+                ):
+                    print(f'{chr(10)}t={self.t}')
 
-            #self.clear_touched_and_new()
+                #self.clear_touched_and_new()
 
-            #self.propagate_support()
-            #support.log_support(self)
+                #self.propagate_support()
+                #support.log_support(self)
 
-            #TODO Put num into Propagator
-            for _ in range(4):
-                self.propagate_activation()
-            #log_activation(self)
+                #TODO Put num into Propagator
+                for _ in range(4):
+                    self.propagate_activation()
+                #log_activation(self)
 
-            #self.update_coarse_views()
+                #self.update_coarse_views()
 
-            if action is not None:
-                actions_to_do = as_iter(action)
-            elif actor is not None:
-                actions_to_do = self.collect_actions([actor])
-            else:
-                actions_to_do = self.collect_actions_from_graph()
+                if action is not None:
+                    actions_to_do = as_list(action)
+                elif actor is not None:
+                    actions_to_do = self.collect_actions([actor])
+                else:
+                    actions_to_do = self.collect_actions_from_graph()
 
-            if ShowActionsPerformed.is_logging():
-                print('ACTIONS PERFORMED')
-                if not actions_to_do:
-                    print('  (none)')
-            for a in actions_to_do:
                 if ShowActionsPerformed.is_logging():
-                    print(f'  {a.actor}: {a}')
-                self.do_action(a)
+                    print('ACTIONS PERFORMED')
+                    if not actions_to_do:
+                        print('  (none)')
+                for a in actions_to_do:
+                    if ShowActionsPerformed.is_logging():
+                        print(f'  {self.as_nodeid(a.actor)}: {a}')
+                    self.do_action(a)
 
-            #self.do_touches()
-            #self.update_all_support()
+                #self.do_touches()
+                #self.update_all_support()
 
-            d = self.done()
-            if d:
-                ShowResults(d)
-                ShowResults(f"t={self.graph['t']}\n")
-                break
+                d = self.done()
+                if d:
+                    ShowResults(d)
+                    ShowResults(f"t={self.graph['t']}\n")
+                    break
+        except FargDone as exc:
+            self.final_result = exc
+            ShowResults(str(exc))
 
     def do_actions1(self, actions: Actions):
         '''Force a sequence of actions, one per timestep. If a single Action
@@ -781,12 +842,9 @@ class ActiveGraph(
         if ShowActiveNodes.is_logging():
             print('ACTIVE NODES')
             for node in active_nodes:
-                print(self.nodestr(node))
+                print(self.long_nodestr(node))
 
         actions = self.collect_actions(active_nodes)
-        if ShowActionList.is_logging():
-            print('ACTIONS COLLECTED')
-            self.print_actions(actions)
 
         actions = [a for a in actions if self.urgency(a) > 0.0]
 
@@ -841,6 +899,9 @@ class ActiveGraph(
                 if action:
                     action.actor = node
                     actions.append(action)
+        if ShowActionList.is_logging():
+            print('ACTIONS COLLECTED')
+            self.print_actions(actions)
         return actions
 
     def choose_actions(self, actions: Actions, k: Union[int, None]=None):
@@ -880,9 +941,8 @@ class ActiveGraph(
         #TODO
         return 1.0
         
-    def done(self) -> Any:
-        # TODO Make this return a meaningful result. Maybe self.final_result?
-        return False
+    def done(self) -> Union[FargDone, None]:
+        return self.final_result
 
     def action_sorting_key(self, action: Action) -> Tuple:
         return (
@@ -910,15 +970,22 @@ class ActiveGraph(
 
     # Printing
 
+    def display_name(self, node: MaybeNRef) -> str:
+        node = self.as_node(node)
+        if node is None:
+            return 'None'
+        else:
+            return node.display_name()
+
     def nodestr(self, node: MaybeNRef) -> str:
         node = self.as_node(node)
         if node is None:
             return 'None'
         else:
-            return f'{node.id:4d}: {repr(node)}'
+            return node.nodestr()
 
     def long_nodestr(self, node):
-        return '%s  a=%.3f supp=%.3f' % (
+        return '%-20s  a=%.3f s=%.3f' % (
             self.nodestr(node),
             self.activation(node),
             self.support_for(node),
@@ -948,3 +1015,15 @@ class ActiveGraph(
         return
 
 G = ActiveGraph
+
+def pg(g: ActiveGraph, *nodes, **kwargs):
+    '''Prints graph g in simple text form.'''
+    print(f't={g.t}')
+#    if nodes is None:
+#        nodes = g.nodes()
+#    elif isclass(nodes) and issubclass(nodes, Node):
+#        nodes = g.nodes_of_class(nodes)
+#    for node in g.as_nodes(nodes):
+    for node in g.list(*nodes, **kwargs):
+        print(g.long_nodestr(node))
+        g.print_edges(node, prefix='      ')

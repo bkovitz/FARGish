@@ -47,7 +47,8 @@ class TestPropagator(unittest.TestCase):
         g.set_activation_from_to(b, o, 1.0)
 
         p.propagate(g, g.activation_dict())
+        #print('AD', g.activation_dict())
 
-        self.assertAlmostEqual(g.activation(a), 0.5621790601653345)
-        self.assertAlmostEqual(g.activation(b), 0.3192592188352869)
-        self.assertAlmostEqual(g.activation(o), 0.11856172099937853)
+        self.assertAlmostEqual(g.activation(a), 0.5709545145009379)
+        self.assertAlmostEqual(g.activation(b), 0.31759853198595706)
+        self.assertAlmostEqual(g.activation(o), 0.11144695351310495)

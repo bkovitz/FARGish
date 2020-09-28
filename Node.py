@@ -111,6 +111,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def __copy__(self):
         return self.__class__(**self.regen_kwargs())
 
+    def nodestr(self):
+        return f'{node.id:4d}: {self.display_name()}'
+
+    display_name = __repr__
+
     def dict_str(self):
         '''String that shows the entire contents of this Node's __dict__,
         without any processing. Useful in debugging when you need to see
@@ -128,7 +133,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
     def inhibit_all_next(self):
         for n in self.g.walk(self, 'next'):
-            self.g.set_activation_from_to(self, n, -0.2)
+            self.g.set_activation_from_to(self, n, -1.0)
 
 # TODO Disallow None in NRef? Should have MaybeNRef.
 NRef = Union[NodeId, Node, None]     # A Node reference

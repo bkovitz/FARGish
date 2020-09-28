@@ -44,8 +44,8 @@ pass
         then = BuildStmt(NodeclassExpr('Node'), [])
         ifstmt = IfStmt(None, then, None)
         self.assertEqual(test_gen(ifstmt, env), '''
-if not _g.is_already_built(Node, args=[], kwargs={}):
-    _result.append(make_build(_g, Node, args=[], kwargs={}))
+if not _g.already_built(Node, *[], **{}):
+    _result.append(NEWBuild.maybe_make(_g, Node, *[], **{}))
 ''')
 
     def test_ifstmt_nodesearch(self):
@@ -84,16 +84,17 @@ if _found_tup_1:
             NodeSearch(name='op', expr=opfc)
         ], whole_tuple_criteria=[])
         ifstmt = IfStmt(cond, then, None)
+        self.maxDiff = None
         self.assertEqual(test_gen(ifstmt, env), '''
 p1 = p2 = op = None
 def _f_2(_g, _tup):
     p1, p2, op, = _tup
-    return not _g.is_already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
+    return not _g.already_built(ConsumeOperands, *[op, p1, p2], **{})
 _found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=TupAnd(no_dups, TupFunc(_f_2))).see_one(_g)
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
 if _found_tup_1:
-    _result.append(make_build(_g, ConsumeOperands, args=[op, p1, p2], kwargs={}))
+    _result.append(NEWBuild.maybe_make(_g, ConsumeOperands, *[op, p1, p2], **{}))
 ''')
 
     def test_ifstmt_everything(self):
@@ -138,17 +139,17 @@ if _found_tup_1:
 p1 = p2 = op = None
 def _f_2(_g, _tup):
     p1, p2, op, = _tup
-    return not _g.is_already_built(ConsumeOperands, args=[op, p1, p2], kwargs={})
+    return not _g.already_built(ConsumeOperands, *[op, p1, p2], **{})
 _found_tup_1 = CartesianProduct(NodeWithTag(Number, Avail), NodeWithTag(Number, Avail), NodeWithTag(Operator, Allowed), whole_tuple_criterion=TupAnd(no_dups, TupFunc(_f_2))).see_one(_g)
 if _found_tup_1:
     p1, p2, op, = _found_tup_1
 if _found_tup_1:
-    _result.append(make_build(_g, ConsumeOperands, args=[op, p1, p2], kwargs={}))
+    _result.append(NEWBuild.maybe_make(_g, ConsumeOperands, *[op, p1, p2], **{}))
 else:
     block = None
     def _f_4(_g, _tup):
         block, = _tup
-        return block != _g.neighbor(_thisid, 'target')
+        return block != _g.neighbor(self, 'target')
     _found_tup_3 = CartesianProduct(NodeWithTag(Block, Avail), whole_tuple_criterion=TupFunc(_f_4)).see_one(_g)
     if _found_tup_3:
         block, = _found_tup_3
