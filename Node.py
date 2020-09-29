@@ -155,7 +155,7 @@ def as_node(g: 'ActiveGraph', nref: NRef) -> Union[Node, None]:
     exists.'''
     if isinstance(nref, Node) or nref is None:
         return nref
-    assert isinstance(nref, int)
+    assert isinstance(nref, int), f'{nref} is neither Node, int, nor None.'
     return g.datum(nref)
 
 def as_nodeids(nrefs: NRefs) -> Set[NodeId]:

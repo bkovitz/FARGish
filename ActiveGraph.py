@@ -615,6 +615,18 @@ class ActiveGraph(
                 return []
         return as_list(nodes)
 
+    def partition_nodes(self, nodes: NRefs, gpred: Callable[['G', NRef], bool]):
+        '''Returns a tuple of lists: (those satisfying gpred, those not).
+        gpred takes two arguments: g, nref.'''
+        yes = []
+        no = []
+        for node in as_iter(nodes):
+            if gpred(self, node):
+                yes.append(node)
+            else:
+                no.append(node)
+        return yes, no
+
     def members_of(self, container_node: NRefs) -> List[NodeId]:
         return list(self.neighbors(container_node, 'members'))
 
@@ -721,7 +733,6 @@ class ActiveGraph(
         if d is None:
             return None
         m = getattr(d, method_name)
-        print('CALL', m, args, kwargs)
         if callable(m):
             return m(*args, **kwargs)
         else:

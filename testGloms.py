@@ -2,7 +2,8 @@
 
 import unittest
 
-from PortGraph import PortGraph, pg, ps
+#from PortGraph import PortGraph, pg, ps
+from StdGraph import Graph, pg
 from TimeStepper import TimeStepper
 from codegen import make_python, compile_fargish
 from log import stop_all_logging
@@ -20,8 +21,11 @@ Brick, Target, Block : Number
 '''
 exec(compile_fargish(prog, saveto='testGloms.gen.py'), globals())
 
-class TestGraph(TimeStepper, PortGraph):
-    port_mates = port_mates
+class TestGraph(Graph):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.port_mates += port_mates
 
 class TestGloms(unittest.TestCase):
 
@@ -30,9 +34,9 @@ class TestGloms(unittest.TestCase):
 
     def test_glom_basics(self):
         g = TestGraph()
-        b4 = g.make_node(Brick(4))
-        b5 = g.make_node(Brick(5))
-        b6 = g.make_node(Brick(6))
+        b4 = g.add_node(Brick(4))
+        b5 = g.add_node(Brick(5))
+        b6 = g.add_node(Brick(6))
         g.do(GlomMerge([b4, b5]))
         self.assertEqual(len(g), 4)
         glomid = g.node_of_class(Glom)
@@ -47,10 +51,10 @@ class TestGloms(unittest.TestCase):
 
     def test_from_one_glom_to_another(self):
         g = TestGraph()
-        b4 = g.make_node(Brick(4))
-        b5 = g.make_node(Brick(5))
-        b6 = g.make_node(Brick(6))
-        b7 = g.make_node(Brick(7))
+        b4 = g.add_node(Brick(4))
+        b5 = g.add_node(Brick(5))
+        b6 = g.add_node(Brick(6))
+        b7 = g.add_node(Brick(7))
         g.do(GlomMerge([b4, b5]))
         g.do(GlomMerge([b6, b7]))
         gl1 = g.neighbor(b4, 'glom')

@@ -16,7 +16,7 @@ class GlomMerge(Action):
     def go(self, g):
         glomids, nodeids = g.partition_nodes(self.nodeids, is_glom)
         if not glomids:
-            glomid = g.make_node(Glom)
+            glomid = g.add_node(Glom)
         elif len(glomids) == 1:
             glomid = glomids[0]
         #TODO 2 or more existing gloms

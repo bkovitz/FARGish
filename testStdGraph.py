@@ -179,6 +179,19 @@ class TestStdGraph(unittest.TestCase):
         g = TestGraph()
         self.assertTrue(isinstance(g.seed, int))
 
+    def test_partition_nodes(self):
+        g = TestGraph()
+        n1 = g.add_node(Brick(1))
+        n2 = g.add_node(Brick(2))
+        n3 = g.add_node(Brick(3))
+        n4 = g.add_node(Brick(4))
+        even, odd = g.partition_nodes(g.nodes(), is_even)
+        self.assertCountEqual(even, [n2, n4])
+        self.assertCountEqual(odd, [n1, n3])
+
+def is_even(g, node: NRef):
+    return g.value_of(node) & 1 == 0
+
 if __name__ == '__main__':
     g = Graph()
     b1 = g.add_node(Brick, value=1)
