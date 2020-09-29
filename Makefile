@@ -12,9 +12,9 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v testPortGraph.TestPortGraph.test_partition_nodes
+	$(PY) -m unittest -v testView
 	#$(PY) -m unittest -v test_slipnet
-	$(PY) -m unittest -v testBrute.TestBrute.test_brute
+	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from copy import copy
 
 from util import nice_object_repr, as_iter
-from Node import MaybeNRef, CRef
+from Node import MaybeNRef, NRefs, CRef
 from BuildSpec import make_buildspec
 from exc import NeedArg
 
@@ -167,22 +167,22 @@ class Raise(Action):
     def go(self, g):
         raise self.exc_class(*self.args, **self.kwargs)
 
+    __repr__ = nice_object_repr
+
+@dataclass
 class Fail(Action):
     '''Calls 'fail' method on given node or nodes.'''
-
-    def __init__(self, node_or_nodes):
-        self.node_or_nodes = node_or_nodes
+    node_or_nodes: NRefs
 
     def go(self, g):
         for nodeid in as_iter(self.node_or_nodes):
             g.datum(nodeid).fail(g, nodeid)
 
+@dataclass
 class SelfDestruct(Action):
-
-    def __init__(self, nodeid):
-        self.nodeid = nodeid
+    node: MaybeNRef
 
     def go(self, g):
-        g.remove_node(self.nodeid)
+        g.remove_node(self.node)
 
 RemoveNode = SelfDestruct

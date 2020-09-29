@@ -112,7 +112,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         return self.__class__(**self.regen_kwargs())
 
     def nodestr(self):
-        return f'{node.id:4d}: {self.display_name()}'
+        return f'{self.id:4d}: {self.display_name()}'
 
     display_name = __repr__
 

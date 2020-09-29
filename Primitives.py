@@ -160,6 +160,9 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
         kwargs. Either way, returns the Node object.'''
         pass
 
+    def has_node(self, nrefs: NRefs) -> bool:
+        return all(self.datum(self.as_nodeid(nref)) for nref in as_iter(nrefs))
+
     @abstractmethod
     def remove_node(self, node: NRefs):
         pass

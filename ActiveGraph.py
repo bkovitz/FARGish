@@ -72,6 +72,12 @@ class ActiveGraph(
                                         # other nodes
         self.new_nodes: Set[NodeId] = set()        # Nodes built this timestep
         self.prev_new_nodes: Set[NodeId] = set()   # Nodes built last timestep
+        self.touched_nodes: Set[NodeId] = set()
+        self.prev_touched_nodes: Set[NodeId] = set()
+        self.after_touch_nodes: Set[NodeId] = set()
+            # Nodes that need their .after_touch_update method called at the
+            # end of each timestep.
+        self.during_touch = False
 
         if t is None:
             t = 0
@@ -126,7 +132,8 @@ class ActiveGraph(
         node.on_build()
         # logging
         self.new_nodes.add(self.as_nodeid(node))
-        # touches
+        if self.callable(node, 'after_touch_update'):
+            self.after_touch_nodes.add(node.id)
         return node
 
     #TODO UT
@@ -147,6 +154,8 @@ class ActiveGraph(
                 for toid in as_nodeids(nodes2):
                     for tolabel in as_iter(port_label2):
                         self._add_edge(fromid, fromlabel, toid, tolabel, **attr)
+                        self.touch(fromid)
+                        self.touch(toid)
 
     def edge_weight(
         self,
@@ -199,10 +208,15 @@ class ActiveGraph(
         node2: NRefs,
         port_label2: PortLabels,
     ):
-        '''It is not an error to remove an edge that does not exist. If the
-        edge did exist, we remove it and "touch" both nodes.'''
-        raise NotImplementedError
-
+        '''It is not an error to remove an edge that does not exist. Regardless,
+        we "touch" both nodes.'''
+        for fromid in as_nodeids(node1):
+            for fromlabel in as_iter(port_label1):
+                for toid in as_nodeids(node2):
+                    for tolabel in as_iter(port_label2):
+                        self._remove_edge(fromid, fromlabel, toid, tolabel)
+                        self.touch(fromid)
+                        self.touch(toid)
     # TODO UT
     def neighbors(
         self,
@@ -707,10 +721,18 @@ class ActiveGraph(
         if d is None:
             return None
         m = getattr(d, method_name)
+        print('CALL', m, args, kwargs)
         if callable(m):
-            return m(self, *args, **kwargs)
+            return m(*args, **kwargs)
         else:
             raise NodeLacksMethod(nref, method_name, args, kwargs)
+
+    def callable(self, nref: MaybeNRef, method_name: str) -> bool:
+        return callable(self.getattr(nref, method_name))
+
+    def getattr(self, nref: MaybeNRef, attrname: str) -> Union[Any, None]:
+        node = self.as_node(nref)
+        return getattr(node, attrname)
 
     def new_state(self, node: NRef, state: 'ActiveNodeState'):
         node = self.as_node(node)
@@ -784,13 +806,13 @@ class ActiveGraph(
                 self.t += 1
                 self.prev_new_nodes = set(self.new_nodes)
                 self.new_nodes.clear()
+                self.prev_touched_nodes = set(self.touched_nodes)
+                self.touched_nodes.clear()
 
                 if any(
                     l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
                 ):
                     print(f'{chr(10)}t={self.t}')
-
-                #self.clear_touched_and_new()
 
                 #self.propagate_support()
                 #support.log_support(self)
@@ -818,7 +840,7 @@ class ActiveGraph(
                         print(f'  {self.as_nodeid(a.actor)}: {a}')
                     self.do_action(a)
 
-                #self.do_touches()
+                self.do_touches()
                 #self.update_all_support()
 
                 d = self.done()
@@ -941,6 +963,31 @@ class ActiveGraph(
         #TODO
         return 1.0
         
+    def touch(self, nrefs: NRefs):
+        if not self.during_touch:
+            self.touched_nodes |= self.as_nodeids(nrefs)
+
+    def do_touch(self, node: NRef):
+        if not self.during_touch:
+            with PushAttr(self, 'during_touch'):
+                self.during_touch = True
+                self.boost_activation(node)
+                #TODO Call Node.update?  Add a NeedsUpdate tag?
+
+    def do_touches(self):
+        for nodeid in self.touched_nodes:
+            self.do_touch(nodeid)
+        for nodeid in self.after_touch_nodes:
+            if self.has_node(nodeid):
+                self.call_method(
+                    nodeid,
+                    'after_touch_update',
+                    self.touched_nodes,
+                    self.new_nodes
+                )
+            else:
+                self.after_touch_nodes.discard(nodeid)
+
     def done(self) -> Union[FargDone, None]:
         return self.final_result
 
@@ -977,10 +1024,12 @@ class ActiveGraph(
         else:
             return node.display_name()
 
-    def nodestr(self, node: MaybeNRef) -> str:
-        node = self.as_node(node)
-        if node is None:
+    def nodestr(self, nref: MaybeNRef) -> str:
+        if nref is None:
             return 'None'
+        node = self.as_node(nref)
+        if not node:
+            return f'{nref}: (does not exist)'
         else:
             return node.nodestr()
 
@@ -998,6 +1047,7 @@ class ActiveGraph(
             return None
 
     def print_edges(self, node, prefix=''):
+        # TODO print nothing if node does not exist
         for hop in sorted(
             self.hops_from_node(node), key=attrgetter('from_port_label')
         ):

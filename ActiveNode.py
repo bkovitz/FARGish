@@ -27,8 +27,7 @@ class ActiveNode(ABC, Node):
         objects.'''
         pass
 
-    #TODO No g param
-    def is_dormant(self, g=None):
+    def is_dormant(self):
         '''Return True to prevent TimeStepper from calling .actions() on this
         node.'''
         return (
@@ -97,9 +96,9 @@ class ActionNode(ActiveNode):
 
         # Otherwise return a version of the action with those args filled in.
 
-    def action_failed(self, g, exc: Fizzle):
-        failed_tag = g.add_node('Failed', reason=exc, taggees=self)
-        g.add_support(self, failed_tag, 1.0)
+    def action_failed(self, exc: Fizzle):
+        failed_tag = self.g.add_node('Failed', reason=exc, taggees=self)
+        self.g.add_support(self, failed_tag, 1.0)
 
 
 class ActionSeqNode(ActiveNode):

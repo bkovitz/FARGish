@@ -54,7 +54,9 @@ OperandsScout(target)
       p2 := NodeWithTag(Number, Avail),
       op := NodeWithTag(Operator, Allowed)
   => build ConsumeOperands(op, p1, p2)
-  else see block := NodeWithTag(Block, Avail), block != target
+  else see block := NodeWithTag(Block, Avail), \
+                    block != target, \
+                    block.value != target.value
   => Fail(block)
 
 SuccessScout(target)
@@ -212,5 +214,5 @@ if __name__ == '__main__':
     ShowActionList.start_logging()
     ShowActionsChosen.start_logging()
 
-    run(seed=4730533389549952010, num=32)
+    run(seed=4730533389549952010, num=40)
     pass

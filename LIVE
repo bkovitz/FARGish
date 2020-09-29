@@ -1,7 +1,8 @@
 Action.py
 ActiveGraph.py
+ActiveNode.py
 codegen.py
-Criteria.py
+criteria.py
 gen.py
 log.py
 NetworkxPortGraph.py
@@ -12,9 +13,12 @@ PortMates.py
 Primitives.py
 Propagator.py
 StdGraph.py
-util.py
 Indenting.py
 Indent1.py
+util.py
+WeightedNodes.py
 
 NodeSpec.py
 BuildSpec.py
+gloms.py
+View.py

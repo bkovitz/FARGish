@@ -1,6 +1,7 @@
 # View.py -- Definitions for the View node
 
-from PortGraph import Node, Tag, NodesWithSalience
+#from PortGraph import Node, Tag, NodesWithSalience
+from Node import Node
 from watcher import Watcher, Response, Decision, TagWith2
 from util import nice_object_repr
 
@@ -15,18 +16,18 @@ class View(Node):
     def __init__(self, criterion):
         self.criterion = criterion
 
-    def after_touch_update(self, g, this_node, touched_nodes, new_nodes):
+    def after_touch_update(self, touched_nodes, new_nodes):
         '''Update 'viewing' and 'view' links for newly created nodes.'''
-        for viewee in self.viewing(g, this_node):
-            if not self.criterion(g, viewee):
-                g.remove_edge(this_node, 'viewing', viewee, 'view')
+        for viewee in self.viewing():
+            if not self.criterion(self.g, viewee):
+                self.g.remove_edge(self, 'viewing', viewee, 'view')
         for new_node in new_nodes:
-            if self.criterion(g, new_node):
-                g.add_edge(this_node, 'viewing', new_node, 'view')
+            if self.criterion(self.g, new_node):
+                self.g.add_edge(self, 'viewing', new_node, 'view')
 
-    def viewing(self, g, this_node):
-        '''Returns iterable of nodes being viewed by this_node.'''
-        return g.neighbors(this_node, port_label='viewing')
+    def viewing(self):
+        '''Returns iterable of nodes being viewed by this node.'''
+        return self.g.neighbors(self, port_label='viewing')
 
 
 class NodeCriterion:
