@@ -104,40 +104,40 @@ class ActionChain(Action):
         pass #TODO
 
 # TODO rm
-class Build(Action):
-    '''Builds a node according to a BuildSpec.'''
+#class Build(Action):
+#    '''Builds a node according to a BuildSpec.'''
+#
+#    def __init__(
+#        self,
+#        buildspec,
+#        threshold=0.0
+#    ):
+#        self.buildspec = buildspec
+#        self.threshold = threshold
+#
+#    @classmethod
+#    def maybe_make(
+#        cls,
+#        g,
+#        nodeclass,
+#        args=(),
+#        kwargs={},
+#        threshold=0.0
+#    ):
+#        buildspec = make_buildspec(g, nodeclass, args, kwargs)
+#        if buildspec.is_already_built(g):
+#            return None
+#        else:
+#            return Build(buildspec, threshold=threshold)
+#
+#    def go(self, g):
+#        self.buildspec.build(g)
 
-    def __init__(
-        self,
-        buildspec,
-        threshold=0.0
-    ):
-        self.buildspec = buildspec
-        self.threshold = threshold
-
-    @classmethod
-    def maybe_make(
-        cls,
-        g,
-        nodeclass,
-        args=(),
-        kwargs={},
-        threshold=0.0
-    ):
-        buildspec = make_buildspec(g, nodeclass, args, kwargs)
-        if buildspec.is_already_built(g):
-            return None
-        else:
-            return Build(buildspec, threshold=threshold)
-
-    def go(self, g):
-        self.buildspec.build(g)
-
-def make_build(g, nodeclass, args=(), kwargs={}, threshold=0.0):
-    return Build(make_buildspec(g, nodeclass, args, kwargs), threshold)
+#def make_build(g, nodeclass, args=(), kwargs={}, threshold=0.0):
+#    return Build(make_buildspec(g, nodeclass, args, kwargs), threshold)
 
 @dataclass
-class NEWBuild(Action):
+class Build(Action):
     cl: CRef
     args: Tuple
     kwargs: Dict

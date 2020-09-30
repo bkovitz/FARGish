@@ -22,7 +22,7 @@ from ActiveNode import ActiveNode
 from NodeParams import NodeParams, MateParam, AttrParam
 from PortMates import PortMates
 from Hierarchy import Hierarchy
-from Action import NEWBuild
+from Action import Build
 from Predefs import Tagged, AllTagged, Not
 '''
 

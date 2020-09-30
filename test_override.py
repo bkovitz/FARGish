@@ -9,7 +9,7 @@ from typing import Union, List, Any
 
 from codegen import make_python, compile_fargish
 from Numble import make_numble_class, prompt_for_numble
-from Action import Action, NEWBuild
+from Action import Action, Build
 from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
     make_action_sequence
 from StdGraph import Graph, pg
@@ -84,7 +84,7 @@ class SeekAndGlom(Action):
     def go(self, g):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
-            g.do(NEWBuild.maybe_make(g, Glom, glommees))
+            g.do(Build.maybe_make(g, Glom, glommees))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
@@ -105,7 +105,7 @@ class NoticeAllSameValue(Action):
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(self.within)
         ):
-            g.do(NEWBuild.maybe_make(g, AllMembersSameValue, self.within))
+            g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 

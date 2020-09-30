@@ -104,6 +104,8 @@ class PortGraphPrimitives(ABC):
                                 and
                                 hop.to_port_label == to_port_label)
 
+    #TODO _hop_weight
+
     @abstractmethod
     def _hops_from_node(self, nodeid: MaybeNodeId) -> FrozenSet[Hop]:
         pass

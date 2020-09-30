@@ -544,7 +544,12 @@ class ActiveGraph(
             node, port_label, neighbor_class, neighbor_label
         ))
 
-    def add_override_node(self, node: int, port_label, overriding_node: int):
+    def add_override_node(
+        self,
+        node: NRef,
+        port_label: PortLabel,
+        overriding_node: NRef
+    ):
         '''Adds an edge from node.port_label to overriding_node.overriding.
         This signifies that overriding_node should be the value of the
         argument named port_label when running any Action inside node.'''

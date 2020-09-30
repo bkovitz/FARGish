@@ -18,8 +18,7 @@ from util import as_iter, reseed, intersection, first
 #import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Build, make_build, Raise, SelfDestruct, \
-    NEWBuild
+from Action import Action, Build, Raise, SelfDestruct
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 #from BuildSpec import make_buildspec
@@ -123,7 +122,7 @@ class SeekAndGlom(Action):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
             #g.do(Build.maybe_make(g, Glom, [glommees], {}))
-            g.do(NEWBuild.maybe_make(g, Glom, glommees))
+            g.do(Build.maybe_make(g, Glom, glommees))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
@@ -152,7 +151,7 @@ class NoticeAllSameValue(Action):
                 for memberid in g.members_of(self.within)
         ):
             #g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
-            g.do(NEWBuild.maybe_make(g, AllMembersSameValue, self.within))
+            g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
 
@@ -186,7 +185,7 @@ class NoticeSameValue(Action):
 #                Build.maybe_make(
 #                    g, SameValue, [], dict(taggees=[self.node1, self.node2])
 #                )
-                NEWBuild.maybe_make(
+                Build.maybe_make(
                     g, SameValue, taggees=[self.node1, self.node2]
                 )
             )
@@ -279,7 +278,7 @@ class NoticeAllBricksAvail(ActiveNode):
     def actions(self, g):
         bricks = g.find_all(OfClass(Brick))
         if AllTagged(g, Avail, bricks):
-            return NEWBuild.maybe_make(g, AllBricksAvail, taggees=bricks)
+            return Build.maybe_make(g, AllBricksAvail, taggees=bricks)
             self.g.deactivate(self)
 #        bricks = g.find_all(OfClass(Brick))
 #        buildspec = make_buildspec(
@@ -300,7 +299,7 @@ class SameNumberGlommer(ActiveNode):
         )
         #return [make_build3(g, Glom, [all_with_same_value], {})]
         #return Build.maybe_make(g, Glom, [all_with_same_value], {})
-        return NEWBuild.maybe_make(g, Glom, all_with_same_value)
+        return Build.maybe_make(g, Glom, all_with_same_value)
 
 class MemberCounter(ActiveNode):
 
@@ -309,6 +308,7 @@ class MemberCounter(ActiveNode):
         if group_node is None:
             return
         num_members = len(g.neighbors(group_node, port_label='members'))
+        # TODO make_build3 -> Build.maybe_make
         return [make_build3(g, Count, [], {
             'taggees': [group_node], 'value': num_members
         })]
@@ -327,6 +327,7 @@ class SameValueTagger(ActiveNode):
         )
         if second_node is None:
             return
+        # TODO make_build3 -> Build.maybe_make
         return make_build3(g, SameValue, [], {
             'taggees': [first_node, second_node],
             'value': value
