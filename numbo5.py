@@ -101,6 +101,11 @@ class NotAllSameValue(ActionFailure):
     value: Any=None
     within: NRef=None
 
+@dataclass
+class NotSameValue(ActionFailure):
+    node1: NRef=None
+    node2: NRef=None
+
 ##### Custom Actions
 
 @dataclass
@@ -111,7 +116,7 @@ class ActivateSlipnode(Action):
         ws = g.ws
         new_node = g.as_node(g.copy_group(self.slipnode, ws))
         print('ASLIP', self.slipnode, g.nodestr(new_node))
-        new_node.min_activation = 6.0 # HACK
+        new_node.min_activation = 10.0 # HACK
         #g.set_activation(new_node, 10.0)
         g.deactivate(self.slipnode)
         g.as_node(self.slipnode).dont_activate_slipnode = True   # HACK
@@ -201,6 +206,8 @@ class NoticeSameValue(Action):
                 )
             )
             g.new_state(self.actor, Completed)
+        else:
+            raise NotSameValue(self, self.node1, self.node2)
 
 @dataclass
 class AddAllInGlom(Action):
@@ -277,7 +284,7 @@ class Slipnet(Group, ActiveNode):
             subset=g.members_of(self)
             #TODO within=self ?
         )
-        print('ACTIVE SLIPNODES', actives)
+        #print('ACTIVE SLIPNODES', actives)
         return [
             ActivateSlipnode(slipnode)
                 for slipnode in actives
@@ -459,7 +466,7 @@ class DemoGraph(ExprAsEquation, Graph):
         seqnode = make_action_sequence(
             self,
             SeekAndGlom(within=ws, criteria=OfClass(Brick)),
-            NoticeAllSameValue(value=2, within=None),
+            NoticeAllSameValue(value=1, within=None),
             CountMembers(within=None),
             NoticeSameValue(node1=None, node2=None),
             AddAllInGlom(),
@@ -559,7 +566,9 @@ ws = None
 
 def newg():
     global g, ws
-    g = new_graph(Numble([1, 1, 1, 1, 1], 5), seed=8028868705202140491)
+    #numble = Numble([1, 1, 1, 1, 1], 5)
+    numble = Numble([2, 2, 2, 2, 2], 10)
+    g = new_graph(numble, seed=8028868705202140491)
     ws = g.ws
     return g
 
@@ -569,10 +578,11 @@ def p():
 
 if __name__ == '__main__':
     ShowAnnotations.start_logging()
-    ShowActiveNodes.start_logging()
+    #ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
-    ShowActionsChosen.start_logging()
+    #ShowActionsChosen.start_logging()
     ShowActionsPerformed.start_logging()
+    ShowPrimitives.start_logging()
     #ShowIsMatch.start_logging()
 
     newg()
@@ -630,5 +640,5 @@ if __name__ == '__main__':
     #dt2 = copy(dt)
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
-    g.do_timestep(num=9)
+    g.do_timestep(num=35)
     #pdb.run('g.do_timestep()')

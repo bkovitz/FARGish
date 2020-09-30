@@ -8,7 +8,8 @@ from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
 from Primitives import ActivationPolicy
 from Propagator import Propagator
-from Node import NRef
+from Node import NRef, NRefs
+from util import as_iter
 
 
 @dataclass
@@ -42,6 +43,19 @@ class StdActivationPolicy(ActivationPolicy):
 
     def propagate_activation(self):
         self.activation_propagator.propagate(self, self.activation_dict())
+
+    def transient_inhibit(self, from_node: NRefs, to_node: NRefs):
+        for f in as_iter(from_node):
+            fa = self.activation(f)
+            delta = min(-0.3 * fa, -0.1)
+            for t in as_iter(to_node):
+                ta = self.activation(t)
+                self.set_activation(t, ta + delta)
+
+    def reset_activation(self, node: NRefs):
+        for n in as_iter(node):
+            nd = self.as_node(n)
+            self.set_activation(n, nd.initial_activation)
         
 
 class Graph(

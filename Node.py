@@ -135,6 +135,10 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         for n in self.g.walk(self, 'next'):
             self.g.set_activation_from_to(self, n, -1.0)
 
+    def transient_inhibit_all_next(self):
+        for n in self.g.walk(self, 'next'):
+            self.g.transient_inhibit(self, n)
+
 # TODO Disallow None in NRef? Should have MaybeNRef.
 NRef = Union[NodeId, Node, None]     # A Node reference
 MaybeNRef = Union[NRef, None]

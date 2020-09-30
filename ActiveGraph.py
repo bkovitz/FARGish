@@ -95,7 +95,7 @@ class ActiveGraph(
         *args,
         **kwargs
     ) -> Node:
-        print('ADD_NODE', node, args, kwargs)
+        #print('ADD_NODE', node, args, kwargs)
         if isinstance(node, Node):
             already = self.already_built(node, *args, **kwargs)
             if already:
@@ -132,7 +132,7 @@ class ActiveGraph(
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
         node.on_build()
-        if ShowActionsPerformed:
+        if ShowPrimitives:
             print('built', self.long_nodestr(node))
         self.new_nodes.add(self.as_nodeid(node))
         if self.callable(node, 'after_touch_update'):
@@ -142,6 +142,8 @@ class ActiveGraph(
     #TODO UT
     def remove_node(self, node: NRefs):
         for n in as_iter(node):
+            if ShowPrimitives:
+                print('removed node', self.long_nodestr(n))
             self._remove_node(self.as_nodeid(n))
 
     def add_edge(
@@ -159,7 +161,7 @@ class ActiveGraph(
                         self._add_edge(fromid, fromlabel, toid, tolabel, **attr)
                         self.touch(fromid)
                         self.touch(toid)
-                        if ShowActionsPerformed:
+                        if ShowPrimitives:
                             # TODO Call .print_edge instead
                             print('added edge', self.nodestr(fromid), fromlabel, self.nodestr(toid), tolabel, attr)
 
@@ -223,6 +225,9 @@ class ActiveGraph(
                         self._remove_edge(fromid, fromlabel, toid, tolabel)
                         self.touch(fromid)
                         self.touch(toid)
+                        if ShowPrimitives:
+                            print('removed edge', self.nodestr(fromid), fromlabel, self.nodestr(toid), tolabel)
+
     # TODO UT
     def neighbors(
         self,
@@ -862,9 +867,20 @@ class ActiveGraph(
                     print('ACTIONS PERFORMED')
                     if not actions_to_do:
                         print('  (none)')
+                    else:
+                        self.print_actions_header()
                 for a in actions_to_do:
                     if ShowActionsPerformed.is_logging():
-                        print(f'  {self.as_nodeid(a.actor)}: {a}')
+                        #print(f'  {self.as_nodeid(a.actor)}: {a}')
+                        #TODO OAOO
+                        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+                        print(fmt % (self.urgency(a),
+                                     self.activation(a.actor),
+                                     a.threshold,
+                                     self.support_for(a.actor),
+                                     a.support_threshold,
+                                     self.as_nodeid(a.actor),
+                                     a))
                     self.do_action(a)
 
                 self.do_touches()
@@ -1025,14 +1041,17 @@ class ActiveGraph(
             self.support_for(action.actor)
         )
 
+    def print_actions_header(self):
+        headingfmt = '  %5s %5s %7s %5s %7s %4s %s'
+        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'node', 'action')
+        print(headingfmt % headings)
+
     def print_actions(self, actions: List[Action]):
         if not len(actions):
             print('  (none)')
             return
-        headingfmt = '  %5s %5s %7s %5s %7s %4s %s'
+        self.print_actions_header()
         fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
-        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'node', 'action')
-        print(headingfmt % headings)
         for action in sorted(actions, key=self.action_sorting_key):
             print(fmt % (self.urgency(action),
                          self.activation(action.actor),
