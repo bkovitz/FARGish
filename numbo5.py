@@ -6,6 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from operator import add, mul
 from functools import reduce
 from copy import copy, deepcopy
+import pdb
 
 from codegen import make_python, compile_fargish
 from dataclasses import dataclass
@@ -24,11 +25,10 @@ from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
 #from BuildSpec import make_buildspec
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion, Activated
-from exc import NeedArg, FargDone
+from exc import NeedArg, FargDone, ActionFailure
 from Predefs import AllTagged
-
 from StdGraph import Graph, pg
-from Node import Node
+from Node import Node, NRef, PortLabel
 
 prog = '''
 gfuncs { succeeded }
@@ -94,6 +94,13 @@ Number.is_duplicable = True
 #
 #Tag.add_tag = cls_add_tag  # HACK
 
+##### Custom Exceptions
+
+@dataclass
+class NotAllSameValue(ActionFailure):
+    value: Any=None
+    within: NRef=None
+
 ##### Custom Actions
 
 @dataclass
@@ -128,7 +135,7 @@ class SeekAndGlom(Action):
 
 @dataclass
 class NoticeAllSameValue(Action):
-    value: Any
+    value: Any=None
     within: Union[int, None]=None
 
     threshold = 1.0
@@ -146,6 +153,8 @@ class NoticeAllSameValue(Action):
 #                return # TODO FAIL
         if not self.within:
             raise NeedArg(self, 'within')
+        if self.value is None:
+            raise NeedArg(self, 'value')
         if all(
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(self.within)
@@ -153,6 +162,8 @@ class NoticeAllSameValue(Action):
             #g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
             g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
             g.new_state(self.actor, Completed)
+        else:
+            raise NotAllSameValue(self, value=self.value, within=self.within)
         # TODO else: FAILED
 
 @dataclass
@@ -170,8 +181,8 @@ class CountMembers(Action):
 
 @dataclass
 class NoticeSameValue(Action):
-    node1: Union[int, None]
-    node2: Union[int, None]
+    node1: Union[int, None]=None
+    node2: Union[int, None]=None
 
     threshold: float = 1.0
 
@@ -208,8 +219,8 @@ class AddAllInGlom(Action):
 
 @dataclass
 class SeekArg(Action):
-    for_node: int
-    port_label: str
+    for_node: NRef
+    port_label: PortLabel
     nodeclass: Type[Node]
     
     def go(self, g):
@@ -219,6 +230,23 @@ class SeekArg(Action):
             g.boost_activation(self.for_node)
             g.new_state(self.actor, Completed)
             g.remove_node(g.neighbors(self.actor, 'rm_on_success'))
+
+@dataclass
+class SeekNewValue(Action):
+    for_node: NRef
+    port_label: PortLabel
+    within: NRef
+
+    def go(self, g):
+        found_node = g.look_for(HasAttr('value'), within=self.within)
+        if found_node:
+            g.add_override_node(self.for_node, self.port_label, found_node)
+            g.boost_activation(self.for_node)
+            g.new_state(self.actor, Completed)
+            g.remove_node(g.neighbors(self.actor, 'rm_on_success'))
+        else:
+            print('SeekNewValue FAILED')  #DEBUG
+            #TODO raise an exception
 
 @dataclass
 class StartScout(Action):
@@ -343,13 +371,25 @@ class Failed(ActiveNode, Tag):
     )
 
     def actions(self, g):
+        # TODO Inheritance in ActionFailure
+        if isinstance(self.reason, NeedArg):
+            action = SeekArg(
+                g.neighbor(self, 'taggees'),
+                self.reason.name,  # HACK: assumes NeedArg
+                self.port_label_to_nodeclass[self.reason.name]  # HACK
+            )
+        elif isinstance(self.reason, NotAllSameValue):
+            action = SeekNewValue(
+                for_node=g.neighbor(self, 'taggees'),
+                port_label='value',
+                within=self.reason.within
+            )
+        else:
+            return  # No recognized reason => no action
+
         return [
             StartScout(
-                action=SeekArg(
-                    g.neighbor(self, 'taggees'),
-                    self.reason.name,  # HACK: assumes NeedArg
-                    self.port_label_to_nodeclass[self.reason.name]  # HACK
-                ),
+                action=action,
                 rm_on_success=self
             )
         ]
@@ -419,7 +459,7 @@ class DemoGraph(ExprAsEquation, Graph):
         seqnode = make_action_sequence(
             self,
             SeekAndGlom(within=ws, criteria=OfClass(Brick)),
-            NoticeAllSameValue(value=1, within=None),
+            NoticeAllSameValue(value=2, within=None),
             CountMembers(within=None),
             NoticeSameValue(node1=None, node2=None),
             AddAllInGlom(),
@@ -532,6 +572,7 @@ if __name__ == '__main__':
     ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
     ShowActionsChosen.start_logging()
+    ShowActionsPerformed.start_logging()
     #ShowIsMatch.start_logging()
 
     newg()
@@ -589,3 +630,5 @@ if __name__ == '__main__':
     #dt2 = copy(dt)
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
+    g.do_timestep(num=9)
+    #pdb.run('g.do_timestep()')

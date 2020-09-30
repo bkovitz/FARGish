@@ -21,7 +21,8 @@ from ActiveNode import ActiveNode
 from WithActivation import WithActivation, Propagator as ActivationPropagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr
-from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone
+from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
+    ActionFailure
 from log import *
 
 
@@ -94,6 +95,7 @@ class ActiveGraph(
         *args,
         **kwargs
     ) -> Node:
+        print('ADD_NODE', node, args, kwargs)
         if isinstance(node, Node):
             already = self.already_built(node, *args, **kwargs)
             if already:
@@ -130,7 +132,8 @@ class ActiveGraph(
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
         node.on_build()
-        # logging
+        if ShowActionsPerformed:
+            print('built', self.long_nodestr(node))
         self.new_nodes.add(self.as_nodeid(node))
         if self.callable(node, 'after_touch_update'):
             self.after_touch_nodes.add(node.id)
@@ -156,6 +159,9 @@ class ActiveGraph(
                         self._add_edge(fromid, fromlabel, toid, tolabel, **attr)
                         self.touch(fromid)
                         self.touch(toid)
+                        if ShowActionsPerformed:
+                            # TODO Call .print_edge instead
+                            print('added edge', self.nodestr(fromid), fromlabel, self.nodestr(toid), tolabel, attr)
 
     def edge_weight(
         self,
@@ -560,7 +566,10 @@ class ActiveGraph(
         for name in names:
             n = self.neighbor(node, name)
             if n:
-                result[name] = n
+                if name == 'value':  # HACK
+                    result[name] = self.value_of(n)
+                else:
+                    result[name] = n
         return result
 
     # Querying the graph
@@ -694,7 +703,9 @@ class ActiveGraph(
             self.builder = action.actor
             try:
                 action.go(self)
-            except NeedArg as exc:
+            except ActionFailure as exc:
+                if ShowActionsPerformed:
+                    print('failed:', action, exc)
                 self.call_method(exc.actor, 'action_failed', exc)
             except FargDone:
                 raise

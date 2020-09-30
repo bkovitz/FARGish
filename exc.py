@@ -43,13 +43,19 @@ class Fizzle(Exception):
     pass
 
 @dataclass
-class NeedArg(Fizzle):
+class ActionFailure(Fizzle):
     action: 'Action'
-    name: str
 
     def _get_actor(self):
         return self.action.actor
     actor = property(_get_actor)
+
+    def __str__(self):
+        return f'{repr(self)}; actor={self.actor}'
+
+@dataclass
+class NeedArg(ActionFailure):
+    name: str
 
     def __str__(self):
         return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"

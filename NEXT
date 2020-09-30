@@ -1,3 +1,7 @@
+Why is FINIT 'reason' appearing twice? Hypothesis: something to do with
+dataclass initialization/copying.  DONE: The first one is called during
+already_built().
+
 numbo5
 
     SameNumberGlommer  DONE
