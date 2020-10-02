@@ -21,9 +21,6 @@ class MyPropagator(Propagator):
     def min_value(self, g, nodeid):
         return g.min_activation(nodeid)
 
-    def set_value(self, g, nodeid, new_value):
-        g.set_activation(nodeid, new_value)
-
 class MyNode(Node):
     node_params = NodeParams(AttrParam('name'))
     initial_activation = 0.0
@@ -46,9 +43,8 @@ class TestPropagator(unittest.TestCase):
         g.set_activation_from_to(a, b, 1.0)
         g.set_activation_from_to(b, o, 1.0)
 
-        p.propagate(g, g.activation_dict())
-        #print('AD', g.activation_dict())
+        d = p.propagate(g, g.activation_dict())
 
-        self.assertAlmostEqual(g.activation(a), 0.5709545145009379)
-        self.assertAlmostEqual(g.activation(b), 0.31759853198595706)
-        self.assertAlmostEqual(g.activation(o), 0.11144695351310495)
+        self.assertAlmostEqual(d[a.id], 0.5709545145009379)
+        self.assertAlmostEqual(d[b.id], 0.31759853198595706)
+        self.assertAlmostEqual(d[o.id], 0.11144695351310495)

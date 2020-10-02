@@ -18,7 +18,7 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
 from PortMates import PortMates
 from Action import Action, Actions
 from ActiveNode import ActiveNode
-from WithActivation import WithActivation, Propagator as ActivationPropagator
+from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
@@ -292,7 +292,6 @@ class ActiveGraph(
             node, port_label, neighbor_class, neighbor_label
         ))
 
-    # TODO UT
     def walk(
         self,
         nodes: NRefs,
@@ -1069,6 +1068,13 @@ class ActiveGraph(
                          self.as_nodeid(action.actor),
                          action))
 
+#    # Slipnet
+#
+#    class SlipnetPropagator(Propagator):
+#        
+#    def slipnet_search(self, starting_nodes: NRefs):
+#        
+#
     # Printing
 
     def display_name(self, node: MaybeNRef) -> str:

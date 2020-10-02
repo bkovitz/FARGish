@@ -54,9 +54,7 @@ class Propagator(ABC):
 #            for neighbor in self.incoming_neighbors(g, node):
 #                print(neighbor, self.hop_weight(g, neighbor, node))
             new_d[node] = max(self.min_value(g, node), new_value)
-        new_d = self.normalize(new_d)
-        for node, new_value in new_d.items():
-            self.set_value(g, node, new_value)
+        return self.normalize(new_d)
         
     @abstractmethod
     def incoming_neighbors(self, g, nodeid: NodeId) -> Iterable[NodeId]:
@@ -68,10 +66,6 @@ class Propagator(ABC):
 
     @abstractmethod
     def min_value(self, g, nodeid: NodeId) -> float:
-        pass
-
-    @abstractmethod
-    def set_value(self, g, node: NodeId, new_value: float):
         pass
 
     def normalize(self, d: Dict[NodeId, float]) -> Dict[NodeId, float]:

@@ -24,8 +24,8 @@ class StdActivationPropagator(Propagator):
     def min_value(self, g, nodeid):
         return g.min_activation(nodeid)
 
-    def set_value(self, g, nodeid, new_value):
-        g.set_activation(nodeid, new_value)
+#    def set_value(self, g, nodeid, new_value):
+#        g.set_activation(nodeid, new_value)
 
 class StdActivationPolicy(ActivationPolicy):
 
@@ -42,7 +42,10 @@ class StdActivationPolicy(ActivationPolicy):
         )
 
     def propagate_activation(self):
-        self.activation_propagator.propagate(self, self.activation_dict())
+        d = self.activation_propagator.propagate(self, self.activation_dict())
+        for node, new_value in d.items():
+            self.set_activation(node, new_value)
+        return d
 
     def transient_inhibit(self, from_node: NRefs, to_node: NRefs):
         for f in as_iter(from_node):
@@ -56,6 +59,12 @@ class StdActivationPolicy(ActivationPolicy):
         for n in as_iter(node):
             nd = self.as_node(n)
             self.set_activation(n, nd.initial_activation)
+
+#class StdSlipnetPropagator(StdActivationPropagator):
+#
+#class StdSlipnetPolicy(SlipnetPolicy):
+#    
+#    slipnet_propagator = StdSlipnetPropagator()
         
 
 class Graph(
