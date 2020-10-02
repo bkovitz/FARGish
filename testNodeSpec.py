@@ -5,14 +5,10 @@ from pprint import pprint as pp
 from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
     HasSameValue, And, Not, CartesianProduct, no_dups, TupAnd, \
     NotLinkedToSame, OLDBuildSpec as BuildSpec
-from LinkSpec import LinkSpec
-#from numbospec import *
-from bases import make_link
-#from PortGraph import PortGraph, Node, pg
 from Node import Node
+from NodeParams import NodeParams, MateParam
 from StdGraph import Graph, pg
 from ExprAsEquation import ExprAsEquation
-#from TimeStepper import TimeStepper
 from Numble import make_numble_class
 from testNodeClasses import *
 from util import reseed
@@ -34,19 +30,11 @@ class TestGraph(ExprAsEquation, Graph):
         numble.build(self, self.ws)
 
 class ConsumeOperands(Node):
-
-    link_specs = [
-        LinkSpec('proposer', 'consume-operand'),
-        LinkSpec('proposer', 'consume-operand'),
-        LinkSpec('proposer', 'proposed-operator')
-    ]
-
-    @classmethod
-    def build_and_link(cls, g, operand1id, operand2id, operatorid):
-        nodeid = g.add_node(cls)
-        old_nodes = [operand1id, operand2id, operatorid]
-        for link_spec, old_node in zip(cls.link_specs, old_nodes):
-            make_link(g, link_spec, nodeid, old_node)
+    node_params = NodeParams(
+        MateParam('proposed_operator', 'proposer'),
+        MateParam('consume_operand', 'proposer'),
+        MateParam('consume_operand', 'proposer')
+    )
 
 #class Want(Node):
 #    pass
@@ -146,16 +134,22 @@ class TestNodeSpec(unittest.TestCase):
         b4 = NodeWithValue(4).see_one(g)
         b5 = NodeWithValue(5).see_one(g)
         b6 = NodeWithValue(6).see_one(g)
-        ConsumeOperands.build_and_link(g, b4, b5, plus)
-        ConsumeOperands.build_and_link(g, b4, b6, plus)
+        #ConsumeOperands.build_and_link(g, b4, b5, plus)
+        #ConsumeOperands.build_and_link(g, b4, b6, plus)
+        co45 = g.add_node(ConsumeOperands,
+            consume_operand=[b4, b5],
+            proposed_operator=plus
+        )
+        #The next line tests passing args rather than kwargs
+        co46 = g.add_node(ConsumeOperands, plus, b4, b6)
+        pg(g)
         # Now 4+5 and 4+6 are each linked to a ConsumeOperands node.
         finder = CartesianProduct(
             NodeWithTag(Number, Avail),
             NodeWithTag(Number, Avail),
             NodeOfClass(Operator),
             whole_tuple_criterion=NotLinkedToSame(
-                *[link_spec.old_node_port_label
-                    for link_spec in ConsumeOperands.link_specs]
+                *ConsumeOperands.defined_roles()
             )
         )
         got = [tuple(g.datum(nodeid) for nodeid in tup)
@@ -176,6 +170,7 @@ class TestNodeSpec(unittest.TestCase):
                   (Brick(6), Brick(6), Times())]
         # Since we did not pass no_dups to CartesianProduct, some of the
         # found possibilities include the same Brick twice.
+        self.maxDiff = None
         self.assertCountEqual(got, expect)
 
     def test_cartesian_product_not_linked_to_same_no_dups(self):
@@ -185,8 +180,8 @@ class TestNodeSpec(unittest.TestCase):
         b4 = NodeWithValue(4).see_one(g)
         b5 = NodeWithValue(5).see_one(g)
         b6 = NodeWithValue(6).see_one(g)
-        ConsumeOperands.build_and_link(g, b4, b5, plus)
-        ConsumeOperands.build_and_link(g, b4, b6, plus)
+        g.add_node(ConsumeOperands, plus, b4, b5)
+        g.add_node(ConsumeOperands, plus, b4, b6)
         # Now 4+5 and 4+6 are each linked to a ConsumeOperands node.
         finder = CartesianProduct(
             NodeWithTag(Number, Avail),
@@ -194,8 +189,7 @@ class TestNodeSpec(unittest.TestCase):
             NodeOfClass(Operator),
             whole_tuple_criterion=TupAnd(
                 NotLinkedToSame(
-                    *[link_spec.old_node_port_label
-                        for link_spec in ConsumeOperands.link_specs]
+                    *ConsumeOperands.defined_roles()
                 ),
                 no_dups
             )

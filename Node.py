@@ -41,7 +41,9 @@ class Node:
     min_activation: float = 0.0
     initial_activation: float = 1.0
 
-    attrs_not_to_copy: ClassVar[Set[str]] = frozenset(['id', 'g'])
+    attrs_not_to_copy: ClassVar[Set[str]] = frozenset([
+        'id', 'g', 'filled_params'
+    ])
 
     def __init__(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], FilledParams):
@@ -67,6 +69,14 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
             g, cls.node_params.args_into_kwargs(args, kwargs)
         )
 
+    @classmethod
+    def defined_roles(cls) -> List[PortLabel]:
+        '''Returns list of roles, i.e. port labels from which a neighboring
+        node connects to a node of this class, that are defined in this
+        class's node_params. The same role can appear more than once in
+        the list.'''
+        return cls.node_params.defined_roles()
+        
     def on_build(self):
         '''Called just after node is built. Enables the node to do any
         needed set-up. The default implementation does nothing.'''
@@ -91,6 +101,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         
     def is_same_node(self, other: 'Node') -> bool:
         return self.id == other.id and self == other
+
+    def __eq__(self, other):
+        if self.__class__ != other.__class__:
+            return False
+        return self.regen_kwargs() == other.regen_kwargs()
 
     def __repr__(self):
         if self.name:

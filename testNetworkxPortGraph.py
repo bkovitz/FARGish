@@ -6,7 +6,7 @@ from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from ActiveGraph import ActiveGraph, Hop
 from Node import Node, as_node, as_nodeid
 from NodeParams import NodeParams, AttrParam
-from StdGraph import StdActivationPolicy
+from StdGraph import StdActivationPolicy, StdSlipnetPolicy
 
 
 class MyNode(Node):
@@ -142,6 +142,7 @@ class TestNetworkxPortGraph(unittest.TestCase):
 class GraphWithNetworkxActivation(
     ActiveGraph,
     NetworkxActivation,
+    StdSlipnetPolicy, # not tested here
     StdActivationPolicy, # not tested here
     NetworkxPortGraph
 ):

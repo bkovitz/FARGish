@@ -3,6 +3,8 @@
 # This enables unit tests to be written that create nodes in a PortGraph
 # without needing to invoke any of the FARGish code-generation code.
 
+from dataclasses import dataclass
+
 #from PortGraph import PortGraph, Node, pg
 from Node import Node
 from PortMates import PortMates
@@ -16,7 +18,7 @@ class Workspace(Node):
 class Number(Node):
     node_params = NodeParams(AttrParam('value'))
 class Brick(Number):
-    pass
+    is_duplicable = True
 class Target(Number):
     pass
 class Tag(Node):
@@ -28,7 +30,7 @@ class Allowed(Tag):
 class Want(Node):
     node_params = NodeParams(MateParam('target', 'tags'))
 class Operator(Node):
-    pass
+    is_duplicable = True
 class Plus(Operator):
     pass
 class Times(Operator):

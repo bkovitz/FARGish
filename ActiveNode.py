@@ -18,7 +18,7 @@ class ActiveNode(ABC, Node):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.state is None:
-            self.state = Start
+            self.state = Start   # HACK
         
     #TODO No g param
     @abstractmethod
@@ -81,7 +81,7 @@ class ActionNode(ActiveNode):
     '''A node that holds an action and tries to perform it.'''
     node_params = NodeParams(
         AttrParam('action'),
-        AttrParam('state'),
+        AttrParam('state', Start),
         MateParam('rm_on_success', 'tags')
     )
     initial_activation = 0.1

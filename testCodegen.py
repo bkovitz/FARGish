@@ -66,14 +66,16 @@ Scout(target)'''
         prog = '''
 Client
   agent: Agent
+  is_duplicable = True
 
 Agent
 '''
         #make_python(prog, debug=1) #DEBUG
-        exec(compile_fargish(prog), globals())
+        exec(compile_fargish(prog, saveto='tbu.gen.py'), globals())
         #ShowActionList.start_logging()
         #ShowActionsChosen.start_logging()
         g = TestGraph(port_mates=port_mates)
+        Client.is_duplicable = True # HACK
         client = g.add_node(Client)
         g.do_timestep()
         self.assertEqual(len(g), 2)

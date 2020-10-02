@@ -16,8 +16,10 @@ class Tag(Node):
     is_tag = True
     node_params = NodeParams(MateParam('taggees', 'tags'))
 
-class Brick(Node):
+class Number(Node):
     node_params = NodeParams(AttrParam('value'))
+
+class Brick(Number):
     initial_activation = 0.72
     is_duplicable = True
 
@@ -34,6 +36,9 @@ class Workspace(Group):
     pass
 
 class Numble(Group):
+    pass
+
+class Slipnet(Group):
     pass
 
 class WNode(Node):
@@ -140,6 +145,26 @@ class TestStdGraph(unittest.TestCase):
         self.assertIsNot(u1, u2)
         self.assertEqual(g.num_nodes(), 2)
 
+    def test_already_built__subclass(self):
+        g = TestGraph()
+        b1 = g.add_node(Brick, 1)
+        self.assertIs(g.already_built(Number, 1), None)
+        self.assertIs(g.already_built(Number(1)), None)
+        self.assertIs(g.already_built(Number), None)
+
+    def test_already_built__missing_arg(self):
+        g = TestGraph()
+        n1 = g.add_node(Number, 1)
+        self.assertIs(g.already_built(Number), None)
+        nnone = g.add_node(Number)
+        self.assertIs(g.already_built(Number), nnone)
+        self.assertIs(g.already_built(Number(None)), nnone)
+
+        self.assertEqual(nnone, Number(None))
+        #self.assertEqual(nnone, Number())  # Not equal, because Node.__init__
+            # doesn't do the same thing as g.add_node(), but maybe that's OK.
+            # BEN 02-Oct-2020
+
     def test_auto_membership(self):
         g = TestGraph()
         ws = g.add_node(Workspace)
@@ -162,11 +187,11 @@ class TestStdGraph(unittest.TestCase):
     def test_mark_builder(self):
         g = TestGraph()
 
-        node1 = g.add_node(Node)
+        node1 = g.add_node(Brick(1))
 
         with PushAttr(g, 'builder'):
             g.builder = node1
-            node2 = g.add_node(Node)
+            node2 = g.add_node(Brick(2))
 
         self.assertTrue(g.builder_of(node2), node1)
 
@@ -273,6 +298,22 @@ class TestStdGraph(unittest.TestCase):
             g.as_nodes(g.walk(n1, neighbor_label='wfrom')),
             [n1, n1_a2]
         )
+
+#    def test_slipnet_search(self):
+#        g = TestGraph()
+#        slipnet = g.add_node(Slipnet)
+#        b1 = g.add_node(Brick, 1)
+#        b2 = g.add_node(Brick, 2)
+#        arch_b1 = g.add_node(Brick, 1, member_of=slipnet)
+#        arch_b2 = g.add_node(Brick, 2, member_of=slipnet)
+#        arch_n1 = g.add_node(Number, 1, member_of=slipnet)
+#        arch_n2 = g.add_node(Number, 2, member_of=slipnet)
+#        arch_n = g.add_node(Number, member_of=slipnet)
+#        print(Number(1) == Brick(1))
+#        print(g.already_built(Number(1)))
+#        print(g.already_built(Number))
+#        print(arch_n1, arch_n2, arch_n)
+#        pg(g)
 
 
 def is_even(g, node: NRef):

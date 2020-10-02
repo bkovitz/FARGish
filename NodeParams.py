@@ -6,6 +6,8 @@ from collections.abc import Iterable
 from copy import copy
 from itertools import chain
 from dataclasses import dataclass
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable
 
 from exc import TooManyArgs0
 from util import as_iter, as_set, as_name, empty_set, NiceRepr, filter_none, \
@@ -47,6 +49,12 @@ class NodeParam(ABC):
         pass
 
     @abstractmethod
+    def as_default_filled_param(self):
+        '''Return a FilledParam object that supplies the default value of this
+        NodeParam.'''
+        pass
+
+    @abstractmethod
     def on_init(self, datum, kwargs):
         '''Take argument value from kwargs and do whatever initialization is
         appropriate to datum (modifying datum). Called from Node.__init__()
@@ -73,6 +81,12 @@ class NodeParam(ABC):
         in kwargs?'''
         pass
 
+    @abstractmethod
+    def defined_roles(self) -> 'PortLabels':
+        '''What PortLabels does this NodeParam specify, from which another
+        node connect to this one?'''
+        pass
+
     def display_name_pyexpr(self):
         '''Returns Python expression that evaluates to the param's value,
         suitable for generating in a nodeclass's .display_name() method.
@@ -96,6 +110,9 @@ class MateParam(NodeParam):
 
     def as_filled_param(self, mateid):
         return FilledMate(self, mateid)
+
+    def as_default_filled_param(self):
+        return FilledMate(self, None)
 
     def __repr__(self):
         this = as_name(self.this_port_label)
@@ -127,6 +144,9 @@ class MateParam(NodeParam):
     def arg_into_kwargs(self, arg, kwargs):
         add_kwarg(self.this_port_label, arg, kwargs)
 
+    def defined_roles(self):
+        return self.that_port_label
+
     def is_exact_match(self, g, node, kwargs):
         kwarg_mates = as_set(kwargs.get(self.this_port_label, empty_set))
         node_mates = g.neighbors(node, port_label=self.this_port_label)
@@ -134,8 +154,9 @@ class MateParam(NodeParam):
 
 class AttrParam(NodeParam):
     
-    def __init__(self, name):
+    def __init__(self, name, default_value: Any=None):
         self.name = name
+        self.default_value = default_value
 
     def as_kv(self):
         return (self.name, self)
@@ -146,11 +167,17 @@ class AttrParam(NodeParam):
     def as_filled_param(self, v):
         return FilledAttr(self, v)
 
+    def as_default_filled_param(self):
+        return FilledAttr(self, self.default_value)
+
     def display_name_pyexpr(self):
         return f"self.{self.name}"
 
     def __repr__(self):
-        return f'AttrParam({repr(as_name(self.name))})'
+        if self.default_value is None:
+            return f'AttrParam({repr(as_name(self.name))})'
+        else:
+            return f'AttrParam({repr(as_name(self.name))}, default_value={repr(self.default_value)})'
 
     def on_init(self, datum, kwargs):
         try:
@@ -166,6 +193,9 @@ class AttrParam(NodeParam):
 
     def arg_into_kwargs(self, arg, kwargs):
         add_kwarg(self.name, arg, kwargs)
+
+    def defined_roles(self):
+        return None
 
     def is_exact_match(self, g, node, kwargs):
         return (
@@ -198,13 +228,20 @@ class NodeParams:
 
     def make_filled_params(self, g, kwargs):
         result = {}
-        for k,v in kwargs.items():
+        ks = self.d.keys() | kwargs.keys()
+        #for k,v in kwargs.items():
+        for k in ks:
+            v = kwargs.get(k, None)
             if k in self.d:
-                result[k] = self.d[k].as_filled_param(v)
-            elif g.is_port_label(k):
-                result[k] = FilledMate2(k, v)
-            else:
-                result[k] = FilledAttr(k, v)
+                if k in kwargs:
+                    result[k] = self.d[k].as_filled_param(v)
+                else:
+                    result[k] = self.d[k].as_default_filled_param()
+            else:  # else it's a 'custom' arg, not in the Node's definition
+                if g.is_port_label(k):
+                    result[k] = FilledMate2(k, v)
+                else:
+                    result[k] = FilledAttr(k, v)
         return FilledParams(result)
 
     def args_into_kwargs(self, args, kwargs):
@@ -221,6 +258,11 @@ class NodeParams:
         for arg, param in zip(args, self.params):
             param.arg_into_kwargs(arg, kwargs)
         return kwargs
+
+    def defined_roles(self) -> List['PortLabel']:
+        '''Returns list of roles, i.e. port labels from which a neighboring node
+        can connect to this one, that are defined in this NodeParams.'''
+        return chain(as_iter(param.defined_roles()) for param in self.params)
 
     def is_exact_match(self, g, node, kwargs):
         for param in self.params:
@@ -272,6 +314,12 @@ class FilledParam(ABC, NiceRepr):
         mates)?'''
         pass
 
+    @abstractmethod
+    def specifies_mates(self) -> bool:
+        '''Does this FilledParams specify any mates to link to (as opposed to
+        mates)?'''
+        pass
+
 #TODO UT
 class FilledMate(FilledParam):
 
@@ -303,6 +351,9 @@ class FilledMate(FilledParam):
     def specifies_attrs(self) -> bool:
         return False
 
+    def specifies_mates(self):
+        return True
+
     def __str__(self):
         return f'FilledMate({short(self.mate_param)}, {self.mateid})'
 
@@ -333,6 +384,9 @@ class FilledMate2(FilledParam):
 
     def specifies_attrs(self) -> bool:
         return False
+
+    def specifies_mates(self):
+        return True
 
 class FilledAttr(FilledParam):
 
@@ -366,6 +420,9 @@ class FilledAttr(FilledParam):
 
     def specifies_attrs(self) -> bool:
         return True
+
+    def specifies_mates(self):
+        return False
 
     def __str__(self):
         return f'FilledAttr({self.attr_param}={self.value})'
@@ -426,6 +483,11 @@ class FilledParams(NiceRepr):
         '''Does this FilledParams specify any attributes (as opposed to
         mates)?'''
         return any(fp.specifies_attrs() for fp in self.fps.values())
+
+    def specifies_mates(self) -> bool:
+        '''Does this FilledParams specify any mates to link to (as opposed to
+        attrs)?'''
+        return any(fp.specifies_mates() for fp in self.fps.values())
 
     def __str__(self):
         params = ', '.join(f'{name}={val}' for name, val in self.fps.items())

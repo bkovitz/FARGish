@@ -11,7 +11,7 @@ from operator import attrgetter, itemgetter
 from random import choice
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
-    ActivationPrimitives, ActivationPolicy
+    ActivationPrimitives, ActivationPolicy, SlipnetPolicy
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
@@ -39,8 +39,8 @@ class Members(ActiveGraphPrimitives):
     pass
 
 class ActiveGraph(
-    Support, Touches, Members, ActivationPolicy, ActivationPrimitives,
-    ActiveGraphPrimitives 
+    Support, Touches, Members, ActivationPolicy, SlipnetPolicy,
+    ActivationPrimitives, ActiveGraphPrimitives
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
@@ -97,6 +97,7 @@ class ActiveGraph(
     ) -> Node:
         #print('ADD_NODE', node, args, kwargs)
         if isinstance(node, Node):
+            kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already
@@ -385,14 +386,18 @@ class ActiveGraph(
             return None
 
         filled_params = nodeclass.make_filled_params(self, *args, **kwargs)
-        if filled_params.specifies_attrs():
-            candidates = self.nodes()
-        else:
+        if filled_params.specifies_mates():
             candidates = self.neighbors(filled_params.potential_neighbors())
+        else:
+            candidates = self.nodes()
         return self.as_node(first(
             candidate
                 for candidate in candidates
-                    if filled_params.is_match(self, nodeclass, candidate)
+                    if (
+                        self.class_of(candidate) is nodeclass
+                        and
+                        filled_params.is_match(self, nodeclass, candidate)
+                    )
         ))
 
     def auto_link(self, from_node: NRef, port_label: PortLabel, to_node: NRef):
@@ -1068,13 +1073,6 @@ class ActiveGraph(
                          self.as_nodeid(action.actor),
                          action))
 
-#    # Slipnet
-#
-#    class SlipnetPropagator(Propagator):
-#        
-#    def slipnet_search(self, starting_nodes: NRefs):
-#        
-#
     # Printing
 
     def display_name(self, node: MaybeNRef) -> str:

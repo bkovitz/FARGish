@@ -47,7 +47,7 @@ class Node:
         return node_params.make_filled_params(
             g, cls.args_into_kwargs(args, kwargs)
         )
-        
+
     #TODO rm?
     @classmethod
     def exactly_matches_kwargs(cls, g, node, kwargs):

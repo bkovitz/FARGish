@@ -286,3 +286,11 @@ class ActivationPolicy(ActivationPrimitives):
     def deactivate(self, node: NRefs):
         for n in as_iter(node):
             self.set_activation(n, 0.0)
+
+class SlipnetPolicy(ABC):
+    @abstractmethod
+    def slipnet_search(self, nodes: NRefs, slipnodes: Set[NodeId]) \
+    -> Set[NodeId]:
+        '''Returns set of activated slipnodes. Leaves dict of slipnet
+        activations in self.slipnet_d.'''
+        pass

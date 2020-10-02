@@ -2,13 +2,15 @@
 
 from dataclasses import dataclass
 from inspect import isclass
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable
 
 from ActiveGraph import ActiveGraph, pg
 from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
-from Primitives import ActivationPolicy
+from Primitives import ActivationPrimitives, ActivationPolicy, SlipnetPolicy
 from Propagator import Propagator
-from Node import NRef, NRefs
+from Node import NRef, NRefs, NodeId
 from util import as_iter
 
 
@@ -24,9 +26,6 @@ class StdActivationPropagator(Propagator):
     def min_value(self, g, nodeid):
         return g.min_activation(nodeid)
 
-#    def set_value(self, g, nodeid, new_value):
-#        g.set_activation(nodeid, new_value)
-
 class StdActivationPolicy(ActivationPolicy):
 
     activation_propagator = StdActivationPropagator(
@@ -41,7 +40,7 @@ class StdActivationPolicy(ActivationPolicy):
             node, self.activation(node) + boost_amount
         )
 
-    def propagate_activation(self):
+    def propagate_activation(self) -> Dict[NodeId, float]:
         d = self.activation_propagator.propagate(self, self.activation_dict())
         for node, new_value in d.items():
             self.set_activation(node, new_value)
@@ -60,14 +59,31 @@ class StdActivationPolicy(ActivationPolicy):
             nd = self.as_node(n)
             self.set_activation(n, nd.initial_activation)
 
-#class StdSlipnetPropagator(StdActivationPropagator):
-#
-#class StdSlipnetPolicy(SlipnetPolicy):
-#    
-#    slipnet_propagator = StdSlipnetPropagator()
-        
+class StdSlipnetPolicy(SlipnetPolicy, ActivationPrimitives):
+# TODO Inherit from something that guarantees .members_recursive().
+    
+    slipnet_propagator = StdActivationPropagator(
+        positive_feedback_rate=1.0,
+        alpha=0.98,
+        max_total=100.0,
+        noise=0.02
+    )
+
+    def slipnet_search(self, nodes: NRefs, slipnodes: Set[NodeId]) \
+    -> Set[NodeId]:
+        '''Returns set of activated slipnodes. Leaves dict of slipnet
+        activations in self.slipnet_d.'''
+        start_d = self.activation_dict(nodes)
+        self.slipnet_d = self.slipnet_propagator.propagate(self, start_d)
+        slipnodes = self.members_recursive(self.slipnet)
+        return set(
+            nodeid
+                for nodeid, a in self.slipnet_d.items()
+                    if a >= 1.0 and nodeid in slipnodes
+        )
 
 class Graph(
-    StdActivationPolicy, ActiveGraph, NetworkxActivation, NetworkxPortGraph
+    StdSlipnetPolicy, StdActivationPolicy, ActiveGraph, NetworkxActivation,
+    NetworkxPortGraph
 ):
     pass
