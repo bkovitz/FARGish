@@ -36,11 +36,36 @@ class Workspace(Group):
 class Numble(Group):
     pass
 
+class WNode(Node):
+    '''Node for testing g.walk().'''
+    node_params = NodeParams(MateParam('from', 'to'))
+    is_duplicable = True
+
+    wnode_count = 0
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__class__.wnode_count += 1
+        self.wid = self.wnode_count
+
+    def __eq__(self, other):
+        return self.__class__ == other.__class__ and self.wid == other.wid
+
+    def __hash__(self):
+        return hash(self.wid)
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.wid})'
+
+class W2Node(WNode):
+    pass
+
 class TestGraph(Graph):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.port_mates += [('bricks', 'numble')]
+        self.port_mates += [
+            ('bricks', 'numble'), ('to', 'from'), ('wto', 'wfrom')
+        ]
 
 class TestStdGraph(unittest.TestCase):
 
@@ -188,6 +213,67 @@ class TestStdGraph(unittest.TestCase):
         even, odd = g.partition_nodes(g.nodes(), is_even)
         self.assertCountEqual(even, [n2, n4])
         self.assertCountEqual(odd, [n1, n3])
+
+    def test_walk(self):
+        g = TestGraph()
+#        g.build_subgraph('''
+#b1: Brick(1)
+#b2: Brick(2)
+#plus: Plus
+#b1 -- plus
+#b2 -- plus
+#plus -- Block(3)
+#'''
+        n1 = g.add_node(WNode)
+        n1_a1 = g.add_node(W2Node, n1)
+        g.add_edge(n1, 'wto', n1_a1, 'from')
+        n1_a2 = g.add_node(WNode, n1)
+        g.add_edge(n1, 'to', n1_a2, 'wfrom')
+        n1_a3 = g.add_node(WNode, n1)
+        n1_a1_b1 = g.add_node(WNode, n1_a1)
+        n1_a1_b2 = g.add_node(WNode, n1_a1)
+        g.add_edge(n1_a1, 'wto', n1_a1_b2, 'from')
+        n1_a1_b1_c1 = g.add_node(WNode, n1_a1_b1)
+
+        # No restrictions on walk returns everything (since the graph is
+        # connected).
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1)),
+            [n1, n1_a1, n1_a2, n1_a3, n1_a1_b1, n1_a1_b2, n1_a1_b1_c1]
+        )
+
+        # Limited # of hops
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1, max_hops=1)),
+            [n1, n1_a1, n1_a2, n1_a3]
+        )
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1, max_hops=2)),
+            [n1, n1_a1, n1_a2, n1_a3, n1_a1_b1, n1_a1_b2]
+        )
+
+        # Limited by neighbor_class
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1, neighbor_class=Brick)),
+            [n1]
+        )
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1, neighbor_class=W2Node)),
+            [n1, n1_a1]
+        )
+
+        # Limited by port_label
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1, port_label='wto')),
+            [n1, n1_a1, n1_a1_b2]
+        )
+
+        # Limited by neighbor_label
+        self.assertCountEqual(
+            g.as_nodes(g.walk(n1, neighbor_label='wfrom')),
+            [n1, n1_a2]
+        )
+
 
 def is_even(g, node: NRef):
     return g.value_of(node) & 1 == 0

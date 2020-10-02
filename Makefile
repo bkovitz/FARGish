@@ -12,8 +12,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testView
-	#$(PY) -m unittest -v test_slipnet
+	$(PY) -m unittest -v testStdGraph.TestStdGraph.test_walk
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 tags:

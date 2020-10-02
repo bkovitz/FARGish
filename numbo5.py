@@ -115,7 +115,7 @@ class ActivateSlipnode(Action):
     def go(self, g):
         ws = g.ws
         new_node = g.as_node(g.copy_group(self.slipnode, ws))
-        print('ASLIP', self.slipnode, g.nodestr(new_node))
+        #print('ASLIP', self.slipnode, g.nodestr(new_node))
         new_node.min_activation = 10.0 # HACK
         #g.set_activation(new_node, 10.0)
         g.deactivate(self.slipnode)
@@ -629,7 +629,8 @@ if __name__ == '__main__':
     # all the Bricks are 1, and the number of Bricks = the Target.
 
     g.do_timestep(num=1)
-    pg(g)
+    #pg(g)
+
     #print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
     #g.copy_group(8, 1)  # HACK to activate ActionSeqNode from slipnet
     #g.do_timestep(num=29)

@@ -298,21 +298,29 @@ class ActiveGraph(
         nodes: NRefs,
         port_label: PortLabels = None,
         neighbor_class: Union[Type[Node], NRef] = None,
-        neighbor_label: PortLabels = None
+        neighbor_label: PortLabels = None,
+        include_start = True,
+        max_hops: Union[int, None] = None
     ) -> Iterable[NodeId]:
-        seen: Set[NodeId] = self.as_nodeids(nodes)
-        to_visit: List[NodeId] = [
-            self.as_nodeid(node) for node in as_iter(nodes)
-        ]
+        seen: Set[NodeId] = set()
+        to_visit: List[Tuple(NodeId, int)] = []  # int is # of hops
+        for node in as_iter(nodes):
+            nodeid = as_nodeid(node)
+            if nodeid not in seen:
+                if include_start:
+                    yield nodeid
+                seen.add(nodeid)
+                to_visit.append((nodeid, 0))
         while to_visit:
-            nodeid = to_visit.pop(0)
+            nodeid, num_hops = to_visit.pop(0)
             for n in self.neighbors(
                 nodeid, port_label, neighbor_class, neighbor_label
             ):
                 if n not in seen:
                     yield n
                     seen.add(n)
-                    to_visit.append(n)
+                    if max_hops is None or num_hops + 1 < max_hops:
+                        to_visit.append((n, num_hops + 1))
 
     # TODO UT
     def link_sequence(self, nodes: Iterable[NRef]):

@@ -56,7 +56,7 @@ class PortMates:
             to_label = self.canonical[port_label]
         except KeyError:
             #return  # do nothing if port_label has no mate
-            raise NotImplemented
+            raise NotImplementedError
         for f in as_iter(from_node):
             for t in as_iter(to_node):
                 g.add_edge(f, port_label, t, to_label)

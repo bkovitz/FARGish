@@ -114,7 +114,8 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def nodestr(self):
         return f'{self.id:4d}: {self.display_name()}'
 
-    display_name = __repr__
+    def display_name(self):
+        return repr(self)
 
     def dict_str(self):
         '''String that shows the entire contents of this Node's __dict__,
@@ -132,11 +133,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     # Methods that edit the graph
 
     def inhibit_all_next(self):
-        for n in self.g.walk(self, 'next'):
+        for n in self.g.walk(self, 'next', include_start=False):
             self.g.set_activation_from_to(self, n, -1.0)
 
     def transient_inhibit_all_next(self):
-        for n in self.g.walk(self, 'next'):
+        for n in self.g.walk(self, 'next', include_start=False):
             self.g.transient_inhibit(self, n)
 
 # TODO Disallow None in NRef? Should have MaybeNRef.
