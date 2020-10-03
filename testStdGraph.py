@@ -146,6 +146,9 @@ class TestStdGraph(unittest.TestCase):
         self.assertEqual(g.num_nodes(), 2)
 
     def test_already_built__subclass(self):
+        self.assertNotEqual(Number(1), Brick(1))
+        self.assertNotEqual(Brick(1), Number(1))
+
         g = TestGraph()
         b1 = g.add_node(Brick, 1)
         self.assertIs(g.already_built(Number, 1), None)
@@ -299,21 +302,18 @@ class TestStdGraph(unittest.TestCase):
             [n1, n1_a2]
         )
 
-#    def test_slipnet_search(self):
-#        g = TestGraph()
-#        slipnet = g.add_node(Slipnet)
-#        b1 = g.add_node(Brick, 1)
-#        b2 = g.add_node(Brick, 2)
-#        arch_b1 = g.add_node(Brick, 1, member_of=slipnet)
-#        arch_b2 = g.add_node(Brick, 2, member_of=slipnet)
-#        arch_n1 = g.add_node(Number, 1, member_of=slipnet)
-#        arch_n2 = g.add_node(Number, 2, member_of=slipnet)
-#        arch_n = g.add_node(Number, member_of=slipnet)
-#        print(Number(1) == Brick(1))
-#        print(g.already_built(Number(1)))
-#        print(g.already_built(Number))
-#        print(arch_n1, arch_n2, arch_n)
-#        pg(g)
+    def test_slipnet_search(self):
+        g = TestGraph()
+        slipnet = g.add_node(Slipnet)
+        b1 = g.add_node(Brick, 1)
+        b2 = g.add_node(Brick, 2)
+        arch_b1 = g.add_node(Brick, 1, member_of=slipnet)
+        arch_b2 = g.add_node(Brick, 2, member_of=slipnet)
+        arch_n1 = g.add_node(Number, 1, member_of=slipnet)
+        arch_n2 = g.add_node(Number, 2, member_of=slipnet)
+        arch_n = g.add_node(Number, member_of=slipnet)
+        print(arch_n1, arch_n2, arch_n)
+        pg(g)
 
 
 def is_even(g, node: NRef):

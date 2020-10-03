@@ -86,6 +86,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         '''From the kwargs dict returned by this function, you can reconstruct
         the node, excluding its links.'''
         return omit(self.__dict__, self.attrs_not_to_copy)
+        # TODO deepcopy the Action objects
 #        result = {}
 #        for param_name, v in self.__dict__.items():
 #            if param_name in self.attrs_not_to_copy:
