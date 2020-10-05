@@ -1046,6 +1046,10 @@ class ActiveGraph(
     def done(self) -> Union[FargDone, None]:
         return self.final_result
 
+    def succeeded(self) -> bool:
+        d = self.done()
+        return isinstance(d, FargDone) and d.succeeded
+
     def action_sorting_key(self, action: Action) -> Tuple:
         return (
             self.urgency(action),

@@ -17,6 +17,10 @@ u:
 	#$(PY) -m unittest -v testNodeSpec.TestNodeSpec.test_cartesian_product_not_linked_to_same
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
+# Acceptance tests
+at:
+	$(PY) -m unittest -v atest*.py
+
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
 

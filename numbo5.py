@@ -62,7 +62,7 @@ SuccessScout(target)
   => succeeded(winner, target)
 '''
 
-make_python(prog, debug=1)
+#make_python(prog, debug=1)
 exec(compile_fargish(prog, saveto='numbo5.gen.py'), globals())
 
 Plus.expr_class = expr.Plus #HACK
@@ -564,10 +564,10 @@ def new_graph(numble, seed=None):
 g = None
 ws = None
 
-def newg():
+def newg(numble=Numble([2, 2, 2, 2, 2], 10)):
     global g, ws
     #numble = Numble([1, 1, 1, 1, 1], 5)
-    numble = Numble([2, 2, 2, 2, 2], 10)
+    #numble = Numble([2, 2, 2, 2, 2], 10)
     g = new_graph(numble, seed=8028868705202140491)
     ws = g.ws
     return g
@@ -585,7 +585,7 @@ if __name__ == '__main__':
     ShowPrimitives.start_logging()
     #ShowIsMatch.start_logging()
 
-    newg()
+    newg(Numble([1, 1, 1, 1, 1], 4))
 
     #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
     #bspec = make_buildspec(g, Glom, [], dict(taggees=[4, 6, 8]))
@@ -641,5 +641,6 @@ if __name__ == '__main__':
     #dt2 = copy(dt)
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
-    g.do_timestep(num=35)
+
+    #g.do_timestep(num=35)
     #pdb.run('g.do_timestep()')
