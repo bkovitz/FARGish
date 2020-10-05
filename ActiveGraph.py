@@ -17,7 +17,7 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
 from Action import Action, Actions
-from ActiveNode import ActiveNode
+from ActiveNode import ActiveNode, ActionNode
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr
@@ -66,7 +66,7 @@ class ActiveGraph(
             self.port_mates += port_mates
         self.nodeclasses: Dict[str, Type[Node]] = {}
 
-        self.max_active_nodes: Union[int, None] = None
+        self.max_active_nodes: Union[int, None] = 6  #None
         self.max_actions: int = 1
 
         self.builder: MaybeNRef = None  # Node that is currently "building"
@@ -79,6 +79,7 @@ class ActiveGraph(
             # Nodes that need their .after_touch_update method called at the
             # end of each timestep.
         self.during_touch = False
+        self.prev_actions: List[Action] = []
 
         if t is None:
             t = 0
@@ -109,12 +110,11 @@ class ActiveGraph(
             filled_params.apply_to_node(self, node.id)
         else:
             if isinstance(node, str):
-                # TODO If node is a str, get_nodeclass
-                #raise NotImplementedError
                 node = self.as_nodeclass(node)
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already
+            #print('ADDN', node)
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
             node: Node = node()  # Create the Node object
@@ -369,7 +369,7 @@ class ActiveGraph(
 
     def already_built(
         self,
-        nodeclass: Union[Type[Node], Node],
+        nodeclass: Union[Type[Node], MaybeNRef],
         *args,     # ignored if nodeclass is a Node
         **kwargs   # ignored if nodeclass is a Node
     ) -> Union[Node, None]:
@@ -378,6 +378,10 @@ class ActiveGraph(
         deemed already built. If nodeclass is a Node object, we look for
         existing nodes with the same class and parameters, getting the
         Node object's parameters by calling its .regen_kwargs() method.'''
+        if not nodeclass:
+            return None
+        if is_nodeid(nodeclass):
+            nodeclass = self.as_node(nodeclass)
         if isinstance(nodeclass, Node):
             args = ()
             kwargs = nodeclass.regen_kwargs()
@@ -581,24 +585,45 @@ class ActiveGraph(
     def get_overrides(self, node: NRef, names: Set[str]) -> Dict[str, Any]:
         result = {}
         for name in names:
-            n = self.neighbor(node, name)
-            if n:
-                if name == 'value':  # HACK
-                    result[name] = self.value_of(n)
-                else:
-                    result[name] = n
+            if self.is_plural_port_label(name):
+                result[name] = self.neighbors(node, port_label=name)
+            else:
+                n = self.neighbor(node, port_label=name)
+                if n:
+                    if name == 'value':  # HACK
+                        result[name] = self.value_of(n)
+                    else:
+                        result[name] = n
         return result
+
+    def is_plural_port_label(self, port_label: PortLabel) -> bool:
+        # Numbo-specific HACK
+        return port_label == 'consume_operands'
 
     # Querying the graph
 
     # TODO Better: Pass OfClass to .nodes()
-    def nodes_of_class(self, cl: Type[Node], nodes: NRefs=None) -> List[NRef]:
+    def nodes_of_class(
+        self,
+        cl: Union[Type[Node],
+        Type[Action]],
+        nodes: NRefs=None
+    ) -> List[NRef]:
         result = []
         if nodes is None:
             nodes = self.nodes()
         for node in nodes:
-            if isinstance(self.as_node(node), cl):
-                result.append(node)
+            if issubclass(cl, Node):
+                if isinstance(self.as_node(node), cl):
+                    result.append(node)
+            else:
+                assert issubclass(cl, Action)
+                if (
+                    isinstance(self.as_node(node), ActionNode)
+                    and
+                    isinstance(self.getattr(node, 'action'), cl)
+                ):
+                    result.append(node)
         return result
 
     def node_of_class(self, cl: Type[Node], nodes=None) -> MaybeNRef:
@@ -612,7 +637,7 @@ class ActiveGraph(
         return None
 
     # TODO UT
-    def look_for(self, *criteria, within: Union[int, None]=None) -> \
+    def look_for(self, *criteria, within: MaybeNRef=None) -> \
     Union[int, None]:
         '''Returns one node that meets criteria, or None if not found.
         criteria are functions that take two arguments: g, nodeid, and
@@ -627,7 +652,7 @@ class ActiveGraph(
     def find_all(
         self,
         *criteria,
-        within: Union[NRef, None]=None,
+        within: MaybeNRef=None,
         subset: Union[Set[NodeId], None]=None
     ) -> List[int]:
         '''Returns list of all nodes that meet criteria. criteria are functions
@@ -718,6 +743,7 @@ class ActiveGraph(
             action.actor = actor
         with PushAttr(self, 'builder'):
             self.builder = action.actor
+            self.prev_actions.append(action)
             try:
                 action.go(self)
             except ActionFailure as exc:
@@ -852,6 +878,7 @@ class ActiveGraph(
                 self.new_nodes.clear()
                 self.prev_touched_nodes = set(self.touched_nodes)
                 self.touched_nodes.clear()
+                self.prev_actions.clear()
 
                 if any(
                     l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
@@ -864,7 +891,7 @@ class ActiveGraph(
                 #TODO Put num into Propagator
                 for _ in range(4):
                     self.propagate_activation()
-                #log_activation(self)
+                self.log_activation()
 
                 #self.update_coarse_views()
 
@@ -1128,7 +1155,7 @@ class ActiveGraph(
 
 G = ActiveGraph
 
-def pg(g: ActiveGraph, *nodes, **kwargs):
+def pg(g: G, *nodes, **kwargs):
     '''Prints graph g in simple text form.'''
     print(f't={g.t}')
 #    if nodes is None:
@@ -1139,3 +1166,8 @@ def pg(g: ActiveGraph, *nodes, **kwargs):
     for node in g.list(*nodes, **kwargs):
         print(g.long_nodestr(node))
         g.print_edges(node, prefix='      ')
+
+def pa(g: G, *nodes, **kwargs):
+    '''Prints activations of nodes.'''
+    for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
+        print(g.long_nodestr(node))

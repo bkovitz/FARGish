@@ -1,5 +1,6 @@
 # StdGraph.py -- The usual ActiveGraph class that represents the FARG model
 
+import csv
 from dataclasses import dataclass
 from inspect import isclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
@@ -32,7 +33,8 @@ class StdActivationPolicy(ActivationPolicy):
         positive_feedback_rate=1.0,
         alpha=0.98,
         max_total=100.0,
-        noise=0.02
+        noise=0.02,
+        sigmoid_p=1.0
     )
 
     def boost_activation(self, node: NRef, boost_amount: float=0.2):
@@ -58,6 +60,18 @@ class StdActivationPolicy(ActivationPolicy):
         for n in as_iter(node):
             nd = self.as_node(n)
             self.set_activation(n, nd.initial_activation)
+
+    # TODO Make into a Primitive
+    def log_activation(self):
+        '''Log file format:  timestep, node, activation'''
+        t = self.t
+        mode = 'a'
+        if t <= 1:
+            mode = 'w'
+        with open('activation.csv', mode=mode, newline='') as csvfile:
+            writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+            for node, a in self.activation_dict().items():
+                writer.writerow([t, node, a])
 
 class StdSlipnetPolicy(SlipnetPolicy, ActivationPrimitives):
 # TODO Inherit from something that guarantees .members_recursive().

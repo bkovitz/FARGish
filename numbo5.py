@@ -23,12 +23,13 @@ from Action import Action, Build, Raise, SelfDestruct
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 #from BuildSpec import make_buildspec
-from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
+from criteria import Tagged as CTagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion, Activated
 from exc import NeedArg, FargDone, ActionFailure
 from Predefs import AllTagged
-from StdGraph import Graph, pg
-from Node import Node, NRef, PortLabel
+from StdGraph import Graph
+from ActiveGraph import pg, pa
+from Node import Node, NRef, NRefs, PortLabel, CRef
 
 prog = '''
 gfuncs { succeeded }
@@ -38,6 +39,8 @@ target -- tags
 members -- member_of
 operands -- consumer
 result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
+consume_operands -- proposer
+proposed_operator -- proposer
 
 Workspace
 
@@ -162,7 +165,8 @@ class NoticeAllSameValue(Action):
             raise NeedArg(self, 'value')
         if all(
             g.value_of(memberid) == self.value
-                for memberid in g.members_of(self.within)
+                #for memberid in g.members_of(self.within)
+                for memberid in g.find_all(OfClass(Number), within=self.within)
         ):
             #g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
             g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
@@ -181,7 +185,7 @@ class CountMembers(Action):
         if not self.within:
             raise NeedArg(self, 'within')
         num_members = len(g.neighbors(self.within, port_label='members'))
-        g.add_node(Count, taggees=[self.within], value=num_members)
+        g.add_node(Count, taggees=self.within, value=num_members)
         g.new_state(self.actor, Completed)
 
 @dataclass
@@ -218,10 +222,25 @@ class AddAllInGlom(Action):
     def go(self, g):
         if not self.within:
             raise NeedArg(self, 'within')
-        g.consume_operands(
-            g.find_all(OfClass(Number), within=self.within),
-            Plus
+#        g.consume_operands(
+#            g.find_all(OfClass(Number), within=self.within),
+#            Plus
+#        )
+        g.add_node(Proposal,
+            ConsumeOperands(),
+            consume_operands=g.find_all(OfClass(Number), within=self.within),
+            proposed_operator=g.look_for(OfClass(Plus), CTagged(Allowed)),
+            member_of=g.ws
         )
+        g.new_state(self.actor, Completed)
+
+@dataclass
+class ConsumeOperands(Action):
+    consume_operands: Union[NRefs, None]=None
+    proposed_operator: Union[NRef, None]=None
+
+    def go(self, g):
+        g.consume_operands(self.consume_operands, self.proposed_operator)
         g.new_state(self.actor, Completed)
 
 @dataclass
@@ -291,6 +310,13 @@ class Slipnet(Group, ActiveNode):
                     if not g.as_node(slipnode).dont_activate_slipnode
         ]
 
+class Proposal(ActiveNode):
+    node_params = NodeParams(AttrParam('action'))
+    # We expect more arguments, which we will pass to 'action'.
+
+    def actions(self, g):
+        return self.action.with_overrides_from(g, self)
+    
 class AllBricksAvail(Tag, ActiveNode):
 
     initial_support_for = 1.0
@@ -483,11 +509,13 @@ class DemoGraph(ExprAsEquation, Graph):
 
     def consume_operands(
         self,
-        operand_ids: List[int],
-        operator_class: Operator,
+        operand_ids: NRefs,
+        operator_class: CRef,
         actor=None
     ):
-        # Check that all the nodes are Avail
+        if not self.has_tag(operand_ids, Avail):
+            return  # TODO Raise a failure exception?
+        operator_class = self.as_nodeclass(operator_class)
         operator_id = self.add_node(
             operator_class, 
             operands=operand_ids,
