@@ -142,7 +142,7 @@ class TestNodeSpec(unittest.TestCase):
         )
         #The next line tests passing args rather than kwargs
         co46 = g.add_node(ConsumeOperands, plus, b4, b6)
-        pg(g)
+        #pg(g)
         # Now 4+5 and 4+6 are each linked to a ConsumeOperands node.
         finder = CartesianProduct(
             NodeWithTag(Number, Avail),

@@ -47,7 +47,7 @@ Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
 '''
 
-make_python(prog) #, debug=1, file=open('test_override.gen.py', 'w'))
+#make_python(prog) #, debug=1, file=open('test_override.gen.py', 'w'))
 exec(compile_fargish(prog), globals())
 
 Numble = make_numble_class(
