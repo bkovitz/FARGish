@@ -34,7 +34,7 @@ class StdActivationPolicy(ActivationPolicy):
         alpha=0.98,
         max_total=100.0,
         noise=0.02,
-        sigmoid_p=1.0
+        sigmoid_p=0.98
     )
 
     def boost_activation(self, node: NRef, boost_amount: float=0.2):

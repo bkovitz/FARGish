@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 #a = np.loadtxt('support.csv', delimiter=',')
 a = np.loadtxt('activation.csv', delimiter=',')
 
-node = 12
+node = 34
 
 # [timestep, support] only for node
 b = a[:, [0, 2]][a[:, 1] == node]

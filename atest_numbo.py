@@ -4,6 +4,7 @@ import unittest
 
 from numbo5 import newg, Numble
 from log import *
+from ActiveGraph import pg, pa
 
 
 class NumboTest(unittest.TestCase):
@@ -19,12 +20,12 @@ class NumboTest(unittest.TestCase):
         #ShowActionsPerformed.start_logging()
         #ShowPrimitives.start_logging()
         g = newg(Numble([1, 1, 1, 1, 1], 5))
-        g.do_timestep(num=40)
+        g.do_timestep(num=60)
         self.assertTrue(g.succeeded())
         # TODO Test that the equation is 1 + 1 + 1 + 1 + 1 = 5
 
     def test_22222_10(self):
         g = newg(Numble([2, 2, 2, 2, 2], 10))
-        g.do_timestep(num=40)
+        g.do_timestep(num=60)
         self.assertTrue(g.succeeded())
         # TODO Test for expected equation

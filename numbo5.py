@@ -29,7 +29,7 @@ from exc import NeedArg, FargDone, ActionFailure
 from Predefs import AllTagged
 from StdGraph import Graph
 from ActiveGraph import pg, pa
-from Node import Node, NRef, NRefs, PortLabel, CRef
+from Node import Node, NRef, NRefs, MaybeNRef, PortLabel, CRef
 
 prog = '''
 gfuncs { succeeded }
@@ -45,9 +45,11 @@ proposed_operator -- proposer
 Workspace
 
 Tag(taggees)
-Want, Avail, Consumed, Allowed, Done : Tag
+Avail, Consumed, Allowed, Done : Tag
 #AllBricksAvail : Tag
 SameValue, AllMembersSameValue : Tag
+Want : Tag
+  agent: SuccessScout(target=taggees)
 
 Group(members)
 Glom : Group
@@ -80,6 +82,8 @@ Numble = make_numble_class(
 ##### Hacks
 
 Number.is_duplicable = True
+
+Want.min_activation = 1.0
 
 #tag_port_label = 'taggees'
 #taggee_port_label = 'tags'
@@ -222,10 +226,6 @@ class AddAllInGlom(Action):
     def go(self, g):
         if not self.within:
             raise NeedArg(self, 'within')
-#        g.consume_operands(
-#            g.find_all(OfClass(Number), within=self.within),
-#            Plus
-#        )
         g.add_node(Proposal,
             ConsumeOperands(),
             consume_operands=g.find_all(OfClass(Number), within=self.within),
@@ -485,7 +485,7 @@ class DemoGraph(ExprAsEquation, Graph):
         #self.add_node(SameValueTagger)
 
         targetid = self.look_for(OfClass(Target))
-        self.add_node(SuccessScout, target=targetid, min_support_for=1.0)
+        #self.add_node(SuccessScout, target=targetid, min_support_for=1.0)
         self.add_node(NoticeAllBricksAvail, member_of=ws)
 
     def fill_slipnet(self, slipnet: int):
@@ -530,6 +530,17 @@ class DemoGraph(ExprAsEquation, Graph):
         g.move_tag(Avail, operand_ids, result_id)
         g.add_tag(Consumed, operand_ids)
         g.add_tag(Done, actor)
+
+    def undo_consumption(self, nref: MaybeNRef):
+        if not nref or not self.has_tag(nref, Avail):
+            return
+        self.remove_tag(nref, Avail)
+        source = g.neighbor(nref, 'source')
+        operands = g.neighbors(source, 'operands')
+        self.remove_tag(operands, Consumed)
+        for operand in operands:
+            self.add_tag(Avail, operand)
+
 
 def arith_result(g, operator_id):
     operator_class = g.class_of(operator_id)
@@ -670,5 +681,5 @@ if __name__ == '__main__':
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
 
-    #g.do_timestep(num=35)
+    g.do_timestep(num=31)
     #pdb.run('g.do_timestep()')

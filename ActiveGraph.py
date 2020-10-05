@@ -129,6 +129,7 @@ class ActiveGraph(
         if classname not in self.nodeclasses:
             self.nodeclasses[classname] = node.__class__
 
+        node.tob = self.t
         self.set_activation(node, node.initial_activation)
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
@@ -605,25 +606,25 @@ class ActiveGraph(
     # TODO Better: Pass OfClass to .nodes()
     def nodes_of_class(
         self,
-        cl: Union[Type[Node],
-        Type[Action]],
+        cls: Iterable[Union[Type[Node], Type[Action]]],
         nodes: NRefs=None
     ) -> List[NRef]:
         result = []
         if nodes is None:
             nodes = self.nodes()
         for node in nodes:
-            if issubclass(cl, Node):
-                if isinstance(self.as_node(node), cl):
-                    result.append(node)
-            else:
-                assert issubclass(cl, Action)
-                if (
-                    isinstance(self.as_node(node), ActionNode)
-                    and
-                    isinstance(self.getattr(node, 'action'), cl)
-                ):
-                    result.append(node)
+            for cl in as_iter(cls):
+                if issubclass(cl, Node):
+                    if isinstance(self.as_node(node), cl):
+                        result.append(node)
+                else:
+                    assert issubclass(cl, Action)
+                    if (
+                        isinstance(self.as_node(node), ActionNode)
+                        and
+                        isinstance(self.getattr(node, 'action'), cl)
+                    ):
+                        result.append(node)
         return result
 
     def node_of_class(self, cl: Type[Node], nodes=None) -> MaybeNRef:
@@ -883,7 +884,8 @@ class ActiveGraph(
                 if any(
                     l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
                 ):
-                    print(f'{chr(10)}t={self.t}')
+                    #print(f'{chr(10)}t={self.t}')
+                    pt(self)
 
                 #self.propagate_support()
                 #support.log_support(self)
@@ -928,7 +930,7 @@ class ActiveGraph(
                 d = self.done()
                 if d:
                     ShowResults(d)
-                    ShowResults(f"t={self.graph['t']}\n")
+                    #ShowResults(f"t={self.graph['t']}\n")
                     break
         except FargDone as exc:
             self.final_result = exc
@@ -1123,11 +1125,15 @@ class ActiveGraph(
             return node.nodestr()
 
     def long_nodestr(self, node):
-        return '%-20s  a=%.3f s=%.3f' % (
+        return '%-20s  a=%.3f s=%.3f   tob=%d' % (
             self.nodestr(node),
             self.activation(node),
             self.support_for(node),
+            self.tob(node)
         )
+
+    def tob(self, nref: NRef):
+        return self.as_node(nref).tob
 
     def dict_str(self, nref: NRef) -> Union[str, None]:
         try:
@@ -1155,9 +1161,14 @@ class ActiveGraph(
 
 G = ActiveGraph
 
+def pt(g: G):
+    '''Prints title with t= and other info about the graph.'''
+    print()
+    print(f't={g.t}    sum_a={sum(g.activation(n) for n in g.nodes())}')
+
 def pg(g: G, *nodes, **kwargs):
     '''Prints graph g in simple text form.'''
-    print(f't={g.t}')
+    pt(g)
 #    if nodes is None:
 #        nodes = g.nodes()
 #    elif isclass(nodes) and issubclass(nodes, Node):
@@ -1169,5 +1180,6 @@ def pg(g: G, *nodes, **kwargs):
 
 def pa(g: G, *nodes, **kwargs):
     '''Prints activations of nodes.'''
+    pt(g)
     for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
         print(g.long_nodestr(node))
