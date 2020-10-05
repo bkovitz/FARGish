@@ -98,6 +98,7 @@ class ActionNode(ActiveNode):
 
     def action_failed(self, exc: Fizzle):
         failed_tag = self.g.add_node('Failed', reason=exc, taggees=self)
+        self.g.set_activation_from_to(self, failed_tag)
         self.g.add_support(self, failed_tag, 1.0)
         self.transient_inhibit_all_next()
         self.g.reset_activation(self)

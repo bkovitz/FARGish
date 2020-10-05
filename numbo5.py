@@ -13,18 +13,18 @@ from dataclasses import dataclass
 #from TimeStepper import TimeStepper
 from log import *
 import expr
-from util import as_iter, reseed, intersection, first
+from util import as_iter, as_set, reseed, intersection, first
 #from PortGraph import PortGraph, Node, pg, ps, pa
 #import WithActivation
 #import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Build, Raise, SelfDestruct
+from Action import Action, Actions, Build, Raise, SelfDestruct, FuncAction
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 #from BuildSpec import make_buildspec
-from criteria import Tagged as CTagged, HasValue, OfClass, NotTaggedTogetherWith, \
-    HasAttr, NotNode, Criterion, Activated
+from criteria import Tagged as CTagged, NotTagged, HasValue, OfClass, \
+    NotTaggedTogetherWith, HasAttr, NotNode, Criterion, Activated
 from exc import NeedArg, FargDone, ActionFailure
 from Predefs import AllTagged
 from StdGraph import Graph
@@ -45,11 +45,14 @@ proposed_operator -- proposer
 Workspace
 
 Tag(taggees)
-Avail, Consumed, Allowed, Done : Tag
+Avail, Consumed, Allowed, Done, Exclude : Tag
 #AllBricksAvail : Tag
 SameValue, AllMembersSameValue : Tag
+Assessment : Tag
+NotGoodEnough : Assessment
+TooLow, TooHigh : NotGoodEnough
 Want : Tag
-  agent: SuccessScout(target=taggees)
+  agent: AssessorScout(target=taggees)
 
 Group(members)
 Glom : Group
@@ -62,13 +65,19 @@ Operator(operands, consumer)
 Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
 
-SuccessScout(target)
-  see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
-  => succeeded(winner, target)
+#AssessorScout(target)
+#  #see winner := NodeWithValue(target.value, nodeclass=Number, tagclass=Avail)
+#  #=> succeeded(winner, target)
+#  see node := And(Or(NodeOfClass(Brick), NodeOfClass(Block)),
+#                  NodeWithTag(Avail),
+#                  Not(NodeWithTag(Assessment)))
+#  => assess(node, target)
 '''
 
 #make_python(prog, debug=1)
 exec(compile_fargish(prog, saveto='numbo5.gen.py'), globals())
+
+Operator.is_duplicable = True  #HACK
 
 Plus.expr_class = expr.Plus #HACK
 Plus.symbol = '+' #HACK
@@ -112,6 +121,38 @@ class NotAllSameValue(ActionFailure):
 class NotSameValue(ActionFailure):
     node1: NRef=None
     node2: NRef=None
+
+##### Action procedures
+
+def assess(g, node: NRef, target: NRef) -> Actions:
+    nv = g.value_of(node)
+    if nv is None:
+        return
+    tv = g.value_of(target)
+    if tv is None:
+        return
+    if nv == tv:
+        return Raise(NumboSuccess,
+                     expr.Equation(
+                       extract_expr(g, node),
+                       extract_expr(g, target)))
+    elif nv < tv:
+        return Build(TooLow, node)
+    else:
+        return Build(TooHigh, node)
+
+def start_fixer_seq(g, badnode: NRef):
+    if not badnode:
+        return
+    g.undo_consumption(badnode)
+    seqnode = make_action_sequence(
+        g,
+        ExcludeOperand(),
+        Reglom(),
+        AddAllInGlom(),
+        member_of=g.ws
+    )
+    seqnode.min_activation = 10.0 # HACK
 
 ##### Custom Actions
 
@@ -228,8 +269,14 @@ class AddAllInGlom(Action):
             raise NeedArg(self, 'within')
         g.add_node(Proposal,
             ConsumeOperands(),
-            consume_operands=g.find_all(OfClass(Number), within=self.within),
-            proposed_operator=g.look_for(OfClass(Plus), CTagged(Allowed)),
+            consume_operands=g.find_all(
+                OfClass(Number), CTagged(Avail),
+                within=self.within
+            ),
+            proposed_operator=g.look_for(
+                OfClass(Plus), CTagged(Allowed),
+                within=g.ws
+            ),
             member_of=g.ws
         )
         g.new_state(self.actor, Completed)
@@ -240,6 +287,7 @@ class ConsumeOperands(Action):
     proposed_operator: Union[NRef, None]=None
 
     def go(self, g):
+        print('CONSUME-GO', self.consume_operands, self.proposed_operator)
         g.consume_operands(self.consume_operands, self.proposed_operator)
         g.new_state(self.actor, Completed)
 
@@ -287,6 +335,47 @@ class StartScout(Action):
         )
         g.new_state(self.actor, Completed)
 
+@dataclass
+class ExcludeOperand(Action):
+    within: Union[NRef, None]=None
+
+    threshold: float = 1.0
+
+    def go(self, g):
+        if not self.within:
+            raise NeedArg(self, 'within')
+        operand = g.look_for(OfClass(Brick), within=self.within)
+        if operand:
+            g.add_node(Exclude, operand)
+            g.new_state(self.actor, Completed)
+        else:
+            print('ExcludeOperand FAILED')  #DEBUG
+
+@dataclass
+class Reglom(Action):
+    glom: Union[NRef, None]=None
+
+    threshold: float = 1.0
+
+    def go(self, g):
+        if not self.glom:
+            raise NeedArg(self, 'glom')
+        #old_members = as_set(g.members_of(self.glom))
+        old_members = as_set(g.find_all(
+            CTagged(Avail),
+            subset=g.members_of(self.glom)
+        ))
+        print('REGLOM', old_members)
+        excluded = as_set(g.find_all(CTagged(Exclude), subset=old_members))
+        new_members = old_members - excluded
+        g.remove_node(self.glom)
+        if new_members:
+            g.add_node(Glom, new_members)
+            g.new_state(self.actor, Completed)
+        else: # should signal failure  TODO
+            print('REGLOM FAILED', self.glom, old_members, excluded, new_members)
+
+
 
 ##### Nodeclasses defined in Python
 
@@ -310,9 +399,31 @@ class Slipnet(Group, ActiveNode):
                     if not g.as_node(slipnode).dont_activate_slipnode
         ]
 
+class AssessorScout(ActiveNode):
+    node_params = NodeParams(MateParam('target', 'tags'))
+
+    def actions(self, g):
+        node = g.look_for(CTagged(Avail), NotTagged(Assessment), within=g.ws)
+        if node:
+            return assess(g, node, g.neighbor(self, 'target'))
+
+class FixerScout(ActiveNode):
+
+    min_activation = 1.0
+
+    def actions(self, g):
+        badnode = g.look_for(
+            OfClass(Block), CTagged(Avail), CTagged(NotGoodEnough),
+            within=g.ws
+        )
+        if badnode:
+            return FuncAction(start_fixer_seq, badnode)
+
 class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
     # We expect more arguments, which we will pass to 'action'.
+
+    is_duplicable = True  # HACK  Is already_built mis-rejecting this?
 
     def actions(self, g):
         return self.action.with_overrides_from(g, self)
@@ -320,7 +431,7 @@ class Proposal(ActiveNode):
 class AllBricksAvail(Tag, ActiveNode):
 
     initial_support_for = 1.0
-    initial_activation = 10.0  # HACK
+    initial_activation = 1.0 #10.0  # HACK
 
     def actions(self, g):
         bricks = g.find_all(OfClass(Brick))
@@ -401,6 +512,8 @@ class Failed(ActiveNode, Tag):
         within=Glom,
         node1=Target,
         node2=Count,
+        operand=Brick,
+        glom=Glom,
     )
 
     def actions(self, g):
@@ -487,6 +600,7 @@ class DemoGraph(ExprAsEquation, Graph):
         targetid = self.look_for(OfClass(Target))
         #self.add_node(SuccessScout, target=targetid, min_support_for=1.0)
         self.add_node(NoticeAllBricksAvail, member_of=ws)
+        self.add_node(FixerScout, member_of=ws)
 
     def fill_slipnet(self, slipnet: int):
         seqnode = make_action_sequence(
@@ -617,7 +731,7 @@ def p():
 
 if __name__ == '__main__':
     ShowAnnotations.start_logging()
-    #ShowActiveNodes.start_logging()
+    ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
     #ShowActionsChosen.start_logging()
     ShowActionsPerformed.start_logging()
@@ -681,5 +795,5 @@ if __name__ == '__main__':
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
 
-    g.do_timestep(num=31)
+    g.do_timestep(num=47)
     #pdb.run('g.do_timestep()')

@@ -26,6 +26,14 @@ class Tagged(Criterion):
     def __call__(self, g, nodeid):
         return g.has_tag(nodeid, self.tagclass)
 
+class NotTagged(Criterion):
+
+    def __init__(self, tagclass):
+        self.tagclass = tagclass
+
+    def __call__(self, g, nodeid):
+        return not g.has_tag(nodeid, self.tagclass)
+
 class HasValue(Criterion):
 
     def __init__(self, value):

@@ -66,7 +66,7 @@ class ActiveGraph(
             self.port_mates += port_mates
         self.nodeclasses: Dict[str, Type[Node]] = {}
 
-        self.max_active_nodes: Union[int, None] = 6  #None
+        self.max_active_nodes: Union[int, None] = None
         self.max_actions: int = 1
 
         self.builder: MaybeNRef = None  # Node that is currently "building"
@@ -490,8 +490,9 @@ class ActiveGraph(
         else:
             return datum.__class__
             
+    #TODO UT
     def is_of_class(self, nrefs: NRefs, nodeclasses: CRefs) -> bool:
-        '''Returns True iff all nodes referenced are instances of all the
+        '''Returns True iff all nodes referenced are instances of any the
         nodeclasses referenced. Returns False if there are no node references
         or no nodeclasses.'''
         nodes = as_list(self.as_nodes(nrefs))
@@ -501,9 +502,8 @@ class ActiveGraph(
         if not nodeclasses:
             return False
         return all(
-            isinstance(node, cl)
+            any(isinstance(node, cl) for cl in nodeclasses)
                 for node in nodes
-                    for cl in nodeclasses
         )
 
     def is_member(self, node: NRefs, container_node: NRefs):
@@ -891,7 +891,7 @@ class ActiveGraph(
                 #support.log_support(self)
 
                 #TODO Put num into Propagator
-                for _ in range(4):
+                for _ in range(3):
                     self.propagate_activation()
                 self.log_activation()
 
@@ -991,11 +991,14 @@ class ActiveGraph(
             weights=[self.activation(node) for node in active_nodes]
         ))
 
+    def actions(self, nref: NRef) -> Actions:
+        return self.datum(nref).actions(self)
+
     def collect_actions(self, active_nodes: NRefs) -> List[Action]:
         actions = []
         for node in as_iter(active_nodes):
             try:
-                got = self.datum(node).actions(self)
+                got = self.actions(node)
             except:
                 print('EXCEPTION in .actions()')
                 print(f'NODE: {self.nodestr(node)}')
@@ -1164,7 +1167,7 @@ G = ActiveGraph
 def pt(g: G):
     '''Prints title with t= and other info about the graph.'''
     print()
-    print(f't={g.t}    sum_a={sum(g.activation(n) for n in g.nodes())}')
+    print(f't={g.t}    sum_a={sum(g.activation(n) for n in g.nodes()):.3f}')
 
 def pg(g: G, *nodes, **kwargs):
     '''Prints graph g in simple text form.'''

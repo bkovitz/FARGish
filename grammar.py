@@ -160,7 +160,10 @@ KEYWORDS = {
     'NodeOfClass': 'NODESEARCH',
     'NodeWithTag': 'NODESEARCH',
     'NodeWithValue': 'NODESEARCH',
-    'NodeWithNeighborAt': 'NODESEARCH'
+    'NodeWithNeighborAt': 'NODESEARCH',
+    #'And': 'NODESEARCH',
+    #'Or': 'NODESEARCH',
+    #'Not': 'NODESEARCH',
 }
 
 def t_NAME(t):

@@ -7,7 +7,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 from copy import copy
 
-from util import nice_object_repr, as_iter
+from util import nice_object_repr, as_iter, NiceRepr
 from Node import MaybeNRef, NRefs, CRef
 from BuildSpec import make_buildspec
 from exc import NeedArg
@@ -80,6 +80,9 @@ class FuncAction(Action):
 
     def go(self, g):
         return self.func(g, *self.args, **self.kwargs)
+
+    def __repr__(self):
+        return f'FuncAction({self.func}, args={self.args}, kwargs={self.kwargs})'
 
 # TODO rm? As of 5-Sep-2020, invoked only in demo2.py.
 class ActionSeq(Action):

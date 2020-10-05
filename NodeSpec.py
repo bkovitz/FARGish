@@ -147,6 +147,14 @@ class And(BaseNodeSpec):
     def is_match(self, g, nodeid):
         return all(c.is_match(g, nodeid) for c in self.conjuncts)
 
+class Or(BaseNodeSpec):
+
+    def __init__(self, *disjuncts):
+        self.disjuncts = disjuncts
+
+    def is_match(self, g, nodeid):
+        return any(c.is_match(g, nodeid) for c in self.disjuncts)
+
 class Not(BaseNodeSpec):
 
     def __init__(self, nodespec):

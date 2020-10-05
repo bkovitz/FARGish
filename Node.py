@@ -150,7 +150,7 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
     def inhibit_all_next(self):
         for n in self.g.walk(self, 'next', include_start=False):
-            self.g.set_activation_from_to(self, n, -1.0)
+            self.g.set_activation_from_to(self, n, -2.0)
 
     def transient_inhibit_all_next(self):
         for n in self.g.walk(self, 'next', include_start=False):
