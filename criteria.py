@@ -49,6 +49,11 @@ class OfClass(Criterion):
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
 
+    def __str__(self):
+        return self.nodeclass.__name__
+
+    __repr__ = __str__
+
 @dataclass
 class Activated(Criterion):
 

@@ -103,6 +103,10 @@ class ActionNode(ActiveNode):
         self.transient_inhibit_all_next()
         self.g.reset_activation(self)
 
+    def display_name(self):
+        #action_name = self.action.__class__.__name__
+        return str(self.action)
+
 class ActionSeqNode(ActiveNode):
     '''A group node whose members are a sequence of ActionNodes.'''
     node_params = NodeParams(

@@ -4,6 +4,7 @@ from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from dataclasses import dataclass, field
 from copy import deepcopy
+from inspect import isclass
 
 from NodeParams import NodeParams, FilledParams
 from util import as_iter, as_list, repr_str, omit
@@ -161,10 +162,6 @@ NRef = Union[NodeId, Node, None]     # A Node reference
 MaybeNRef = Union[NRef, None]
 NRefs = Union[NRef, Iterable[NRef]]
 
-CRef = Union[Type[Node], NRef, str]  # A reference to a nodeclass
-CRefs = Union[CRef, Iterable[CRef]]
-
-
 def as_nodeid(nref: NRef) -> Union[NodeId, None]:
     if is_nodeid(nref) or nref is None:
         return nref
@@ -185,3 +182,14 @@ def as_nodeids(nrefs: NRefs) -> Set[NodeId]:
 def as_nodes(g: 'ActiveGraph', nrefs: NRefs) -> Iterable[Node]:
     return (as_node(g, nref) for nref in as_iter(nrefs) if nref)
 
+
+CRef = Union[Type[Node], NRef, str]  # A reference to a nodeclass
+CRefs = Union[CRef, Iterable[CRef]]
+
+def as_classname(cref: Union[CRef, None]) -> str:
+    if isclass(cref):
+        return cref.__name__
+    elif isinstance(cref, Node):
+        return cref.display_name()
+    else:
+        return str(cref)

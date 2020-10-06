@@ -29,7 +29,7 @@ from exc import NeedArg, FargDone, ActionFailure
 from Predefs import AllTagged
 from StdGraph import Graph
 from ActiveGraph import pg, pa
-from Node import Node, NRef, NRefs, MaybeNRef, PortLabel, CRef
+from Node import Node, NRef, NRefs, MaybeNRef, PortLabel, CRef, as_classname
 
 prog = '''
 gfuncs { succeeded }
@@ -303,6 +303,11 @@ class SeekArg(Action):
             g.boost_activation(self.for_node)
             g.new_state(self.actor, Completed)
             g.remove_node(g.neighbors(self.actor, 'rm_on_success'))
+
+    def __str__(self):
+        return f'SeekArg(for_node={self.for_node}, port_label={self.port_label}, nodeclass={as_classname(self.nodeclass)})'
+
+    __repr__ = __str__
 
 @dataclass
 class SeekNewValue(Action):
