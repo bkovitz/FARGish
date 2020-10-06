@@ -108,6 +108,7 @@ class NetworkxPortGraph(PortGraphPrimitives):
         datum.g = self
         return nodeid
 
+    # TODO Return the Hop from node1, not the key.
     def _add_edge(self, node1, port_label1, node2, port_label2, **attr) -> int:
         '''If the edge already exists, doesn't make a new one. Regardless,
         returns the key of the edge. Even if the edge already exists, we

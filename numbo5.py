@@ -801,3 +801,5 @@ if __name__ == '__main__':
 
     #g.do_timestep(num=55)
     #pdb.run('g.do_timestep()')
+
+    g.do_timestep(num=12)

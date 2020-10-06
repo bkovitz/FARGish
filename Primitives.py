@@ -28,6 +28,14 @@ class Hop:
             self.key
         )
 
+    def hopstr(self, g):
+        # TODO Catch nonexistent node
+        f = g.as_node(self.from_node).nodestr().strip()
+        fp = self.from_port_label
+        t = g.as_node(self.to_node).nodestr().strip()
+        tp = self.to_port_label
+        return f'{f} {fp}  -->  {tp} {t}'
+
 Hops = Union[Hop, Iterable[Hop], None]
 
 class PortGraphPrimitives(ABC):

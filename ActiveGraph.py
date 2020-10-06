@@ -170,8 +170,11 @@ class ActiveGraph(
                         self.touch(fromid)
                         self.touch(toid)
                         if ShowPrimitives:
-                            # TODO Call .print_edge instead
-                            print('added edge', self.nodestr(fromid), fromlabel, self.nodestr(toid), tolabel, attr)
+                            print(
+                                'added edge ',
+                                self.hopstr( fromid, fromlabel, toid, tolabel),
+                                attr
+                            )
 
     def edge_weight(
         self,
@@ -1141,7 +1144,7 @@ class ActiveGraph(
             return node.nodestr()
 
     def long_nodestr(self, node):
-        return '%-20s  a=%.3f s=%.3f   tob=%d' % (
+        return '%-25s  a=%.3f s=%.3f   tob=%d' % (
             self.nodestr(node),
             self.activation(node),
             self.support_for(node),
@@ -1156,6 +1159,18 @@ class ActiveGraph(
             return self.as_node(nref).dict_str()
         except AttributeError:
             return None
+
+    def hopstr(self, *args, prefix=''):
+        if len(args) == 1:
+            hop = args[0]
+        elif len(args) == 4:
+            hop = self.find_hop(
+                as_nodeid(args[0]), args[1], as_nodeid(args[2]), args[3]
+            )
+        else:
+            raise ValueError(f'print_hop() takes either a Hop or (node, port_label, node, port_label); got: {args}')
+        #TODO append weight=%.3f
+        return hop.hopstr(self)
 
     def print_edges(self, node, prefix=''):
         # TODO print nothing if node does not exist
