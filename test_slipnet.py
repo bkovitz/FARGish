@@ -77,7 +77,7 @@ class TestCopyGroup(unittest.TestCase):
                 f'Missing next-prev link: {prev, next}'
             )
             aft = g.activation_from_to(prev, next)
-            self.assertEqual(aft, -1.0,
+            self.assertEqual(aft, -2.0,
                 f'Support from {prev} to {next} is {aft}.'
             )
 

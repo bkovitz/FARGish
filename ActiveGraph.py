@@ -890,9 +890,7 @@ class ActiveGraph(
                 #self.propagate_support()
                 #support.log_support(self)
 
-                #TODO Put num into Propagator
-                for _ in range(3):
-                    self.propagate_activation()
+                self.propagate_activation()
                 self.log_activation()
 
                 #self.update_coarse_views()

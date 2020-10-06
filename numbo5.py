@@ -287,7 +287,6 @@ class ConsumeOperands(Action):
     proposed_operator: Union[NRef, None]=None
 
     def go(self, g):
-        print('CONSUME-GO', self.consume_operands, self.proposed_operator)
         g.consume_operands(self.consume_operands, self.proposed_operator)
         g.new_state(self.actor, Completed)
 
@@ -365,7 +364,6 @@ class Reglom(Action):
             CTagged(Avail),
             subset=g.members_of(self.glom)
         ))
-        print('REGLOM', old_members)
         excluded = as_set(g.find_all(CTagged(Exclude), subset=old_members))
         new_members = old_members - excluded
         g.remove_node(self.glom)
@@ -781,7 +779,7 @@ if __name__ == '__main__':
     # Now call g.do_timestep() 11 times and the model will "notice" that
     # all the Bricks are 1, and the number of Bricks = the Target.
 
-    g.do_timestep(num=1)
+    #g.do_timestep(num=1)
     #pg(g)
 
     #print("\nMANUAL ACTION HERE: activating slipnode for 'Notice that all the bricks are 1, count them up, and notice that the count equals the target, and add up the bricks.\n")
@@ -795,5 +793,5 @@ if __name__ == '__main__':
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
 
-    g.do_timestep(num=47)
+    g.do_timestep(num=55)
     #pdb.run('g.do_timestep()')

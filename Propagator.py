@@ -28,8 +28,9 @@ class Propagator(ABC):
         # total support/activation allowed at end of timestep
     noise: float = 0.05
         # sigma parameter for normal dist. sampled and added
+    num_iterations: int = 1
 
-    def propagate(self, g, old_d: Dict[NodeId, float]):
+    def propagate_once(self, g, old_d: Dict[NodeId, float]):
         # TODO Think about positive_feedback_rate with a zero or nearly-
         # zero neighbor. Also, positive_feedback_rate should apply to this
         # node, not the neighbor.
@@ -55,6 +56,14 @@ class Propagator(ABC):
 #                print(neighbor, self.hop_weight(g, neighbor, node))
             new_d[node] = max(self.min_value(g, node), new_value)
         return self.normalize(new_d)
+        
+    def propagate(self, g, old_d: Dict[NodeId, float], num_iterations=None):
+        if num_iterations is None:
+            num_iterations = self.num_iterations
+        new_d = old_d
+        for i in range(num_iterations):
+            new_d = self.propagate_once(g, new_d)
+        return new_d
         
     @abstractmethod
     def incoming_neighbors(self, g, nodeid: NodeId) -> Iterable[NodeId]:
