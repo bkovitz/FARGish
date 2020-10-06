@@ -1,8 +1,14 @@
 PY = python3.7
 
+# Type 'make' to run unit tests and then run current program in interactive
+# mode.
+ut_and_go: ut current
+
 # Convenience target for "do whatever I'm currently working on".
-current: ut
+current:
 	$(PY) -i numbo5.py
+
+test: ut at
 
 ut:
 	$(PY) -m unittest -v
@@ -30,4 +36,4 @@ tags:
 clean:
 	rm *.gen.py
 
-.PHONY: ut tags clean current
+.PHONY: ut tags clean test current ut_and_go

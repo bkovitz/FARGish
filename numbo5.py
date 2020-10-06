@@ -734,7 +734,8 @@ def p():
 
 if __name__ == '__main__':
     ShowAnnotations.start_logging()
-    ShowActiveNodes.start_logging()
+    #ShowActiveNodes.start_logging()
+    ShowActiveNodesCollected.start_logging()
     ShowActionList.start_logging()
     #ShowActionsChosen.start_logging()
     ShowActionsPerformed.start_logging()

@@ -28,6 +28,7 @@ class LoggingObject:
         return self in logging
 
 ShowActiveNodes = LoggingObject()
+ShowActiveNodesCollected = LoggingObject()
 ShowActionList = LoggingObject()
 ShowActionsChosen = LoggingObject()
 ShowActionsPerformed = LoggingObject()

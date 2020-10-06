@@ -888,7 +888,7 @@ class ActiveGraph(
                 self.prev_actions.clear()
 
                 if any(
-                    l for l in (ShowActiveNodes, ShowActionList, ShowActionsChosen)
+                    l for l in (ShowActiveNodes, ShowActiveNodesCollected, ShowActionList, ShowActionsChosen)
                 ):
                     #print(f'{chr(10)}t={self.t}')
                     pt(self)
@@ -949,8 +949,8 @@ class ActiveGraph(
 
     def collect_actions_from_graph(self):
         active_nodes = self.collect_active_nodes()
-        if ShowActiveNodes.is_logging():
-            print('ACTIVE NODES')
+        if ShowActiveNodesCollected.is_logging():
+            print('ACTIVE NODES COLLECTED')
             for node in active_nodes:
                 print(self.long_nodestr(node))
 
@@ -968,13 +968,22 @@ class ActiveGraph(
         return chosen_actions
 
     def collect_active_nodes(self) -> List[NRef]:
-        return self.choose_active_nodes(list(
+        active_nodes = self.active_nodes()
+        if ShowActiveNodes.is_logging():
+            print('ACTIVE NODES')
+            for node in active_nodes:
+                print(self.long_nodestr(node))
+        return self.choose_active_nodes(active_nodes)
+
+    def active_nodes(self) -> List[NRef]:
+        '''Returns list of all non-dormant allowable ActiveNodes.'''
+        return [
             node for node in self.nodes_of_class(
                     ActiveNode,
                     nodes=self.allowable_active_nodes()
                 )
                     if not self.is_dormant(node)
-        ))
+        ]
 
     def choose_active_nodes(
         self,
