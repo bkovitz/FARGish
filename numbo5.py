@@ -793,5 +793,5 @@ if __name__ == '__main__':
     #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
     #an = ActionNode(**kwargs)
 
-    g.do_timestep(num=55)
+    #g.do_timestep(num=55)
     #pdb.run('g.do_timestep()')

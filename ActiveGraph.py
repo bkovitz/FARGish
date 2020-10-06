@@ -56,8 +56,13 @@ class ActiveGraph(
         *args,
         **kwargs
     ):
-        super().__init__(*args, **kwargs)
+        if t is None:
+            t = 0
+        self.t = t
         self.seed = reseed(seed)
+
+        super().__init__(*args, **kwargs)
+
         self.num_timesteps = num_timesteps
         self.final_result: Union[FargDone, None] = None
 
@@ -81,10 +86,6 @@ class ActiveGraph(
         self.during_touch = False
         self.prev_actions: List[Action] = []
 
-        if t is None:
-            t = 0
-        self.t = t
-
         self.ws: MaybeNRef = None
         self.slipnet: MaybeNRef = None
 
@@ -102,9 +103,9 @@ class ActiveGraph(
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already
-            id = self._add_node(node)
-            node.id = id
-            node.g = self
+            self._add_node(node)
+            if ShowPrimitives:
+                print('built', self.long_nodestr(node))
             # TODO Apply link FilledParams?  DONE?
             filled_params = node.make_filled_params(self, *args, **kwargs)
             filled_params.apply_to_node(self, node.id)
@@ -114,11 +115,12 @@ class ActiveGraph(
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already
-            #print('ADDN', node)
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
             node: Node = node()  # Create the Node object
             self._add_node(node)
+            if ShowPrimitives:
+                print('built', self.long_nodestr(node))
             filled_params.apply_to_node(self, node.id)
 
         classname = node.__class__.__name__
@@ -129,17 +131,21 @@ class ActiveGraph(
         if classname not in self.nodeclasses:
             self.nodeclasses[classname] = node.__class__
 
-        node.tob = self.t
-        self.set_activation(node, node.initial_activation)
         self.add_implicit_membership(node)
         self.mark_builder(node, self.builder)
         node.on_build()
-        if ShowPrimitives:
-            print('built', self.long_nodestr(node))
         self.new_nodes.add(self.as_nodeid(node))
         if self.callable(node, 'after_touch_update'):
             self.after_touch_nodes.add(node.id)
         return node
+
+    def _add_node(self, node: Node) -> NodeId:
+        '''Makes the node, sets its .id and .g members, its .tob ("time of
+        birth"), its initial activation, and returns its id.'''
+        id = super()._add_node(node)
+        node.tob = self.t
+        self.set_activation(node, node.initial_activation)
+        return id
 
     #TODO UT
     def remove_node(self, node: NRefs):
