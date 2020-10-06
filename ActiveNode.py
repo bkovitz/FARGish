@@ -97,15 +97,22 @@ class ActionNode(ActiveNode):
         # Otherwise return a version of the action with those args filled in.
 
     def action_failed(self, exc: Fizzle):
-        failed_tag = self.g.add_node('Failed', reason=exc, taggees=self)
-        self.g.set_activation_from_to(self, failed_tag)
-        self.g.add_support(self, failed_tag, 1.0)
-        self.transient_inhibit_all_next()
-        self.g.reset_activation(self)
+        if hasattr(self.action, 'action_failed'):
+            self.action.action_failed(self.g, self, exc)
+        else:
+            failed_tag = self.g.add_node('Failed', reason=exc, taggees=self)
+            self.g.set_activation_from_to(self, failed_tag)
+            self.g.add_support(self, failed_tag, 1.0)
+            self.transient_inhibit_all_next()
+            self.g.reset_activation(self)
 
     def display_name(self):
         #action_name = self.action.__class__.__name__
-        return str(self.action)
+        if not self.action:
+            return super().display_name()
+        else:
+            # TODO Put an * after the action's class name
+            return str(self.action)
 
 class ActionSeqNode(ActiveNode):
     '''A group node whose members are a sequence of ActionNodes.'''

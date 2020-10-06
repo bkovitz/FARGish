@@ -12,6 +12,7 @@ from ActiveGraph import PortGraphPrimitives, ActivationPrimitives, Hop, Hops, \
     ActiveGraphPrimitives
 from Node import Node, NodeId, NRef, PortLabel, PortLabels, as_nodeid, as_node
 from util import as_iter, as_list, empty_set
+from log import *
 
 
 @dataclass
@@ -222,6 +223,7 @@ class NetworkxActivation(
             a = 0.0
         return max(a, self.min_activation(node))
 
+    # TODO Move this out of Networkx code
     def min_activation(self, node: NRef) -> float:
         return as_node(self, node).min_activation
 
@@ -231,22 +233,31 @@ class NetworkxActivation(
             return
         self.g.nodes[nodeid]['A'] = a
 
+    # TODO Move this out of Networkx code
     def set_activation_from_to(
         self, from_node: NRef, to_node: NRef, weight: float=1.0
     ):
         from_nodeid = as_nodeid(from_node)
         to_nodeid = as_nodeid(to_node)
+        if ShowPrimitives:
+            print(
+                'set_activation_from_to',
+                self.nodestr(from_node),
+                self.nodestr(to_node),
+                weight
+            )
         if abs(weight) < 0.001:
-            self._remove_edge(
+            self.remove_edge(
                 from_nodeid, 'activation_to', to_nodeid, 'activation_from',
                 weight=weight
             )
         else:
-            self._add_edge(
+            self.add_edge(
                 from_nodeid, 'activation_to', to_nodeid, 'activation_from',
                 weight=weight
             )
 
+    # TODO Move this out of Networkx code
     def activation_from_to(self, from_node: NRef, to_node: NRef):
         from_node = self.as_nodeid(from_node)
         to_node = self.as_nodeid(to_node)
@@ -259,16 +270,22 @@ class NetworkxActivation(
                 w = self._hop_weight(hop)
         return w
 
+    # TODO Move this out of Networkx code
     def incoming_activation_neighbors(self, node: NRef) -> Iterable[NodeId]:
         return self.neighbors(node, ['activation_from', 'behalf_of'])
             # HACK: behalf_of
 
+    # TODO Move this out of Networkx code
     def remove_outgoing_activation_edges(self, node: NRef):
+        # TODO Call something that logs primitives
         self.remove_hops_from_port(node, 'activation_to')
 
+    # TODO Move this out of Networkx code
     def remove_incoming_activation_edges(self, node: NRef):
+        # TODO Call something that logs primitives
         self.remove_hops_from_port(node, 'activation_from')
 
+    # TODO Move this out of Networkx code
     def activation_dict(
         self, nodes: Union[Iterable[NRef], None]=None
     ) -> Dict[NodeId, float]:

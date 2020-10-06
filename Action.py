@@ -68,6 +68,13 @@ class Action(BaseAction):
 
 Actions = Union[Action, Iterable[Action], None]
 
+class ResetAndKeepTrying:
+    '''Mix-in for Actions that, when they fail, should reset their actor's
+    activation and not make a Failed tag.'''
+
+    def action_failed(self, g, nref: 'NRef', exc: 'Fizzle'):
+        g.reset_activation(nref)
+    
 
 class FuncAction(Action):
     '''Convenience class that enables treating an arbitrary function as

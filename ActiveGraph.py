@@ -114,7 +114,7 @@ class ActiveGraph(
                 node = self.as_nodeclass(node)
             already = self.already_built(node, *args, **kwargs)
             if already:
-                return already
+                return already  # TODO Don't return yet; updates later
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
             node: Node = node()  # Create the Node object
@@ -172,7 +172,7 @@ class ActiveGraph(
                         if ShowPrimitives:
                             print(
                                 'added edge ',
-                                self.hopstr( fromid, fromlabel, toid, tolabel),
+                                self.hopstr(fromid, fromlabel, toid, tolabel),
                                 attr
                             )
 
@@ -814,6 +814,13 @@ class ActiveGraph(
         node = self.as_node(nref)
         return getattr(node, attrname)
 
+    def behalf_of(self, nref: MaybeNRef) -> MaybeNRef:
+        result = self.neighbor(nref, port_label='behalf_of')
+        if result:
+            return result
+        else:
+            return self.neighbor(nref, port_label='built_by')
+
     def new_state(self, node: NRef, state: 'ActiveNodeState'):
         node = self.as_node(node)
         if node:
@@ -954,7 +961,7 @@ class ActiveGraph(
         active_nodes = self.collect_active_nodes()
         if ShowActiveNodesCollected.is_logging():
             print('ACTIVE NODES COLLECTED')
-            for node in active_nodes:
+            for node in sorted(active_nodes, key=self.display_name):
                 print(self.long_nodestr(node))
 
         actions = self.collect_actions(active_nodes)
@@ -974,7 +981,7 @@ class ActiveGraph(
         active_nodes = self.active_nodes()
         if ShowActiveNodes.is_logging():
             print('ACTIVE NODES')
-            for node in active_nodes:
+            for node in sorted(active_nodes, key=self.display_name):
                 print(self.long_nodestr(node))
         return self.choose_active_nodes(active_nodes)
 

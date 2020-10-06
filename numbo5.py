@@ -19,7 +19,8 @@ from util import as_iter, as_set, reseed, intersection, first
 #import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
-from Action import Action, Actions, Build, Raise, SelfDestruct, FuncAction
+from Action import Action, Actions, Build, Raise, SelfDestruct, FuncAction, \
+    ResetAndKeepTrying
 from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 #from BuildSpec import make_buildspec
@@ -121,6 +122,10 @@ class NotAllSameValue(ActionFailure):
 class NotSameValue(ActionFailure):
     node1: NRef=None
     node2: NRef=None
+
+@dataclass
+class CouldntFindArg(ActionFailure):
+    action: Action
 
 ##### Action procedures
 
@@ -291,7 +296,7 @@ class ConsumeOperands(Action):
         g.new_state(self.actor, Completed)
 
 @dataclass
-class SeekArg(Action):
+class SeekArg(Action, ResetAndKeepTrying):
     for_node: NRef
     port_label: PortLabel
     nodeclass: Type[Node]
@@ -303,6 +308,8 @@ class SeekArg(Action):
             g.boost_activation(self.for_node)
             g.new_state(self.actor, Completed)
             g.remove_node(g.neighbors(self.actor, 'rm_on_success'))
+        else:
+            raise CouldntFindArg(self)
 
     def __str__(self):
         return f'SeekArg(for_node={self.for_node}, port_label={self.port_label}, nodeclass={as_classname(self.nodeclass)})'
@@ -332,11 +339,12 @@ class StartScout(Action):
     rm_on_success: Union[int, None]=None
 
     def go(self, g):
-        g.add_node(
+        node = g.add_node(
             ActionNode,
             action=self.action,
             rm_on_success=self.rm_on_success
         )
+        g.set_activation_from_to(self.actor, node)
         g.new_state(self.actor, Completed)
 
 @dataclass
@@ -542,6 +550,9 @@ class Failed(ActiveNode, Tag):
                 rm_on_success=self
             )
         ]
+
+    def on_completion(self):
+        pass
 
 
 ##### The graph class and other generic execution code #####
@@ -802,4 +813,4 @@ if __name__ == '__main__':
     #g.do_timestep(num=55)
     #pdb.run('g.do_timestep()')
 
-    g.do_timestep(num=12)
+    g.do_timestep(num=11)
