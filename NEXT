@@ -1,3 +1,20 @@
+regenerator
+
+    Pass arguments when constructing SeekNode: find nodes capable of serving
+    as a source for (nodeid, port_label).
+
+    Pass arguments when constructing SeekAndGlom: find nodes capable of serving
+    as a mate for (nodeid, port_label).
+
+    Pass arguments when constructing BuildProposal? What args?
+
+    How do we run the ActionSeqNode in two contexts?
+
+    How do we correct it if it doesn't generate the right thing?
+
+
+
+
 Why is FINIT 'reason' appearing twice? Hypothesis: something to do with
 dataclass initialization/copying.  DONE: The first one is called during
 already_built().

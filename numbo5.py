@@ -3,13 +3,13 @@
 
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
+from dataclasses import dataclass
 from operator import add, mul
 from functools import reduce
 from copy import copy, deepcopy
 import pdb
 
 from codegen import make_python, compile_fargish
-from dataclasses import dataclass
 #from TimeStepper import TimeStepper
 from log import *
 import expr
@@ -178,8 +178,8 @@ class ActivateSlipnode(Action):
 
 @dataclass
 class SeekAndGlom(Action):
-    criteria: Union[Criterion, List[Criterion], None]
-    within: Union[int, None]=None
+    criteria: Union[Criterion, List[Criterion], None] = None
+    within: Union[int, None] = None
 
     threshold = 1.0
 
@@ -190,6 +190,29 @@ class SeekAndGlom(Action):
             g.do(Build.maybe_make(g, Glom, glommees))
             g.new_state(self.actor, Completed)
         # TODO else: FAILED
+
+@dataclass
+class SeekNode(Action):
+    criteria: Union[Criterion, List[Criterion], None]=None
+    within: Union[int, None]=None
+    
+    def go(self, g):
+        node = g.look_for(self.criteria, within=self.within)
+        print('SeekNode found:', node)
+
+@dataclass
+class BuildProposal(Action):
+    consume_operands: NRefs = None
+    proposed_operator: MaybeNRef = None
+    within: MaybeNRef = None
+    
+    def go(self, g):
+        g.add_node(Proposal,
+            ConsumeOperands(),
+            consume_operands=self.consume_operands,
+            proposed_operator=self.proposed_operator,
+            member_of=self.within
+        )
 
 @dataclass
 class NoticeAllSameValue(Action):
@@ -594,7 +617,12 @@ class DemoGraph(ExprAsEquation, Graph):
 #        super().__init__(**kws)
 #        self.consecutive_timesteps_with_no_response = 0
         self.nodeclasses.update(nodeclasses)
-        self.nodeclasses['Failed'] = Failed
+        for nc in [
+            Failed, Slipnet, AssessorScout, FixerScout, Proposal,
+            AllBricksAvail, NoticeAllBricksAvail, SameNumberGlommer,
+            MemberCounter, SameValueTagger
+        ]:
+            self.nodeclasses[nc.__name__] = nc
         self.port_mates += port_mates
 
         # Make initial nodes

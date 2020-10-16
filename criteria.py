@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 
-from Node import Node, NRef
+from Node import Node, NRef, PortLabels
 from Action import Action
 from ActiveNode import ActionNode
 
@@ -98,3 +98,23 @@ class NotNode(Criterion):
 
     def __call__(self, g, nodeid):
         return nodeid != self.this_node
+
+@dataclass
+class PossibleMates(Criterion):
+    '''Does this node have a port label that mates with port_label?'''
+    port_label: PortLabels
+
+    def __call__(self, g, nodeid):
+        # HACK Need to query for the node's port_labels and ask g.port_mates.
+        if self.port_label == 'operands':
+            return g.is_of_class(nodeid, 'Number')
+        elif self.port_label == 'source':
+            return g.is_of_class(nodeid, 'Operator')
+
+@dataclass
+class NoMate(Criterion):
+    '''Does this node have no neighbor at port_label?'''
+    port_label: PortLabels
+
+    def __call__(self, g, nodeid):
+        return not g.neighbors(nodeid, port_label=self.port_label)

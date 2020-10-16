@@ -24,6 +24,7 @@ from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
     ActionFailure
 from log import *
+from criteria import NoMate
 
 
 class Support(ActiveGraphPrimitives):
@@ -93,11 +94,15 @@ class ActiveGraph(
 
     def add_node(
         self,
-        node: Union[Type[Node], Node, str],
+        node: Union[Type[Node], Node, str, Type[Action]],
         *args,
         **kwargs
     ) -> Node:
-        #print('ADD_NODE', node, args, kwargs)
+        #print('ADD_NODE', repr(node), args, kwargs)
+        if isclass(node) and issubclass(node, Action):
+            action = node(*args)
+            kwargs['action'] = action
+            return self.add_node(ActionNode, **kwargs)
         if isinstance(node, Node):
             kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)
@@ -486,6 +491,22 @@ class ActiveGraph(
 
         return d[original_group_node]
 
+    def add_next_member(
+        self,
+        group: NRef, 
+        nspec: Union[Type[Node], Node, str],
+        *args,
+        **kwargs
+    ) -> Node:
+        lm = self.last_member(group)
+        node = self.add_node(nspec, *args, **kwargs, member_of=group)
+        self.add_edge(lm, 'next', node, 'prev')
+        return node
+
+    # TODO UT
+    def last_member(self, group: MaybeNRef) -> MaybeNRef:
+        return self.look_for(NoMate('next'), subset=self.members_of(group))
+
     def mark_builder(self, built_node: MaybeNRef, builder: MaybeNRef):
         self.add_edge(built_node, 'built_by', builder, 'built')
 
@@ -647,12 +668,16 @@ class ActiveGraph(
         return None
 
     # TODO UT
-    def look_for(self, *criteria, within: MaybeNRef=None) -> \
-    Union[int, None]:
+    def look_for(
+        self,
+        *criteria,
+        within: MaybeNRef=None,
+        subset: Union[Set[NodeId], None]=None
+    ) -> Union[int, None]:
         '''Returns one node that meets criteria, or None if not found.
         criteria are functions that take two arguments: g, nodeid, and
         return a true value if nodeid matches the criterion.'''
-        nodes = self.find_all(*criteria, within=within)
+        nodes = self.find_all(*criteria, within=within, subset=subset)
         try:
             return choice(nodes) # TODO choose by salience?
         except IndexError:

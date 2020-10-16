@@ -18,10 +18,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_slipnet_search testStdGraph.TestStdGraph.test_already_built__subclass testStdGraph.TestStdGraph.test_already_built__missing_arg
-	#$(PY) -m unittest -v testCodegen.TestCodegen.test_build_agent
-	#$(PY) -m unittest -v testNodeSpec.TestNodeSpec.test_cartesian_product_not_linked_to_same
-	$(PY) -m unittest -v testBrute.TestBrute.test_brute
+	$(PY) -m unittest -v test_regen.TestRegen.test_regen
+	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests
 at:
