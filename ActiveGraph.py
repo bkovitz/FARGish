@@ -45,7 +45,7 @@ class ActiveGraph(
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
-        ('next', 'prev')
+        ('next', 'prev'), ('copy_of', 'copies')
     ])
 
     def __init__(
@@ -128,6 +128,9 @@ class ActiveGraph(
                 print('built', self.long_nodestr(node))
             filled_params.apply_to_node(self, node.id)
 
+        self.add_implicit_membership(node)
+        self.mark_builder(node, self.builder)
+
         classname = node.__class__.__name__
         if not self.ws and classname == 'Workspace':
             self.ws = node
@@ -136,8 +139,6 @@ class ActiveGraph(
         if classname not in self.nodeclasses:
             self.nodeclasses[classname] = node.__class__
 
-        self.add_implicit_membership(node)
-        self.mark_builder(node, self.builder)
         node.on_build()
         self.new_nodes.add(self.as_nodeid(node))
         if self.callable(node, 'after_touch_update'):
@@ -250,28 +251,9 @@ class ActiveGraph(
         nodes: NRefs,
         port_label: PortLabels = None,
         neighbor_class: Union[Type[Node], NRef] = None,
-        neighbor_label: PortLabels = None
+        neighbor_label: PortLabels = None,
+        exclude_port_label: PortLabels = frozenset(['copy_of', 'copies'])
     ) -> Set[NodeId]:
-#        result = set()
-#        if port_label is None:
-#            for node in as_iter(nodes):
-#                result.update(self._neighbors(as_nodeid(node)))
-#        else:
-#            for node in as_iter(nodes):
-#                for pl in as_iter(port_label):
-#                    result.update(
-#                        hop.to_node
-#                            for hop in self.hops_from_port(node, pl)
-#                    )
-#
-#        # Now pare down the neighbors to just those specified
-#        if neighbor_class:
-#            for nodeid in list(result):
-#                if not self.is_of_class(nodeid, neighbor_class):
-#                    result.discard(nodeid)
-#        if neighbor_label:
-#            #TODO
-#            raise NotImplementedError
         hops = set()
         for node in as_iter(nodes):
             if port_label is None:
@@ -279,6 +261,11 @@ class ActiveGraph(
             else:
                 for pl in as_iter(port_label):
                     hops |= self.hops_from_port(node, pl)
+        if exclude_port_label:
+            exclude_port_label = as_set(exclude_port_label)
+            for hop in list(hops):
+                if hop.from_port_label in exclude_port_label:
+                    hops.discard(hop)
         if neighbor_class is not None:
             for hop in list(hops):
                 if not self.is_of_class(hop.to_node, neighbor_class):
@@ -388,11 +375,14 @@ class ActiveGraph(
         *args,     # ignored if nodeclass is a Node
         **kwargs   # ignored if nodeclass is a Node
     ) -> Union[Node, None]:
-        '''Returns None if the specified node is not already built, or the
-        Node if it is. A nodeclass with .is_duplicable == True is never
-        deemed already built. If nodeclass is a Node object, we look for
-        existing nodes with the same class and parameters, getting the
-        Node object's parameters by calling its .regen_kwargs() method.'''
+        '''Returns None if the specified node is not already built, or the Node
+        if it is.  If kwargs provides a non-false value for 'copy_of', we
+        automatically return None. A nodeclass with .is_duplicable == True is
+        never deemed already built. If nodeclass is a Node object, we look for
+        existing nodes with the same class and parameters, getting the Node
+        object's parameters by calling its .regen_kwargs() method.'''
+        if kwargs.get('copy_of', None):
+            return None
         if not nodeclass:
             return None
         if is_nodeid(nodeclass):
@@ -447,6 +437,13 @@ class ActiveGraph(
             # If none do, build it.
             raise NotImplementedError
 
+    def copy_node(self, old_node: NRef, **kwargs):
+        # HACK Should be deepcopy, but getting an error: NoneType is not
+        # callable.
+        old_node = self.as_node(old_node)
+        datum = copy(old_node)
+        return self.add_node(datum, copy_of=old_node.id, **kwargs)
+        
     def copy_group(
         self,
         original_group_node: NRef,
@@ -459,17 +456,13 @@ class ActiveGraph(
         destination_group_node = self.as_nodeid(destination_group_node)
 
         # Copy the nodes
-        old_nodes = (
+        old_nodeids = (
             self.members_recursive(original_group_node)
             |
             {original_group_node}
         )
-        for old_node in old_nodes:
-            # HACK Should be deepcopy, but getting an error: NoneType is not
-            # callable.
-            old_node = self.as_node(old_node)
-            datum = copy(old_node)
-            d[old_node.id] = self.add_node(datum)
+        for old_nodeid in old_nodeids:
+            d[old_nodeid] = self.copy_node(old_nodeid)
 
         # Link to destination_group_node
         self.add_edge(
@@ -478,8 +471,8 @@ class ActiveGraph(
         )
 
         # Copy the edges
-        for old_node, new_node in d.items():
-            for hop in self.hops_from_node(old_node):
+        for old_nodeid, new_node in d.items():
+            for hop in self.hops_from_node(old_nodeid):
                 try:
                     new_mate = d[hop.to_node]
                 except KeyError:

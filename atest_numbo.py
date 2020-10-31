@@ -29,3 +29,10 @@ class NumboTest(unittest.TestCase):
         g.do_timestep(num=60)
         self.assertTrue(g.succeeded())
         # TODO Test for expected equation
+
+if __name__ == '__main__':
+    g = newg(Numble([1, 1, 1, 1, 1], 5))
+    ShowActionsPerformed.start_logging()
+    ShowPrimitives.start_logging()
+    pg(g)
+    

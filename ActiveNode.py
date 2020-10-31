@@ -85,8 +85,6 @@ class ActionNode(ActiveNode):
         MateParam('rm_on_success', 'tags')
     )
     initial_activation = 0.1
-    is_duplicable = True  # HACK  TODO include 'triggered_by' as a NodeParam
-                          #       to allow duplication
 
     def actions(self, g: 'G') -> Actions:
         if not self.is_dormant():
@@ -118,9 +116,7 @@ class ActionSeqNode(ActiveNode):
     '''A group node whose members are a sequence of ActionNodes.'''
     node_params = NodeParams(
         MateParam('members', 'member_of'),
-        #AttrParam('action_nodes')  # HACK: must be a list, to indicate sequence
     )
-    is_duplicable = True  # HACK
 
     def actions(self, g: 'G') -> Actions:
         return None

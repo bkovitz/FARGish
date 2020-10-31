@@ -18,7 +18,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v test_regen.TestRegen.test_regen
+	#$(PY) -m unittest -v test_regen.TestRegen.test_regen
+	$(PY) -m unittest -v test_slipnet.TestCopyGroup.test_copy_group
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests
@@ -28,10 +29,19 @@ at:
 a:
 	$(PY) -m unittest -v atest_numbo.NumboTest.test_11111_5
 
+# line counts
+lc: clean
+	@echo -n 'LIVE: '
+	@wc -l `cat LIVE` | tail -1 | awk '{print $$1}'
+	@echo -n 'LIVETEST: '
+	@wc -l `cat LIVETEST` | tail -1 | awk '{print $$1}'
+	@echo -n '*.py: '
+	@wc -l *.py | tail -1 | awk '{print $$1}'
+
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
 
 clean:
-	rm *.gen.py
+	rm -f *.gen.py
 
-.PHONY: ut tags clean test current ut_and_go
+.PHONY: ut tags clean test current ut_and_go lc

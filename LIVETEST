@@ -15,6 +15,7 @@ testTimeStepper.py
 test_override.py
 test_slipnet.py
 test_util.py
+atest_numbo.py
 
 testNodeSpec.py
 testBuildSpec.py

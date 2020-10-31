@@ -17,6 +17,25 @@ from numbo5 import newg, SeekAndGlom, NoticeAllSameValue, CountMembers, \
 
 class TestCopyGroup(unittest.TestCase):
 
+    def test_copy_slipnode_to_ws(self):
+        g = newg()
+        old_node = g.look_for(OfClass(ActionSeqNode), within=g.slipnet)
+        assert old_node, "Couldn't find slipnode to copy"
+        assert not g.getattr(old_node, 'is_duplicable'), \
+            "We're testing the ability to copy a non-duplicable node"
+
+        new_node = g.copy_node(old_node, member_of=g.ws)
+        self.assertTrue(g.is_of_class(new_node, ActionSeqNode))
+        self.assertTrue(g.has_hop(new_node, 'copy_of', old_node, 'copies'))
+        self.assertTrue(g.is_member(new_node, g.ws))
+        self.assertFalse(g.is_member(new_node, g.slipnet))
+
+        new_node2 = g.copy_node(old_node, member_of=g.ws)
+        self.assertTrue(g.is_of_class(new_node2, ActionSeqNode))
+        self.assertTrue(g.has_hop(new_node2, 'copy_of', old_node, 'copies'))
+        self.assertTrue(g.is_member(new_node2, g.ws))
+        self.assertFalse(g.is_member(new_node2, g.slipnet))
+
     def test_copy_group(self):
         # TODO Simplify this UT. It's way more complicated than it needs to be.
         g = newg()
@@ -74,7 +93,7 @@ class TestCopyGroup(unittest.TestCase):
             self.assertTrue(
                 #g.has_hop(prev, 'next_action', next, 'prev_action'),
                 g.has_hop(prev, 'next', next, 'prev'),
-                f'Missing next-prev link: {prev, next}'
+                f'Missing next-prev link: {g.nodestr(prev), g.nodestr(next)}'
             )
             aft = g.activation_from_to(prev, next)
             self.assertEqual(aft, -2.0,

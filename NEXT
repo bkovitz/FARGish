@@ -1,3 +1,15 @@
+CopyOf
+
+    CopyOf ?
+
+    Rewrite copy_group().
+
+    raw_is_class; called by is_class
+
+    raw_class_of; called by class_of
+
+    Just make add_node make duplicates when given copy_of=.
+
 regenerator
 
     Pass arguments when constructing SeekNode: find nodes capable of serving
