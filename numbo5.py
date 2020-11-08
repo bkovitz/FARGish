@@ -25,7 +25,8 @@ from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
     Completed
 #from BuildSpec import make_buildspec
 from criteria import Tagged as CTagged, NotTagged, HasValue, OfClass, \
-    NotTaggedTogetherWith, HasAttr, NotNode, Criterion, Activated
+    NotTaggedTogetherWith, HasAttr, NotNode, Criterion, Activated, \
+    HasSameValueAs
 from exc import NeedArg, FargDone, ActionFailure
 from Predefs import AllTagged
 from StdGraph import Graph
@@ -37,6 +38,7 @@ gfuncs { succeeded }
 
 tags -- taggees
 target -- tags
+first_node -- tags
 members -- member_of
 operands -- consumer
 result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
@@ -48,15 +50,22 @@ Workspace
 Tag(taggees)
 Avail, Consumed, Allowed, Done, Exclude : Tag
 #AllBricksAvail : Tag
-SameValue, AllMembersSameValue : Tag
+SameNumber, SameValue, AllMembersSameValue : Tag
 Assessment : Tag
 NotGoodEnough : Assessment
 TooLow, TooHigh : NotGoodEnough
 Want : Tag
   agent: AssessorScout(target=taggees)
 
+#SameNumberTagger
+#  see n1 := NodeOfClass(Number),
+#      n2 := NodeOfClass(Number),
+#      n1.value == n2.value
+#  => build SameNumber(n1, n2)
+
 Group(members)
 Glom : Group
+Equation : Group
 
 Number(value)
 Brick, Target, Block(source, consumer) : Number
@@ -198,7 +207,24 @@ class SeekNode(Action):
     
     def go(self, g):
         node = g.look_for(self.criteria, within=self.within)
-        print('SeekNode found:', node)
+        #print('SeekNode found:', node)
+
+@dataclass
+class TagNodeWithSameValue(Action):
+    tagclass: CRef
+    anchor: MaybeNRef=None  # Seek node with same value as anchor
+    criteria: Union[Criterion, List[Criterion], None]=None
+        # criteria in addition to having the same value
+    within: Union[int, None]=None
+
+    def go(self, g):
+        # What do we do if anchor or within is missing?
+        criteria = Criterion.append(self.criteria, HasSameValueAs(self.anchor))
+        print('GO', repr(criteria))
+        node = g.look_for(*criteria, within=self.within)
+        if not node:
+            raise CantFindNode
+        g.add_tag(self.tagclass, [self.anchor, node])
 
 @dataclass
 class BuildProposal(Action):
@@ -638,6 +664,7 @@ class DemoGraph(ExprAsEquation, Graph):
         #self.add_node(SameNumberGlommer)
         #self.add_node(MemberCounter)
         #self.add_node(SameValueTagger)
+        #self.add_node(SameNumberTagger, member_of=ws)
 
         targetid = self.look_for(OfClass(Target))
         #self.add_node(SuccessScout, target=targetid, min_support_for=1.0)
@@ -656,6 +683,21 @@ class DemoGraph(ExprAsEquation, Graph):
         )
         aba = self.add_node(AllBricksAvail, member_of=slipnet)
         self.set_activation_from_to(aba, seqnode, weight=1.0)
+
+        self.make_equation([4, 7], Plus, 11, '4+7=11')
+
+    def make_equation(self, operands, operator, result, name):
+        eqn = self.add_node(Equation, member_of=self.slipnet, name=name)
+        operand_nodes = []
+        for n in operands:
+            operand_nodes.append(self.add_node(Number, value=n, member_of=eqn))
+        result_node = self.add_node(Number, value=result, member_of=eqn)
+        operator_node = self.add_node(
+            operator,
+            member_of=eqn,
+            operands=operand_nodes,
+            consumer=result_node
+        )
 
     def find_archetype(self, node):
         return self.find_all(
@@ -781,7 +823,8 @@ if __name__ == '__main__':
     ShowPrimitives.start_logging()
     #ShowIsMatch.start_logging()
 
-    newg(Numble([1, 1, 1, 1, 1], 4))
+    #newg(Numble([1, 1, 1, 1, 1], 4))
+    newg(Numble([2, 3, 4, 6, 7, 9, 14], 11))
 
     #bspec = make_buildspec(g, Glom, [[4, 6, 8]], {})
     #bspec = make_buildspec(g, Glom, [], dict(taggees=[4, 6, 8]))
@@ -842,3 +885,7 @@ if __name__ == '__main__':
     #pdb.run('g.do_timestep()')
 
     g.do_timestep(num=11)
+    a = TagNodeWithSameValue(
+        SameNumber, anchor=11, criteria=OfClass(Number), within=52
+    )
+    g.do_action(a)

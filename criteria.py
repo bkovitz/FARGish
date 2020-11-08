@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
+from util import as_iter, as_list
 
 from Node import Node, NRef, PortLabels
 from Action import Action
@@ -17,6 +18,24 @@ class Criterion(ABC):
     @abstractmethod
     def __call__(self, g, nodeid):
         pass
+
+    @classmethod
+    def append(
+        cls,
+        ls: Union[List['Criterion'], 'Criterion', None],
+        cs: Union[List['Criterion'], 'Criterion', None]
+    ) -> Union[List['Criterion'], None]:
+        if not cs:
+            return ls
+        elif ls is None:
+            return cs
+        else:
+            print('APPEND1', ls)
+            ls = as_list(ls)
+            print('APPEND2', ls)
+            for c in as_iter(cs):
+                ls.append(c)
+            return ls
 
 class Tagged(Criterion):
 
@@ -42,6 +61,15 @@ class HasValue(Criterion):
     def __call__(self, g, nodeid):
         return g.value_of(nodeid) == self.value
 
+class HasSameValueAs(Criterion):
+
+    def __init__(self, anchor: NRef):
+        self.anchor = anchor
+
+    def __call__(self, g, nodeid):
+        #TODO Return False if either value is None?
+        return g.value_of(nodeid) == g.value_of(self.anchor)
+
 @dataclass
 class OfClass(Criterion):
     nodeclass: Type[Node]
@@ -49,10 +77,10 @@ class OfClass(Criterion):
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
 
-    def __str__(self):
-        return self.nodeclass.__name__
-
-    __repr__ = __str__
+#    def __str__(self):
+#        return self.nodeclass.__name__
+#
+#    __repr__ = __str__
 
 @dataclass
 class Activated(Criterion):
