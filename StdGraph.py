@@ -9,9 +9,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from ActiveGraph import ActiveGraph, pg
 from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
-from Primitives import ActivationPrimitives, ActivationPolicy, SlipnetPolicy
+from Primitives import ActivationPrimitives, ActivationPolicy, \
+    SupportPrimitives, SupportPolicy, SlipnetPolicy
 from Propagator import Propagator
-from Node import NRef, NRefs, NodeId
+from Node import NRef, MaybeNRef, NRefs, NodeId
 from util import as_iter
 
 
@@ -74,6 +75,51 @@ class StdActivationPolicy(ActivationPolicy):
             for node, a in self.activation_dict().items():
                 writer.writerow([t, node, a])
 
+class StdSupportPolicy(SupportPolicy):
+
+    def support_for(self, nref: MaybeNRef) -> float:
+        # TODO Set up inheritance to ensure .getattr, etc.
+        result = self.getattr(nref, 'support_for')
+        if result is None:
+            return 0.0
+        else:
+            return result
+
+    def set_support_for(self, node: MaybeNRef, supp: float):
+        self.set_attr(node, 'support_for', supp)
+
+    def support_from_to(
+        self, from_node: MaybeNRef, to_node: MaybeNRef
+    ) -> float:
+        return self.edge_weight(
+            from_node, 'support_to', to_node, 'support_from'
+        )
+
+    def set_support_from_to(
+        self, from_node: MaybeNRef, to_node: MaybeNRef, weight: float
+    ):
+        self.add_edge(
+            from_node, 'support_to', to_node, 'support_from', weight=weight
+        )
+
+    def support_hops_from(self, from_node: MaybeNRef):
+        return self.hops_from_port(from_node, 'support_to')
+
+    def support_dict(
+        self, nodes=Union[Iterable[NRef], None]
+    ) -> Dict[NodeId, float]:
+        if nodes is None:
+            nodes = self._nodeids()  # TODO self.nodeids() ?
+        # INEFFICIENT Calling as_nodeid() unnecessarily if nodes==None
+        return dict(
+            (nodeid, self.support_for(nodeid))
+                for nodeid in map(as_nodeid, nodes)
+        )
+
+    def propagate_support(self):
+        #TODO
+        pass
+
 class StdSlipnetPolicy(SlipnetPolicy, ActivationPrimitives):
 # TODO Inherit from something that guarantees .members_recursive().
     
@@ -98,7 +144,7 @@ class StdSlipnetPolicy(SlipnetPolicy, ActivationPrimitives):
         )
 
 class Graph(
-    StdSlipnetPolicy, StdActivationPolicy, ActiveGraph, NetworkxActivation,
-    NetworkxPortGraph
+    StdSupportPolicy, StdSlipnetPolicy, StdActivationPolicy, ActiveGraph,
+    NetworkxActivation, NetworkxPortGraph
 ):
     pass

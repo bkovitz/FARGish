@@ -18,8 +18,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v test_regen.TestRegen.test_regen
-	$(PY) -m unittest -v test_slipnet.TestCopyGroup.test_copy_group
+	$(PY) -m unittest -v testSupport.TestSupport
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

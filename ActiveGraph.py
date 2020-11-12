@@ -11,7 +11,8 @@ from operator import attrgetter, itemgetter
 from random import choice
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
-    ActivationPrimitives, ActivationPolicy, SlipnetPolicy
+    ActivationPrimitives, ActivationPolicy, SupportPrimitives, SupportPolicy, \
+    SlipnetPolicy
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
@@ -27,6 +28,7 @@ from log import *
 from criteria import NoMate
 
 
+#TODO rm
 class Support(ActiveGraphPrimitives):
 
     def support_for(self, node: NRef) -> float:
@@ -1198,11 +1200,8 @@ class ActiveGraph(
         #TODO append weight=%.3f
         return hop.hopstr(self)
 
-    def print_edges(self, node, prefix=''):
-        # TODO print nothing if node does not exist
-        for hop in sorted(
-            self.hops_from_node(node), key=attrgetter('from_port_label')
-        ):
+    def print_hops(self, hops: Iterable[Hop], prefix=''):
+        for hop in hops:
             print('%s%-15s --> %s %s (%.3f)' % (
                 prefix,
                 hop.from_port_label,
@@ -1210,6 +1209,13 @@ class ActiveGraph(
                 hop.to_port_label,
                 self._hop_weight(hop)
             ))
+        
+    def print_edges(self, node, from_port_label=None, prefix=''):
+        if from_port_label:
+            hops = self.hops_from_port(node, from_port_label)
+        else:
+            hops = self.hops_from_node(node)
+        self.print_hops(sorted(hops, key=attrgetter('from_port_label')))
 
     # Unimplemented  # TODO
 
@@ -1240,3 +1246,12 @@ def pa(g: G, *nodes, **kwargs):
     pt(g)
     for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
         print(g.long_nodestr(node))
+
+def ps(g: G, *nodes, **kwargs):
+    pt(g)
+    for node in sorted(g.list(*nodes, **kwargs), key=g.support_for):
+        print('supp=%.3f  %s' % (
+            g.support_for(node),
+            g.nodestr(node)
+        ))
+        g.print_hops(g.support_hops_from(node), prefix='      ')

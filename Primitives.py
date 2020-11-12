@@ -295,6 +295,49 @@ class ActivationPolicy(ActivationPrimitives):
         for n in as_iter(node):
             self.set_activation(n, 0.0)
 
+class SupportPrimitives(ABC):
+
+    @abstractmethod
+    def support_for(self, node: MaybeNRef) -> float:
+        '''The total support that node possesses right now. A non-existent
+        node must have support 0.0.'''
+        pass
+
+    @abstractmethod
+    def set_support_for(self, node: MaybeNRef, supp: float):
+        pass
+
+    @abstractmethod
+    def support_from_to(
+        self, from_node: MaybeNRef, to_node: MaybeNRef
+    ) -> float:
+        '''The weight of support that from_node is giving to to_node. Must
+        return 0.0 if either node does not exist.'''
+        pass
+
+    @abstractmethod
+    def set_support_from_to(
+        self, from_node: MaybeNRef, to_node: MaybeNRef, weight: float
+    ):
+        pass
+
+    @abstractmethod
+    def support_hops_from(self, from_node: MaybeNRef):  # TODO return type
+        pass
+        
+    @abstractmethod
+    def support_dict(
+        self, nodes=Union[Iterable[NRef], None]
+    ) -> Dict[NodeId, float]:
+        pass
+
+class SupportPolicy(SupportPrimitives):
+
+    @abstractmethod
+    def propagate_support(self):
+        '''Do one full timestep's worth of support propagation.'''
+        pass
+
 class SlipnetPolicy(ABC):
     @abstractmethod
     def slipnet_search(self, nodes: NRefs, slipnodes: Set[NodeId]) \
