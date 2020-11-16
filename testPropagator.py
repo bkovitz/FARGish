@@ -3,9 +3,12 @@
 import unittest
 from pprint import pprint as pp
 import inspect
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable
+from itertools import chain
 
-from Propagator import Propagator
-from Node import Node
+from Propagator import Propagator, Delta
+from Node import Node, NodeId
 from NodeParams import NodeParams, AttrParam
 from testNetworkxPortGraph import GraphWithNetworkxActivation
 
@@ -20,6 +23,23 @@ class MyPropagator(Propagator):
 
     def min_value(self, g, nodeid):
         return g.min_activation(nodeid)
+
+    def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
+        return chain.from_iterable(
+            self.deltas_to(g, old_d, nodeid)
+                for nodeid in old_d
+        )
+
+    def deltas_to(self, g, old_d: Dict[NodeId, float], nodeid: NodeId) \
+    -> List[Delta]:
+        incoming_deltas = []
+        for neighborid in g.incoming_activation_neighbors(nodeid):
+            support_for_neighbor = old_d.get(neighborid, 0.0)
+            incoming_deltas.append(Delta(
+                nodeid,
+                self.hop_weight(g, neighborid, nodeid) * support_for_neighbor
+            ))
+        return incoming_deltas
 
 class MyNode(Node):
     node_params = NodeParams(AttrParam('name'))

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from random import gauss
+from collections import defaultdict
 
 from Node import NodeId
 
@@ -15,6 +16,11 @@ def reverse_sigmoid(x: float, p: float=0.5):
     if x < 0:
         x = -x
     return x ** p / (x ** p + (1 - x) ** p)
+
+@dataclass
+class Delta:
+    nodeid: NodeId
+    amt: float
 
 @dataclass
 class Propagator(ABC):
@@ -31,32 +37,25 @@ class Propagator(ABC):
     num_iterations: int = 1
 
     def propagate_once(self, g, old_d: Dict[NodeId, float]):
-        # TODO Think about positive_feedback_rate with a zero or nearly-
-        # zero neighbor. Also, positive_feedback_rate should apply to this
-        # node, not the neighbor.
-        new_d: Dict[NodeId, float] = {}
-        for node, old in old_d.items():
-            #pos_feedback_for_node = self.positive_feedback_rate * old
-            #print('POS', node, pos_feedback_for_node)
-            # TODO Restore positive feedback; probably will need to loop
-            # by outgoing neighbors, since positive feedback should emphasize
-            # the most active/supported nodes *among the the outgoing
-            # connections of the node giving activation/support*.
-            new_value = old * self.alpha + sum(
-                (1.0 - self.alpha) *
-                #(self.positive_feedback_rate * old_d[neighbor]) *
-                #pos_feedback_for_node *
-                old_d[neighbor] *
-                self.hop_weight(g, neighbor, node) *
-                gauss(1.0, self.noise)
-                    for neighbor in self.incoming_neighbors(g, node)
+        new_d: Dict[NodeId, float] = defaultdict(float,
+            ((nodeid, a * self.alpha)
+                for nodeid, a in old_d.items()
             )
-#            print('PROPLOOP', node, old, new_value)
-#            for neighbor in self.incoming_neighbors(g, node):
-#                print(neighbor, self.hop_weight(g, neighbor, node))
-            new_d[node] = max(self.min_value(g, node), new_value)
+        )
+        # apply all the deltas
+        for delta in self.make_deltas(g, old_d):
+            #print('PONCE', delta)
+            new_d[delta.nodeid] += (
+                delta.amt * (1.0 - self.alpha) + gauss(0.0, self.noise)
+            )
+        # clip to min_value
+        new_d = defaultdict(float,
+            ((nodeid, max(self.min_value(g, nodeid), s))
+                for nodeid, s in new_d.items()
+            )
+        )
         return self.normalize(new_d)
-        
+
     def propagate(self, g, old_d: Dict[NodeId, float], num_iterations=None):
         if num_iterations is None:
             num_iterations = self.num_iterations
@@ -66,11 +65,7 @@ class Propagator(ABC):
         return new_d
         
     @abstractmethod
-    def incoming_neighbors(self, g, nodeid: NodeId) -> Iterable[NodeId]:
-        pass
-
-    @abstractmethod
-    def hop_weight(self, g, fromid: NodeId, toid: NodeId) -> float:
+    def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
         pass
 
     @abstractmethod

@@ -4,9 +4,7 @@ import unittest
 from pprint import pprint as pp
 
 from codegen import make_python, compile_fargish
-#from PortGraph import PortGraph, Node, pg
 from StdGraph import Graph, pg
-from TimeStepper import TimeStepper
 from LinkSpec import LinkSpec
 from log import *
 

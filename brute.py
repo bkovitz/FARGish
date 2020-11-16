@@ -17,8 +17,6 @@ from codegen import make_python, compile_fargish
 from log import *
 from exc import FargDone
 import expr
-import support
-from TimeStepper import TimeStepper
 from ExprAsEquation import ExprAsEquation
 
 prog = '''

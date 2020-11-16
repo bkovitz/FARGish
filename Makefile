@@ -19,6 +19,8 @@ lut:
 # Convenience target for single test current being worked on
 u:
 	$(PY) -m unittest -v testSupport.TestSupport
+	#$(PY) -m unittest -v testPropagator.TestPropagator.test_propagator
+	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_spreading_activation
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

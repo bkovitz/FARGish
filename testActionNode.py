@@ -7,12 +7,8 @@ import inspect
 from Action import Action
 from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
     make_action_sequence
-import WithActivation
-#from PortGraph import PortGraph, Node, pg, ps, pa
 from StdGraph import Graph, pg
 from log import *
-#from TimeStepper import TimeStepper
-import support
 from util import reseed
 
 
@@ -67,33 +63,6 @@ class TestGraph(Graph):
         if 'seed' not in kwargs:
             kwargs['seed'] = 1
         super().__init__(*args, **kwargs)
-#    default_graph_attrs = dict(
-#        seed=1,
-#        num_timesteps=40,
-#        support_propagator=support.Propagator(
-#            max_total_support=20,
-#            positive_feedback_rate=0.1,
-#            sigmoid_p=0.5,
-#            alpha=0.98,
-#            # TODO noise=0.0
-#        ),
-#        activation_propagator=WithActivation.Propagator(
-#            max_total_activation=20,
-#            sigmoid_p=0.5,
-#            alpha=0.98,
-#            # TODO noise=0.0
-#        )
-#    )
-#
-#    def __init__(self, *args, **kwargs):
-#        super().__init__(*args, **kwargs)
-#        kws = self.default_graph_attrs.copy()
-#        kws.update(kwargs)
-#        if kws.get('num_timesteps', None) is None:
-#            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
-#        kws['seed'] = reseed(kws.get('seed', None))
-#        super().__init__(**kws)
-#        self.consecutive_timesteps_with_no_response = 0
 
 
 #ShowActiveNodes.start_logging()

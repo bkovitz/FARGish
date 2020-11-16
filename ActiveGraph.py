@@ -42,8 +42,8 @@ class Members(ActiveGraphPrimitives):
     pass
 
 class ActiveGraph(
-    Support, Touches, Members, ActivationPolicy, SlipnetPolicy,
-    ActivationPrimitives, ActiveGraphPrimitives
+    Touches, Members, ActivationPolicy, SupportPolicy, SlipnetPolicy,
+    ActivationPrimitives, SupportPrimitives, ActiveGraphPrimitives
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
@@ -153,6 +153,7 @@ class ActiveGraph(
         id = super()._add_node(node)
         node.tob = self.t
         self.set_activation(node, node.initial_activation)
+        self.set_support_for(node, node.initial_support_for)
         return id
 
     #TODO UT
@@ -924,7 +925,7 @@ class ActiveGraph(
                     #print(f'{chr(10)}t={self.t}')
                     pt(self)
 
-                #self.propagate_support()
+                self.propagate_support()
                 #support.log_support(self)
 
                 self.propagate_activation()
@@ -1090,10 +1091,14 @@ class ActiveGraph(
             action.min_urgency
         )
 
-    def support_for(self, nref: NRef) -> float:
-        #TODO
-        return 1.0
-        
+    def min_activation(self, node: NRef) -> float:
+        #TODO Return 0.0 if node does not exist?
+        return as_node(self, node).min_activation
+
+    def min_support_for(self, node: NRef) -> float:
+        #TODO Return 0.0 if node does not exist?
+        return as_node(self, node).min_support_for
+
     def touch(self, nrefs: NRefs):
         if not self.during_touch:
             self.touched_nodes |= self.as_nodeids(nrefs)

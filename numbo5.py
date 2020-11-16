@@ -15,7 +15,6 @@ from log import *
 import expr
 from util import as_iter, as_set, reseed, intersection, first
 #from PortGraph import PortGraph, Node, pg, ps, pa
-#import WithActivation
 #import support
 from Numble import make_numble_class, prompt_for_numble
 from ExprAsEquation import ExprAsEquation
@@ -608,40 +607,9 @@ class Failed(ActiveNode, Tag):
 
 #class DemoGraph(TimeStepper, ExprAsEquation, PortGraph):
 class DemoGraph(ExprAsEquation, Graph):
-#    port_mates = port_mates
-#    nodeclasses = nodeclasses
-#    nodeclasses['Failed'] = Failed
-#
-#    default_graph_attrs = dict(
-#        t=0,
-#        done=False,
-#        num_timesteps=40,
-#        seed=None,
-#        running=False,
-#        port_mates=port_mates,
-#        support_propagator=support.Propagator(
-#            max_total_support=70,  #300
-#            positive_feedback_rate=0.1,
-#            sigmoid_p=0.5,
-#            alpha=0.95
-#        ),
-#        activation_propagator=WithActivation.Propagator(
-#            max_total_activation=20,
-#            sigmoid_p=0.5,
-#            alpha=0.98,
-#            # TODO noise=0.0
-#        )
-#    )
 
     def __init__(self, numble, *args, **kwargs):
         super().__init__(*args, **kwargs)
-#        kws = self.default_graph_attrs.copy()
-#        kws.update(kwargs)
-#        if kws.get('num_timesteps', None) is None:
-#            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
-#        kws['seed'] = reseed(kws.get('seed', None))
-#        super().__init__(**kws)
-#        self.consecutive_timesteps_with_no_response = 0
         self.nodeclasses.update(nodeclasses)
         for nc in [
             Failed, Slipnet, AssessorScout, FixerScout, Proposal,

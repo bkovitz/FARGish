@@ -145,7 +145,7 @@ def rescale(xs, new_total=1.0):
         return xs
     s = sum(xs)
     if s == 0:
-        x = 1.0 / len(xs)
+        x = new_total / len(xs)
         return [x] * len(xs)
     else:
         multiplier = new_total / sum(xs)

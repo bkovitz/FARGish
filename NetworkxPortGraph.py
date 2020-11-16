@@ -140,6 +140,7 @@ class NetworkxPortGraph(PortGraphPrimitives):
         else:
             return 0.0
 
+    # TODO Make .hop_weight a Primitive
     # TODO UT
     def _hop_weight(self, hop: Hop) -> float:
         '''0.0 if hop does not exist. 1.0 if hop exists but has no weight
@@ -222,10 +223,6 @@ class NetworkxActivation(
         except KeyError:
             a = 0.0
         return max(a, self.min_activation(node))
-
-    # TODO Move this out of Networkx code
-    def min_activation(self, node: NRef) -> float:
-        return as_node(self, node).min_activation
 
     def set_activation(self, node: NRef, a: float):
         nodeid = as_nodeid(node)

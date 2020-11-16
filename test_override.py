@@ -15,8 +15,7 @@ from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
 from StdGraph import Graph, pg
 #from Node import Node
 from log import *
-from TimeStepper import TimeStepper
-import support
+#import support
 from util import reseed
 from criteria import Tagged, HasValue, OfClass, NotTaggedTogetherWith, \
     HasAttr, NotNode, Criterion
@@ -114,30 +113,8 @@ class TestGraph(Graph):
     port_mates = port_mates
     nodeclasses = nodeclasses
 
-    default_graph_attrs = dict(
-        t=0,
-        done=False,
-        num_timesteps=40,
-        seed=None,
-        running=False,
-        port_mates=port_mates,
-        support_propagator=support.Propagator(
-            max_total_support=70,  #300
-            positive_feedback_rate=0.1,
-            sigmoid_p=0.5,
-            alpha=0.95
-        )
-    )
-
     def __init__(self, numble, *args, **kwargs):
         super().__init__(*args, **kwargs)
-#        kws = self.default_graph_attrs.copy()
-#        kws.update(kwargs)
-#        if kws.get('num_timesteps', None) is None:
-#            kws['num_timesteps'] = self.default_graph_attrs['num_timesteps']
-#        kws['seed'] = reseed(kws.get('seed', None))
-#        super().__init__(**kws)
-#        self.consecutive_timesteps_with_no_response = 0
         self.nodeclasses.update(nodeclasses)
         self.port_mates += port_mates
 

@@ -2,9 +2,7 @@
 
 import unittest
 
-#from PortGraph import PortGraph, pg, ps
-from StdGraph import Graph, pg
-from TimeStepper import TimeStepper
+from StdGraph import Graph
 from codegen import make_python, compile_fargish
 from log import stop_all_logging
 

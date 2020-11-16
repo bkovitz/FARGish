@@ -223,7 +223,10 @@ class TestStdGraph(unittest.TestCase):
         g.set_activation_from_to(b1, b2)
 
         g.do_timestep()
-        self.assertGreater(g.activation(b2), Brick.initial_activation)
+        self.assertGreater(
+            g.activation(b2),
+            Brick.initial_activation - 5 * g.activation_propagator.noise
+        )
         self.assertLess(g.activation(b1), b1_after)
 
     def test_seed(self):

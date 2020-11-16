@@ -5,13 +5,14 @@ from dataclasses import dataclass
 from inspect import isclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
+from itertools import chain
 
 from ActiveGraph import ActiveGraph, pg
 from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
 from Primitives import ActivationPrimitives, ActivationPolicy, \
     SupportPrimitives, SupportPolicy, SlipnetPolicy
-from Propagator import Propagator
+from Propagator import Propagator, Delta
 from Node import NRef, MaybeNRef, NRefs, NodeId
 from util import as_iter
 
@@ -19,14 +20,26 @@ from util import as_iter
 @dataclass
 class StdActivationPropagator(Propagator):
 
-    def incoming_neighbors(self, g, nodeid):
-        return g.incoming_activation_neighbors(nodeid)
-
-    def hop_weight(self, g, fromid, toid):
-        return g.activation_from_to(fromid, toid)
-
     def min_value(self, g, nodeid):
         return g.min_activation(nodeid)
+
+    def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
+        return chain.from_iterable(
+            self.deltas_to(g, old_d, nodeid)
+                for nodeid in old_d
+        )
+
+    def deltas_to(self, g, old_d: Dict[NodeId, float], nodeid: NodeId) \
+    -> List[Delta]:
+        incoming_deltas = []
+        for neighborid in g.incoming_activation_neighbors(nodeid):
+            support_for_neighbor = old_d.get(neighborid, 0.0)
+            incoming_deltas.append(Delta(
+                nodeid,
+                g.activation_from_to(neighborid, nodeid) *
+                    support_for_neighbor
+            ))
+        return incoming_deltas
 
 class StdActivationPolicy(ActivationPolicy):
 
@@ -75,7 +88,59 @@ class StdActivationPolicy(ActivationPolicy):
             for node, a in self.activation_dict().items():
                 writer.writerow([t, node, a])
 
+@dataclass
+class StdSupportPropagator(Propagator):
+
+    def min_value(self, g, nodeid):
+        return g.min_support_for(nodeid)
+
+    def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
+        return chain.from_iterable(
+            self.deltas_from(g, old_d, nodeid)
+                for nodeid in old_d
+        )
+
+    def deltas_from(self, g, old_d: Dict[NodeId, float], nodeid: NodeId) \
+    -> Iterable[Delta]:
+        support_for_node = old_d.get(nodeid, 0.0)
+        outgoing_deltas = []
+        for hop in g.support_hops_from(nodeid):
+            neighborid = hop.to_node
+            support_for_neighbor = old_d.get(neighborid, 0.0)
+            hop_weight = g._hop_weight(hop)
+            outgoing_deltas.append(Delta(
+                neighborid,
+                hop_weight + 
+                    self.positive_feedback_rate * support_for_neighbor
+            ))
+        return self.rescale_deltas(outgoing_deltas, support_for_node)
+
+    def rescale_deltas(
+        self, outgoing_deltas: List[Delta], support_for_node: float
+    ) -> List[Delta]:
+        if not outgoing_deltas:
+            return outgoing_deltas
+        ssum = sum(delta.amt for delta in outgoing_deltas)
+        if ssum <= support_for_node:
+            return outgoing_deltas
+        else:
+            multiplier = support_for_node / ssum
+            return [
+                Delta(d.nodeid, d.amt * multiplier)
+                    for d in outgoing_deltas
+            ]
+
+
 class StdSupportPolicy(SupportPolicy):
+
+    support_propagator = StdSupportPropagator(
+        positive_feedback_rate=0.2,
+        alpha=0.98,
+        max_total=100.0,
+        noise=0.02,
+        sigmoid_p=0.98,
+        num_iterations=3,
+    )
 
     def support_for(self, nref: MaybeNRef) -> float:
         # TODO Set up inheritance to ensure .getattr, etc.
@@ -106,19 +171,22 @@ class StdSupportPolicy(SupportPolicy):
         return self.hops_from_port(from_node, 'support_to')
 
     def support_dict(
-        self, nodes=Union[Iterable[NRef], None]
+        self, nodes: Union[Iterable[NRef], None]=None
     ) -> Dict[NodeId, float]:
         if nodes is None:
             nodes = self._nodeids()  # TODO self.nodeids() ?
         # INEFFICIENT Calling as_nodeid() unnecessarily if nodes==None
         return dict(
             (nodeid, self.support_for(nodeid))
-                for nodeid in map(as_nodeid, nodes)
+                for nodeid in map(self.as_nodeid, nodes)
         )
 
-    def propagate_support(self):
-        #TODO
-        pass
+    def propagate_support(self) -> Dict[NodeId, float]:
+        d = self.support_propagator.propagate(self, self.support_dict())
+        for node, new_value in d.items():
+            self.set_support_for(node, new_value)
+        return d
+
 
 class StdSlipnetPolicy(SlipnetPolicy, ActivationPrimitives):
 # TODO Inherit from something that guarantees .members_recursive().

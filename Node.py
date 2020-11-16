@@ -43,7 +43,7 @@ class Node:
     initial_activation: float = 1.0
 
     attrs_not_to_copy: ClassVar[Set[str]] = frozenset([
-        'id', 'g', 'filled_params', 'tob'
+        'id', 'g', 'filled_params', 'tob', 'support_for'
     ])
 
     def __init__(self, *args, **kwargs):
