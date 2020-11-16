@@ -76,9 +76,8 @@ class StdActivationPolicy(ActivationPolicy):
             nd = self.as_node(n)
             self.set_activation(n, nd.initial_activation)
 
-    # TODO Make into a Primitive
     def log_activation(self):
-        '''Log file format:  timestep, node, activation'''
+        '''Log-file format:  timestep, node, activation'''
         t = self.t
         mode = 'a'
         if t <= 1:
@@ -186,6 +185,17 @@ class StdSupportPolicy(SupportPolicy):
         for node, new_value in d.items():
             self.set_support_for(node, new_value)
         return d
+
+    def log_support(self):
+        '''Log-file format: timestep, node, support_for'''
+        t = self.t
+        mode = 'a'
+        if t <= 1:
+            mode = 'w'
+        with open('support.csv', mode=mode, newline='') as csvfile:
+            writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+            for node, s in self.support_dict().items():
+                writer.writerow([t, node, s])
 
 
 class StdSlipnetPolicy(SlipnetPolicy, ActivationPrimitives):

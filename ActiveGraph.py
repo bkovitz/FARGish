@@ -926,7 +926,7 @@ class ActiveGraph(
                     pt(self)
 
                 self.propagate_support()
-                #support.log_support(self)
+                self.log_support()
 
                 self.propagate_activation()
                 self.log_activation()

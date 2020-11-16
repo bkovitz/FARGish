@@ -295,6 +295,11 @@ class ActivationPolicy(ActivationPrimitives):
         for n in as_iter(node):
             self.set_activation(n, 0.0)
 
+    @abstractmethod
+    def log_activation(self):
+        '''Should log activation values of current timestep.'''
+        pass
+
 class SupportPrimitives(ABC):
 
     @abstractmethod
@@ -336,6 +341,11 @@ class SupportPolicy(SupportPrimitives):
     @abstractmethod
     def propagate_support(self):
         '''Do one full timestep's worth of support propagation.'''
+        pass
+
+    @abstractmethod
+    def log_support(self):
+        '''Should log support values of current timestep.'''
         pass
 
 class SlipnetPolicy(ABC):
