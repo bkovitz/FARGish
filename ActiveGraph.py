@@ -920,7 +920,7 @@ class ActiveGraph(
                 self.prev_actions.clear()
 
                 if any(
-                    l for l in (ShowActiveNodes, ShowActiveNodesCollected, ShowActionList, ShowActionsChosen)
+                    l for l in (ShowActiveNodes, ShowActiveNodesCollected, ShowActionList, ShowActionsChosen, ShowActionsPerformed, ShowPrimitives)
                 ):
                     #print(f'{chr(10)}t={self.t}')
                     pt(self)
@@ -950,13 +950,15 @@ class ActiveGraph(
                     if ShowActionsPerformed.is_logging():
                         #print(f'  {self.as_nodeid(a.actor)}: {a}')
                         #TODO OAOO
-                        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+                        #fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+                        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %-20s %s'
                         print(fmt % (self.urgency(a),
                                      self.activation(a.actor),
                                      a.threshold,
                                      self.support_for(a.actor),
                                      a.support_threshold,
-                                     self.as_nodeid(a.actor),
+                                     #self.as_nodeid(a.actor),
+                                     self.nodestr(a.actor).strip()[:20],
                                      a))
                     self.do_action(a)
 
@@ -1139,8 +1141,8 @@ class ActiveGraph(
         )
 
     def print_actions_header(self):
-        headingfmt = '  %5s %5s %7s %5s %7s %4s %s'
-        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'node', 'action')
+        headingfmt = '  %5s %5s %7s %5s %7s %-20s %s'
+        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'actor', 'action')
         print(headingfmt % headings)
 
     def print_actions(self, actions: List[Action]):
@@ -1207,7 +1209,7 @@ class ActiveGraph(
 
     def print_hops(self, hops: Iterable[Hop], prefix=''):
         for hop in hops:
-            print('%s%-15s --> %s %s (%.3f)' % (
+            print('%s%-15s --> %s  %s (%.3f)' % (
                 prefix,
                 hop.from_port_label,
                 self.nodestr(hop.to_node),
@@ -1231,8 +1233,9 @@ G = ActiveGraph
 
 def pt(g: G):
     '''Prints title with t= and other info about the graph.'''
-    print()
-    print(f't={g.t}    sum_a={sum(g.activation(n) for n in g.nodes()):.3f}')
+    sum_a = sum(g.activation(n) for n in g.nodes())
+    sum_s = sum(g.support_for(n) for n in g.nodes())
+    print(f'\nt={g.t}    sum_a={sum_a:.3f}  sum_s={sum_s:.3f}')
 
 def pg(g: G, *nodes, **kwargs):
     '''Prints graph g in simple text form.'''

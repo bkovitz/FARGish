@@ -34,5 +34,6 @@ if __name__ == '__main__':
     g = newg(Numble([1, 1, 1, 1, 1], 5))
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
+    g.do_timestep(num=60)
     pg(g)
     
