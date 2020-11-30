@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
-from Ac import All, OfClass, Acs, empty_env, Tagged, AllAre
+from Ac import All, OfClass, Acs, empty_env, Tagged, AllAre, TagWith
 from StdGraph import Graph, pg 
 from Numble import make_numble_class
 from testNodeClasses import *
@@ -18,9 +18,12 @@ from Node import Node, NRef
 class Workspace(Node):
     pass
 
+class AllBricksAvail(Node):
+    pass
+
 class TestAc(unittest.TestCase):
 
-    def test_simple_ac(self):
+    def test_notice_and_tag(self):
         Numble = make_numble_class(
             Brick, Target, Want, Avail, Allowed, [Plus, Times]
         )
@@ -28,20 +31,34 @@ class TestAc(unittest.TestCase):
         ws = g.add_node(Workspace)
         numble = Numble([4, 5, 6], 15)
         numble.build(g, ws)
+        targetid = 1  # HACK
 
         find_all_bricks = Acs(
-            All(OfClass(Brick), within=ws), #AllAre(Tagged(Avail)), TagWith(AllBricksAvail)
+            All(OfClass(Brick), within=ws)
         )
 
         find_that_all_bricks_are_avail = Acs(
-            All(OfClass(Brick), within=ws), AllAre(Tagged(Avail)), #TagWith(AllBricksAvail)
+            All(OfClass(Brick), within=ws),
+            AllAre(Tagged(Avail))
         )
 
-        targetid = 1  # HACK
-        #env, result = find_all_bricks.do(g, targetid, empty_env)
-        env, result = find_that_all_bricks_are_avail.do(g, targetid, empty_env)
+        notice_and_tag = Acs(
+            All(OfClass(Brick), within=ws),
+            AllAre(Tagged(Avail)),
+            TagWith(AllBricksAvail)
+        )
 
-        pg(g) #DEBUG
-        print('ENV', env)
-        print('RESULT', result)
+        env, result = find_that_all_bricks_are_avail.do(g, targetid, empty_env)
+        self.assertTrue(result)
+        nodes = map(g.as_node, env['nodes'])
+        self.assertCountEqual(nodes, [Brick(4), Brick(5), Brick(6)])
+
+        env, result = notice_and_tag.do(g, targetid, empty_env)
+        tag = result
+
+        #pg(g) #DEBUG
+        #print('ENV', env)
+        #print('RESULT', result)
+
+        self.assertEqual(tag, AllBricksAvail())
         

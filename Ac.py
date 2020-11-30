@@ -56,7 +56,6 @@ class All(Ac):
         result = []
         for node in g.members_recursive(self.within):
             env, tf = self.criterion.do(g, node, env)
-            print('ALL', node, env, tf)
             if tf:
                 result.append(node)
         env['nodes'] = result
@@ -76,6 +75,18 @@ class AllAre(AcBool):
             if not tf:
                 break
         return env, tf
+
+@dataclass
+class TagWith(Ac):
+    tagclass: MaybeCRef = None
+
+    def do(self, g: 'ActiveGraph', node: MaybeNRef, env: AcEnv) \
+    -> Tuple[AcEnv, bool]:
+        nodes = self.get(env, 'nodes')
+        tagclass = self.get(env, 'tagclass')
+        tag = g.add_tag(tagclass, nodes)
+        env['tag'] = tag
+        return env, tag
 
 @dataclass
 class Acs(Ac):

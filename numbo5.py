@@ -497,6 +497,7 @@ class AllBricksAvail(Tag, ActiveNode):
         if not AllTagged(g, Avail, bricks):
             return [SelfDestruct(self)]
 
+    #TODO rm: not appropriate when we do slipnet lookup on local situation
     def on_build(self):
         self.g.set_mutual_activation(
             self, self.g.find_archetype(self), weight=1.0
