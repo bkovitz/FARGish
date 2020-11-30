@@ -185,6 +185,7 @@ def as_nodes(g: 'ActiveGraph', nrefs: NRefs) -> Iterable[Node]:
 
 CRef = Union[Type[Node], NRef, str]  # A reference to a nodeclass
 CRefs = Union[CRef, Iterable[CRef]]
+MaybeCRef = Union[CRef, None]
 
 def as_classname(cref: Union[CRef, None]) -> str:
     if isclass(cref):
