@@ -23,7 +23,7 @@ class AllBricksAvail(Node):
 
 class TestAc(unittest.TestCase):
 
-    def test_notice_and_tag(self):
+    def test_do_notice_and_tag(self):
         Numble = make_numble_class(
             Brick, Target, Want, Avail, Allowed, [Plus, Times]
         )
@@ -50,8 +50,8 @@ class TestAc(unittest.TestCase):
 
         env, result = find_that_all_bricks_are_avail.do(g, targetid, empty_env)
         self.assertTrue(result)
-        nodes = map(g.as_node, env['nodes'])
-        self.assertCountEqual(nodes, [Brick(4), Brick(5), Brick(6)])
+        bricks = map(g.as_node, env['nodes'])
+        self.assertCountEqual(bricks, [Brick(4), Brick(5), Brick(6)])
 
         env, result = notice_and_tag.do(g, targetid, empty_env)
         tag = result
@@ -61,4 +61,4 @@ class TestAc(unittest.TestCase):
         #print('RESULT', result)
 
         self.assertEqual(tag, AllBricksAvail())
-        
+        self.assertTrue(g.has_tag(bricks, tag))
