@@ -22,6 +22,10 @@ class Ac(ABC):
         else:
             return getattr(self, name)  # TODO Catch AttributeError
 
+    def run(self, g: 'ActiveGraph', node: NRef):
+        env, result = self.do(g, node, empty_env)
+        return result
+
 class AcBool(Ac):
     '''An Ac that does a test.'''
     pass

@@ -1052,6 +1052,7 @@ class ActiveGraph(
                 raise
 
             for action in as_iter(got):
+                print('**ACTION', action)
                 if action:
                     action.actor = node
                     actions.append(action)
