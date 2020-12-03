@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from copy import copy
 
 from util import nice_object_repr, as_iter, NiceRepr
-from Node import MaybeNRef, NRefs, CRef, as_classname
+from Node import NRef, MaybeNRef, NRefs, CRef, as_classname
 from BuildSpec import make_buildspec
 from exc import NeedArg
 
@@ -30,9 +30,9 @@ class BaseAction(ABC):
         assert dataclasses.is_dataclass(self)
         print('ACTOR', self.__class__.__name__, args, kwargs, self.actor)
 
-
     @abstractmethod
-    def go(self, g: 'G'):
+    #def go(self, g: 'G'):
+    def go(self, g: 'G', actor: NRef):
         '''Updates g (the host graph) and returns None.'''
         #TODO .go should return some sort of result or disposition, if only
         #to print in log files.
@@ -55,6 +55,7 @@ class Action(BaseAction):
     def param_names(self):
         return set(field.name for field in dataclasses.fields(self))
 
+    # TODO rm once Acs are done?
     def with_overrides_from(self, g, nodeid):
         override_d = g.get_overrides(nodeid, self.param_names())
         if override_d:
@@ -85,7 +86,7 @@ class FuncAction(Action):
         self.args = args
         self.kwargs = kwargs
 
-    def go(self, g):
+    def go(self, g, actor):
         return self.func(g, *self.args, **self.kwargs)
 
     def __repr__(self):
@@ -99,10 +100,11 @@ class ActionSeq(Action):
     def __init__(self, *actions):
         self.actions = actions
 
-    def go(self, g):
+    def go(self, g, actor):
         for action in self.actions:
             action.go(g)
 
+#TODO rm?
 class ActionChain(Action):
     '''A sequence of Actions. Later Actions will only be performed if all
     earlier Actions succeeded.'''
@@ -110,7 +112,7 @@ class ActionChain(Action):
     def __init__(self, *actions: Action):
         self.actions = actions
 
-    def go(self, g):
+    def go(self, g, actor):
         pass #TODO
 
 # TODO rm
@@ -158,7 +160,7 @@ class Build(Action):
         self.kwargs = kwargs
         super().__init__()
 
-    def go(self, g):
+    def go(self, g, actor):
         g.add_node(self.cl, *self.args, **self.kwargs)
 
     @classmethod
@@ -186,7 +188,7 @@ class Raise(Action):
         self.args = args
         self.kwargs = kwargs
 
-    def go(self, g):
+    def go(self, g, actor):
         raise self.exc_class(*self.args, **self.kwargs)
 
     __repr__ = nice_object_repr
@@ -196,7 +198,7 @@ class Fail(Action):
     '''Calls 'fail' method on given node or nodes.'''
     node_or_nodes: NRefs
 
-    def go(self, g):
+    def go(self, g, actor):
         for nodeid in as_iter(self.node_or_nodes):
             g.datum(nodeid).fail(g, nodeid)
 
@@ -204,7 +206,7 @@ class Fail(Action):
 class SelfDestruct(Action):
     node: MaybeNRef
 
-    def go(self, g):
+    def go(self, g, actor):
         g.remove_node(self.node)
 
 RemoveNode = SelfDestruct

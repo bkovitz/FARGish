@@ -336,8 +336,9 @@ class Class:
 
     def gen_actions(self, file, fixup, env):
         if self.actions:
-            print('def actions(self, _g):', file=file)
+            print('def actions(self):', file=file)
             with indent(file):
+                print('_g = self.g', file=file)
                 print('_result = []', file=file)
                 for action in self.actions:
                     gen(action, file, fixup, env)

@@ -101,8 +101,8 @@ ConsumeOperands.fail = consume_operands_fail
 
 class ConsumeOperandsAction(Action):
 
-    def go(self, g):
-        thisid = self.actor  # HACK
+    def go(self, g, actor):
+        thisid = actor  # TODO simplify this out?
         op_class = g.class_of(
             g.neighbor(thisid, port_label='proposed_operator')
         )

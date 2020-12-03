@@ -356,6 +356,7 @@ class NodesWithSalience:
         )
 
 
+#TODO rm
 class PortGraph(nx.MultiGraph):
 
     node_dict_factory = NodeAttrDict

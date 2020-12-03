@@ -14,48 +14,48 @@ from util import reseed
 
 class MyAction(Action):
 
-    def go(self, g):
+    def go(self, g, actor):
         try:
             g.MyAction_ran += 1
         except AttributeError:
             g.MyAction_ran = 1
-        g.new_state(self.actor, Completed)
+        g.new_state(actor, Completed)
 
 class FirstAction(Action):
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         try:
             g.Actions += 'First'
         except AttributeError:
             g.Actions = 'First'
-        g.new_state(self.actor, Completed)
+        g.new_state(actor, Completed)
 
 class SecondAction(Action):
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         try:
             g.Actions += 'Second'
         except AttributeError:
             g.Actions = 'Second'
-        g.new_state(self.actor, Completed)
+        g.new_state(actor, Completed)
 
 class ThirdAction(Action):
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         try:
             g.Actions += 'Third'
         except AttributeError:
             g.Actions = 'Third'
-        g.new_state(self.actor, Completed)
+        g.new_state(actor, Completed)
 
 class WriteString(Action):
 
-    def go(self, g):
+    def go(self, g, actor):
         g.Actions = self.get_kwarg('string')
-        g.new_state(self.actor, Completed)
+        g.new_state(actor, Completed)
 
 
 class TestGraph(Graph):

@@ -13,7 +13,7 @@ from Action import Action, Build
 from ActiveNode import ActionNode, ActionSeqNode, Start, Dormant, Completed, \
     make_action_sequence
 from StdGraph import Graph, pg
-#from Node import Node
+from Node import NRef
 from log import *
 #import support
 from util import reseed
@@ -80,11 +80,11 @@ class SeekAndGlom(Action):
 
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
             g.do(Build.maybe_make(g, Glom, glommees))
-            g.new_state(self.actor, Completed)
+            g.new_state(actor, Completed)
         # TODO else: FAILED
 
 @dataclass
@@ -94,7 +94,7 @@ class NoticeAllSameValue(Action):
 
     threshold: float = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         # Test that all members of 'within' have value 'value'.
         # If so, tag 'within' AllMembersSameValue
 
@@ -105,7 +105,7 @@ class NoticeAllSameValue(Action):
                 for memberid in g.members_of(self.within)
         ):
             g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
-            g.new_state(self.actor, Completed)
+            g.new_state(actor, Completed)
         # TODO else: FAILED
 
 

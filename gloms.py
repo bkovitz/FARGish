@@ -13,7 +13,7 @@ class GlomMerge(Action):
     def __init__(self, nodeids):
         self.nodeids = nodeids
 
-    def go(self, g):
+    def go(self, g, actor):
         glomids, nodeids = g.partition_nodes(self.nodeids, is_glom)
         if not glomids:
             glomid = g.add_node(Glom)

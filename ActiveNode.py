@@ -20,13 +20,21 @@ class ActiveNode(ABC, Node):
         if self.state is None:
             self.state = Start   # HACK
         
-    #TODO No g param
+    def can_go(self) -> bool:
+        '''Can this ActiveNode generate any Actions this timestep? Should
+        return False if the node is in a dormant state, Blocked, or otherwise
+        should not even be polled by ActiveGraph.do_timestep() to see what
+        Actions it wants to do right now.'''
+        return not self.is_dormant()
+
     @abstractmethod
-    def actions(self, g: 'G') -> Actions:
-        '''g is the current graph.  Should return a collection of Action
-        objects.'''
+    def actions(self) -> Actions:
+        '''What Actions does this ActiveNode want to do in this timestep?
+        We assume that .can_go() has been called and has returned True before
+        .actions() is called. So, it is not necessary to check .state.'''
         pass
 
+    # TODO rm; mv body to .can_go().
     def is_dormant(self):
         '''Return True to prevent TimeStepper from calling .actions() on this
         node.'''
@@ -46,7 +54,6 @@ class ActiveNode(ABC, Node):
         # TODO Better: zero the weights rather than remove the edges.
         self.g.remove_outgoing_activation_edges(self)
         self.g.remove_incoming_activation_edges(self)
-
 
 class ActiveNodeState:
 
@@ -86,13 +93,17 @@ class ActionNode(ActiveNode):
     )
     initial_activation = 0.1
 
-    def actions(self, g: 'G') -> Actions:
+    #TODO rm
+    def OLDactions(self, g: 'G') -> Actions:
         if not self.is_dormant():
             return [self.action.with_overrides_from(g, self)]
         # TODO If action has any missing args, make scout actions to fill them
         # in.
 
         # Otherwise return a version of the action with those args filled in.
+
+    def actions(self):
+        return self.action.with_overrides_from(self.g, self)
 
     def action_failed(self, exc: Fizzle):
         if hasattr(self.action, 'action_failed'):
@@ -118,7 +129,7 @@ class ActionSeqNode(ActiveNode):
         MateParam('members', 'member_of'),
     )
 
-    def actions(self, g: 'G') -> Actions:
+    def actions(self) -> Actions:
         return None
 
     def on_build(self):

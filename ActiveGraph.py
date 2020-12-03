@@ -771,13 +771,13 @@ class ActiveGraph(
     def do_action(self, action: Union['Action', None], actor: MaybeNRef=None):
         if not action:
             return
-        if actor:
-            action.actor = actor
+        if actor:  # TODO rm
+            action.actor = actor  # TODO rm
         with PushAttr(self, 'builder'):
             self.builder = action.actor
             self.prev_actions.append(action)
             try:
-                action.go(self)
+                action.go(self, actor)
             except ActionFailure as exc:
                 if ShowActionsPerformed:
                     print('failed:', action, exc)
@@ -960,7 +960,7 @@ class ActiveGraph(
                                      #self.as_nodeid(a.actor),
                                      self.nodestr(a.actor).strip()[:20],
                                      a))
-                    self.do_action(a)
+                    self.do_action(a, a.actor)
 
                 self.do_touches()
                 #self.update_all_support()
@@ -1016,7 +1016,8 @@ class ActiveGraph(
                     ActiveNode,
                     nodes=self.allowable_active_nodes()
                 )
-                    if not self.is_dormant(node)
+                    #if not self.is_dormant(node)  #TODO rm
+                    if self.as_node(node).can_go()
         ]
 
     def choose_active_nodes(
@@ -1039,7 +1040,7 @@ class ActiveGraph(
         ))
 
     def actions(self, nref: NRef) -> Actions:
-        return self.datum(nref).actions(self)
+        return self.datum(nref).actions()
 
     def collect_actions(self, active_nodes: NRefs) -> List[Action]:
         actions = []
@@ -1052,7 +1053,6 @@ class ActiveGraph(
                 raise
 
             for action in as_iter(got):
-                print('**ACTION', action)
                 if action:
                     action.actor = node
                     actions.append(action)

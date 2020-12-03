@@ -18,8 +18,8 @@ class SetAttr(Action):
     name: str
     v: Any
 
-    def go(self, g: Graph):
-        g.set_attr(self.actor, self.name, self.v)
+    def go(self, g: Graph, actor: NRef):
+        g.set_attr(actor, self.name, self.v)
 
 class TestAction(unittest.TestCase):
 

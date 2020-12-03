@@ -6,12 +6,21 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence
 from util import as_iter, as_list
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
+from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
-from ActiveNode import ActionNode
+from ActiveNode import ActionNode, Start
+from criteria import Criterion
+from exc import Fizzle
 
 class AcEnv(dict):
     '''A binding environment for execution of an Ac.'''
     pass
+
+@dataclass
+class AcFalse(Fizzle):
+    ac: 'Ac'
+    actor: NRef
+    env: AcEnv
 
 @dataclass
 class Ac(ABC):
@@ -22,86 +31,78 @@ class Ac(ABC):
         else:
             return getattr(self, name)  # TODO Catch AttributeError
 
-    def run(self, g: 'ActiveGraph', node: NRef):
-        env, result = self.do(g, node, empty_env)
-        return result
+    @abstractmethod
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        '''Do the partial Action defined by this Ac. Raise an ActionFailed
+        exception if missing an argument.'''
+        pass
 
-class AcBool(Ac):
-    '''An Ac that does a test.'''
-    pass
+    @classmethod
+    def run(
+        cls,
+        g: 'ActiveGraph',
+        acs: Union['Ac', Sequence['Ac'], None],
+        actor: NRef
+    ) -> AcEnv:
+        '''Runs acs, starting from an empty AcEnv.'''
+        env = AcEnv()
+        try:
+            for ac in as_iter(acs):
+                ac.go(g, actor, env)
+        except AcFalse as exc:
+            return exc.env
+        return env
 
-# NEXT Better idea: Every Ac returns True to continue and False to stop.
-
-empty_env = AcEnv()
+    @classmethod
+    def as_action(cls, acs: Union['Ac', Sequence['Ac'], None]) -> Action:
+        return AcAction(acs)
 
 @dataclass
-class OfClass(AcBool):
-    nodeclass: MaybeCRef = None
+class AcAction(Action):
+    acs: Union[Ac, Sequence[Ac], None]
 
-    def do(self, g: 'ActiveGraph', node: MaybeNRef, env: AcEnv) \
-    -> Tuple[AcEnv, bool]:
-        return env, g.is_of_class(node, self.nodeclass)
-
-@dataclass
-class Tagged(AcBool):
-    tagclass: MaybeNRef = None
-
-    def do(self, g: 'ActiveGraph', node: MaybeNRef, env: AcEnv) \
-    -> Tuple[AcEnv, bool]:
-        return env, g.has_tag(node, self.tagclass)
+    def go(self, g, actor):
+        Ac.run(g, self.acs, actor)
 
 @dataclass
 class All(Ac):
     criterion: Union[Ac, None] = None
     within: MaybeNRef = None
 
-    def do(self, g: 'ActiveGraph', actor: NRef, env: AcEnv) \
-    -> Tuple[AcEnv, NRefs]:
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        criterion = self.get(env, 'criterion')
+        within = self.get(env, 'within')
         result = []
-        for node in g.members_recursive(self.within):
-            env, tf = self.criterion.do(g, node, env)
-            if tf:
-                result.append(node)
-        env['nodes'] = result
-        return env, result
+        env['nodes'] = g.find_all(criterion, within=within)
 
 @dataclass
-class AllAre(AcBool):
-    criterion: Union[Ac, None] = None
+class AllAre(Ac):
+    criterion: Criterion
 
-    def do(self, g: 'ActiveGraph', node: MaybeNRef, env: AcEnv) \
-    -> Tuple[AcEnv, bool]:
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(env, 'criterion')
         nodes = self.get(env, 'nodes')
-        tf = False
         for node in as_iter(nodes):
-            env, tf = criterion.do(g, node, env)
-            if not tf:
-                break
-        return env, tf
+            if not criterion(g, node):
+                raise AcFalse(self, actor, env)
 
 @dataclass
 class TagWith(Ac):
     tagclass: MaybeCRef = None
 
-    def do(self, g: 'ActiveGraph', node: MaybeNRef, env: AcEnv) \
-    -> Tuple[AcEnv, bool]:
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         nodes = self.get(env, 'nodes')
         tagclass = self.get(env, 'tagclass')
         tag = g.add_tag(tagclass, nodes)
-        env['tag'] = tag
-        return env, tag
+        env['result'] = tag
 
-@dataclass
-class Acs(Ac):
-    '''A sequence of Acs.'''
-    acs: Sequence[Ac]
+class AcNode(ActionNode):
+    '''A node that holds one or more Ac objects and tries to perform them.'''
+    node_params = NodeParams(
+        AttrParam('acs'),
+        AttrParam('state', Start),
+        MateParam('rm_on_success', 'tags')
+    )
 
-    def __init__(self, *acs: Ac):
-        self.acs = acs
-
-    def do(self, g: 'ActiveGraph', actor: NRef, env: AcEnv) -> Actions:
-        result = None
-        for ac in self.acs:
-            env, result = ac.do(g, actor, env)
-        return env, result
+    def on_build(self):
+        self.action = Ac.as_action(self.acs)

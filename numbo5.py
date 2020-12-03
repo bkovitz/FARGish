@@ -173,7 +173,7 @@ def start_fixer_seq(g, badnode: NRef):
 class ActivateSlipnode(Action):
     slipnode: int
 
-    def go(self, g):
+    def go(self, g, actor):
         ws = g.ws
         new_node = g.as_node(g.copy_group(self.slipnode, ws))
         #print('ASLIP', self.slipnode, g.nodestr(new_node))
@@ -191,7 +191,7 @@ class SeekAndGlom(Action):
 
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         glommees = g.find_all(*as_iter(self.criteria), within=self.within)
         if glommees:
             #g.do(Build.maybe_make(g, Glom, [glommees], {}))
@@ -204,7 +204,7 @@ class SeekNode(Action):
     criteria: Union[Criterion, List[Criterion], None]=None
     within: Union[int, None]=None
     
-    def go(self, g):
+    def go(self, g, actor):
         node = g.look_for(self.criteria, within=self.within)
         #print('SeekNode found:', node)
 
@@ -216,7 +216,7 @@ class TagNodeWithSameValue(Action):
         # criteria in addition to having the same value
     within: Union[int, None]=None
 
-    def go(self, g):
+    def go(self, g, actor):
         # What do we do if anchor or within is missing?
         criteria = Criterion.append(self.criteria, HasSameValueAs(self.anchor))
         print('GO', repr(criteria))
@@ -231,7 +231,7 @@ class BuildProposal(Action):
     proposed_operator: MaybeNRef = None
     within: MaybeNRef = None
     
-    def go(self, g):
+    def go(self, g, actor):
         g.add_node(Proposal,
             ConsumeOperands(),
             consume_operands=self.consume_operands,
@@ -246,7 +246,7 @@ class NoticeAllSameValue(Action):
 
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         # Test that all members of 'within' have value 'value'.
         # If so, tag 'within' AllMembersSameValue
 
@@ -279,7 +279,7 @@ class CountMembers(Action):
 
     threshold = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         if not self.within:
             raise NeedArg(self, 'within')
         num_members = len(g.neighbors(self.within, port_label='members'))
@@ -293,7 +293,7 @@ class NoticeSameValue(Action):
 
     threshold: float = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         if not self.node1:
             raise NeedArg(self, 'node1')
         if not self.node2:
@@ -317,7 +317,7 @@ class AddAllInGlom(Action):
 
     threshold: float = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         if not self.within:
             raise NeedArg(self, 'within')
         g.add_node(Proposal,
@@ -339,7 +339,7 @@ class ConsumeOperands(Action):
     consume_operands: Union[NRefs, None]=None
     proposed_operator: Union[NRef, None]=None
 
-    def go(self, g):
+    def go(self, g, actor):
         g.consume_operands(self.consume_operands, self.proposed_operator)
         g.new_state(self.actor, Completed)
 
@@ -349,7 +349,7 @@ class SeekArg(Action, ResetAndKeepTrying):
     port_label: PortLabel
     nodeclass: Type[Node]
     
-    def go(self, g):
+    def go(self, g, actor):
         found_node = g.look_for(OfClass(self.nodeclass))
         if found_node:
             g.add_override_node(self.for_node, self.port_label, found_node)
@@ -370,7 +370,7 @@ class SeekNewValue(Action):
     port_label: PortLabel
     within: NRef
 
-    def go(self, g):
+    def go(self, g, actor):
         found_node = g.look_for(HasAttr('value'), within=self.within)
         if found_node:
             g.add_override_node(self.for_node, self.port_label, found_node)
@@ -386,7 +386,7 @@ class StartScout(Action):
     action: Action
     rm_on_success: Union[int, None]=None
 
-    def go(self, g):
+    def go(self, g, actor):
         node = g.add_node(
             ActionNode,
             action=self.action,
@@ -401,7 +401,7 @@ class ExcludeOperand(Action):
 
     threshold: float = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         if not self.within:
             raise NeedArg(self, 'within')
         operand = g.look_for(OfClass(Brick), within=self.within)
@@ -417,7 +417,7 @@ class Reglom(Action):
 
     threshold: float = 1.0
 
-    def go(self, g):
+    def go(self, g, actor):
         if not self.glom:
             raise NeedArg(self, 'glom')
         #old_members = as_set(g.members_of(self.glom))
@@ -445,35 +445,35 @@ class Slipnet(Group, ActiveNode):
     min_support_for = 1.0
     min_activation = 1.1
 
-    def actions(self, g):
-        actives = g.find_all(
+    def actions(self):
+        actives = self.g.find_all(
             Activated(), OfClass(ActiveNode),
-            subset=g.members_of(self)
+            subset=self.g.members_of(self)
             #TODO within=self ?
         )
         #print('ACTIVE SLIPNODES', actives)
         return [
             ActivateSlipnode(slipnode)
                 for slipnode in actives
-                    if not g.as_node(slipnode).dont_activate_slipnode
+                    if not self.g.as_node(slipnode).dont_activate_slipnode
         ]
 
 class AssessorScout(ActiveNode):
     node_params = NodeParams(MateParam('target', 'tags'))
 
-    def actions(self, g):
-        node = g.look_for(CTagged(Avail), NotTagged(Assessment), within=g.ws)
+    def actions(self):
+        node = self.g.look_for(CTagged(Avail), NotTagged(Assessment), within=self.g.ws)
         if node:
-            return assess(g, node, g.neighbor(self, 'target'))
+            return assess(g, node, self.g.neighbor(self, 'target'))
 
 class FixerScout(ActiveNode):
 
     min_activation = 1.0
 
-    def actions(self, g):
-        badnode = g.look_for(
+    def actions(self):
+        badnode = self.g.look_for(
             OfClass(Block), CTagged(Avail), CTagged(NotGoodEnough),
-            within=g.ws
+            within=self.g.ws
         )
         if badnode:
             return FuncAction(start_fixer_seq, badnode)
@@ -484,16 +484,16 @@ class Proposal(ActiveNode):
 
     is_duplicable = True  # HACK  Is already_built mis-rejecting this?
 
-    def actions(self, g):
-        return self.action.with_overrides_from(g, self)
+    def actions(self):
+        return self.action.with_overrides_from(self.g, self)
     
 class AllBricksAvail(Tag, ActiveNode):
 
     initial_support_for = 1.0
     initial_activation = 1.0 #10.0  # HACK
 
-    def actions(self, g):
-        bricks = g.find_all(OfClass(Brick))
+    def actions(self):
+        bricks = self.g.find_all(OfClass(Brick))
         if not AllTagged(g, Avail, bricks):
             return [SelfDestruct(self)]
 
@@ -507,8 +507,8 @@ class NoticeAllBricksAvail(ActiveNode):
 
     min_support_for = 1.0
 
-    def actions(self, g):
-        bricks = g.find_all(OfClass(Brick))
+    def actions(self):
+        bricks = self.g.find_all(OfClass(Brick))
         if AllTagged(g, Avail, bricks):
             return Build.maybe_make(g, AllBricksAvail, taggees=bricks)
             self.g.deactivate(self)
@@ -524,10 +524,10 @@ class NoticeAllBricksAvail(ActiveNode):
         
 class SameNumberGlommer(ActiveNode):
     
-    def actions(self, g):
-        number_node = g.look_for(is_number)
-        all_with_same_value = g.find_all(
-            is_number, HasValue(g.value_of(number_node))
+    def actions(self):
+        number_node = self.g.look_for(is_number)
+        all_with_same_value = self.g.find_all(
+            is_number, HasValue(self.g.value_of(number_node))
         )
         #return [make_build3(g, Glom, [all_with_same_value], {})]
         #return Build.maybe_make(g, Glom, [all_with_same_value], {})
@@ -535,11 +535,11 @@ class SameNumberGlommer(ActiveNode):
 
 class MemberCounter(ActiveNode):
 
-    def actions(self, g):
-        group_node = g.look_for(OfClass(Group))
+    def actions(self):
+        group_node = self.g.look_for(OfClass(Group))
         if group_node is None:
             return
-        num_members = len(g.neighbors(group_node, port_label='members'))
+        num_members = len(self.g.neighbors(group_node, port_label='members'))
         # TODO make_build3 -> Build.maybe_make
         return [make_build3(g, Count, [], {
             'taggees': [group_node], 'value': num_members
@@ -547,12 +547,12 @@ class MemberCounter(ActiveNode):
 
 class SameValueTagger(ActiveNode):
 
-    def actions(self, g):
-        first_node = g.look_for(HasAttr('value'))
+    def actions(self):
+        first_node = self.g.look_for(HasAttr('value'))
         if first_node is None:
             return
-        value = g.value_of(first_node)
-        second_node = g.look_for(
+        value = self.g.value_of(first_node)
+        second_node = self.g.look_for(
             NotNode(first_node),
             HasValue(value),
             NotTaggedTogetherWith(first_node, SameValue)
@@ -576,17 +576,17 @@ class Failed(ActiveNode, Tag):
         glom=Glom,
     )
 
-    def actions(self, g):
+    def actions(self):
         # TODO Inheritance in ActionFailure
         if isinstance(self.reason, NeedArg):
             action = SeekArg(
-                g.neighbor(self, 'taggees'),
+                self.g.neighbor(self, 'taggees'),
                 self.reason.name,  # HACK: assumes NeedArg
                 self.port_label_to_nodeclass[self.reason.name]  # HACK
             )
         elif isinstance(self.reason, NotAllSameValue):
             action = SeekNewValue(
-                for_node=g.neighbor(self, 'taggees'),
+                for_node=self.g.neighbor(self, 'taggees'),
                 port_label='value',
                 within=self.reason.within
             )
