@@ -12,9 +12,8 @@ from ActiveNode import ActionNode, Start
 from criteria import Criterion
 from exc import Fizzle, AcNeedArg, AcFailure
 
-class AcEnv(dict):
-    '''A binding environment for execution of an Ac.'''
-    pass
+AcEnv = dict
+'''A binding environment for execution of an Ac.'''
 
 @dataclass
 class AcFalse(Fizzle):
@@ -28,14 +27,17 @@ class Ac(ABC):
     def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
         '''Looks up name, searching first in env and then in this Ac's attrs.
         Raises AcNeedArg if the value found is None or not found.'''
-        result = None
-        d = g.get_overrides(actor, name)
-        if name in d:
-            result = d[name]
-        elif name in env:
-            result = env[name]
-        else:
-            result = getattr(self, name)  # TODO Catch AttributeError
+        try:
+            result = g.get_overrides(actor, name)[name]
+        except KeyError:
+            try:
+                result = env[name]
+            except KeyError:
+                try:
+                    result = getattr(self, name)
+                except AttributeError:
+                    result = None
+
         if result is None:
             raise AcNeedArg(ac=self, name=name)
         else:
