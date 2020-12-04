@@ -117,7 +117,9 @@ class ActionNode(ActiveNode):
 
     def display_name(self):
         #action_name = self.action.__class__.__name__
-        if not self.action:
+        if hasattr(self, 'name'):
+            return self.name
+        elif not self.action:
             return super().display_name()
         else:
             # TODO Put an * after the action's class name

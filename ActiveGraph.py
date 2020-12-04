@@ -609,9 +609,13 @@ class ActiveGraph(
         argument named port_label when running any Action inside node.'''
         self.add_edge(node, port_label, overriding_node, 'overriding')
 
-    def get_overrides(self, node: NRef, names: Set[str]) -> Dict[str, Any]:
+    def get_overrides(
+        self,
+        node: NRef,
+        names: Union[str, Iterable[str], None]
+    ) -> Dict[str, Any]:
         result = {}
-        for name in names:
+        for name in as_iter(names):
             if self.is_plural_port_label(name):
                 result[name] = self.neighbors(node, port_label=name)
             else:
@@ -781,11 +785,22 @@ class ActiveGraph(
             except ActionFailure as exc:
                 if ShowActionsPerformed:
                     print('failed:', action, exc)
-                self.call_method(exc.actor, 'action_failed', exc)
+                try:
+                    self.call_method(exc.actor, 'action_failed', exc)
+                except Exception as exc2:
+                    print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM {exc}:')
+                    #TODO OAOO
+                    try:
+                        print(f'ACTOR: {self.nodestr(action.actor)}')
+                    except AttributeError:
+                        pass
+                    print(f'ACTION: {action}')
+                    print(f'EXC2: {exc2}')
+                    raise
             except FargDone:
                 raise
             except:
-                print('EXCEPTION in do_action')
+                print(f'\nEXCEPTION in do_action at t={self.t}')
                 try:
                     #print(f'ACTOR: {self.nodestr(action.actor)}  ON BEHALF OF: {self.nodestr(action.on_behalf_of)}')
                     print(f'ACTOR: {self.nodestr(action.actor)}')

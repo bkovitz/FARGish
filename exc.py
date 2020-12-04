@@ -1,7 +1,8 @@
 # exc.py -- Custom exceptions for FARGish
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import dataclasses
+from abc import ABC, abstractmethod
 from typing import List, Dict, Union, Any
 
 from util import nice_object_repr, NiceRepr
@@ -45,6 +46,8 @@ class Fizzle(Exception):
 @dataclass
 class ActionFailure(Fizzle):
     action: 'Action'
+    # TODO An 'actor' parameter, required; don't assume that action contains
+    # an .actor.
 
     def _get_actor(self):
         return self.action.actor
@@ -53,12 +56,36 @@ class ActionFailure(Fizzle):
     def __str__(self):
         return f'{repr(self)}; actor={self.actor}'
 
+    def __copy__(self):
+        # HACK: Fixes mysterious TypeError in copy(NeedArg(...)).
+        return replace(self)
+
 @dataclass
 class NeedArg(ActionFailure):
     name: str
 
     def __str__(self):
-        return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
+        #return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
+        return f'NeedArg({repr(self.name)})'
+
+@dataclass
+class AcFailure(Exception, ABC):
+
+    @abstractmethod
+    def as_action_failure(self, action: 'Action', actor: 'MaybeNRef') \
+    -> ActionFailure:
+        '''Should return the appropriate ActionFailure to represent this
+        AcFailure, with 'action' and 'actor' filled in.'''
+        pass
+    
+@dataclass
+class AcNeedArg(AcFailure):
+    ac: 'Ac'
+    name: str
+
+    def as_action_failure(self, action, actor):
+        # TODO Provide some way to store the Ac in the exception.
+        return NeedArg(action=action, name=self.name)
 
 class NoSuchNode(Exception):
     pass

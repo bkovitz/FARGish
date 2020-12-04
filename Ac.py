@@ -10,7 +10,7 @@ from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start
 from criteria import Criterion
-from exc import Fizzle
+from exc import Fizzle, AcNeedArg, AcFailure
 
 class AcEnv(dict):
     '''A binding environment for execution of an Ac.'''
@@ -25,11 +25,21 @@ class AcFalse(Fizzle):
 @dataclass
 class Ac(ABC):
 
-    def get(self, env: AcEnv, name: str) -> Any:
-        if name in env:
-            return env[name]
+    def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
+        '''Looks up name, searching first in env and then in this Ac's attrs.
+        Raises AcNeedArg if the value found is None or not found.'''
+        result = None
+        d = g.get_overrides(actor, name)
+        if name in d:
+            result = d[name]
+        elif name in env:
+            result = env[name]
         else:
-            return getattr(self, name)  # TODO Catch AttributeError
+            result = getattr(self, name)  # TODO Catch AttributeError
+        if result is None:
+            raise AcNeedArg(ac=self, name=name)
+        else:
+            return result
 
     @abstractmethod
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
@@ -62,7 +72,10 @@ class AcAction(Action):
     acs: Union[Ac, Sequence[Ac], None]
 
     def go(self, g, actor):
-        Ac.run(g, self.acs, actor)
+        try:
+            Ac.run(g, self.acs, actor)
+        except AcFailure as exc:
+            raise exc.as_action_failure(self, actor)
 
 @dataclass
 class All(Ac):
@@ -70,8 +83,8 @@ class All(Ac):
     within: MaybeNRef = None
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criterion = self.get(env, 'criterion')
-        within = self.get(env, 'within')
+        criterion = self.get(g, actor, env, 'criterion')
+        within = self.get(g, actor, env, 'within')
         result = []
         env['nodes'] = g.find_all(criterion, within=within)
 
@@ -80,8 +93,8 @@ class AllAre(Ac):
     criterion: Criterion
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criterion = self.get(env, 'criterion')
-        nodes = self.get(env, 'nodes')
+        criterion = self.get(g, actor, env, 'criterion')
+        nodes = self.get(g, actor, env, 'nodes')
         for node in as_iter(nodes):
             if not criterion(g, node):
                 raise AcFalse(self, actor, env)
@@ -91,8 +104,8 @@ class TagWith(Ac):
     tagclass: MaybeCRef = None
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        nodes = self.get(env, 'nodes')
-        tagclass = self.get(env, 'tagclass')
+        nodes = self.get(g, actor, env, 'nodes')
+        tagclass = self.get(g, actor, env, 'tagclass')
         tag = g.add_tag(tagclass, nodes)
         env['result'] = tag
 

@@ -7,7 +7,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
 from Ac import Ac, AcNode, All, AllAre, TagWith
-from criteria import OfClass, Tagged
+from codegen import make_python, compile_fargish
+from criteria import OfClass, Tagged as CTagged
 from StdGraph import Graph, pg 
 from Numble import make_numble_class
 from testNodeClasses import *
@@ -15,104 +16,83 @@ from Node import Node, NRef
 from ActiveNode import ActiveNode
 from log import *
 from util import first
+from exc import AcNeedArg
 
+prog = '''
+tags -- taggees
 
-class Workspace(Node):
-    pass
+Workspace
 
-class AllBricksAvail(Node):
-    pass
+Tag(taggees)
+AllBricksAvail, Failed(reason) : Tag
+
+Group(members)
+Glom : Group
+'''
+exec(compile_fargish(prog), globals())
 
 Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times]
 )
 
+class TestGraph(Graph):
+
+    def __init__(self, numble, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nodeclasses.update(nodeclasses)
+        self.port_mates += port_mates
+        ws = self.add_node(Workspace)
+        numble.build(self, ws)
+
 class TestAc(unittest.TestCase):
 
     def test_do_notice_and_tag(self):
-        g = Graph(port_mates=port_mates)
-        ws = g.add_node(Workspace)
-        numble = Numble([4, 5, 6], 15)
-        numble.build(g, ws)
+        g = TestGraph(Numble([4, 5, 6], 15))
         targetid = 1  # HACK
-
-#        find_all_bricks = Acs(
-#            All(OfClass(Brick), within=ws)
-#        )
-#
-#        find_that_all_bricks_are_avail = Acs(
-#            All(OfClass(Brick), within=ws),
-#            AllAre(Tagged(Avail))
-#        )
-#
-#        notice_and_tag = Acs(
-#            All(OfClass(Brick), within=ws),
-#            AllAre(Tagged(Avail)),
-#            TagWith(AllBricksAvail)
-#        )
-
-        #env, result = find_that_all_bricks_are_avail.do(g, targetid, empty_env)
-        #self.assertTrue(result)
 
         env = Ac.run(
             g,
-            All(OfClass(Brick), within=ws),
+            All(OfClass(Brick), within=g.ws),
             actor=targetid
         )
-        bricks = map(g.as_node, env['nodes'])
-        self.assertCountEqual(bricks, [Brick(4), Brick(5), Brick(6)])
+        nodes = map(g.as_node, env['nodes'])
+        self.assertCountEqual(nodes, [Brick(4), Brick(5), Brick(6)])
+
+        # Should fail because All is missing a 'within' arg.
+        try:
+            env = Ac.run(g, All(OfClass(Brick)), actor=targetid)
+        except AcNeedArg as exc:
+            self.assertEqual(
+                exc, AcNeedArg(ac=All(OfClass(Brick)), name='within')
+            )
+        else:
+            self.fail("Missing 'within' failed to raise AcNeedArg.")
 
         env = Ac.run(g, [
-            All(OfClass(Brick), within=ws),
-            AllAre(Tagged(Avail))
+            All(OfClass(Brick), within=g.ws),
+            AllAre(CTagged(Avail))
         ], actor=targetid)
-        bricks = map(g.as_node, env['nodes'])
-        self.assertCountEqual(bricks, [Brick(4), Brick(5), Brick(6)])
+        nodes = map(g.as_node, env['nodes'])
+        self.assertCountEqual(nodes, [Brick(4), Brick(5), Brick(6)])
 
-        #env, result = notice_and_tag.do(g, targetid, empty_env)
         env = Ac.run(g, [
-            All(OfClass(Brick), within=ws),
-            AllAre(Tagged(Avail)),
+            All(OfClass(Brick), within=g.ws),
+            AllAre(CTagged(Avail)),
             TagWith(AllBricksAvail)
         ], actor=targetid)
         result = list(g.as_nodes(env['result']))
 
-        #pg(g) #DEBUG
-        #print('ENV', env)
-        #print('RESULT', result)
-
         self.assertEqual(len(result), 1)
         tag = result[0]
-        self.assertEqual(tag, AllBricksAvail())
-        self.assertTrue(g.has_tag(bricks, tag))
+        self.assertEqual(tag.__class__, AllBricksAvail)
+        self.assertTrue(g.has_tag(nodes, tag))
 
     def test_noticer(self):
-        g = Graph(port_mates=port_mates)
-        ws = g.add_node(Workspace)
-        numble = Numble([4, 5, 6], 15)
-        numble.build(g, ws)
+        g = TestGraph(Numble([4, 5, 6], 15))
         
-#        notice_and_tag = Acs(
-#            All(OfClass(Brick), within=ws),
-#            AllAre(Tagged(Avail)),
-#            TagWith(AllBricksAvail)
-#        )
-#
-#        @dataclass
-#        class DoAc(Action):
-#            ac: Ac
-#
-#            def go(self, g):
-#                self.ac.run(g, self.actor)
-#
-#        class Noticer(ActiveNode):
-#            def actions(self, g):
-#                return DoAc(notice_and_tag)
-
-        #noticer = g.add_node(Noticer, member_of=ws)
         noticer = g.add_node(AcNode, [
-            All(OfClass(Brick), within=ws),
-            AllAre(Tagged(Avail)),
+            All(OfClass(Brick), within=g.ws),
+            AllAre(CTagged(Avail)),
             TagWith(AllBricksAvail)
         ])
 
@@ -125,6 +105,24 @@ class TestAc(unittest.TestCase):
         #g.do_timestep()
         g.do_timestep(actor=noticer)
         tag = g.as_node(first(g.new_nodes))
-        self.assertEqual(tag, AllBricksAvail())
+        self.assertEqual(tag.__class__, AllBricksAvail)
 
-#if __name__ == '__main__':
+    def test_override(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+
+        noticer = g.add_node(AcNode, [
+            All(OfClass(Brick)),
+            AllAre(CTagged(Avail)),
+            TagWith(AllBricksAvail)
+        ], name='Noticer')
+
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.has_tag(noticer, Failed))
+
+        g.add_override_node(noticer, 'within', glom)
+        g.remove_tag(noticer, Failed)
+
+        g.do_timestep(actor=noticer)
+        bricks = g.find_all(OfClass(Brick))
+        self.assertTrue(g.has_tag(bricks, AllBricksAvail), "Did not tag the Bricks even when 'within' was overridden.")
