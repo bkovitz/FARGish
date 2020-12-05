@@ -41,6 +41,8 @@ class ActiveNode(ABC, Node):
         return (
             not self.state.is_active(self.g, self)
             or
+            self.g.is_blocked(self)
+            or
             self.g.is_failed(self)
         )
 
@@ -105,11 +107,11 @@ class ActionNode(ActiveNode):
     def actions(self):
         return self.action.with_overrides_from(self.g, self)
 
-    def action_failed(self, exc: Fizzle):
-        if hasattr(self.action, 'action_failed'):
-            self.action.action_failed(self.g, self, exc)
+    def action_blocked(self, exc: Fizzle):
+        if hasattr(self.action, 'action_blocked'):
+            self.action.action_blocked(self.g, self, exc)
         else:
-            failed_tag = self.g.add_node('Failed', reason=exc, taggees=self)
+            failed_tag = self.g.add_node('Blocked', reason=exc, taggees=self)
             self.g.set_activation_from_to(self, failed_tag)
             self.g.add_support(self, failed_tag, 1.0)
             self.transient_inhibit_all_next()

@@ -26,7 +26,7 @@ from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
 from criteria import Tagged as CTagged, NotTagged, HasValue, OfClass, \
     NotTaggedTogetherWith, HasAttr, NotNode, Criterion, Activated, \
     HasSameValueAs
-from exc import NeedArg, FargDone, ActionFailure
+from exc import NeedArg, FargDone, ActionBlocked
 from Predefs import AllTagged
 from StdGraph import Graph
 from ActiveGraph import pg, pa
@@ -122,17 +122,17 @@ Want.min_activation = 1.0
 ##### Custom Exceptions
 
 @dataclass
-class NotAllSameValue(ActionFailure):
+class NotAllSameValue(ActionBlocked):
     value: Any=None
     within: NRef=None
 
 @dataclass
-class NotSameValue(ActionFailure):
+class NotSameValue(ActionBlocked):
     node1: NRef=None
     node2: NRef=None
 
 @dataclass
-class CouldntFindArg(ActionFailure):
+class CouldntFindArg(ActionBlocked):
     action: Action
 
 ##### Action procedures
@@ -565,7 +565,7 @@ class SameValueTagger(ActiveNode):
             'value': value
         })
 
-class Failed(ActiveNode, Tag):
+class Blocked(ActiveNode, Tag):
     node_params = NodeParams(MateParam('taggees', 'tags'), AttrParam('reason'))
 
     port_label_to_nodeclass = dict(   # HACK
@@ -577,7 +577,7 @@ class Failed(ActiveNode, Tag):
     )
 
     def actions(self):
-        # TODO Inheritance in ActionFailure
+        # TODO Inheritance in ActionBlocked
         if isinstance(self.reason, NeedArg):
             action = SeekArg(
                 self.g.neighbor(self, 'taggees'),
@@ -613,7 +613,7 @@ class DemoGraph(ExprAsEquation, Graph):
         super().__init__(*args, **kwargs)
         self.nodeclasses.update(nodeclasses)
         for nc in [
-            Failed, Slipnet, AssessorScout, FixerScout, Proposal,
+            Blocked, Slipnet, AssessorScout, FixerScout, Proposal,
             AllBricksAvail, NoticeAllBricksAvail, SameNumberGlommer,
             MemberCounter, SameValueTagger
         ]:

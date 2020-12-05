@@ -23,7 +23,7 @@ from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
-    ActionFailure
+    ActionBlocked
 from log import *
 from criteria import NoMate
 
@@ -552,7 +552,7 @@ class ActiveGraph(
             try:
                 tagclass = self.as_nodeclass(tagclass)
             except NoSuchNodeclass:
-                if tagclass == 'Failed':
+                if tagclass == 'Failed' or tagclass == 'Blocked':
                     return False
                 else:
                     raise
@@ -782,11 +782,11 @@ class ActiveGraph(
             self.prev_actions.append(action)
             try:
                 action.go(self, actor)
-            except ActionFailure as exc:
+            except ActionBlocked as exc:
                 if ShowActionsPerformed:
                     print('failed:', action, exc)
                 try:
-                    self.call_method(exc.actor, 'action_failed', exc)
+                    self.call_method(exc.actor, 'action_blocked', exc)
                 except Exception as exc2:
                     print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM {exc}:')
                     #TODO OAOO
@@ -828,6 +828,9 @@ class ActiveGraph(
 
     def is_failed(self, node):
         return self.has_tag(node, 'Failed')  # TODO not if Failed is canceled
+
+    def is_blocked(self, node):
+        return self.has_tag(node, 'Blocked')
 
     def call_method(self, nref: MaybeNRef, method_name: str, *args, **kwargs):
         '''Returns result of calling method method_name(self, nodeid) on nodeid

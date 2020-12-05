@@ -10,7 +10,7 @@ from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start
 from criteria import Criterion
-from exc import Fizzle, AcNeedArg, AcFailure
+from exc import Fizzle, AcNeedArg, AcBlocked
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -45,7 +45,7 @@ class Ac(ABC):
 
     @abstractmethod
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        '''Do the partial Action defined by this Ac. Raise an ActionFailed
+        '''Do the partial Action defined by this Ac. Raise an ActionBlocked
         exception if missing an argument.'''
         pass
 
@@ -76,8 +76,8 @@ class AcAction(Action):
     def go(self, g, actor):
         try:
             Ac.run(g, self.acs, actor)
-        except AcFailure as exc:
-            raise exc.as_action_failure(self, actor)
+        except AcBlocked as exc:
+            raise exc.as_action_blocked(self, actor)
 
 @dataclass
 class All(Ac):

@@ -24,7 +24,7 @@ tags -- taggees
 Workspace
 
 Tag(taggees)
-AllBricksAvail, Failed(reason) : Tag
+AllBricksAvail, Blocked(reason) : Tag
 
 Group(members)
 Glom : Group
@@ -115,13 +115,16 @@ class TestAc(unittest.TestCase):
             All(OfClass(Brick)),
             AllAre(CTagged(Avail)),
             TagWith(AllBricksAvail)
-        ], name='Noticer')
+        ], name='Noticer', member_of=g.ws)
 
+        self.assertIn(noticer.id, g.as_nodeids(g.active_nodes()))
         g.do_timestep(actor=noticer)
-        self.assertTrue(g.has_tag(noticer, Failed))
+        self.assertTrue(g.has_tag(noticer, Blocked))
+
+        self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
 
         g.add_override_node(noticer, 'within', glom)
-        g.remove_tag(noticer, Failed)
+        g.remove_tag(noticer, Blocked)
 
         g.do_timestep(actor=noticer)
         bricks = g.find_all(OfClass(Brick))

@@ -32,7 +32,7 @@ Workspace
 Tag(taggees)
 Want, Avail, Allowed : Tag
 SameValue, AllMembersSameValue : Tag
-Failed(reason) : Tag
+Blocked(reason) : Tag
 
 Group(members)
 Glom : Group
@@ -166,8 +166,8 @@ class TestOverride(unittest.TestCase):
         new_action = g.datum(noticer).action.with_overrides_from(g, noticer)
         self.assertEqual(new_action.within, glom)
 
-        # Also remove the Failed tag
-        g.remove_tag(noticer, Failed)
+        # Also remove the Blocked tag
+        g.remove_tag(noticer, Blocked)
 
         # Let the noticer run again: it should tag the Glom this time
         g.do_timestep()
@@ -181,7 +181,7 @@ class TestOverride(unittest.TestCase):
 #            'The AllMembersSameValue tag has not been marked as built by the Noticer.'
 #        )
 
-    def test_failed_tag(self):
+    def test_blocked_tag(self):
         g = new_graph()
         g.do_timestep(action=SeekAndGlom(
             criteria=OfClass(Brick),
@@ -196,21 +196,21 @@ class TestOverride(unittest.TestCase):
             NoticeAllSameValue(within=None, value=1, threshold=0.0)
         )
 
-        # ...So performing it should make a Failed tag
+        # ...So performing it should make a Blocked tag
         g.do_timestep(actor=noticer)
-        tag = g.tag_of(noticer, Failed)
+        tag = g.tag_of(noticer, Blocked)
         self.assertTrue(g.is_tag(tag))
-        self.assertTrue(g.is_of_class(tag, Failed))
+        self.assertTrue(g.is_of_class(tag, Blocked))
         reason = g.value_of(tag, 'reason')
         self.assertTrue(isinstance(reason, NeedArg))
         self.assertEqual(reason.name, 'within')
         self.assertTrue(g.is_built_by(tag, noticer))
 
-        # And with a Failed tag, the noticer should not generate an action
+        # And with a Blocked tag, the noticer should not generate an action
         self.assertTrue(g.is_dormant(noticer))
 
-    def test_no_dup_failed(self):
-        # Make sure that NoticeAllSameValue only gets one Failed tag no
+    def test_no_dup_blocked(self):
+        # Make sure that NoticeAllSameValue only gets one Blocked tag no
         # matter how many times it fails.
         g = new_graph()
         g.do_timestep(action=SeekAndGlom(
@@ -230,5 +230,5 @@ class TestOverride(unittest.TestCase):
         # Verify that nothing happens without override
         g.do_timestep(actor=noticer)
         g.do_timestep(actor=noticer)
-        faileds = g.neighbors(noticer, port_label='tags', neighbor_class=Failed)
-        self.assertEqual(len(faileds), 1)
+        bltags = g.neighbors(noticer, port_label='tags', neighbor_class=Blocked)
+        self.assertEqual(len(bltags), 1)

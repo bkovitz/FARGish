@@ -61,7 +61,24 @@ class ActionFailure(Fizzle):
         return replace(self)
 
 @dataclass
-class NeedArg(ActionFailure):
+class ActionBlocked(Fizzle):
+    action: 'Action'
+    # TODO An 'actor' parameter, required; don't assume that action contains
+    # an .actor.
+
+    def _get_actor(self):
+        return self.action.actor
+    actor = property(_get_actor)
+
+    def __str__(self):
+        return f'{repr(self)}; actor={self.actor}'
+
+    def __copy__(self):
+        # HACK: Fixes mysterious TypeError in copy(NeedArg(...)).
+        return replace(self)
+
+@dataclass
+class NeedArg(ActionBlocked):
     name: str
 
     def __str__(self):
@@ -69,21 +86,21 @@ class NeedArg(ActionFailure):
         return f'NeedArg({repr(self.name)})'
 
 @dataclass
-class AcFailure(Exception, ABC):
+class AcBlocked(Exception, ABC):
 
     @abstractmethod
-    def as_action_failure(self, action: 'Action', actor: 'MaybeNRef') \
-    -> ActionFailure:
-        '''Should return the appropriate ActionFailure to represent this
-        AcFailure, with 'action' and 'actor' filled in.'''
+    def as_action_blocked(self, action: 'Action', actor: 'MaybeNRef') \
+    -> ActionBlocked:
+        '''Should return the appropriate ActionBlocked to represent this
+        AcBlocked, with 'action' and 'actor' filled in.'''
         pass
     
 @dataclass
-class AcNeedArg(AcFailure):
+class AcNeedArg(AcBlocked):
     ac: 'Ac'
     name: str
 
-    def as_action_failure(self, action, actor):
+    def as_action_blocked(self, action, actor):
         # TODO Provide some way to store the Ac in the exception.
         return NeedArg(action=action, name=self.name)
 
