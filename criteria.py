@@ -53,13 +53,14 @@ class NotTagged(Criterion):
     def __call__(self, g, nodeid):
         return not g.has_tag(nodeid, self.tagclass)
 
+@dataclass
 class HasValue(Criterion):
-
-    def __init__(self, value):
-        self.value = value
+    value: Any = None
 
     def __call__(self, g, nodeid):
         return g.value_of(nodeid) == self.value
+
+HasThisValue = HasValue
 
 class HasSameValueAs(Criterion):
 

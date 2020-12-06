@@ -40,6 +40,11 @@ class Ac(ABC):
 
         if result is None:
             raise AcNeedArg(ac=self, name=name)
+        elif isinstance(result, str):
+            # TODO Prevent infinite recursion: make sure we haven't tried
+            # this key before.
+            # TODO What if the value is actually supposed to be a str?
+            return self.get(g, actor, env, result)
         else:
             return result
 
@@ -105,11 +110,12 @@ class AllAre(Ac):
 @dataclass
 class TagWith(Ac):
     tagclass: MaybeCRef = None
+    taggees: NRefs = None
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        nodes = self.get(g, actor, env, 'nodes')
+        taggees = self.get(g, actor, env, 'taggees')
         tagclass = self.get(g, actor, env, 'tagclass')
-        tag = g.add_tag(tagclass, nodes)
+        tag = g.add_tag(tagclass, taggees)
         env['result'] = tag
 
 @dataclass

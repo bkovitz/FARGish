@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 
 from Ac import Ac, AcNode, All, AllAre, TagWith, AddNode
 from codegen import make_python, compile_fargish
-from criteria import OfClass, Tagged as CTagged
+from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, pg 
 from Numble import make_numble_class
 from testNodeClasses import *
@@ -24,7 +24,8 @@ tags -- taggees
 Workspace
 
 Tag(taggees)
-AllBricksAvail, Blocked(reason) : Tag
+AllBricksAvail, NoticeAllHaveThisValue, AllMembersSameValue : Tag
+Blocked(reason) : Tag
 
 Group(members)
 Glom : Group
@@ -78,7 +79,7 @@ class TestAc(unittest.TestCase):
         env = Ac.run(g, [
             All(OfClass(Brick), within=g.ws),
             AllAre(CTagged(Avail)),
-            TagWith(AllBricksAvail)
+            TagWith(AllBricksAvail, taggees='nodes')
         ], actor=targetid)
         result = list(g.as_nodes(env['result']))
 
@@ -93,7 +94,7 @@ class TestAc(unittest.TestCase):
         noticer = g.add_node(AcNode, [
             All(OfClass(Brick), within=g.ws),
             AllAre(CTagged(Avail)),
-            TagWith(AllBricksAvail)
+            TagWith(AllBricksAvail, taggees='nodes')
         ], member_of=g.ws)
 
         #pg(g)
@@ -121,7 +122,7 @@ class TestAc(unittest.TestCase):
         noticer = g.add_node(AcNode, [
             All(OfClass(Brick)),
             AllAre(CTagged(Avail)),
-            TagWith(AllBricksAvail)
+            TagWith(AllBricksAvail, taggees='nodes')
         ], name='Noticer', member_of=g.ws)
 
         self.assertIn(noticer.id, g.as_nodeids(g.active_nodes()))
@@ -140,7 +141,7 @@ class TestAc(unittest.TestCase):
             "Did not tag the Bricks even when 'within' was overridden."
         )
 
-    def test_seek_and_glom(self):
+    def test_ac_add_node(self):
         g = TestGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))
 
@@ -156,3 +157,20 @@ class TestAc(unittest.TestCase):
 
         self.assertTrue(glom, 'Did not build Glom')
         self.assertCountEqual(g.neighbors(glom, 'members'), bricks)
+
+    # TODO test overriding 'value' with the value of another node
+    # TODO test that noticer Fails if bricks don't all have the value
+    def test_ac_has_value(self):
+        g = TestGraph(Numble([3, 3, 3], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+
+        noticer = g.add_node(AcNode, [
+            All(OfClass(Number), within=glom),
+            AllAre(HasThisValue(value=3)),
+            TagWith(AllMembersSameValue, taggees=glom)
+        ], member_of=g.ws, name='NoticeAllHaveThisValue')
+
+        g.do_timestep(actor=noticer)
+        #pg(g)
+        self.assertTrue(g.has_tag(glom, AllMembersSameValue))
+
