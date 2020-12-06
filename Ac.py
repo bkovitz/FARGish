@@ -112,6 +112,27 @@ class TagWith(Ac):
         tag = g.add_tag(tagclass, nodes)
         env['result'] = tag
 
+@dataclass
+class AddNode(Ac):
+    nodeclass: MaybeCRef = None
+    kwargs: Dict[str, Any] = None  # Unconditionally filled by __init__
+
+    def __init__(self, nodeclass, **kwargs):
+        self.nodeclass = nodeclass
+        self.kwargs = kwargs
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        nodeclass = self.get(g, actor, env, 'nodeclass')
+        kwargs = {}
+        # TODO Look for required arguments of nodeclass
+        for k, v in self.kwargs.items():
+            if isinstance(v, str):  # TODO What if the value is property a str?
+                # If value is a string, we look it up (indirection)
+                kwargs[k] = self.get(g, actor, env, v)
+            else:
+                kwargs[k] = v
+        env['node'] = g.add_node(nodeclass, **kwargs)
+
 class AcNode(ActionNode):
     '''A node that holds one or more Ac objects and tries to perform them.'''
     node_params = NodeParams(

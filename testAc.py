@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
-from Ac import Ac, AcNode, All, AllAre, TagWith
+from Ac import Ac, AcNode, All, AllAre, TagWith, AddNode
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged
 from StdGraph import Graph, pg 
@@ -139,3 +139,20 @@ class TestAc(unittest.TestCase):
             g.has_tag(bricks, AllBricksAvail),
             "Did not tag the Bricks even when 'within' was overridden."
         )
+
+    def test_seek_and_glom(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        bricks = g.find_all(OfClass(Brick))
+
+        seek_and_glom = g.add_node(AcNode, [
+            All(OfClass(Brick), within=g.ws),
+            AddNode(Glom, members='nodes')
+        ], member_of=g.ws, name='SeekAndGlom')
+
+        g.do_timestep(actor=seek_and_glom)
+        glom = g.look_for(
+            OfClass(Glom), subset=g.neighbors(bricks, 'member_of')
+        )
+
+        self.assertTrue(glom, 'Did not build Glom')
+        self.assertCountEqual(g.neighbors(glom, 'members'), bricks)

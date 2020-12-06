@@ -164,7 +164,7 @@ class Build(Action):
         g.add_node(self.cl, *self.args, **self.kwargs)
 
     @classmethod
-    def maybe_make(cls, g, cl: CRef, *args, **kwargs) -> Union['NEWBuild', None]:
+    def maybe_make(cls, g, cl: CRef, *args, **kwargs) -> Union['Build', None]:
         if not g.already_built(cl, *args, **kwargs):
             return cls(cl, *args, **kwargs)
 
