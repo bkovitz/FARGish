@@ -23,7 +23,7 @@ from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
-    ActionBlocked
+    ActionBlocked, ActionFailure
 from log import *
 from criteria import NoMate
 
@@ -784,11 +784,26 @@ class ActiveGraph(
                 action.go(self, actor)
             except ActionBlocked as exc:
                 if ShowActionsPerformed:
-                    print('failed:', action, exc)
+                    print('blocked:', action, exc)
                 try:
                     self.call_method(exc.actor, 'action_blocked', exc)
                 except Exception as exc2:
                     print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM {exc}:')
+                    #TODO OAOO
+                    try:
+                        print(f'ACTOR: {self.nodestr(action.actor)}')
+                    except AttributeError:
+                        pass
+                    print(f'ACTION: {action}')
+                    print(f'EXC2: {exc2}')
+                    raise
+            except ActionFailure as exc:
+                if ShowActionsPerformed:
+                    print('failed:', action, exc)
+                try:
+                    self.call_method(exc.actor, 'action_failed', exc)
+                except Exception as exc2:
+                    print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM FAILURE {exc}:')
                     #TODO OAOO
                     try:
                         print(f'ACTOR: {self.nodestr(action.actor)}')

@@ -10,7 +10,7 @@ from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion
-from exc import Fizzle, AcNeedArg, AcBlocked
+from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -83,6 +83,8 @@ class AcAction(Action):
             Ac.run(g, self.acs, actor)
         except AcBlocked as exc:
             raise exc.as_action_blocked(self, actor)
+        except AcFailed as exc:
+            raise exc.as_action_failure(self, actor)
         actor.state = Completed
 
 @dataclass
@@ -98,7 +100,7 @@ class All(Ac):
 
 @dataclass
 class AllAre(Ac):
-    criterion: Criterion
+    criterion: Union[Criterion, None] = None
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
@@ -138,6 +140,17 @@ class AddNode(Ac):
             else:
                 kwargs[k] = v
         env['node'] = g.add_node(nodeclass, **kwargs)
+
+@dataclass
+class OrFail(Ac):
+    ac: Ac
+    exc: AcFailed
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        try:
+            self.ac.go(g, actor, env)
+        except AcFalse:
+            raise self.exc(self.ac, actor)
 
 class AcNode(ActionNode):
     '''A node that holds one or more Ac objects and tries to perform them.'''

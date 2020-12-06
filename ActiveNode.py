@@ -7,7 +7,7 @@ from Node import Node
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from util import as_iter
-from exc import Fizzle, NeedArg
+from exc import Fizzle, NeedArg, ActionFailure
 
 
 class ActiveNode(ABC, Node):
@@ -111,12 +111,19 @@ class ActionNode(ActiveNode):
         if hasattr(self.action, 'action_blocked'):
             self.action.action_blocked(self.g, self, exc)
         else:
-            failed_tag = self.g.add_node('Blocked', reason=exc, taggees=self)
-            self.g.set_activation_from_to(self, failed_tag)
-            self.g.add_support(self, failed_tag, 1.0)
+            blocked_tag = self.g.add_node('Blocked', reason=exc, taggees=self)
+            self.g.set_activation_from_to(self, blocked_tag)
+            self.g.add_support(self, blocked_tag, 1.0)
             self.transient_inhibit_all_next()
             self.g.reset_activation(self)
 
+    def action_failed(self, exc: ActionFailure):
+        failed_tag = self.g.add_node('Failed', reason=exc, taggees=self)
+        self.g.set_activation_from_to(self, failed_tag)
+        self.g.add_support(self, failed_tag, 1.0)
+        self.transient_inhibit_all_next()
+        self.g.reset_activation(self)
+        
     def display_name(self):
         #action_name = self.action.__class__.__name__
         if self.name:

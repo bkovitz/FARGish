@@ -6,17 +6,17 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
-from Ac import Ac, AcNode, All, AllAre, TagWith, AddNode
+from Ac import Ac, AcNode, All, AllAre, TagWith, AddNode, OrFail
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, pg 
 from Numble import make_numble_class
 from testNodeClasses import *
-from Node import Node, NRef
+from Node import Node, NRef, MaybeNRef
 from ActiveNode import ActiveNode, Start, Completed
 from log import *
 from util import first
-from exc import AcNeedArg
+from exc import AcNeedArg, ActionFailure, AcFailed
 
 prog = '''
 tags -- taggees
@@ -24,8 +24,9 @@ tags -- taggees
 Workspace
 
 Tag(taggees)
-AllBricksAvail, NoticeAllHaveThisValue, AllMembersSameValue : Tag
+AllBricksAvail, NoticeAllHaveThisValue, AllMembersThisValue : Tag
 Blocked(reason) : Tag
+Failed(reason): Tag
 
 Group(members)
 Glom : Group
@@ -44,6 +45,13 @@ class TestGraph(Graph):
         self.port_mates += port_mates
         ws = self.add_node(Workspace)
         numble.build(self, ws)
+
+@dataclass
+class NotAllThisValue(AcFailed):
+    #value: Any=None
+    #within: NRef=None
+    ac: Ac
+    actor: MaybeNRef
 
 class TestAc(unittest.TestCase):
 
@@ -166,11 +174,31 @@ class TestAc(unittest.TestCase):
 
         noticer = g.add_node(AcNode, [
             All(OfClass(Number), within=glom),
-            AllAre(HasThisValue(value=3)),
-            TagWith(AllMembersSameValue, taggees=glom)
+            OrFail(
+                AllAre(HasThisValue(value=3)),
+                NotAllThisValue
+            ),
+            TagWith(AllMembersThisValue, taggees=glom)
         ], member_of=g.ws, name='NoticeAllHaveThisValue')
 
         g.do_timestep(actor=noticer)
         #pg(g)
-        self.assertTrue(g.has_tag(glom, AllMembersSameValue))
+        self.assertTrue(g.has_tag(glom, AllMembersThisValue))
 
+    def test_ac_has_value_fail(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+
+        noticer = g.add_node(AcNode, [
+            All(OfClass(Number), within=glom),
+            OrFail(
+                AllAre(HasThisValue(value=3)),
+                NotAllThisValue
+            ),
+            TagWith(AllMembersThisValue, taggees=glom)
+        ], member_of=g.ws, name='NoticeAllHaveThisValue')
+
+        g.do_timestep(actor=noticer)
+        #pg(g)
+        self.assertFalse(g.has_tag(glom, AllMembersThisValue))
+        self.assertTrue(g.has_tag(noticer, Failed))

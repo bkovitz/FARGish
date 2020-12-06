@@ -40,6 +40,7 @@ class TooManyTimestepsWithNoResponse(FargDone):
 class FargCantRespond(Exception):
     pass
 
+@dataclass
 class Fizzle(Exception):
     pass
 
@@ -59,6 +60,11 @@ class ActionFailure(Fizzle):
     def __copy__(self):
         # HACK: Fixes mysterious TypeError in copy(NeedArg(...)).
         return replace(self)
+
+@dataclass
+class ActionFailureAc(ActionFailure):
+    ac: 'Ac'
+    actor_: 'MaybeNRef'
 
 @dataclass
 class ActionBlocked(Fizzle):
@@ -84,6 +90,16 @@ class NeedArg(ActionBlocked):
     def __str__(self):
         #return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
         return f'NeedArg({repr(self.name)})'
+
+@dataclass
+class AcFailed(Exception):
+    ac: 'Ac'
+    actor: 'MaybeNRef'
+
+    def as_action_failure(self, action: 'Action', actor: 'MaybeNRef') \
+    -> ActionFailure:
+        '''Most callers should probably override this.'''
+        return ActionFailureAc(action, self.ac, actor)
 
 @dataclass
 class AcBlocked(Exception, ABC):
