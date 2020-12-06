@@ -8,7 +8,7 @@ from util import as_iter, as_list
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
-from ActiveNode import ActionNode, Start
+from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion
 from exc import Fizzle, AcNeedArg, AcBlocked
 
@@ -78,6 +78,7 @@ class AcAction(Action):
             Ac.run(g, self.acs, actor)
         except AcBlocked as exc:
             raise exc.as_action_blocked(self, actor)
+        actor.state = Completed
 
 @dataclass
 class All(Ac):

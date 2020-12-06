@@ -3,7 +3,7 @@ Ac
     Decide: Should Ac return an Action or just do the action?
         DECIDED: Just do the action.
 
-    FIRST IN MORNING: Make a UT for overrides.
+    Make a UT to switch to the Completed state. DONE
 
 
 

@@ -13,7 +13,7 @@ from StdGraph import Graph, pg
 from Numble import make_numble_class
 from testNodeClasses import *
 from Node import Node, NRef
-from ActiveNode import ActiveNode
+from ActiveNode import ActiveNode, Start, Completed
 from log import *
 from util import first
 from exc import AcNeedArg
@@ -94,7 +94,7 @@ class TestAc(unittest.TestCase):
             All(OfClass(Brick), within=g.ws),
             AllAre(CTagged(Avail)),
             TagWith(AllBricksAvail)
-        ])
+        ], member_of=g.ws)
 
         #pg(g)
         #ShowActiveNodes.start_logging()
@@ -103,9 +103,16 @@ class TestAc(unittest.TestCase):
         #ShowActionsChosen.start_logging()
 
         #g.do_timestep()
+        #print('STATE', noticer.state, noticer.can_go())
+        self.assertEqual(noticer.state, Start)
+        self.assertTrue(noticer.can_go())
+        self.assertIn(noticer.id, g.as_nodeids(g.active_nodes()))
         g.do_timestep(actor=noticer)
         tag = g.as_node(first(g.new_nodes))
         self.assertEqual(tag.__class__, AllBricksAvail)
+        self.assertEqual(noticer.state, Completed)
+        self.assertFalse(noticer.can_go())
+        self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
 
     def test_override(self):
         g = TestGraph(Numble([4, 5, 6], 15))
@@ -128,4 +135,7 @@ class TestAc(unittest.TestCase):
 
         g.do_timestep(actor=noticer)
         bricks = g.find_all(OfClass(Brick))
-        self.assertTrue(g.has_tag(bricks, AllBricksAvail), "Did not tag the Bricks even when 'within' was overridden.")
+        self.assertTrue(
+            g.has_tag(bricks, AllBricksAvail),
+            "Did not tag the Bricks even when 'within' was overridden."
+        )
