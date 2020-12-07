@@ -700,7 +700,6 @@ class ActiveGraph(
         if subset is not None:
             nodes = as_set(subset).intersection(nodes)
 
-        #print('FIND_ALL', criteria)
         for c in criteria:
             nodes = [n for n in nodes if c(self, n)]
             if not nodes:

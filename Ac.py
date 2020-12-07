@@ -11,6 +11,7 @@ from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
+from StdGraph import pg
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -25,7 +26,8 @@ class AcFalse(Fizzle):
 class Ac(ABC):
 
     def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
-        '''Looks up name, searching first in env and then in this Ac's attrs.
+        '''Looks up name, searching first in actor's overrides, then in env,
+        then in actor's attrs, and finally in this Ac's attrs.
         Raises AcNeedArg if the value found is None or not found.'''
         try:
             result = g.get_overrides(actor, name)[name]
@@ -33,10 +35,12 @@ class Ac(ABC):
             try:
                 result = env[name]
             except KeyError:
-                try:
-                    result = getattr(self, name)
-                except AttributeError:
-                    result = None
+                result = g.getattr(actor, name)
+                if result is None:
+                    try:
+                        result = getattr(self, name)
+                    except AttributeError:
+                        result = None
 
         if result is None:
             raise AcNeedArg(ac=self, name=name)
@@ -74,6 +78,8 @@ class Ac(ABC):
     def as_action(cls, acs: Union['Ac', Sequence['Ac'], None]) -> Action:
         return AcAction(acs)
 
+Acs = Union[Ac, Iterable[Ac], None]
+
 @dataclass
 class AcAction(Action):
     acs: Union[Ac, Sequence[Ac], None]
@@ -95,7 +101,6 @@ class All(Ac):
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
         within = self.get(g, actor, env, 'within')
-        result = []
         env['nodes'] = g.find_all(criterion, within=within)
 
 @dataclass
@@ -153,12 +158,27 @@ class OrFail(Ac):
             raise self.exc(self.ac, actor)
 
 class AcNode(ActionNode):
-    '''A node that holds one or more Ac objects and tries to perform them.'''
+    '''A node that holds one or more Ac objects and tries to perform them.
+    Subclasses should override the .acs class member. This class performs
+    no action.'''
+    acs: Acs = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.name = self.__class__.__name__
+
+    def on_build(self):
+        self.action = Ac.as_action(self.acs)
+
+    def __repr__(self):
+        return self.__class__.__name__
+
+class AdHocAcNode(AcNode):
+    '''An AcNode that accepts the .acs as a ctor argument.'''
+
     node_params = NodeParams(
-        AttrParam('acs'),
+        AttrParam('acs', None),
         AttrParam('state', Start),
         MateParam('rm_on_success', 'tags')
     )
 
-    def on_build(self):
-        self.action = Ac.as_action(self.acs)

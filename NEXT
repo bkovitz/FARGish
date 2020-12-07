@@ -5,6 +5,7 @@ Ac
 
     Make a UT to switch to the Completed state. DONE
 
+    Make a UT to start a Scout after a node is Blocked.
 
 
 CopyOf

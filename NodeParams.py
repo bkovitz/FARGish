@@ -392,8 +392,15 @@ class FilledAttr(FilledParam):
 
     def __init__(self, attr_param, value):
         self.attr_param = attr_param  # AttrParam or string
-        self.value = copy(value) if isinstance(value, object) else value
-          #HACK
+        #self.value = copy(value) if isinstance(value, object) else value
+          #HACK  This hack introduced a new problem: passing a node as
+          #      an argument produced a copy without the original node's
+          #      id, rendering it useless.
+          # A better hack would be to throw an exception if you pass a Node
+          # as an argument to a FilledAttr. Nodes should never contain
+          # Nodes or nodeids as attrs, since these are references that
+          # can become stale if the referred-to node is ever deleted.
+        self.value = value
 
     def is_mateparam(self):
         return False
