@@ -7,7 +7,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
-    MembersOf, Len
+    MembersOf, Len, EqualValue, Taggees
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, pg 
@@ -22,11 +22,14 @@ from exc import AcNeedArg, ActionFailure, AcFailed
 prog = '''
 tags -- taggees
 within -- overriding
+node1 -- overriding
+node2 -- overriding
 
 Workspace
 
 Tag(taggees)
-AllBricksAvail, NoticeAllHaveThisValue, AllMembersThisValue : Tag
+AllBricksAvail, NoticeAllHaveThisValue, AllMembersHaveThisValue : Tag
+SameValue : Tag
 Blocked(reason) : Tag
 Failed(reason): Tag
 Count(value) : Tag
@@ -184,7 +187,7 @@ class TestAc(unittest.TestCase):
                 AllAre(HasThisValue(value=3)),
                 NotAllThisValue
             ),
-            TagWith(AllMembersThisValue, taggees='within')
+            TagWith(AllMembersHaveThisValue, taggees='within')
         ]
 
     # TODO test overriding 'value' with the value of another node
@@ -198,7 +201,7 @@ class TestAc(unittest.TestCase):
         )
 
         g.do_timestep(actor=noticer)
-        self.assertTrue(g.has_tag(glom, AllMembersThisValue))
+        self.assertTrue(g.has_tag(glom, AllMembersHaveThisValue))
 
     def test_ac_has_value_fail(self):
         g = TestGraph(Numble([4, 5, 6], 15))
@@ -209,7 +212,7 @@ class TestAc(unittest.TestCase):
         )
 
         g.do_timestep(actor=noticer)
-        self.assertFalse(g.has_tag(glom, AllMembersThisValue))
+        self.assertFalse(g.has_tag(glom, AllMembersHaveThisValue))
         self.assertTrue(g.has_tag(noticer, Failed))
 
     def test_ac_count_members(self):
@@ -228,3 +231,24 @@ class TestAc(unittest.TestCase):
         counter = g.add_node(CountMembers, within=glom)
         g.do_timestep(actor=counter)
         self.assertTrue(g.has_tag(glom, Count(value=3)))
+
+    def test_ac_notice_same_value(self):
+        class NoticeSameValue(AcNode):
+            acs = [
+                EqualValue('node1', 'node2'),
+                Taggees('node1', 'node2'),
+                TagWith(SameValue)
+            ]
+
+        g = TestGraph(Numble([1, 1, 1], 3))
+        target = g.look_for(OfClass(Target))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+        count = g.add_node(Count, taggees=glom, value=3)
+
+        noticer = g.add_node(
+            NoticeSameValue,
+            node1=target,
+            node2=count
+        )
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.has_tag([count, target], SameValue))

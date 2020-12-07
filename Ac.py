@@ -12,6 +12,7 @@ from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
 from StdGraph import pg
+from util import as_set
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -115,6 +116,17 @@ class AllAre(Ac):
                 raise AcFalse(self, actor, env)
 
 @dataclass
+class EqualValue(Ac):
+    node1: MaybeNRef = None
+    node2: MaybeNRef = None
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        node1 = self.get(g, actor, env, 'node1')
+        node2 = self.get(g, actor, env, 'node2')
+        if not g.value_of(node1) == g.value_of(node2):
+            raise AcFalse(self, actor, env)
+
+@dataclass
 class MembersOf(Ac):
     within: MaybeNRef = None
 
@@ -155,6 +167,20 @@ class TagWith(Ac):
                 kwargs[k] = self.get(g, actor, env, k)
         tag = g.add_node(tagclass, taggees=taggees, **kwargs)
         env['result'] = tag
+
+@dataclass
+class Taggees(Ac):
+    names: List[str]
+
+    def __init__(self, *args):
+        self.names = args
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        taggees = set()
+        for name in self.names:
+            v = self.get(g, actor, env, name)
+            taggees |= as_set(v)
+        env['taggees'] = taggees
 
 @dataclass
 class AddNode(Ac):
