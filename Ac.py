@@ -115,14 +115,45 @@ class AllAre(Ac):
                 raise AcFalse(self, actor, env)
 
 @dataclass
+class MembersOf(Ac):
+    within: MaybeNRef = None
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        within = self.get(g, actor, env, 'within')
+        env['nodes'] = g.members_of(within)
+
+@dataclass
+class Len(Ac):
+    nodes: NRefs = None
+    
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        nodes = self.get(g, actor, env, 'nodes')
+        env['value'] = len(nodes)
+
+@dataclass
 class TagWith(Ac):
     tagclass: MaybeCRef = None
     taggees: NRefs = None
+    kwargs: Dict[str, Any] = None
+
+    def __init__(self, *args, **kwargs):
+        try:
+            self.tagclass = args[0]
+            self.taggees = args[1]
+        except IndexError:
+            pass
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        self.kwargs = kwargs
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         taggees = self.get(g, actor, env, 'taggees')
         tagclass = self.get(g, actor, env, 'tagclass')
-        tag = g.add_tag(tagclass, taggees)
+        kwargs = {}
+        for k in self.kwargs:
+            if k != 'tagclass' and k != 'taggees':
+                kwargs[k] = self.get(g, actor, env, k)
+        tag = g.add_node(tagclass, taggees=taggees, **kwargs)
         env['result'] = tag
 
 @dataclass
@@ -181,4 +212,3 @@ class AdHocAcNode(AcNode):
         AttrParam('state', Start),
         MateParam('rm_on_success', 'tags')
     )
-

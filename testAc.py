@@ -6,7 +6,8 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
-from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail
+from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
+    MembersOf, Len
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, pg 
@@ -28,6 +29,7 @@ Tag(taggees)
 AllBricksAvail, NoticeAllHaveThisValue, AllMembersThisValue : Tag
 Blocked(reason) : Tag
 Failed(reason): Tag
+Count(value) : Tag
 
 Group(members)
 Glom : Group
@@ -209,3 +211,20 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=noticer)
         self.assertFalse(g.has_tag(glom, AllMembersThisValue))
         self.assertTrue(g.has_tag(noticer, Failed))
+
+    def test_ac_count_members(self):
+        class CountMembers(AcNode):
+            acs = [
+                MembersOf('within'),
+                Len('nodes'),
+                TagWith(Count, taggees='within', value='value')
+            ]
+
+        g = TestGraph(Numble([4, 5, 6], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+
+        self.assertFalse(g.has_tag(glom, Count(value=3)))
+
+        counter = g.add_node(CountMembers, within=glom)
+        g.do_timestep(actor=counter)
+        self.assertTrue(g.has_tag(glom, Count(value=3)))

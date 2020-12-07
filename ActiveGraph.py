@@ -564,10 +564,32 @@ class ActiveGraph(
                     for n in as_iter(node)
             )
         else: #tagclass is actually a node, not a class
-            return all(
-                tagclass in self.neighbors(n, port_label=taggee_port_label)
-                    for n in as_iter(node)
-            )
+            if isinstance(tagclass, Node) and tagclass.id is None:
+                # tagclass is just a Node object to compare against, not
+                # an actual node in the graph.
+                return all(
+                    self.at_least_one_eq_node(
+                        tagclass,
+                        self.neighbors(n, port_label=taggee_port_label)
+                    ) for n in as_iter(node)
+                )
+            else:
+                tagid = self.as_nodeid(tagclass)
+                return all(
+                    tagid in self.neighbors(n, port_label=taggee_port_label)
+                        for n in as_iter(node)
+                )
+
+    def at_least_one_eq_node(self, nobject: Node, candidates: NRefs) -> bool:
+        '''Returns True if at least one member of candidates == nobject.
+        It's OK if nobject does not exist in the graph or does not have an id.
+        We are only comparing against a Node object, not necessarily an
+        actual node in the graph.'''
+        for c in as_iter(candidates):
+            if nobject == self.as_node(c):
+                return True
+        else:
+            return False
 
     def is_tag(self, node: NRefs) -> bool:
         return all(n and n.is_tag for n in self.as_nodes(node))
@@ -1255,7 +1277,10 @@ class ActiveGraph(
             hops = self.hops_from_port(node, from_port_label)
         else:
             hops = self.hops_from_node(node)
-        self.print_hops(sorted(hops, key=attrgetter('from_port_label')))
+        self.print_hops(
+            sorted(hops, key=attrgetter('from_port_label')),
+            prefix=prefix
+        )
 
     # Unimplemented  # TODO
 
