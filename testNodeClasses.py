@@ -21,6 +21,8 @@ class Brick(Number):
     is_duplicable = True
 class Target(Number):
     pass
+class Block(Number):
+    pass
 class Tag(Node):
     node_params = NodeParams(MateParam('taggees', 'tags'))
 class Avail(Tag):

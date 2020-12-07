@@ -96,14 +96,35 @@ class AcAction(Action):
 
 @dataclass
 class All(Ac):
-    criterion: Union[Ac, None] = None
+    criteria: Acs = None
     within: MaybeNRef = None
 
-    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criterion = self.get(g, actor, env, 'criterion')
-        within = self.get(g, actor, env, 'within')
-        env['nodes'] = g.find_all(criterion, within=within)
+    def __init__(self, *criteria, within=None):
+        self.criteria = criteria
+        self.within = within
 
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        criteria = self.get(g, actor, env, 'criteria')
+        within = self.get(g, actor, env, 'within')
+        env['nodes'] = g.find_all(*criteria, within=within)
+
+@dataclass
+class LookFor(Ac):
+    criteria: Acs = None
+    within: MaybeNRef = None
+
+    def __init__(self, *criteria, within=None):
+        self.criteria = criteria
+        self.within = within
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        criteria = self.get(g, actor, env, 'criteria')
+        within = self.get(g, actor, env, 'within')
+        node = g.look_for(*criteria, within=within)
+        if not node:
+            raise AcFalse(self, actor, env)
+        env['node'] = node
+    
 @dataclass
 class AllAre(Ac):
     criterion: Union[Criterion, None] = None

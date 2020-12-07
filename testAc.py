@@ -5,16 +5,19 @@ import inspect
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
+from operator import add, mul
+from functools import reduce
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
-    MembersOf, Len, EqualValue, Taggees
+    MembersOf, Len, EqualValue, Taggees, LookFor
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, pg 
 from Numble import make_numble_class
 from testNodeClasses import *
-from Node import Node, NRef, MaybeNRef
+from Node import Node, NRef, NRefs, CRef, MaybeNRef
 from ActiveNode import ActiveNode, Start, Completed
+from Action import Action
 from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed
@@ -24,15 +27,19 @@ tags -- taggees
 within -- overriding
 node1 -- overriding
 node2 -- overriding
+consume_operands -- proposer
+proposed_operator -- proposer
+result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 
 Workspace
 
 Tag(taggees)
 AllBricksAvail, NoticeAllHaveThisValue, AllMembersHaveThisValue : Tag
-SameValue : Tag
+SameValue, Consumed, Done : Tag
 Blocked(reason) : Tag
 Failed(reason): Tag
 Count(value) : Tag
+
 
 Group(members)
 Glom : Group
@@ -51,6 +58,60 @@ class TestGraph(Graph):
         self.port_mates += port_mates
         ws = self.add_node(Workspace)
         numble.build(self, ws)
+
+    def consume_operands(
+        self,
+        operand_ids: NRefs,
+        operator_class: CRef,
+        actor=None
+    ):
+        if not self.has_tag(operand_ids, Avail):
+            return  # TODO Raise a failure exception?
+        operator_class = self.as_nodeclass(operator_class)
+        operator_id = self.add_node(
+            operator_class, 
+            operands=operand_ids,
+        )
+        result_id = self.add_node(
+            Block,
+            value=arith_result0(self, operator_class, operand_ids),
+            source=operator_id,
+        )
+        self.move_tag(Avail, operand_ids, result_id)
+        self.add_tag(Consumed, operand_ids)
+        self.add_tag(Done, actor)
+
+def arith_result0(g, operator_class, operand_ids):
+    operand_values = [g.value_of(o) for o in operand_ids]
+    # TODO It would be much better if FARGish let you define these operations
+    # as class attributes.
+    if operator_class is None:
+        return None
+    elif operator_class == Plus:
+        return reduce(add, operand_values, 0)
+    elif operator_class == Times:
+        return reduce(mul, operand_values, 1)
+    else:
+        #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
+        raise ValueError(f'Unknown operator class {operator_class}.')
+
+class Proposal(ActiveNode):
+    node_params = NodeParams(AttrParam('action'))
+    # We expect more arguments, which we will pass to 'action'.
+
+    is_duplicable = True  # HACK  Is already_built mis-rejecting this?
+
+    def actions(self):
+        return self.action.with_overrides_from(self.g, self)
+
+@dataclass
+class ConsumeOperands(Action):
+    consume_operands: Union[NRefs, None]=None
+    proposed_operator: Union[NRef, None]=None
+
+    def go(self, g, actor):
+        g.consume_operands(self.consume_operands, self.proposed_operator)
+        g.new_state(self.actor, Completed)
 
 @dataclass
 class NotAllThisValue(AcFailed):
@@ -252,3 +313,31 @@ class TestAc(unittest.TestCase):
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
+
+    def test_ac_add_all_in_glom(self):
+        class AddAllInGlom(AcNode):
+            acs = [
+                All(OfClass(Number), CTagged(Avail)),
+                LookFor(OfClass(Plus), CTagged(Allowed)),
+                AddNode(
+                    Proposal,
+                    action=ConsumeOperands(),
+                    consume_operands='nodes',
+                    proposed_operator='node',
+                )
+            ]
+
+        g = TestGraph(Numble([4, 5, 6], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+        proposer = g.add_node(AddAllInGlom, within=g.ws)
+
+        g.do_timestep(actor=proposer)
+
+        proposal = g.neighbor(proposer, 'built')
+        self.assertEqual(g.class_of(proposal), Proposal)
+
+        g.do_timestep(actor=proposal)
+
+        self.assertTrue(
+            g.has_tag(proposal, Block(15), taggee_port_label='built')
+        )

@@ -586,6 +586,7 @@ class ActiveGraph(
         We are only comparing against a Node object, not necessarily an
         actual node in the graph.'''
         for c in as_iter(candidates):
+            #print('ATL', nobject, c, self.as_node(c), nobject == self.as_node(c))
             if nobject == self.as_node(c):
                 return True
         else:
