@@ -235,6 +235,20 @@ class OrFail(Ac):
         except AcFalse:
             raise self.exc(self.ac, actor)
 
+@dataclass
+class Raise(Ac):
+    exc: Exception
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        raise self.exc  # TODO How to construct exception object from arguments?
+
+@dataclass
+class PrintEnv(Ac):
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        print('ENV', env)
+
+@dataclass
 class AcNode(ActionNode):
     '''A node that holds one or more Ac objects and tries to perform them.
     Subclasses should override the .acs class member. This class performs
@@ -251,6 +265,7 @@ class AcNode(ActionNode):
     def __repr__(self):
         return self.__class__.__name__
 
+@dataclass
 class AdHocAcNode(AcNode):
     '''An AcNode that accepts the .acs as a ctor argument.'''
 

@@ -9,7 +9,7 @@ from operator import add, mul
 from functools import reduce
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
-    MembersOf, Len, EqualValue, Taggees, LookFor
+    MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, pg 
@@ -20,13 +20,14 @@ from ActiveNode import ActiveNode, Start, Completed
 from Action import Action
 from log import *
 from util import first
-from exc import AcNeedArg, ActionFailure, AcFailed
+from exc import AcNeedArg, ActionFailure, AcFailed, FargDone
 
 prog = '''
 tags -- taggees
 within -- overriding
 node1 -- overriding
 node2 -- overriding
+target -- overriding
 consume_operands -- proposer
 proposed_operator -- proposer
 result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
@@ -49,6 +50,10 @@ exec(compile_fargish(prog), globals())
 Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times]
 )
+
+@dataclass
+class NumboSuccess(FargDone):
+    pass
 
 class TestGraph(Graph):
 
@@ -121,6 +126,9 @@ class NotAllThisValue(AcFailed):
     actor: MaybeNRef
 
 class TestAc(unittest.TestCase):
+
+    def setUp(self):
+        stop_all_logging()
 
     def test_do_notice_and_tag(self):
         # Tests running Ac objects directly. Normally, though, you only run
@@ -341,3 +349,21 @@ class TestAc(unittest.TestCase):
         self.assertTrue(
             g.has_tag(proposal, Block(15), taggee_port_label='built')
         )
+
+    def test_ac_notice_solved(self):
+        class NoticeSolved(AcNode):
+            acs = [
+                LookFor(CTagged(Avail)),
+                EqualValue('node', 'target'),
+                Raise(NumboSuccess)  # TODO pass Equation with node and target
+            ]
+
+        g = TestGraph(Numble([15], 15))
+        target = g.look_for(OfClass(Target))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+
+        noticer = g.add_node(NoticeSolved, within=glom, target=target)
+
+        g.do_timestep(actor=noticer)
+
+        self.assertEqual(g.done(), NumboSuccess())
