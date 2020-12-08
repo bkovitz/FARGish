@@ -258,10 +258,23 @@ class OrFail(Ac):
 
 @dataclass
 class Raise(Ac):
-    exc: Exception
+    exc: Type[Exception]
+    kwargs: Dict[str, Any] = None  # Unconditionally filled by __init__
+
+    def __init__(self, exc, **kwargs):
+        self.exc = exc
+        self.kwargs = kwargs
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        raise self.exc  # TODO How to construct exception object from arguments?
+        kwargs = {}
+        # TODO Look for required arguments of exc
+        for k, v in self.kwargs.items():
+            if isinstance(v, str):  # TODO What if the value is property a str?
+                # If value is a string, we look it up (indirection)
+                kwargs[k] = self.get(g, actor, env, v)
+            else:
+                kwargs[k] = v
+        raise self.exc(**kwargs)
 
 @dataclass
 class PrintEnv(Ac):

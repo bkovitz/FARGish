@@ -53,7 +53,8 @@ Numble = make_numble_class(
 
 @dataclass
 class NumboSuccess(FargDone):
-    pass
+    node: NRef
+    target: NRef
 
 class TestGraph(Graph):
 
@@ -354,7 +355,7 @@ class TestAc(unittest.TestCase):
         class NoticeSolved(AcNode):
             acs = [
                 LookFor(CTagged(Avail), cond=EqualValue('node', 'target')),
-                Raise(NumboSuccess) #, 'node', 'target')
+                Raise(NumboSuccess, node='node', target='target')
             ]
 
         g = TestGraph(Numble([4, 5, 6, 15], 15))
@@ -365,5 +366,7 @@ class TestAc(unittest.TestCase):
 
         g.do_timestep(actor=noticer)
 
-        # TODO Verify that LookFor found the correct node.
-        self.assertEqual(g.done(), NumboSuccess())
+        got = g.done()
+        self.assertEqual(got.__class__, NumboSuccess)
+        self.assertEqual(g.as_node(got.node), Brick(15))
+        self.assertEqual(g.as_node(got.target), Target(15))
