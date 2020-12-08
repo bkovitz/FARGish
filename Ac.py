@@ -9,7 +9,7 @@ from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
-from criteria import Criterion
+from criteria import Criterion, Criteria
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
 from StdGraph import pg
 from util import as_set
@@ -63,17 +63,31 @@ class Ac(ABC):
     def run(
         cls,
         g: 'ActiveGraph',
-        acs: Union['Ac', Sequence['Ac'], None],
+        acs: Union['Ac', Iterable['Ac'], None],
         actor: NRef
     ) -> AcEnv:
-        '''Runs acs, starting from an empty AcEnv.'''
+        '''Runs acs, starting from an empty AcEnv. If any Ac throws AcFalse,
+        run() catches it and returns the env from the AcFalse exception.
+        This makes run() suitable for run acs as an Action, but not as a
+        subroutine called from inside an Ac. For that, see Ac.call().'''
         env = AcEnv()
         try:
-            for ac in as_iter(acs):
-                ac.go(g, actor, env)
+            cls.call(g, acs, actor, env)
         except AcFalse as exc:
             return exc.env
         return env
+
+    @classmethod
+    def call(
+        cls,
+        g: 'ActiveGraph',
+        acs: Union['Ac', Iterable['Ac'], None],
+        actor: NRef,
+        env: AcEnv
+    ) -> None:
+        '''Runs acs, starting from given AcEnv. env will likely be modified.'''
+        for ac in as_iter(acs):
+            ac.go(g, actor, env)
 
     @classmethod
     def as_action(cls, acs: Union['Ac', Sequence['Ac'], None]) -> Action:
@@ -110,21 +124,28 @@ class All(Ac):
 
 @dataclass
 class LookFor(Ac):
-    criteria: Acs = None
+    criteria: Criteria = None
     within: MaybeNRef = None
+    cond: Acs = None  # Acs to check further criteria
 
-    def __init__(self, *criteria, within=None):
+    def __init__(self, *criteria, within=None, cond=None):
         self.criteria = criteria
         self.within = within
+        self.cond = cond
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criteria = self.get(g, actor, env, 'criteria')
         within = self.get(g, actor, env, 'within')
-        node = g.look_for(*criteria, within=within)
+        for node in g.find_all(*criteria, within=within):
+            try:
+                env['node'] = node
+                Ac.call(g, self.cond, actor, env)
+                break
+            except AcFalse:
+                continue
         if not node:
             raise AcFalse(self, actor, env)
-        env['node'] = node
-    
+
 @dataclass
 class AllAre(Ac):
     criterion: Union[Criterion, None] = None
@@ -144,7 +165,7 @@ class EqualValue(Ac):
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         node1 = self.get(g, actor, env, 'node1')
         node2 = self.get(g, actor, env, 'node2')
-        if not g.value_of(node1) == g.value_of(node2):
+        if g.value_of(node1) != g.value_of(node2):
             raise AcFalse(self, actor, env)
 
 @dataclass

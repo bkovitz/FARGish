@@ -353,12 +353,11 @@ class TestAc(unittest.TestCase):
     def test_ac_notice_solved(self):
         class NoticeSolved(AcNode):
             acs = [
-                LookFor(CTagged(Avail)),
-                EqualValue('node', 'target'),
-                Raise(NumboSuccess)  # TODO pass Equation with node and target
+                LookFor(CTagged(Avail), cond=EqualValue('node', 'target')),
+                Raise(NumboSuccess) #, 'node', 'target')
             ]
 
-        g = TestGraph(Numble([15], 15))
+        g = TestGraph(Numble([4, 5, 6, 15], 15))
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
@@ -366,4 +365,5 @@ class TestAc(unittest.TestCase):
 
         g.do_timestep(actor=noticer)
 
+        # TODO Verify that LookFor found the correct node.
         self.assertEqual(g.done(), NumboSuccess())

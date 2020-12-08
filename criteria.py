@@ -37,6 +37,8 @@ class Criterion(ABC):
                 ls.append(c)
             return ls
 
+Criteria = Union[Criterion, Iterable[Criterion], None]
+
 class Tagged(Criterion):
 
     def __init__(self, tagclass):
