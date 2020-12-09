@@ -162,7 +162,10 @@ class NetworkxPortGraph(PortGraphPrimitives):
             self.remove_hop(hop)
 
     def _neighbors(self, nodeid: NodeId) -> Iterable[NodeId]:
-        return self.g.neighbors(nodeid)
+        try:
+            return self.g.neighbors(nodeid)
+        except nx.exception.NetworkXError:
+            return empty_set
 
     def _remove_all_hops_to(self, nodeid: NodeId):
         for neighbor in as_list(self._neighbors(nodeid)):
@@ -178,7 +181,10 @@ class NetworkxPortGraph(PortGraphPrimitives):
             self.g.remove_edge(node1, node2, hop.key)
 
     def _hops_from_node(self, nodeid) -> FrozenSet[Hop]:
-        return self.g.nodes[nodeid]['hops'].all_hops()
+        try:
+            return self.g.nodes[nodeid]['hops'].all_hops()
+        except KeyError:
+            return empty_set
         
     def _hops_from_port(self, nodeid, port_label) -> FrozenSet[Hop]:
         try:
@@ -189,9 +195,12 @@ class NetworkxPortGraph(PortGraphPrimitives):
             return empty_set
         
     def _hops_to_neighbor(self, nodeid, neighbor_nodeid):
-        return (
-            self.g.nodes[nodeid]['hops'].hops_to_neighbor(neighbor_nodeid)
-        )
+        try:
+            return (
+                self.g.nodes[nodeid]['hops'].hops_to_neighbor(neighbor_nodeid)
+            )
+        except KeyError:
+            return empty_set
 
     def _port_labels(self, nodeid: NodeId) -> PortLabels:
         return self.g.nodes[nodeid]['hops'].from_port_labels()

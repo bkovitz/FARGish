@@ -185,6 +185,8 @@ class BruteGraph(ExprAsEquation, Graph):
     def __init__(self, numble=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.port_mates += port_mates
+        self.nodeclasses.update(nodeclasses)
+        self.add_nodeclasses(Numble)
 
         ws = self.add_node(Workspace)
         if numble:

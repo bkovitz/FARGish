@@ -26,6 +26,9 @@ class Brick(Number):
 class Avail(Tag):
     pass
 
+class Watcher(Tag):
+    pass
+
 class UniqueNumber(Node):
     node_params = NodeParams(AttrParam('value'))
 
@@ -71,6 +74,10 @@ class TestGraph(Graph):
         self.port_mates += [
             ('bricks', 'numble'), ('to', 'from'), ('wto', 'wfrom')
         ]
+        self.add_nodeclasses(
+            Tag, Number, Brick, Avail, Watcher, UniqueNumber, Group,
+            Workspace, Numble, WNode, W2Node
+        )
 
 class TestStdGraph(unittest.TestCase):
 
@@ -304,6 +311,21 @@ class TestStdGraph(unittest.TestCase):
             g.as_nodes(g.walk(n1, neighbor_label='wfrom')),
             [n1, n1_a2]
         )
+
+    def test_touch_on_removal(self):
+        g = TestGraph()
+        b1 = g.add_node(Brick, 1)
+        avail = g.add_tag(Avail, b1)
+        watcher = g.add_tag(Watcher, b1)
+
+        g.do_timestep()  # Clear g.touched_nodes
+        assert not g.touched_nodes
+
+        # Removing the Avail tag on the Brick should touch the Watcher,
+        # because the Watcher is watching the Brick.
+        g.remove_tag(b1, avail)
+
+        self.assertIn(watcher.id, g.touched_nodes)
 
     def teest_slipnet_search(self):
         # TODO Link the slipnodes; build an initial activation dict

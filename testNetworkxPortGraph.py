@@ -132,12 +132,18 @@ class TestNetworkxPortGraph(unittest.TestCase):
         g._remove_node(nodeid1)
 
         self.assertEqual(g.num_nodes(), 1)
+        self.assertEqual(g.num_edges(), 0)
 
         self.assertCountEqual(g._hops_from_node(nodeid2), [])
         self.assertCountEqual(g._hops_from_port(nodeid2, 'from'), [])
         self.assertCountEqual(g._hops_to_neighbor(nodeid2, nodeid1), [])
         self.assertCountEqual(g._neighbors(nodeid2), [])
-        self.assertEqual(g.num_edges(), 0)
+
+        # Asking for hops from a non-existent node should return empty.
+        self.assertCountEqual(g._hops_from_node(nodeid1), [])
+        self.assertCountEqual(g._hops_from_port(nodeid1, 'from'), [])
+        self.assertCountEqual(g._hops_to_neighbor(nodeid1, nodeid2), [])
+        self.assertCountEqual(g._neighbors(nodeid1), [])
 
 class GraphWithNetworkxActivation(
     ActiveGraph,

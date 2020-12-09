@@ -397,7 +397,10 @@ class TestAc(unittest.TestCase):
 
         #self.assertCountEqual(as_iter(g.actions(tag)), [])
 
+        g.do_timestep()
+
         g.remove_tag(bricks[0], Avail)  # now all Bricks are no longer Avail
+
         g.do_timestep(actor=tag)
 
         self.assertFalse(

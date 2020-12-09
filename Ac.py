@@ -103,6 +103,7 @@ class AcAction(Action):
     acs: Union[Ac, Sequence[Ac], None]
 
     def go(self, g, actor):
+        actor = g.as_node(actor)
         try:
             Ac.run(g, self.acs, actor)
         except AcBlocked as exc:

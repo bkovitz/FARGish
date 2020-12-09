@@ -92,6 +92,9 @@ class ActiveGraph(
         self.ws: MaybeNRef = None
         self.slipnet: MaybeNRef = None
 
+    def add_nodeclasses(self, *clss: Type[Node]):
+        self.nodeclasses.update((cls.__name__, cls) for cls in clss)
+
     # Overrides for ActiveGraphPrimitives
 
     def add_node(
@@ -158,10 +161,15 @@ class ActiveGraph(
 
     #TODO UT
     def remove_node(self, node: NRefs):
+        '''Touches all of node's neighbors and all the tags of node's
+        neighbors, and then removes node.'''
+        self.touch(self.neighbors(node))
+        self.touch(self.tags_of(self.neighbors(node)))
         for n in as_iter(node):
-            if ShowPrimitives:
-                print('removed node', self.long_nodestr(n))
-            self._remove_node(self.as_nodeid(n))
+            if self.has_node(n):
+                if ShowPrimitives:
+                    print('removed node', self.long_nodestr(n))
+                self._remove_node(self.as_nodeid(n))
 
     def add_edge(
         self,
@@ -914,7 +922,9 @@ class ActiveGraph(
             for toid in as_iter(toids):
                 self.add_tag(tagclass, toid)
 
-    def tags_of(self, nodes, tagclass=['Tag', str], taggee_port_label='tags'):
+    def tags_of(
+        self, nodes: NRefs, tagclass: CRefs='Tag', taggee_port_label='tags'
+    ):
         '''Returns a generator. nodes can be a single node id or an iterable
         of node ids.'''
         #TODO Should be able to specify tagclass more narrowly.
@@ -939,7 +949,11 @@ class ActiveGraph(
             return None
         
     #TODO Consistent argument order: put tag_or_tagclass first?
-    def remove_tag(self, node_or_nodes, tag_or_tagclass):
+    def remove_tag(
+        self,
+        node_or_nodes: NRefs,
+        tag_or_tagclass: Union[NRef, CRef]
+    ):
         '''Removes all tags of node that match tagclass. Returns True iff at
         last one of node_or_nodes was actually so tagged.'''
         #TODO Should only remove the edge if the tag tags other nodes, too.
@@ -950,8 +964,9 @@ class ActiveGraph(
             tagids = list(self.tags_of(node_or_nodes, tagclass=tag_or_tagclass))
             if tagids:
                 self.remove_node(tagids)
-            result = True
+            result = True  # TODO indent
         else:
+            # tag_or_tagclass is an NRefs
             self.remove_node(tag_or_tagclass)
             result = True # HACK BUG We should check that node_or_nodes really
                           # has the given tag node.
