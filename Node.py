@@ -42,6 +42,9 @@ class Node:
     min_activation: float = 0.0
     initial_activation: float = 1.0
 
+    # Do we need to call this node's .update() method?
+    needs_update: bool = False
+
     attrs_not_to_copy: ClassVar[Set[str]] = frozenset([
         'id', 'g', 'filled_params', 'tob', 'support_for'
     ])
@@ -81,6 +84,12 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def on_build(self):
         '''Called just after node is built. Enables the node to do any
         needed set-up. The default implementation does nothing.'''
+        pass
+
+    def on_touch(self):
+        '''Called at end of timestep when node got touched (something happened
+        to at least one of its neighbors). The default implementation does
+        nothing.'''
         pass
 
     def regen_kwargs(self) -> Dict[str, Any]:

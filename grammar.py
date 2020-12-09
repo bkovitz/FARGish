@@ -408,7 +408,7 @@ def p_actions(p):
                | actions ',' action'''
     one_or_more(p, 1, 3)
 
-# NEXT   Build nodespec_expr
+# TODO   Build nodespec_expr
 def p_action(p):
     '''action : BUILD buildspec
               | expr'''

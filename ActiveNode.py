@@ -1,6 +1,9 @@
 # ActiveNode.py -- Base classes for nodes that can perform Actions
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable
 
 #from PortGraph import Node
 from Node import Node
@@ -46,6 +49,8 @@ class ActiveNode(ABC, Node):
     def is_dormant(self):
         '''Return True to prevent TimeStepper from calling .actions() on this
         node.'''
+        if not self.state:
+            return False
         return (
             not self.state.is_active(self.g, self)
             or
@@ -160,3 +165,16 @@ def make_action_sequence(g, *actions: Action, **kwargs):
         ActionSeqNode, members=action_nodes, **kwargs
     )
     return seqnode
+
+@dataclass
+class HasUpdate(ActiveNode):
+    '''Mix-in for a Node that needs to have its .update() function called
+    when it's touched.'''
+    update_action: Actions = None
+
+    def on_touch(self):
+        self.needs_update = True
+        super().on_touch()
+
+    def update(self):
+        return self.update_action

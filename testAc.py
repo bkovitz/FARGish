@@ -17,7 +17,7 @@ from StdGraph import Graph, MyContext, pg
 from Numble import make_numble_class
 from testNodeClasses import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef
-from ActiveNode import ActiveNode, Start, Completed
+from ActiveNode import ActiveNode, Start, Completed, HasUpdate
 from Action import Action, Actions
 from log import *
 from util import first
@@ -102,9 +102,10 @@ def arith_result0(g, operator_class, operand_ids):
         #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
         raise ValueError(f'Unknown operator class {operator_class}.')
 
-class AllBricksAvail(Tag, ActiveNode):
+@dataclass
+class AllBricksAvail(Tag, HasUpdate, ActiveNode):
 
-    update_action = Ac.as_action([
+    update_action: Actions = Ac.as_action([
         All(OfClass(Brick), within=MyContext),
         AcNot(AllAre(CTagged(Avail))),
         SelfDestruct()
@@ -112,13 +113,6 @@ class AllBricksAvail(Tag, ActiveNode):
 
     def actions(self):
         pass
-
-    def update(self) -> Actions:
-        return self.update_action
-#        bricks = self.g.find_all(OfClass(Brick))
-#        if not AllTagged(self.g, Avail, bricks):
-#            return [SelfDestruct(self)]
-        
 
 class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
@@ -395,12 +389,15 @@ class TestAc(unittest.TestCase):
         bricks = g.find_all(OfClass(Brick))
         tag = g.add_tag(AllBricksAvail, bricks)
 
-        #self.assertCountEqual(as_iter(g.actions(tag)), [])
-
-        g.do_timestep()
+        self.assertFalse(tag.needs_update)
+        self.assertCountEqual(as_iter(g.actions(tag)), [])
 
         g.remove_tag(bricks[0], Avail)  # now all Bricks are no longer Avail
 
+        g.do_touches()  # UGLY: calling .do_timestep() clears the touch made
+                        # by .remove_tag(), so we force .do_touches() here.
+
+        self.assertTrue(tag.needs_update)
         g.do_timestep(actor=tag)
 
         self.assertFalse(

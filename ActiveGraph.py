@@ -1112,11 +1112,11 @@ class ActiveGraph(
     def actions(self, nref: NRef) -> Actions:
         if not self.has_node(nref):
             return None
-        result = self.datum(nref).update()
-        if result:
-            return result
-        else:
-            return self.datum(nref).actions()
+        if self.datum(nref).needs_update:
+            result = self.datum(nref).update()
+            if result:
+                return result
+        return self.datum(nref).actions()
 
     def collect_actions(self, active_nodes: NRefs) -> List[Action]:
         actions = []
@@ -1183,11 +1183,11 @@ class ActiveGraph(
             self.touched_nodes |= self.as_nodeids(nrefs)
 
     def do_touch(self, node: NRef):
-        if not self.during_touch:
+        if not self.during_touch and self.has_node(node):
             with PushAttr(self, 'during_touch'):
                 self.during_touch = True
                 self.boost_activation(node)
-                #TODO Call Node.update?  Add a NeedsUpdate tag?
+                self.as_node(node).on_touch()
 
     def do_touches(self):
         for nodeid in self.touched_nodes:
