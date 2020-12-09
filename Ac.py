@@ -185,28 +185,38 @@ class Len(Ac):
         env['value'] = len(nodes)
 
 @dataclass
-class TagWith(Ac):
-    tagclass: MaybeCRef = None
-    taggees: NRefs = None
+class HasKwargs(Ac):  # Mix-in
     kwargs: Dict[str, Any] = None
 
     def __init__(self, *args, **kwargs):
-        try:
-            self.tagclass = args[0]
-            self.taggees = args[1]
-        except IndexError:
-            pass
         for k, v in kwargs.items():
             setattr(self, k, v)
         self.kwargs = kwargs
+        
+    def get_kwargs(self, g: 'G', actor: NRef, env: AcEnv) -> Dict[str, Any]:
+        kwargs = {}
+        for k, v in self.kwargs.items():
+            if isinstance(v, str):  # TODO What if the value is property a str?
+                # If value is a string, we look it up (indirection)
+                kwargs[k] = self.get(g, actor, env, v)
+            else:
+                kwargs[k] = v
+        return kwargs
+    
+@dataclass
+class TagWith(HasKwargs, Ac):
+    tagclass: MaybeCRef = None
+    taggees: NRefs = None
+
+    def __init__(self, tagclass=None, taggees=None, **kwargs):
+        self.tagclass = tagclass
+        self.taggees = taggees
+        super().__init__(self, **kwargs)
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         taggees = self.get(g, actor, env, 'taggees')
         tagclass = self.get(g, actor, env, 'tagclass')
-        kwargs = {}
-        for k in self.kwargs:
-            if k != 'tagclass' and k != 'taggees':
-                kwargs[k] = self.get(g, actor, env, k)
+        kwargs = self.get_kwargs(g, actor, env)
         tag = g.add_node(tagclass, taggees=taggees, **kwargs)
         env['result'] = tag
 
@@ -225,24 +235,16 @@ class Taggees(Ac):
         env['taggees'] = taggees
 
 @dataclass
-class AddNode(Ac):
+class AddNode(HasKwargs, Ac):
     nodeclass: MaybeCRef = None
-    kwargs: Dict[str, Any] = None  # Unconditionally filled by __init__
 
     def __init__(self, nodeclass, **kwargs):
         self.nodeclass = nodeclass
-        self.kwargs = kwargs
+        super().__init__(self, **kwargs)
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         nodeclass = self.get(g, actor, env, 'nodeclass')
-        kwargs = {}
-        # TODO Look for required arguments of nodeclass
-        for k, v in self.kwargs.items():
-            if isinstance(v, str):  # TODO What if the value is property a str?
-                # If value is a string, we look it up (indirection)
-                kwargs[k] = self.get(g, actor, env, v)
-            else:
-                kwargs[k] = v
+        kwargs = self.get_kwargs(g, actor, env)
         env['node'] = g.add_node(nodeclass, **kwargs)
 
 @dataclass
@@ -257,23 +259,15 @@ class OrFail(Ac):
             raise self.exc(self.ac, actor)
 
 @dataclass
-class Raise(Ac):
-    exc: Type[Exception]
-    kwargs: Dict[str, Any] = None  # Unconditionally filled by __init__
+class Raise(HasKwargs, Ac):
+    exc: Type[Exception] = None  # unconditionally filled in by __init__
 
     def __init__(self, exc, **kwargs):
         self.exc = exc
-        self.kwargs = kwargs
+        super().__init__(self, **kwargs)
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        kwargs = {}
-        # TODO Look for required arguments of exc
-        for k, v in self.kwargs.items():
-            if isinstance(v, str):  # TODO What if the value is property a str?
-                # If value is a string, we look it up (indirection)
-                kwargs[k] = self.get(g, actor, env, v)
-            else:
-                kwargs[k] = v
+        kwargs = self.get_kwargs(g, actor, env)
         raise self.exc(**kwargs)
 
 @dataclass
