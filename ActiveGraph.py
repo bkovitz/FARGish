@@ -1095,7 +1095,13 @@ class ActiveGraph(
         ))
 
     def actions(self, nref: NRef) -> Actions:
-        return self.datum(nref).actions()
+        if not self.has_node(nref):
+            return None
+        result = self.datum(nref).update()
+        if result:
+            return result
+        else:
+            return self.datum(nref).actions()
 
     def collect_actions(self, active_nodes: NRefs) -> List[Action]:
         actions = []

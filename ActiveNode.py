@@ -34,6 +34,14 @@ class ActiveNode(ABC, Node):
         .actions() is called. So, it is not necessary to check .state.'''
         pass
 
+    def update(self) -> Actions:
+        '''Should return any self-update Actions that this node needs to
+        perform, such as SelfDestruct if the node is a Tag that notices that
+        it's no longer true. If .update() returns any Actions, then .actions()
+        does not get called; updates are actions to run *instead of* the
+        node's main actions. By default, returns None.'''
+        pass
+
     # TODO rm; mv body to .can_go().
     def is_dormant(self):
         '''Return True to prevent TimeStepper from calling .actions() on this
@@ -94,15 +102,6 @@ class ActionNode(ActiveNode):
         MateParam('rm_on_success', 'tags')
     )
     initial_activation = 0.1
-
-    #TODO rm
-    def OLDactions(self, g: 'G') -> Actions:
-        if not self.is_dormant():
-            return [self.action.with_overrides_from(g, self)]
-        # TODO If action has any missing args, make scout actions to fill them
-        # in.
-
-        # Otherwise return a version of the action with those args filled in.
 
     def actions(self):
         return self.action.with_overrides_from(self.g, self)

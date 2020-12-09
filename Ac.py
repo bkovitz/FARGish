@@ -288,7 +288,8 @@ class AcNode(ActionNode):
         self.name = self.__class__.__name__
 
     def on_build(self):
-        self.action = Ac.as_action(self.acs)
+        if not self.action:
+            self.action = Ac.as_action(self.acs)
 
     def __repr__(self):
         return self.__class__.__name__

@@ -17,7 +17,7 @@ from Numble import make_numble_class
 from testNodeClasses import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef
 from ActiveNode import ActiveNode, Start, Completed
-from Action import Action
+from Action import Action, Actions, SelfDestruct
 from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone
@@ -35,7 +35,7 @@ result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 Workspace
 
 Tag(taggees)
-AllBricksAvail, NoticeAllHaveThisValue, AllMembersHaveThisValue : Tag
+AllMembersHaveThisValue : Tag
 SameValue, Consumed, Done : Tag
 Blocked(reason) : Tag
 Failed(reason): Tag
@@ -100,6 +100,17 @@ def arith_result0(g, operator_class, operand_ids):
     else:
         #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
         raise ValueError(f'Unknown operator class {operator_class}.')
+
+class AllBricksAvail(Tag, ActiveNode):
+
+    def actions(self):
+        pass
+
+    def update(self) -> Actions:
+        bricks = self.g.find_all(OfClass(Brick))
+        if not AllTagged(self.g, Avail, bricks):
+            return [SelfDestruct(self)]
+        
 
 class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
@@ -370,3 +381,22 @@ class TestAc(unittest.TestCase):
         self.assertEqual(got.__class__, NumboSuccess)
         self.assertEqual(g.as_node(got.node), Brick(15))
         self.assertEqual(g.as_node(got.target), Target(15))
+
+    def test_ac_selfdestruct_on_update(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        bricks = g.find_all(OfClass(Brick))
+        tag = g.add_tag(AllBricksAvail, bricks)
+
+        self.assertCountEqual(as_iter(g.actions(tag)), [])
+
+        g.remove_tag(bricks[0], Avail)  # now all Bricks are no longer Avail
+        g.do_timestep(actor=tag)
+
+        self.assertFalse(
+            g.has_node(tag),
+            'AllBricksAvail did not SelfDestruct.'
+        )
+
+        # Trying to run the tag after it no longer exists should not cause
+        # an exception.
+        g.do_timestep(actor=tag)
