@@ -1296,6 +1296,14 @@ class ActiveGraph(
 
 G = ActiveGraph
 
+@dataclass
+class CMyContext:
+
+    def within(self, g: G, actor: NRef) -> MaybeNRef:
+        return g.neighbor(actor, 'member_of')
+
+MyContext = CMyContext()
+
 def pt(g: G):
     '''Prints title with t= and other info about the graph.'''
     sum_a = sum(g.activation(n) for n in g.nodes())

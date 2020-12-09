@@ -9,15 +9,16 @@ from operator import add, mul
 from functools import reduce
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
-    MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv
+    MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
+    SelfDestruct
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
-from StdGraph import Graph, pg 
+from StdGraph import Graph, MyContext, pg
 from Numble import make_numble_class
 from testNodeClasses import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef
 from ActiveNode import ActiveNode, Start, Completed
-from Action import Action, Actions, SelfDestruct
+from Action import Action, Actions
 from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone
@@ -103,13 +104,20 @@ def arith_result0(g, operator_class, operand_ids):
 
 class AllBricksAvail(Tag, ActiveNode):
 
+    update_action = Ac.as_action([
+        All(OfClass(Brick), within=MyContext),
+        AcNot(AllAre(CTagged(Avail))),
+        SelfDestruct()
+    ])
+
     def actions(self):
         pass
 
     def update(self) -> Actions:
-        bricks = self.g.find_all(OfClass(Brick))
-        if not AllTagged(self.g, Avail, bricks):
-            return [SelfDestruct(self)]
+        return self.update_action
+#        bricks = self.g.find_all(OfClass(Brick))
+#        if not AllTagged(self.g, Avail, bricks):
+#            return [SelfDestruct(self)]
         
 
 class Proposal(ActiveNode):
@@ -387,7 +395,7 @@ class TestAc(unittest.TestCase):
         bricks = g.find_all(OfClass(Brick))
         tag = g.add_tag(AllBricksAvail, bricks)
 
-        self.assertCountEqual(as_iter(g.actions(tag)), [])
+        #self.assertCountEqual(as_iter(g.actions(tag)), [])
 
         g.remove_tag(bricks[0], Avail)  # now all Bricks are no longer Avail
         g.do_timestep(actor=tag)

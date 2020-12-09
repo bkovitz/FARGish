@@ -11,7 +11,7 @@ from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion, Criteria
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
-from StdGraph import pg
+from StdGraph import MyContext, pg
 from util import as_set
 
 AcEnv = dict
@@ -19,7 +19,7 @@ AcEnv = dict
 
 @dataclass
 class AcFalse(Fizzle):
-    ac: 'Ac'
+    ac: 'Acs'
     actor: NRef
     env: AcEnv
 
@@ -50,6 +50,9 @@ class Ac(ABC):
             # this key before.
             # TODO What if the value is actually supposed to be a str?
             return self.get(g, actor, env, result)
+        elif result == MyContext:
+            result = result.within(g, actor)
+            return result
         else:
             return result
 
@@ -156,6 +159,18 @@ class AllAre(Ac):
         for node in as_iter(nodes):
             if not criterion(g, node):
                 raise AcFalse(self, actor, env)
+
+@dataclass
+class AcNot(Ac):
+    acs: Acs
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        try:
+            Ac.call(g, self.acs, actor, env)
+        except AcFalse:
+            pass
+        else:
+            raise AcFalse(self.acs, actor, env)
 
 @dataclass
 class EqualValue(Ac):
@@ -269,6 +284,12 @@ class Raise(HasKwargs, Ac):
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         kwargs = self.get_kwargs(g, actor, env)
         raise self.exc(**kwargs)
+
+@dataclass
+class SelfDestruct(Ac):
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        g.remove_node(actor)
 
 @dataclass
 class PrintEnv(Ac):

@@ -202,6 +202,8 @@ class Fail(Action):
         for nodeid in as_iter(self.node_or_nodes):
             g.datum(nodeid).fail(g, nodeid)
 
+# TODO SelfDestruct should not take an argument: it should remove 'actor'.
+# TODO Name-clash with SelfDestruct in Ac.py.
 @dataclass
 class SelfDestruct(Action):
     node: MaybeNRef

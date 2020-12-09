@@ -7,7 +7,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 from itertools import chain
 
-from ActiveGraph import ActiveGraph, pg
+from ActiveGraph import ActiveGraph, MyContext, pg
 from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
 from Primitives import ActivationPrimitives, ActivationPolicy, \
