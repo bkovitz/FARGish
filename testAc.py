@@ -21,7 +21,7 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate
 from Action import Action, Actions
 from log import *
 from util import first
-from exc import AcNeedArg, ActionFailure, AcFailed, FargDone
+from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 
 prog = '''
 tags -- taggees
@@ -113,6 +113,13 @@ class AllBricksAvail(Tag, HasUpdate, ActiveNode):
 
     def actions(self):
         pass
+
+class Noticer(AcNode):
+    acs = [
+        All(OfClass(Brick)),  # missing 'within' argument
+        AllAre(CTagged(Avail)),
+        TagWith(AllBricksAvail, taggees='nodes')
+    ]
 
 class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
@@ -215,13 +222,6 @@ class TestAc(unittest.TestCase):
         self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
 
     def test_override(self):
-        class Noticer(AcNode):
-            acs = [
-                All(OfClass(Brick)),
-                AllAre(CTagged(Avail)),
-                TagWith(AllBricksAvail, taggees='nodes')
-            ]
-
         g = TestGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
@@ -229,7 +229,16 @@ class TestAc(unittest.TestCase):
 
         self.assertIn(noticer.id, g.as_nodeids(g.active_nodes()))
         g.do_timestep(actor=noticer)
-        self.assertTrue(g.has_tag(noticer, Blocked))
+        # Since the Noticer can't run, it should get tagged
+        # Blocked(NeedArg('within'))
+        tag = g.as_node(g.tag_of(noticer, Blocked))
+        self.assertTrue(
+            tag,
+            "Failed to create Blocked tag for missing 'within' argument."
+        )
+        reason = g.getattr(tag, 'reason')
+        self.assertTrue(isinstance(reason, NeedArg))
+        self.assertEqual(reason.name, 'within')
 
         self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
 
@@ -408,3 +417,16 @@ class TestAc(unittest.TestCase):
         # Trying to run the tag after it no longer exists should not cause
         # an exception.
         g.do_timestep(actor=tag)
+
+    def test_ac_fillparamscout(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+        noticer = g.add_node(Noticer, member_of=g.ws)
+        tag = g.add_tag(
+            Blocked(reason=NeedArg(noticer.action, 'within')),
+            noticer
+        )
+        pg(g)
+        print('\nUT', g.dict_str(tag))
+
+

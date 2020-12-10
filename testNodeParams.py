@@ -2,7 +2,7 @@ import unittest
 from pprint import pprint as pp
 
 from NodeParams import NodeParams, AttrParam, MateParam
-from LinkSpec import LinkSpec
+#from LinkSpec import LinkSpec
 #from PortGraph import PortGraph, Node, pg
 from Node import Node
 from StdGraph import Graph, pg

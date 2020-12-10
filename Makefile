@@ -18,7 +18,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testAc.TestAc.test_ac_selfdestruct_on_update
+	$(PY) -m unittest -v testAc.TestAc.test_ac_fillparamscout
 	#$(PY) -m unittest -v test_override.TestOverride.test_override
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 

@@ -5,19 +5,24 @@ ActiveNode.py
 codegen.py
 criteria.py
 gen.py
+Indenting.py
+Indent1.py
 log.py
 NetworkxPortGraph.py
 Node.py
 NodeParams.py
 Numble.py
 PortMates.py
+Predefs.py
 Primitives.py
 Propagator.py
 StdGraph.py
-Indenting.py
-Indent1.py
 util.py
 WeightedNodes.py
+
+brute.py
+ExprAsEquation.py
+expr.py
 
 NodeSpec.py
 BuildSpec.py

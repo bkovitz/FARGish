@@ -14,7 +14,7 @@ from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     ActivationPrimitives, ActivationPolicy, SupportPrimitives, SupportPolicy, \
     SlipnetPolicy
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
-    NRef, NRefs, CRef, CRefs, MaybeNRef, \
+    NRef, NRefs, CRef, CRefs, MaybeNRef, MaybeCRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
 from Action import Action, Actions
@@ -437,16 +437,22 @@ class ActiveGraph(
         for c in containers:
             self.put_in_container(node, c)
 
-    def add_tag(self, tag: Union[Type[Node], str, NRef, None], node: NRefs) \
+    # TODO Specify tag_port_label and/or infer it
+    def add_tag(self, tag: MaybeCRef, node: NRefs) \
     -> MaybeNRef:
         if isclass(tag) or isinstance(tag, str):
             #assert tag.is_tag
             return self.add_node(tag, taggees=node)
+        elif tag is None:
+            return
         else:
-            # If all the nodes already have the tag, return it.
-            # If some do, extend it.
-            # If none do, build it.
-            raise NotImplementedError
+            assert is_nodeid(tag) or isinstance(tag, Node)
+            #TODO UT
+            if not self.has_node(tag):
+                return self.add_node(tag, taggees=node)
+            else:
+                self.add_edge(tag, 'taggees', node, 'tags')
+                return tag
 
     def copy_node(self, old_node: NRef, **kwargs):
         # HACK Should be deepcopy, but getting an error: NoneType is not

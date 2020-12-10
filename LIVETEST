@@ -9,11 +9,16 @@ testNetworkxPortGraph.py
 testNodeClasses.py
 testNodeParams.py
 testNumble.py
+testPostamble.py
 testPropagator.py
 testStdGraph.py
+testSupport.py
 test_override.py
 test_slipnet.py
 test_util.py
+atest_numbo.py
+
+testBrute.py
 atest_numbo.py
 
 testNodeSpec.py

@@ -47,7 +47,8 @@ class PortGraphPrimitives(ABC):
         return result
 
     @abstractmethod
-    def datum(self, nodeid: NRef) -> Union[Node, None]:
+    def datum(self, node: NRef) -> Union[Node, None]:
+        '''Should return None if node does not exist.'''
         pass
 
     @abstractmethod

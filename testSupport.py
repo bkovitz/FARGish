@@ -1,4 +1,4 @@
-# testSupport.py -- Unit tests for support.py
+# testSupport.py -- Unit tests for StdSupportPropagator
 
 import unittest
 from pprint import pprint as pp
