@@ -10,7 +10,7 @@ from functools import reduce
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
-    SelfDestruct
+    SelfDestruct, FindParamName, LookForArg, AddOverride
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, MyContext, pg
@@ -121,6 +121,20 @@ class Noticer(AcNode):
         TagWith(AllBricksAvail, taggees='nodes')
     ]
 
+class FillParamScout(AcNode):
+    node_params = NodeParams(
+        MateParam('behalf_of', 'agents'),
+        MateParam('problem', 'general')
+    )
+
+    acs = [
+        # name <- problem.reason.name
+        # add_override(behalf_of.name, look_for_arg(name))
+        FindParamName(),
+        LookForArg(),
+        AddOverride()
+    ]
+
 class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
     # We expect more arguments, which we will pass to 'action'.
@@ -226,11 +240,12 @@ class TestAc(unittest.TestCase):
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(Noticer, member_of=g.ws)
-
         self.assertIn(noticer.id, g.as_nodeids(g.active_nodes()))
+
         g.do_timestep(actor=noticer)
+
         # Since the Noticer can't run, it should get tagged
-        # Blocked(NeedArg('within'))
+        # Blocked(NeedArg('within')).
         tag = g.as_node(g.tag_of(noticer, Blocked))
         self.assertTrue(
             tag,
@@ -240,8 +255,10 @@ class TestAc(unittest.TestCase):
         self.assertTrue(isinstance(reason, NeedArg))
         self.assertEqual(reason.name, 'within')
 
+        # Since the Noticer is Blocked, it should not be active.
         self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
 
+        # Now we manually override the 'within' argument.
         g.add_override_node(noticer, 'within', glom)
         g.remove_tag(noticer, Blocked)
 
@@ -419,6 +436,7 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=tag)
 
     def test_ac_fillparamscout(self):
+        #ShowPrimitives.start_logging()
         g = TestGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(Noticer, member_of=g.ws)
@@ -426,7 +444,9 @@ class TestAc(unittest.TestCase):
             Blocked(reason=NeedArg(noticer.action, 'within')),
             noticer
         )
-        pg(g)
-        print('\nUT', g.dict_str(tag))
+        scout = g.add_node(FillParamScout, behalf_of=noticer, problem=tag)
+        g.do_timestep(actor=scout)
+        #pg(g)
+        #print('UT', g.dict_str(scout))
 
-
+        self.assertTrue(g.has_hop(noticer, 'within', glom, 'overriding'))

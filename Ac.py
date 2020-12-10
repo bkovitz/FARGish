@@ -9,10 +9,10 @@ from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
-from criteria import Criterion, Criteria
+from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
 from StdGraph import MyContext, pg
-from util import as_set
+from util import as_set, Quote
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -28,7 +28,10 @@ class Ac(ABC):
 
     def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
         '''Looks up name, searching first in actor's overrides, then in env,
-        then in actor's attrs, and finally in this Ac's attrs.
+        then in actor's attrs, and finally in this Ac's attrs. If the
+        value found is itself a string, then looks up the string as 'name'
+        (recursively). A value of Quote(s) will be returned as s, without
+        recursive lookup, if you need to actually return a string.
         Raises AcNeedArg if the value found is None or not found.'''
         try:
             result = g.get_overrides(actor, name)[name]
@@ -39,8 +42,11 @@ class Ac(ABC):
                 result = g.getattr(actor, name)
                 if result is None:
                     try:
+                        #print('GET', self, repr(name))
                         result = getattr(self, name)
+                        #print('GET1', result)
                     except AttributeError:
+                        raise 1
                         result = None
 
         if result is None:
@@ -49,12 +55,13 @@ class Ac(ABC):
             # TODO Prevent infinite recursion: make sure we haven't tried
             # this key before.
             # TODO What if the value is actually supposed to be a str?
+            #print('GETRECUR', actor, name, result)
             return self.get(g, actor, env, result)
         elif result == MyContext:
             result = result.within(g, actor)
             return result
         else:
-            return result
+            return Quote.get(result)
 
     @abstractmethod
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
@@ -115,7 +122,7 @@ class AcAction(Action):
 @dataclass
 class All(Ac):
     criteria: Acs = None
-    within: MaybeNRef = None
+    within: MaybeNRef = None   #TODO Allow MyContext
 
     def __init__(self, *criteria, within=None):
         self.criteria = criteria
@@ -264,6 +271,35 @@ class AddNode(HasKwargs, Ac):
         env['node'] = g.add_node(nodeclass, **kwargs)
 
 @dataclass
+class FindParamName(Ac):
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        problem = self.get(g, actor, env, 'problem')
+        # TODO violates Law of Demeter (for Nodes)
+        reason = g.getattr(problem, 'reason')
+        env['name'] = Quote(reason.name)
+
+@dataclass
+class LookForArg(Ac):
+    within: MaybeNRef = MyContext  # TODO type hint should allow MyContext
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        within = self.get(g, actor, env, 'within')
+        #name = self.get(g, actor, env, 'name')
+        # TODO Determine the class from 'name'
+        # TODO bail out if can't find node
+        env['node'] = g.look_for(OfClass('Glom'), within=within)
+
+@dataclass
+class AddOverride(Ac):
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        behalf_of = self.get(g, actor, env, 'behalf_of')
+        node = self.get(g, actor, env, 'node')
+        name = self.get(g, actor, env, 'name')
+        g.add_override_node(behalf_of, name, node)
+    
+@dataclass
 class OrFail(Ac):
     ac: Ac
     exc: AcFailed
@@ -294,6 +330,7 @@ class SelfDestruct(Ac):
 
 @dataclass
 class PrintEnv(Ac):
+    '''For debugging.'''
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         print('ENV', env)

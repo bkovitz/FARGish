@@ -819,7 +819,7 @@ class ActiveGraph(
             try:
                 action.go(self, actor)
             except ActionBlocked as exc:
-                if ShowActionsPerformed:
+                if ShowActionsPerformed or ShowPrimitives:
                     print('blocked:', action, exc)
                 try:
                     self.call_method(exc.actor, 'action_blocked', exc)

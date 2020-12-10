@@ -269,3 +269,16 @@ class PushAttr(AbstractContextManager):
     def __exit__(self, *args, **kwargs):
         setattr(self.o, self.attr_name, self.saved_value)
         return None
+
+@dataclass(frozen=True)
+class Quote:
+    '''For when you want to hold a value in a way that you can
+    distinguished from values that you use to represent other things.'''
+    value: Any
+
+    @classmethod
+    def get(cls, x):
+        if isinstance(x, Quote):
+            return x.value
+        else:
+            return x
