@@ -10,7 +10,8 @@ from NodeParams import NodeParams, MateParam
 from StdGraph import Graph, pg
 from ExprAsEquation import ExprAsEquation
 from Numble import make_numble_class
-from testNodeClasses import *
+from testNodeClasses import Workspace, Number, Brick, Target, Block, Want, \
+    Avail, Allowed, Operator, Plus, Times, port_mates
 from util import reseed
 
 reseed(1)

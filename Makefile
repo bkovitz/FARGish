@@ -18,7 +18,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testAc.TestAc.test_build_agent_for_needarg
+	$(PY) -m unittest -v testNodeSpec.TestNodeSpec.test_nodespec
 	#$(PY) -m unittest -v test_override.TestOverride.test_override
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 

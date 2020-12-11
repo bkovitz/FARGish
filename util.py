@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from types import SimpleNamespace
+from itertools import chain
 
 
 empty_set = frozenset()
@@ -59,6 +60,15 @@ def omit(d: Dict, keys: Iterable) -> Dict:
     return dict(
         (k, v) for k, v in d.items() if k not in as_set(keys)
     )
+
+#TODO UT
+def loose_dict_eq(d1: Dict, d2: Dict) -> bool:
+    '''Are d1 and d2 equal, if we count a value of None as equal to not having
+    a value at all?'''
+    for k in set(chain(d1.keys(), d2.keys())):
+        if d1.get(k, None) != d2.get(k, None):
+            return False
+    return True
 
 def as_name(x):
     try:

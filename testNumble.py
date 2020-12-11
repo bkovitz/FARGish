@@ -5,7 +5,8 @@ import unittest
 from Numble import make_numble_class
 #from PortGraph import PortGraph, pg
 from StdGraph import Graph, pg
-from testNodeClasses import *
+from testNodeClasses import Workspace, Number, Brick, Target, Block, Want, \
+    Avail, Allowed, Operator, Plus, Times, port_mates
 
 
 class TestNumble(unittest.TestCase):
@@ -18,7 +19,7 @@ class TestNumble(unittest.TestCase):
         numble = Numble([4, 5, 6], 15)
         numble.build(g, None)
 
-        #pg(g) #DEBUG
+        #pg(g)
 
         ids = g.nodes_of_class(Target)
         self.assertEqual(len(ids), 1)
@@ -28,7 +29,7 @@ class TestNumble(unittest.TestCase):
         ids = g.nodes_of_class(Want)
         self.assertEqual(len(ids), 1)
         wantid = ids[0]
-        self.assertTrue(g.has_hop(wantid, 'target', targetid, 'tags'))
+        self.assertTrue(g.has_hop(wantid, 'taggees', targetid, 'tags'))
 
         brickids = g.nodes_of_class(Brick)
         self.assertEqual(len(brickids), 3)

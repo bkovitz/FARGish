@@ -7,7 +7,7 @@ from copy import deepcopy
 from inspect import isclass
 
 from NodeParams import NodeParams, FilledParams
-from util import as_iter, as_list, repr_str, omit
+from util import as_iter, as_list, repr_str, omit, loose_dict_eq
 
 
 NodeId = NewType('NodeId', int)
@@ -116,7 +116,8 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
             return False
-        return self.regen_kwargs() == other.regen_kwargs()
+        #return self.regen_kwargs() == other.regen_kwargs()
+        return loose_dict_eq(self.regen_kwargs(), other.regen_kwargs())
 
     def __repr__(self):
         if self.name:

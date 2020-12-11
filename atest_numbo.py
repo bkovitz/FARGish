@@ -2,7 +2,7 @@
 
 import unittest
 
-from numbo5 import newg, Numble
+#from numbo5 import newg, Numble
 from log import *
 from ActiveGraph import pg, pa
 
@@ -12,7 +12,7 @@ class NumboTest(unittest.TestCase):
     def setUp(self):
         stop_all_logging()
 
-    def test_11111_5(self):
+    def OLDtest_11111_5(self):
         #ShowAnnotations.start_logging()
         #ShowActiveNodes.start_logging()
         #ShowActionList.start_logging()
