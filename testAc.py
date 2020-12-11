@@ -217,14 +217,6 @@ class TestAc(unittest.TestCase):
             TagWith(AllBricksAvail, taggees='nodes')
         ], member_of=g.ws)
 
-        #pg(g)
-        #ShowActiveNodes.start_logging()
-        #ShowActiveNodesCollected.start_logging()
-        #ShowActionList.start_logging()
-        #ShowActionsChosen.start_logging()
-
-        #g.do_timestep()
-        #print('STATE', noticer.state, noticer.can_go())
         self.assertEqual(noticer.state, Start)
         self.assertTrue(noticer.can_go())
         self.assertIn(noticer.id, g.as_nodeids(g.active_nodes()))
@@ -436,7 +428,6 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=tag)
 
     def test_ac_fillparamscout(self):
-        #ShowPrimitives.start_logging()
         g = TestGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(Noticer, member_of=g.ws)
@@ -446,7 +437,28 @@ class TestAc(unittest.TestCase):
         )
         scout = g.add_node(FillParamScout, behalf_of=noticer, problem=tag)
         g.do_timestep(actor=scout)
-        #pg(g)
-        #print('UT', g.dict_str(scout))
 
+        # The FillParamScout should do the override:
         self.assertTrue(g.has_hop(noticer, 'within', glom, 'overriding'))
+
+    def test_build_agent_for_needarg(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+        noticer = g.add_node(Noticer, member_of=g.ws)
+
+        g.do_timestep(actor=noticer)
+        problem_tag = g.neighbor(noticer, neighbor_class=Blocked)
+        assert problem_tag, 'Noticer did not create problem tag.'
+
+        # noticer recognizes that it is blocked
+        # noticer spawns ("posts") a FillParamScout
+        # the scout overrides 'within' with glom
+        # noticer is no longer blocked
+        # noticer places AllBricksAvail
+        g.do_timestep(actor=noticer)
+        pg(g)
+
+        #agent = g.neighbor(noticer, 'agents')
+        #self.assertTrue(agent, 'Did not build agent for Noticer.')
+        #self.assertEqual(g.neighbor(agent, 
+
