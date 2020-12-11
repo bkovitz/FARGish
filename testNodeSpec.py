@@ -10,7 +10,7 @@ from NodeParams import NodeParams, MateParam
 from StdGraph import Graph, pg
 from ExprAsEquation import ExprAsEquation
 from Numble import make_numble_class
-from testNodeClasses import Workspace, Number, Brick, Target, Block, Want, \
+from testNumboClasses import Workspace, Number, Brick, Target, Block, Want, \
     Avail, Allowed, Operator, Plus, Times, port_mates
 from util import reseed
 
@@ -21,7 +21,7 @@ Numble = make_numble_class(
 )
 
 class TestGraph(ExprAsEquation, Graph):
-    port_mates = port_mates  # imported from testNodeClasses
+    port_mates = port_mates  # imported from testNumboClasses
 
     def __init__(self, numble, **kwargs):
         kwargs['seed'] = 1

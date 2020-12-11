@@ -5,8 +5,6 @@ from random import choice
 from itertools import product
 
 from Action import FuncAction
-from bases import NewLinkSpec, meets_link_spec #TODO rm
-#from PortGraph import NodesWithSalience, pg
 from StdGraph import pg
 from WeightedNodes import WeightedNodes
 from util import as_iter, is_nodeid, intersection, nice_object_repr, NiceRepr

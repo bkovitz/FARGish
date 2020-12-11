@@ -3,6 +3,7 @@
 import unittest
 
 #from numbo5 import newg, Numble
+from testNumboClasses import *
 from log import *
 from ActiveGraph import pg, pa
 
@@ -35,5 +36,5 @@ if __name__ == '__main__':
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
     #g.do_timestep(num=60)
-    #pg(g)
+    pg(g)
     

@@ -116,7 +116,6 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
             return False
-        #return self.regen_kwargs() == other.regen_kwargs()
         return loose_dict_eq(self.regen_kwargs(), other.regen_kwargs())
 
     def __repr__(self):
