@@ -24,6 +24,11 @@ class AcFalse(Fizzle):
     env: AcEnv
 
 @dataclass
+class AcFizzle(Fizzle):
+    '''Exception indicating that an Acs should fail silently.'''
+    pass
+
+@dataclass
 class Ac(ABC):
 
     def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
@@ -63,6 +68,14 @@ class Ac(ABC):
         else:
             return Quote.get(result)
 
+    def get_or_fizzle(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) \
+    -> Any:
+        '''Same as .get() but raises AcFizzle if can't find value for 'name'.'''
+        try:
+            return self.get(g, actor, env, name)
+        except AcNeedArg:
+            raise AcFizzle
+            
     @abstractmethod
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         '''Do the partial Action defined by this Ac. Raise an ActionBlocked
@@ -83,6 +96,8 @@ class Ac(ABC):
         env = AcEnv()
         try:
             cls.call(g, acs, actor, env)
+        except AcFizzle:
+            pass
         except AcFalse as exc:
             return exc.env
         return env
@@ -300,6 +315,13 @@ class AddOverride(Ac):
         g.add_override_node(behalf_of, name, node)
     
 @dataclass
+class RemoveBlockedTag(Ac):
+
+    def go(self, g, actor, env):
+        problem = self.get_or_fizzle(g, actor, env, 'problem')
+        g.remove_node(problem)
+        
+@dataclass
 class OrFail(Ac):
     ac: Ac
     exc: AcFailed
@@ -341,6 +363,7 @@ class AcNode(ActionNode):
     Subclasses should override the .acs class member. This class performs
     no action.'''
     acs: Acs = None
+    blocked_acs: Acs = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

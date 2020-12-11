@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 #from PortGraph import Node
 from Node import Node
 from NodeParams import NodeParams, AttrParam, MateParam
-from Action import Action, Actions
+from Action import Action, Actions, BuildAgent
 from util import as_iter, ClassStrIsName
 from exc import Fizzle, NeedArg, ActionFailure
 
@@ -37,6 +37,12 @@ class ActiveNode(ABC, Node):
         .actions() is called. So, it is not necessary to check .state.'''
         pass
 
+    def on_blocked(self) -> Actions:
+        '''Actions to perform when this node is Blocked.'''
+        tags = self.g.tags_without_agent(self, 'Blocked')
+        if tags:
+            return BuildAgent(self, tags)
+
     def update(self) -> Actions:
         '''Should return any self-update Actions that this node needs to
         perform, such as SelfDestruct if the node is a Tag that notices that
@@ -54,7 +60,7 @@ class ActiveNode(ABC, Node):
         return (
             not self.state.is_active(self.g, self)
             or
-            self.g.is_blocked(self)
+            (self.g.is_blocked(self) and not self.on_blocked())
             or
             self.g.is_failed(self)
         )
@@ -109,7 +115,10 @@ class ActionNode(ActiveNode):
     initial_activation = 0.1
 
     def actions(self):
-        return self.action.with_overrides_from(self.g, self)
+        if self.g.is_blocked(self):
+            return self.on_blocked()
+        else:
+            return self.action.with_overrides_from(self.g, self)
 
     def action_blocked(self, exc: Fizzle):
         if hasattr(self.action, 'action_blocked'):
@@ -166,7 +175,6 @@ def make_action_sequence(g, *actions: Action, **kwargs):
     )
     return seqnode
 
-@dataclass
 class HasUpdate(ActiveNode):
     '''Mix-in for a Node that needs to have its .update() function called
     when it's touched.'''

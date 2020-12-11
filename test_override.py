@@ -206,29 +206,4 @@ class TestOverride(unittest.TestCase):
         self.assertEqual(reason.name, 'within')
         self.assertTrue(g.is_built_by(tag, noticer))
 
-        # And with a Blocked tag, the noticer should not generate an action
-        self.assertTrue(g.is_dormant(noticer))
-
-    def test_no_dup_blocked(self):
-        # Make sure that NoticeAllSameValue only gets one Blocked tag no
-        # matter how many times it fails.
-        g = new_graph()
-        g.do_timestep(action=SeekAndGlom(
-            criteria=OfClass(Brick),
-            within=g.ws
-        ))
-        glom = g.look_for(OfClass(Glom))
-        assert glom is not None
-
-        # Action lacks 'within' arg
-        noticer = g.add_node(
-            ActionNode,
-            NoticeAllSameValue(within=None, value=1, threshold=0.0),
-            min_support_for=1.0
-        )
-
-        # Verify that nothing happens without override
-        g.do_timestep(actor=noticer)
-        g.do_timestep(actor=noticer)
-        bltags = g.neighbors(noticer, port_label='tags', neighbor_class=Blocked)
-        self.assertEqual(len(bltags), 1)
+        self.assertTrue(g.is_blocked(noticer))

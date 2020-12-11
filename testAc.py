@@ -10,7 +10,7 @@ from functools import reduce
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
-    SelfDestruct, FindParamName, LookForArg, AddOverride
+    SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, MyContext, pg
@@ -18,7 +18,7 @@ from Numble import make_numble_class
 from testNodeClasses import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate
-from Action import Action, Actions
+from Action import Action, Actions, BuildAgent
 from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
@@ -57,37 +57,6 @@ class NumboSuccess(FargDone):
     node: NRef
     target: NRef
 
-class TestGraph(Graph):
-
-    def __init__(self, numble, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.nodeclasses.update(nodeclasses)
-        self.port_mates += port_mates
-        ws = self.add_node(Workspace)
-        numble.build(self, ws)
-
-    def consume_operands(
-        self,
-        operand_ids: NRefs,
-        operator_class: CRef,
-        actor=None
-    ):
-        if not self.has_tag(operand_ids, Avail):
-            return  # TODO Raise a failure exception?
-        operator_class = self.as_nodeclass(operator_class)
-        operator_id = self.add_node(
-            operator_class, 
-            operands=operand_ids,
-        )
-        result_id = self.add_node(
-            Block,
-            value=arith_result0(self, operator_class, operand_ids),
-            source=operator_id,
-        )
-        self.move_tag(Avail, operand_ids, result_id)
-        self.add_tag(Consumed, operand_ids)
-        self.add_tag(Done, actor)
-
 def arith_result0(g, operator_class, operand_ids):
     operand_values = [g.value_of(o) for o in operand_ids]
     # TODO It would be much better if FARGish let you define these operations
@@ -102,7 +71,6 @@ def arith_result0(g, operator_class, operand_ids):
         #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
         raise ValueError(f'Unknown operator class {operator_class}.')
 
-@dataclass
 class AllBricksAvail(Tag, HasUpdate, ActiveNode):
 
     update_action: Actions = Ac.as_action([
@@ -132,7 +100,8 @@ class FillParamScout(AcNode):
         # add_override(behalf_of.name, look_for_arg(name))
         FindParamName(),
         LookForArg(),
-        AddOverride()
+        AddOverride(),
+        RemoveBlockedTag()
     ]
 
 class Proposal(ActiveNode):
@@ -159,6 +128,40 @@ class NotAllThisValue(AcFailed):
     #within: NRef=None
     ac: Ac
     actor: MaybeNRef
+
+class TestGraph(Graph):
+
+    def __init__(self, numble, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.nodeclasses.update(nodeclasses)
+        self.add_nodeclasses(
+            AllBricksAvail, Noticer, FillParamScout, Proposal
+        )
+        self.port_mates += port_mates
+        ws = self.add_node(Workspace)
+        numble.build(self, ws)
+
+    def consume_operands(
+        self,
+        operand_ids: NRefs,
+        operator_class: CRef,
+        actor=None
+    ):
+        if not self.has_tag(operand_ids, Avail):
+            return  # TODO Raise a failure exception?
+        operator_class = self.as_nodeclass(operator_class)
+        operator_id = self.add_node(
+            operator_class, 
+            operands=operand_ids,
+        )
+        result_id = self.add_node(
+            Block,
+            value=arith_result0(self, operator_class, operand_ids),
+            source=operator_id,
+        )
+        self.move_tag(Avail, operand_ids, result_id)
+        self.add_tag(Consumed, operand_ids)
+        self.add_tag(Done, actor)
 
 class TestAc(unittest.TestCase):
 
@@ -247,8 +250,7 @@ class TestAc(unittest.TestCase):
         self.assertTrue(isinstance(reason, NeedArg))
         self.assertEqual(reason.name, 'within')
 
-        # Since the Noticer is Blocked, it should not be active.
-        self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
+        self.assertTrue(g.is_blocked(noticer))
 
         # Now we manually override the 'within' argument.
         g.add_override_node(noticer, 'within', glom)
@@ -441,25 +443,53 @@ class TestAc(unittest.TestCase):
         # The FillParamScout should do the override:
         self.assertTrue(g.has_hop(noticer, 'within', glom, 'overriding'))
 
+        # and remove the Blocked tag:
+        self.assertFalse(g.has_node(tag))
+
     def test_build_agent_for_needarg(self):
+        # Here we test the entire sequence of becoming blocked for a missing
+        # argument, posting a FillParamScout to fill it in, and running
+        # successfully with the filled-in argument.
         g = TestGraph(Numble([4, 5, 6], 15))
+        bricks = g.find_all(OfClass(Brick))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(Noticer, member_of=g.ws)
+        assert len(bricks) == 3
 
+        # First, the Noticer tries to run, but can't, because it's missing
+        # a 'within' argument. So, it posts a Blocked tag about it:
         g.do_timestep(actor=noticer)
         problem_tag = g.neighbor(noticer, neighbor_class=Blocked)
         assert problem_tag, 'Noticer did not create problem tag.'
 
-        # noticer recognizes that it is blocked
-        # noticer spawns ("posts") a FillParamScout
-        # the scout overrides 'within' with glom
-        # noticer returns no action while scout is running
-        # noticer is no longer blocked
-        # noticer places AllBricksAvail
+        # Next, the Noticer should build an agent to fix the problem.
+        self.assertCountEqual(
+            as_iter(g.actions(noticer)),
+            [BuildAgent(noticer, {problem_tag})]
+        )
         g.do_timestep(actor=noticer)
-        #pg(g)
+        scout = g.neighbor(noticer, 'agents')
+        self.assertTrue(
+            g.is_of_class(scout, FillParamScout),
+            'Noticer did not build a FillParamScout'
+        )
 
-        #agent = g.neighbor(noticer, 'agents')
-        #self.assertTrue(agent, 'Did not build agent for Noticer.')
-        #self.assertEqual(g.neighbor(agent, 
+        # Now the Noticer should be blocked:
+        self.assertTrue(g.is_blocked(noticer))
+        # and have nothing to do:
+        self.assertFalse(g.actions(noticer))
 
+        # The Scout should find the Glom, override the Noticer's 'within'
+        # arg with it, and remove the Blocked tag.
+        g.do_timestep(actor=scout)
+
+        # Therefore the Noticer should no longer be blocked:
+        self.assertFalse(g.is_blocked(noticer))
+        # and the Noticer should be able to act:
+        self.assertTrue(g.actions(noticer))
+
+        # Finally, the Noticer notices what it's looking for:
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.has_tag(bricks, AllBricksAvail))
+
+        # TODO self.assertEqual(g.get(noticer, 'within'), glom)

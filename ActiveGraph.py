@@ -930,7 +930,7 @@ class ActiveGraph(
 
     def tags_of(
         self, nodes: NRefs, tagclass: CRefs='Tag', taggee_port_label='tags'
-    ):
+    ) -> Set[NodeId]:
         '''Returns a generator. nodes can be a single node id or an iterable
         of node ids.'''
         #TODO Should be able to specify tagclass more narrowly.
@@ -954,6 +954,17 @@ class ActiveGraph(
         except StopIteration:
             return None
         
+    def tags_without_agent(self, node: NRefs, tagclass: CRefs) -> NRefs:
+        result = set()
+        agents = self.neighbors(node, 'agents')
+        for tag in self.tags_of(node, tagclass):
+            for agent in agents:
+                if tag in self.neighbors(agent, 'problem'):
+                    break
+            else:
+                result.add(tag)
+        return result
+
     #TODO Consistent argument order: put tag_or_tagclass first?
     def remove_tag(
         self,
@@ -1116,6 +1127,7 @@ class ActiveGraph(
         ))
 
     def actions(self, nref: NRef) -> Actions:
+        # TODO Refactor: just call .datum() once; never call .has_node().
         if not self.has_node(nref):
             return None
         if self.datum(nref).needs_update:

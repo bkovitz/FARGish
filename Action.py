@@ -180,6 +180,20 @@ class Build(Action):
             inside_parens = kwargs
         return f'Build({clname}({inside_parens}))'
 
+@dataclass
+class BuildAgent(Action):
+    behalf_of: NRef
+    problem: NRef
+
+    def go(self, g, actor):
+        # HACK Should ask g for the agent class, maybe more.
+        g.add_node(
+            'FillParamScout',
+            behalf_of=self.behalf_of,
+            problem=self.problem
+        )
+
+@dataclass
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''
 
