@@ -15,7 +15,8 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag
-from ActiveNode import ActiveNode, Start, Completed, HasUpdate
+from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
+    make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
@@ -86,10 +87,21 @@ Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
 )
 
+# Custom exceptions
+
 @dataclass
 class NumboSuccess(FargDone):
     node: NRef
     target: NRef
+
+@dataclass
+class NotAllThisValue(AcFailed):
+    #value: Any=None
+    #within: NRef=None
+    ac: Ac
+    actor: MaybeNRef
+
+# Custom functions
 
 def arith_result0(g, operator_class, operand_ids):
     operand_values = [g.value_of(o) for o in operand_ids]
@@ -104,6 +116,32 @@ def arith_result0(g, operator_class, operand_ids):
     else:
         #raise ValueError(f'Unknown operator class {operator_class} of node {operator_id}.')
         raise ValueError(f'Unknown operator class {operator_class}.')
+
+# Custom Actions
+
+@dataclass
+class ConsumeOperands(Action):
+    consume_operands: Union[NRefs, None]=None
+    proposed_operator: Union[NRef, None]=None
+
+    def go(self, g, actor):
+        g.consume_operands(self.consume_operands, self.proposed_operator)
+        g.new_state(self.actor, Completed)
+
+@dataclass
+class CountMembers(Action):
+    within: Union[int, None]=None
+
+    threshold = 1.0
+
+    def go(self, g, actor):
+        if not self.within:
+            raise NeedArg(self, 'within')
+        num_members = len(g.neighbors(self.within, port_label='members'))
+        g.add_node(Count, taggees=self.within, value=num_members)
+        g.new_state(self.actor, Completed)
+
+# Custom nodeclasses
 
 class AllBricksAvail(Tag, HasUpdate, ActiveNode):
 
@@ -123,6 +161,12 @@ class NoticeAllBricksAreAvail(AcNode):
         TagWith(AllBricksAvail, taggees='nodes')
     ]
 
+class SeekAndGlom(AcNode):
+    acs = [
+        All(OfClass(Brick)),
+        AddNode(Glom, members='nodes')
+    ]
+
 class FillParamScout(AcNode):
     node_params = NodeParams(
         MateParam('behalf_of', 'agents'),
@@ -138,6 +182,23 @@ class FillParamScout(AcNode):
         RemoveBlockedTag()
     ]
 
+class NoticeAllHaveThisValue(AcNode):
+    acs = [
+        All(OfClass(Number)),
+        OrFail(
+            AllAre(HasThisValue(value=3)),
+            NotAllThisValue
+        ),
+        TagWith(AllMembersHaveThisValue, taggees='within')
+    ]
+
+class NoticeSameValue(AcNode):
+    acs = [
+        EqualValue('node1', 'node2'),
+        Taggees('node1', 'node2'),
+        TagWith(SameValue)
+    ]
+
 class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
     # We expect more arguments, which we will pass to 'action'.
@@ -147,21 +208,17 @@ class Proposal(ActiveNode):
     def actions(self):
         return self.action.with_overrides_from(self.g, self)
 
-@dataclass
-class ConsumeOperands(Action):
-    consume_operands: Union[NRefs, None]=None
-    proposed_operator: Union[NRef, None]=None
-
-    def go(self, g, actor):
-        g.consume_operands(self.consume_operands, self.proposed_operator)
-        g.new_state(self.actor, Completed)
-
-@dataclass
-class NotAllThisValue(AcFailed):
-    #value: Any=None
-    #within: NRef=None
-    ac: Ac
-    actor: MaybeNRef
+class AddAllInGlom(AcNode):
+    acs = [
+        All(OfClass(Number), CTagged(Avail)),
+        LookFor(OfClass(Plus), CTagged(Allowed)),
+        AddNode(
+            Proposal,
+            action=ConsumeOperands(),
+            consume_operands='nodes',
+            proposed_operator='node',
+        )
+    ]
 
 class NumboTestGraph(Graph):
     def __init__(self, numble, *args, **kwargs):
@@ -173,8 +230,20 @@ class NumboTestGraph(Graph):
         self.port_mates += port_mates
 
         # Make initial nodes
-        ws = self.add_node(Workspace)
-        numble.build(self, ws)
+        self.add_node(Workspace)
+        self.make_slipnet()
+        numble.build(self, self.ws)
+
+    def make_slipnet(self):
+        self.seqnode = make_action_sequence(
+            self,
+            SeekAndGlom(within=self.ws, criteria=OfClass(Brick)),
+            NoticeAllHaveThisValue(value=1, within=None),
+            CountMembers(within=None),
+            NoticeSameValue(node1=None, node2=None),
+            AddAllInGlom(),
+            member_of=self.slipnet,
+        )
 
     def consume_operands(
         self,

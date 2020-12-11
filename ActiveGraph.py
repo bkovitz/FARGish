@@ -108,6 +108,8 @@ class ActiveGraph(
             action = node(*args)
             kwargs['action'] = action
             return self.add_node(ActionNode, **kwargs)
+        elif isinstance(node, Action):
+            return self.add_node(ActionNode, action=node, **kwargs)
         if isinstance(node, Node):
             kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)

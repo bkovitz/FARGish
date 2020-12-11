@@ -155,6 +155,12 @@ class NoUniqueMateError(FARGishCompilerException):
 class FargError(Exception, NiceRepr):
     pass
 
+@dataclass
+class AcError(FargError):
+    ac: 'Ac'
+    exc: Exception
+    env: 'AcEnv'
+
 class TooManyArgs(FargError):
     pass
 

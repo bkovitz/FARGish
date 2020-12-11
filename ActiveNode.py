@@ -164,10 +164,13 @@ class ActionSeqNode(ActiveNode):
             self.g.set_activation_from_to(self, member, 0.5)
             self.g.inhibit_all_next(member)
 
+# Move to ActiveGraph
 def make_action_sequence(g, *actions: Action, **kwargs):
+    # TODO Change type hint so actions can be ActiveNodes
     '''Makes an ActionNode to hold each Action, and an ActionSeqNode that
     contains them, in sequence. Returns the nodeid of the ActionSeqNode.'''
-    action_nodes = [g.add_node(ActionNode, action=a) for a in actions]
+    #action_nodes = [g.add_node(ActionNode, action=a) for a in actions]
+    action_nodes = [g.add_node(a) for a in actions]
     g.link_sequence(action_nodes)
     seqnode = g.add_node(
         #ActionSeqNode, action_nodes=action_nodes, members=action_nodes, **kwargs

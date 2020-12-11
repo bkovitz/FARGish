@@ -4,15 +4,15 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence
-from util import as_iter, as_list
+
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion, Criteria, OfClass
-from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed
+from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed, AcError, FargDone
 from StdGraph import MyContext, pg
-from util import as_set, Quote
+from util import as_set, Quote, as_iter, as_list
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -112,7 +112,12 @@ class Ac(ABC):
     ) -> None:
         '''Runs acs, starting from given AcEnv. env will likely be modified.'''
         for ac in as_iter(acs):
-            ac.go(g, actor, env)
+            try:
+                ac.go(g, actor, env)
+            except (AcFizzle, AcFalse, AcFailed, AcBlocked, FargDone):
+                raise
+            except Exception as exc:
+                raise AcError(ac, exc, env)
 
     @classmethod
     def as_action(cls, acs: Union['Ac', Sequence['Ac'], None]) -> Action:

@@ -21,35 +21,6 @@ from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 
-#prog = '''
-#tags -- taggees
-#within -- overriding
-#node1 -- overriding
-#node2 -- overriding
-#target -- overriding
-#consume_operands -- proposer
-#proposed_operator -- proposer
-#result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
-#
-#Workspace
-#
-#Tag(taggees)
-#AllMembersHaveThisValue : Tag
-#SameValue, Consumed, Done : Tag
-#Blocked(reason) : Tag
-#Failed(reason): Tag
-#Count(value) : Tag
-#
-#
-#Group(members)
-#Glom : Group
-#'''
-#exec(compile_fargish(prog), globals())
-#
-#Numble = make_numble_class(
-#    Brick, Target, Want, Avail, Allowed, [Plus, Times]
-#)
-
 class TestAc(unittest.TestCase):
 
     def setUp(self):
@@ -151,12 +122,6 @@ class TestAc(unittest.TestCase):
         )
 
     def test_ac_add_node(self):
-        class SeekAndGlom(AcNode):
-            acs = [
-                All(OfClass(Brick)),
-                AddNode(Glom, members='nodes')
-            ]
-
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))
 
@@ -170,23 +135,13 @@ class TestAc(unittest.TestCase):
         self.assertTrue(glom, 'Did not build Glom')
         self.assertCountEqual(g.neighbors(glom, 'members'), bricks)
 
-    class NoticeAllHaveThisValue(AcNode):
-        acs = [
-            All(OfClass(Number)),
-            OrFail(
-                AllAre(HasThisValue(value=3)),
-                NotAllThisValue
-            ),
-            TagWith(AllMembersHaveThisValue, taggees='within')
-        ]
-
     # TODO test overriding 'value' with the value of another node
     def test_ac_has_value(self):
         g = NumboTestGraph(Numble([3, 3, 3], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(
-            self.NoticeAllHaveThisValue, member_of=g.ws, within=glom
+            NoticeAllHaveThisValue, member_of=g.ws, within=glom
         )
 
         g.do_timestep(actor=noticer)
@@ -197,7 +152,7 @@ class TestAc(unittest.TestCase):
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(
-            self.NoticeAllHaveThisValue, member_of=g.ws, within=glom
+            NoticeAllHaveThisValue, member_of=g.ws, within=glom
         )
 
         g.do_timestep(actor=noticer)
@@ -222,13 +177,6 @@ class TestAc(unittest.TestCase):
         self.assertTrue(g.has_tag(glom, Count(value=3)))
 
     def test_ac_notice_same_value(self):
-        class NoticeSameValue(AcNode):
-            acs = [
-                EqualValue('node1', 'node2'),
-                Taggees('node1', 'node2'),
-                TagWith(SameValue)
-            ]
-
         g = NumboTestGraph(Numble([1, 1, 1], 3))
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
@@ -243,18 +191,6 @@ class TestAc(unittest.TestCase):
         self.assertTrue(g.has_tag([count, target], SameValue))
 
     def test_ac_add_all_in_glom(self):
-        class AddAllInGlom(AcNode):
-            acs = [
-                All(OfClass(Number), CTagged(Avail)),
-                LookFor(OfClass(Plus), CTagged(Allowed)),
-                AddNode(
-                    Proposal,
-                    action=ConsumeOperands(),
-                    consume_operands='nodes',
-                    proposed_operator='node',
-                )
-            ]
-
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         proposer = g.add_node(AddAllInGlom, within=g.ws)
