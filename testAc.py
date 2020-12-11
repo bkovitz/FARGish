@@ -453,10 +453,11 @@ class TestAc(unittest.TestCase):
         # noticer recognizes that it is blocked
         # noticer spawns ("posts") a FillParamScout
         # the scout overrides 'within' with glom
+        # noticer returns no action while scout is running
         # noticer is no longer blocked
         # noticer places AllBricksAvail
         g.do_timestep(actor=noticer)
-        pg(g)
+        #pg(g)
 
         #agent = g.neighbor(noticer, 'agents')
         #self.assertTrue(agent, 'Did not build agent for Noticer.')

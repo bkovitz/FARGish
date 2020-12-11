@@ -143,7 +143,14 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def display_name(self):
         return repr(self)
 
-    def dict_str(self):
+    def statestr(self) -> str:
+        state = self.state
+        if state:
+            return str(state)
+        else:
+            return ''
+
+    def dict_str(self) -> str:
         '''String that shows the entire contents of this Node's __dict__,
         without any processing. Useful in debugging when you need to see
         exact representations.'''

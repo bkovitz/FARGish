@@ -1261,16 +1261,24 @@ class ActiveGraph(
         else:
             return node.nodestr()
 
-    def long_nodestr(self, node):
-        return '%-25s  a=%.3f s=%.3f   tob=%d' % (
+    def long_nodestr(self, node: NRef) -> str:
+        return '%-25s  a=%.3f s=%.3f   tob=%d    %s' % (
             self.nodestr(node),
             self.activation(node),
             self.support_for(node),
-            self.tob(node)
+            self.tob(node),
+            self.statestr(node)
         )
 
-    def tob(self, nref: NRef):
+    def tob(self, nref: NRef) -> int:
         return self.as_node(nref).tob
+
+    def statestr(self, node: NRef) -> str:
+        node = self.as_node(node)
+        if not node:
+            return ''
+        else:
+            return node.statestr()
 
     def dict_str(self, nref: NRef) -> Union[str, None]:
         try:

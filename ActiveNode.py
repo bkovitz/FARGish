@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from Node import Node
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
-from util import as_iter
+from util import as_iter, ClassStrIsName
 from exc import Fizzle, NeedArg, ActionFailure
 
 
@@ -70,7 +70,7 @@ class ActiveNode(ABC, Node):
         self.g.remove_outgoing_activation_edges(self)
         self.g.remove_incoming_activation_edges(self)
 
-class ActiveNodeState:
+class ActiveNodeState(metaclass=ClassStrIsName):
 
     @classmethod
     def is_active(self, g, thisid):

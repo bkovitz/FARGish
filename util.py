@@ -282,3 +282,7 @@ class Quote:
             return x.value
         else:
             return x
+
+class ClassStrIsName(type):
+    def __str__(self):
+        return self.__name__
