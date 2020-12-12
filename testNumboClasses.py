@@ -6,7 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from operator import add, mul
 from functools import reduce
 
-from Node import Node, NRef, NRefs, CRef, MaybeNRef
+from Node import Node, NRef, NRefs, CRef, MaybeNRef, MaybeCRef
 from PortMates import PortMates
 from NodeParams import NodeParams, AttrParam, MateParam
 from StdGraph import Graph, MyContext, pg
@@ -87,6 +87,12 @@ Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
 )
 
+##### Hacks
+
+Number.is_duplicable = True
+
+Want.min_activation = 1.0
+
 # Custom exceptions
 
 @dataclass
@@ -96,6 +102,7 @@ class NumboSuccess(FargDone):
 
 @dataclass
 class NotAllThisValue(AcFailed):
+    #TODO Supply the commented-out parameters.
     #value: Any=None
     #within: NRef=None
     ac: Ac
@@ -162,9 +169,13 @@ class NoticeAllBricksAreAvail(AcNode):
     ]
 
 class SeekAndGlom(AcNode):
+    node_params = NodeParams(
+        AttrParam('seekclass', Brick)  # Specific to testNumboClasses: default
+    )                                  # to seeking Brick nodes
+
     threshold = 1.0
     acs = [
-        All(OfClass(Brick), within=MyContext),
+        All(OfClass('seekclass'), within=MyContext),
         AddNode(Glom, members='nodes')
     ]
 
@@ -244,7 +255,7 @@ class NumboTestGraph(Graph):
             SeekAndGlom(within=self.ws, criteria=OfClass(Brick)),
             NoticeAllHaveThisValue(value=1, within=None),
             CountMembers(within=None),
-            NoticeSameValue(node1=None, node2=None),
+            NoticeSameValue(node1=None, node2=None, value=1),
             AddAllInGlom(),
             member_of=self.slipnet,
         )

@@ -243,6 +243,8 @@ class NetworkxActivation(
     def set_activation_from_to(
         self, from_node: NRef, to_node: NRef, weight: float=1.0
     ):
+        if self.activation_from_to(from_node, to_node) == weight:
+            return
         from_nodeid = as_nodeid(from_node)
         to_nodeid = as_nodeid(to_node)
         if ShowPrimitives:
@@ -254,8 +256,7 @@ class NetworkxActivation(
             )
         if abs(weight) < 0.001:
             self.remove_edge(
-                from_nodeid, 'activation_to', to_nodeid, 'activation_from',
-                weight=weight
+                from_nodeid, 'activation_to', to_nodeid, 'activation_from'
             )
         else:
             self.add_edge(

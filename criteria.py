@@ -6,11 +6,12 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from util import as_iter, as_list
 
-from Node import Node, NRef, PortLabels
+from Node import Node, NRef, PortLabels, MaybeCRef
 from Action import Action
 from ActiveNode import ActionNode
 
 
+@dataclass
 class Criterion(ABC):
     '''A callable object that takes two parameters: g, nodeid; and returns
     true iff nodeid meets a given criterion.'''
@@ -39,18 +40,16 @@ class Criterion(ABC):
 
 Criteria = Union[Criterion, Iterable[Criterion], None]
 
+@dataclass
 class Tagged(Criterion):
-
-    def __init__(self, tagclass):
-        self.tagclass = tagclass
+    tagclass: MaybeCRef = None
 
     def __call__(self, g, nodeid):
         return g.has_tag(nodeid, self.tagclass)
 
+@dataclass
 class NotTagged(Criterion):
-
-    def __init__(self, tagclass):
-        self.tagclass = tagclass
+    tagclass: MaybeCRef = None
 
     def __call__(self, g, nodeid):
         return not g.has_tag(nodeid, self.tagclass)
@@ -64,6 +63,7 @@ class HasValue(Criterion):
 
 HasThisValue = HasValue
 
+@dataclass
 class HasSameValueAs(Criterion):
 
     def __init__(self, anchor: NRef):
@@ -75,7 +75,7 @@ class HasSameValueAs(Criterion):
 
 @dataclass
 class OfClass(Criterion):
-    nodeclass: Type[Node]
+    nodeclass: MaybeCRef
 
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)

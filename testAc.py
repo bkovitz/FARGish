@@ -129,7 +129,7 @@ class TestAc(unittest.TestCase):
 
         g.do_timestep(actor=seek_and_glom)
         glom = g.look_for(
-            OfClass(Glom), subset=g.neighbors(bricks, 'member_of')
+            OfClass(Glom), subset=g.neighbors(seek_and_glom, 'built')
         )
 
         self.assertTrue(glom, 'Did not build Glom')
@@ -158,6 +158,32 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=noticer)
         self.assertFalse(g.has_tag(glom, AllMembersHaveThisValue))
         self.assertTrue(g.has_tag(noticer, Failed))
+
+    def test_ac_specify_value_in_init(self):
+        # Tests passing arguments lacking a NodeParam to the Node ctor rather
+        # than by going through g.add_node(). The custom arguments should
+        # appear in the Node object.
+        noticer = NoticeAllHaveThisValue(value=5, whatever=0.123)
+        self.assertEqual(noticer.value, 5)
+        self.assertEqual(noticer.whatever, 0.123)
+
+    def test_ac_shadow_criterion_fields(self):
+        # Tests that fields in Criterion objects can be overridden by the
+        # same mechanisms as fields in Ac objects.
+        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        target = g.look_for(OfClass(Target), within=g.ws)
+        assert target, 'No Target node'
+        seeker = g.add_node(SeekAndGlom(seekclass=Target, within=g.ws))
+
+        g.do_timestep(actor=seeker)
+        glom = g.look_for(
+            OfClass(Glom), subset=g.neighbors(seeker, 'built')
+        )
+
+        self.assertTrue(glom, 'Did not build Glom')
+        self.assertCountEqual(g.neighbors(glom, 'members'), [target])
+
+        # TODO assertions
 
     def test_ac_count_members(self):
         class CountMembers(AcNode):

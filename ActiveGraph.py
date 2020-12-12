@@ -384,30 +384,30 @@ class ActiveGraph(
 
     def already_built(
         self,
-        nodeclass: Union[Type[Node], MaybeNRef],
-        *args,     # ignored if nodeclass is a Node
-        **kwargs   # ignored if nodeclass is a Node
+        nodeclas: Union[Type[Node], MaybeNRef],
+        *args,     # ignored if nodeclas is a Node
+        **kwargs   # ignored if nodeclas is a Node
     ) -> Union[Node, None]:
         '''Returns None if the specified node is not already built, or the Node
         if it is.  If kwargs provides a non-false value for 'copy_of', we
         automatically return None. A nodeclass with .is_duplicable == True is
-        never deemed already built. If nodeclass is a Node object, we look for
+        never deemed already built. If nodeclas is a Node object, we look for
         existing nodes with the same class and parameters, getting the Node
         object's parameters by calling its .regen_kwargs() method.'''
         if kwargs.get('copy_of', None):
             return None
-        if not nodeclass:
+        if not nodeclas:
             return None
-        if is_nodeid(nodeclass):
-            nodeclass = self.as_node(nodeclass)
-        if isinstance(nodeclass, Node):
+        if is_nodeid(nodeclas):
+            nodeclas = self.as_node(nodeclas)
+        if isinstance(nodeclas, Node):
             args = ()
-            kwargs = nodeclass.regen_kwargs()
-            nodeclass = nodeclass.__class__
-        if nodeclass.is_duplicable:
+            kwargs = nodeclas.regen_kwargs()
+            nodeclas = nodeclas.__class__
+        if nodeclas.is_duplicable:
             return None
 
-        filled_params = nodeclass.make_filled_params(self, *args, **kwargs)
+        filled_params = nodeclas.make_filled_params(self, *args, **kwargs)
         if filled_params.specifies_mates():
             candidates = self.neighbors(filled_params.potential_neighbors())
         else:
@@ -416,9 +416,9 @@ class ActiveGraph(
             candidate
                 for candidate in candidates
                     if (
-                        self.class_of(candidate) is nodeclass
+                        self.class_of(candidate) is nodeclas
                         and
-                        filled_params.is_match(self, nodeclass, candidate)
+                        filled_params.is_match(self, nodeclas, candidate)
                     )
         ))
 
@@ -1050,7 +1050,7 @@ class ActiveGraph(
                     self.do_action(a, a.actor)
 
                 self.do_touches()
-                #self.update_all_support()
+                self.update_all_asup()
 
                 d = self.done()
                 if d:
@@ -1060,6 +1060,11 @@ class ActiveGraph(
         except FargDone as exc:
             self.final_result = exc
             ShowResults(str(exc))
+
+    def update_all_asup(self):
+        '''Calls .update_asup() on all allowable_active_nodes.'''
+        for node in self.allowable_active_nodes():
+            self.call_method(node, 'update_asup')
 
     def do_actions1(self, actions: Actions):
         '''Force a sequence of actions, one per timestep. If a single Action
@@ -1106,6 +1111,12 @@ class ActiveGraph(
                     #if not self.is_dormant(node)  #TODO rm
                     if self.as_node(node).can_go()
         ]
+
+    def is_active(self, node: NRef) -> bool:
+        try:
+            return self.call_method(node, 'can_go')
+        except NodeLacksMethod:
+            return False
 
     def choose_active_nodes(
         self,
@@ -1166,15 +1177,19 @@ class ActiveGraph(
             weights=[self.urgency(a) for a in actions]
         ))
         
-    def allowable_active_nodes(self):
-        '''Returns all nodes in the 'ws' (the workspace), if a 'ws' has been
-        set. Otherwise returns all nodes.'''
+    def allowable_active_nodes(self) -> Iterable[NRef]:
+        '''Returns generator containing all ActiveNodes in the 'ws' (the
+        workspace), if a 'ws' has been set. Otherwise generator includes all
+        ActiveNodes. The nodes are not necessarily in an active state.'''
         if not self.ws:
-            return self.nodes()
-        result = self.members_recursive(self.ws)
-        if self.slipnet:
-            result.add(self.slipnet.id)
-        return result
+            result = self.nodes()
+        else:
+            result = self.members_recursive(self.ws)
+            if self.slipnet:
+                result.add(self.slipnet.id)
+        return (
+            node for node in result if self.is_of_class(node, ActiveNode)
+        )
 
     def urgency(self, action: Action) -> float:
         support = self.support_for(action.actor)
@@ -1357,7 +1372,9 @@ G = ActiveGraph
 class CMyContext:
 
     def within(self, g: G, actor: NRef) -> MaybeNRef:
-        return g.neighbor(actor, 'member_of')
+        result = g.neighbor(actor, 'member_of')
+        if g.is_of_class(result, 'ActionSeqNode'):  # HACK
+            return self.within(g, result)
 
 MyContext = CMyContext()
 

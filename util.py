@@ -103,6 +103,13 @@ def vcat(a, b):
     if is_iter(b):
         return [a] + b
     return [a, b]
+
+def is_seq_of(x: Any, clas: Type) -> bool:
+    if isinstance(x, list) or isinstance(x, tuple):
+        try:
+            return isinstance(x[0], clas)
+        except IndexError:
+            return False
     
 # TODO rm (OAOO Node.py)
 def is_nodeid(x):

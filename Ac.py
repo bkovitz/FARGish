@@ -1,7 +1,7 @@
 # Ac.py -- Subactions
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence
 
@@ -12,7 +12,7 @@ from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed, AcError, FargDone
 from StdGraph import MyContext, pg
-from util import as_set, Quote, as_iter, as_list
+from util import as_set, Quote, as_iter, as_list, is_seq_of
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -36,7 +36,14 @@ class AcCantFind(AcFailed):
 @dataclass
 class Ac(ABC):
 
-    def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
+    def get(
+        self,
+        g: 'G',
+        actor: MaybeNRef,
+        env: AcEnv,
+        name: str,
+        default: Any=None
+    ) -> Any:
         '''Looks up name, searching first in actor's overrides, then in env,
         then in actor's attrs, and finally in this Ac's attrs. If the
         value found is itself a string, then looks up the string as 'name'
@@ -48,6 +55,7 @@ class Ac(ABC):
         except KeyError:
             try:
                 result = env[name]
+                #print('ACGETENV', self.__class__.__name__, name, repr(result))
             except KeyError:
                 result = g.getattr(actor, name)
                 if result is None:
@@ -56,9 +64,9 @@ class Ac(ABC):
                         result = getattr(self, name)
                         #print('GET1', result)
                     except AttributeError:
-                        raise 1
-                        result = None
+                        result = default
 
+        #print('ACGET2', self.__class__.__name__, name, repr(result))
         if result is None:
             raise AcNeedArg(ac=self, name=name)
         elif isinstance(result, str):
@@ -66,12 +74,33 @@ class Ac(ABC):
             # this key before.
             # TODO What if the value is actually supposed to be a str?
             #print('GETRECUR', actor, name, result)
-            return self.get(g, actor, env, result)
+            result = self.get(g, actor, env, result)
+            #print('GETRECUR2', repr(result))
+            return result
         elif result == MyContext:
             result = result.within(g, actor)
             return result
+        elif is_seq_of(result, Criterion):
+            return [self.fix_criterion(g, c, actor, env) for c in result]
+        elif isinstance(result, Criterion):
+            return self.fix_criterion(g, result, actor, env)
         else:
             return Quote.get(result)
+
+    def fix_criterion(
+        self, g: 'G', criterion: Criterion, actor: MaybeNRef, env: AcEnv
+    ) -> Criterion:
+        #print('FIXC', criterion, env)
+        changes = {}
+        for field_name in (f.name for f in fields(criterion)):
+            oldv = getattr(criterion, field_name)
+            newv = self.get(g, actor, env, field_name, default=oldv)
+            #print('FIXLOOP', actor, field_name, oldv, newv)
+            if newv is not None and newv != oldv:
+                changes[field_name] = newv
+        result = replace(criterion, **changes)
+        #print('GETCR', criterion, changes, result)
+        return result
 
     def get_or_fizzle(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) \
     -> Any:
@@ -160,7 +189,7 @@ class All(Ac):
         self.within = within
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criteria = self.get(g, actor, env, 'criteria')
+        criteria = as_list(self.get(g, actor, env, 'criteria'))
         within = self.get(g, actor, env, 'within')
         env['nodes'] = g.find_all(*criteria, within=within)
 
@@ -176,7 +205,7 @@ class LookFor(Ac):
         self.cond = cond
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criteria = self.get(g, actor, env, 'criteria')
+        criteria = as_list(self.get(g, actor, env, 'criteria'))
         within = self.get(g, actor, env, 'within')
         for node in g.find_all(*criteria, within=within):
             try:
@@ -194,6 +223,7 @@ class AllAre(Ac):
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
+        # TODO In .get(), override parameters of a Criterion.
         nodes = self.get(g, actor, env, 'nodes')
         for node in as_iter(nodes):
             if not criterion(g, node):
@@ -321,6 +351,7 @@ class LookForArg(Ac):
         criteria = OfClass('Glom')  # HACK
         node = g.look_for(criteria, within=within)  # HACK
         if not node:
+            print('LOOKCANT', criteria, node, within)
             raise AcCantFind(self, actor, criteria)
         env['node'] = node
 
@@ -391,7 +422,9 @@ class AcNode(ActionNode):
 
     def on_build(self):
         if not self.action:
-            self.action = Ac.as_action(self.acs, threshold=self.threshold)
+            self.action = Ac.as_action(
+                self.acs, name=self.name, threshold=self.threshold
+            )
 
     def __repr__(self):
         return self.__class__.__name__

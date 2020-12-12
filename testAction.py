@@ -15,11 +15,13 @@ from Node import Node, NRef
 
 @dataclass
 class SetAttr(Action):
-    name: str
+    name_: str  # HACK The underscore is to avoid nameclash
+                # with BaseAction.name. Properly, Action parameters should
+                # not be in the same namespace as BaseAction attributes.
     v: Any
 
     def go(self, g: Graph, actor: NRef):
-        g.set_attr(actor, self.name, self.v)
+        g.set_attr(actor, self.name_, self.v)
 
 class TestAction(unittest.TestCase):
 

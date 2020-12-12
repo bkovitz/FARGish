@@ -211,9 +211,18 @@ class NodeParams:
         object.__setattr__(self, 'params', params)
         object.__setattr__(self, 'd', dict(p.as_kv() for p in self.params))
 
-    def on_init(self, datum, kwargs):
+    def names(self) -> Iterable[str]:
+        '''The names of all the NodeParams.'''
+        return self.d.keys()
+
+    def on_init(self, datum: 'Node', kwargs: Dict[str, Any]):
+        # Initializes datum's attributes without reference to a graph.
+        # So, parameters that involving linking to other nodes are ignored.
+        # Called from Node.__init__().
         for param in self.params:
             param.on_init(datum, kwargs)
+        for k in set(kwargs.keys()) - self.names():
+            setattr(datum, k, kwargs[k])
 
     def on_build(self, g, thisid, kwargs):
         to_do = set(kwargs.keys())

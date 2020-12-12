@@ -51,6 +51,11 @@ class ActiveNode(ABC, Node):
         node's main actions. By default, returns None.'''
         pass
 
+    def update_asup(self) -> None:
+        '''Should make any needed changes to the node's activation and
+        support edges.'''
+        pass
+
     # TODO rm; mv body to .can_go().
     def is_dormant(self):
         '''Return True to prevent TimeStepper from calling .actions() on this
@@ -79,13 +84,13 @@ class ActiveNode(ABC, Node):
 class ActiveNodeState(metaclass=ClassStrIsName):
 
     @classmethod
-    def is_active(self, g, thisid):
+    def is_active(cls, g, thisid):
         '''Should TimeStepper even bother to call the ActiveNode's .actions()
         method?'''
-        return True
+        return not cls.is_completed(g, thisid)
 
     @classmethod
-    def is_completed(self, g, thisid):
+    def is_completed(cls, g, thisid):
         '''Does this state mean that the ActiveNode has finished its
         business?'''
         return False
@@ -101,6 +106,7 @@ class Dormant(ActiveNodeState):
 
 class Completed(Dormant):
 
+    @classmethod
     def is_completed(self, g, thisid):
         return True
 
@@ -163,6 +169,12 @@ class ActionSeqNode(ActiveNode):
         for member in self.g.members_of(self):
             self.g.set_activation_from_to(self, member, 0.5)
             self.g.inhibit_all_next(member)
+
+    def update_asup(self):
+        for member in self.g.members_of(self):
+            self.g.set_activation_from_to(
+                self, member, 0.5 if self.g.is_active(member) else 0.0
+            )
 
 # Move to ActiveGraph
 def make_action_sequence(g, *actions: Action, **kwargs):

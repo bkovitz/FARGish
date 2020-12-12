@@ -26,9 +26,10 @@ class BaseAction(ABC):
     actor: MaybeNRef = None
     #on_behalf_of: MaybeNRef = None
 
+    name: Union[str, None] = None  # If str, name of this Action when printed
+
     def __init__(self, *args, **kwargs):
         assert dataclasses.is_dataclass(self)
-        print('ACTOR', self.__class__.__name__, args, kwargs, self.actor)
 
     @abstractmethod
     #def go(self, g: 'G'):
@@ -52,6 +53,11 @@ class BaseAction(ABC):
 @dataclass
 class Action(BaseAction):
 
+    def __init__(self, name=None, **kwargs):
+        super().__init__(**kwargs)
+        if name:
+            self.name = name
+
     def param_names(self):
         return set(field.name for field in dataclasses.fields(self))
 
@@ -66,6 +72,12 @@ class Action(BaseAction):
         else:
             #return self
             return copy(self)  # HACK Because Actions are getting shared
+
+    def __str__(self):
+        if self.name:
+            return self.name
+        else:
+            return repr(self)
 
 Actions = Union[Action, Iterable[Action], None]
 
