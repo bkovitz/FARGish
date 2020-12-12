@@ -24,6 +24,7 @@ class NumboTest(unittest.TestCase):
         # seqnode is the ActionSeqNode holding several ActionNodes that should
         # (clumsily) solve this numble.
         neural_program = g.copy_group(g.seqnode, g.ws)
+        neural_program.min_activation = 10.0
 
         g.do_timestep(num=60)
         self.assertTrue(g.succeeded())
@@ -37,9 +38,13 @@ class NumboTest(unittest.TestCase):
 
 if __name__ == '__main__':
     g = newg(Numble([1, 1, 1, 1, 1], 5))
+    ShowActiveNodes.start_logging()
+    ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
     neural_program = g.copy_group(g.seqnode, g.ws)
+    neural_program.min_activation = 10.0
     #g.do_timestep(num=60)
     pg(g)
+    g.do_timestep()
     

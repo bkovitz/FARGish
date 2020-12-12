@@ -4,7 +4,7 @@ import inspect
 
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Callable
+    NewType, Type, ClassVar, Callable, Sequence
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \

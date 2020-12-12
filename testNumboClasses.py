@@ -162,8 +162,9 @@ class NoticeAllBricksAreAvail(AcNode):
     ]
 
 class SeekAndGlom(AcNode):
+    threshold = 1.0
     acs = [
-        All(OfClass(Brick)),
+        All(OfClass(Brick), within=MyContext),
         AddNode(Glom, members='nodes')
     ]
 
@@ -183,6 +184,7 @@ class FillParamScout(AcNode):
     ]
 
 class NoticeAllHaveThisValue(AcNode):
+    threshold = 1.0
     acs = [
         All(OfClass(Number)),
         OrFail(
@@ -193,8 +195,9 @@ class NoticeAllHaveThisValue(AcNode):
     ]
 
 class NoticeSameValue(AcNode):
+    threshold = 1.0
     acs = [
-        EqualValue('node1', 'node2'),
+        EqualValue(),
         Taggees('node1', 'node2'),
         TagWith(SameValue)
     ]
@@ -209,6 +212,7 @@ class Proposal(ActiveNode):
         return self.action.with_overrides_from(self.g, self)
 
 class AddAllInGlom(AcNode):
+    threshold = 1.0
     acs = [
         All(OfClass(Number), CTagged(Avail)),
         LookFor(OfClass(Plus), CTagged(Allowed)),

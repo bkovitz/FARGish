@@ -29,6 +29,11 @@ class AcFizzle(Fizzle):
     pass
 
 @dataclass
+class AcCantFind(AcFailed):
+    '''We looked for a node meeting certain criteria and didn't find one.'''
+    criteria: Criteria
+
+@dataclass
 class Ac(ABC):
 
     def get(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) -> Any:
@@ -120,14 +125,20 @@ class Ac(ABC):
                 raise AcError(ac, exc, env)
 
     @classmethod
-    def as_action(cls, acs: Union['Ac', Sequence['Ac'], None]) -> Action:
-        return AcAction(acs)
+    def as_action(cls, acs: Union['Ac', Sequence['Ac'], None], **kwargs) \
+    -> Action:
+        return AcAction(acs, **kwargs)
 
 Acs = Union[Ac, Iterable[Ac], None]
 
 @dataclass
 class AcAction(Action):
     acs: Union[Ac, Sequence[Ac], None]
+
+    def __init__(self, acs, threshold: float=0.0, **kwargs):
+        super().__init__(**kwargs)
+        self.acs = acs
+        self.threshold = threshold
 
     def go(self, g, actor):
         actor = g.as_node(actor)
@@ -307,8 +318,11 @@ class LookForArg(Ac):
         within = self.get(g, actor, env, 'within')
         #name = self.get(g, actor, env, 'name')
         # TODO Determine the class from 'name'
-        # TODO bail out if can't find node
-        env['node'] = g.look_for(OfClass('Glom'), within=within)
+        criteria = OfClass('Glom')  # HACK
+        node = g.look_for(criteria, within=within)  # HACK
+        if not node:
+            raise AcCantFind(self, actor, criteria)
+        env['node'] = node
 
 @dataclass
 class AddOverride(Ac):
@@ -369,6 +383,7 @@ class AcNode(ActionNode):
     no action.'''
     acs: Acs = None
     blocked_acs: Acs = None
+    threshold: float = 0.0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -376,7 +391,7 @@ class AcNode(ActionNode):
 
     def on_build(self):
         if not self.action:
-            self.action = Ac.as_action(self.acs)
+            self.action = Ac.as_action(self.acs, threshold=self.threshold)
 
     def __repr__(self):
         return self.__class__.__name__

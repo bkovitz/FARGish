@@ -3,7 +3,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Callable
+    NewType, Type, ClassVar, Callable, Sequence
 from dataclasses import dataclass, field
 from inspect import isclass
 from copy import copy
@@ -1031,24 +1031,22 @@ class ActiveGraph(
 
                 if ShowActionsPerformed.is_logging():
                     print('ACTIONS PERFORMED')
-                    if not actions_to_do:
-                        print('  (none)')
-                    else:
-                        self.print_actions_header()
+                    self.print_actions_header(actions_to_do)
                 for a in actions_to_do:
                     if ShowActionsPerformed.is_logging():
-                        #print(f'  {self.as_nodeid(a.actor)}: {a}')
-                        #TODO OAOO
-                        #fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
-                        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %-20s %s'
-                        print(fmt % (self.urgency(a),
-                                     self.activation(a.actor),
-                                     a.threshold,
-                                     self.support_for(a.actor),
-                                     a.support_threshold,
-                                     #self.as_nodeid(a.actor),
-                                     self.nodestr(a.actor).strip()[:20],
-                                     a))
+#                        #print(f'  {self.as_nodeid(a.actor)}: {a}')
+#                        #TODO OAOO
+#                        #fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+#                        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %-20s %s'
+#                        print(fmt % (self.urgency(a),
+#                                     self.activation(a.actor),
+#                                     a.threshold,
+#                                     self.support_for(a.actor),
+#                                     a.support_threshold,
+#                                     #self.as_nodeid(a.actor),
+#                                     self.nodestr(a.actor).strip()[:20],
+#                                     a))
+                        self.print_action(a)
                     self.do_action(a, a.actor)
 
                 self.do_touches()
@@ -1237,25 +1235,41 @@ class ActiveGraph(
             self.support_for(action.actor)
         )
 
-    def print_actions_header(self):
-        headingfmt = '  %5s %5s %7s %5s %7s %-20s %s'
-        headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'actor', 'action')
-        print(headingfmt % headings)
-
-    def print_actions(self, actions: List[Action]):
-        if not len(actions):
+    def print_actions_header(self, actions: Sequence):
+        if not actions:
             print('  (none)')
-            return
-        self.print_actions_header()
-        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+        else:
+            headingfmt = '  %5s %5s %7s %5s %7s %-20s %s'
+            headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'actor', 'action')
+            print(headingfmt % headings)
+
+    def print_actions(self, actions: List[Action], header: bool=True):
+#        if not len(actions):
+#            print('  (none)')
+#            return
+        if header:
+            self.print_actions_header(actions)
+#        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+#        for action in sorted(actions, key=self.action_sorting_key):
+#            print(fmt % (self.urgency(action),
+#                         self.activation(action.actor),
+#                         action.threshold,
+#                         self.support_for(action.actor),
+#                         action.support_threshold,
+#                         self.as_nodeid(action.actor),
+#                         action))
         for action in sorted(actions, key=self.action_sorting_key):
-            print(fmt % (self.urgency(action),
-                         self.activation(action.actor),
-                         action.threshold,
-                         self.support_for(action.actor),
-                         action.support_threshold,
-                         self.as_nodeid(action.actor),
-                         action))
+            self.print_action(action)
+
+    def print_action(self, a: Action):
+        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %-20s %s'
+        print(fmt % (self.urgency(a),
+                     self.activation(a.actor),
+                     a.threshold,
+                     self.support_for(a.actor),
+                     a.support_threshold,
+                     self.nodestr(a.actor).strip()[:20],
+                     a))
 
     # Printing
 
