@@ -20,6 +20,7 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
+from util import Quote
 
 
 '''
@@ -208,6 +209,8 @@ class NoticeAllHaveThisValue(AcNode):
 class NoticeSameValue(AcNode):
     threshold = 1.0
     acs = [
+        LookFor(OfClass(Quote('Count')), asgn_to='node1'),
+        LookFor(OfClass(Quote('Target')), asgn_to='node2'),
         EqualValue(),
         Taggees('node1', 'node2'),
         TagWith(SameValue)

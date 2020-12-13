@@ -198,15 +198,18 @@ class LookFor(Ac):
     criteria: Criteria = None
     within: MaybeNRef = None
     cond: Acs = None  # Acs to check further criteria
+    asgn_to: str = None
 
-    def __init__(self, *criteria, within=None, cond=None):
+    def __init__(self, *criteria, within=None, asgn_to='node', cond=None):
         self.criteria = criteria
         self.within = within
         self.cond = cond
+        self.asgn_to = asgn_to
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criteria = as_list(self.get(g, actor, env, 'criteria'))
         within = self.get(g, actor, env, 'within')
+        node = None
         for node in g.find_all(*criteria, within=within):
             try:
                 env['node'] = node
@@ -216,6 +219,8 @@ class LookFor(Ac):
                 continue
         if not node:
             raise AcFalse(self, actor, env)
+        else:
+            env[self.asgn_to] = node
 
 @dataclass
 class AllAre(Ac):

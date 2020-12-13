@@ -21,6 +21,9 @@ from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 
+class FoundNode(FargDone):
+    node: NRef
+
 class TestAc(unittest.TestCase):
 
     def setUp(self):
@@ -183,8 +186,6 @@ class TestAc(unittest.TestCase):
         self.assertTrue(glom, 'Did not build Glom')
         self.assertCountEqual(g.neighbors(glom, 'members'), [target])
 
-        # TODO assertions
-
     def test_ac_count_members(self):
         class CountMembers(AcNode):
             acs = [
@@ -211,7 +212,8 @@ class TestAc(unittest.TestCase):
         noticer = g.add_node(
             NoticeSameValue,
             node1=target,
-            node2=count
+            node2=count,
+            within=g.ws
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
@@ -251,6 +253,20 @@ class TestAc(unittest.TestCase):
         self.assertEqual(got.__class__, NumboSuccess)
         self.assertEqual(g.as_node(got.node), Brick(15))
         self.assertEqual(g.as_node(got.target), Target(15))
+
+    def test_ac_lookfor_not_there(self):
+        # Tests that LookFor does not crash if no nodes meet the criterion.
+        class Looker(AcNode):
+            acs = [
+                LookFor(OfClass(Count)),
+                Raise(FoundNode)
+            ]
+
+        g = NumboTestGraph(Numble([4, 5, 6, 15], 15))
+        looker = g.add_node(Looker, within=g.ws)
+
+        g.do_timestep(actor=looker)
+        self.assertFalse(g.done())
 
     def test_ac_selfdestruct_on_update(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
