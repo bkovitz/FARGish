@@ -1,6 +1,6 @@
 # testNumboClasses.py -- Common nodeclasses for unit tests and acceptance tests
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 from operator import add, mul
@@ -59,6 +59,7 @@ within -- overriding
 node1 -- overriding
 node2 -- overriding
 target -- overriding
+operands -- consumer
 consume_operands -- proposer
 proposed_operator -- proposer
 result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
@@ -99,6 +100,7 @@ Want.min_activation = 1.0
 
 @dataclass
 class NumboSuccess(FargDone):
+    succeeded: bool = field(init=False, default=True)
     node: NRef
     target: NRef
 
@@ -134,8 +136,12 @@ class ConsumeOperands(Action):
     proposed_operator: Union[NRef, None]=None
 
     def go(self, g, actor):
-        g.consume_operands(self.consume_operands, self.proposed_operator)
-        g.new_state(self.actor, Completed)
+        g.consume_operands(
+            self.consume_operands,
+            self.proposed_operator,
+            actor=actor
+        )
+        g.new_state(actor, Completed)
 
 @dataclass
 class CountMembers(Action):
@@ -216,8 +222,8 @@ class NoticeAllHaveThisValue(AcNode):
 class NoticeSameValue(AcNode):
     threshold = 1.0
     acs = [
-        LookFor(OfClass(Quote('Count')), asgn_to='node1'),
-        LookFor(OfClass(Quote('Target')), asgn_to='node2'),
+        LookFor(OfClass(Count), asgn_to='node1'),
+        LookFor(OfClass(Target), asgn_to='node2'),
         EqualValue(),
         Taggees('node1', 'node2'),
         TagWith(SameValue)
@@ -268,7 +274,9 @@ class NumboTestGraph(Graph):
             SeekAndGlom(within=self.ws, criteria=OfClass(Brick)),
             NoticeAllHaveThisValue(value=1, within=None),
             CountMembers(within=None),
-            NoticeSameValue(node1=None, node2=None, value=1),
+            NoticeSameValue(
+                node1=None, node2=None, value=1, within=InWorkspace
+            ),
             AddAllInGlom(),
             member_of=self.slipnet,
         )
@@ -285,6 +293,7 @@ class NumboTestGraph(Graph):
         operator_id = self.add_node(
             operator_class, 
             operands=operand_ids,
+            member_of=self.containers_of(actor)
         )
         result_id = self.add_node(
             Block,

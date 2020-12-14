@@ -19,15 +19,15 @@ AcEnv = dict
 '''A binding environment for execution of an Ac.'''
 
 @dataclass
-class AcFalse(Fizzle):
-    ac: 'Acs'
-    actor: NRef
-    env: AcEnv
-
-@dataclass
 class AcFizzle(Fizzle):
     '''Exception indicating that an Acs should fail silently.'''
     pass
+
+@dataclass
+class AcFalse(AcFizzle):
+    ac: 'Acs'
+    actor: NRef
+    env: AcEnv
 
 @dataclass
 class AcCantFind(AcFailed):
@@ -147,13 +147,14 @@ class Ac(ABC):
         This makes run() suitable for run acs as an Action, but not as a
         subroutine called from inside an Ac. For that, see Ac.call().'''
         env = AcEnv()
-        try:
-            cls.call(g, acs, actor, env)
-        except AcFizzle:
-            pass
-        except AcFalse as exc:
-            #print('RUN', exc.__class__, exc)
-            return exc.env
+#        try:
+#            cls.call(g, acs, actor, env)
+#        except AcFizzle:
+#            pass
+#        except AcFalse as exc:
+#            print('RUN', exc.__class__, exc)
+#            return exc.env
+        cls.call(g, acs, actor, env)
         return env
 
     @classmethod
@@ -217,6 +218,8 @@ class AcAction(Action):
             raise exc.as_action_blocked(self, actor)
         except AcFailed as exc:
             raise exc.as_action_failure(self, actor)
+        except AcFizzle:
+            return
         actor.state = Completed
 
 @dataclass
@@ -261,6 +264,7 @@ class LookFor(Ac):
                 continue
         else: # TODO UT that exercises this 'else'
             node = None
+        env['node'] = node
         if not node:
             raise AcFalse(self, actor, env)
         else:

@@ -379,6 +379,23 @@ class ActiveGraph(
                 return self.nodeclasses[cref]
             except KeyError:
                 raise NoSuchNodeclass(cref)
+
+    def is_nref(self, x: Any) -> bool:
+        '''Is x a reference to a Node, i.e. a nodeid or a Node object? Returns
+        True even if x is not a node in the graph (e.g. if x is a deleted node
+        or a Node that hasn't yet been given an id).'''
+        return is_nodeid(x) or isinstance(x, Node)
+
+    def is_nrefs(self, x: Any) -> bool:
+        '''Is x a reference to zero or more Nodes, as defined by .is_nref()?
+        Returns True if x is itself a Node reference or if x is an iterable
+        containing only Node references. Hence returns True if x is an empty
+        list or tuple.'''
+        if self.is_nref(x):
+            return True
+        if is_iter(x):
+            return all(self.is_nref(elem) for elem in x)
+        return False
         
     # Node-building
 
@@ -432,12 +449,25 @@ class ActiveGraph(
         denominator" member_of all its neighbors.'''
         if self.has_neighbor_at(node, 'member_of'):
             return
-        containers = intersection(*(
-            self.neighbors(n1, 'member_of') for n1 in self.neighbors(node)
-        ))
+        container_sets: Set[Set[NRef]] = set()
+        for n1 in self.neighbors(node):
+            n1_containers = self.containers_of_recursive(n1)
+            if n1_containers:
+                container_sets.add(frozenset(n1_containers))
+        containers = intersection(*container_sets)
         containers.discard(as_nodeid(node))
         for c in containers:
             self.put_in_container(node, c)
+
+    def containers_of_recursive(self, node: NRef) -> Set[NodeId]:
+        result = set()
+        for container in self.containers_of(node):
+            result.add(container)
+            result |= self.containers_of_recursive(container)
+        return result
+
+    def containers_of(self, node: NRef) -> Set[NodeId]:
+        return self.neighbors(node, 'member_of')
 
     # TODO Specify tag_port_label and/or infer it
     def add_tag(self, tag: MaybeCRef, node: NRefs) \
@@ -1255,7 +1285,7 @@ class ActiveGraph(
             print('  (none)')
         else:
             headingfmt = '  %5s %5s %7s %5s %7s %-20s %s'
-            headings = ('u', 'a', '(a-t)', 's', '(s-t)', 'actor', 'action')
+            headings = ('u', 'a', '(a.t)', 's', '(s.t)', 'actor', 'action')
             print(headingfmt % headings)
 
     def print_actions(self, actions: List[Action], header: bool=True):
@@ -1341,15 +1371,18 @@ class ActiveGraph(
         #TODO append weight=%.3f
         return hop.hopstr(self)
 
+    def long_hopstr(self, hop: Hop, prefix=''):
+        return '%s%-15s --> %s  %s (%.3f)' % (
+            prefix,
+            hop.from_port_label,
+            self.nodestr(hop.to_node),
+            hop.to_port_label,
+            self._hop_weight(hop)
+        )
+
     def print_hops(self, hops: Iterable[Hop], prefix=''):
-        for hop in hops:
-            print('%s%-15s --> %s  %s (%.3f)' % (
-                prefix,
-                hop.from_port_label,
-                self.nodestr(hop.to_node),
-                hop.to_port_label,
-                self._hop_weight(hop)
-            ))
+        for line in sorted(self.long_hopstr(hop) for hop in hops):
+            print(line)
         
     def print_edges(self, node, from_port_label=None, prefix=''):
         if from_port_label:

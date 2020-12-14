@@ -19,15 +19,16 @@ class NumboTest(unittest.TestCase):
         #ShowActionList.start_logging()
         ##ShowActionsChosen.start_logging()
         #ShowActionsPerformed.start_logging()
-        ShowPrimitives.start_logging()
+        #ShowPrimitives.start_logging()
         g = newg(Numble([1, 1, 1, 1, 1], 5))
+        g.add_node(NoticeSolved, member_of=g.ws, within=g.ws)
         # seqnode is the ActionSeqNode holding several ActionNodes that should
         # (clumsily) solve this numble.
-        g.add_node(NoticeSolved, member_of=g.ws)
         neural_program = g.copy_group(g.seqnode, g.ws)
         neural_program.min_activation = 10.0
 
         g.do_timestep(num=60)
+        #print('DONE', repr(g.done()))
         self.assertTrue(g.succeeded())
         # TODO Test that the equation is 1 + 1 + 1 + 1 + 1 = 5
 
@@ -46,7 +47,8 @@ if __name__ == '__main__':
     g.add_node(NoticeSolved, member_of=g.ws, within=g.ws)
     neural_program = g.copy_group(g.seqnode, g.ws)
     neural_program.min_activation = 10.0
-    #g.do_timestep(num=60)
+    g.do_timestep(num=60)
     pg(g)
-    g.do_timestep()
+    print(g.done())
+    #g.do_timestep()
     

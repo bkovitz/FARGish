@@ -265,10 +265,26 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
 
+    def test_ac_notice_same_value_with_search(self):
+        g = NumboTestGraph(Numble([1, 1, 1], 3))
+        target = g.look_for(OfClass(Target))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+        count = g.add_node(Count, taggees=glom, value=3)
+
+        noticer = g.add_node(
+            NoticeSameValue,
+            within=InWorkspace
+        )
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.has_tag([count, target], SameValue))
+
     def test_ac_add_all_in_glom(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         proposer = g.add_node(AddAllInGlom, within=glom)
+
+        a_brick = g.look_for(OfClass(Brick), within=g.ws)
+        self.assertEqual(g.containers_of_recursive(a_brick), {glom.id, g.ws.id})
 
         g.do_timestep(actor=proposer)
 
@@ -277,9 +293,14 @@ class TestAc(unittest.TestCase):
 
         g.do_timestep(actor=proposal)
 
-        self.assertTrue(
-            g.has_tag(proposal, Block(15), taggee_port_label='built')
-        )
+        new_plus = g.neighbor(proposal, 'built', neighbor_class=Plus)
+        self.assertTrue(new_plus, 'Proposal did not build Plus.')
+        self.assertTrue(g.is_member(new_plus, g.ws))
+
+        block = g.neighbor(proposal, 'built', neighbor_class=Block)
+        self.assertEqual(g.as_node(block), Block(15))
+        self.assertTrue(g.is_member(block, g.ws))
+        self.assertFalse(g.is_member(block, glom))
 
     def test_ac_notice_solved(self):
         class NoticeSolved(AcNode):
@@ -300,6 +321,7 @@ class TestAc(unittest.TestCase):
         self.assertEqual(got.__class__, NumboSuccess)
         self.assertEqual(g.as_node(got.node), Brick(15))
         self.assertEqual(g.as_node(got.target), Target(15))
+        self.assertTrue(g.succeeded())
 
     def test_ac_lookfor_not_there(self):
         # Tests that LookFor does not crash if no nodes meet the criterion.

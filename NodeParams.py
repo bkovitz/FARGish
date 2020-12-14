@@ -247,8 +247,9 @@ class NodeParams:
                 else:
                     result[k] = self.d[k].as_default_filled_param()
             else:  # else it's a 'custom' arg, not in the Node's definition
-                if g.is_port_label(k):
-                    result[k] = FilledMate2(k, v)
+                if g.is_port_label(k) and g.is_nrefs(v):
+                    if v:
+                        result[k] = FilledMate2(k, v)
                 else:
                     result[k] = FilledAttr(k, v)
         return FilledParams(result)
