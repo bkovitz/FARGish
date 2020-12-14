@@ -3,9 +3,10 @@
 from dataclasses import dataclass, replace
 import dataclasses
 from abc import ABC, abstractmethod
-from typing import List, Dict, Union, Any
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Sequence, Callable
 
-from util import nice_object_repr, NiceRepr
+from util import nice_object_repr, NiceRepr, Quote
 
 
 class FargDone(Exception):
@@ -95,6 +96,23 @@ class NeedArg(ActionBlocked):
 class AcFailed(Exception):
     ac: 'Ac'
     actor: 'MaybeNRef'
+    env: 'AcEnv'
+
+    @classmethod
+    def from_env(cls, **kwargs) \
+    -> Callable[['G', 'Ac', 'MaybeNRef', 'AcEnv'], 'AcFailed']:
+        '''Returns a function that constructs the exception, supplying
+        the given keyword arguments and values. String values get looked
+        up in env.'''
+        def ctor(g, ac, actor, env) -> AcFailed:
+            kws = {}
+            for k, v in kwargs.items():
+                if isinstance(v, str):
+                    kws[k] = ac.get_or_none(g, actor, env, v)
+                else:
+                    kws[k] = Quote.get(v)
+            return cls(ac, actor, env, **kws)
+        return ctor
 
     def as_action_failure(self, action: 'Action', actor: 'MaybeNRef') \
     -> ActionFailure:

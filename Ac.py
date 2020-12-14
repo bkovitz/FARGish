@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field, fields, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence
+    NewType, Type, ClassVar, Sequence, Callable
 from contextlib import contextmanager
 
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
@@ -33,6 +33,11 @@ class AcFalse(AcFizzle):
 class AcCantFind(AcFailed):
     '''We looked for a node meeting certain criteria and didn't find one.'''
     criteria: Criteria
+
+@dataclass
+class AcNotEqualValue(AcFailed):
+    node1: MaybeNRef
+    node2: MaybeNRef
 
 @dataclass
 class Ac(ABC):
@@ -117,6 +122,14 @@ class Ac(ABC):
             return self.get(g, actor, env, name)
         except AcNeedArg:
             raise AcFizzle
+
+    def get_or_none(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) \
+    -> Any:
+        '''Same as .get() but returns None if can't find value for 'name'.'''
+        try:
+            return self.get(g, actor, env, name)
+        except AcNeedArg:
+            raise None
 
     @contextmanager
     def push_name_overrides(self, d: Dict[str, str]):
@@ -427,13 +440,14 @@ class RemoveBlockedTag(Ac):
 @dataclass
 class OrFail(Ac):
     ac: Ac
-    exc: AcFailed
+    exc: Type[AcFailed]
+    #argnames: Sequence[str]
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         try:
             self.ac.go(g, actor, env)
         except AcFalse:
-            raise self.exc(self.ac, actor)
+            raise self.exc(g, self.ac, actor, env)
 
 @dataclass
 class Raise(HasKwargs, Ac):

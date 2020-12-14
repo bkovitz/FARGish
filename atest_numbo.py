@@ -21,7 +21,6 @@ class NumboTest(unittest.TestCase):
         #ShowActionsPerformed.start_logging()
         #ShowPrimitives.start_logging()
         g = newg(Numble([1, 1, 1, 1, 1], 5))
-        g.add_node(NoticeSolved, member_of=g.ws, within=g.ws)
         # seqnode is the ActionSeqNode holding several ActionNodes that should
         # (clumsily) solve this numble.
         neural_program = g.copy_group(g.seqnode, g.ws)
@@ -34,20 +33,22 @@ class NumboTest(unittest.TestCase):
 
     def test_22222_10(self):
         g = newg(Numble([2, 2, 2, 2, 2], 10))
+        neural_program = g.copy_group(g.seqnode, g.ws)
+        neural_program.min_activation = 10.0
+
         g.do_timestep(num=60)
         self.assertTrue(g.succeeded())
         # TODO Test for expected equation
 
 if __name__ == '__main__':
-    g = newg(Numble([1, 1, 1, 1, 1], 5))
+    g = newg(Numble([2, 2, 2, 2, 2], 10))
     ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
-    g.add_node(NoticeSolved, member_of=g.ws, within=g.ws)
     neural_program = g.copy_group(g.seqnode, g.ws)
     neural_program.min_activation = 10.0
-    g.do_timestep(num=60)
+    g.do_timestep(num=10)
     pg(g)
     print(g.done())
     #g.do_timestep()

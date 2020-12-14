@@ -16,6 +16,7 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride
+from Ac import AcCantFind, AcNotEqualValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
@@ -23,35 +24,6 @@ from criteria import OfClass, Tagged as CTagged, HasThisValue
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 from util import Quote
 
-
-'''
-port_mates = PortMates([('taggees', 'tags'), ('target', 'tags')])
-
-class Workspace(Node):
-    pass
-class Number(Node):
-    node_params = NodeParams(AttrParam('value'))
-class Brick(Number):
-    is_duplicable = True
-class Target(Number):
-    pass
-class Block(Number):
-    pass
-class Tag(Node):
-    node_params = NodeParams(MateParam('taggees', 'tags'))
-class Avail(Tag):
-    pass
-class Allowed(Tag):
-    pass
-class Want(Node):
-    node_params = NodeParams(MateParam('target', 'tags'))
-class Operator(Node):
-    is_duplicable = True
-class Plus(Operator):
-    pass
-class Times(Operator):
-    pass
-'''
 
 prog = '''
 tags -- taggees
@@ -93,6 +65,7 @@ Numble = make_numble_class(
 ##### Hacks
 
 Number.is_duplicable = True
+Operator.is_duplicable = True
 
 Want.min_activation = 1.0
 
@@ -107,10 +80,8 @@ class NumboSuccess(FargDone):
 @dataclass
 class NotAllThisValue(AcFailed):
     #TODO Supply the commented-out parameters.
-    #value: Any=None
+    value: Any=None
     #within: NRef=None
-    ac: Ac
-    actor: MaybeNRef
 
 # Custom functions
 
@@ -214,17 +185,28 @@ class NoticeAllHaveThisValue(AcNode):
         All(OfClass(Number)),
         OrFail(
             AllAre(HasThisValue(value=3)),
-            NotAllThisValue
+            NotAllThisValue.from_env(value=3)
+            # TODO Get 'value' from env so search and exc are assuredly
+            # consistent
         ),
         TagWith(AllMembersHaveThisValue, taggees='within')
     ]
 
-class NoticeSameValue(AcNode):
+class NoticeCountSameAsTarget(AcNode):
     threshold = 1.0
     acs = [
-        LookFor(OfClass(Count), asgn_to='node1'),
-        LookFor(OfClass(Target), asgn_to='node2'),
-        EqualValue(),
+        OrFail(
+            LookFor(OfClass(Count), asgn_to='node1'),
+            AcCantFind.from_env(criteria=OfClass(Count))
+        ),
+        OrFail(
+            LookFor(OfClass(Target), asgn_to='node2'),
+            AcCantFind.from_env(criteria=OfClass(Target))
+        ),
+        OrFail(
+            EqualValue(),
+            AcNotEqualValue.from_env(node1='node1', node2='node2')
+        ),
         Taggees('node1', 'node2'),
         TagWith(SameValue)
     ]
@@ -267,6 +249,7 @@ class NumboTestGraph(Graph):
         self.add_node(Workspace)
         self.make_slipnet()
         numble.build(self, self.ws)
+        self.add_node(NoticeSolved, member_of=self.ws, within=self.ws)
 
     def make_slipnet(self):
         self.seqnode = make_action_sequence(
@@ -274,7 +257,7 @@ class NumboTestGraph(Graph):
             SeekAndGlom(within=self.ws, criteria=OfClass(Brick)),
             NoticeAllHaveThisValue(value=1, within=None),
             CountMembers(within=None),
-            NoticeSameValue(
+            NoticeCountSameAsTarget(
                 node1=None, node2=None, value=1, within=InWorkspace
             ),
             AddAllInGlom(),

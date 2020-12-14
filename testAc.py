@@ -257,7 +257,7 @@ class TestAc(unittest.TestCase):
         count = g.add_node(Count, taggees=glom, value=3)
 
         noticer = g.add_node(
-            NoticeSameValue,
+            NoticeCountSameAsTarget,
             node1=target,
             node2=count,
             within=g.ws
@@ -272,11 +272,25 @@ class TestAc(unittest.TestCase):
         count = g.add_node(Count, taggees=glom, value=3)
 
         noticer = g.add_node(
-            NoticeSameValue,
+            NoticeCountSameAsTarget,
             within=InWorkspace
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
+
+    def test_ac_notice_same_value_fail_eq(self):
+        g = NumboTestGraph(Numble([1, 1, 1], 4))
+        target = g.look_for(OfClass(Target))
+        glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
+        count = g.add_node(Count, taggees=glom, value=3)
+
+        noticer = g.add_node(
+            NoticeCountSameAsTarget,
+            within=InWorkspace
+        )
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.is_failed(noticer))
+        # TODO Check that Failed tag has correct reason
 
     def test_ac_add_all_in_glom(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
