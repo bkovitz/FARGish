@@ -300,9 +300,6 @@ class NoticeSameValue(Action):
             raise NeedArg(self, 'node2')
         if g.value_of(self.node1) == g.value_of(self.node2):
             g.do(
-#                Build.maybe_make(
-#                    g, SameValue, [], dict(taggees=[self.node1, self.node2])
-#                )
                 Build.maybe_make(
                     g, SameValue, taggees=[self.node1, self.node2]
                 )

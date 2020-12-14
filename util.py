@@ -273,6 +273,7 @@ class ReprEq:
     def __hash__(self):
         return hash(repr(self))
 
+#TODO Redo with contextlib.contextmanager
 @dataclass
 class PushAttr(AbstractContextManager):
     o: SimpleNamespace

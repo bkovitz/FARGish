@@ -11,16 +11,17 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
-from StdGraph import Graph, MyContext, pg
+from StdGraph import Graph, MyContext, InWorkspace, pg
 from Numble import make_numble_class
 from testNumboClasses import *
-from Node import Node, NRef, NRefs, CRef, MaybeNRef
+from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate
 from Action import Action, Actions, BuildAgent
 from log import *
 from util import first
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 
+@dataclass
 class FoundNode(FargDone):
     node: NRef
 
@@ -203,6 +204,52 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=counter)
         self.assertTrue(g.has_tag(glom, Count(value=3)))
 
+    def test_ac_inworkspace(self):
+        class FindPlus(AcNode):
+            acs = [
+                LookFor(OfClass(Plus), within=InWorkspace),
+                Raise(FoundNode, node='node')
+            ]
+
+        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        plus = g.look_for(OfClass(Plus))
+        assert plus, 'No Plus in workspace'
+
+        finder = g.add_node(FindPlus)
+        self.assertEqual(
+            as_nodeid(InWorkspace.within(g, finder)),
+            as_nodeid(g.ws)
+        )
+
+        g.do_timestep(actor=finder)
+
+        self.assertEqual(g.done(), FoundNode(plus))
+
+    def test_ac_mycontext(self):
+        class FindPlus(AcNode):
+            acs = [
+                LookFor(OfClass(Plus), within=MyContext),
+                Raise(FoundNode, node='node')
+            ]
+        
+        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        wrong_plus = g.look_for(OfClass(Plus), within=g.ws)
+        assert wrong_plus, 'No Plus in workspace'
+        glom = g.add_node(Glom)
+        right_plus = g.add_node(Plus, member_of=glom)
+
+        finder = g.add_node(FindPlus, member_of=glom)
+        self.assertEqual(
+            as_nodeid(MyContext.within(g, finder)),
+            as_nodeid(glom.id)
+        )
+
+        g.do_timestep(actor=finder)
+
+        self.assertEqual(g.done(), FoundNode(right_plus.id))
+
+
+
     def test_ac_notice_same_value(self):
         g = NumboTestGraph(Numble([1, 1, 1], 3))
         target = g.look_for(OfClass(Target))
@@ -221,7 +268,7 @@ class TestAc(unittest.TestCase):
     def test_ac_add_all_in_glom(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
-        proposer = g.add_node(AddAllInGlom, within=g.ws)
+        proposer = g.add_node(AddAllInGlom, within=glom)
 
         g.do_timestep(actor=proposer)
 

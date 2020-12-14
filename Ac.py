@@ -1,9 +1,10 @@
 # Ac.py -- Subactions
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, field, fields, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence
+from contextlib import contextmanager
 
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
@@ -11,7 +12,7 @@ from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed, AcError, FargDone
-from StdGraph import MyContext, pg
+from StdGraph import Context, MyContext, pg
 from util import as_set, Quote, as_iter, as_list, is_seq_of
 
 AcEnv = dict
@@ -35,6 +36,7 @@ class AcCantFind(AcFailed):
 
 @dataclass
 class Ac(ABC):
+    name_overrides_: ClassVar[Dict[str, str]] = {} #field(init=False, default_factory=lambda: {})
 
     def get(
         self,
@@ -50,6 +52,11 @@ class Ac(ABC):
         (recursively). A value of Quote(s) will be returned as s, without
         recursive lookup, if you need to actually return a string.
         Raises AcNeedArg if the value found is None or not found.'''
+        # TODO Document name_overrides_
+        # NEXT Find 'opwithin' in LookFor.within
+        #print('ACNAME0', name, self.name_overrides_)
+        name = self.name_overrides_.get(name, name)
+        #print('ACNAME1', name)
         try:
             result = g.get_overrides(actor, name)[name]
         except KeyError:
@@ -73,12 +80,13 @@ class Ac(ABC):
             # TODO Prevent infinite recursion: make sure we haven't tried
             # this key before.
             # TODO What if the value is actually supposed to be a str?
-            #print('GETRECUR', actor, name, result)
+            #print('GETRECUR', self, actor, name, result)
             result = self.get(g, actor, env, result)
             #print('GETRECUR2', repr(result))
             return result
-        elif result == MyContext:
+        elif Context.is_context(result):
             result = result.within(g, actor)
+            #print('GETCTX', result)
             return result
         elif is_seq_of(result, Criterion):
             return [self.fix_criterion(g, c, actor, env) for c in result]
@@ -109,6 +117,17 @@ class Ac(ABC):
             return self.get(g, actor, env, name)
         except AcNeedArg:
             raise AcFizzle
+
+    @contextmanager
+    def push_name_overrides(self, d: Dict[str, str]):
+        old = self.name_overrides_
+        new = old.copy()
+        new.update(d)
+        try:
+            self.name_overrides_ = new
+            yield self
+        finally:
+            self.name_overrides_ = old
             
     @abstractmethod
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
@@ -133,6 +152,7 @@ class Ac(ABC):
         except AcFizzle:
             pass
         except AcFalse as exc:
+            #print('RUN', exc.__class__, exc)
             return exc.env
         return env
 
@@ -159,6 +179,26 @@ class Ac(ABC):
         return AcAction(acs, **kwargs)
 
 Acs = Union[Ac, Iterable[Ac], None]
+
+#TODO UT that overrides the value for the overridden name
+@dataclass
+class WithNameOverride(Ac):
+    ac: Ac
+    name_overrides: Dict[str, str]
+
+    def __init__(self, ac: Ac, **kwargs):
+        self.ac = ac
+        self.name_overrides = kwargs
+        for oldname, newname in kwargs.items():
+            setattr(self.ac, newname, getattr(self.ac, oldname))
+            # TODO delattr the old name?
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        # TODO Refactor so we don't need to modify self.ac. That's bad
+        # design because ac could be shared among multiple AcNodes.
+        with self.ac.push_name_overrides(self.name_overrides):
+            #print('WNAME', self.name_overrides)
+            self.ac.go(g, actor, env)
 
 @dataclass
 class AcAction(Action):
@@ -210,13 +250,17 @@ class LookFor(Ac):
         criteria = as_list(self.get(g, actor, env, 'criteria'))
         within = self.get(g, actor, env, 'within')
         node = None
+        #print('LNODE0', node, criteria, within)
         for node in g.find_all(*criteria, within=within):
+            #print('LNODE', node, criteria, within)
             try:
                 env['node'] = node
                 Ac.call(g, self.cond, actor, env)
                 break
             except AcFalse:
                 continue
+        else: # TODO UT that exercises this 'else'
+            node = None
         if not node:
             raise AcFalse(self, actor, env)
         else:
@@ -285,7 +329,7 @@ class HasKwargs(Ac):  # Mix-in
     def get_kwargs(self, g: 'G', actor: NRef, env: AcEnv) -> Dict[str, Any]:
         kwargs = {}
         for k, v in self.kwargs.items():
-            if isinstance(v, str):  # TODO What if the value is property a str?
+            if isinstance(v, str):  # TODO What if the value is properly a str?
                 # If value is a string, we look it up (indirection)
                 kwargs[k] = self.get(g, actor, env, v)
             else:
@@ -356,7 +400,7 @@ class LookForArg(Ac):
         criteria = OfClass('Glom')  # HACK
         node = g.look_for(criteria, within=within)  # HACK
         if not node:
-            print('LOOKCANT', criteria, node, within)
+            #print('LOOKCANT', criteria, node, within)
             raise AcCantFind(self, actor, criteria)
         env['node'] = node
 

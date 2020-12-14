@@ -1369,14 +1369,37 @@ class ActiveGraph(
 G = ActiveGraph
 
 @dataclass
-class CMyContext:
+class Context(ABC):
 
-    def within(self, g: G, actor: NRef) -> MaybeNRef:
+    @classmethod
+    @abstractmethod
+    def within(cls, g: G, actor: NRef) -> MaybeNRef:
+        '''Should return the group node that is the relevant context
+        for 'actor'.'''
+        pass
+
+    @staticmethod
+    def is_context(x: Any) -> bool:
+        '''Is x a Context?'''
+        return isclass(x) and issubclass(x, Context)
+
+@dataclass
+class MyContext(Context):
+
+    @classmethod
+    def within(cls, g: G, actor: NRef) -> MaybeNRef:
         result = g.neighbor(actor, 'member_of')
         if g.is_of_class(result, 'ActionSeqNode'):  # HACK
-            return self.within(g, result)
+            return cls.within(g, result)
+        else:
+            return result
 
-MyContext = CMyContext()
+@dataclass
+class InWorkspace(Context):
+
+    @classmethod
+    def within(cls, g: G, actor: NRef) -> MaybeNRef:
+        return g.ws
 
 def pt(g: G):
     '''Prints title with t= and other info about the graph.'''

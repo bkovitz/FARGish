@@ -9,12 +9,13 @@ from functools import reduce
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, MaybeCRef
 from PortMates import PortMates
 from NodeParams import NodeParams, AttrParam, MateParam
-from StdGraph import Graph, MyContext, pg
+from StdGraph import Graph, MyContext, InWorkspace, pg
 from codegen import make_python, compile_fargish
 from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
-    SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag
+    SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
+    WithNameOverride
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
@@ -151,8 +152,14 @@ class CountMembers(Action):
 
 # Custom nodeclasses
 
-class AllBricksAvail(Tag, HasUpdate, ActiveNode):
+class NoticeSolved(AcNode):
+    acs = [
+        LookFor(OfClass(Target), asgn_to='target'),
+        LookFor(CTagged(Avail), cond=EqualValue('node', 'target')),
+        Raise(NumboSuccess, node='node', target='target')
+    ]
 
+class AllBricksAvail(Tag, HasUpdate, ActiveNode):
     update_action: Actions = Ac.as_action([
         All(OfClass(Brick), within=MyContext),
         AcNot(AllAre(CTagged(Avail))),
@@ -229,7 +236,10 @@ class AddAllInGlom(AcNode):
     threshold = 1.0
     acs = [
         All(OfClass(Number), CTagged(Avail)),
-        LookFor(OfClass(Plus), CTagged(Allowed)),
+        WithNameOverride(
+            LookFor(OfClass(Plus), CTagged(Allowed), within=InWorkspace),
+            within='opwithin'
+        ),
         AddNode(
             Proposal,
             action=ConsumeOperands(),
