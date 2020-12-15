@@ -194,6 +194,19 @@ class TestStdGraph(unittest.TestCase):
         brick_tag = g.add_node(Tag, b1)
         self.assertTrue(g.is_member(brick_tag, numble))
 
+    def test_port_labels_of(self):
+        g = TestGraph()
+        ws = g.add_node(Workspace)
+
+        numble = g.add_node(Numble, member_of=g.ws)
+        b1 = g.add_node(Brick, value=1, member_of=numble)
+        b2 = g.add_node(Brick, value=2, member_of=numble)
+
+        self.assertCountEqual(
+            g.port_labels_of(numble),
+            ['members', 'member_of']
+        )
+
     def test_mark_builder(self):
         g = TestGraph()
 

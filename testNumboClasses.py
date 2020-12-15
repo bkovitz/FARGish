@@ -6,7 +6,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from operator import add, mul
 from functools import reduce
 
-from Node import Node, NRef, NRefs, CRef, MaybeNRef, MaybeCRef
+from Node import Node, NRef, NRefs, CRef, MaybeNRef, MaybeCRef, PortLabel, \
+    NodeId
 from PortMates import PortMates
 from NodeParams import NodeParams, AttrParam, MateParam
 from StdGraph import Graph, MyContext, InWorkspace, pg
@@ -22,7 +23,7 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
-from util import Quote
+from util import Quote, omit, first
 
 
 prog = '''
@@ -32,9 +33,11 @@ node1 -- overriding
 node2 -- overriding
 target -- overriding
 operands -- consumer
-consume_operands -- proposer
+proposed_operands -- proposer
 proposed_operator -- proposer
 result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
+minuend -- consumerM  # HACK TODO Fix: violates unique mate for 'consumer'
+subtrahend -- consumerS
 
 Workspace
 
@@ -69,6 +72,31 @@ Operator.is_duplicable = True
 
 Want.min_activation = 1.0
 
+#def plus_result(self, g: 'G', node: NRef) -> int:
+def plus_result(self: Plus) -> int:
+    # TODO Appropriate exception(s) if an operand is missing a value or it's
+    # the wrong type or there aren't enough operands.
+    operands = self.g.neighbors(self, 'operands')
+    return sum(self.g.value_of(o) for o in operands)
+Plus.result_value = plus_result
+
+def times_result(self: Times) -> int:
+    # TODO Appropriate exception(s) if an operand is missing a value or it's
+    # the wrong type or there aren't enough operands.
+    operands = self.g.neighbors(self, 'operands')
+    return reduce(mul, (self.g.value_of(o) for o in operands), 1)
+Times.result_value = times_result
+
+def minus_result(self: Minus) -> int:
+    # TODO Appropriate exception(s) if an operand is missing a value or it's
+    # the wrong type or there aren't enough operands.
+    return (
+        self.g.value_of(self.g.neighbor(self, 'minuend'))
+        -
+        self.g.value_of(self.g.neighbor(self, 'subtrahend'))
+    )
+Minus.result_value = minus_result
+
 # Custom exceptions
 
 @dataclass
@@ -102,7 +130,7 @@ def arith_result0(g, operator_class, operand_ids):
 # Custom Actions
 
 @dataclass
-class ConsumeOperands(Action):
+class OLDConsumeOperands(Action):
     consume_operands: Union[NRefs, None]=None
     proposed_operator: Union[NRef, None]=None
 
@@ -112,6 +140,27 @@ class ConsumeOperands(Action):
             self.proposed_operator,
             actor=actor
         )
+        g.new_state(actor, Completed)
+
+@dataclass
+class ConsumeOperands(Action):
+    '''Calls g.consume_operands(). Arguments must be installed in this object
+    before .go() is called. The Node that owns this Action should call
+    .with_overrides_from() on this Action before running it. One of those
+    filled-in arguments must be 'operator'.'''
+    # TODO That comment shows that ConsumeOperands is pretty ugly and should
+    # be redesigned.
+
+#    operator: CRef
+
+    def as_kwargs(self):
+        return omit(self.__dict__, ['actor', 'operator'])
+
+    def go(self, g, actor):
+        actor = g.datum(actor)
+        # TODO Exception if actor does not exist?
+        #print('CONS', self.as_kwargs())
+        g.consume_operands(self.operator, actor, **self.as_kwargs())
         g.new_state(actor, Completed)
 
 @dataclass
@@ -217,8 +266,26 @@ class Proposal(ActiveNode):
 
     is_duplicable = True  # HACK  Is already_built mis-rejecting this?
 
+    def proposed_kwargs(self) -> Dict[PortLabel, NodeId]:
+        '''Strips leading 'proposed_' from port labels and returns a
+        dictionary mapping the resulting names to this node's neighbors at
+        the corresponding ports.'''
+        result = {}
+        for pk in self.g.port_labels_of(self):
+            if not pk.startswith('proposed_'):
+                continue
+            k = pk[9:]
+            v = self.g.neighbors(self, port_label=pk)
+            if not v:
+                v = None
+            elif len(v) == 1:
+                v = first(v)
+            result[k] = v
+        return result
+
     def actions(self):
-        return self.action.with_overrides_from(self.g, self)
+        #return self.action.with_overrides_from(self.g, self)
+        return self.action.with_overrides_from(self.g, self.proposed_kwargs())
 
 class AddAllInGlom(AcNode):
     threshold = 1.0
@@ -231,7 +298,7 @@ class AddAllInGlom(AcNode):
         AddNode(
             Proposal,
             action=ConsumeOperands(),
-            consume_operands='nodes',
+            proposed_operands='nodes',
             proposed_operator='node',
         )
     ]
@@ -264,7 +331,7 @@ class NumboTestGraph(Graph):
             member_of=self.slipnet,
         )
 
-    def consume_operands(
+    def OLDconsume_operands(
         self,
         operand_ids: NRefs,
         operator_class: CRef,
@@ -285,6 +352,22 @@ class NumboTestGraph(Graph):
         )
         self.move_tag(Avail, operand_ids, result_id)
         self.add_tag(Consumed, operand_ids)
+        self.add_tag(Done, actor)
+
+    def consume_operands(self, operator_class: CRef, actor=None, **kwargs):
+        '''kwargs is port_label=NRefs for each operand.'''
+        operands = kwargs.values()
+        if not self.has_tag(operands, Avail):
+            return  # TODO Raise a failure exception.
+        if 'member_of' not in kwargs:
+            kwargs['member_of'] = self.containers_of(actor)
+        operator = self.add_node(operator_class, builder=actor, **kwargs)
+        result_value = self.call_method(operator, 'result_value')
+        result = self.add_node(
+            Block, value=result_value, source=operator, builder=actor
+        )
+        self.move_tag(Avail, operands, result)
+        #self.add_tag(Consumed, operands)
         self.add_tag(Done, actor)
 
 def newg(numble=Numble([4, 5, 6], 15), seed=8028868705202140491):

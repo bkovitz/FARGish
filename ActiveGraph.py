@@ -25,7 +25,7 @@ from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
     ActionBlocked, ActionFailure
 from log import *
-from criteria import NoMate
+from criteria import Criterion, OfClass, NodeEq, NoMate
 
 
 #TODO rm
@@ -103,6 +103,31 @@ class ActiveGraph(
         *args,
         **kwargs
     ) -> Node:
+        '''Creates a new node and returns its Node object. The Node object's
+        NodeParams are filled in from 'args' and 'kwargs', producing
+        FilledParams and attributes within the node and/or links to neighbors.
+        The filling in of NodeParams happens whether a new Node object is
+        created or if an existing Node is supplied, as explained below.
+
+        If 'node' is a Node class, a new Node object of that class is created.
+
+        If 'node' is a string, it must be the name of a NodeClass registered
+        with the graph. The new Node is created as if 'node' were that
+        NodeClass.
+
+        If 'node' is itself a Node object, the new node is given that object
+        for its datum and its .id field is filled in.
+
+        If 'node' is an Action object, the new node is an ActionNode with
+        .action set to that Action object.
+
+        If 'node' is a nodeid (an int), it must refer to an existing node in
+        the graph. A new Node is created as if 'node' were the class of the
+        referenced node.
+
+        #TODO Explain touches, implicit membership, builder, Workspace and
+        Slipnet, and .on_build().
+        '''
         #print('ADD_NODE', repr(node), args, kwargs)
         if isclass(node) and issubclass(node, Action):
             action = node(*args)
@@ -110,6 +135,7 @@ class ActiveGraph(
             return self.add_node(ActionNode, **kwargs)
         elif isinstance(node, Action):
             return self.add_node(ActionNode, action=node, **kwargs)
+        builder = kwargs.pop('builder', self.builder)
         if isinstance(node, Node):
             kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)
@@ -122,8 +148,9 @@ class ActiveGraph(
             filled_params = node.make_filled_params(self, *args, **kwargs)
             filled_params.apply_to_node(self, node.id)
         else:
-            if isinstance(node, str):
+            if isinstance(node, str) or is_nodeid(node):
                 node = self.as_nodeclass(node)
+                # TODO Catch/throw exception if it doesn't exist?
             already = self.already_built(node, *args, **kwargs)
             if already:
                 return already  # TODO Don't return yet; updates later
@@ -136,7 +163,7 @@ class ActiveGraph(
             filled_params.apply_to_node(self, node.id)
 
         self.add_implicit_membership(node)
-        self.mark_builder(node, self.builder)
+        self.mark_builder(node, builder)
 
         classname = node.__class__.__name__
         if not self.ws and classname == 'Workspace':
@@ -770,10 +797,20 @@ class ActiveGraph(
             nodes = as_set(subset).intersection(nodes)
 
         for c in criteria:
+            c = self.as_criterion(c)
             nodes = [n for n in nodes if c(self, n)]
             if not nodes:
                 return []
         return as_list(nodes)
+
+    def as_criterion(self, x: Union[Node, CRef, Criterion]) -> Criterion:
+        if isinstance(x, Criterion):
+            return x
+        elif isinstance(x, Node):
+            return NodeEq(x)
+        elif isclass(x) and issubclass(x, Node):
+            return OfClass(x)
+        assert False, f"Can't convert {x} to Criterion"
 
     def partition_nodes(self, nodes: NRefs, gpred: Callable[['G', NRef], bool]):
         '''Returns a tuple of lists: (those satisfying gpred, those not).
@@ -837,6 +874,9 @@ class ActiveGraph(
 
     def is_port_label(self, name: str) -> bool:
         return self.port_mates.is_port_label(name)
+
+    def port_labels_of(self, nref: NRef) -> Set[PortLabel]:
+        return set(hop.from_port_label for hop in self.hops_from_node(nref))
 
     # Doing things
 
@@ -1064,17 +1104,6 @@ class ActiveGraph(
                     self.print_actions_header(actions_to_do)
                 for a in actions_to_do:
                     if ShowActionsPerformed.is_logging():
-#                        #print(f'  {self.as_nodeid(a.actor)}: {a}')
-#                        #TODO OAOO
-#                        #fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
-#                        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %-20s %s'
-#                        print(fmt % (self.urgency(a),
-#                                     self.activation(a.actor),
-#                                     a.threshold,
-#                                     self.support_for(a.actor),
-#                                     a.support_threshold,
-#                                     #self.as_nodeid(a.actor),
-#                                     self.nodestr(a.actor).strip()[:20],
 #                                     a))
                         self.print_action(a)
                     self.do_action(a, a.actor)

@@ -4,7 +4,7 @@ import inspect
 
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Callable, Sequence
+    NewType, Type, ClassVar, Sequence, Callable
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
@@ -12,7 +12,6 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue
 from StdGraph import Graph, MyContext, InWorkspace, pg
-from Numble import make_numble_class
 from testNumboClasses import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate
@@ -302,7 +301,7 @@ class TestAc(unittest.TestCase):
 
         g.do_timestep(actor=proposer)
 
-        proposal = g.neighbor(proposer, 'built')
+        proposal = g.as_node(g.neighbor(proposer, 'built'))
         self.assertEqual(g.class_of(proposal), Proposal)
 
         g.do_timestep(actor=proposal)
@@ -310,8 +309,10 @@ class TestAc(unittest.TestCase):
         new_plus = g.neighbor(proposal, 'built', neighbor_class=Plus)
         self.assertTrue(new_plus, 'Proposal did not build Plus.')
         self.assertTrue(g.is_member(new_plus, g.ws))
+        self.assertFalse(g.is_member(new_plus, glom))
+        self.assertTrue(g.is_dormant(proposal))
 
-        block = g.neighbor(proposal, 'built', neighbor_class=Block)
+        block = g.as_node(g.neighbor(proposal, 'built', neighbor_class=Block))
         self.assertEqual(g.as_node(block), Block(15))
         self.assertTrue(g.is_member(block, g.ws))
         self.assertFalse(g.is_member(block, glom))

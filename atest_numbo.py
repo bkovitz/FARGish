@@ -41,7 +41,8 @@ class NumboTest(unittest.TestCase):
         # TODO Test for expected equation
 
 if __name__ == '__main__':
-    g = newg(Numble([2, 2, 2, 2, 2], 10))
+    g = newg(Numble([1, 1, 1, 1, 1], 5))
+    #g.max_actions = 2
     ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()

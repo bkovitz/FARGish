@@ -62,16 +62,24 @@ class Action(BaseAction):
         return set(field.name for field in dataclasses.fields(self))
 
     # TODO rm once Acs are done?
-    def with_overrides_from(self, g, nodeid):
-        override_d = g.get_overrides(nodeid, self.param_names())
-        if override_d:
-            return dataclasses.replace(self, **override_d)
-#            new_action = copy(self)
-#            for param_name, value in override_d.items():
-#                setattr(new_action, param_name, value)
+    #def with_overrides_from(self, g, nodeid):
+    def with_overrides_from(self, g, dsource: Union[NRef, Dict[str, Any]]) \
+    -> 'Action':
+        if g.is_nref(dsource):
+            override_d = g.get_overrides(dsource, self.param_names())
+            if override_d:
+                return dataclasses.replace(self, **override_d)
+    #            new_action = copy(self)
+    #            for param_name, value in override_d.items():
+    #                setattr(new_action, param_name, value)
+            else:
+                #return self
+                return copy(self)  # HACK Because Actions are getting shared
         else:
-            #return self
-            return copy(self)  # HACK Because Actions are getting shared
+            assert isinstance(dsource, dict)
+            result = copy(self)
+            result.__dict__.update(dsource)
+            return result
 
     def __str__(self):
         if self.name:

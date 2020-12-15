@@ -6,7 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from util import as_iter, as_list
 
-from Node import Node, NRef, PortLabels, MaybeCRef
+from Node import Node, NRef, MaybeNRef, PortLabels, MaybeCRef
 from Action import Action
 from ActiveNode import ActionNode
 
@@ -17,7 +17,7 @@ class Criterion(ABC):
     true iff nodeid meets a given criterion.'''
 
     @abstractmethod
-    def __call__(self, g, nodeid):
+    def __call__(self, g: 'G', nref: MaybeNRef):
         pass
 
     @classmethod
@@ -39,6 +39,15 @@ class Criterion(ABC):
             return ls
 
 Criteria = Union[Criterion, Iterable[Criterion], None]
+
+# TODO UT
+@dataclass
+class NodeEq(Criterion):
+    node: Node
+
+    def __call__(self, g, nref):
+        node = g.datum(nref)
+        return node == self.node
 
 @dataclass
 class Tagged(Criterion):
@@ -79,11 +88,6 @@ class OfClass(Criterion):
 
     def __call__(self, g, nodeid):
         return g.is_of_class(nodeid, self.nodeclass)
-
-#    def __str__(self):
-#        return self.nodeclass.__name__
-#
-#    __repr__ = __str__
 
 @dataclass
 class Activated(Criterion):
