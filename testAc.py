@@ -1,3 +1,5 @@
+# testAc.py -- Unit tests for Ac objects and ActiveNodes made from them
+
 import unittest
 from pprint import pprint as pp
 import inspect
@@ -246,8 +248,6 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=finder)
 
         self.assertEqual(g.done(), FoundNode(right_plus.id))
-
-
 
     def test_ac_notice_same_value(self):
         g = NumboTestGraph(Numble([1, 1, 1], 3))

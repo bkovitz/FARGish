@@ -217,6 +217,12 @@ def read_to_blank_line(f):
 def identity(x):
     return x
 
+def always_true(*args, **kwargs) -> bool:
+    return True
+
+def always_false(*args, **kwargs) -> bool:
+    return False
+
 def filter_none(f, iterable):
     xs = [f(i) for i in iterable if i is not None]
     return [x for x in xs if x is not None]

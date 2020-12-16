@@ -9,6 +9,7 @@ from inspect import isclass
 from copy import copy
 from operator import attrgetter, itemgetter
 from random import choice
+from itertools import product
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     ActivationPrimitives, ActivationPolicy, SupportPrimitives, SupportPolicy, \
@@ -21,7 +22,7 @@ from Action import Action, Actions
 from ActiveNode import ActiveNode, ActionNode
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
-    intersection, empty_set, sample_without_replacement, PushAttr
+    intersection, empty_set, sample_without_replacement, PushAttr, always_true
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
     ActionBlocked, ActionFailure
 from log import *
@@ -763,32 +764,36 @@ class ActiveGraph(
                 return node
         return None
 
-    # TODO UT
     def look_for(
         self,
-        *criteria,
+        criterion: Union[Criterion, Sequence[Criterion]],
         within: MaybeNRef=None,
-        subset: Union[Set[NodeId], None]=None
-    ) -> Union[int, None]:
+        subset: Union[Set[NodeId], None]=None,
+        tupcond: Callable[[Tuple[NRef], PortLabel], bool]=always_true
+    ) -> Union[NodeId, None, Tuple[NodeId]]:
         '''Returns one node that meets criteria, or None if not found.
         criteria are functions that take two arguments: g, nodeid, and
         return a true value if nodeid matches the criterion.'''
-        nodes = self.find_all(*criteria, within=within, subset=subset)
+        #TODO Document Cartesian product
+        nodes_or_tups = self.find_all(
+            criterion, within=within, subset=subset, tupcond=tupcond
+        )
         try:
-            return choice(nodes) # TODO choose by salience?
+            return choice(nodes_or_tups) # TODO choose by salience?
         except IndexError:
             return None
 
-    # TODO UT
     def find_all(
         self,
-        *criteria,
+        criterion: Union[Criterion, Sequence[Criterion]],
         within: MaybeNRef=None,
-        subset: Union[Set[NodeId], None]=None
-    ) -> List[int]:
+        subset: Union[Set[NodeId], None]=None,
+        tupcond: Callable[[Tuple[NRef], PortLabel], bool]=always_true
+    ) -> Union[List[NodeId], List[Tuple[NodeId]]]:
         '''Returns list of all nodes that meet criteria. criteria are functions
         that take two arguments: g and nodeid. A criterion function returns
         a true value if nodeid matches the criteria, false if not.'''
+        #TODO Document Cartesian product
         if within is None:
             nodes = self.nodeids()  # Start with all nodes (INEFFICIENT)
         else:
@@ -796,12 +801,23 @@ class ActiveGraph(
         if subset is not None:
             nodes = as_set(subset).intersection(nodes)
 
-        for c in criteria:
-            c = self.as_criterion(c)
-            nodes = [n for n in nodes if c(self, n)]
-            if not nodes:
-                return []
-        return as_list(nodes)
+#        for c in criteria:
+#            c = self.as_criterion(c)
+#            nodes = [n for n in nodes if c(self, n)]
+#            if not nodes:
+#                return []
+#        return as_list(nodes)
+        if is_iter(criterion):
+            return list(
+                tup for tup in product(
+                    *(self.find_all(c, within=within, subset=subset)
+                        for c in criterion
+                    )
+                ) if len(set(tup)) == len(tup) and tupcond(self, tup)
+            )
+        else:
+            criterion = self.as_criterion(criterion)
+            return [n for n in nodes if criterion(self, n)]
 
     def as_criterion(self, x: Union[Node, CRef, Criterion]) -> Criterion:
         if isinstance(x, Criterion):
@@ -1422,6 +1438,10 @@ class ActiveGraph(
             sorted(hops, key=attrgetter('from_port_label')),
             prefix=prefix
         )
+
+    def pg(self, *args, **kwargs):
+        # TODO Move the implementation code inside ActiveGraph.
+        pg(self, *args, **kwargs)
 
     # Unimplemented  # TODO
 

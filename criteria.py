@@ -1,12 +1,12 @@
 # criteria.py -- Criterion classes to pass to ActiveGraph.look_for()
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar
+    NewType, Type, ClassVar, Sequence, Callable
 from util import as_iter, as_list
 
-from Node import Node, NRef, MaybeNRef, PortLabels, MaybeCRef
+from Node import Node, NodeId, NRef, MaybeNRef, PortLabel, PortLabels, MaybeCRef
 from Action import Action
 from ActiveNode import ActionNode
 
@@ -20,6 +20,24 @@ class Criterion(ABC):
     def __call__(self, g: 'G', nref: MaybeNRef):
         pass
 
+    def replace_from_env(
+        self, g: 'G', ac: 'Ac', actor: MaybeNRef, env: 'AcEnv'
+    ) -> 'Criterion':
+        '''Returns a new Criterion of the same class but with its argument
+        names given replacement values that are defined in 'env'. If env
+        provides no replacement values, might return this Criterion.'''
+        changes = {}
+        for field_name in (f.name for f in fields(self)):
+            oldv = getattr(self, field_name)
+            newv = ac.get(g, actor, env, field_name, default=oldv)
+            if newv is not None and newv != oldv:
+                changes[field_name] = newv
+        if changes:
+            return replace(self, **changes)
+        else:
+            return self
+
+    # TODO rm?
     @classmethod
     def append(
         cls,
@@ -153,3 +171,38 @@ class NoMate(Criterion):
 
     def __call__(self, g, nodeid):
         return not g.neighbors(nodeid, port_label=self.port_label)
+
+@dataclass
+class And(Criterion):
+    criteria: Sequence[Criterion]
+
+    def __init__(self, *criteria: Criterion):
+        self.criteria = criteria
+
+    def __call__(self, g, nodeid):
+        return all(
+            c(g, nodeid) for c in self.criteria
+        )
+
+    def replace_from_env(self, g, ac, actor, env):
+        return And(*(
+            c.replace_from_env(g, ac, actor, env) for c in self.criteria
+        ))
+
+@dataclass
+class NotTheArgsOf:
+    '''Tuple condition for Cartesian product of nodes: the nodes in the tuple
+    must not be the complete set of neighbors at port label 'role' relative to
+    a node that meets neighbor_criterion. For example, if you want to specify
+    that a tuple must not contain the operands of an existing Plus node, then
+    you write NotTheArgsOf(Plus, 'operands').'''
+    neighbor_criterion: Union[Criterion, Node, NRef]
+    role: PortLabel
+
+    def __call__(self, g: 'G', tup: Tuple[NodeId]) -> bool:
+        nodes = set(tup)
+        neighbors = g.neighbors(tup, neighbor_label=self.role)
+        return not any(
+            g.neighbors(n, port_label=self.role) == nodes
+                for n in neighbors
+        )

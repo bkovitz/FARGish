@@ -21,7 +21,7 @@ from Ac import AcCantFind, AcNotEqualValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
-from criteria import OfClass, Tagged as CTagged, HasThisValue
+from criteria import OfClass, Tagged as CTagged, HasThisValue, And
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 from util import Quote, omit, first
 
@@ -290,9 +290,9 @@ class Proposal(ActiveNode):
 class AddAllInGlom(AcNode):
     threshold = 1.0
     acs = [
-        All(OfClass(Number), CTagged(Avail)),
+        All(And(OfClass(Number), CTagged(Avail))),
         WithNameOverride(
-            LookFor(OfClass(Plus), CTagged(Allowed), within=InWorkspace),
+            LookFor(And(OfClass(Plus), CTagged(Allowed)), within=InWorkspace),
             within='opwithin'
         ),
         AddNode(

@@ -94,26 +94,12 @@ class Ac(ABC):
             #print('GETCTX', result)
             return result
         elif is_seq_of(result, Criterion):
+            raise NotImplementedError
             return [self.fix_criterion(g, c, actor, env) for c in result]
         elif isinstance(result, Criterion):
-            return self.fix_criterion(g, result, actor, env)
+            return result.replace_from_env(g, self, actor, env)
         else:
             return Quote.get(result)
-
-    def fix_criterion(
-        self, g: 'G', criterion: Criterion, actor: MaybeNRef, env: AcEnv
-    ) -> Criterion:
-        #print('FIXC', criterion, env)
-        changes = {}
-        for field_name in (f.name for f in fields(criterion)):
-            oldv = getattr(criterion, field_name)
-            newv = self.get(g, actor, env, field_name, default=oldv)
-            #print('FIXLOOP', actor, field_name, oldv, newv)
-            if newv is not None and newv != oldv:
-                changes[field_name] = newv
-        result = replace(criterion, **changes)
-        #print('GETCR', criterion, changes, result)
-        return result
 
     def get_or_fizzle(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) \
     -> Any:
@@ -237,20 +223,51 @@ class AcAction(Action):
 
 @dataclass
 class All(Ac):
-    criteria: Acs = None
+    criterion: Acs = None
     within: MaybeNRef = None   #TODO Allow MyContext
 
-    def __init__(self, *criteria, within=None):
-        self.criteria = criteria
-        self.within = within
-
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criteria = as_list(self.get(g, actor, env, 'criteria'))
+        criterion = self.get(g, actor, env, 'criterion')
         within = self.get(g, actor, env, 'within')
-        env['nodes'] = g.find_all(*criteria, within=within)
+        env['nodes'] = g.find_all(criterion, within=within)
 
 @dataclass
 class LookFor(Ac):
+    criterion: Criterion = None
+    within: MaybeNRef = None
+    cond: Acs = None  # Acs to check further criteria
+    asgn_to: str = 'node'
+
+#    def __init__(self, *criterion, within=None, asgn_to='node', cond=None):
+#        self.criterion = criterion
+#        self.within = within
+#        self.cond = cond
+#        self.asgn_to = asgn_to
+
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        criterion = self.get(g, actor, env, 'criterion')
+        within = self.get(g, actor, env, 'within')
+        node = None
+        #print('LNODE0', node, criterion, within)
+        # TODO Call g.look_for() and pass a function that checks self.cond
+        for node in g.find_all(criterion, within=within):
+            #print('LNODE', node, criterion, within)
+            try:
+                env['node'] = node
+                Ac.call(g, self.cond, actor, env)
+                break
+            except AcFalse:
+                continue
+        else: # TODO UT that exercises this 'else'
+            node = None
+        env['node'] = node
+        if not node:
+            raise AcFalse(self, actor, env)
+        else:
+            env[self.asgn_to] = node
+
+@dataclass
+class LookFor2(Ac):
     criteria: Criteria = None
     within: MaybeNRef = None
     cond: Acs = None  # Acs to check further criteria
@@ -265,23 +282,18 @@ class LookFor(Ac):
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criteria = as_list(self.get(g, actor, env, 'criteria'))
         within = self.get(g, actor, env, 'within')
-        node = None
-        #print('LNODE0', node, criteria, within)
+        nodes = []
         for node in g.find_all(*criteria, within=within):
-            #print('LNODE', node, criteria, within)
             try:
                 env['node'] = node
                 Ac.call(g, self.cond, actor, env)
-                break
+                nodes.append(node)
             except AcFalse:
                 continue
-        else: # TODO UT that exercises this 'else'
-            node = None
-        env['node'] = node
-        if not node:
+        env['node'] = None
+        if len(nodes) < 2:
             raise AcFalse(self, actor, env)
-        else:
-            env[self.asgn_to] = node
+        env[self.asgn_to] = sample_without_replacement(nodes, k=2)
 
 @dataclass
 class AllAre(Ac):

@@ -4,6 +4,16 @@ from testNumboClasses import *
 from log import *
 from ActiveGraph import pg, pa
 
+class NoticeCouldMake(AcNode):
+    acs = [
+        LookFor2(
+            CTagged(Avail),
+            cond=NotTheArgsOf('nodes', Quote('source'), OfClass(Plus)),
+            within=InWorkspace
+        ),
+        #BuildOpResult(Plus, operands='nodes')
+    ]
+
 class NumboGraph(Graph):
     def __init__(self, numble, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -17,6 +27,7 @@ class NumboGraph(Graph):
         self.add_node(Workspace)
         numble.build(self, self.ws)
         self.add_node(NoticeSolved, member_of=self.ws, within=self.ws)
+        self.add_node(NoticeSum, member_of=self.ws)
 
     def consume_operands(
         self,
@@ -40,6 +51,10 @@ class NumboGraph(Graph):
         self.move_tag(Avail, operand_ids, result_id)
         self.add_tag(Consumed, operand_ids)
         self.add_tag(Done, actor)
+
+def newg(numble: Numble, seed=8028868705202140491):
+    return NumboGraph(numble=numble, seed=seed)
+
 
 g = None
 

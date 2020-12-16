@@ -324,7 +324,7 @@ class AddAllInGlom(Action):
                 within=self.within
             ),
             proposed_operator=g.look_for(
-                OfClass(Plus), CTagged(Allowed),
+                OfClass(Plus), CTagged(Allowed),  # TODO 'and' these criteria
                 within=g.ws
             ),
             member_of=g.ws
@@ -459,6 +459,7 @@ class AssessorScout(ActiveNode):
     node_params = NodeParams(MateParam('target', 'tags'))
 
     def actions(self):
+        #TODO 'and' these criteria
         node = self.g.look_for(CTagged(Avail), NotTagged(Assessment), within=self.g.ws)
         if node:
             return assess(g, node, self.g.neighbor(self, 'target'))
@@ -469,6 +470,7 @@ class FixerScout(ActiveNode):
 
     def actions(self):
         badnode = self.g.look_for(
+            #TODO 'and' these criteria
             OfClass(Block), CTagged(Avail), CTagged(NotGoodEnough),
             within=self.g.ws
         )
@@ -550,6 +552,7 @@ class SameValueTagger(ActiveNode):
             return
         value = self.g.value_of(first_node)
         second_node = self.g.look_for(
+            #TODO 'and' these criteria
             NotNode(first_node),
             HasValue(value),
             NotTaggedTogetherWith(first_node, SameValue)
