@@ -10,9 +10,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
-    SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag
+    SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
+    LookForTup
 from codegen import make_python, compile_fargish
-from criteria import OfClass, Tagged as CTagged, HasThisValue
+from criteria import OfClass, Tagged as CTagged, HasThisValue, NotTheArgsOf
 from StdGraph import Graph, MyContext, InWorkspace, pg
 from testNumboClasses import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid
@@ -25,6 +26,10 @@ from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 @dataclass
 class FoundNode(FargDone):
     node: NRef
+
+@dataclass
+class FoundTup(FargDone):
+    tup: Tuple[NodeId]
 
 class TestAc(unittest.TestCase):
 
@@ -229,7 +234,7 @@ class TestAc(unittest.TestCase):
     def test_ac_mycontext(self):
         class FindPlus(AcNode):
             acs = [
-                LookFor(OfClass(Plus), within=MyContext),
+                LookFor(Plus, within=MyContext),
                 Raise(FoundNode, node='node')
             ]
         
@@ -343,7 +348,7 @@ class TestAc(unittest.TestCase):
         class Looker(AcNode):
             acs = [
                 LookFor(OfClass(Count)),
-                Raise(FoundNode)
+                Raise(FoundNode, node='node')
             ]
 
         g = NumboTestGraph(Numble([4, 5, 6, 15], 15))
@@ -352,6 +357,33 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=looker)
         self.assertFalse(g.done())
 
+    def test_ac_lookfortup(self):
+        class Looker(AcNode):
+            acs = [
+                LookForTup(
+                    [CTagged(Avail), CTagged(Avail)],
+                    tupcond=NotTheArgsOf(Plus, Quote('source')),
+                    within=InWorkspace
+                ),
+                Raise(FoundTup, tup='nodes')
+            ]
+        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        b4 = g.look_for(Brick(4))
+        b5 = g.look_for(Brick(5))
+        b6 = g.look_for(Brick(6))
+        plus = g.add_node(Plus, operands=[b4, b5])
+        looker = g.add_node(Looker, within=g.ws)
+
+        g.do_timestep(actor=looker)
+
+        expect = [
+            (b4, b6), (b5, b6),  # brick pairs that are not the operands
+            (b6, b4), (b6, b5)   # of plus.
+        ]
+        done = g.done()
+        self.assertIsInstance(done, FoundTup)
+        self.assertIn(done.tup, expect)
+        
     def test_ac_selfdestruct_on_update(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))

@@ -56,7 +56,8 @@ class Criterion(ABC):
                 ls.append(c)
             return ls
 
-Criteria = Union[Criterion, Iterable[Criterion], None]
+#Criteria = Union[Criterion, Iterable[Criterion], None]
+Criteria = Sequence[Criterion]
 
 # TODO UT
 @dataclass

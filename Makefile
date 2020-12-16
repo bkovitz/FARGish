@@ -19,7 +19,7 @@ lut:
 # Convenience target for single test current being worked on
 u:
 	#$(PY) -m unittest -v test_find.TestFind.test_and_criteria
-	$(PY) -m unittest -v testAc.TestAc.test_ac_add_all_in_glom
+	$(PY) -m unittest -v testAc.TestAc.test_ac_lookfortup
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

@@ -6,9 +6,9 @@ from ActiveGraph import pg, pa
 
 class NoticeCouldMake(AcNode):
     acs = [
-        LookFor2(
-            CTagged(Avail),
-            cond=NotTheArgsOf('nodes', Quote('source'), OfClass(Plus)),
+        LookForTup(
+            [CTagged(Avail), CTagged(Avail)],
+            tupcond=NotTheArgsOf(Plus, Quote('source')),
             within=InWorkspace
         ),
         #BuildOpResult(Plus, operands='nodes')

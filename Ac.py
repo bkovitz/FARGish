@@ -58,7 +58,6 @@ class Ac(ABC):
         recursive lookup, if you need to actually return a string.
         Raises AcNeedArg if the value found is None or not found.'''
         # TODO Document name_overrides_
-        # NEXT Find 'opwithin' in LookFor.within
         #print('ACNAME0', name, self.name_overrides_)
         name = self.name_overrides_.get(name, name)
         #print('ACNAME1', name)
@@ -94,8 +93,8 @@ class Ac(ABC):
             #print('GETCTX', result)
             return result
         elif is_seq_of(result, Criterion):
-            raise NotImplementedError
-            return [self.fix_criterion(g, c, actor, env) for c in result]
+            #return [self.fix_criterion(g, c, actor, env) for c in result]
+            return [c.replace_from_env(g, self, actor, env) for c in result]
         elif isinstance(result, Criterion):
             return result.replace_from_env(g, self, actor, env)
         else:
@@ -267,33 +266,20 @@ class LookFor(Ac):
             env[self.asgn_to] = node
 
 @dataclass
-class LookFor2(Ac):
-    criteria: Criteria = None
+class LookForTup(Ac):
+    criterion: Criterion = None
     within: MaybeNRef = None
-    cond: Acs = None  # Acs to check further criteria
-    asgn_to: str = None
-
-    def __init__(self, *criteria, within=None, asgn_to='node', cond=None):
-        self.criteria = criteria
-        self.within = within
-        self.cond = cond
-        self.asgn_to = asgn_to
+    tupcond: Any = None  # TODO appropriate type hint
+    asgn_to: str = 'nodes'
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        criteria = as_list(self.get(g, actor, env, 'criteria'))
+        criterion = self.get(g, actor, env, 'criterion')
         within = self.get(g, actor, env, 'within')
-        nodes = []
-        for node in g.find_all(*criteria, within=within):
-            try:
-                env['node'] = node
-                Ac.call(g, self.cond, actor, env)
-                nodes.append(node)
-            except AcFalse:
-                continue
-        env['node'] = None
-        if len(nodes) < 2:
+        tupcond = self.get(g, actor, env, 'tupcond')
+        tup = g.look_for(criterion, within=within, tupcond=tupcond)
+        if not tup:
             raise AcFalse(self, actor, env)
-        env[self.asgn_to] = sample_without_replacement(nodes, k=2)
+        env[self.asgn_to] = tup
 
 @dataclass
 class AllAre(Ac):
@@ -426,11 +412,11 @@ class LookForArg(Ac):
         within = self.get(g, actor, env, 'within')
         #name = self.get(g, actor, env, 'name')
         # TODO Determine the class from 'name'
-        criteria = OfClass('Glom')  # HACK
-        node = g.look_for(criteria, within=within)  # HACK
+        criterion = OfClass('Glom')  # HACK
+        node = g.look_for(criterion, within=within)  # HACK
         if not node:
-            #print('LOOKCANT', criteria, node, within)
-            raise AcCantFind(self, actor, criteria)
+            #print('LOOKCANT', criterion, node, within)
+            raise AcCantFind(self, actor, criterion)
         env['node'] = node
 
 @dataclass
