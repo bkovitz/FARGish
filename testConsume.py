@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable
 
 from testNumboClasses import *
-from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid
+from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid, as_nodeids
 from log import *
 
 class TestConsume(unittest.TestCase):
@@ -18,6 +18,19 @@ class TestConsume(unittest.TestCase):
         stop_all_logging()
 
     def test_plus(self):
+        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        brick4 = g.look_for(Brick(4))
+        brick5 = g.look_for(Brick(5))
+
+        (plus, block) = g.build_op_and_result(Plus, operands=[brick4, brick5])
+        self.assertTrue(g.is_of_class(plus, Plus))
+        self.assertEqual(block, Block(9))
+        self.assertCountEqual(
+            g.neighbors(plus, 'operands'),
+            as_nodeids([brick4, brick5])
+        )
+
+    def test_consume_plus(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         brick4 = g.look_for(Brick(4))
         brick5 = g.look_for(Brick(5))
@@ -36,7 +49,7 @@ class TestConsume(unittest.TestCase):
         self.assertFalse(g.has_tag(brick5, Avail))
         self.assertTrue(g.is_member([plus, block9], g.ws))
 
-    def test_times(self):
+    def test_consume_times(self):
         g = NumboTestGraph(Numble([4, 5, 6], 15))
         brick4 = g.look_for(Brick(4))
         brick5 = g.look_for(Brick(5))
@@ -53,7 +66,7 @@ class TestConsume(unittest.TestCase):
         self.assertFalse(g.has_tag(brick4, Avail))
         self.assertFalse(g.has_tag(brick5, Avail))
 
-    def test_minus(self):
+    def test_consume_minus(self):
         g = NumboTestGraph(Numble([4, 9, 12], 17))
         brick4 = g.look_for(Brick(4))
         brick9 = g.look_for(Brick(9))

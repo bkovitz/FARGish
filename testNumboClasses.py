@@ -16,12 +16,13 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
-    WithNameOverride
+    WithNameOverride, LookForTup
 from Ac import AcCantFind, AcNotEqualValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
-from criteria import OfClass, Tagged as CTagged, HasThisValue, And
+from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
+    NotTheArgsOf
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 from util import Quote, omit, first
 
@@ -354,6 +355,21 @@ class NumboTestGraph(Graph):
         self.add_tag(Consumed, operand_ids)
         self.add_tag(Done, actor)
 
+    def build_op_and_result(self, operator_class: CRef, actor=None, **kwargs) \
+    -> Tuple[NRef, NRef]:
+        '''Builds operator node, linked via port_labels to existing nodes
+        as provided in kwargs. Builds result Block with value calculated
+        by operator_class.result_value(). Returns the new nodes in a tuple:
+        (operator, result).'''
+        if 'member_of' not in kwargs:
+            kwargs['member_of'] = self.containers_of(actor)
+        operator = self.add_node(operator_class, builder=actor, **kwargs)
+        result_value = self.call_method(operator, 'result_value')
+        result = self.add_node(
+            Block, value=result_value, source=operator, builder=actor
+        )
+        return (operator, result)
+        
     def consume_operands(self, operator_class: CRef, actor=None, **kwargs):
         '''kwargs is port_label=NRefs for each operand.'''
         operands = kwargs.values()
@@ -369,6 +385,7 @@ class NumboTestGraph(Graph):
         self.move_tag(Avail, operands, result)
         #self.add_tag(Consumed, operands)
         self.add_tag(Done, actor)
+
 
 def newg(numble=Numble([4, 5, 6], 15), seed=8028868705202140491):
     return NumboTestGraph(numble=numble, seed=seed)

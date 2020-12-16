@@ -27,7 +27,7 @@ class NumboGraph(Graph):
         self.add_node(Workspace)
         numble.build(self, self.ws)
         self.add_node(NoticeSolved, member_of=self.ws, within=self.ws)
-        self.add_node(NoticeSum, member_of=self.ws)
+        #self.add_node(NoticeSum, member_of=self.ws)
 
     def consume_operands(
         self,
