@@ -16,7 +16,7 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
-    WithNameOverride, LookForTup
+    WithNameOverride, LookForTup, HasKwargs
 from Ac import AcCantFind, AcNotEqualValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
@@ -176,6 +176,24 @@ class CountMembers(Action):
         num_members = len(g.neighbors(self.within, port_label='members'))
         g.add_node(Count, taggees=self.within, value=num_members)
         g.new_state(self.actor, Completed)
+
+# Custom Acs
+
+@dataclass
+class BuildOpResult(HasKwargs, Ac):
+    opclass: MaybeCRef = None
+    # and kwargs, filled in by HasKwargs.__init__
+
+    def __init__(self, opclass: MaybeCRef=None, **kwargs):
+        self.opclass = opclass
+        super().__init__(self, **kwargs)
+
+    def go(self, g, actor, env):
+        opclass = self.get(g, actor, env, 'opclass')
+        kwargs = self.get_kwargs(g, actor, env)
+        (operator, result) = g.build_op_and_result(opclass, actor, **kwargs)
+        env['operator'] = operator
+        env['result'] = result
 
 # Custom nodeclasses
 
@@ -361,6 +379,7 @@ class NumboTestGraph(Graph):
         as provided in kwargs. Builds result Block with value calculated
         by operator_class.result_value(). Returns the new nodes in a tuple:
         (operator, result).'''
+        # TODO Raise an exception if missing or improper operands?
         if 'member_of' not in kwargs:
             kwargs['member_of'] = self.containers_of(actor)
         operator = self.add_node(operator_class, builder=actor, **kwargs)
@@ -372,15 +391,11 @@ class NumboTestGraph(Graph):
         
     def consume_operands(self, operator_class: CRef, actor=None, **kwargs):
         '''kwargs is port_label=NRefs for each operand.'''
-        operands = kwargs.values()
+        operands = kwargs.values() # Wrong: member_of is not an operand  TODO 
         if not self.has_tag(operands, Avail):
             return  # TODO Raise a failure exception.
-        if 'member_of' not in kwargs:
-            kwargs['member_of'] = self.containers_of(actor)
-        operator = self.add_node(operator_class, builder=actor, **kwargs)
-        result_value = self.call_method(operator, 'result_value')
-        result = self.add_node(
-            Block, value=result_value, source=operator, builder=actor
+        (operator, result) = self.build_op_and_result(
+            operator_class, actor, **kwargs
         )
         self.move_tag(Avail, operands, result)
         #self.add_tag(Consumed, operands)

@@ -13,7 +13,7 @@ from ActiveNode import ActionNode, Start, Completed
 from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed, AcError, FargDone
 from StdGraph import Context, MyContext, pg
-from util import as_set, Quote, as_iter, as_list, is_seq_of
+from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -269,7 +269,7 @@ class LookFor(Ac):
 class LookForTup(Ac):
     criterion: Criterion = None
     within: MaybeNRef = None
-    tupcond: Any = None  # TODO appropriate type hint
+    tupcond: Any = always_true  # TODO appropriate type hint
     asgn_to: str = 'nodes'
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:

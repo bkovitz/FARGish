@@ -16,7 +16,7 @@ from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue, NotTheArgsOf
 from StdGraph import Graph, MyContext, InWorkspace, pg
 from testNumboClasses import *
-from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid
+from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid, as_nodeids
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate
 from Action import Action, Actions, BuildAgent
 from log import *
@@ -426,6 +426,34 @@ class TestAc(unittest.TestCase):
         # and remove the Blocked tag:
         self.assertFalse(g.has_node(tag))
 
+    def test_ac_build_op_result(self):
+        class Builder(AcNode):
+            acs = [
+                LookForTup(
+                    [Brick(4), Brick(5)],
+                    within=InWorkspace,
+                    asgn_to='operands'
+                ),
+                BuildOpResult(operands='operands')
+            ]
+            
+        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        plus = g.look_for(Plus, within=g.ws)
+        b4 = g.look_for(Brick(4), within=g.ws)
+        b5 = g.look_for(Brick(5), within=g.ws)
+        builder = g.add_node(Builder, member_of=g.ws, opclass=plus)
+
+        g.do_timestep(actor=builder)
+
+        block = g.as_node(g.look_for(Block, within=g.ws))
+        new_plus = g.neighbor(block, 'source')
+        self.assertTrue(g.is_of_class(new_plus, Plus))
+        self.assertEqual(block, Block(9))
+        self.assertCountEqual(
+            g.neighbors(new_plus, 'operands'),
+            as_nodeids([b4, b5])
+        )
+        
     def test_build_agent_for_needarg(self):
         # Here we test the entire sequence of becoming blocked for a missing
         # argument, posting a FillParamScout to fill it in, and running
