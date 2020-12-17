@@ -1,5 +1,5 @@
-# NumboGraph.py -- Graph class and associated nodeclasses, Acs, and Actions
-#                  for Numbo experiments
+# NumboGraph.py -- Graph class and associated nodeclasses, Acs, Actions, and
+#                  Criteria for Numbo experiments
 
 from dataclasses import dataclass, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
@@ -18,12 +18,12 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent
-from Ac import AcCantFind, AcNotEqualValue
+from Ac import AcCantFind, AcNotEqualValue, AsgnNeighbors
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
-    NotTheArgsOf
+    NotTheArgsOf, Criterion
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 from util import Quote, omit, first
 
@@ -74,6 +74,8 @@ Operator.is_duplicable = True
 
 Want.min_activation = 1.0
 
+# TODO rm these functions?
+
 #def plus_result(self, g: 'G', node: NRef) -> int:
 def plus_result(self: Plus) -> int:
     # TODO Appropriate exception(s) if an operand is missing a value or it's
@@ -115,6 +117,7 @@ class NotAllThisValue(AcFailed):
 
 # Custom functions
 
+# TODO rm?
 def arith_result0(g, operator_class, operand_ids):
     operand_values = [g.value_of(o) for o in operand_ids]
     # TODO It would be much better if FARGish let you define these operations
@@ -130,6 +133,21 @@ def arith_result0(g, operator_class, operand_ids):
         raise ValueError(f'Unknown operator class {operator_class}.')
 
 # Custom Actions
+
+@dataclass
+class OperatorWithAvailOperands(Criterion):
+
+    def __call__(self, g, nref):
+        node = g.datum(nref)
+        if not g.is_of_class(node, Operator):
+            return False
+        operands = g.neighbors(node, 'operands')
+        if len(operands) < 2:
+            return False
+        for operand in operands:
+            if not g.has_tag(operand, Avail):
+                return False
+        return True
 
 @dataclass
 class OLDConsumeOperands(Action):
@@ -353,29 +371,6 @@ class NumboGraph(Graph):
             member_of=self.slipnet,
         )
 
-    def OLDconsume_operands(
-        self,
-        operand_ids: NRefs,
-        operator_class: CRef,
-        actor=None
-    ):
-        if not self.has_tag(operand_ids, Avail):
-            return  # TODO Raise a failure exception?
-        operator_class = self.as_nodeclass(operator_class)
-        operator_id = self.add_node(
-            operator_class, 
-            operands=operand_ids,
-            member_of=self.containers_of(actor)
-        )
-        result_id = self.add_node(
-            Block,
-            value=arith_result0(self, operator_class, operand_ids),
-            source=operator_id,
-        )
-        self.move_tag(Avail, operand_ids, result_id)
-        self.add_tag(Consumed, operand_ids)
-        self.add_tag(Done, actor)
-
     def build_op_and_result(self, operator_class: CRef, actor=None, **kwargs) \
     -> Tuple[NRef, NRef]:
         '''Builds operator node, linked via port_labels to existing nodes
@@ -392,7 +387,8 @@ class NumboGraph(Graph):
         )
         return (operator, result)
         
-    def consume_operands(self, operator_class: CRef, actor=None, **kwargs):
+    def consume_operands(self, operator_class: CRef, actor=None, **kwargs) \
+    -> Tuple[NRef, NRef]:
         '''kwargs is port_label=NRefs for each operand.'''
         operands = kwargs.values() # Wrong: member_of is not an operand  TODO 
         if not self.has_tag(operands, Avail):
@@ -402,8 +398,8 @@ class NumboGraph(Graph):
         )
         self.move_tag(Avail, operands, result)
         #self.add_tag(Consumed, operands)
-        self.add_tag(Done, actor)
-
+        self.add_tag(Done, actor) # TODO rm?
+        return (operator, result)
 
 def newg(numble=Numble([4, 5, 6], 15), seed=8028868705202140491):
     return NumboGraph(numble=numble, seed=seed)

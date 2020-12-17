@@ -6,7 +6,7 @@ testGen.py
 testIndent1.py
 testIndenting.py
 testNetworkxPortGraph.py
-testNumboClasses.py
+testNumboGraph.py
 testNodeParams.py
 testNumble.py
 testPostamble.py

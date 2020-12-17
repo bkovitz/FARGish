@@ -4,11 +4,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, fields, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable
-from util import as_iter, as_list
+from inspect import isclass
 
-from Node import Node, NodeId, NRef, MaybeNRef, PortLabel, PortLabels, MaybeCRef
+from Node import Node, NodeId, NRef, MaybeNRef, PortLabel, PortLabels, \
+    CRef, MaybeCRef
 from Action import Action
 from ActiveNode import ActionNode
+from util import as_iter, as_list
 
 
 @dataclass
@@ -173,12 +175,23 @@ class NoMate(Criterion):
     def __call__(self, g, nodeid):
         return not g.neighbors(nodeid, port_label=self.port_label)
 
+def as_criterion(x: Union[Node, CRef, Criterion]) -> Criterion:
+    if isinstance(x, Criterion):
+        return x
+    elif isinstance(x, Node):
+        return NodeEq(x)
+    elif isclass(x) and issubclass(x, Node):
+        return OfClass(x)
+    assert False, f"Can't convert {x} to Criterion"
+
 @dataclass
 class And(Criterion):
     criteria: Sequence[Criterion]
 
-    def __init__(self, *criteria: Criterion):
-        self.criteria = criteria
+    def __init__(self, *criteria: Criterion):  # TODO type hint should allow
+                                               # anything that can be made into
+                                               # a Criterion
+        self.criteria = [as_criterion(c) for c in criteria]
 
     def __call__(self, g, nodeid):
         return all(

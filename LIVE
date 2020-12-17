@@ -12,6 +12,7 @@ NetworkxPortGraph.py
 Node.py
 NodeParams.py
 Numble.py
+NumboGraph.py
 PortMates.py
 Predefs.py
 Primitives.py

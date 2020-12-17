@@ -6,7 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable
 from contextlib import contextmanager
 
-from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
+from Node import Node, NRef, NRefs, MaybeNRef, PortLabel, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed, ActiveNodeState
@@ -83,7 +83,6 @@ class Ac(ABC):
         elif isinstance(result, str):
             # TODO Prevent infinite recursion: make sure we haven't tried
             # this key before.
-            # TODO What if the value is actually supposed to be a str?
             #print('GETRECUR', self, actor, name, result)
             result = self.get(g, actor, env, result)
             #print('GETRECUR2', repr(result))
@@ -236,12 +235,6 @@ class LookFor(Ac):
     cond: Acs = None  # Acs to check further criteria
     asgn_to: str = 'node'
 
-#    def __init__(self, *criterion, within=None, asgn_to='node', cond=None):
-#        self.criterion = criterion
-#        self.within = within
-#        self.cond = cond
-#        self.asgn_to = asgn_to
-
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
         within = self.get(g, actor, env, 'within')
@@ -251,7 +244,7 @@ class LookFor(Ac):
         for node in g.find_all(criterion, within=within):
             #print('LNODE', node, criterion, within)
             try:
-                env['node'] = node
+                env['node'] = node  # TODO Push/pop 'node'
                 Ac.call(g, self.cond, actor, env)
                 break
             except AcFalse:
@@ -263,6 +256,17 @@ class LookFor(Ac):
             raise AcFalse(self, actor, env)
         else:
             env[self.asgn_to] = node
+
+# TODO UT
+@dataclass
+class AsgnNeighbors(Ac):
+    node: NRefs = None
+    port_label: PortLabel = None
+
+    def go(self, g, actor, env):
+        node = self.get(g, actor, env, 'node')
+        port_label = self.get(g, actor, env, 'port_label')
+        env[port_label] = g.neighbors(node, port_label)
 
 @dataclass
 class LookForTup(Ac):
@@ -492,8 +496,8 @@ class AcNode(ActionNode):
     name: str = None
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self.name = self.__class__.__name__
+        super().__init__(*args, **kwargs)
 
     def on_build(self):
         if not self.action:
@@ -504,7 +508,7 @@ class AcNode(ActionNode):
     def __repr__(self):
         return self.__class__.__name__
 
-@dataclass
+#@dataclass
 class Persistent(AcNode):
     '''Mix-in for an AcNode that should keep running even after successfully
     completing its action.'''

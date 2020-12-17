@@ -819,6 +819,7 @@ class ActiveGraph(
             criterion = self.as_criterion(criterion)
             return [n for n in nodes if criterion(self, n)]
 
+    # TODO OAOO
     def as_criterion(self, x: Union[Node, CRef, Criterion]) -> Criterion:
         if isinstance(x, Criterion):
             return x
