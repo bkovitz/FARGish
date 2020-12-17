@@ -7,11 +7,11 @@ from NodeSpec import NodeSpec, NodeOfClass, NodeWithTag, NodeWithValue, \
     NotLinkedToSame, OLDBuildSpec as BuildSpec
 from Node import Node
 from NodeParams import NodeParams, MateParam
-from StdGraph import Graph, pg
+from StdGraph import pg
 from ExprAsEquation import ExprAsEquation
 from Numble import make_numble_class
-from testNumboClasses import Workspace, Number, Brick, Target, Block, Want, \
-    Avail, Allowed, Operator, Plus, Times, port_mates
+from NumboGraph import Workspace, Number, Brick, Target, Block, Want, \
+    Avail, Allowed, Operator, Plus, Times, NumboGraph, port_mates
 from util import reseed
 
 reseed(1)
@@ -20,15 +20,19 @@ Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times]
 )
 
-class TestGraph(ExprAsEquation, Graph):
-    port_mates = port_mates  # imported from testNumboClasses
+class TestGraph(ExprAsEquation, NumboGraph):
+    port_mates = port_mates  # imported from NumboGraph
 
-    def __init__(self, numble, **kwargs):
-        kwargs['seed'] = 1
-        super().__init__(**kwargs)
-        self.numble = numble # TODO rm?
-        self.ws = self.add_node(Workspace)
-        numble.build(self, self.ws)
+#    def __init__(self, numble, **kwargs):
+#        kwargs['seed'] = 1
+#        super().__init__(**kwargs)
+#        self.numble = numble # TODO rm?
+#        self.ws = self.add_node(Workspace)
+#        numble.build(self, self.ws)
+
+    def make_initial_nodes(self):
+        self.add_node(Workspace)
+        self.numble.build(self, self.ws)
 
 class ConsumeOperands(Node):
     node_params = NodeParams(

@@ -2,8 +2,7 @@
 
 import unittest
 
-#from numbo5 import newg, Numble
-from testNumboClasses import *
+from NumboGraph import *
 from log import *
 from ActiveGraph import pg, pa
 

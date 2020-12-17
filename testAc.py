@@ -15,7 +15,7 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
 from codegen import make_python, compile_fargish
 from criteria import OfClass, Tagged as CTagged, HasThisValue, NotTheArgsOf
 from StdGraph import Graph, MyContext, InWorkspace, pg
-from testNumboClasses import *
+from NumboGraph import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid, as_nodeids
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate
 from Action import Action, Actions, BuildAgent
@@ -39,7 +39,7 @@ class TestAc(unittest.TestCase):
     def test_do_notice_and_tag(self):
         # Tests running Ac objects directly. Normally, though, you only run
         # Ac objects from inside an AcNode.
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         targetid = 1  # HACK
 
         env = Ac.run(
@@ -80,7 +80,7 @@ class TestAc(unittest.TestCase):
         self.assertTrue(g.has_tag(nodes, tag))
 
     def test_noticer(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         
         noticer = g.add_node(AdHocAcNode, [
             All(OfClass(Brick), within=g.ws),
@@ -99,7 +99,7 @@ class TestAc(unittest.TestCase):
         self.assertNotIn(noticer.id, g.as_nodeids(g.active_nodes()))
 
     def test_override(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
@@ -132,7 +132,7 @@ class TestAc(unittest.TestCase):
         )
 
     def test_ac_add_node(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))
 
         seek_and_glom = g.add_node(SeekAndGlom, member_of=g.ws, within=g.ws)
@@ -147,7 +147,7 @@ class TestAc(unittest.TestCase):
 
     # TODO test overriding 'value' with the value of another node
     def test_ac_has_value(self):
-        g = NumboTestGraph(Numble([3, 3, 3], 15))
+        g = NumboGraph(Numble([3, 3, 3], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(
@@ -158,7 +158,7 @@ class TestAc(unittest.TestCase):
         self.assertTrue(g.has_tag(glom, AllMembersHaveThisValue))
 
     def test_ac_has_value_fail(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(
@@ -180,7 +180,7 @@ class TestAc(unittest.TestCase):
     def test_ac_shadow_criterion_fields(self):
         # Tests that fields in Criterion objects can be overridden by the
         # same mechanisms as fields in Ac objects.
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         target = g.look_for(OfClass(Target), within=g.ws)
         assert target, 'No Target node'
         seeker = g.add_node(SeekAndGlom(seekclass=Target, within=g.ws))
@@ -201,7 +201,7 @@ class TestAc(unittest.TestCase):
                 TagWith(Count, taggees='within', value='value')
             ]
 
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         self.assertFalse(g.has_tag(glom, Count(value=3)))
@@ -217,7 +217,7 @@ class TestAc(unittest.TestCase):
                 Raise(FoundNode, node='node')
             ]
 
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         plus = g.look_for(OfClass(Plus))
         assert plus, 'No Plus in workspace'
 
@@ -238,7 +238,7 @@ class TestAc(unittest.TestCase):
                 Raise(FoundNode, node='node')
             ]
         
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         wrong_plus = g.look_for(OfClass(Plus), within=g.ws)
         assert wrong_plus, 'No Plus in workspace'
         glom = g.add_node(Glom)
@@ -255,7 +255,7 @@ class TestAc(unittest.TestCase):
         self.assertEqual(g.done(), FoundNode(right_plus.id))
 
     def test_ac_notice_same_value(self):
-        g = NumboTestGraph(Numble([1, 1, 1], 3))
+        g = NumboGraph(Numble([1, 1, 1], 3))
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         count = g.add_node(Count, taggees=glom, value=3)
@@ -271,7 +271,7 @@ class TestAc(unittest.TestCase):
         self.assertFalse(g.is_active(noticer))
 
     def test_ac_notice_same_value_with_search(self):
-        g = NumboTestGraph(Numble([1, 1, 1], 3))
+        g = NumboGraph(Numble([1, 1, 1], 3))
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         count = g.add_node(Count, taggees=glom, value=3)
@@ -284,7 +284,7 @@ class TestAc(unittest.TestCase):
         self.assertTrue(g.has_tag([count, target], SameValue))
 
     def test_ac_notice_same_value_fail_eq(self):
-        g = NumboTestGraph(Numble([1, 1, 1], 4))
+        g = NumboGraph(Numble([1, 1, 1], 4))
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         count = g.add_node(Count, taggees=glom, value=3)
@@ -298,7 +298,7 @@ class TestAc(unittest.TestCase):
         # TODO Check that Failed tag has correct reason
 
     def test_ac_add_all_in_glom(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         proposer = g.add_node(AddAllInGlom, within=glom)
 
@@ -330,7 +330,7 @@ class TestAc(unittest.TestCase):
                 Raise(NumboSuccess, node='node', target='target')
             ]
 
-        g = NumboTestGraph(Numble([4, 5, 6, 15], 15))
+        g = NumboGraph(Numble([4, 5, 6, 15], 15))
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
@@ -352,7 +352,7 @@ class TestAc(unittest.TestCase):
                 Raise(FoundNode, node='node')
             ]
 
-        g = NumboTestGraph(Numble([4, 5, 6, 15], 15))
+        g = NumboGraph(Numble([4, 5, 6, 15], 15))
         looker = g.add_node(Looker, within=g.ws)
 
         g.do_timestep(actor=looker)
@@ -368,7 +368,7 @@ class TestAc(unittest.TestCase):
                 ),
                 Raise(FoundTup, tup='nodes')
             ]
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         b4 = g.look_for(Brick(4))
         b5 = g.look_for(Brick(5))
         b6 = g.look_for(Brick(6))
@@ -386,7 +386,7 @@ class TestAc(unittest.TestCase):
         self.assertIn(done.tup, expect)
         
     def test_ac_selfdestruct_on_update(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))
         tag = g.add_tag(AllBricksAvail, bricks)
 
@@ -411,7 +411,7 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=tag)
 
     def test_ac_fillparamscout(self):
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
         tag = g.add_tag(
@@ -438,7 +438,7 @@ class TestAc(unittest.TestCase):
                 BuildOpResult(operands='operands')
             ]
             
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         plus = g.look_for(Plus, within=g.ws)
         b4 = g.look_for(Brick(4), within=g.ws)
         b5 = g.look_for(Brick(5), within=g.ws)
@@ -459,7 +459,7 @@ class TestAc(unittest.TestCase):
         # Here we test the entire sequence of becoming blocked for a missing
         # argument, posting a FillParamScout to fill it in, and running
         # successfully with the filled-in argument.
-        g = NumboTestGraph(Numble([4, 5, 6], 15))
+        g = NumboGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)

@@ -5,7 +5,7 @@ import unittest
 from Numble import make_numble_class
 #from PortGraph import PortGraph, pg
 from StdGraph import Graph, pg
-from testNumboClasses import Workspace, Number, Brick, Target, Block, Want, \
+from NumboGraph import Workspace, Number, Brick, Target, Block, Want, \
     Avail, Allowed, Operator, Plus, Times, port_mates
 
 

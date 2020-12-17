@@ -6,7 +6,7 @@ ut_and_go: ut current
 
 # Convenience target for "do whatever I'm currently working on".
 current:
-	$(PY) -i numbo5.py
+	$(PY) -i numbo6.py
 
 test: ut at
 
