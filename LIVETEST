@@ -13,6 +13,7 @@ testPostamble.py
 testPropagator.py
 testStdGraph.py
 testSupport.py
+test_find.py
 test_override.py
 test_slipnet.py
 test_util.py

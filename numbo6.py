@@ -4,14 +4,14 @@ from testNumboClasses import *
 from log import *
 from ActiveGraph import pg, pa
 
-class NoticeCouldMake(AcNode):
+class NoticeCouldMakePlus(AcNode):
     acs = [
         LookForTup(
             [CTagged(Avail), CTagged(Avail)],
-            tupcond=NotTheArgsOf(Plus, Quote('source')),
+            tupcond=NotTheArgsOf(Plus, 'source'),
             within=InWorkspace
         ),
-        #BuildOpResult(Plus, operands='nodes')
+        BuildOpResult(Plus, operands='nodes')
     ]
 
 class NumboGraph(Graph):
@@ -27,7 +27,24 @@ class NumboGraph(Graph):
         self.add_node(Workspace)
         numble.build(self, self.ws)
         self.add_node(NoticeSolved, member_of=self.ws, within=self.ws)
-        #self.add_node(NoticeSum, member_of=self.ws)
+        self.add_node(NoticeCouldMakePlus, member_of=self.ws)
+
+    #OAOO NumboTestGraph
+    def build_op_and_result(self, operator_class: CRef, actor=None, **kwargs) \
+    -> Tuple[NRef, NRef]:
+        '''Builds operator node, linked via port_labels to existing nodes
+        as provided in kwargs. Builds result Block with value calculated
+        by operator_class.result_value(). Returns the new nodes in a tuple:
+        (operator, result).'''
+        # TODO Raise an exception if missing or improper operands?
+        if 'member_of' not in kwargs:
+            kwargs['member_of'] = self.containers_of(actor)
+        operator = self.add_node(operator_class, builder=actor, **kwargs)
+        result_value = self.call_method(operator, 'result_value')
+        result = self.add_node(
+            Block, value=result_value, source=operator, builder=actor
+        )
+        return (operator, result)
 
     def consume_operands(
         self,

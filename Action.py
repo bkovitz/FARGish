@@ -32,7 +32,6 @@ class BaseAction(ABC):
         assert dataclasses.is_dataclass(self)
 
     @abstractmethod
-    #def go(self, g: 'G'):
     def go(self, g: 'G', actor: NRef):
         '''Updates g (the host graph) and returns None.'''
         #TODO .go should return some sort of result or disposition, if only
@@ -62,7 +61,6 @@ class Action(BaseAction):
         return set(field.name for field in dataclasses.fields(self))
 
     # TODO rm once Acs are done?
-    #def with_overrides_from(self, g, nodeid):
     def with_overrides_from(self, g, dsource: Union[NRef, Dict[str, Any]]) \
     -> 'Action':
         if g.is_nref(dsource):

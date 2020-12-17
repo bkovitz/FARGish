@@ -16,7 +16,7 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
-    WithNameOverride, LookForTup, HasKwargs
+    WithNameOverride, LookForTup, HasKwargs, Persistent
 from Ac import AcCantFind, AcNotEqualValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
@@ -214,7 +214,7 @@ class AllBricksAvail(Tag, HasUpdate, ActiveNode):
     def actions(self):
         pass
 
-class NoticeAllBricksAreAvail(AcNode):
+class NoticeAllBricksAreAvail(Persistent, AcNode):
     acs = [
         All(OfClass(Brick)),  # missing 'within' argument
         AllAre(CTagged(Avail)),

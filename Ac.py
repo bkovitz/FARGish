@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
-from ActiveNode import ActionNode, Start, Completed
+from ActiveNode import ActionNode, Start, Completed, ActiveNodeState
 from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed, AcError, FargDone
 from StdGraph import Context, MyContext, pg
@@ -218,7 +218,6 @@ class AcAction(Action):
             raise exc.as_action_failure(self, actor)
         except AcFizzle:
             return
-        actor.state = Completed
 
 @dataclass
 class All(Ac):
@@ -466,20 +465,31 @@ class SelfDestruct(Ac):
         g.remove_node(actor)
 
 @dataclass
+class NewState(Ac):
+    # BUG-PRONE: naming this member 'state' would cause a name-clash with
+    # ActiveNode.state.
+    new_state: ActiveNodeState = Completed
+
+    def go(self, g, actor, env):
+        new_state = self.get(g, actor, env, 'new_state')
+        actor.state = new_state
+
+@dataclass
 class PrintEnv(Ac):
     '''For debugging.'''
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         print('ENV', env)
 
-@dataclass
 class AcNode(ActionNode):
     '''A node that holds one or more Ac objects and tries to perform them.
     Subclasses should override the .acs class member. This class performs
     no action.'''
     acs: Acs = None
+    post_acs: Acs = NewState(Completed)
     blocked_acs: Acs = None
     threshold: float = 0.0
+    name: str = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -488,11 +498,17 @@ class AcNode(ActionNode):
     def on_build(self):
         if not self.action:
             self.action = Ac.as_action(
-                self.acs, name=self.name, threshold=self.threshold
+                as_list(self.acs) + as_list(self.post_acs), name=self.name, threshold=self.threshold
             )
 
     def __repr__(self):
         return self.__class__.__name__
+
+@dataclass
+class Persistent(AcNode):
+    '''Mix-in for an AcNode that should keep running even after successfully
+    completing its action.'''
+    post_acs: Acs = None
 
 @dataclass
 class AdHocAcNode(AcNode):

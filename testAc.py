@@ -268,6 +268,7 @@ class TestAc(unittest.TestCase):
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
+        self.assertFalse(g.is_active(noticer))
 
     def test_ac_notice_same_value_with_search(self):
         g = NumboTestGraph(Numble([1, 1, 1], 3))
@@ -362,7 +363,7 @@ class TestAc(unittest.TestCase):
             acs = [
                 LookForTup(
                     [CTagged(Avail), CTagged(Avail)],
-                    tupcond=NotTheArgsOf(Plus, Quote('source')),
+                    tupcond=NotTheArgsOf(Plus, 'operands'),
                     within=InWorkspace
                 ),
                 Raise(FoundTup, tup='nodes')
@@ -500,4 +501,6 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag(bricks, AllBricksAvail))
 
+        self.assertTrue(g.is_active(noticer))  # Noticer should stay active
+                                               # even after success
         # TODO self.assertEqual(g.get(noticer, 'within'), glom)
