@@ -137,6 +137,7 @@ class ActiveGraph(
         elif isinstance(node, Action):
             return self.add_node(ActionNode, action=node, **kwargs)
         builder = kwargs.pop('builder', self.builder)
+        activation = kwargs.pop('activation', None)
         if isinstance(node, Node):
             kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)
@@ -158,7 +159,7 @@ class ActiveGraph(
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
             node: Node = node()  # Create the Node object
-            self._add_node(node)
+            self._add_node(node, activation)
             if ShowPrimitives:
                 print('built', self.long_nodestr(node))
             filled_params.apply_to_node(self, node.id)
@@ -180,12 +181,18 @@ class ActiveGraph(
             self.after_touch_nodes.add(node.id)
         return node
 
-    def _add_node(self, node: Node) -> NodeId:
+    def _add_node(
+        self,
+        node: Node,
+        activation: Union[float, None]=None
+    ) -> NodeId:
         '''Makes the node, sets its .id and .g members, its .tob ("time of
         birth"), its initial activation, and returns its id.'''
         id = super()._add_node(node)
         node.tob = self.t
-        self.set_activation(node, node.initial_activation)
+        if activation is None:
+            activation = node.initial_activation
+        self.set_activation(node, activation)
         self.set_support_for(node, node.initial_support_for)
         return id
 

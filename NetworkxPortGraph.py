@@ -233,6 +233,7 @@ class NetworkxActivation(
             a = 0.0
         return max(a, self.min_activation(node))
 
+    # TODO Allow NRefs
     def set_activation(self, node: NRef, a: float):
         nodeid = as_nodeid(node)
         if nodeid not in self.g.nodes:

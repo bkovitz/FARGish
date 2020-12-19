@@ -5,6 +5,12 @@ from log import *
 from ActiveGraph import pg, pa
 
 
+class BoostAvails(AcNode):
+    acs = [
+        All(CTagged(Avail), within=MyContext),
+        Boost()
+    ]
+
 class NoticeCouldMakePlus(Persistent, AcNode):
     acs = [
         LookForTup(
@@ -12,7 +18,6 @@ class NoticeCouldMakePlus(Persistent, AcNode):
             tupcond=NotTheArgsOf(Plus, 'source'),
             within=InWorkspace
         ),
-        PrintEnv(),
         BuildOpResult(Plus, operands='nodes')
     ]
 
@@ -24,7 +29,6 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
             asgn_to='operator'
         ),
         AsgnNeighbors(node='operator', port_label=Quote('operands')),
-        PrintEnv(),
         AddNode(   # TODO Fail silently if this node has already been built
             Proposal,
             action=ConsumeOperands(),
@@ -51,6 +55,9 @@ if __name__ == '__main__':
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
-    #pg(g)
     g = newg(Numble([4, 5, 6], 15))
+    want = g.look_for(Want)
+    assert want
     #g.do_timestep(num=2)
+    booster = g.add_node(BoostAvails, behalf_of=want, activation=2.0)
+    pg(g)

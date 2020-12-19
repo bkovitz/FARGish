@@ -14,6 +14,7 @@ from Primitives import ActivationPrimitives, ActivationPolicy, \
     SupportPrimitives, SupportPolicy, SlipnetPolicy
 from Propagator import Propagator, Delta
 from Node import NRef, MaybeNRef, NRefs, NodeId
+from log import *
 from util import as_iter
 
 
@@ -53,6 +54,8 @@ class StdActivationPolicy(ActivationPolicy):
     )
 
     def boost_activation(self, node: NRef, boost_amount: float=0.2):
+        if ShowPrimitives.is_logging():
+            print('boost_activation', self.nodestr(node), boost_amount)
         self.set_activation(
             node, self.activation(node) + boost_amount
         )

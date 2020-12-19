@@ -17,7 +17,7 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
-    WithNameOverride, LookForTup, HasKwargs, Persistent
+    WithNameOverride, LookForTup, HasKwargs, Persistent, Boost
 from Ac import AcCantFind, AcNotEqualValue, AsgnNeighbors
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
