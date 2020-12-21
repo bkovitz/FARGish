@@ -19,7 +19,7 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     as_nodeid, as_node, as_nodeids, as_nodes
 from PortMates import PortMates
 from Action import Action, Actions
-from ActiveNode import ActiveNode, ActionNode
+from ActiveNode import ActiveNode, ActionNode, Sleeping
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, always_true
@@ -973,6 +973,12 @@ class ActiveGraph(
         Actions right now?'''
         return self.call_method(nref, 'is_dormant')
 
+    def is_sleeping(self, node: NRef) -> bool:
+        '''Is node in a Sleeping state?'''
+        state = self.getattr(node, 'state')
+        if state:
+            return state.is_sleeping(self, node)
+
     def is_failed(self, node):
         return self.has_tag(node, 'Failed')  # TODO not if Failed is canceled
 
@@ -1014,6 +1020,14 @@ class ActiveGraph(
             node.state = state
             if state.is_completed:
                 node.on_completion()
+
+    # TODO UT
+    def sleep(self, node: NRef, sleep_duration: int=3):
+        self.new_state(
+            node,
+            Sleeping(self.getattr(node, 'state'), until=self.t + sleep_duration)
+        )
+        self.set_activation(node, node.initial_activation / 10.0)
 
     #TODO UT
     def move_tag(self, tagclass, fromids, toids):
@@ -1101,6 +1115,7 @@ class ActiveGraph(
                 self.prev_touched_nodes = set(self.touched_nodes)
                 self.touched_nodes.clear()
                 self.prev_actions.clear()
+                self.wake_done_sleeping()
 
                 if any(
                     l for l in (ShowActiveNodes, ShowActiveNodesCollected, ShowActionList, ShowActionsChosen, ShowActionsPerformed, ShowPrimitives)
@@ -1143,6 +1158,11 @@ class ActiveGraph(
         except FargDone as exc:
             self.final_result = exc
             ShowResults(str(exc))
+
+    def wake_done_sleeping(self):
+        '''Wake up all nodes that are done sleeping.'''
+        for node in self.allowable_active_nodes():
+            self.call_method(node, 'awaken_if_done_sleeping')
 
     def update_all_asup(self):
         '''Calls .update_asup() on all allowable_active_nodes.'''

@@ -6,7 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 
 #from PortGraph import Node
-from Node import Node
+from Node import Node, MaybeNRef
 from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions, BuildAgent
 from util import as_iter, ClassStrIsName
@@ -70,6 +70,10 @@ class ActiveNode(ABC, Node):
             self.g.is_failed(self)
         )
 
+    def awaken_if_done_sleeping(self):
+        if self.state:
+            self.state.awaken_if_done_sleeping(self.g, self)
+            
     def on_completion(self):
         '''Called when the ActiveNode has completed its business.
 
@@ -95,6 +99,14 @@ class ActiveNodeState(metaclass=ClassStrIsName):
         business?'''
         return False
 
+    @classmethod
+    def is_sleeping(cls, g, node: MaybeNRef) -> bool:
+        return False
+
+    @classmethod
+    def awaken_if_done_sleeping(cls, g: 'G', node: MaybeNRef):
+        pass
+
 class Start(ActiveNodeState):
     pass
 
@@ -103,6 +115,18 @@ class Dormant(ActiveNodeState):
     @classmethod
     def is_active(self, g, thisid):
         return False
+
+@dataclass
+class Sleeping(Dormant):
+    saved_state: ActiveNodeState
+    until: int
+
+    def is_sleeping(self, g, node):
+        return True
+
+    def awaken_if_done_sleeping(self, g, node):
+        if self.until >= g.t:
+            g.new_state(node, self.saved_state)
 
 class Completed(Dormant):
 

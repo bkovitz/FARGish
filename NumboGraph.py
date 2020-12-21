@@ -23,7 +23,7 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
-    NotTheArgsOf, Criterion
+    NotTheArgsOf, Criterion, MinActivation
 from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
 from util import Quote, omit, first
 

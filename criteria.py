@@ -184,6 +184,14 @@ def as_criterion(x: Union[Node, CRef, Criterion]) -> Criterion:
         return OfClass(x)
     assert False, f"Can't convert {x} to Criterion"
 
+# TODO UT
+@dataclass
+class MinActivation(Criterion):
+    minact: float = 0.0  # TODO Rename, once name-clash with Node attrs is fixed
+
+    def __call__(self, g, nodeid):
+        return g.activation(nodeid) > self.minact
+
 @dataclass
 class And(Criterion):
     criteria: Sequence[Criterion]

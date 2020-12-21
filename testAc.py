@@ -501,6 +501,7 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag(bricks, AllBricksAvail))
 
-        self.assertTrue(g.is_active(noticer))  # Noticer should stay active
-                                               # even after success
+        self.assertTrue(g.is_sleeping(noticer))
+#        self.assertTrue(g.is_active(noticer))  # Noticer should stay active
+#                                               # even after success
         # TODO self.assertEqual(g.get(noticer, 'within'), glom)

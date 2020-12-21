@@ -461,6 +461,13 @@ class OrFail(Ac):
         except AcFalse:
             raise self.exc(g, self.ac, actor, env)
 
+class Sleep(Ac):
+    sleep_duration: int = 3  # Number of timesteps to sleep
+
+    def go(self, g, actor, env):
+        sleep_duration = self.get(g, actor, env, 'sleep_duration')
+        g.sleep(actor, sleep_duration)
+
 @dataclass
 class Raise(HasKwargs, Ac):
     exc: Type[Exception] = None  # unconditionally filled in by __init__
@@ -523,7 +530,7 @@ class AcNode(ActionNode):
 class Persistent(AcNode):
     '''Mix-in for an AcNode that should keep running even after successfully
     completing its action.'''
-    post_acs: Acs = None
+    post_acs: Acs = Sleep()
 
 @dataclass
 class AdHocAcNode(AcNode):

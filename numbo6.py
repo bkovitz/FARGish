@@ -5,7 +5,7 @@ from log import *
 from ActiveGraph import pg, pa
 
 
-class BoostAvails(AcNode):
+class BoostAvails(Persistent, AcNode):
     acs = [
         All(CTagged(Avail), within=MyContext),
         Boost()
@@ -14,9 +14,10 @@ class BoostAvails(AcNode):
 class NoticeCouldMakePlus(Persistent, AcNode):
     acs = [
         LookForTup(
-            [CTagged(Avail), CTagged(Avail)],
+            [And(CTagged(Avail), MinActivation(3.0)),
+             And(CTagged(Avail), MinActivation(3.0))],
             tupcond=NotTheArgsOf(Plus, 'source'),
-            within=InWorkspace
+            within=InWorkspace,
         ),
         BuildOpResult(Plus, operands='nodes')
     ]
@@ -60,4 +61,5 @@ if __name__ == '__main__':
     assert want
     #g.do_timestep(num=2)
     booster = g.add_node(BoostAvails, behalf_of=want, activation=2.0)
-    pg(g)
+    g.do_timestep(num=2)
+    pg(g, Brick)
