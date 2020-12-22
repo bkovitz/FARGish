@@ -18,9 +18,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v testCriterion.TestCriterion.test_and
-	$(PY) -m unittest -v testNumboGraph.TestNumboGraph.test_operator_with_avail_operands
-	#$(PY) -m unittest -v testAc.TestAc.test_ac_lookfortup
+	#$(PY) -m unittest -v test_override.TestOverride.test_blocked_tag
+	$(PY) -m unittest -v testAc.TestAc.test_ac_notice_same_value_fail_eq
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

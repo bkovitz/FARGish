@@ -5,6 +5,13 @@ from log import *
 from exc import *
 from ActiveGraph import pg, pa
 
+# Custom exceptions
+
+@dataclass
+class NeedOperands(FizzleAndBlock):
+    pass
+
+# Custom AcNodes
 
 class BoostAvails(Persistent, AcNode):
     acs = [
@@ -14,7 +21,7 @@ class BoostAvails(Persistent, AcNode):
 
 class NoticeCouldMakePlus(Persistent, AcNode):
     acs = [
-        OrFail(
+        OrBlock(
             LookForTup(
                 [And(CTagged(Avail), MinActivation(3.0)),
                  And(CTagged(Avail), MinActivation(3.0))],

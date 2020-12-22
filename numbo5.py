@@ -258,9 +258,9 @@ class NoticeAllSameValue(Action):
 #            if not self.within:
 #                return # TODO FAIL
         if not self.within:
-            raise NeedArg(self, 'within')
+            raise NeedArg(ac=self, name='within')
         if self.value is None:
-            raise NeedArg(self, 'value')
+            raise NeedArg(ac=self, name='value')
         if all(
             g.value_of(memberid) == self.value
                 #for memberid in g.members_of(self.within)
@@ -281,7 +281,7 @@ class CountMembers(Action):
 
     def go(self, g, actor):
         if not self.within:
-            raise NeedArg(self, 'within')
+            raise NeedArg(self, 'within')  # TODO kws
         num_members = len(g.neighbors(self.within, port_label='members'))
         g.add_node(Count, taggees=self.within, value=num_members)
         g.new_state(self.actor, Completed)

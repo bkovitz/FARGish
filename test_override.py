@@ -99,7 +99,7 @@ class NoticeAllSameValue(Action):
         # If so, tag 'within' AllMembersSameValue
 
         if not self.within:
-            raise NeedArg(self, 'within')
+            raise NeedArg(ac=self, name='within')
         if all(
             g.value_of(memberid) == self.value
                 for memberid in g.members_of(self.within)

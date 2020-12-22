@@ -17,14 +17,15 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
-    WithNameOverride, LookForTup, HasKwargs, Persistent, Boost
-from Ac import AcCantFind, AcNotEqualValue, AsgnNeighbors
+    WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock
+from Ac import AcCantFind, NotEqualValue, AsgnNeighbors
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation
-from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg
+from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg, \
+    FizzleAndFail, FizzleAndBlock
 from util import Quote, omit, first
 
 
@@ -74,6 +75,12 @@ Operator.is_duplicable = True
 
 Want.min_activation = 1.0
 
+def failed_display_name(self: Failed) -> str:
+    return f'{self.__class__.__name__}({self.reason.__class__.__name__})'
+
+Failed.display_name = failed_display_name
+    
+
 # TODO rm these functions?
 
 #def plus_result(self, g: 'G', node: NRef) -> int:
@@ -110,10 +117,17 @@ class NumboSuccess(FargDone):
     target: NRef
 
 @dataclass
-class NotAllThisValue(AcFailed):
+#class NotAllThisValue(AcFailed):
+class NotAllThisValue(FizzleAndFail):
     #TODO Supply the commented-out parameters.
     value: Any=None
     #within: NRef=None
+
+    @classmethod
+    def from_env(cls, value: Union[int, None]=None, **kwargs):
+        def ctor(g, ac, actor, env) -> FizzleAndFail:
+            return NotAllThisValue(value=value)
+        return ctor
 
 # Custom functions
 
@@ -191,7 +205,7 @@ class CountMembers(Action):
 
     def go(self, g, actor):
         if not self.within:
-            raise NeedArg(self, 'within')
+            raise NeedArg(ac=self, name='within')
         num_members = len(g.neighbors(self.within, port_label='members'))
         g.add_node(Count, taggees=self.within, value=num_members)
         g.new_state(self.actor, Completed)
@@ -292,7 +306,7 @@ class NoticeCountSameAsTarget(AcNode):
         ),
         OrFail(
             EqualValue(),
-            AcNotEqualValue.from_env(node1='node1', node2='node2')
+            NotEqualValue.from_env(node1='node1', node2='node2')
         ),
         Taggees('node1', 'node2'),
         TagWith(SameValue)

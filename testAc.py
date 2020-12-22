@@ -53,9 +53,9 @@ class TestAc(unittest.TestCase):
         # Should fail because All is missing a 'within' arg.
         try:
             env = Ac.run(g, All(OfClass(Brick)), actor=targetid)
-        except AcNeedArg as exc:
+        except NeedArg as exc:
             self.assertEqual(
-                exc, AcNeedArg(ac=All(OfClass(Brick)), name='within')
+                exc, NeedArg(ac=All(OfClass(Brick)), name='within')
             )
         else:
             self.fail("Missing 'within' failed to raise AcNeedArg.")
@@ -415,7 +415,7 @@ class TestAc(unittest.TestCase):
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
         tag = g.add_tag(
-            Blocked(reason=NeedArg(noticer.action, 'within')),
+            Blocked(reason=NeedArg(ac=noticer.action, name='within')),
             noticer
         )
         scout = g.add_node(FillParamScout, behalf_of=noticer, problem=tag)

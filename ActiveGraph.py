@@ -24,7 +24,7 @@ from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, always_true
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
-    ActionBlocked, ActionFailure
+    ActionBlocked, ActionFailure, FizzleWithTag
 from log import *
 from criteria import Criterion, OfClass, NodeEq, NoMate
 
@@ -916,14 +916,13 @@ class ActiveGraph(
                 action.go(self, actor)
                 if ShowActionsPerformed or ShowPrimitives:
                     print('succeeded')
-            except ActionBlocked as exc:
+            except FizzleWithTag as exc:
                 if ShowActionsPerformed or ShowPrimitives:
-                    print('blocked:', action, exc)
+                    print(exc.action_msg(self, actor))
                 try:
-                    self.call_method(exc.actor, 'action_blocked', exc)
+                    exc.place_tag(self, actor)
                 except Exception as exc2:
                     print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM {exc}:')
-                    #TODO OAOO
                     try:
                         print(f'ACTOR: {self.nodestr(action.actor)}')
                     except AttributeError:
@@ -931,21 +930,37 @@ class ActiveGraph(
                     print(f'ACTION: {action}')
                     print(f'EXC2: {exc2}')
                     raise
-            except ActionFailure as exc:
-                if ShowActionsPerformed:
-                    print('failed:', action, exc)
-                try:
-                    self.call_method(exc.actor, 'action_failed', exc)
-                except Exception as exc2:
-                    print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM FAILURE {exc}:')
-                    #TODO OAOO
-                    try:
-                        print(f'ACTOR: {self.nodestr(action.actor)}')
-                    except AttributeError:
-                        pass
-                    print(f'ACTION: {action}')
-                    print(f'EXC2: {exc2}')
-                    raise
+#            except ActionBlocked as exc:
+#                if ShowActionsPerformed or ShowPrimitives:
+#                    print('blocked:', action, exc)
+#                try:
+#                    self.call_method(exc.actor, 'action_blocked', exc)
+#                except Exception as exc2:
+#                    print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM {exc}:')
+#                    #TODO OAOO
+#                    try:
+#                        print(f'ACTOR: {self.nodestr(action.actor)}')
+#                    except AttributeError:
+#                        pass
+#                    print(f'ACTION: {action}')
+#                    print(f'EXC2: {exc2}')
+#                    raise
+#            except ActionFailure as exc:
+#                if ShowActionsPerformed:
+#                    print('failed:', action, exc)
+#                try:
+#                    self.call_method(exc.actor, 'action_failed', exc)
+#                except Exception as exc2:
+#                    print(f'\nEXCEPTION in do_action at t={self.t} WHILE RECOVERING FROM FAILURE {exc}:')
+#                    #TODO OAOO
+#                    try:
+#                        print(f'ACTOR: {self.nodestr(action.actor)}')
+#                    except AttributeError:
+#                        pass
+#                    print(f'ACTION: {action}')
+#                    print(f'EXC2: {exc2}')
+#                    raise
+            # TODO catch Fizzle
             except FargDone:
                 raise
             except:

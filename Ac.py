@@ -11,7 +11,8 @@ from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed, ActiveNodeState
 from criteria import Criterion, Criteria, OfClass
-from exc import Fizzle, AcNeedArg, AcBlocked, AcFailed, AcError, FargDone
+from exc import Fizzle, NeedArg, AcNeedArg, AcBlocked, AcFailed, AcError, \
+    FargDone, FizzleAndFail
 from StdGraph import Context, MyContext, pg
 from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true
 
@@ -35,7 +36,7 @@ class AcCantFind(AcFailed):
     criteria: Criteria
 
 @dataclass
-class AcNotEqualValue(AcFailed):
+class NotEqualValue(FizzleAndFail):
     node1: MaybeNRef
     node2: MaybeNRef
 
@@ -79,7 +80,8 @@ class Ac(ABC):
 
         #print('ACGET2', self.__class__.__name__, name, repr(result))
         if result is None:
-            raise AcNeedArg(ac=self, name=name)
+            #raise AcNeedArg(ac=self, name=name)
+            raise NeedArg(ac=self, name=name)
         elif isinstance(result, str):
             # TODO Prevent infinite recursion: make sure we haven't tried
             # this key before.
@@ -166,7 +168,7 @@ class Ac(ABC):
         for ac in as_iter(acs):
             try:
                 ac.go(g, actor, env)
-            except (AcFizzle, AcFalse, AcFailed, AcBlocked, FargDone):
+            except (AcFizzle, AcFalse, AcFailed, AcBlocked, FargDone, Fizzle):
                 raise
             except Exception as exc:
                 raise AcError(ac, exc, env)
@@ -461,6 +463,20 @@ class OrFail(Ac):
         except AcFalse:
             raise self.exc(g, self.ac, actor, env)
 
+# TODO UT
+@dataclass
+class OrBlock(Ac):
+    ac: Ac
+    exc: Type[AcBlocked]
+
+    # TODO OAOO OrFail
+    def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
+        try:
+            self.ac.go(g, actor, env)
+        except AcFalse:
+            raise self.exc(g, self.ac, actor, env)
+
+# TODO @dataclass ?
 class Sleep(Ac):
     sleep_duration: int = 3  # Number of timesteps to sleep
 

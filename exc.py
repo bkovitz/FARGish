@@ -1,6 +1,6 @@
 # exc.py -- Custom exceptions for FARGish
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, replace, fields
 import dataclasses
 from abc import ABC, abstractmethod
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
@@ -43,7 +43,66 @@ class FargCantRespond(Exception):
 
 @dataclass
 class Fizzle(Exception):
-    pass
+
+    def __str__(self):
+        if not fields(self):
+            return self.__class__.__name__
+        else:
+            return repr(self)
+
+@dataclass
+class FizzleWithTag(Fizzle, ABC):
+    '''An Action was unable to run, and needs to place a tag to indicate the
+    problem. Any exception that needs a Failed or Blocked tag should inherit
+    from FizzleWithTag. g.do_action() catches FizzleWithTag.'''
+
+    tagclass_: ClassVar['CRef']
+
+    def action_msg(self, g: 'G', actor: 'MaybeNRef') -> str:
+        '''The message that should appear in the log file when an Action
+        throws this exception.'''
+        return str(self)
+
+    @abstractmethod
+    def place_tag(self, g: 'G', actor: 'MaybeNRef'):
+        '''Should do whatever needs to be done on behalf of 'actor' when an
+        Action throws this exception. Default implementation: tags 'actor'
+        with a node of 'tagclass_' with a 'reason' field set to this
+        exception.'''
+        actor = g.as_node(actor)
+        tag = g.add_node(self.tagclass_, reason=self, taggees=actor)
+        g.set_activation_from_to(actor, tag)
+        g.add_support(actor, tag, 1.0)
+        actor.transient_inhibit_all_next()
+        g.reset_activation(actor)
+
+    @classmethod
+    def from_env(cls, **kwargs):
+        def ctor(g, ac, actor, env) -> FizzleAndFail:
+            kws = {}
+            for k, v in kwargs.items():
+                if isinstance(v, str):
+                    kws[k] = ac.get_or_none(g, actor, env, v)
+                else:
+                    kws[k] = Quote.get(v)
+            return cls(**kws)
+        return ctor
+
+@dataclass
+class FizzleAndBlock(FizzleWithTag):
+    tagclass_ = 'Blocked'
+            
+@dataclass
+class FizzleAndFail(FizzleWithTag):
+    tagclass_ = 'Failed'
+
+@dataclass
+class NeedArg(FizzleAndBlock):
+    name: str
+    ac: Union['Ac', 'Action', None] = None
+
+    def __str__(self):
+        return f'{self.__class__.__name__}({repr(self.name)})'
 
 @dataclass
 class ActionFailure(Fizzle):
@@ -84,13 +143,13 @@ class ActionBlocked(Fizzle):
         # HACK: Fixes mysterious TypeError in copy(NeedArg(...)).
         return replace(self)
 
-@dataclass
-class NeedArg(ActionBlocked):
-    name: str
-
-    def __str__(self):
-        #return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
-        return f'NeedArg({repr(self.name)})'
+#@dataclass
+#class NeedArg(ActionBlocked):
+#    name: str
+#
+#    def __str__(self):
+#        #return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
+#        return f'{self.__class__.__name__}({repr(self.name)})'
 
 @dataclass
 class AcFailed(Exception):
@@ -120,10 +179,6 @@ class AcFailed(Exception):
         return ActionFailureAc(action, self.ac, actor)
 
 @dataclass
-class NeedOperands(AcFailed):
-    pass
-
-@dataclass
 class AcBlocked(Exception, ABC):
 
     @abstractmethod
@@ -141,6 +196,10 @@ class AcNeedArg(AcBlocked):
     def as_action_blocked(self, action, actor):
         # TODO Provide some way to store the Ac in the exception.
         return NeedArg(action=action, name=self.name)
+
+@dataclass
+class AcNeedOperands(AcBlocked):
+    pass
 
 class NoSuchNode(Exception):
     pass
