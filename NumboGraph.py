@@ -18,14 +18,13 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock
-from Ac import AcCantFind, NotEqualValue, AsgnNeighbors
+from Ac import CantFind, NotEqualValue, AsgnNeighbors
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation
-from exc import AcNeedArg, ActionFailure, AcFailed, FargDone, NeedArg, \
-    FizzleAndFail, FizzleAndBlock
+from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock
 from util import Quote, omit, first
 
 
@@ -298,11 +297,11 @@ class NoticeCountSameAsTarget(AcNode):
     acs = [
         OrFail(
             LookFor(OfClass(Count), asgn_to='node1'),
-            AcCantFind.from_env(criteria=OfClass(Count))
+            CantFind.from_env(criteria=OfClass(Count))
         ),
         OrFail(
             LookFor(OfClass(Target), asgn_to='node2'),
-            AcCantFind.from_env(criteria=OfClass(Target))
+            CantFind.from_env(criteria=OfClass(Target))
         ),
         OrFail(
             EqualValue(),

@@ -24,7 +24,7 @@ from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, always_true
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
-    ActionBlocked, ActionFailure, FizzleWithTag
+    FizzleWithTag
 from log import *
 from criteria import Criterion, OfClass, NodeEq, NoMate
 

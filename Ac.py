@@ -11,8 +11,8 @@ from NodeParams import NodeParams, AttrParam, MateParam
 from Action import Action, Actions
 from ActiveNode import ActionNode, Start, Completed, ActiveNodeState
 from criteria import Criterion, Criteria, OfClass
-from exc import Fizzle, NeedArg, AcNeedArg, AcBlocked, AcFailed, AcError, \
-    FargDone, FizzleAndFail
+from exc import Fizzle, NeedArg, AcError, FargDone, FizzleAndFail, \
+    FizzleAndBlock
 from StdGraph import Context, MyContext, pg
 from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true
 
@@ -26,12 +26,14 @@ class AcFizzle(Fizzle):
 
 @dataclass
 class AcFalse(AcFizzle):
+    '''Exception indicating that an Acs tested for some condition and it 
+    was false, or searched for something and didn't find it.'''
     ac: 'Acs'
     actor: NRef
     env: AcEnv
 
 @dataclass
-class AcCantFind(AcFailed):
+class CantFind(FizzleAndFail):
     '''We looked for a node meeting certain criteria and didn't find one.'''
     criteria: Criteria
 
@@ -146,14 +148,13 @@ class Ac(ABC):
         This makes run() suitable for run acs as an Action, but not as a
         subroutine called from inside an Ac. For that, see Ac.call().'''
         env = AcEnv()
-#        try:
-#            cls.call(g, acs, actor, env)
-#        except AcFizzle:
-#            pass
-#        except AcFalse as exc:
+        try:
+            cls.call(g, acs, actor, env)
+        except AcFalse as exc:
 #            print('RUN', exc.__class__, exc)
-#            return exc.env
-        cls.call(g, acs, actor, env)
+            return exc.env
+        except AcFizzle:
+            pass
         return env
 
     @classmethod
@@ -168,7 +169,7 @@ class Ac(ABC):
         for ac in as_iter(acs):
             try:
                 ac.go(g, actor, env)
-            except (AcFizzle, AcFalse, AcFailed, AcBlocked, FargDone, Fizzle):
+            except (AcFalse, FargDone, Fizzle):
                 raise
             except Exception as exc:
                 raise AcError(ac, exc, env)
@@ -210,15 +211,15 @@ class AcAction(Action):
         self.threshold = threshold
 
     def go(self, g, actor):
-        actor = g.as_node(actor)
-        try:
-            Ac.run(g, self.acs, actor)
-        except AcBlocked as exc:
-            raise exc.as_action_blocked(self, actor)
-        except AcFailed as exc:
-            raise exc.as_action_failure(self, actor)
-        except AcFizzle:
-            return
+        Ac.run(g, self.acs, actor)
+#        try:
+#            Ac.run(g, self.acs, actor)
+#        except AcBlocked as exc:
+#            raise exc.as_action_blocked(self, actor)
+#        except AcFailed as exc:
+#            raise exc.as_action_failure(self, actor)
+#        except AcFizzle:
+#            return
 
 @dataclass
 class All(Ac):
@@ -432,7 +433,7 @@ class LookForArg(Ac):
         node = g.look_for(criterion, within=within)  # HACK
         if not node:
             #print('LOOKCANT', criterion, node, within)
-            raise AcCantFind(self, actor, criterion)
+            raise CantFind(criterion)
         env['node'] = node
 
 @dataclass
@@ -454,7 +455,7 @@ class RemoveBlockedTag(Ac):
 @dataclass
 class OrFail(Ac):
     ac: Ac
-    exc: Type[AcFailed]
+    exc: Type[FizzleAndFail]
     #argnames: Sequence[str]
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
@@ -467,7 +468,7 @@ class OrFail(Ac):
 @dataclass
 class OrBlock(Ac):
     ac: Ac
-    exc: Type[AcBlocked]
+    exc: Type[FizzleAndBlock]
 
     # TODO OAOO OrFail
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
@@ -509,6 +510,7 @@ class NewState(Ac):
     new_state: ActiveNodeState = Completed
 
     def go(self, g, actor, env):
+        actor = g.as_node(actor)
         new_state = self.get(g, actor, env, 'new_state')
         actor.state = new_state
 
@@ -536,7 +538,9 @@ class AcNode(ActionNode):
     def on_build(self):
         if not self.action:
             self.action = Ac.as_action(
-                as_list(self.acs) + as_list(self.post_acs), name=self.name, threshold=self.threshold
+                as_list(self.acs) + as_list(self.post_acs),
+                name=self.name,
+                threshold=self.threshold
             )
 
     def __repr__(self):

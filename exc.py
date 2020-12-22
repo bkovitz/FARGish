@@ -13,7 +13,7 @@ class FargDone(Exception):
     succeeded = False
 
     def done_msg(self):
-        return 'FargDone' # This should be overridden
+        return 'FargDone' # Subclasses should override this
 
     __repr__ = nice_object_repr
 
@@ -104,103 +104,6 @@ class NeedArg(FizzleAndBlock):
     def __str__(self):
         return f'{self.__class__.__name__}({repr(self.name)})'
 
-@dataclass
-class ActionFailure(Fizzle):
-    action: 'Action'
-    # TODO An 'actor' parameter, required; don't assume that action contains
-    # an .actor.
-
-    def _get_actor(self):
-        return self.action.actor
-    actor = property(_get_actor)
-
-    def __str__(self):
-        return f'{repr(self)}; actor={self.actor}'
-
-    def __copy__(self):
-        # HACK: Fixes mysterious TypeError in copy(NeedArg(...)).
-        return replace(self)
-
-@dataclass
-class ActionFailureAc(ActionFailure):
-    ac: 'Ac'
-    actor_: 'MaybeNRef'
-
-@dataclass
-class ActionBlocked(Fizzle):
-    action: 'Action'
-    # TODO An 'actor' parameter, required; don't assume that action contains
-    # an .actor.
-
-    def _get_actor(self):
-        return self.action.actor
-    actor = property(_get_actor)
-
-    def __str__(self):
-        return f'{repr(self)}; actor={self.actor}'
-
-    def __copy__(self):
-        # HACK: Fixes mysterious TypeError in copy(NeedArg(...)).
-        return replace(self)
-
-#@dataclass
-#class NeedArg(ActionBlocked):
-#    name: str
-#
-#    def __str__(self):
-#        #return f"NeedArg({repr(self.action)}, {repr(self.name)}; actor={self.actor})"
-#        return f'{self.__class__.__name__}({repr(self.name)})'
-
-@dataclass
-class AcFailed(Exception):
-    ac: 'Ac'
-    actor: 'MaybeNRef'
-    env: 'AcEnv'
-
-    @classmethod
-    def from_env(cls, **kwargs) \
-    -> Callable[['G', 'Ac', 'MaybeNRef', 'AcEnv'], 'AcFailed']:
-        '''Returns a function that constructs the exception, supplying
-        the given keyword arguments and values. String values get looked
-        up in env.'''
-        def ctor(g, ac, actor, env) -> AcFailed:
-            kws = {}
-            for k, v in kwargs.items():
-                if isinstance(v, str):
-                    kws[k] = ac.get_or_none(g, actor, env, v)
-                else:
-                    kws[k] = Quote.get(v)
-            return cls(ac, actor, env, **kws)
-        return ctor
-
-    def as_action_failure(self, action: 'Action', actor: 'MaybeNRef') \
-    -> ActionFailure:
-        '''Most callers should probably override this.'''
-        return ActionFailureAc(action, self.ac, actor)
-
-@dataclass
-class AcBlocked(Exception, ABC):
-
-    @abstractmethod
-    def as_action_blocked(self, action: 'Action', actor: 'MaybeNRef') \
-    -> ActionBlocked:
-        '''Should return the appropriate ActionBlocked to represent this
-        AcBlocked, with 'action' and 'actor' filled in.'''
-        pass
-    
-@dataclass
-class AcNeedArg(AcBlocked):
-    ac: 'Ac'
-    name: str
-
-    def as_action_blocked(self, action, actor):
-        # TODO Provide some way to store the Ac in the exception.
-        return NeedArg(action=action, name=self.name)
-
-@dataclass
-class AcNeedOperands(AcBlocked):
-    pass
-
 class NoSuchNode(Exception):
     pass
 
@@ -222,7 +125,6 @@ class NodeLacksMethod(Fizzle):
     method_name: str
     method_args: List
     method_kwargs: Dict
-
 
 class GeneratorDone(Fizzle):
     pass

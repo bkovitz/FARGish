@@ -26,7 +26,7 @@ from ActiveNode import ActiveNode, ActionNode, make_action_sequence, Start, \
 from criteria import Tagged as CTagged, NotTagged, HasValue, OfClass, \
     NotTaggedTogetherWith, HasAttr, NotNode, Criterion, Activated, \
     HasSameValueAs
-from exc import NeedArg, FargDone, ActionBlocked
+from exc import NeedArg, FargDone, FizzleAndBlock
 from Predefs import AllTagged
 from StdGraph import Graph
 from ActiveGraph import pg, pa
@@ -122,17 +122,17 @@ Want.min_activation = 1.0
 ##### Custom Exceptions
 
 @dataclass
-class NotAllSameValue(ActionBlocked):
+class NotAllSameValue(FizzleAndBlock):
     value: Any=None
     within: NRef=None
 
 @dataclass
-class NotSameValue(ActionBlocked):
+class NotSameValue(FizzleAndBlock):
     node1: NRef=None
     node2: NRef=None
 
 @dataclass
-class CouldntFindArg(ActionBlocked):
+class CouldntFindArg(FizzleAndBlock):
     action: Action
 
 ##### Action procedures
