@@ -2,6 +2,7 @@
 
 from NumboGraph import *
 from log import *
+from exc import *
 from ActiveGraph import pg, pa
 
 
@@ -13,12 +14,16 @@ class BoostAvails(Persistent, AcNode):
 
 class NoticeCouldMakePlus(Persistent, AcNode):
     acs = [
-        LookForTup(
-            [And(CTagged(Avail), MinActivation(3.0)),
-             And(CTagged(Avail), MinActivation(3.0))],
-            tupcond=NotTheArgsOf(Plus, 'source'),
-            within=InWorkspace,
+        OrFail(
+            LookForTup(
+                [And(CTagged(Avail), MinActivation(3.0)),
+                 And(CTagged(Avail), MinActivation(3.0))],
+                tupcond=NotTheArgsOf(Plus, 'source'),
+                within=InWorkspace,
+            ),
+            NeedOperands.from_env()
         ),
+        PrintEnv(),
         BuildOpResult(Plus, operands='nodes')
     ]
 

@@ -914,6 +914,8 @@ class ActiveGraph(
             self.prev_actions.append(action)
             try:
                 action.go(self, actor)
+                if ShowActionsPerformed or ShowPrimitives:
+                    print('succeeded')
             except ActionBlocked as exc:
                 if ShowActionsPerformed or ShowPrimitives:
                     print('blocked:', action, exc)

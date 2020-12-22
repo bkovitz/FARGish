@@ -120,6 +120,10 @@ class AcFailed(Exception):
         return ActionFailureAc(action, self.ac, actor)
 
 @dataclass
+class NeedOperands(AcFailed):
+    pass
+
+@dataclass
 class AcBlocked(Exception, ABC):
 
     @abstractmethod
