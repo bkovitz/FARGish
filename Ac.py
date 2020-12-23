@@ -527,7 +527,7 @@ class AcNode(ActionNode):
     no action.'''
     acs: Acs = None
     post_acs: Acs = NewState(Completed)
-    blocked_acs: Acs = None
+    #blocked_acs: Acs = None
     threshold: float = 0.0
     name: str = None
 

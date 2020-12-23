@@ -196,6 +196,7 @@ def as_nodeids(nrefs: NRefs) -> Set[NodeId]:
     return set(as_nodeid(nref) for nref in as_iter(nrefs) if nref)
 
 def as_nodes(g: 'ActiveGraph', nrefs: NRefs) -> Iterable[Node]:
+    '''Returns a generator of Node objects.'''
     return (as_node(g, nref) for nref in as_iter(nrefs) if nref)
 
 
@@ -210,3 +211,13 @@ def as_classname(cref: Union[CRef, None]) -> str:
         return cref.display_name()
     else:
         return str(cref)
+
+def is_abstract_cref(x: Any) -> bool:
+    '''Is x a nodeclass, specified as either a string or a Node class object,
+    but not as a node reference?'''
+    if isinstance(x, str):
+        return True
+    try:
+        return issubclass(x, Node)
+    except TypeError:
+        return False

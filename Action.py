@@ -205,11 +205,30 @@ class BuildAgent(Action):
 
     def go(self, g, actor):
         # HACK Should ask g for the agent class, maybe more.
-        g.add_node(
-            'FillParamScout',
-            behalf_of=self.behalf_of,
-            problem=self.problem
-        )
+        #print('BUILDAG', list(g.as_nodes(self.problem)))
+        for problem in as_iter(self.problem):
+            reason = g.getattr(problem, 'reason')
+            #print('REASON', reason)
+            # TODO assumptions about 'reason'
+            g.add_node(
+                reason.agent_nodeclass,
+                behalf_of=self.behalf_of,
+                problem=problem
+            )
+        g.sleep(self.behalf_of)
+
+#            if isinstance(reason, NeedArg):
+#                g.add_node(
+#                    'FillParamScout',
+#                    behalf_of=self.behalf_of,
+#                    problem=problem
+#                )
+#            elif isinstance(reason, NeedOperands):
+#                g.add_node(
+#                    'LookForOperands',
+#                    behalf_of=self.behalf_of,
+#                    problem=problem
+#                )
 
 @dataclass
 class Raise(Action):

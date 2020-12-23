@@ -63,7 +63,6 @@ class FizzleWithTag(Fizzle, ABC):
         throws this exception.'''
         return str(self)
 
-    @abstractmethod
     def place_tag(self, g: 'G', actor: 'MaybeNRef'):
         '''Should do whatever needs to be done on behalf of 'actor' when an
         Action throws this exception. Default implementation: tags 'actor'
@@ -100,6 +99,8 @@ class FizzleAndFail(FizzleWithTag):
 class NeedArg(FizzleAndBlock):
     name: str
     ac: Union['Ac', 'Action', None] = None
+
+    agent_nodeclass: ClassVar['CRef'] = 'FillParamScout'
 
     def __str__(self):
         return f'{self.__class__.__name__}({repr(self.name)})'

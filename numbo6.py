@@ -9,7 +9,8 @@ from ActiveGraph import pg, pa
 
 @dataclass
 class NeedOperands(FizzleAndBlock):
-    pass
+
+    agent_nodeclass = 'BoostAvails'
 
 # Custom AcNodes
 
@@ -65,13 +66,18 @@ def newg(numble: Numble, seed=8028868705202140491):
 g = None
 
 if __name__ == '__main__':
-    ShowActionList.start_logging()
-    ShowActionsPerformed.start_logging()
-    ShowPrimitives.start_logging()
     g = newg(Numble([4, 5, 6], 15))
     want = g.look_for(Want)
     assert want
     #g.do_timestep(num=2)
     booster = g.add_node(BoostAvails, behalf_of=want, activation=2.0)
-    g.do_timestep(num=2)
-    pg(g, Brick)
+
+    pg(g, NoticeCouldMakePlus)
+
+    ShowActionList.start_logging()
+    ShowActionsPerformed.start_logging()
+    ShowPrimitives.start_logging()
+    g.do_timestep(actor=NoticeCouldMakePlus)
+    pg(g, NoticeCouldMakePlus)
+    g.do_timestep(actor=NoticeCouldMakePlus)
+    pg(g, NoticeCouldMakePlus)

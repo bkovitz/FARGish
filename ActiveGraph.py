@@ -16,7 +16,7 @@ from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     SlipnetPolicy
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, MaybeCRef, \
-    as_nodeid, as_node, as_nodeids, as_nodes
+    as_nodeid, as_node, as_nodeids, as_nodes, is_abstract_cref
 from PortMates import PortMates
 from Action import Action, Actions
 from ActiveNode import ActiveNode, ActionNode, Sleeping
@@ -1040,6 +1040,7 @@ class ActiveGraph(
 
     # TODO UT
     def sleep(self, node: NRef, sleep_duration: int=3):
+        node = self.as_node(node)
         self.new_state(
             node,
             Sleeping(self.getattr(node, 'state'), until=self.t + sleep_duration)
@@ -1122,7 +1123,7 @@ class ActiveGraph(
         self,
         num=1,
         action: Union[Action, List[Action], None]=None,
-        actor: MaybeNRef=None
+        actor: Union[NRef, CRef, None]=None
     ) -> None:
         try:
             for i in range(num):
@@ -1151,6 +1152,8 @@ class ActiveGraph(
                 if action is not None:
                     actions_to_do = as_list(action)
                 elif actor is not None:
+                    if is_abstract_cref(actor):
+                        actor = self.look_for(actor)
                     actions_to_do = self.collect_actions([actor])
                 else:
                     actions_to_do = self.collect_actions_from_graph()
