@@ -137,6 +137,12 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
     def __copy__(self):
         return self.__class__(**self.regen_kwargs())
 
+    def filledattr_always_match(self, name: str) -> bool:
+        '''Should FilledAttr.is_match() ignore the value of attr 'name'?
+        Needed for nodes, like AcNode, that fill in the value of the attr
+        in .on_build(). Yes, this is a horrible HACK.'''
+        return False
+
     def nodestr(self):
         return f'{self.id:4d}: {self.display_name()}'
 

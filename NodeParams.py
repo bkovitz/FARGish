@@ -415,8 +415,13 @@ class FilledAttr(FilledParam):
     def is_mateparam(self):
         return False
 
-    def is_match(self, g, nodeid):
-        return g.value_of(nodeid, self.name()) == self.value
+    def is_match(self, g, node: 'NRef'):
+        node = g.as_node(node)
+        if node.filledattr_always_match(self.name()):  # HACK: needed because
+            return True                                # AcNode fills in .action
+                                                       # in .on_build().
+        else:
+            return g.value_of(node, self.name()) == self.value
 
     def potential_neighbors(self):
         return []

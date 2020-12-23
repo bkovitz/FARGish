@@ -10,11 +10,12 @@ from ActiveGraph import pg, pa
 @dataclass
 class NeedOperands(FizzleAndBlock):
 
-    agent_nodeclass = 'BoostAvails'
+    agent_nodeclass = 'LookForOperands'
 
 # Custom AcNodes
 
-class BoostAvails(Persistent, AcNode):
+class LookForOperands(AcNode):
+    # TODO If no operands, raise an alarm
     acs = [
         All(CTagged(Avail), within=MyContext),
         Boost()
@@ -53,6 +54,10 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
 
 class Numbo6Graph(NumboGraph):
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_nodeclasses(LookForOperands)
+
     def make_initial_nodes(self):
         super().make_initial_nodes()
         self.add_node(NoticeCouldMakePlus, member_of=self.ws)
@@ -70,7 +75,7 @@ if __name__ == '__main__':
     want = g.look_for(Want)
     assert want
     #g.do_timestep(num=2)
-    booster = g.add_node(BoostAvails, behalf_of=want, activation=2.0)
+    #booster = g.add_node(LookForOperands, behalf_of=want, activation=2.0)
 
     pg(g, NoticeCouldMakePlus)
 
@@ -79,5 +84,6 @@ if __name__ == '__main__':
     ShowPrimitives.start_logging()
     g.do_timestep(actor=NoticeCouldMakePlus)
     pg(g, NoticeCouldMakePlus)
+    ShowIsMatch.start_logging()
     g.do_timestep(actor=NoticeCouldMakePlus)
     pg(g, NoticeCouldMakePlus)

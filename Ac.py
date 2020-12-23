@@ -543,6 +543,9 @@ class AcNode(ActionNode):
                 threshold=self.threshold
             )
 
+    def filledattr_always_match(self, name):
+        return name == 'action' or super().filledattr_always_match(name)
+
     def __repr__(self):
         return self.__class__.__name__
 

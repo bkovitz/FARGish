@@ -427,6 +427,38 @@ class TestAc(unittest.TestCase):
         # and remove the Blocked tag:
         self.assertFalse(g.has_node(tag))
 
+    def test_ac_already_built_fillparamscout(self):
+        g = NumboGraph(Numble([4, 5, 6], 15))
+        noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
+        tag = g.add_tag(
+            Blocked(reason=NeedArg(ac=noticer.action, name='within')),
+            noticer
+        )
+        scout = g.add_node(FillParamScout, behalf_of=noticer, problem=tag)
+
+        self.assertTrue(g.already_built(
+            FillParamScout, behalf_of=noticer, problem=tag
+        ))
+
+    def test_ac_already_built_acnode_without_args(self):
+        class MyScout(AcNode):
+            # There are no NodeParams here. This exposed a bug once.
+            acs = [
+                FindParamName()
+            ]
+
+        g = NumboGraph(Numble([4, 5, 6], 15))
+        noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
+        tag = g.add_tag(
+            Blocked(reason=NeedArg(ac=noticer.action, name='within')),
+            noticer
+        )
+        scout = g.add_node(MyScout, behalf_of=noticer, problem=tag)
+
+        self.assertTrue(g.already_built(
+            MyScout, behalf_of=noticer, problem=tag
+        ))
+
     def test_ac_build_op_result(self):
         class Builder(AcNode):
             acs = [

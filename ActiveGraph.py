@@ -464,6 +464,9 @@ class ActiveGraph(
             candidates = self.neighbors(filled_params.potential_neighbors())
         else:
             candidates = self.nodes()
+        # TODO Refactor so that the (possible) generator in 'candidates'
+        # never gets assigned to a named variable. (Good practice?)
+
         return self.as_node(first(
             candidate
                 for candidate in candidates
