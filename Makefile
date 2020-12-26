@@ -44,6 +44,13 @@ lc: clean
 	@echo -n '*.py: '
 	@wc -l *.py | tail -1 | awk '{print $$1}'
 
+# test coverage
+ct coverage:
+	coverage run -m unittest
+
+bc browse-coverage:
+	coverage html && open htmlcov/index.html
+
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js
 

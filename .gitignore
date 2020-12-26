@@ -1,6 +1,8 @@
 support.csv
 activation.csv
 
+.coverage
+/htmlcov
 
 /compiled
 .autosave.rkt
