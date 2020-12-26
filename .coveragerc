@@ -1,0 +1,73 @@
+[run]
+branch = True
+include =
+    Ac.py
+    Action.py
+    ActiveGraph.py
+    ActiveNode.py
+    codegen.py
+    criteria.py
+    gen.py
+    Indenting.py
+    Indent1.py
+    log.py
+    NetworkxPortGraph.py
+    Node.py
+    NodeParams.py
+    Numble.py
+    NumboGraph.py
+    PortMates.py
+    Predefs.py
+    Primitives.py
+    Propagator.py
+    StdGraph.py
+    util.py
+    WeightedNodes.py
+
+    brute.py
+    ExprAsEquation.py
+    expr.py
+
+    NodeSpec.py
+    BuildSpec.py
+    gloms.py
+    View.py
+
+    testAction.py
+    testActionNode.py
+    testActionNode.py
+    testCodegen.py
+    testGen.py
+    testIndent1.py
+    testIndenting.py
+    testNetworkxPortGraph.py
+    testNumboGraph.py
+    testNodeParams.py
+    testNumble.py
+    testPostamble.py
+    testPropagator.py
+    testStdGraph.py
+    testSupport.py
+    test_find.py
+    test_override.py
+    test_slipnet.py
+    test_util.py
+    atest_numbo.py
+
+    testBrute.py
+    atest_numbo.py
+
+    testNodeSpec.py
+    testBuildSpec.py
+    testGloms.py
+
+[report]
+omit =
+    test*.py
+
+exclude_lines =
+    pass
+    raise NotImplementedError
+    if __name__ == .__main__.:
+
+ignore_errors = True
