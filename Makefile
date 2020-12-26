@@ -1,4 +1,8 @@
+ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
+PY = python3
+else
 PY = python3.7
+endif
 
 # Type 'make' to run unit tests and then run current program in interactive
 # mode.
