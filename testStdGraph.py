@@ -23,6 +23,12 @@ class Brick(Number):
     initial_activation = 0.72
     is_duplicable = True
 
+class Plus(Node):
+    pass
+
+class Minus(Node):
+    pass
+
 class Avail(Tag):
     pass
 
@@ -72,7 +78,8 @@ class TestGraph(Graph):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.port_mates += [
-            ('bricks', 'numble'), ('to', 'from'), ('wto', 'wfrom')
+            ('bricks', 'numble'), ('to', 'from'), ('wto', 'wfrom'),
+            ('operands', 'source')
         ]
         self.add_nodeclasses(
             Tag, Number, Brick, Avail, Watcher, UniqueNumber, Group,
@@ -355,6 +362,31 @@ class TestStdGraph(unittest.TestCase):
         print(arch_n1, arch_n2, arch_n)
         pg(g)
 
+    def test_port_inheritance(self):
+        # TODO Does Hop need to know the PortLabel hierarchy?
+        # TODO Tests for other g methods that need PortLabel expanded.
+        g = TestGraph()
+        g.declare_portlabel_parent('operands', 'minuend', 'subtrahend')
+        b1 = g.add_node(Brick, 1)
+        b2 = g.add_node(Brick, 2)
+        plus = g.add_node(Plus, operands=[b1, b2])
+
+        b10 = g.add_node(Brick, 10)
+        b7 = g.add_node(Brick, 7)
+        minus = g.add_node(Minus, minuend=b10, subtrahend=b7)
+
+        self.assertCountEqual(
+            map(g.as_node, g.neighbors(plus, 'operands')),
+            [b1, b2]
+        )
+        self.assertCountEqual(
+            map(g.as_node, g.neighbors(minus, ['minuend', 'subtrahend'])),
+            [b10, b7]
+        )
+        self.assertCountEqual(
+            map(g.as_node, g.neighbors(minus, 'operands')),
+            [b10, b7]
+        )
 
 def is_even(g, node: NRef):
     return g.value_of(node) & 1 == 0

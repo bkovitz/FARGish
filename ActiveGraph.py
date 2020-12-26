@@ -6,7 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable, Sequence
 from dataclasses import dataclass, field
 from inspect import isclass
-from copy import copy
+from copy import copy, deepcopy
 from operator import attrgetter, itemgetter
 from random import choice
 from itertools import product
@@ -70,7 +70,7 @@ class ActiveGraph(
         self.num_timesteps = num_timesteps
         self.final_result: Union[FargDone, None] = None
 
-        self.port_mates: PortMates = copy(self.std_port_mates)
+        self.port_mates: PortMates = deepcopy(self.std_port_mates)
         if port_mates:
             self.port_mates += port_mates
         self.nodeclasses: Dict[str, Type[Node]] = {}
@@ -303,8 +303,10 @@ class ActiveGraph(
         exclude_port_label: PortLabels = frozenset(['copy_of', 'copies'])
     ) -> Set[NodeId]:
         hops = set()
+        port_label = self.expand_port_label(port_label)
+        exclude_port_label = self.expand_port_label(exclude_port_label)
         for node in as_iter(nodes):
-            if port_label is None:
+            if not port_label:
                 hops |= self.hops_from_node(node)
             else:
                 for pl in as_iter(port_label):
@@ -898,6 +900,13 @@ class ActiveGraph(
         return result
 
     # Port labels
+
+    def declare_portlabel_parent(self, parent: PortLabel, *children: PortLabel):
+        self.port_mates.declare_parent(parent, *children)
+
+    def expand_port_label(self, port_label: PortLabels) \
+    -> Union[Set[PortLabel], None]:
+        return self.port_mates.expand_port_label(port_label)
 
     def is_port_label(self, name: str) -> bool:
         return self.port_mates.is_port_label(name)
