@@ -251,14 +251,22 @@ class ActiveGraph(
     ) -> bool:
         '''Returns True iff all the nodes specified have edges between all
         the port labels specified.'''
+#        for fromid in as_nodeids(nodes1):
+#            for fromlabel in as_iter(port_label1):
+#                for toid in as_nodeids(nodes2):
+#                    for tolabel in as_iter(port_label2):
+#                        if not self.find_hop(fromid, fromlabel, toid, tolabel):
+#                            return False
+        fromlabel = self.port_mates.expand_port_label(port_label1)
+        tolabel = self.port_mates.expand_port_label(port_label2)
         for fromid in as_nodeids(nodes1):
-            for fromlabel in as_iter(port_label1):
-                for toid in as_nodeids(nodes2):
-                    for tolabel in as_iter(port_label2):
-                        if not self.find_hop(fromid, fromlabel, toid, tolabel):
-                            return False
+            for toid in as_nodeids(nodes2):
+                if not self.find_hop(fromid, fromlabel, toid, tolabel):
+                    return False
         return True
 
+    # TODO expand_port_label? Or document that .has_hop() does not expand
+    # port labels.
     def has_hop(
         self,
         from_node: NRefs,

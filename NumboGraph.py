@@ -38,8 +38,16 @@ operands -- consumer
 proposed_operands -- proposer
 proposed_operator -- proposer
 result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
-minuend -- consumerM  # HACK TODO Fix: violates unique mate for 'consumer'
-subtrahend -- consumerS
+#consumer -- source
+#minuend -- consumerM  # HACK TODO Fix: violates unique mate for 'consumer'
+#subtrahend -- consumerS
+
+# should be:
+# source -- consumer
+# operands : source
+# minuend, subtrahend : operands
+# proposed_operands : operands
+# result : consumer
 
 Workspace
 
@@ -78,6 +86,11 @@ def failed_display_name(self: Failed) -> str:
     return f'{self.__class__.__name__}({self.reason.__class__.__name__})'
 
 Failed.display_name = failed_display_name
+
+Minus.node_params = NodeParams(
+    MateParam('minuend', 'consumer'),
+    MateParam('subtrahend', 'consumer')
+)
     
 
 # TODO rm these functions?
@@ -361,6 +374,7 @@ class NumboGraph(Graph):
         self.add_nodeclasses(
             AllBricksAvail, NoticeAllBricksAreAvail, FillParamScout, Proposal
         )
+        self.declare_portlabel_parent('operands', 'minuend', 'subtrahend')
         self.port_mates += port_mates
         self.numble = numble
         self.make_initial_nodes()

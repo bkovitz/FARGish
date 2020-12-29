@@ -388,6 +388,30 @@ class TestStdGraph(unittest.TestCase):
             [b10, b7]
         )
 
+        #TODO 'source' should be 'consumer' or 'operator'
+        self.assertTrue(g.has_edge(plus, 'operands', b1, 'source'))
+        self.assertFalse(g.has_edge(plus, 'minuend', b1, 'source'))
+        self.assertFalse(g.has_edge(plus, 'subtrahend', b1, 'source'))
+        self.assertTrue(g.has_edge(b1, 'source', plus, 'operands'))
+        self.assertFalse(g.has_edge(b1, 'source', plus, 'minuend'))
+        self.assertFalse(g.has_edge(b1, 'source', plus, 'subtrahend'))
+
+        self.assertTrue(g.has_edge(minus, 'operands', b10, 'source'))
+        self.assertTrue(g.has_edge(minus, 'operands', b7, 'source'))
+        self.assertTrue(g.has_edge(minus, 'minuend', b10, 'source'))
+        self.assertFalse(g.has_edge(minus, 'minuend', b7, 'source'))
+        self.assertFalse(g.has_edge(minus, 'subtrahend', b10, 'source'))
+        self.assertTrue(g.has_edge(minus, 'subtrahend', b7, 'source'))
+
+        self.assertTrue(g.has_edge(b10, 'source', minus, 'operands'))
+        self.assertTrue(g.has_edge(b7, 'source', minus, 'operands'))
+        self.assertTrue(g.has_edge(b10, 'source', minus, 'minuend'))
+        self.assertFalse(g.has_edge(b7, 'source', minus, 'minuend'))
+        self.assertFalse(g.has_edge(b10, 'source', minus, 'subtrahend'))
+        self.assertTrue(g.has_edge(b7, 'source', minus, 'subtrahend'))
+
+        #self.assertEqual(g.edge_weight(plus, 'operands', b1, 'source'), 1.0)
+
 def is_even(g, node: NRef):
     return g.value_of(node) & 1 == 0
 

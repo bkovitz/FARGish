@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, \
     as_nodeid, as_node, as_nodeids, as_nodes
-from util import first, as_iter
+from util import first, as_iter, is_iter
 
 
 @dataclass(frozen=True)
@@ -108,10 +108,20 @@ class PortGraphPrimitives(ABC):
         to_port_label: PortLabel
     ) -> Union[Hop, None]:
         '''Returns the Hop if it exists, else None.'''
+        if not from_port_label or not to_port_label:
+            return None
+        if not is_iter(from_port_label):
+            from_port_label = {from_port_label}
+        if not is_iter(to_port_label):
+            to_port_label = {to_port_label}
+#        return first(hop for hop in self._hops_to_neighbor(from_node, to_node)
+#                            if hop.from_port_label == from_port_label
+#                                and
+#                                hop.to_port_label == to_port_label)
         return first(hop for hop in self._hops_to_neighbor(from_node, to_node)
-                            if hop.from_port_label == from_port_label
+                            if hop.from_port_label in from_port_label
                                 and
-                                hop.to_port_label == to_port_label)
+                                hop.to_port_label in to_port_label)
 
     #TODO _hop_weight
 
