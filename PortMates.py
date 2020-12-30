@@ -33,10 +33,14 @@ class PortMates:
 
     # TODO UT
     def __iadd__(self, pairs: Union['PortMates', List[Tuple[str, str]]]):
+        other = None
         if isinstance(pairs, PortMates):
-            pairs = pairs.pairs()
+            other = pairs
+            pairs = other.pairs()
         for f, t in pairs:
             self.add(f, t)
+        if other:
+            self.hierarchy += other.hierarchy
         return self
         
     # TODO UT
@@ -52,10 +56,7 @@ class PortMates:
         port_label: PortLabel,
         to_node: NRef
     ):
-        # TODO This should select a more appropriate port_label for to_node
-        # if one is available, like a port that to_node already has.
         try:
-            #to_label = self.canonical[port_label]
             to_label = self.canonical_mate(port_label)
         except KeyError:
             #return  # do nothing if port_label has no mate
@@ -93,6 +94,9 @@ class PortMates:
                     parent_label
                 ))
             return result
+
+    def isa(self, child: PortLabel, parent: PortLabel) -> bool:
+        return self.hierarchy.isa(child, parent)
 
     def __repr__(self):
         #TODO Make repr string set the canonical mate for each port label

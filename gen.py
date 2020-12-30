@@ -8,11 +8,14 @@ from pprint import pprint as pp
 from io import StringIO
 from collections import namedtuple
 import traceback
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Sequence, Callable
 
 from Env import EnvItem
 from LinkSpec import LinkSpec
 #from NodeSpec import BuildSpec
-from util import as_iter, as_list, as_name, NiceRepr, newline, filter_none
+from util import as_iter, as_list, as_name, NiceRepr, newline, filter_none, \
+    first
 from exc import NoUniqueMateError
 from NodeParams import NodeParams, AttrParam, MateParam
 from Indenting import Indenting, indent
@@ -100,7 +103,10 @@ class Func(Type): pass    # A function with no implicit args
 class PortLabel(EnvItem, CallGenerator):
     def __init__(self, name):
         self.name = name
-        self.links_to = set()   # a set of PortLabels
+        self.links_to = set()   # a set of PortLabels; mates explicitly
+                                # specified in FARGish (as opposed to mates
+                                # implicit through inheritance)
+        self.parents: Set['PortLabel'] = set()
 
     def add_to_env(self, env):
         env.add(self.name, self)
@@ -108,6 +114,9 @@ class PortLabel(EnvItem, CallGenerator):
     def add_link_to(self, other):
         '''other should be another PortLabel.'''
         self.links_to.add(other)
+
+    def add_parent(self, parent: 'PortLabel'):
+        self.parents.add(parent)
 
     def as_varref(self):
         # TODO Is this right in general?
@@ -118,31 +127,76 @@ class PortLabel(EnvItem, CallGenerator):
         raises a NoUniqueMateError.'''
         #TODO There must be a way to deduce an appropriate mate when there
         #is more than one possibility.
-        if len(self.links_to) == 0:
+        mates = self.links_to
+        if len(mates) == 0:
+            mates = self.unique_ancestor_mate(self)
+        if len(mates) == 0:
             raise NoUniqueMateError(
                 f"There is no mate defined for port label '{self.name}'."
             )
-        elif len(self.links_to) == 1:
-            return list(self.links_to)[0]
+        elif len(mates) == 1:
+            return first(mates)
         else:
-            mates = ', '.join(f"'{m.name}'" for m in self.links_to)
+            mates = ', '.join(f"'{m.name}'" for m in mates)
             raise NoUniqueMateError(
 f"Port label '{self.name}' has multiple mates defined: {mates}."
             )
+
+    @classmethod
+    def parents_union(
+        cls, portlabels: Union['PortLabel', Iterable['PortLabel'], None]
+    ) -> Set['PortLabel']:
+        result: Set[PortLabel] = set()
+        for child in as_iter(portlabels):
+            result |= child.parents
+        return result
+
+    @classmethod
+    def mates_union(
+        cls, portlabels: Union['PortLabel', Iterable['PortLabel'], None]
+    ) -> Set['PortLabel']:
+        result: Set[PortLabel] = set()
+        for portlabel in as_iter(portlabels):
+            result |= portlabel.links_to
+        return result
+
+    @classmethod
+    def unique_ancestor_mate(
+        cls, children: Union['PortLabel', Iterable['PortLabel'], None]
+    ) -> Union[Set['PortLabel'], None]:
+        parents = cls.parents_union(children)
+        if not parents:
+            return None
+        mates = cls.mates_union(parents)
+        if len(mates) == 1:
+            return mates
+        else:
+            return cls.unique_ancestor_mate(parents)
 
     def pycall(self, argexprs):
         assert len(argexprs) == 1  # HACK Should raise a compilation error
         nodeexpr = argexprs[0]
         return f"_g.neighbors({as_pyexpr(nodeexpr)}, port_label={repr(self.name)})"
 
+    def __repr__(self):
+        return repr(self.name)
+
 class PortLabelParent(EnvItem):
 
+#    def __init__(self, child, parent):
+#        self.child = child
+#        self.parent = parent
+#
+#    def add_to_env(self, env):
+#        pass
     def __init__(self, child, parent):
-        self.child = child
-        self.parent = parent
+        self.child = PortLabel(child)
+        self.parent = PortLabel(parent)
 
     def add_to_env(self, env):
-        pass
+        child = env.get_or_add(self.child.name, self.child)
+        parent = env.get_or_add(self.parent.name, self.parent)
+        child.add_parent(parent)
 
 class LinkDefn(EnvItem):
 

@@ -11,6 +11,7 @@ from Env import Env
 from Indenting import Indenting, indent
 #from PortGraph import Node
 from Predefs import Tagged, AllTagged, Not
+from exc import FARGishCompilerException
 
 
 preamble = '''from Node import Node
@@ -55,7 +56,12 @@ def make_python(
     fixup = Indenting(StringIO())
     for item in items:
         if hasattr(item, 'gen'):
-            item.gen(file, fixup, env)
+            try:
+                item.gen(file, fixup, env)
+            except FARGishCompilerException as exc:
+                print('FARGish compiler exception when compiling: ', item)
+                print(exc)
+                raise
 
     #TODO This really should become a special item in Env, so that .gen code
     #can derive things from it.
@@ -67,11 +73,12 @@ def make_python(
         tl = repr(link_defn.to_label.name)
         print(f"port_mates.add({fl}, {tl})", file=file)
 
-    print('port_hierarchy = Hierarchy()', file=file)
+    #print('port_hierarchy = Hierarchy()', file=file)
     for chpa in (i for i in items if isinstance(i, PortLabelParent)):
         ch = repr(chpa.child)
         pa = repr(chpa.parent)
-        print(f'port_hierarchy.parent({pa}, {ch})', file=file)
+        #print(f'port_hierarchy.declare_parent({pa}, {ch})', file=file)
+        print(f'port_mates.declare_parent({pa}, {ch})', file=file)
 
     print('\nnodeclasses = {', file=file)
     for nodedefn in (i for i in items if isinstance(i, NodeDefn)):

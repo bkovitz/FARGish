@@ -39,6 +39,14 @@ class Hierarchy:
 
                 self.parents_of[c][p] = None
 
+    # TODO UT
+    def __iadd__(self, other: 'Hierarchy') -> 'Hierarchy':
+        assert isinstance(other, Hierarchy)
+        for child, parents in other.parents_of.items():
+            for parent in parents:
+                self.declare_parent(parent, child)
+        return self
+        
     def isa(self, child, ancestor):
         '''Is 'child' a descendant of 'ancestor'? Returns True if
         child==ancestor.'''

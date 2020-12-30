@@ -34,20 +34,20 @@ within -- overriding
 node1 -- overriding
 node2 -- overriding
 target -- overriding
-operands -- consumer
+#operands -- consumer
 proposed_operands -- proposer
 proposed_operator -- proposer
-result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
+#result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 #consumer -- source
 #minuend -- consumerM  # HACK TODO Fix: violates unique mate for 'consumer'
 #subtrahend -- consumerS
 
 # should be:
-# source -- consumer
-# operands : source
-# minuend, subtrahend : operands
-# proposed_operands : operands
-# result : consumer
+source -- consumer
+operands : source
+minuend, subtrahend : operands
+proposed_operands : operands
+result : consumer
 
 Workspace
 
@@ -62,14 +62,14 @@ Count(value) : Tag
 Number(value)
 Brick, Target, Block(source, consumer) : Number
 
-Operator(operands, consumer)
+Operator(operands, result)
 Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
 
 Group(members)
 Glom : Group
 '''
-exec(compile_fargish(prog), globals())
+exec(compile_fargish(prog, saveto='NumboGraph.gen.py'), globals())
 
 Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
@@ -369,12 +369,16 @@ class AddAllInGlom(AcNode):
 
 class NumboGraph(Graph):
     def __init__(self, numble, *args, **kwargs):
+        global port_mates, nodeclasses
         super().__init__(*args, **kwargs)
         self.nodeclasses.update(nodeclasses)
         self.add_nodeclasses(
             AllBricksAvail, NoticeAllBricksAreAvail, FillParamScout, Proposal
         )
+
+        #TODO rm
         self.declare_portlabel_parent('operands', 'minuend', 'subtrahend')
+
         self.port_mates += port_mates
         self.numble = numble
         self.make_initial_nodes()

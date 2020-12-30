@@ -138,7 +138,7 @@ class ActiveGraph(
             return self.add_node(ActionNode, action=node, **kwargs)
         builder = kwargs.pop('builder', self.builder)
         activation = kwargs.pop('activation', None)
-        if isinstance(node, Node):
+        if isinstance(node, Node):  # We were given a Node object
             kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)
             if already:
@@ -149,7 +149,7 @@ class ActiveGraph(
             # TODO Apply link FilledParams?  DONE?
             filled_params = node.make_filled_params(self, *args, **kwargs)
             filled_params.apply_to_node(self, node.id)
-        else:
+        else:  # We were given some indication of the new node's class
             if isinstance(node, str) or is_nodeid(node):
                 node = self.as_nodeclass(node)
                 # TODO Catch/throw exception if it doesn't exist?
@@ -220,13 +220,14 @@ class ActiveGraph(
             for fromlabel in as_iter(port_label1):
                 for toid in as_nodeids(nodes2):
                     for tolabel in as_iter(port_label2):
-                        self._add_edge(fromid, fromlabel, toid, tolabel, **attr)
+                        tl = self.best_fitting_port_label(toid, tolabel)
+                        self._add_edge(fromid, fromlabel, toid, tl, **attr)
                         self.touch(fromid)
                         self.touch(toid)
                         if ShowPrimitives:
                             print(
                                 'added edge ',
-                                self.hopstr(fromid, fromlabel, toid, tolabel),
+                                self.hopstr(fromid, fromlabel, toid, tl),
                                 attr
                             )
 
@@ -920,7 +921,32 @@ class ActiveGraph(
         return self.port_mates.is_port_label(name)
 
     def port_labels_of(self, nref: NRef) -> Set[PortLabel]:
-        return set(hop.from_port_label for hop in self.hops_from_node(nref))
+        return set(
+            hop.from_port_label for hop in self.hops_from_node(nref)
+        ).union(self.defined_port_labels(nref))
+
+    def defined_port_labels(self, nref: NRef) -> Iterable[PortLabel]:
+        return self.as_node(nref).defined_port_labels()
+
+    def best_fitting_port_label(self, nref: NRef, given_port_label: PortLabel) \
+    -> Union[PortLabel, None]:
+        #assert nref, f'best_fitting_port_label: {nref}'
+        #assert given_port_label
+        if not nref or not given_port_label:
+            return None
+        existing_port_labels = self.port_labels_of(nref)
+        if given_port_label in existing_port_labels:
+            return given_port_label
+        # TODO HACK There is surely a better criterion for
+        # best_fitting_port_label than 'the first one we find that
+        # matches'.
+        result = first(
+            pl for pl in existing_port_labels
+                if self.port_mates.isa(pl, given_port_label)
+        )
+        if result:
+            return result
+        return given_port_label
 
     # Doing things
 

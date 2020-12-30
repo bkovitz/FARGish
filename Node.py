@@ -80,6 +80,12 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         class's node_params. The same role can appear more than once in
         the list.'''
         return cls.node_params.defined_roles()
+
+    @classmethod
+    def defined_port_labels(cls) -> List[PortLabel]:
+        '''Returns list of port labels that are included in this nodeclass's
+        definition, i.e. in its NodeParams.'''
+        return cls.node_params.defined_port_labels()
         
     def on_build(self):
         '''Called just after node is built. Enables the node to do any

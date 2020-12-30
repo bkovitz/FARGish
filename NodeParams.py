@@ -46,20 +46,20 @@ class NodeParam(ABC):
     def as_filled_param(self, v):
         '''Return a FilledParam object that knows how to supply v as the
         value of this NodeParam.'''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def as_default_filled_param(self):
         '''Return a FilledParam object that supplies the default value of this
         NodeParam.'''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def on_init(self, datum, kwargs):
         '''Take argument value from kwargs and do whatever initialization is
         appropriate to datum (modifying datum). Called from Node.__init__()
         before the Node is put into the graph.'''
-        pass
+        raise NotImplementedError
 
     #TODO rm? BuildSpec and FilledParams do this now.
     @abstractmethod
@@ -68,24 +68,29 @@ class NodeParam(ABC):
         appropriate to the node in the graph. Called from PortGraph.make_node()
         immediately after the Node is put into the graph. Must return the
         key from kwargs that was processed, or None.'''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def arg_into_kwargs(self, arg, kwargs):
         '''Add arg into kwargs as a named argument. Modifies kwargs.'''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def is_exact_match(self, g, node, kwargs):
         '''Does 'node' in graph 'g' have exact same arguments as provided
         in kwargs?'''
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def defined_roles(self) -> 'PortLabels':
         '''What PortLabels does this NodeParam specify, from which another
-        node connect to this one?'''
-        pass
+        node connects to this one?'''
+        raise NotImplementedError
+
+    @abstractmethod
+    def defined_port_labels(self) -> 'PortLabels':
+        '''What PortLabels does this NodeParam imply to be part of the Node?'''
+        raise NotImplementedError
 
     def display_name_pyexpr(self):
         '''Returns Python expression that evaluates to the param's value,
@@ -147,6 +152,9 @@ class MateParam(NodeParam):
     def defined_roles(self):
         return self.that_port_label
 
+    def defined_port_labels(self):
+        return self.this_port_label
+
     def is_exact_match(self, g, node, kwargs):
         kwarg_mates = as_set(kwargs.get(self.this_port_label, empty_set))
         node_mates = g.neighbors(node, port_label=self.this_port_label)
@@ -195,6 +203,9 @@ class AttrParam(NodeParam):
         add_kwarg(self.name, arg, kwargs)
 
     def defined_roles(self):
+        return None
+
+    def defined_port_labels(self):
         return None
 
     def is_exact_match(self, g, node, kwargs):
@@ -273,6 +284,12 @@ class NodeParams:
         '''Returns list of roles, i.e. port labels from which a neighboring node
         can connect to this one, that are defined in this NodeParams.'''
         return chain(as_iter(param.defined_roles()) for param in self.params)
+
+    def defined_port_labels(self) -> Iterable['PortLabel']:
+        '''Returns list of port labels defined in this NodeParams.'''
+        return chain.from_iterable(
+            as_iter(p.defined_port_labels()) for p in self.params
+        )
 
     def is_exact_match(self, g, node, kwargs):
         for param in self.params:
