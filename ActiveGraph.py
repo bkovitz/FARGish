@@ -1100,11 +1100,15 @@ class ActiveGraph(
                 node.on_completion()
 
     # TODO UT
-    def sleep(self, node: NRef, sleep_duration: int=3):
+    def sleep(self, node: NRef, sleep_duration: Union[int, None]=3):
         node = self.as_node(node)
+        if sleep_duration is not None:
+            until = self.t + sleep_duration
+        else:
+            until=None
         self.new_state(
             node,
-            Sleeping(self.getattr(node, 'state'), until=self.t + sleep_duration)
+            Sleeping(self.getattr(node, 'state'), until=until)
         )
         self.set_activation(node, node.initial_activation / 10.0)
 

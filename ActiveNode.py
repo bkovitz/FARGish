@@ -36,29 +36,15 @@ class ActiveNode(ABC, Node):
         '''What Actions does this ActiveNode want to do in this timestep?
         We assume that .can_go() has been called and has returned True before
         .actions() is called. So, it is not necessary to check .state.'''
-        pass
+        raise NotImplementedError
 
     def on_blocked(self) -> Actions:
         '''Actions to perform when this node is Blocked.'''
-#        tags = self.g.tags_without_agent(self, 'Blocked')
-#        if tags:
-#            return BuildAgent(self, tags)
-
-#        tags = self.g.tags_of(self, 'Blocked')
         agents = self.g.neighbors(self, 'agents')
         agents_problems = union(*(
             self.g.neighbors(agent, 'problem')
                 for agent in agents
         ))
-#        tags_without_agent = [
-#            tag
-#                for tag in tags
-#                    if tag not in agents_problems
-#        ]
-#        tags_with_agent, tags_without_agent = partition(
-#            lambda tag: tag in agents_problems,
-#            self.g.tags_of(self, 'Blocked')
-#        )
         tags_with_agent, tags_without_agent = [], []
         for tag in self.g.tags_of(self, 'Blocked'):
             if tag in agents_problems:
@@ -74,8 +60,6 @@ class ActiveNode(ABC, Node):
                     self.g.neighbors(tags_with_agent, neighbor_label='problem')
                 )
             )
-
-            
 
     def update(self) -> Actions:
         '''Should return any self-update Actions that this node needs to
@@ -153,13 +137,16 @@ class Dormant(ActiveNodeState):
 @dataclass
 class Sleeping(Dormant):
     saved_state: ActiveNodeState
-    until: int
+    until: Union[int, None]
 
     def is_sleeping(self, g, node):
         return True
 
     def awaken_if_done_sleeping_next_t(self, g, node):
-        if g.t + 1 >= self.until:
+        if self.until is None:
+            if g.activation(node) >= 1.0:
+                g.new_state(node, Start)
+        elif g.t + 1 >= self.until:
             g.new_state(node, self.saved_state)
 
 class Completed(Dormant):
@@ -167,7 +154,6 @@ class Completed(Dormant):
     @classmethod
     def is_completed(self, g, thisid):
         return True
-
 
 class ActionNode(ActiveNode):
     '''A node that holds an action and tries to perform it.'''

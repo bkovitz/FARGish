@@ -1,7 +1,9 @@
 ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
 PY = python3
+BROWSER = open
 else
 PY = python3.7
+BROWSER = google-chrome
 endif
 
 # Type 'make' to run unit tests and then run current program in interactive
@@ -46,11 +48,12 @@ lc: clean
 	@wc -l *.py | tail -1 | awk '{print $$1}'
 
 # test coverage
+# 'make ct bc' to generate coverage data and see it in a browser
 ct coverage:
 	coverage run -m unittest
 
 bc browse-coverage:
-	coverage html && open htmlcov/index.html
+	coverage html && $(BROWSER) htmlcov/index.html
 
 tags:
 	ctags *.py fargcyto.js  # force-directed*.js

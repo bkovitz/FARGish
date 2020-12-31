@@ -485,6 +485,11 @@ class Sleep(Ac):
         sleep_duration = self.get(g, actor, env, 'sleep_duration')
         g.sleep(actor, sleep_duration)
 
+class SleepUntilAwakened(Ac):
+
+    def go(self, g, actor, env):
+        g.sleep(actor, None)
+
 @dataclass
 class Raise(HasKwargs, Ac):
     exc: Type[Exception] = None  # unconditionally filled in by __init__
@@ -554,6 +559,11 @@ class Persistent(AcNode):
     '''Mix-in for an AcNode that should keep running even after successfully
     completing its action.'''
     post_acs: Acs = Sleep()
+
+class Restartable(AcNode):
+    '''Mix-in for an AcNode that should SleepUntilAwakened after
+    successfully completing its action.'''
+    post_acs: Acs = SleepUntilAwakened()
 
 @dataclass
 class AdHocAcNode(AcNode):

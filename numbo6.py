@@ -14,7 +14,7 @@ class NeedOperands(FizzleAndBlock):
 
 # Custom AcNodes
 
-class LookForOperands(AcNode):
+class LookForOperands(Restartable, AcNode):
     # TODO If no operands, raise an alarm
     acs = [
         All(CTagged(Avail), within=MyContext),
@@ -22,6 +22,7 @@ class LookForOperands(AcNode):
     ]
 
 class NoticeCouldMakePlus(Persistent, AcNode):
+    min_support_for = 1.0
     acs = [
         OrBlock(
             LookForTup(

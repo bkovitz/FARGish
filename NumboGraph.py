@@ -17,7 +17,8 @@ from Numble import make_numble_class, prompt_for_numble
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
-    WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock
+    WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
+    Restartable
 from Ac import CantFind, NotEqualValue, AsgnNeighbors
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
@@ -69,7 +70,7 @@ Minus(minuend, subtrahend) : Operator
 Group(members)
 Glom : Group
 '''
-exec(compile_fargish(prog, saveto='NumboGraph.gen.py'), globals())
+exec(compile_fargish(prog), globals())
 
 Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
