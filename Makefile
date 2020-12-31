@@ -22,7 +22,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNumboGraph.TestNumboGraph.test_consume_result
+	$(PY) -m unittest -v testAc.TestAc.test_sleep_and_wake
 	#$(PY) -m unittest -v testHierarchy.TestHierarchy
 	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_port_inheritance
 	#$(PY) -m unittest -v test_override.TestOverride.test_blocked_tag

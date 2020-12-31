@@ -1179,7 +1179,6 @@ class ActiveGraph(
                 self.prev_touched_nodes = set(self.touched_nodes)
                 self.touched_nodes.clear()
                 self.prev_actions.clear()
-                self.wake_done_sleeping()
 
                 if any(
                     l for l in (ShowActiveNodes, ShowActiveNodesCollected, ShowActionList, ShowActionsChosen, ShowActionsPerformed, ShowPrimitives)
@@ -1213,6 +1212,7 @@ class ActiveGraph(
                         self.print_action(a)
                     self.do_action(a, a.actor)
 
+                self.wake_done_sleeping()
                 self.do_touches()
                 self.update_all_asup()
 
@@ -1226,9 +1226,10 @@ class ActiveGraph(
             ShowResults(str(exc))
 
     def wake_done_sleeping(self):
-        '''Wake up all nodes that are done sleeping.'''
+        '''Wake up all sleeping nodes that should wake up on the next
+        timestep.'''
         for node in self.allowable_active_nodes():
-            self.call_method(node, 'awaken_if_done_sleeping')
+            self.call_method(node, 'awaken_if_done_sleeping_next_t')
 
     def update_all_asup(self):
         '''Calls .update_asup() on all allowable_active_nodes.'''

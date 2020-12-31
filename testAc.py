@@ -17,7 +17,7 @@ from criteria import OfClass, Tagged as CTagged, HasThisValue, NotTheArgsOf
 from StdGraph import Graph, MyContext, InWorkspace, pg
 from NumboGraph import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid, as_nodeids
-from ActiveNode import ActiveNode, Start, Completed, HasUpdate
+from ActiveNode import ActiveNode, Start, Completed, HasUpdate, Sleeping
 from Action import Action, Actions, BuildAgent
 from log import *
 from util import first
@@ -486,6 +486,28 @@ class TestAc(unittest.TestCase):
             g.neighbors(new_plus, 'operands'),
             as_nodeids([b4, b5])
         )
+
+    def test_sleep_and_wake(self):
+        g = NumboGraph(Numble([4, 5, 6], 15))
+        assert g.t == 0, f't == {g.t}, should == 0'
+        node = g.as_node(g.look_for(NoticeSolved))
+        assert node, "We need an ActiveNode for this unit test."
+        self.assertTrue(node.id in g.active_nodes())
+        node.state = Sleeping(Start, until=4)
+        self.assertFalse(node.id in g.active_nodes())
+
+        g.do_timestep()
+        assert g.t == 1
+        self.assertFalse(node.id in g.active_nodes())
+
+        g.do_timestep()
+        assert g.t == 2
+        self.assertFalse(node.id in g.active_nodes())
+
+        g.do_timestep()
+        assert g.t == 3
+        self.assertTrue(node.id in g.active_nodes())
+            # Expect True because node will be active on next timestep
         
     def test_build_agent_for_needarg(self):
         # Here we test the entire sequence of becoming blocked for a missing

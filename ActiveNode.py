@@ -70,9 +70,9 @@ class ActiveNode(ABC, Node):
             self.g.is_failed(self)
         )
 
-    def awaken_if_done_sleeping(self):
+    def awaken_if_done_sleeping_next_t(self):
         if self.state:
-            self.state.awaken_if_done_sleeping(self.g, self)
+            self.state.awaken_if_done_sleeping_next_t(self.g, self)
             
     def on_completion(self):
         '''Called when the ActiveNode has completed its business.
@@ -104,7 +104,7 @@ class ActiveNodeState(metaclass=ClassStrIsName):
         return False
 
     @classmethod
-    def awaken_if_done_sleeping(cls, g: 'G', node: MaybeNRef):
+    def awaken_if_done_sleeping_next_t(cls, g: 'G', node: MaybeNRef):
         pass
 
 class Start(ActiveNodeState):
@@ -124,8 +124,8 @@ class Sleeping(Dormant):
     def is_sleeping(self, g, node):
         return True
 
-    def awaken_if_done_sleeping(self, g, node):
-        if self.until >= g.t:
+    def awaken_if_done_sleeping_next_t(self, g, node):
+        if g.t + 1 >= self.until:
             g.new_state(node, self.saved_state)
 
 class Completed(Dormant):

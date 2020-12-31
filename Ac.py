@@ -267,7 +267,7 @@ class Boost(Ac):
     def go(self, g, actor, env):
         nodes = self.get(g, actor, env, 'nodes')
         for node in nodes:
-            print('BOOST', node)
+            #print('BOOST', node)
             # TODO Make the boost_amount a function of actor's activation
             g.boost_activation(node, 1.0)
         

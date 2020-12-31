@@ -76,6 +76,7 @@ if __name__ == '__main__':
     assert want
     #g.do_timestep(num=2)
     #booster = g.add_node(LookForOperands, behalf_of=want, activation=2.0)
+    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 
     pg(g, NoticeCouldMakePlus)
 
@@ -87,3 +88,4 @@ if __name__ == '__main__':
     ShowIsMatch.start_logging()
     g.do_timestep(actor=NoticeCouldMakePlus)
     pg(g, NoticeCouldMakePlus)
+    g.do_timestep()
