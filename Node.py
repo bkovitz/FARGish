@@ -46,7 +46,7 @@ class Node:
     needs_update: bool = False
 
     attrs_not_to_copy: ClassVar[Set[str]] = frozenset([
-        'id', 'g', 'filled_params', 'tob', 'support_for'
+        'id', 'g', 'filled_params', 'tob', 'support_for', 'state'
     ])
 
     def __init__(self, *args, **kwargs):

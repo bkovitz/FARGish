@@ -145,7 +145,7 @@ class Ac(ABC):
     ) -> AcEnv:
         '''Runs acs, starting from an empty AcEnv. If any Ac throws AcFalse,
         run() catches it and returns the env from the AcFalse exception.
-        This makes run() suitable for run acs as an Action, but not as a
+        This makes run() suitable for running acs as an Action, but not as a
         subroutine called from inside an Ac. For that, see Ac.call().'''
         env = AcEnv()
         try:

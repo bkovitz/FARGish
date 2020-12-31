@@ -80,12 +80,13 @@ if __name__ == '__main__':
 
     pg(g, NoticeCouldMakePlus)
 
-    ShowActionList.start_logging()
+    ShowActiveNodes.start_logging()
+    #ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
     g.do_timestep(actor=NoticeCouldMakePlus)
     pg(g, NoticeCouldMakePlus)
-    ShowIsMatch.start_logging()
+    #ShowIsMatch.start_logging()
     g.do_timestep(actor=NoticeCouldMakePlus)
     pg(g, NoticeCouldMakePlus)
     g.do_timestep()

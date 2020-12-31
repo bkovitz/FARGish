@@ -182,6 +182,21 @@ class TestStdGraph(unittest.TestCase):
             # doesn't do the same thing as g.add_node(), but maybe that's OK.
             # BEN 02-Oct-2020
 
+    def test_already_built__mate_aliasing(self):
+        # Tests that a node is recognized as already_built even when one its
+        # mates is specified in varying ways.
+        g = TestGraph()
+        b1 = g.add_node(Brick, 1)
+        tag1 = g.add_node(Avail, taggees=[b1])
+        tag2 = g.add_node(Avail, taggees=b1)
+        tag3 = g.add_node(Avail, taggees={b1.id})
+        tag4 = g.add_node(Avail, taggees=[b1.id])
+        tag5 = g.add_node(Avail, taggees=b1.id)
+        self.assertEqual(tag1.id, tag2.id)
+        self.assertEqual(tag1.id, tag3.id)
+        self.assertEqual(tag1.id, tag4.id)
+        self.assertEqual(tag1.id, tag5.id)
+
     def test_auto_membership(self):
         g = TestGraph()
         ws = g.add_node(Workspace)

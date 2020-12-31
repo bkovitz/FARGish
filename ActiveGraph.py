@@ -48,7 +48,7 @@ class ActiveGraph(
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
-        ('next', 'prev'), ('copy_of', 'copies')
+        ('next', 'prev'), ('copy_of', 'copies'), ('problem', 'problem_solver')
     ])
 
     def __init__(
@@ -1522,7 +1522,7 @@ class ActiveGraph(
 
     def print_hops(self, hops: Iterable[Hop], prefix=''):
         for line in sorted(self.long_hopstr(hop) for hop in hops):
-            print(line)
+            print(f'{prefix}{line}')
         
     def print_edges(self, node, from_port_label=None, prefix=''):
         if from_port_label:

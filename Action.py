@@ -210,11 +210,12 @@ class BuildAgent(Action):
             reason = g.getattr(problem, 'reason')
             #print('REASON', reason)
             # TODO assumptions about 'reason'
-            g.add_node(
+            agent = g.add_node(
                 reason.agent_nodeclass,
                 behalf_of=self.behalf_of,
                 problem=problem
             )
+            # TODO g.boost_activation_from_to(actor, agent)
         g.sleep(self.behalf_of)
 
 #            if isinstance(reason, NeedArg):
