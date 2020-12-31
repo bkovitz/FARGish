@@ -8,8 +8,8 @@ from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Sequence, Callable
 from types import SimpleNamespace
 from itertools import chain
 
@@ -227,7 +227,8 @@ def filter_none(f, iterable):
     xs = [f(i) for i in iterable if i is not None]
     return [x for x in xs if x is not None]
 
-def intersection(*sets):
+# TODO UT
+def intersection(*sets: Iterable) -> Set:
     '''Returns a set, which is the intersection of sets. The sets may be
     any iterable, not just 'set' objects.'''
     sets = [
@@ -238,6 +239,10 @@ def intersection(*sets):
         return sets[0].intersection(*sets[1:])
     else:
         return set()
+
+# TODO UT
+def union(*sets: Iterable) -> Set:
+    return set().union(*sets)
 
 def first(iterable):
     '''Returns first element in iterable, or None if iterable is empty.'''

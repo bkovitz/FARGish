@@ -314,6 +314,7 @@ class ActiveGraph(
         hops = set()
         port_label = self.expand_port_label(port_label)
         exclude_port_label = self.expand_port_label(exclude_port_label)
+        # TODO expand neighbor_label
         for node in as_iter(nodes):
             if not port_label:
                 hops |= self.hops_from_node(node)
@@ -1036,6 +1037,9 @@ class ActiveGraph(
         Actions right now?'''
         return self.call_method(nref, 'is_dormant')
 
+    def can_go(self, nref: NRef):
+        return self.call_method(nref, 'can_go')
+
     def is_sleeping(self, node: NRef) -> bool:
         '''Is node in a Sleeping state?'''
         state = self.getattr(node, 'state')
@@ -1048,6 +1052,17 @@ class ActiveGraph(
     def is_blocked(self, node):
         return self.has_tag(node, 'Blocked')
 
+    def boost_activation_from_to(
+        self,
+        fromnode: MaybeNRef,
+        tonode: MaybeNRef,
+        by: float=1.0
+    ):
+        self.boost_activation(
+            tonode,
+            boost_amount=min(10.0, by * self.support_for(fromnode))
+        )
+        
     def call_method(self, nref: MaybeNRef, method_name: str, *args, **kwargs):
         '''Returns result of calling method method_name(self, nodeid) on nodeid
         if nodeid exists and its datum has a callable attr named method_name.

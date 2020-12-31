@@ -55,7 +55,7 @@ class StdActivationPolicy(ActivationPolicy):
 
     def boost_activation(self, node: NRef, boost_amount: float=0.2):
         if ShowPrimitives.is_logging():
-            print('boost_activation', self.nodestr(node), boost_amount)
+            print(f'boost_activation {self.nodestr(node)}  {boost_amount:.3f}')
         self.set_activation(
             node, self.activation(node) + boost_amount
         )

@@ -262,7 +262,7 @@ class LookFor(Ac):
 
 @dataclass
 class Boost(Ac):
-    nodes: Acs = None
+    nodes: NRefs = None
 
     def go(self, g, actor, env):
         nodes = self.get(g, actor, env, 'nodes')
@@ -270,7 +270,7 @@ class Boost(Ac):
             #print('BOOST', node)
             # TODO Make the boost_amount a function of actor's activation
             g.boost_activation(node, 1.0)
-        
+
 # TODO UT
 @dataclass
 class AsgnNeighbors(Ac):

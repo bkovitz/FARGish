@@ -4,12 +4,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
+from random import choice
 
 #from PortGraph import Node
 from Node import Node, MaybeNRef
 from NodeParams import NodeParams, AttrParam, MateParam
-from Action import Action, Actions, BuildAgent
-from util import as_iter, ClassStrIsName
+from Action import Action, Actions, BuildAgent, BoostFromTo
+from util import as_iter, ClassStrIsName, union, intersection
 from exc import Fizzle, NeedArg
 
 
@@ -39,9 +40,42 @@ class ActiveNode(ABC, Node):
 
     def on_blocked(self) -> Actions:
         '''Actions to perform when this node is Blocked.'''
-        tags = self.g.tags_without_agent(self, 'Blocked')
-        if tags:
-            return BuildAgent(self, tags)
+#        tags = self.g.tags_without_agent(self, 'Blocked')
+#        if tags:
+#            return BuildAgent(self, tags)
+
+#        tags = self.g.tags_of(self, 'Blocked')
+        agents = self.g.neighbors(self, 'agents')
+        agents_problems = union(*(
+            self.g.neighbors(agent, 'problem')
+                for agent in agents
+        ))
+#        tags_without_agent = [
+#            tag
+#                for tag in tags
+#                    if tag not in agents_problems
+#        ]
+#        tags_with_agent, tags_without_agent = partition(
+#            lambda tag: tag in agents_problems,
+#            self.g.tags_of(self, 'Blocked')
+#        )
+        tags_with_agent, tags_without_agent = [], []
+        for tag in self.g.tags_of(self, 'Blocked'):
+            if tag in agents_problems:
+                tags_with_agent.append(tag)
+            else:
+                tags_without_agent.append(tag)
+        if tags_without_agent:
+            return BuildAgent(self, choice(tags_without_agent))
+        else:
+            return BoostFromTo(
+                intersection(
+                    agents,
+                    self.g.neighbors(tags_with_agent, neighbor_label='problem')
+                )
+            )
+
+            
 
     def update(self) -> Actions:
         '''Should return any self-update Actions that this node needs to

@@ -18,7 +18,7 @@ from StdGraph import Graph, MyContext, InWorkspace, pg
 from NumboGraph import *
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, as_nodeid, as_nodeids
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, Sleeping
-from Action import Action, Actions, BuildAgent
+from Action import Action, Actions, BuildAgent, BoostFromTo
 from log import *
 from util import first
 from exc import FargDone, NeedArg
@@ -528,7 +528,7 @@ class TestAc(unittest.TestCase):
         # Next, the Noticer should build an agent to fix the problem.
         self.assertCountEqual(
             as_iter(g.actions(noticer)),
-            [BuildAgent(noticer, {problem_tag})]
+            [BuildAgent(noticer, problem_tag)]
         )
         g.do_timestep(actor=noticer)
         scout = g.neighbor(noticer, 'agents')
@@ -539,8 +539,10 @@ class TestAc(unittest.TestCase):
 
         # Now the Noticer should be blocked:
         self.assertTrue(g.is_blocked(noticer))
-        # and have nothing to do:
-        self.assertFalse(g.actions(noticer))
+        ## and have nothing to do:
+        #self.assertFalse(g.actions(noticer))
+        # and should only want to boost the scout:
+        self.assertEqual(g.actions(noticer), BoostFromTo({scout}))
 
         # The Scout should find the Glom, override the Noticer's 'within'
         # arg with it, and remove the Blocked tag.

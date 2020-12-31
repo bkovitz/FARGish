@@ -215,7 +215,7 @@ class BuildAgent(Action):
                 behalf_of=self.behalf_of,
                 problem=problem
             )
-            # TODO g.boost_activation_from_to(actor, agent)
+            g.boost_activation_from_to(actor, agent)
         g.sleep(self.behalf_of)
 
 #            if isinstance(reason, NeedArg):
@@ -231,6 +231,15 @@ class BuildAgent(Action):
 #                    problem=problem
 #                )
 
+@dataclass
+class BoostFromTo(Action):
+    to_nodes: NRefs
+
+    def go(self, g, actor):
+        for to_node in self.to_nodes:
+            g.boost_activation_from_to(actor, to_node)
+        g.sleep(actor)
+        
 @dataclass
 class Raise(Action):
     '''Raises an exception with user-supplied arguments.'''
