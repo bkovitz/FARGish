@@ -4,6 +4,7 @@ from NumboGraph import *
 from log import *
 from exc import *
 from ActiveGraph import pg, pa
+from criteria import NotTagged
 
 # Custom exceptions
 
@@ -63,6 +64,7 @@ class Numbo6Graph(NumboGraph):
         super().make_initial_nodes()
         self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
+        self.add_node(OoMTagger, member_of=self.ws)
 
 
 def newg(numble: Numble, seed=8028868705202140491):
@@ -77,17 +79,23 @@ if __name__ == '__main__':
     assert want
     #g.do_timestep(num=2)
     #booster = g.add_node(LookForOperands, behalf_of=want, activation=2.0)
-    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 
-    pg(g, NoticeCouldMakePlus)
+#    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
+#
+#    pg(g, NoticeCouldMakePlus)
+#
+#    ShowActiveNodes.start_logging()
+#    #ShowActionList.start_logging()
+#    ShowActionsPerformed.start_logging()
+#    ShowPrimitives.start_logging()
+#    g.do_timestep(actor=NoticeCouldMakePlus)
+#    pg(g, NoticeCouldMakePlus)
+#    #ShowIsMatch.start_logging()
+#    g.do_timestep(actor=NoticeCouldMakePlus)
+#    pg(g, NoticeCouldMakePlus)
+#    g.do_timestep()
 
-    ShowActiveNodes.start_logging()
-    #ShowActionList.start_logging()
-    ShowActionsPerformed.start_logging()
+    tagger = g.look_for(OoMTagger)
     ShowPrimitives.start_logging()
-    g.do_timestep(actor=NoticeCouldMakePlus)
-    pg(g, NoticeCouldMakePlus)
-    #ShowIsMatch.start_logging()
-    g.do_timestep(actor=NoticeCouldMakePlus)
-    pg(g, NoticeCouldMakePlus)
-    g.do_timestep()
+    g.do_timestep(actor=tagger)
+    pg(g)

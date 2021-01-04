@@ -33,6 +33,7 @@ source -- consumer
 Tag(taggees)
 Avail, Consumed, Failed, Done, Allowed, Promising, Hopeless : Tag
 GettingCloser : Promising
+Blocked(reason) : Tag
 
 Workspace
 

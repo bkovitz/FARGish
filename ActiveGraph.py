@@ -266,8 +266,6 @@ class ActiveGraph(
                     return False
         return True
 
-    # TODO expand_port_label? Or document that .has_hop() does not expand
-    # port labels.
     def has_hop(
         self,
         from_node: NRefs,
@@ -275,6 +273,9 @@ class ActiveGraph(
         to_node: NRefs,
         to_port_label: PortLabels
     ):
+        '''Returns True iff all the specified hops exist. Unlike .has_edge(),
+        .has_hop() does not expand port labels. The port labels much match
+        exactly; port inheritance does not make a match.'''
         return all(
             self.find_hop(fromid, fromlabel, toid, tolabel)
                 for fromid in as_nodeids(from_node)
@@ -420,12 +421,17 @@ class ActiveGraph(
             if not node:
                 raise NoSuchNode(node)
             return node.__class__
-        else:
-            assert isinstance(cref, str)
+        elif isinstance(cref, str):
             try:
                 return self.nodeclasses[cref]
             except KeyError:
                 raise NoSuchNodeclass(cref)
+
+        elif isinstance(cref, Node):
+            return cref.__class__
+        raise ValueError(
+            f'{cref} is not a CRef (i.e. does not specify a nodeclass)'
+        )
 
     def is_nref(self, x: Any) -> bool:
         '''Is x a reference to a Node, i.e. a nodeid or a Node object? Returns
@@ -628,6 +634,33 @@ class ActiveGraph(
                 for node in nodes
         )
 
+    # TODO UT
+    def node_isa(
+        self,
+        nrefs: NRefs,
+        specs: Union[CRefs, Node]
+    ) -> bool:
+        '''Does every node in 'nrefs' match 'specs'? False if nrefs is
+        empty or contains a non-existent node.
+        
+        If specs is a Node object without an id, we match against class,
+        allowing inheritance, and against attributes; we ignore mates.
+        Otherwise we match against *any* nodeclass indicated by 'specs'.
+        '''
+        nodes = as_list(self.as_nodes(nrefs))
+        if not nodes:
+            return False
+        nodeclasses = self.as_nodeclasses(specs)
+        if not nodeclasses:
+            return False
+
+        for node in as_iter(nodes):
+            if not any(isinstance(node, cl) for cl in nodeclasses):
+                return False
+            if isinstance(node, Node) and node.id is None:
+                raise NotImplementedError
+        return True
+
     def is_member(self, node: NRefs, container_node: NRefs):
         return self.has_hop(container_node, 'members', node, 'member_of')
 
@@ -639,42 +672,80 @@ class ActiveGraph(
 
     def has_tag(
         self,
-        node: NRefs,
+        nodes: NRefs,
         tagclass: Union[Type[Node], NodeId, Node, str]='Tag',
-        taggee_port_label: PortLabel='tags'
+        #taggee_port_label: PortLabel='tags'
+        **kwargs
     ) -> bool:
         '''Returns True iff all the nodes have the given tag.'''
-        if isinstance(tagclass, str):
-            try:
-                tagclass = self.as_nodeclass(tagclass)
-            except NoSuchNodeclass:
-                if tagclass == 'Failed' or tagclass == 'Blocked':
+        # TODO Document kwargs
+        print('HAS_TAG', nodes, tagclass, kwargs)
+        return all(
+            self._has_tag(node, tagclass, **kwargs)
+                for node in as_iter(nodes)
+        )
+        # OLD
+#        if isinstance(tagclass, str):
+#            try:
+#                tagclass = self.as_nodeclass(tagclass)
+#            except NoSuchNodeclass:
+#                if tagclass == 'Failed' or tagclass == 'Blocked':
+#                    return False
+#                else:
+#                    raise
+#
+#        if isclass(tagclass):
+#            return all(
+#                self.has_neighbor_at(
+#                    n, port_label=taggee_port_label, neighbor_class=tagclass
+#                )
+#                    for n in as_iter(node)
+#            )
+#        else: #tagclass is actually a node, not a class
+#            if isinstance(tagclass, Node) and tagclass.id is None:
+#                # tagclass is just a Node object to compare against, not
+#                # an actual node in the graph.
+#                return all(
+#                    self.at_least_one_eq_node(
+#                        tagclass,
+#                        self.neighbors(n, port_label=taggee_port_label)
+#                    ) for n in as_iter(node)
+#                )
+#            else:
+#                tagid = self.as_nodeid(tagclass)
+#                return all(
+#                    tagid in self.neighbors(n, port_label=taggee_port_label)
+#                        for n in as_iter(node)
+#                )
+
+    def _has_tag(
+        self,
+        node: MaybeNRef,
+        tagclass: Union[Type[Node], NodeId, Node, str]='Tag',
+        **kwargs
+    ) -> bool:
+        '''Like .has_tag() but looks only at a single node.'''
+        if not kwargs:
+            kwargs = {'taggees': self.as_nodeid(node)}
+        return any(self.nb_match(tag, **kwargs)
+            for tag in self.tags_of(node, tagclass)
+        )
+
+    def nb_match(self, node: MaybeNRef, **kwargs) -> bool:
+        '''Neighborhood match.''' #TODO Document better.
+        node = self.as_node(node)
+        if not node:
+            return False
+        for port_label, neighbor in kwargs.items():
+            if neighbor:
+                if not as_nodeids(neighbor).intersection(
+                    self.neighbors(node, port_label=port_label)
+                ):
                     return False
-                else:
-                    raise
-        if isclass(tagclass):
-            return all(
-                self.has_neighbor_at(
-                    n, port_label=taggee_port_label, neighbor_class=tagclass
-                )
-                    for n in as_iter(node)
-            )
-        else: #tagclass is actually a node, not a class
-            if isinstance(tagclass, Node) and tagclass.id is None:
-                # tagclass is just a Node object to compare against, not
-                # an actual node in the graph.
-                return all(
-                    self.at_least_one_eq_node(
-                        tagclass,
-                        self.neighbors(n, port_label=taggee_port_label)
-                    ) for n in as_iter(node)
-                )
-            else:
-                tagid = self.as_nodeid(tagclass)
-                return all(
-                    tagid in self.neighbors(n, port_label=taggee_port_label)
-                        for n in as_iter(node)
-                )
+            else: # if neighbor is unspecified, match any neighbor
+                if not self.neighbor(node, port_label=port_label):
+                    return False
+        return True
 
     def at_least_one_eq_node(self, nobject: Node, candidates: NRefs) -> bool:
         '''Returns True if at least one member of candidates == nobject.
@@ -830,6 +901,7 @@ class ActiveGraph(
 #                return []
 #        return as_list(nodes)
         if is_iter(criterion):
+            # TODO Shouldn't c be found by .as_criterion()?
             return list(
                 tup for tup in product(
                     *(self.find_all(c, within=within, subset=subset)
@@ -1124,16 +1196,16 @@ class ActiveGraph(
     def tags_of(
         self, nodes: NRefs, tagclass: CRefs='Tag', taggee_port_label='tags'
     ) -> Set[NodeId]:
-        '''Returns a generator. nodes can be a single node id or an iterable
-        of node ids.'''
-        #TODO Should be able to specify tagclass more narrowly.
+        #TODO Update type hint for tagclass: it can also be a Node object
+        # without id.
         tag_sets = (
             set(tag
                 for node in as_iter(nodes)
                     for tag in self.neighbors(
                             node, port_label=taggee_port_label
                         )
-                        if self.is_of_class(tag, tagclass)
+                        #if self.is_of_class(tag, tagclass)
+                        if self.node_isa(tag, tagclass)
             )
         )
         return set.intersection(tag_sets)

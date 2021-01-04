@@ -18,19 +18,21 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
-    Restartable
-from Ac import CantFind, NotEqualValue, AsgnNeighbors
+    Restartable, DeTup
+from Ac import CantFind, NotEqualValue, AsgnNeighbors, LogValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
-    NotTheArgsOf, Criterion, MinActivation
+    NotTheArgsOf, Criterion, MinActivation, NotTagged
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock
-from util import Quote, omit, first
+from util import Quote, omit, first, as_set
 
 
 prog = '''
 tags -- taggees
+lesser, greater : taggees
+
 within -- overriding
 node1 -- overriding
 node2 -- overriding
@@ -59,6 +61,7 @@ SameValue, AllMembersHaveThisValue : Tag
 Blocked(reason) : Tag
 Failed(reason): Tag
 Count(value) : Tag
+OoM(value) : Tag
 
 Number(value)
 Brick, Target, Block(source, consumer) : Number
@@ -70,7 +73,8 @@ Minus(minuend, subtrahend) : Operator
 Group(members)
 Glom : Group
 '''
-exec(compile_fargish(prog), globals())
+#exec(compile_fargish(prog), globals())
+exec(compile_fargish(prog, saveto='NumboGraph.gen.py'), globals())
 
 Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times, Minus]
@@ -243,6 +247,12 @@ class BuildOpResult(HasKwargs, Ac):
 
 # Custom nodeclasses
 
+class OoMGreaterThan(Tag):
+    node_params = NodeParams(
+        MateParam('lesser', 'tags'),
+        MateParam('greater', 'tags')
+    )
+    
 class NoticeSolved(AcNode):
     acs = [
         LookFor(OfClass(Target), asgn_to='target'),
@@ -368,6 +378,40 @@ class AddAllInGlom(AcNode):
         )
     ]
 
+class OoMTagger(Persistent, AcNode):
+    acs = [
+        LookForTup(
+            And(Number, NotTagged(OoM)),
+            within=InWorkspace
+        ),
+        LogValue(),
+        AddNode(
+            OoM,
+            taggees='nodes',
+            value='value'
+        )
+    ]
+
+class OoMGreaterThanTagger(Persistent, AcNode):
+    # TODO How do we anchor the tuple search on one node, e.g. the Target?
+    acs = [
+        LookForTup(
+            [CTagged(OoM), CTagged(OoM)],
+            # TODO Put the greater one first!
+            # TODO Somehow rewrite following line as NotTagged
+            tupcond=NotTheArgsOf(OoMGreaterThan, 'taggees'),
+            within=InWorkspace
+        ),
+        DeTup(asgn_to=('node1', 'node2')),
+        AddNode(
+            OoMGreaterThan,
+            lesser='node1',
+            greater='node2'
+        )
+    ]
+
+# The Graph class
+
 class NumboGraph(Graph):
     def __init__(self, numble, *args, **kwargs):
         global port_mates, nodeclasses
@@ -422,7 +466,10 @@ class NumboGraph(Graph):
     def consume_operands(self, operator_class: CRef, actor=None, **kwargs) \
     -> Tuple[NRef, NRef]:
         '''kwargs is port_label=NRefs for each operand.'''
-        operands = kwargs.values() # Wrong: member_of is not an operand  TODO 
+        operands = set()
+        for mates in kwargs.values():
+            # Wrong: member_of is not an operand  TODO 
+            operands.update(as_set(mates))
         if not self.has_tag(operands, Avail):
             return  # TODO Raise a failure exception.
         (operator, result) = self.build_op_and_result(

@@ -24,7 +24,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testAc.TestAc.test_build_agent_for_needarg
+	#$(PY) -m unittest -v testConsume.TestConsume.test_consume_times
+	$(PY) -m unittest -v testAc.TestAc.test_oom_and_gt
 	#$(PY) -m unittest -v test_override.TestOverride.test_blocked_tag
 	#$(PY) -m unittest -v testAc.TestAc.test_ac_notice_same_value_fail_eq
 	#$(PY) -m unittest -v testAc.TestAc.test_ac_already_built_acnode_without_args

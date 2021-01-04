@@ -7,6 +7,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable
+from math import log10
 
 from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
@@ -561,3 +562,36 @@ class TestAc(unittest.TestCase):
 #        self.assertTrue(g.is_active(noticer))  # Noticer should stay active
 #                                               # even after success
         # TODO self.assertEqual(g.get(noticer, 'within'), glom)
+
+    def test_oom_and_gt(self):
+        g = NumboGraph(Numble([10, 5], 15))
+        b10 = g.look_for(Brick(10))
+        b5 = g.look_for(Brick(5))
+        t15 = g.look_for(Target(15))
+        assert b10, "Couldn't find Brick(10)"
+        assert b5, "Couldn't find Brick(5)"
+        assert t15, "Couldn't find Target(15)"
+        oomtagger = g.add_node(OoMTagger, member_of=g.ws)
+        oomgttagger = g.add_node(OoMGreaterThanTagger, member_of=g.ws)
+
+        g.do_timestep(actor=oomtagger)
+        g.do_timestep(actor=oomtagger)
+        g.do_timestep(actor=oomtagger)
+        #pg(g)
+
+        self.assertEqual(g.as_node(g.tag_of(b10, OoM)), OoM(value=1.0))
+        self.assertEqual(g.as_node(g.tag_of(b5, OoM)), OoM(value=log10(5)))
+        self.assertEqual(g.as_node(g.tag_of(t15, OoM)), OoM(value=log10(15)))
+
+        # TODO Assert that this fizzles.
+        g.do_timestep(actor=oomtagger)
+
+        ShowPrimitives.start_logging()
+        g.do_timestep(actor=oomgttagger, num=6)
+        pg(g, oomgttagger)
+        self.assertTrue(g.has_tag(t15, OoMGreaterThan, lesser=b5, greater=t15))
+        pg(g)
+
+if __name__ == '__main__':
+    g = NumboGraph(Numble([10, 5], 15))
+    b10 = g.look_for(Number(10))

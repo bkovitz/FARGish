@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, fields, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable
 from contextlib import contextmanager
+import math
 
 from Node import Node, NRef, NRefs, MaybeNRef, PortLabel, PortLabels, MaybeCRef
 from NodeParams import NodeParams, AttrParam, MateParam
@@ -14,7 +15,7 @@ from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, NeedArg, AcError, FargDone, FizzleAndFail, \
     FizzleAndBlock
 from StdGraph import Context, MyContext, pg
-from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true
+from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true, first
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -411,6 +412,28 @@ class AddNode(HasKwargs, Ac):
         nodeclass = self.get(g, actor, env, 'nodeclass')
         kwargs = self.get_kwargs(g, actor, env)
         env['node'] = g.add_node(nodeclass, **kwargs)
+
+@dataclass
+class LogValue(Ac):
+
+    def go(self, g, actor, env):
+        nodes = self.get(g, actor, env, 'nodes')
+        node = first(as_iter(nodes))
+        env['value'] = math.log10(g.value_of(node))
+
+@dataclass
+class DeTup(Ac):
+    asgn_to: Union[str, Sequence[str]] = 'node'
+
+    def go(self, g, actor, env):
+        nodes = self.get(g, actor, env, 'nodes')
+        for i, name in enumerate(self.asgn_to):
+            print('DET', name, i)
+            try:
+                value = nodes[i]
+            except KeyError:
+                value = None
+            env[name] = value
 
 @dataclass
 class FindParamName(Ac):
