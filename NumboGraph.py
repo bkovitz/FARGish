@@ -24,7 +24,8 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
-    NotTheArgsOf, Criterion, MinActivation, NotTagged
+    NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
+    TagValuesGt
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock
 from util import Quote, omit, first, as_set
 
@@ -399,14 +400,17 @@ class OoMGreaterThanTagger(Persistent, AcNode):
             [CTagged(OoM), CTagged(OoM)],
             # TODO Put the greater one first!
             # TODO Somehow rewrite following line as NotTagged
-            tupcond=NotTheArgsOf(OoMGreaterThan, 'taggees'),
+            tupcond=CTupAnd(
+                NotTheArgsOf(OoMGreaterThan, 'taggees'),
+                TagValuesGt(OoM)
+            ),
             within=InWorkspace
         ),
         DeTup(asgn_to=('node1', 'node2')),
         AddNode(
             OoMGreaterThan,
-            lesser='node1',
-            greater='node2'
+            greater='node1',
+            lesser='node2'
         )
     ]
 

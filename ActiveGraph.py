@@ -679,7 +679,6 @@ class ActiveGraph(
     ) -> bool:
         '''Returns True iff all the nodes have the given tag.'''
         # TODO Document kwargs
-        print('HAS_TAG', nodes, tagclass, kwargs)
         return all(
             self._has_tag(node, tagclass, **kwargs)
                 for node in as_iter(nodes)

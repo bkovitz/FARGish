@@ -228,3 +228,28 @@ class NotTheArgsOf:
             g.neighbors(n, port_label=self.role) == nodes
                 for n in neighbors
         )
+
+@dataclass
+class TagValuesGt:
+    tagclass: CRef
+
+    def __call__(self, g, tup):
+        try:
+            tag1 = g.tag_of(tup[0], self.tagclass)
+            tag2 = g.tag_of(tup[1], self.tagclass)
+        except KeyError:
+            return False
+        try:
+            return g.value_of(tag1) > g.value_of(tag2)
+        except TypeError:
+            return False
+
+@dataclass
+class TupAnd:
+    tupconds: Sequence
+
+    def __init__(self, *tupconds):
+        self.tupconds = tupconds
+
+    def __call__(self, g, tup):
+        return all(tupcond(g, tup) for tupcond in self.tupconds)

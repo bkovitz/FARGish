@@ -586,11 +586,11 @@ class TestAc(unittest.TestCase):
         # TODO Assert that this fizzles.
         g.do_timestep(actor=oomtagger)
 
-        ShowPrimitives.start_logging()
+        #ShowPrimitives.start_logging()
         g.do_timestep(actor=oomgttagger, num=6)
-        pg(g, oomgttagger)
+        #pg(g, oomgttagger)
         self.assertTrue(g.has_tag(t15, OoMGreaterThan, lesser=b5, greater=t15))
-        pg(g)
+        #pg(g)
 
 if __name__ == '__main__':
     g = NumboGraph(Numble([10, 5], 15))

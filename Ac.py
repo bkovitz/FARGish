@@ -428,7 +428,6 @@ class DeTup(Ac):
     def go(self, g, actor, env):
         nodes = self.get(g, actor, env, 'nodes')
         for i, name in enumerate(self.asgn_to):
-            print('DET', name, i)
             try:
                 value = nodes[i]
             except KeyError:
