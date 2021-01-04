@@ -149,13 +149,13 @@ class Ac(ABC):
         This makes run() suitable for running acs as an Action, but not as a
         subroutine called from inside an Ac. For that, see Ac.call().'''
         env = AcEnv()
-        try:
-            cls.call(g, acs, actor, env)
-        except AcFalse as exc:
+        #try:
+        cls.call(g, acs, actor, env)
+#        except AcFalse as exc:
 #            print('RUN', exc.__class__, exc)
-            return exc.env
-        except AcFizzle:
-            pass
+#            return exc.env
+#        except AcFizzle:
+#            pass
         return env
 
     @classmethod

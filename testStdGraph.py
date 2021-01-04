@@ -265,6 +265,8 @@ class TestStdGraph(unittest.TestCase):
         g.set_activation_from_to(b1, b2)
 
         g.do_timestep()
+        # TODO Turn off noise in spreading activation. With noise, every once
+        # in a great while, this assertion fails.
         self.assertGreater(
             g.activation(b2),
             Brick.initial_activation - 5 * g.activation_propagator.noise

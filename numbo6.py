@@ -65,6 +65,7 @@ class Numbo6Graph(NumboGraph):
         self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         self.add_node(OoMTagger, member_of=self.ws)
+        self.add_node(OoMGreaterThanTagger, member_of=self.ws)
 
 
 def newg(numble: Numble, seed=8028868705202140491):
@@ -97,5 +98,7 @@ if __name__ == '__main__':
 
     tagger = g.look_for(OoMTagger)
     ShowPrimitives.start_logging()
-    g.do_timestep(actor=tagger)
+    ShowActionsPerformed.start_logging()
+    #g.do_timestep(actor=tagger)
     pg(g)
+    g.do_timestep(num=7)

@@ -24,7 +24,7 @@ from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, always_true
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
-    FizzleWithTag
+    FizzleWithTag, Fizzle
 from log import *
 from criteria import Criterion, OfClass, NodeEq, NoMate
 
@@ -1027,12 +1027,14 @@ class ActiveGraph(
             return
         if actor:  # TODO rm
             action.actor = actor  # TODO rm
+        if ShowActionsPerformed.is_logging():
+            self.print_action(action)
         with PushAttr(self, 'builder'):
             self.builder = action.actor
             self.prev_actions.append(action)
             try:
                 action.go(self, actor)
-                if ShowActionsPerformed or ShowPrimitives:
+                if ShowActionsPerformed:
                     print('succeeded')
             except FizzleWithTag as exc:
                 if ShowActionsPerformed or ShowPrimitives:
@@ -1048,6 +1050,9 @@ class ActiveGraph(
                     print(f'ACTION: {action}')
                     print(f'EXC2: {exc2}')
                     raise
+            except Fizzle:
+                if ShowActionsPerformed or ShowPrimitives:
+                    print('fizzled')
 #            except ActionBlocked as exc:
 #                if ShowActionsPerformed or ShowPrimitives:
 #                    print('blocked:', action, exc)
@@ -1296,11 +1301,12 @@ class ActiveGraph(
                 if ShowActionsPerformed.is_logging():
                     print('ACTIONS PERFORMED')
                     self.print_actions_header(actions_to_do)
-                for a in actions_to_do:
-                    if ShowActionsPerformed.is_logging():
-#                                     a))
-                        self.print_action(a)
-                    self.do_action(a, a.actor)
+                if actions_to_do:
+                    for a in actions_to_do:
+                        self.do_action(a, a.actor)
+                else:
+                    if ShowActionsPerformed:
+                        print('no actions')
 
                 self.wake_done_sleeping()
                 self.do_touches()
