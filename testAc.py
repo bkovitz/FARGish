@@ -3,6 +3,7 @@
 import unittest
 from pprint import pprint as pp
 import inspect
+import time
 
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
@@ -564,6 +565,10 @@ class TestAc(unittest.TestCase):
         # TODO self.assertEqual(g.get(noticer, 'within'), glom)
 
     def test_oom_and_gt(self):
+        class ActivationTrap(Node):
+            '''Does nothing but receive activation.'''
+            pass
+
         g = NumboGraph(Numble([10, 5], 15))
         b10 = g.look_for(Brick(10))
         b5 = g.look_for(Brick(5))
@@ -571,9 +576,13 @@ class TestAc(unittest.TestCase):
         assert b10, "Couldn't find Brick(10)"
         assert b5, "Couldn't find Brick(5)"
         assert t15, "Couldn't find Target(15)"
+        atrap = g.add_node(ActivationTrap)
         oomtagger = g.add_node(OoMTagger, member_of=g.ws)
         oomgttagger = g.add_node(OoMGreaterThanTagger, member_of=g.ws)
         oom1btagger = g.add_node(OoM1BelowWantedTagger, member_of=g.ws)
+
+        # Every OoM node should give activation to the ActivationTrap
+        g.add_activation_autolinks((OoM, atrap))
 
         g.do_timestep(actor=oomtagger)
         g.do_timestep(actor=oomtagger)
@@ -582,6 +591,10 @@ class TestAc(unittest.TestCase):
         self.assertEqual(g.as_node(g.tag_of(b10, OoM)), OoM(value=1.0))
         self.assertEqual(g.as_node(g.tag_of(b5, OoM)), OoM(value=log10(5)))
         self.assertEqual(g.as_node(g.tag_of(t15, OoM)), OoM(value=log10(15)))
+
+        # This tests .do_activation_autolinks().
+        for oom in g.find_all(OoM):
+            self.assertEqual(g.activation_from_to(oom, atrap), 1.0)
 
         # TODO Assert that this fizzles.
         g.do_timestep(actor=oomtagger)

@@ -9,7 +9,7 @@ from inspect import isclass
 from copy import copy, deepcopy
 from operator import attrgetter, itemgetter
 from random import choice
-from itertools import product
+from itertools import product, chain
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     ActivationPrimitives, ActivationPolicy, SupportPrimitives, SupportPolicy, \
@@ -22,7 +22,8 @@ from Action import Action, Actions
 from ActiveNode import ActiveNode, ActionNode, Sleeping
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
-    intersection, empty_set, sample_without_replacement, PushAttr, always_true
+    intersection, empty_set, sample_without_replacement, PushAttr, \
+    always_true, filter_none
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
     FizzleWithTag, Fizzle
 from log import *
@@ -75,6 +76,10 @@ class ActiveGraph(
             self.port_mates += port_mates
         self.nodeclasses: Dict[str, Type[Node]] = {}
 
+        # Automatically link activation from new nodes of given type to
+        # given node(s).
+        self.activation_autolinks: List[Tuple[Type[Node], NRefs]] = []
+
         self.max_active_nodes: Union[int, None] = None
         self.max_actions: int = 1
 
@@ -95,6 +100,9 @@ class ActiveGraph(
 
     def add_nodeclasses(self, *clss: Type[Node]):
         self.nodeclasses.update((cls.__name__, cls) for cls in clss)
+
+    def add_activation_autolinks(self, *pairs: Tuple[Type[Node], NRefs]):
+        self.activation_autolinks += pairs
 
     # Overrides for ActiveGraphPrimitives
 
@@ -1308,8 +1316,9 @@ class ActiveGraph(
                     if ShowActionsPerformed:
                         print('no actions')
 
-                self.wake_done_sleeping()
+                self.do_activation_autolinks()
                 self.do_touches()
+                self.wake_done_sleeping()
                 self.update_all_asup()
 
                 d = self.done()
@@ -1358,6 +1367,13 @@ class ActiveGraph(
             print('ACTIONS CHOSEN')
             self.print_actions(chosen_actions)
         return chosen_actions
+
+    def collect_all_actions(self) -> List[Action]:
+        '''Returns all Actions from all active ActiveNodes, regardless of
+        urgency; no random choice. This is helpful to see what's ready to
+        happen in the graph; it's called automatically by .print_actions()
+        with no arguments.'''
+        return self.collect_actions(self.active_nodes())
 
     def collect_active_nodes(self) -> List[NRef]:
         active_nodes = self.active_nodes()
@@ -1502,6 +1518,15 @@ class ActiveGraph(
             else:
                 self.after_touch_nodes.discard(nodeid)
 
+    def do_activation_autolinks(self):
+        '''Add an activation_to/from edge from each new node that matches
+        a tuple in self.activation_autolinks.'''
+        for nodeclass, nrefs in self.activation_autolinks:
+            for new_node in self.new_nodes:
+                if self.node_isa(new_node, nodeclass):
+                    for nref in as_iter(nrefs):
+                        self.set_activation_from_to(new_node, nref)
+
     def done(self) -> Union[FargDone, None]:
         return self.final_result
 
@@ -1524,7 +1549,13 @@ class ActiveGraph(
             headings = ('u', 'a', '(a.t)', 's', '(s.t)', 'actor', 'action')
             print(headingfmt % headings)
 
-    def print_actions(self, actions: List[Action], header: bool=True):
+    def print_actions(
+        self,
+        actions: Union[List[Action], None]=None,
+        header: bool=True
+    ):
+        if actions is None:
+            actions = self.collect_all_actions()
 #        if not len(actions):
 #            print('  (none)')
 #            return

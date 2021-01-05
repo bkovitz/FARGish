@@ -66,13 +66,14 @@ class Numbo6Graph(NumboGraph):
         self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
+        oo1bt = self.add_node(OoM1BelowWantedTagger, member_of=self.ws)
 
-#        autos = [
-#            (OoM1BelowWanted, ncmp),
-#            #(OperandBelowWanted, ncmp),
-#            (OoMGreaterThan, oo1bt),
-#            (OoM, oogtt)
-#        ]
+        self.add_activation_autolinks(
+            (OoM1BelowWanted, ncmp),
+            #(OperandBelowWanted, ncmp),
+            (OoMGreaterThan, oo1bt),
+            (OoM, oogtt)
+        )
 
 def newg(numble: Numble, seed=8028868705202140491):
     return Numbo6Graph(numble=numble, seed=seed)
