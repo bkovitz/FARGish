@@ -24,6 +24,7 @@ class LookForOperands(Restartable, AcNode):
 
 class NoticeCouldMakePlus(Persistent, AcNode):
     min_support_for = 1.0
+    initial_activation = 0.2
     acs = [
         OrBlock(
             LookForTup(
@@ -34,7 +35,7 @@ class NoticeCouldMakePlus(Persistent, AcNode):
             ),
             NeedOperands.from_env()
         ),
-        PrintEnv(),
+        #PrintEnv(),
         BuildOpResult(Plus, operands='nodes')
     ]
 
@@ -58,6 +59,7 @@ class Numbo6Graph(NumboGraph):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.max_actions = 4
         self.add_nodeclasses(LookForOperands)
 
     def make_initial_nodes(self):
@@ -72,7 +74,8 @@ class Numbo6Graph(NumboGraph):
             (OoM1BelowWanted, ncmp),
             #(OperandBelowWanted, ncmp),
             (OoMGreaterThan, oo1bt),
-            (OoM, oogtt)
+            (OoM, oogtt),
+            (Avail, self.look_for(NoticeSolved))
         )
 
 def newg(numble: Numble, seed=8028868705202140491):
@@ -108,4 +111,5 @@ if __name__ == '__main__':
     ShowActionsPerformed.start_logging()
     #g.do_timestep(actor=tagger)
     pg(g)
-    g.do_timestep(num=7)
+    g.print_actions()
+    g.do_timestep(num=1)

@@ -40,7 +40,7 @@ class Node:
     min_support_for: float = 0.0
     initial_support_for: float = 1.0
     min_activation: float = 0.0
-    initial_activation: float = 1.0
+    initial_activation: float = 5.0
 
     # Do we need to call this node's .update() method?
     needs_update: bool = False

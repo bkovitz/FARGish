@@ -261,7 +261,7 @@ class OoM1BelowWanted(Tag):
         MateParam('wanted', 'tags')
     )
 
-class NoticeSolved(AcNode):
+class NoticeSolved(Persistent, AcNode):
     acs = [
         LookFor(OfClass(Target), asgn_to='target'),
         LookFor(CTagged(Avail), cond=EqualValue('node', 'target')),
