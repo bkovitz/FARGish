@@ -25,7 +25,7 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
-    TagValuesGt
+    TagValuesGt, TagValuesGt1
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock
 from util import Quote, omit, first, as_set
 
@@ -33,6 +33,7 @@ from util import Quote, omit, first, as_set
 prog = '''
 tags -- taggees
 lesser, greater : taggees
+wanted : taggees
 
 within -- overriding
 node1 -- overriding
@@ -253,7 +254,13 @@ class OoMGreaterThan(Tag):
         MateParam('lesser', 'tags'),
         MateParam('greater', 'tags')
     )
-    
+
+class OoM1BelowWanted(Tag):
+    node_params = NodeParams(
+        MateParam('lesser', 'tags'),
+        MateParam('wanted', 'tags')
+    )
+
 class NoticeSolved(AcNode):
     acs = [
         LookFor(OfClass(Target), asgn_to='target'),
@@ -398,7 +405,6 @@ class OoMGreaterThanTagger(Persistent, AcNode):
     acs = [
         LookForTup(
             [CTagged(OoM), CTagged(OoM)],
-            # TODO Put the greater one first!
             # TODO Somehow rewrite following line as NotTagged
             tupcond=CTupAnd(
                 NotTheArgsOf(OoMGreaterThan, 'taggees'),
@@ -410,6 +416,24 @@ class OoMGreaterThanTagger(Persistent, AcNode):
         AddNode(
             OoMGreaterThan,
             greater='node1',
+            lesser='node2'
+        )
+    ]
+
+class OoM1BelowWantedTagger(Persistent, AcNode):
+    acs = [
+        LookForTup(
+            [And(CTagged(OoM), CTagged(Want)), CTagged(OoM)],
+            tupcond=CTupAnd(
+                NotTheArgsOf(OoM1BelowWanted, 'taggees'),
+                TagValuesGt1(OoM)
+            ),
+            within=InWorkspace
+        ),
+        DeTup(asgn_to=('node1', 'node2')),
+        AddNode(
+            OoM1BelowWanted,
+            wanted='node1',
             lesser='node2'
         )
     ]

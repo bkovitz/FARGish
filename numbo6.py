@@ -62,11 +62,17 @@ class Numbo6Graph(NumboGraph):
 
     def make_initial_nodes(self):
         super().make_initial_nodes()
-        self.add_node(NoticeCouldMakePlus, member_of=self.ws)
+        ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
-        self.add_node(OoMTagger, member_of=self.ws)
-        self.add_node(OoMGreaterThanTagger, member_of=self.ws)
+        oot = self.add_node(OoMTagger, member_of=self.ws)
+        oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
 
+#        autos = [
+#            (OoM1BelowWanted, ncmp),
+#            #(OperandBelowWanted, ncmp),
+#            (OoMGreaterThan, oo1bt),
+#            (OoM, oogtt)
+#        ]
 
 def newg(numble: Numble, seed=8028868705202140491):
     return Numbo6Graph(numble=numble, seed=seed)

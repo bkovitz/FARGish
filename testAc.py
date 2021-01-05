@@ -573,11 +573,11 @@ class TestAc(unittest.TestCase):
         assert t15, "Couldn't find Target(15)"
         oomtagger = g.add_node(OoMTagger, member_of=g.ws)
         oomgttagger = g.add_node(OoMGreaterThanTagger, member_of=g.ws)
+        oom1btagger = g.add_node(OoM1BelowWantedTagger, member_of=g.ws)
 
         g.do_timestep(actor=oomtagger)
         g.do_timestep(actor=oomtagger)
         g.do_timestep(actor=oomtagger)
-        #pg(g)
 
         self.assertEqual(g.as_node(g.tag_of(b10, OoM)), OoM(value=1.0))
         self.assertEqual(g.as_node(g.tag_of(b5, OoM)), OoM(value=log10(5)))
@@ -586,10 +586,12 @@ class TestAc(unittest.TestCase):
         # TODO Assert that this fizzles.
         g.do_timestep(actor=oomtagger)
 
-        #ShowPrimitives.start_logging()
         g.do_timestep(actor=oomgttagger, num=6)
-        #pg(g, oomgttagger)
         self.assertTrue(g.has_tag(t15, OoMGreaterThan, lesser=b5, greater=t15))
+
+        #ShowPrimitives.start_logging()
+        g.do_timestep(actor=oom1btagger, num=6)
+        self.assertTrue(g.has_tag(t15, OoM1BelowWanted, lesser=b5, wanted=t15))
         #pg(g)
 
 if __name__ == '__main__':

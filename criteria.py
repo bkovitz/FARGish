@@ -234,7 +234,7 @@ class TagValuesGt:
     tagclass: CRef
 
     def __call__(self, g, tup):
-        try:
+        try: # TODO rm try
             tag1 = g.tag_of(tup[0], self.tagclass)
             tag2 = g.tag_of(tup[1], self.tagclass)
         except KeyError:
@@ -243,6 +243,23 @@ class TagValuesGt:
             return g.value_of(tag1) > g.value_of(tag2)
         except TypeError:
             return False
+
+@dataclass
+class TagValuesGt1:
+    tagclass: CRef
+
+    def __call__(self, g, tup):
+        try: # TODO rm try
+            tag1 = g.tag_of(tup[0], self.tagclass)
+            tag2 = g.tag_of(tup[1], self.tagclass)
+        except KeyError:
+            return False
+        try:
+            v1 = int(g.value_of(tag1))
+            v2 = int(g.value_of(tag2))
+        except TypeError:
+            return False
+        return v1 - v2 == 1
 
 @dataclass
 class TupAnd:
