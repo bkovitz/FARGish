@@ -578,14 +578,19 @@ class AcNode(ActionNode):
 
 #@dataclass
 class Persistent(AcNode):
-    '''Mix-in for an AcNode that should keep running even after successfully
-    completing its action.'''
+    '''Mix-in for an AcNode that should sleep for a little while and re-run
+    after completing its action.'''
     post_acs: Acs = Sleep()
 
 class Restartable(AcNode):
     '''Mix-in for an AcNode that should SleepUntilAwakened after
     successfully completing its action.'''
     post_acs: Acs = SleepUntilAwakened()
+
+class Nonstop(AcNode):
+    '''Mix-in for an AcNode that should keep running even after completing its
+    action.'''
+    post_acs: Acs = NewState(Start)
 
 @dataclass
 class AdHocAcNode(AcNode):

@@ -255,11 +255,11 @@ class TagValuesGt1:
         except KeyError:
             return False
         try:
-            v1 = int(g.value_of(tag1))
-            v2 = int(g.value_of(tag2))
+            v1 = g.value_of(tag1)
+            v2 = g.value_of(tag2)
         except TypeError:
             return False
-        return v1 - v2 == 1
+        return v1 > v2 and abs(int(v1) - int(v2)) <= 1
 
 @dataclass
 class TupAnd:

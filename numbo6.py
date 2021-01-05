@@ -22,9 +22,11 @@ class LookForOperands(Restartable, AcNode):
         Boost()
     ]
 
-class NoticeCouldMakePlus(Persistent, AcNode):
+class LateNoticer(Persistent, AcNode):
+    initial_activation = 0.02
+
+class NoticeCouldMakePlus(LateNoticer):
     min_support_for = 1.0
-    initial_activation = 0.2
     acs = [
         OrBlock(
             LookForTup(
@@ -37,6 +39,22 @@ class NoticeCouldMakePlus(Persistent, AcNode):
         ),
         #PrintEnv(),
         BuildOpResult(Plus, operands='nodes')
+    ]
+
+class NoticeCouldMakeTimes(LateNoticer):
+    min_support_for = 1.0
+    acs = [
+        OrBlock(
+            LookForTup(
+                [And(CTagged(Avail), MinActivation(3.0)),
+                 And(CTagged(Avail), MinActivation(3.0))],
+                tupcond=NotTheArgsOf(Times, 'source'),
+                within=InWorkspace,
+            ),
+            NeedOperands.from_env()
+        ),
+        #PrintEnv(),
+        BuildOpResult(Times, operands='nodes')
     ]
 
 class ProposeDoingNoticedOperation(Persistent, AcNode):
@@ -59,12 +77,16 @@ class Numbo6Graph(NumboGraph):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.max_actions = 4
+        self.max_actions = 2
         self.add_nodeclasses(LookForOperands)
 
     def make_initial_nodes(self):
         super().make_initial_nodes()
+        target = self.look_for(Target, within=self.ws)
+        want = self.tag_of(target, Want)
+        assessor = self.add_node(AssessProposal, behalf_of=want)
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
+        ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
         self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
@@ -85,7 +107,9 @@ def newg(numble: Numble, seed=8028868705202140491):
 g = None
 
 if __name__ == '__main__':
-    g = newg(Numble([4, 5, 6], 15))
+    numble = Numble([4, 5, 6], 15)
+    #numble = Numble([4, 5, 6], 34)
+    g = newg(numble)
     want = g.look_for(Want)
     assert want
     #g.do_timestep(num=2)
@@ -110,6 +134,10 @@ if __name__ == '__main__':
     ShowPrimitives.start_logging()
     ShowActionsPerformed.start_logging()
     #g.do_timestep(actor=tagger)
-    pg(g)
-    g.print_actions()
-    g.do_timestep(num=1)
+    #pg(g)
+    assessor = g.neighbor(want, 'agents')
+    g.do_timestep(actor=NoticeCouldMakePlus)
+    g.do_timestep(actor=ProposeDoingNoticedOperation)
+    g.do_timestep(actor=assessor)
+    #g.print_actions()
+    #g.do_timestep(num=1)

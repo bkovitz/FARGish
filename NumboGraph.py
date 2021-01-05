@@ -18,7 +18,7 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
-    Restartable, DeTup
+    Restartable, DeTup, Nonstop
 from Ac import CantFind, NotEqualValue, AsgnNeighbors, LogValue
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
@@ -229,6 +229,29 @@ class CountMembers(Action):
         g.add_node(Count, taggees=self.within, value=num_members)
         g.new_state(self.actor, Completed)
 
+@dataclass
+class AssessProposal(Action):
+    
+    def go(self, g, actor):
+        want = g.neighbor(actor, 'behalf_of')
+        target = g.neighbor(want, 'taggees')
+        target_value = g.value_of(target)
+        if target_value is None:
+            raise Fizzle
+
+        proposal = g.look_for(And(Proposal, NotTagged(Done)), within=g.ws)
+        # TODO Require that proposal's proposed_operands be Avail
+        if not proposal:
+            raise Fizzle
+        operator = g.neighbor(proposal, 'proposed_operator')
+        result = g.neighbor(operator, 'result')
+        operands = g.neighbors(proposal, 'proposed_operands')
+        operand_values = list(map(g.value_of, operands))
+        print('ASSESS', operand_values)
+        # Is the expected result closer to the target than any of the operands?
+        # Yes: give both activation and support
+        # No: give opposition
+
 # Custom Acs
 
 @dataclass
@@ -386,7 +409,8 @@ class AddAllInGlom(AcNode):
         )
     ]
 
-class OoMTagger(Persistent, AcNode):
+class OoMTagger(Nonstop, AcNode):
+    initial_activation = 5.0
     acs = [
         LookForTup(
             And(Number, NotTagged(OoM)),
