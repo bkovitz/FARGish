@@ -1665,10 +1665,26 @@ class ActiveGraph(
         # TODO Move the implementation code inside ActiveGraph.
         pg(self, *args, **kwargs)
 
-    # Unimplemented  # TODO
+    def add_support(self, from_node, to_node, weight=1.0):
+        # TODO This function ought to adjust the support levels of other
+        # support_to edges coming from from_node.
+        current = self.support_from_to(from_node, to_node)
+        self.set_support_from_to(
+            from_node,
+            to_node,
+            current + weight
+        )
 
-    def add_support(self, from_node, to_node, weight=None):
-        return
+    def cut_off_support(self, from_node, to_node):
+        self.set_support_from_to(from_node, to_node, 0.0)
+        self.set_activation_from_to(from_node, to_node, 0.0)
+
+    def oppose(self, from_node, to_node, weight=0.2):
+        '''Sets support from from_node to to_node to a negative number.
+        If 'weight' is positive, we will set the support to -weight.
+        Sets activation from from_node to to_node to 0.0.'''
+        self.set_support_from_to(from_node, to_node, -abs(weight))
+        self.set_activation_from_to(from_node, to_node, 0.0)
 
 G = ActiveGraph
 

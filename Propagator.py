@@ -19,8 +19,8 @@ def reverse_sigmoid(x: float, p: float=0.5):
 
 @dataclass
 class Delta:
-    nodeid: NodeId
-    amt: float
+    nodeid: NodeId    # The node whose value is to be changed
+    amt: float        # The amount by which it is to be changed
 
 @dataclass
 class Propagator(ABC):
@@ -38,16 +38,17 @@ class Propagator(ABC):
 
     def propagate_once(self, g, old_d: Dict[NodeId, float]):
         new_d: Dict[NodeId, float] = defaultdict(float,
-            ((nodeid, a * self.alpha)
+            #((nodeid, a * self.alpha)
+            ((nodeid, max(self.min_value(g, nodeid), a * self.alpha))
                 for nodeid, a in old_d.items()
             )
         )
         # apply all the deltas
         for delta in self.make_deltas(g, old_d):
-            #print('PONCE', delta)
-            new_d[delta.nodeid] += (
+            actual_delta = \
                 delta.amt * (1.0 - self.alpha) + gauss(0.0, self.noise)
-            )
+            #print('PONCE', delta.nodeid, old_d[delta.nodeid], new_d[delta.nodeid], delta.amt, actual_delta)
+            new_d[delta.nodeid] += actual_delta
         # clip to min_value
         new_d = defaultdict(float,
             ((nodeid, max(self.min_value(g, nodeid), s))

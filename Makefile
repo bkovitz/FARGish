@@ -24,11 +24,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	#$(PY) -m unittest -v testConsume.TestConsume.test_consume_times
-	$(PY) -m unittest -v testAc.TestAc.test_oom_and_gt
-	#$(PY) -m unittest -v test_override.TestOverride.test_blocked_tag
-	#$(PY) -m unittest -v testAc.TestAc.test_ac_notice_same_value_fail_eq
-	#$(PY) -m unittest -v testAc.TestAc.test_ac_already_built_acnode_without_args
+	$(PY) -m unittest -v testActionNode.TestActionNode.test_simplest_action_node
 	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_already_built__missing_arg
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 

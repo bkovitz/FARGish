@@ -223,6 +223,14 @@ def always_true(*args, **kwargs) -> bool:
 def always_false(*args, **kwargs) -> bool:
     return False
 
+def clip(lb, ub, x):
+    if x <= lb:
+        return lb
+    elif x >= ub:
+        return ub
+    else:
+        return x
+
 def filter_none(f, iterable):
     xs = [f(i) for i in iterable if i is not None]
     return [x for x in xs if x is not None]

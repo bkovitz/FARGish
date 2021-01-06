@@ -6,6 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 from operator import add, mul
 from functools import reduce
+from math import exp
 
 from Node import Node, NRef, NRefs, CRef, MaybeNRef, MaybeCRef, PortLabel, \
     NodeId
@@ -27,7 +28,7 @@ from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
     TagValuesGt, TagValuesGt1
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock
-from util import Quote, omit, first, as_set
+from util import Quote, omit, first, as_set, clip
 
 
 prog = '''
@@ -88,6 +89,7 @@ Number.is_duplicable = True
 Operator.is_duplicable = True
 
 Want.min_activation = 1.0
+Want.min_support_for = 10.0
 
 def failed_display_name(self: Failed) -> str:
     return f'{self.__class__.__name__}({self.reason.__class__.__name__})'
@@ -205,6 +207,8 @@ class ConsumeOperands(Action):
     # be redesigned.
 
 #    operator: CRef
+    threshold = 1.0
+    support_threshold = 1.0
 
     def as_kwargs(self):
         return omit(self.__dict__, ['actor', 'operator'])
@@ -229,28 +233,52 @@ class CountMembers(Action):
         g.add_node(Count, taggees=self.within, value=num_members)
         g.new_state(self.actor, Completed)
 
+# TODO UT
 @dataclass
 class AssessProposal(Action):
     
     def go(self, g, actor):
+        # Find the target number in regard to which we are going to assess
+        # a Proposal.
         want = g.neighbor(actor, 'behalf_of')
         target = g.neighbor(want, 'taggees')
         target_value = g.value_of(target)
         if target_value is None:
             raise Fizzle
+            # TODO Is fizzling right? Something is wrong if we can't find
+            # the target_value for our assessment.
+        g.sleep(actor)
 
-        proposal = g.look_for(And(Proposal, NotTagged(Done)), within=g.ws)
+        # Look up the proposal
+        proposal = g.look_for(Proposal, within=g.ws)
         # TODO Require that proposal's proposed_operands be Avail
         if not proposal:
             raise Fizzle
+        if g.has_tag(proposal, Done):
+            g.cut_off_support(actor, proposal)
+            return
         operator = g.neighbor(proposal, 'proposed_operator')
         result = g.neighbor(operator, 'result')
         operands = g.neighbors(proposal, 'proposed_operands')
         operand_values = list(map(g.value_of, operands))
-        print('ASSESS', operand_values)
+        # TODO Fizzle and/or get Blocked if anything is missing
+
+        # Assess whether we think the Proposal makes progress
+        result_dist = abs(target_value - result)
+        if result_dist == 0:
+            g.add_support(actor, proposal, 5.0)
+            g.set_activation_from_to(actor, proposal)
         # Is the expected result closer to the target than any of the operands?
-        # Yes: give both activation and support
-        # No: give opposition
+        elif any(abs(v - target) < result_dist for v in operand_values):
+            # Yes: give both activation and support
+            #weight = clip(0.0, 1.0, exp(-(result_dist - 1) / 20))
+            weight = clip(0.0, 3.0, 3 * exp(-(result_dist - 1) / 20))
+            # TODO Scale according to the sizes of the Target and Bricks
+            g.set_support_from_to(actor, proposal, weight)
+            g.set_activation_from_to(actor, proposal, 1.0)
+        else:
+            # No: give opposition
+            g.oppose(actor, proposal)
 
 # Custom Acs
 

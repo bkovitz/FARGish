@@ -97,10 +97,12 @@ class StdSupportPropagator(Propagator):
         return g.min_support_for(nodeid)
 
     def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
-        return chain.from_iterable(
+        result = chain.from_iterable(
             self.deltas_from(g, old_d, nodeid)
                 for nodeid in old_d
         )
+        result = list(result)
+        return result
 
     def deltas_from(self, g, old_d: Dict[NodeId, float], nodeid: NodeId) \
     -> Iterable[Delta]:
@@ -115,7 +117,9 @@ class StdSupportPropagator(Propagator):
                 hop_weight + 
                     self.positive_feedback_rate * support_for_neighbor
             ))
-        return self.rescale_deltas(outgoing_deltas, support_for_node)
+        result = self.rescale_deltas(outgoing_deltas, support_for_node)
+        #print('DFROM', nodeid, result)
+        return result
 
     def rescale_deltas(
         self, outgoing_deltas: List[Delta], support_for_node: float
@@ -132,14 +136,13 @@ class StdSupportPropagator(Propagator):
                     for d in outgoing_deltas
             ]
 
-
 class StdSupportPolicy(SupportPolicy):
 
     support_propagator = StdSupportPropagator(
         positive_feedback_rate=0.2,
         alpha=0.98,
         max_total=100.0,
-        noise=0.02,
+        noise=0.000,
         sigmoid_p=0.98,
         num_iterations=3,
     )
@@ -165,9 +168,14 @@ class StdSupportPolicy(SupportPolicy):
     def set_support_from_to(
         self, from_node: MaybeNRef, to_node: MaybeNRef, weight: float
     ):
-        self.add_edge(
-            from_node, 'support_to', to_node, 'support_from', weight=weight
-        )
+        if weight < 0.001:
+            self.remove_edge(
+                from_node, 'support_to', to_node, 'support_from'
+            )
+        else:
+            self.add_edge(
+                from_node, 'support_to', to_node, 'support_from', weight=weight
+            )
 
     def support_hops_from(self, from_node: MaybeNRef):
         return self.hops_from_port(from_node, 'support_to')
@@ -184,6 +192,7 @@ class StdSupportPolicy(SupportPolicy):
         )
 
     def propagate_support(self) -> Dict[NodeId, float]:
+        #print('PROPAGATE SUPPORT')
         d = self.support_propagator.propagate(self, self.support_dict())
         for node, new_value in d.items():
             self.set_support_for(node, new_value)

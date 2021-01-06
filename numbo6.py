@@ -3,7 +3,7 @@
 from NumboGraph import *
 from log import *
 from exc import *
-from ActiveGraph import pg, pa
+from ActiveGraph import pg, pa, ps
 from criteria import NotTagged
 
 # Custom exceptions
@@ -15,11 +15,13 @@ class NeedOperands(FizzleAndBlock):
 
 # Custom AcNodes
 
+# NEXT Need to boost this node's activation much more to wake it up
 class LookForOperands(Restartable, AcNode):
     # TODO If no operands, raise an alarm
     acs = [
         All(CTagged(Avail), within=MyContext),
-        Boost()
+        Boost(),
+        RemoveBlockedTag()
     ]
 
 class LateNoticer(Persistent, AcNode):
@@ -85,9 +87,10 @@ class Numbo6Graph(NumboGraph):
         target = self.look_for(Target, within=self.ws)
         want = self.tag_of(target, Want)
         assessor = self.add_node(AssessProposal, behalf_of=want)
+        self.set_support_from_to(want, assessor, 1.0)
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
-        self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
+        pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
         oo1bt = self.add_node(OoM1BelowWantedTagger, member_of=self.ws)
@@ -97,7 +100,8 @@ class Numbo6Graph(NumboGraph):
             #(OperandBelowWanted, ncmp),
             (OoMGreaterThan, oo1bt),
             (OoM, oogtt),
-            (Avail, self.look_for(NoticeSolved))
+            (Avail, self.look_for(NoticeSolved)),
+            (Operator, pdno)  # TODO Only "noticed" Operators
         )
 
 def newg(numble: Numble, seed=8028868705202140491):
@@ -131,7 +135,8 @@ if __name__ == '__main__':
 #    g.do_timestep()
 
     tagger = g.look_for(OoMTagger)
-    ShowPrimitives.start_logging()
+    #ShowPrimitives.start_logging()
+    ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     #g.do_timestep(actor=tagger)
     #pg(g)
