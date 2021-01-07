@@ -1,10 +1,26 @@
 # log.py -- Functions and classes for logging behavior of a FARG model
 
+from contextlib import contextmanager
+
 from util import as_iter
 
 
 logging = set()  # LoggingObjects now active, i.e. logging
 logging_objects = set()  # All LoggingObjects, regardless of whether active
+
+suppressing = False  # Is logging currently being suppressed?
+
+# TODO Make it so you don't have to call this as a function; just:
+#  with SuppressLogging:
+@contextmanager
+def SuppressLogging():
+    global suppressing
+    old_suppressing = suppressing
+    try:
+        suppressing = True
+        yield True
+    finally:
+        suppressing = old_suppressing
 
 class LoggingObject:
 
@@ -19,13 +35,14 @@ class LoggingObject:
         logging.add(self)
 
     def is_logging(self):
-        return self in logging
+        global suppressing
+        return (not suppressing) and (self in logging)
 
     def stop_logging(self):
         logging.discard(self)
 
     def __bool__(self):
-        return self in logging
+        return self.is_logging()
 
 ShowActiveNodes = LoggingObject()
 ShowActiveNodesCollected = LoggingObject()

@@ -590,7 +590,11 @@ class Persistent(AcNode):
     after completing its action.'''
     post_acs = Sleep()
 
-class Restartable(AcNode):
+    def on_completion(self):
+        '''Don't remove activation edges.'''
+        pass
+
+class Restartable(Persistent):
     '''Mix-in for an AcNode that should SleepUntilAwakened after
     successfully completing its action.'''
     post_acs = SleepUntilAwakened()
@@ -599,6 +603,11 @@ class Nonstop(AcNode):
     '''Mix-in for an AcNode that should keep running even after completing its
     action.'''
     post_acs = NewState(Start)
+
+    # TODO OAOO
+    def on_completion(self):
+        '''Don't remove activation edges.'''
+        pass
 
 class OneShot(AcNode):
     '''Mix-in for an AcNode that should self-destruct after completing its

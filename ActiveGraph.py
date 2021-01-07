@@ -1560,24 +1560,25 @@ class ActiveGraph(
         actions: Union[List[Action], None]=None,
         header: bool=True
     ):
-        if actions is None:
-            actions = self.collect_all_actions()
-#        if not len(actions):
-#            print('  (none)')
-#            return
-        if header:
-            self.print_actions_header(actions)
-#        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
-#        for action in sorted(actions, key=self.action_sorting_key):
-#            print(fmt % (self.urgency(action),
-#                         self.activation(action.actor),
-#                         action.threshold,
-#                         self.support_for(action.actor),
-#                         action.support_threshold,
-#                         self.as_nodeid(action.actor),
-#                         action))
-        for action in sorted(actions, key=self.action_sorting_key):
-            self.print_action(action)
+        with SuppressLogging():
+            if actions is None:
+                actions = self.collect_all_actions()
+    #        if not len(actions):
+    #            print('  (none)')
+    #            return
+            if header:
+                self.print_actions_header(actions)
+    #        fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %4d %s'
+    #        for action in sorted(actions, key=self.action_sorting_key):
+    #            print(fmt % (self.urgency(action),
+    #                         self.activation(action.actor),
+    #                         action.threshold,
+    #                         self.support_for(action.actor),
+    #                         action.support_threshold,
+    #                         self.as_nodeid(action.actor),
+    #                         action))
+            for action in sorted(actions, key=self.action_sorting_key):
+                self.print_action(action)
 
     def print_action(self, a: Action):
         fmt =        '  %.3f %.3f (%.3f) %.3f (%.3f) %-20s %s'
