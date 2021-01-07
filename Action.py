@@ -237,7 +237,7 @@ class BoostFromTo(Action):
 
     def go(self, g, actor):
         for to_node in self.to_nodes:
-            g.boost_activation_from_to(actor, to_node)
+            g.boost_activation_from_to(actor, to_node, 5.0)
         g.sleep(actor)
         
 @dataclass

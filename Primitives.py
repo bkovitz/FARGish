@@ -307,6 +307,14 @@ class ActivationPolicy(ActivationPrimitives):
             self.set_activation(n, 0.0)
 
     @abstractmethod
+    def activation_hops_from(self, from_node: MaybeNRef) -> FrozenSet[Hop]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def activation_hops_to(self, from_node: MaybeNRef) -> FrozenSet[Hop]:
+        raise NotImplementedError
+
+    @abstractmethod
     def log_activation(self):
         '''Should log activation values of current timestep.'''
         pass

@@ -60,7 +60,7 @@ class Ac(ABC):
         value found is itself a string, then looks up the string as 'name'
         (recursively). A value of Quote(s) will be returned as s, without
         recursive lookup, if you need to actually return a string.
-        Raises AcNeedArg if the value found is None or not found.'''
+        Raises NeedArg if the value found is None or not found.'''
         # TODO Document name_overrides_
         #print('ACNAME0', name, self.name_overrides_)
         name = self.name_overrides_.get(name, name)
@@ -104,21 +104,23 @@ class Ac(ABC):
         else:
             return Quote.get(result)
 
+    # TODO UT
     def get_or_fizzle(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) \
     -> Any:
         '''Same as .get() but raises AcFizzle if can't find value for 'name'.'''
         try:
             return self.get(g, actor, env, name)
-        except AcNeedArg:
+        except NeedArg:
             raise AcFizzle
 
+    # TODO UT
     def get_or_none(self, g: 'G', actor: MaybeNRef, env: AcEnv, name: str) \
     -> Any:
         '''Same as .get() but returns None if can't find value for 'name'.'''
         try:
             return self.get(g, actor, env, name)
-        except AcNeedArg:
-            raise None
+        except NeedArg:
+            return None
 
     @contextmanager
     def push_name_overrides(self, d: Dict[str, str]):
@@ -267,10 +269,14 @@ class Boost(Ac):
 
     def go(self, g, actor, env):
         nodes = self.get(g, actor, env, 'nodes')
+        a = g.activation(actor)
+        if a is None:
+            a = 1.0
+        boost_amount = min(a * 5.0, 0.2)
         for node in nodes:
             #print('BOOST', node)
             # TODO Make the boost_amount a function of actor's activation
-            g.boost_activation(node, 1.0)
+            g.boost_activation(node, boost_amount)
 
 # TODO UT
 @dataclass
@@ -467,11 +473,13 @@ class AddOverride(Ac):
         name = self.get(g, actor, env, 'name')
         g.add_override_node(behalf_of, name, node)
     
+# TODO UT
 @dataclass
 class RemoveBlockedTag(Ac):
 
     def go(self, g, actor, env):
         problem = self.get_or_fizzle(g, actor, env, 'problem')
+        g.boost_activation_from_to(actor, g.neighbors(problem, 'taggees'), 5.0)
         g.remove_node(problem)
         
 @dataclass
@@ -580,17 +588,22 @@ class AcNode(ActionNode):
 class Persistent(AcNode):
     '''Mix-in for an AcNode that should sleep for a little while and re-run
     after completing its action.'''
-    post_acs: Acs = Sleep()
+    post_acs = Sleep()
 
 class Restartable(AcNode):
     '''Mix-in for an AcNode that should SleepUntilAwakened after
     successfully completing its action.'''
-    post_acs: Acs = SleepUntilAwakened()
+    post_acs = SleepUntilAwakened()
 
 class Nonstop(AcNode):
     '''Mix-in for an AcNode that should keep running even after completing its
     action.'''
-    post_acs: Acs = NewState(Start)
+    post_acs = NewState(Start)
+
+class OneShot(AcNode):
+    '''Mix-in for an AcNode that should self-destruct after completing its
+    action.'''
+    post_acs = SelfDestruct()
 
 @dataclass
 class AdHocAcNode(AcNode):

@@ -3,7 +3,7 @@
 from NumboGraph import *
 from log import *
 from exc import *
-from ActiveGraph import pg, pa, ps
+from ActiveGraph import pg, pa, pai, ps
 from criteria import NotTagged
 
 # Custom exceptions
@@ -15,11 +15,11 @@ class NeedOperands(FizzleAndBlock):
 
 # Custom AcNodes
 
-# NEXT Need to boost this node's activation much more to wake it up
-class LookForOperands(Restartable, AcNode):
+class LookForOperands(OneShot, AcNode):
     # TODO If no operands, raise an alarm
     acs = [
         All(CTagged(Avail), within=MyContext),
+        PrintEnv(),
         Boost(),
         RemoveBlockedTag()
     ]
@@ -134,15 +134,20 @@ if __name__ == '__main__':
 #    pg(g, NoticeCouldMakePlus)
 #    g.do_timestep()
 
-    tagger = g.look_for(OoMTagger)
-    #ShowPrimitives.start_logging()
+#    tagger = g.look_for(OoMTagger)
+#    #ShowPrimitives.start_logging()
+#    ShowActionList.start_logging()
+#    ShowActionsPerformed.start_logging()
+#    #g.do_timestep(actor=tagger)
+#    #pg(g)
+#    assessor = g.neighbor(want, 'agents')
+#    g.do_timestep(actor=NoticeCouldMakePlus)
+#    g.do_timestep(actor=ProposeDoingNoticedOperation)
+#    g.do_timestep(actor=assessor)
+#    #g.print_actions()
+#    #g.do_timestep(num=1)
+
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
-    #g.do_timestep(actor=tagger)
-    #pg(g)
-    assessor = g.neighbor(want, 'agents')
-    g.do_timestep(actor=NoticeCouldMakePlus)
-    g.do_timestep(actor=ProposeDoingNoticedOperation)
-    g.do_timestep(actor=assessor)
-    #g.print_actions()
-    #g.do_timestep(num=1)
+    ShowPrimitives.start_logging()
+    g.do_timestep(num=38)

@@ -150,6 +150,7 @@ class ActiveGraph(
             kwargs = {**node.regen_kwargs(), **kwargs}
             already = self.already_built(node, *args, **kwargs)
             if already:
+                # TODO boost its activation
                 return already
             self._add_node(node)
             if ShowPrimitives:
@@ -163,6 +164,7 @@ class ActiveGraph(
                 # TODO Catch/throw exception if it doesn't exist?
             already = self.already_built(node, *args, **kwargs)
             if already:
+                # TODO boost its activation
                 return already  # TODO Don't return yet; updates later
             assert issubclass(node, Node), f'{node} is not a subclass of Node'
             filled_params = node.make_filled_params(self, *args, **kwargs)
@@ -323,7 +325,7 @@ class ActiveGraph(
         hops = set()
         port_label = self.expand_port_label(port_label)
         exclude_port_label = self.expand_port_label(exclude_port_label)
-        # TODO expand neighbor_label
+        neighbor_label = self.expand_port_label(neighbor_label)
         for node in as_iter(nodes):
             if not port_label:
                 hops |= self.hops_from_node(node)
@@ -493,7 +495,7 @@ class ActiveGraph(
         # TODO Refactor so that the (possible) generator in 'candidates'
         # never gets assigned to a named variable. (Good practice?)
 
-        return self.as_node(first(
+        result = self.as_node(first(
             candidate
                 for candidate in candidates
                     if (
@@ -502,6 +504,8 @@ class ActiveGraph(
                         filled_params.is_match(self, nodeclas, candidate)
                     )
         ))
+        #print('ALREADY', nodeclas, result)
+        return result
 
     def auto_link(self, from_node: NRef, port_label: PortLabel, to_node: NRef):
         '''Links from_node.port_label to to_node at appropriate port_label
@@ -1138,14 +1142,16 @@ class ActiveGraph(
 
     def boost_activation_from_to(
         self,
-        fromnode: MaybeNRef,
-        tonode: MaybeNRef,
+        fromnodes: NRefs,
+        tonodes: NRefs,
         by: float=1.0
     ):
-        self.boost_activation(
-            tonode,
-            boost_amount=min(10.0, by * self.support_for(fromnode))
-        )
+        for fromnode in as_iter(fromnodes):
+            for tonode in as_iter(tonodes):
+                self.boost_activation(
+                    tonode,
+                    boost_amount=min(10.0, by * self.support_for(fromnode))
+                )
         
     def call_method(self, nref: MaybeNRef, method_name: str, *args, **kwargs):
         '''Returns result of calling method method_name(self, nodeid) on nodeid
@@ -1744,12 +1750,21 @@ def pa(g: G, *nodes, **kwargs):
     pt(g)
     for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
         print(g.long_nodestr(node))
+        g.print_hops(g.activation_hops_from(node), prefix='      ')
+
+def pai(g: G, *nodes, **kwargs):
+    '''Prints activations of nodes but shows incoming links.'''
+    pt(g)
+    for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
+        print(g.long_nodestr(node))
+        g.print_hops(g.activation_hops_to(node), prefix='      ')
 
 def ps(g: G, *nodes, **kwargs):
     pt(g)
     for node in sorted(g.list(*nodes, **kwargs), key=g.support_for):
-        print('supp=%.3f  %s' % (
-            g.support_for(node),
-            g.nodestr(node)
-        ))
+#        print('supp=%.3f  %s' % (
+#            g.support_for(node),
+#            g.nodestr(node)
+#        ))
+        print(g.long_nodestr(node))
         g.print_hops(g.support_hops_from(node), prefix='      ')

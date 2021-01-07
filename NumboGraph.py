@@ -20,14 +20,14 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
     Restartable, DeTup, Nonstop
-from Ac import CantFind, NotEqualValue, AsgnNeighbors, LogValue
+from Ac import CantFind, NotEqualValue, AsgnNeighbors, LogValue, OneShot
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
     TagValuesGt, TagValuesGt1
-from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock
+from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock, Fizzle
 from util import Quote, omit, first, as_set, clip
 
 
@@ -398,7 +398,7 @@ class Proposal(ActiveNode):
     node_params = NodeParams(AttrParam('action'))
     # We expect more arguments, which we will pass to 'action'.
 
-    is_duplicable = True  # HACK  Is already_built mis-rejecting this?
+    #is_duplicable = True  # HACK  Is already_built mis-rejecting this?
 
     def proposed_kwargs(self) -> Dict[PortLabel, NodeId]:
         '''Strips leading 'proposed_' from port labels and returns a

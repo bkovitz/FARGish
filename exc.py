@@ -56,12 +56,13 @@ class FizzleWithTag(Fizzle, ABC):
     problem. Any exception that needs a Failed or Blocked tag should inherit
     from FizzleWithTag. g.do_action() catches FizzleWithTag.'''
 
+    msg_prefix: ClassVar[str] = None  # Subclass must provide this
     tagclass_: ClassVar['CRef']
 
     def action_msg(self, g: 'G', actor: 'MaybeNRef') -> str:
         '''The message that should appear in the log file when an Action
         throws this exception.'''
-        return str(self)
+        return f'{self.msg_prefix}  {self}'
 
     def place_tag(self, g: 'G', actor: 'MaybeNRef'):
         '''Should do whatever needs to be done on behalf of 'actor' when an
@@ -89,10 +90,12 @@ class FizzleWithTag(Fizzle, ABC):
 
 @dataclass
 class FizzleAndBlock(FizzleWithTag):
+    msg_prefix = 'blocked'
     tagclass_ = 'Blocked'
             
 @dataclass
 class FizzleAndFail(FizzleWithTag):
+    msg_prefix = 'failed'
     tagclass_ = 'Failed'
 
 @dataclass

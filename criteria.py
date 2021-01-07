@@ -223,7 +223,11 @@ class NotTheArgsOf:
 
     def __call__(self, g: 'G', tup: Tuple[NodeId]) -> bool:
         nodes = set(tup)
-        neighbors = g.neighbors(tup, neighbor_label=self.role)
+        neighbors = g.neighbors(
+            tup,
+            neighbor_class=self.neighbor_criterion,
+            neighbor_label=self.role
+        )
         return not any(
             g.neighbors(n, port_label=self.role) == nodes
                 for n in neighbors

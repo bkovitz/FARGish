@@ -24,7 +24,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testActionNode.TestActionNode.test_simplest_action_node
+	#$(PY) -m unittest -v testCriterion.TestCriterion.test_not_the_args_of
+	$(PY) -m unittest -v testAc.TestAc.test_oom_and_gt
 	#$(PY) -m unittest -v testStdGraph.TestStdGraph.test_already_built__missing_arg
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 

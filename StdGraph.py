@@ -10,7 +10,7 @@ from itertools import chain
 from ActiveGraph import ActiveGraph, Context, MyContext, InWorkspace, pg
 from NetworkxPortGraph import NetworkxPortGraph, NetworkxActivation
 from NodeParams import NodeParams, AttrParam, MateParam
-from Primitives import ActivationPrimitives, ActivationPolicy, \
+from Primitives import Hop, ActivationPrimitives, ActivationPolicy, \
     SupportPrimitives, SupportPolicy, SlipnetPolicy
 from Propagator import Propagator, Delta
 from Node import NRef, MaybeNRef, NRefs, NodeId
@@ -78,6 +78,12 @@ class StdActivationPolicy(ActivationPolicy):
         for n in as_iter(node):
             nd = self.as_node(n)
             self.set_activation(n, nd.initial_activation)
+
+    def activation_hops_from(self, from_node: MaybeNRef) -> FrozenSet[Hop]:
+        return self.hops_from_port(from_node, 'activation_to')
+
+    def activation_hops_to(self, from_node: MaybeNRef) -> FrozenSet[Hop]:
+        return self.hops_from_port(from_node, 'activation_from')
 
     def log_activation(self):
         '''Log-file format:  timestep, node, activation'''

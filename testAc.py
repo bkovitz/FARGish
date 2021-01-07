@@ -605,7 +605,6 @@ class TestAc(unittest.TestCase):
         #ShowPrimitives.start_logging()
         g.do_timestep(actor=oom1btagger, num=6)
         self.assertTrue(g.has_tag(t15, OoM1BelowWanted, lesser=b5, wanted=t15))
-        #pg(g)
 
 if __name__ == '__main__':
     g = NumboGraph(Numble([10, 5], 15))
