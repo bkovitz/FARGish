@@ -78,7 +78,7 @@ class Propagator(ABC):
         exceed self.max_total.'''
         result = {}
         total = sum(d.values())
-        #print('NORM', total, self.max_total)
+        #print('NORM', self.__class__.__name__, total, self.max_total)
         if total <= self.max_total:
             return d
         scale_down = 1.0 / max(d.values())

@@ -1065,6 +1065,7 @@ class ActiveGraph(
             except Fizzle:
                 if ShowActionsPerformed or ShowPrimitives:
                     print('fizzled')
+                action.on_fizzle(self, actor)
 #            except ActionBlocked as exc:
 #                if ShowActionsPerformed or ShowPrimitives:
 #                    print('blocked:', action, exc)
@@ -1200,7 +1201,17 @@ class ActiveGraph(
             node,
             Sleeping(self.getattr(node, 'state'), until=until)
         )
-        self.set_activation(node, node.initial_activation / 10.0)
+        #self.set_activation(node, node.initial_activation / 10.0)
+        self.calm(node)
+
+    # TODO UT
+    def calm(self, nodes: NRefs):
+        '''Greatly reduce activation--especially, so that an ActiveNode
+        becomes much less likely to be chosen on the next timestep.'''
+        for node in self.as_nodes(nodes):
+            self.set_activation(node, node.initial_activation / 20.0)
+
+
 
     #TODO UT
     def move_tag(self, tagclass, fromids, toids):

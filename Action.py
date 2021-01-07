@@ -44,6 +44,10 @@ class BaseAction(ABC):
         except KeyError:
             raise NeedArg(self, name)  # TODO kws
 
+    def on_fizzle(self, g: 'G', actor: NRef):
+        '''Called if the Action fizzles. Default implementation: g.calm().'''
+        g.calm(actor)
+        
     #__repr__ = nice_object_repr
 
     def annotation(self):

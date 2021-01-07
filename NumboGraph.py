@@ -207,7 +207,6 @@ class ConsumeOperands(Action):
     # be redesigned.
 
 #    operator: CRef
-    threshold = 1.0
     support_threshold = 1.0
 
     def as_kwargs(self):
@@ -259,12 +258,13 @@ class AssessProposal(Action):
             return
         operator = g.neighbor(proposal, 'proposed_operator')
         result = g.neighbor(operator, 'result')
+        result_value = g.value_of(result)
         operands = g.neighbors(proposal, 'proposed_operands')
         operand_values = list(map(g.value_of, operands))
         # TODO Fizzle and/or get Blocked if anything is missing
 
         # Assess whether we think the Proposal makes progress
-        result_dist = abs(target_value - result)
+        result_dist = abs(target_value - result_value)
         if result_dist == 0:
             g.add_support(actor, proposal, 5.0)
             g.set_activation_from_to(actor, proposal)

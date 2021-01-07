@@ -270,9 +270,10 @@ class Boost(Ac):
     def go(self, g, actor, env):
         nodes = self.get(g, actor, env, 'nodes')
         a = g.activation(actor)
+        print('BOOST', actor, a, nodes)
         if a is None:
             a = 1.0
-        boost_amount = min(a * 5.0, 0.2)
+        boost_amount = max(a * 10.0, 0.2)
         for node in nodes:
             #print('BOOST', node)
             # TODO Make the boost_amount a function of actor's activation
@@ -507,6 +508,13 @@ class OrBlock(Ac):
         except AcFalse:
             raise self.exc(g, self.ac, actor, env)
 
+@dataclass
+class Calm(Ac):
+    '''Greatly reduce actor's activation.'''
+    
+    def go(self, g, actor, env):
+        g.calm(actor)
+
 # TODO @dataclass ?
 class Sleep(Ac):
     sleep_duration: int = 3  # Number of timesteps to sleep
@@ -588,7 +596,7 @@ class AcNode(ActionNode):
 class Persistent(AcNode):
     '''Mix-in for an AcNode that should sleep for a little while and re-run
     after completing its action.'''
-    post_acs = Sleep()
+    post_acs = [Calm(), Sleep()]
 
     def on_completion(self):
         '''Don't remove activation edges.'''

@@ -19,7 +19,6 @@ class LookForOperands(OneShot, AcNode):
     # TODO If no operands, raise an alarm
     acs = [
         All(CTagged(Avail), within=MyContext),
-        PrintEnv(),
         Boost(),
         RemoveBlockedTag()
     ]
@@ -150,4 +149,4 @@ if __name__ == '__main__':
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
-    g.do_timestep(num=7)  #38)
+    g.do_timestep(num=38)
