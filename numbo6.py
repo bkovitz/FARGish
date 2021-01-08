@@ -112,6 +112,7 @@ class Numbo6Graph(NumboGraph):
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
         ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
         pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
+        difft = self.add_node(DiffTagger, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
         oo1bt = self.add_node(OoMSmallGapToWantedTagger, member_of=self.ws)
@@ -150,9 +151,11 @@ if __name__ == '__main__':
     oot = g.look_for(OoMTagger)
     oobigt = g.look_for(OoMBigGapToWantedTagger)
     ncmm = g.look_for(NoticeCouldMakeMinus)
-    g.do_timestep(actor=oot, num=4)
-    g.do_timestep(actor=ncmm)
-    g.do_timestep(num=3)
+    difft = g.look_for(DiffTagger)
+    g.do_timestep(actor=difft, num=5)
+    #g.do_timestep(actor=oot, num=4)
+    #g.do_timestep(actor=ncmm)
+    #g.do_timestep(num=3)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

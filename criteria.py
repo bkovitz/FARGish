@@ -286,6 +286,15 @@ class TagValuesBigGap:
         return v1 - v2 > 0.5
 
 @dataclass
+class GreaterThanOrEqual:
+    
+    def __call__(self, g, tup):
+        try:
+            return g.value_of(tup[0]) >= g.value_of(tup[1])
+        except (TypeError, KeyError):
+            return False
+
+@dataclass
 class TupAnd:
     tupconds: Sequence
 

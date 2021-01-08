@@ -305,6 +305,30 @@ class AsgnProposedNeighbors(Ac):
             g.incidence_outgoing(node, port_label)
         )
 
+# TODO UT
+@dataclass
+class ValueDifference(Ac):
+    asgn_to: str = 'value'
+    arg1: MaybeNRef = None
+    arg2: MaybeNRef = None
+
+    def go(self, g, actor, env):
+        arg1 = self.get(g, actor, env, 'arg1')
+        arg2 = self.get(g, actor, env, 'arg2')
+        try:
+            env[self.asgn_to] = g.value_of(arg1) - g.value_of(arg2)
+        except TypeError:
+            env[self.asgn_to] = None
+
+#@dataclass
+#class Asgn(Ac):
+#    asgn_to: str = 'value'
+#    acexpr: AcExpr = None
+#
+#    def go(self, g, actor, env):
+#        acexpr = self.get(g, actor, env, 'acexpr')
+#        env[self.asgn_to] = acexpr.eval(g, actor, env)
+
 @dataclass
 class LookForTup(Ac):
     criterion: Criterion = None

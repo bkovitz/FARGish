@@ -20,13 +20,13 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
     Restartable, DeTup, Nonstop, CantFind, NotEqualValue, AsgnNeighbors, \
-    LogValue, OneShot, AsgnProposedNeighbors
+    LogValue, OneShot, AsgnProposedNeighbors, ValueDifference
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
-    TagValuesGt, TagValuesSmallGap, TagValuesBigGap
+    TagValuesGt, TagValuesSmallGap, TagValuesBigGap, GreaterThanOrEqual
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock, Fizzle
 from util import Quote, omit, first, as_set, clip
 
@@ -67,6 +67,7 @@ Blocked(reason) : Tag
 Failed(reason): Tag
 Count(value) : Tag
 OoM(value) : Tag
+Diff(value) : Tag
 
 Number(value)
 Brick, Target, Block(source, consumer) : Number
@@ -102,7 +103,12 @@ Minus.node_params = NodeParams(
     MateParam('minuend', 'consumer'),
     MateParam('subtrahend', 'consumer')
 )
-    
+
+Diff.node_params = NodeParams(
+    MateParam('lesser', 'tags'),
+    MateParam('greater', 'tags'),
+    AttrParam('value')
+)
 
 # TODO rm these functions?
 
@@ -513,6 +519,27 @@ class OoMBigGapToWantedTagger(Persistent, AcNode):
             OoMBigGapToWanted,
             wanted='node1',
             lesser='node2'
+        )
+    ]
+
+# TODO UT
+class DiffTagger(Persistent, AcNode):
+    acs = [
+        LookForTup(
+            [Number, Number],
+            tupcond=CTupAnd(
+                NotTheArgsOf(Diff, 'taggees'),
+                GreaterThanOrEqual(),
+            ),
+            within=InWorkspace
+        ),
+        DeTup(asgn_to=('greater', 'lesser')),
+        ValueDifference(arg1='greater', arg2='lesser'),
+        AddNode(
+            Diff,
+            greater='greater',
+            lesser='lesser',
+            value='value'
         )
     ]
 
