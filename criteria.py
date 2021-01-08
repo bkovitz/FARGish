@@ -285,6 +285,7 @@ class TagValuesBigGap:
             return False
         return v1 - v2 > 0.5
 
+# TODO UT
 @dataclass
 class GreaterThanOrEqual:
     
@@ -293,6 +294,21 @@ class GreaterThanOrEqual:
             return g.value_of(tup[0]) >= g.value_of(tup[1])
         except (TypeError, KeyError):
             return False
+
+# TODO UT
+@dataclass
+class TupSameValue:
+
+    def __call__(self, g, tup):
+        try:
+            v0 = g.value_of(tup[0])
+        except KeyError:
+            return False
+        for nref in tup[1:]:
+            v = g.value_of(nref)
+            if v is None or v != v0:
+                return False
+        return True
 
 @dataclass
 class TupAnd:

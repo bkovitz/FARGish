@@ -113,17 +113,22 @@ class Numbo6Graph(NumboGraph):
         ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
         pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         difft = self.add_node(DiffTagger, member_of=self.ws)
+        diwt = self.add_node(DiffIsWantedTagger, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
         oo1bt = self.add_node(OoMSmallGapToWantedTagger, member_of=self.ws)
         oobigt = self.add_node(OoMBigGapToWantedTagger, member_of=self.ws) 
+        nsolved = self.look_for(NoticeSolved)
         self.add_activation_autolinks(
             (OoMSmallGapToWanted, ncmp),
             #(OperandBelowWanted, ncmp),
             (OoMBigGapToWanted, ncmt),
             (OoMGreaterThan, [oo1bt, oobigt]),
             (OoM, [oogtt, oo1bt, oobigt]),
-            (Avail, self.look_for(NoticeSolved)),
+            (Diff, diwt),
+            (DiffIsWanted, ncmm),
+            (Number, [diwt, oot]),
+            (Avail, nsolved),
             (Operator, pdno)  # TODO Only "noticed" Operators
         )
 
@@ -152,10 +157,13 @@ if __name__ == '__main__':
     oobigt = g.look_for(OoMBigGapToWantedTagger)
     ncmm = g.look_for(NoticeCouldMakeMinus)
     difft = g.look_for(DiffTagger)
-    g.do_timestep(actor=difft, num=5)
+    diwt = g.look_for(DiffIsWantedTagger)
+    #g.do_timestep(actor=difft, num=5)
+    #g.do_timestep(actor=diwt, num=5)
+
     #g.do_timestep(actor=oot, num=4)
     #g.do_timestep(actor=ncmm)
-    #g.do_timestep(num=3)
+    g.do_timestep(num=27)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

@@ -26,7 +26,8 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
-    TagValuesGt, TagValuesSmallGap, TagValuesBigGap, GreaterThanOrEqual
+    TagValuesGt, TagValuesSmallGap, TagValuesBigGap, GreaterThanOrEqual, \
+    TupSameValue
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock, Fizzle
 from util import Quote, omit, first, as_set, clip
 
@@ -43,8 +44,7 @@ target -- overriding
 #operands -- consumer
 proposed_operands -- proposer
 proposed_operator -- proposer
-proposed_minuend -- proposer
-proposed_subtrahend -- proposer
+proposed_minuend, proposed_subtrahend : proposed_operands
 #result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 #consumer -- source
 #minuend -- consumerM  # HACK TODO Fix: violates unique mate for 'consumer'
@@ -68,6 +68,7 @@ Failed(reason): Tag
 Count(value) : Tag
 OoM(value) : Tag
 Diff(value) : Tag
+DiffIsWanted : Tag
 
 Number(value)
 Brick, Target, Block(source, consumer) : Number
@@ -101,7 +102,8 @@ Failed.display_name = failed_display_name
 
 Minus.node_params = NodeParams(
     MateParam('minuend', 'consumer'),
-    MateParam('subtrahend', 'consumer')
+    MateParam('subtrahend', 'consumer'),
+    MateParam('result', 'source')
 )
 
 Diff.node_params = NodeParams(
@@ -272,6 +274,7 @@ class AssessProposal(Action):
         # TODO Fizzle and/or get Blocked if anything is missing
 
         # Assess whether we think the Proposal makes progress
+        print('ASSESS', operator, result, operands)
         result_dist = abs(target_value - result_value)
         if result_dist == 0:
             g.add_support(actor, proposal, 5.0)
@@ -541,6 +544,20 @@ class DiffTagger(Persistent, AcNode):
             lesser='lesser',
             value='value'
         )
+    ]
+
+# TODO UT
+class DiffIsWantedTagger(Persistent, AcNode):
+    acs = [
+        LookForTup(
+            [Diff, CTagged(Want)],
+            tupcond=CTupAnd(
+                NotTheArgsOf(DiffIsWanted, 'taggees'),
+                TupSameValue()
+            ),
+            within=InWorkspace
+        ),
+        AddNode(DiffIsWanted, taggees='nodes')
     ]
 
 # The Graph class
