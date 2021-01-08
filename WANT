@@ -1,3 +1,50 @@
+Some new tags and taggers:
+
+    ALittleBelowWanted  (i.e. not via OoM)
+
+    FarBelowWanted
+
+    BelowWanted  (superclass)
+
+    DistanceToWanted
+
+    AboveWanted
+
+    ALittleAboveWanted
+
+    FarAboveWanted: should make the tagged node less visible to search.
+
+
+    Semaphore:
+
+        No more Avail Numbers.
+
+
+    Diagnosis:
+
+        TooHigh
+
+    Repair:
+
+        Try changing Times to Plus.
+
+        Try changing Plus to Times.
+
+        TryASmallerOperand
+
+        TryABiggerOperand
+
+        JustAbandonThis
+
+
+Smaller steps:
+
+    NoticeCouldMakePlus, etc. -> build the Plus but don't work out the
+    result. Let that be estimated before calculated.
+
+    CalculateExactResult
+
+
 To make it easier to read the log:
 
     Proposal(ConsumeOperands()) should show the operands and operator.
@@ -27,6 +74,11 @@ Wanted in a graphical visualization:
 
     A pane that shows all the active nodes or actions collected, sorted however
     you like.
+
+    A pane with a running graph of the activation and support levels of
+    selected nodes.
+
+    The ability to scroll panes back to previous timesteps.
 
 
 Want to fix or understand these current perplexities in the model:

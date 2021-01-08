@@ -1,5 +1,7 @@
 # numbo6.py
 
+from pprint import pprint as pp
+
 from NumboGraph import *
 from log import *
 from exc import *
@@ -38,7 +40,6 @@ class NoticeCouldMakePlus(LateNoticer):
             ),
             NeedOperands.from_env()
         ),
-        #PrintEnv(),
         BuildOpResult(Plus, operands='nodes')
     ]
 
@@ -54,8 +55,23 @@ class NoticeCouldMakeTimes(LateNoticer):
             ),
             NeedOperands.from_env()
         ),
-        #PrintEnv(),
         BuildOpResult(Times, operands='nodes')
+    ]
+
+class NoticeCouldMakeMinus(LateNoticer):
+    min_support_for = 1.0
+    acs = [
+        OrBlock(
+            LookForTup(
+                [And(CTagged(Avail), MinActivation(3.0)),
+                 And(CTagged(Avail), MinActivation(3.0))],
+                tupcond=NotTheArgsOf(Minus, 'source'),
+                within=InWorkspace,
+            ),
+            NeedOperands.from_env()
+        ),
+        DeTup(asgn_to=('minuend', 'subtrahend')),
+        BuildOpResult(Minus, minuend='minuend', subtrahend='subtrahend')
     ]
 
 class ProposeDoingNoticedOperation(Persistent, AcNode):
@@ -65,11 +81,15 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
             within=InWorkspace,
             asgn_to='operator'
         ),
-        AsgnNeighbors(node='operator', port_label=Quote('operands')),
+        #AsgnNeighbors(node='operator', port_label=Quote('operands')),
+        AsgnProposedNeighbors(node='operator', port_label=Quote('operands')),
+        PrintEnv(),
         AddNode(
             Proposal,
             action=ConsumeOperands(),
-            proposed_operands='operands',
+            #proposed_operands='operands',
+            neighbors='proposed',
+                # HACKish: neighbors is a dict; handled specially by AddNode
             proposed_operator='operator'
         ),
         Boost(nodes='node')
@@ -90,6 +110,7 @@ class Numbo6Graph(NumboGraph):
         self.set_support_from_to(want, assessor, 1.0)
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
+        ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
         pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
@@ -99,7 +120,7 @@ class Numbo6Graph(NumboGraph):
             (OoMSmallGapToWanted, ncmp),
             #(OperandBelowWanted, ncmp),
             (OoMBigGapToWanted, ncmt),
-            (OoMGreaterThan, [oo1bt, oobigt, ncmp, ncmt]),
+            (OoMGreaterThan, [oo1bt, oobigt]),
             (OoM, [oogtt, oo1bt, oobigt]),
             (Avail, self.look_for(NoticeSolved)),
             (Operator, pdno)  # TODO Only "noticed" Operators
@@ -113,7 +134,8 @@ g = None
 
 if __name__ == '__main__':
     #numble = Numble([4, 5, 6], 15)
-    numble = Numble([4, 5, 6], 34)
+    #numble = Numble([4, 5, 6], 34)
+    numble = Numble([4, 5, 6], 1)
     g = newg(numble)
     want = g.look_for(Want)
     assert want
@@ -127,7 +149,9 @@ if __name__ == '__main__':
 
     oot = g.look_for(OoMTagger)
     oobigt = g.look_for(OoMBigGapToWantedTagger)
+    ncmm = g.look_for(NoticeCouldMakeMinus)
     g.do_timestep(actor=oot, num=4)
+    g.do_timestep(actor=ncmm)
     g.do_timestep(num=3)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))

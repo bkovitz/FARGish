@@ -10,6 +10,7 @@ from copy import copy, deepcopy
 from operator import attrgetter, itemgetter
 from random import choice
 from itertools import product, chain
+from collections import defaultdict
 
 from Primitives import Hop, Hops, PortGraphPrimitives, ActiveGraphPrimitives, \
     ActivationPrimitives, ActivationPolicy, SupportPrimitives, SupportPolicy, \
@@ -365,6 +366,30 @@ class ActiveGraph(
         return first(self.neighbors(
             node, port_label, neighbor_class, neighbor_label
         ))
+
+    # TODO UT
+    def incidence_outgoing(self, node: MaybeNRef, port_label: PortLabels) \
+    -> Dict[PortLabel, NRefs]:
+#        node = self.as_node(node)
+#        if not node:
+#            return {}
+        result: Dict[PortLabel, Set[NodeId]] = defaultdict(set)
+        for hop in self.hops_from_node(node):
+            for port_label in as_iter(port_label):
+                if self.port_mates.isa(hop.from_port_label, port_label):
+                    result[hop.from_port_label].add(hop.to_node)
+        return result
+
+    # TODO UT
+    @staticmethod
+    def prepend_port_label_prefix(prefix: str, d: Dict[PortLabel, Any]) \
+    -> Dict[PortLabel, Any]:
+        '''Returns d after prepending prefix to each key. Does not change d,
+        and does not prepend the prefix if it's already there.'''
+        return dict(
+            (k if k.startswith(prefix) else prefix + k, v)
+                for k, v in d.items()
+        )
 
     def walk(
         self,

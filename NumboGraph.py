@@ -19,8 +19,8 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     MembersOf, Len, EqualValue, Taggees, LookFor, Raise, PrintEnv, AcNot, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
-    Restartable, DeTup, Nonstop
-from Ac import CantFind, NotEqualValue, AsgnNeighbors, LogValue, OneShot
+    Restartable, DeTup, Nonstop, CantFind, NotEqualValue, AsgnNeighbors, \
+    LogValue, OneShot, AsgnProposedNeighbors
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
@@ -43,6 +43,8 @@ target -- overriding
 #operands -- consumer
 proposed_operands -- proposer
 proposed_operator -- proposer
+proposed_minuend -- proposer
+proposed_subtrahend -- proposer
 #result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 #consumer -- source
 #minuend -- consumerM  # HACK TODO Fix: violates unique mate for 'consumer'

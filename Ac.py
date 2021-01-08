@@ -284,12 +284,26 @@ class Boost(Ac):
 @dataclass
 class AsgnNeighbors(Ac):
     node: NRefs = None
-    port_label: PortLabel = None
+    port_label: PortLabels = None
 
     def go(self, g, actor, env):
         node = self.get(g, actor, env, 'node')
         port_label = self.get(g, actor, env, 'port_label')
         env[port_label] = g.neighbors(node, port_label)
+
+# TODO UT
+@dataclass
+class AsgnProposedNeighbors(Ac):
+    node: NRef = None
+    port_label: PortLabels = None
+
+    def go(self, g, actor, env):
+        node = self.get(g, actor, env, 'node')
+        port_label = self.get(g, actor, env, 'port_label')
+        env['proposed'] = g.prepend_port_label_prefix(
+            'proposed_',
+            g.incidence_outgoing(node, port_label)
+        )
 
 @dataclass
 class LookForTup(Ac):
@@ -419,6 +433,10 @@ class AddNode(HasKwargs, Ac):
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         nodeclass = self.get(g, actor, env, 'nodeclass')
         kwargs = self.get_kwargs(g, actor, env)
+        neighbors = kwargs.pop('neighbors', {})
+        kwargs.update(neighbors)
+#        for port_label, n in neighbors.get_items():
+#            kwargs[port_label] = n
         env['node'] = g.add_node(nodeclass, **kwargs)
 
 @dataclass
