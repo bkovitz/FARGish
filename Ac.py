@@ -15,7 +15,8 @@ from criteria import Criterion, Criteria, OfClass
 from exc import Fizzle, NeedArg, AcError, FargDone, FizzleAndFail, \
     FizzleAndBlock
 from StdGraph import Context, MyContext, pg
-from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true, first
+from util import as_set, Quote, as_iter, as_list, is_seq_of, always_true, \
+    first, clip
 
 AcEnv = dict
 '''A binding environment for execution of an Ac.'''
@@ -270,11 +271,11 @@ class Boost(Ac):
     def go(self, g, actor, env):
         nodes = self.get(g, actor, env, 'nodes')
         a = g.activation(actor)
-        print('BOOST', actor, a, nodes)
         if a is None:
             a = 1.0
-        boost_amount = max(a * 10.0, 0.2)
-        for node in nodes:
+        #boost_amount = max(a * 10.0, 0.2)
+        boost_amount = clip(0.2, 10.0, a * 10.0)
+        for node in as_iter(nodes):
             #print('BOOST', node)
             # TODO Make the boost_amount a function of actor's activation
             g.boost_activation(node, boost_amount)

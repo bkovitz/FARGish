@@ -66,12 +66,13 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
             asgn_to='operator'
         ),
         AsgnNeighbors(node='operator', port_label=Quote('operands')),
-        AddNode(   # TODO Fail silently if this node has already been built
+        AddNode(
             Proposal,
             action=ConsumeOperands(),
             proposed_operands='operands',
             proposed_operator='operator'
-        )
+        ),
+        Boost(nodes='node')
     ]
 
 class Numbo6Graph(NumboGraph):
@@ -92,13 +93,14 @@ class Numbo6Graph(NumboGraph):
         pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
-        oo1bt = self.add_node(OoM1BelowWantedTagger, member_of=self.ws)
-
+        oo1bt = self.add_node(OoMSmallGapToWantedTagger, member_of=self.ws)
+        oobigt = self.add_node(OoMBigGapToWantedTagger, member_of=self.ws) 
         self.add_activation_autolinks(
-            (OoM1BelowWanted, ncmp),
+            (OoMSmallGapToWanted, ncmp),
             #(OperandBelowWanted, ncmp),
-            (OoMGreaterThan, oo1bt),
-            (OoM, oogtt),
+            (OoMBigGapToWanted, ncmt),
+            (OoMGreaterThan, [oo1bt, oobigt, ncmp, ncmt]),
+            (OoM, [oogtt, oo1bt, oobigt]),
             (Avail, self.look_for(NoticeSolved)),
             (Operator, pdno)  # TODO Only "noticed" Operators
         )
@@ -110,13 +112,23 @@ def newg(numble: Numble, seed=8028868705202140491):
 g = None
 
 if __name__ == '__main__':
-    numble = Numble([4, 5, 6], 15)
-    #numble = Numble([4, 5, 6], 34)
+    #numble = Numble([4, 5, 6], 15)
+    numble = Numble([4, 5, 6], 34)
     g = newg(numble)
     want = g.look_for(Want)
     assert want
     #g.do_timestep(num=2)
     #booster = g.add_node(LookForOperands, behalf_of=want, activation=2.0)
+
+    #ShowActiveNodes.start_logging()
+    ShowActionList.start_logging()
+    ShowActionsPerformed.start_logging()
+    ShowPrimitives.start_logging()
+
+    oot = g.look_for(OoMTagger)
+    oobigt = g.look_for(OoMBigGapToWantedTagger)
+    g.do_timestep(actor=oot, num=4)
+    g.do_timestep(num=3)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #
@@ -146,7 +158,8 @@ if __name__ == '__main__':
 #    #g.print_actions()
 #    #g.do_timestep(num=1)
 
-    ShowActionList.start_logging()
-    ShowActionsPerformed.start_logging()
-    ShowPrimitives.start_logging()
-    g.do_timestep(num=38)
+#    # A run to completion
+#    #ShowActionList.start_logging()
+#    ShowActionsPerformed.start_logging()
+#    #ShowPrimitives.start_logging()
+#    g.do_timestep(num=57)

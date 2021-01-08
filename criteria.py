@@ -249,7 +249,7 @@ class TagValuesGt:
             return False
 
 @dataclass
-class TagValuesGt1:
+class TagValuesSmallGap:
     tagclass: CRef
 
     def __call__(self, g, tup):
@@ -263,7 +263,27 @@ class TagValuesGt1:
             v2 = g.value_of(tag2)
         except TypeError:
             return False
-        return v1 > v2 and abs(int(v1) - int(v2)) <= 1
+        # TODO Make another tagger+criterion for number of digits
+        #return v1 > v2 and abs(int(v1) - int(v2)) <= 1
+        return v1 > v2 and v1 - v2 < 0.7
+
+@dataclass
+class TagValuesBigGap:
+    tagclass: CRef
+
+    def __call__(self, g, tup):
+        #TODO OAOO
+        try: # TODO rm try
+            tag1 = g.tag_of(tup[0], self.tagclass)
+            tag2 = g.tag_of(tup[1], self.tagclass)
+        except KeyError:
+            return False
+        try:
+            v1 = g.value_of(tag1)
+            v2 = g.value_of(tag2)
+        except TypeError:
+            return False
+        return v1 - v2 > 0.5
 
 @dataclass
 class TupAnd:

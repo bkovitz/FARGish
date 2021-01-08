@@ -579,7 +579,7 @@ class TestAc(unittest.TestCase):
         atrap = g.add_node(ActivationTrap)
         oomtagger = g.add_node(OoMTagger, member_of=g.ws)
         oomgttagger = g.add_node(OoMGreaterThanTagger, member_of=g.ws)
-        oom1btagger = g.add_node(OoM1BelowWantedTagger, member_of=g.ws)
+        oom1btagger = g.add_node(OoMSmallGapToWantedTagger, member_of=g.ws)
 
         # Every OoM node should give activation to the ActivationTrap
         g.add_activation_autolinks((OoM, atrap))
@@ -604,7 +604,7 @@ class TestAc(unittest.TestCase):
 
         #ShowPrimitives.start_logging()
         g.do_timestep(actor=oom1btagger, num=6)
-        self.assertTrue(g.has_tag(t15, OoM1BelowWanted, lesser=b5, wanted=t15))
+        self.assertTrue(g.has_tag(t15, OoMSmallGapToWanted, lesser=b5, wanted=t15))
 
 if __name__ == '__main__':
     g = NumboGraph(Numble([10, 5], 15))

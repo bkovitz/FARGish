@@ -1,38 +1,33 @@
-MODEL
+To make it easier to read the log:
 
-    Focal point: search only nodes "near" this, but possibly consider nodes
-    (e.g. in the slipnet or long-term memory) that are far away.
+    Proposal(ConsumeOperands()) should show the operands and operator.
 
-    Watchers should be nodes in the graph.
+    pg(g, Tagged(Avail)): show the tagged nodes, not the Avail tags.
 
-        Wanted should be a watcher. It becomes more salient if its taggee
-        heats up.
+    AssessProposal: print the numerical assessment.
 
-    Follow old temporal traces.
+    'succeeded': show what was built, or anything else of note.
 
-    It shouldn't be necessary to think through the movement of Avail tags
-    carefully. If something goes wrong with those tags, the model itself
-    should correct it.
+    Somehow return an annotation, only from nodes that do something big.
+    Or perhaps have multiple levels of annotation. Or maybe 'annotation'
+    is the highest level.
 
 
-IMPLEMENTATION
+To make it easier to define tags and taggers:
 
-    Find some way for watchers like CloseNumbersTagger to not need to
-    look at all the Number nodes.
+    @classmethod
+    Tag.tagger()
 
-    There should be a common way to pass a Tag class along with its
-    arguments, so the node gets built at the right time. For example,
-    a WasWanted node should know how to rebuild the tag that it
-    replaced, if the WasWanted fails or cascade_fails.
-
-    There should be a nice way for a Response constructor to detect that
-    it can't work, and prevent itself from being added to the array of
-    Responses. Whatever information the Response must dig up from the graph
-    or compute should be saved, as needed, for the .go() method.
+    ('xyz', LookFor(...))   Sets asgn_to='xyz'. This should make 'acs' lists
+    more readable.  ('acs' lists should actually be tuples, because they
+    should never be modified. But would this foul up as_iter()?)
 
 
-LANGUAGE
+Wanted in a graphical visualization:
 
-    The Python code for the Watchers and Responses is starting to get
-    repetitive. This suggests opportunities for a simple language to
-    specify "When you see this, change it to this."
+    A pane that shows all the active nodes or actions collected, sorted however
+    you like.
+
+
+Want to fix or understand these current perplexities in the model:
+

@@ -26,7 +26,7 @@ from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
 from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
-    TagValuesGt, TagValuesGt1
+    TagValuesGt, TagValuesSmallGap, TagValuesBigGap
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock, Fizzle
 from util import Quote, omit, first, as_set, clip
 
@@ -306,7 +306,13 @@ class OoMGreaterThan(Tag):
         MateParam('greater', 'tags')
     )
 
-class OoM1BelowWanted(Tag):
+class OoMSmallGapToWanted(Tag):
+    node_params = NodeParams(
+        MateParam('lesser', 'tags'),
+        MateParam('wanted', 'tags')
+    )
+
+class OoMBigGapToWanted(Tag):
     node_params = NodeParams(
         MateParam('lesser', 'tags'),
         MateParam('wanted', 'tags')
@@ -472,19 +478,37 @@ class OoMGreaterThanTagger(Persistent, AcNode):
         )
     ]
 
-class OoM1BelowWantedTagger(Persistent, AcNode):
+class OoMSmallGapToWantedTagger(Persistent, AcNode):
     acs = [
         LookForTup(
             [And(CTagged(OoM), CTagged(Want)), CTagged(OoM)],
             tupcond=CTupAnd(
-                NotTheArgsOf(OoM1BelowWanted, 'taggees'),
-                TagValuesGt1(OoM)
+                NotTheArgsOf(OoMSmallGapToWanted, 'taggees'),
+                TagValuesSmallGap(OoM)
             ),
             within=InWorkspace
         ),
         DeTup(asgn_to=('node1', 'node2')),
         AddNode(
-            OoM1BelowWanted,
+            OoMSmallGapToWanted,
+            wanted='node1',
+            lesser='node2'
+        )
+    ]
+
+class OoMBigGapToWantedTagger(Persistent, AcNode):
+    acs = [
+        LookForTup(
+            [And(CTagged(OoM), CTagged(Want)), CTagged(OoM)],
+            tupcond=CTupAnd(
+                NotTheArgsOf(OoMBigGapToWanted, 'taggees'),
+                TagValuesBigGap(OoM)
+            ),
+            within=InWorkspace
+        ),
+        DeTup(asgn_to=('node1', 'node2')),
+        AddNode(
+            OoMBigGapToWanted,
             wanted='node1',
             lesser='node2'
         )
@@ -566,5 +590,3 @@ def newg(numble=Numble([4, 5, 6], 15), seed=8028868705202140491):
 if __name__ == '__main__':
     g = newg()
     pg(g)
-
-
