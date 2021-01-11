@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from inspect import isclass
 from copy import copy, deepcopy
 from operator import attrgetter, itemgetter
-from random import choice
+from random import choice, choices
 from itertools import product, chain
 from collections import defaultdict
 
@@ -893,6 +893,28 @@ class ActiveGraph(
                 return node
         return None
 
+    def choose_by_activation(
+        self,
+        nodes_or_tups: Union[List[NodeId], List[Tuple[NodeId]]]
+    ) -> MaybeNRef:
+        if not nodes_or_tups:
+            return None
+        return choices(nodes_or_tups, self.activations_of(nodes_or_tups))[0]
+
+    def activations_of(
+        self,
+        nodes_or_tups: Union[List[NodeId], List[Tuple[NodeId]]]
+    ) -> List[float]:
+        if not nodes_or_tups:
+            return []
+        if isinstance(nodes_or_tups[0], tuple):
+            return [
+                sum(self.activation(node) for node in tup)
+                    for tup in nodes_or_tups
+            ]
+        else:
+            return [self.activation(node) for node in nodes_or_tups]
+
     def look_for(
         self,
         criterion: Union[Criterion, Sequence[Criterion]],
@@ -908,7 +930,8 @@ class ActiveGraph(
             criterion, within=within, subset=subset, tupcond=tupcond
         )
         try:
-            return choice(nodes_or_tups) # TODO choose by salience?
+            #return choice(nodes_or_tups) # TODO choose by salience?
+            return self.choose_by_activation(nodes_or_tups)
         except IndexError:
             return None
 
