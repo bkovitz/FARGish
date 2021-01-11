@@ -27,7 +27,7 @@ from Action import Action, Actions, BuildAgent
 from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
     TagValuesGt, TagValuesSmallGap, TagValuesBigGap, GreaterThanOrEqual, \
-    TupSameValue
+    TupSameValue, GreaterThan
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock, Fizzle
 from util import Quote, omit, first, as_set, clip
 

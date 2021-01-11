@@ -297,6 +297,16 @@ class GreaterThanOrEqual:
 
 # TODO UT
 @dataclass
+class GreaterThan:
+    
+    def __call__(self, g, tup):
+        try:
+            return g.value_of(tup[0]) > g.value_of(tup[1])
+        except (TypeError, KeyError):
+            return False
+
+# TODO UT
+@dataclass
 class TupSameValue:
 
     def __call__(self, g, tup):

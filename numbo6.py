@@ -6,7 +6,7 @@ from NumboGraph import *
 from log import *
 from exc import *
 from ActiveGraph import pg, pa, pai, ps
-from criteria import NotTagged
+from criteria import NotTagged, TupAnd as CTupAnd
 
 # Custom exceptions
 
@@ -65,7 +65,10 @@ class NoticeCouldMakeMinus(LateNoticer):
             LookForTup(
                 [And(CTagged(Avail), MinActivation(3.0)),
                  And(CTagged(Avail), MinActivation(3.0))],
-                tupcond=NotTheArgsOf(Minus, 'source'),
+                tupcond=CTupAnd(
+                    NotTheArgsOf(Minus, 'source'),
+                    GreaterThan()
+                ),
                 within=InWorkspace,
             ),
             NeedOperands.from_env()
@@ -127,7 +130,7 @@ class Numbo6Graph(NumboGraph):
             (OoM, [oogtt, oo1bt, oobigt]),
             (Diff, diwt),
             (DiffIsWanted, ncmm),
-            (Number, [diwt, oot]),
+            (Number, [difft, oot]),
             (Avail, nsolved),
             (Operator, pdno)  # TODO Only "noticed" Operators
         )
@@ -163,7 +166,7 @@ if __name__ == '__main__':
 
     #g.do_timestep(actor=oot, num=4)
     #g.do_timestep(actor=ncmm)
-    g.do_timestep(num=27)
+    g.do_timestep(num=39)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

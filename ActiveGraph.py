@@ -104,6 +104,7 @@ class ActiveGraph(
 
     def add_activation_autolinks(self, *pairs: Tuple[Type[Node], NRefs]):
         self.activation_autolinks += pairs
+        self.make_activation_links(self.members_recursive(self.ws), pairs)
 
     # Overrides for ActiveGraphPrimitives
 
@@ -1583,14 +1584,21 @@ class ActiveGraph(
             else:
                 self.after_touch_nodes.discard(nodeid)
 
+    def make_activation_links(
+        self,
+        candidate_nodes: NRefs,
+        pairs: Iterable[Tuple[Type[Node], NRefs]]
+    ):
+        for nodeclass, nrefs in pairs:
+            for candidate_node in candidate_nodes:
+                if self.node_isa(candidate_node, nodeclass):
+                    for nref in as_iter(nrefs):
+                        self.set_activation_from_to(candidate_node, nref)
+        
     def do_activation_autolinks(self):
         '''Add an activation_to/from edge from each new node that matches
         a tuple in self.activation_autolinks.'''
-        for nodeclass, nrefs in self.activation_autolinks:
-            for new_node in self.new_nodes:
-                if self.node_isa(new_node, nodeclass):
-                    for nref in as_iter(nrefs):
-                        self.set_activation_from_to(new_node, nref)
+        self.make_activation_links(self.new_nodes, self.activation_autolinks)
 
     def done(self) -> Union[FargDone, None]:
         return self.final_result
