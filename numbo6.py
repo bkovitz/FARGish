@@ -1,11 +1,12 @@
 # numbo6.py
 
 from pprint import pprint as pp
+from itertools import chain
 
 from NumboGraph import *
 from log import *
 from exc import *
-from ActiveGraph import pg, pa, pai, ps
+from ActiveGraph import pg, pa, pai, paa, ps
 from criteria import NotTagged, TupAnd as CTupAnd
 
 # Custom exceptions
@@ -98,6 +99,62 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
         Boost(nodes='node')
     ]
 
+# Custom Actions
+
+class RunPassiveChain(Action):
+
+    def go(self, g, actor):
+        # Need to know: Archetypal PassiveChain; initial workspace node
+        # Find current passive node
+        # Has the following node been built?
+        # No: build it
+        # Yes: sleep
+        # No following node in archetype: Completed
+        # TODO Fail when we wait too long.
+        print('RUNPASSIVECHAIN')
+        current_live_node = g.neighbor(actor, 'current_live_node')
+
+        #HACK
+        # NEXT
+        # Build a DiffIsWantedTagger with a focal point of current_live_node
+
+        #current_source_node = g.neighbor(actor, 'current_source_node')
+        #next_source_node = g.neighbor(current_source_node, 'next')
+        
+
+class StartPassiveChainRunner(Action):
+
+    def go(self, g, actor):
+        # Find initial node.
+        # Find/choose who triggered it.
+        # Build a RunPassiveChain with focal point on the trigger
+        # unless it already exists.
+        initial_node = g.initial_member_of(actor)
+        if not initial_node:
+            raise Fizzle
+        triggering_node = g.look_for(
+            OfClass(initial_node),
+            tupcond=NotTheArgsOf(RunPassiveChain, 'triggering_node'),
+            subset=g.neighbors(initial_node, 'activation_from')
+        )
+        if not triggering_node:
+            raise Fizzle
+        g.add_node(
+            RunPassiveChain,
+            current_live_node=triggering_node,
+            current_source_node=initial_node,
+            member_of=g.containers_of(triggering_node)
+        )
+        g.calm(actor)
+
+# Custom ActiveNodes
+
+class PassiveChain(ActiveNode, Group):
+
+    def actions(self):
+        # TODO Only if there is an actual need to start a runner
+        return StartPassiveChainRunner()
+
 class Numbo6Graph(NumboGraph):
 
     def __init__(self, *args, **kwargs):
@@ -143,6 +200,18 @@ class Numbo6Graph(NumboGraph):
         n3 = self.add_node(Minus, member_of=pc1)
         n4 = self.add_node(Proposal, member_of=pc1)
         self.link_sequence([n1, n2, n3, n4])
+        self.set_mutual_activation(pc1, [n1, n2, n3, n4])
+        self.set_activation(self.members_recursive(sl), 0.0)
+
+    def end_of_timestep(self):
+        super().end_of_timestep()
+        self.link_activation_to_archetypes(self.new_nodes)
+
+    def allowable_active_nodes(self):
+        return chain(
+            super().allowable_active_nodes(), 
+            self.find_all(PassiveChain, subset=self.members_of(self.slipnet))
+        )
 
 def newg(numble: Numble, seed=8028868705202140491):
     return Numbo6Graph(numble=numble, seed=seed)
@@ -175,7 +244,10 @@ if __name__ == '__main__':
 
     #g.do_timestep(actor=oot, num=4)
     #g.do_timestep(actor=ncmm)
-    g.do_timestep(num=39)
+    #g.do_timestep(num=39)
+
+    g.do_timestep(actor=difft, num=4)
+    g.do_timestep(num=4)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

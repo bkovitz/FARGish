@@ -36,6 +36,7 @@ prog = '''
 tags -- taggees
 lesser, greater : taggees
 wanted : taggees
+current_live_node, current_source_node : taggees
 
 within -- overriding
 node1 -- overriding
@@ -79,7 +80,6 @@ Minus(minuend, subtrahend) : Operator
 
 Group(members)
 Slipnet : Group
-PassiveChain : Group
 Glom : Group
 '''
 #exec(compile_fargish(prog), globals())

@@ -1025,6 +1025,14 @@ class ActiveGraph(
             to_visit = members - visited
         return result
 
+    def initial_member_of(self, group: NRef) -> NRefs:
+        '''Returns None if no initial member.'''
+        # TODO Exclude irrelevant types of nodes--that lack both a 'prev' and
+        # a 'next' because they're not in a chain.
+        for node in self.members_of(group):
+            if not self.neighbor(node, 'prev'):
+                return node
+
     def list(self, *nodes, **kwargs) -> List[NodeId]:
         '''For debugging. Called by pg() to get ordered list of nodes to
         print.'''
@@ -1269,8 +1277,6 @@ class ActiveGraph(
         for node in self.as_nodes(nodes):
             self.set_activation(node, node.initial_activation / 20.0)
 
-
-
     #TODO UT
     def move_tag(self, tagclass, fromids, toids):
         '''Moves all tags of class tagclass from fromids to toids. fromids and
@@ -1396,6 +1402,8 @@ class ActiveGraph(
                 self.wake_done_sleeping()
                 self.update_all_asup()
 
+                self.end_of_timestep()
+
                 d = self.done()
                 if d:
                     ShowResults(d)
@@ -1415,6 +1423,16 @@ class ActiveGraph(
         '''Calls .update_asup() on all allowable_active_nodes.'''
         for node in self.allowable_active_nodes():
             self.call_method(node, 'update_asup')
+
+    def end_of_timestep(self):
+        '''Called by do_timestep() at the end of each timestep.'''
+        pass
+
+    def link_activation_to_archetypes(self, nrefs: NRefs):
+        for slipnode in self.members_recursive(self.slipnet):
+            for node in as_iter(nrefs):
+                if self.is_of_class(slipnode, node):
+                    self.set_mutual_activation(node, slipnode)
 
     def do_actions1(self, actions: Actions):
         '''Force a sequence of actions, one per timestep. If a single Action
@@ -1834,6 +1852,14 @@ def pai(g: G, *nodes, **kwargs):
     pt(g)
     for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
         print(g.long_nodestr(node))
+        g.print_hops(g.activation_hops_to(node), prefix='      ')
+
+def paa(g: G, *nodes, **kwargs):
+    '''Prints activations of nodes, showing both incoming and outgoing links.'''
+    pt(g)
+    for node in sorted(g.list(*nodes, **kwargs), key=g.activation):
+        print(g.long_nodestr(node))
+        g.print_hops(g.activation_hops_from(node), prefix='      ')
         g.print_hops(g.activation_hops_to(node), prefix='      ')
 
 def ps(g: G, *nodes, **kwargs):

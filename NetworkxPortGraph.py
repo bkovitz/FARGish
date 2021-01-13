@@ -10,7 +10,8 @@ import networkx as nx
 
 from ActiveGraph import PortGraphPrimitives, ActivationPrimitives, Hop, Hops, \
     ActiveGraphPrimitives
-from Node import Node, NodeId, NRef, PortLabel, PortLabels, as_nodeid, as_node
+from Node import Node, NodeId, NRef, NRefs, PortLabel, PortLabels, \
+    as_nodeid, as_nodeids, as_node
 from util import as_iter, as_list, empty_set
 from log import *
 
@@ -233,14 +234,22 @@ class NetworkxActivation(
             a = 0.0
         return max(a, self.min_activation(node))
 
-    # TODO Allow NRefs
-    def set_activation(self, node: NRef, a: float):
-        nodeid = as_nodeid(node)
-        if nodeid not in self.g.nodes:
-            return
-        self.g.nodes[nodeid]['A'] = a
+#    # TODO Allow NRefs
+#    def set_activation(self, node: NRef, a: float):
+#        nodeid = as_nodeid(node)
+#        if nodeid not in self.g.nodes:
+#            return
+#        self.g.nodes[nodeid]['A'] = a
+
+    # TODO UT with multiple nodes
+    def set_activation(self, nodes: NRefs, a: float):
+        for nodeid in as_nodeids(nodes):
+            if nodeid not in self.g.nodes:
+                return
+            self.g.nodes[nodeid]['A'] = a
 
     # TODO Move this out of Networkx code
+    # TODO Allow NRefs
     def set_activation_from_to(
         self, from_node: NRef, to_node: NRef, weight: float=1.0
     ):
