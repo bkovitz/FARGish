@@ -135,6 +135,15 @@ class Numbo6Graph(NumboGraph):
             (Operator, pdno)  # TODO Only "noticed" Operators
         )
 
+    def make_slipnet(self):
+        sl = self.add_node(Slipnet)
+        pc1 = self.add_node(PassiveChain, member_of=sl)
+        n1 = self.add_node(Diff, value=1, member_of=pc1)
+        n2 = self.add_node(DiffIsWanted, member_of=pc1)
+        n3 = self.add_node(Minus, member_of=pc1)
+        n4 = self.add_node(Proposal, member_of=pc1)
+        self.link_sequence([n1, n2, n3, n4])
+
 def newg(numble: Numble, seed=8028868705202140491):
     return Numbo6Graph(numble=numble, seed=seed)
 

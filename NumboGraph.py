@@ -78,6 +78,8 @@ Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
 
 Group(members)
+Slipnet : Group
+PassiveChain : Group
 Glom : Group
 '''
 #exec(compile_fargish(prog), globals())

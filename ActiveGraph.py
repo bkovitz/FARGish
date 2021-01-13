@@ -422,10 +422,16 @@ class ActiveGraph(
                         to_visit.append((n, num_hops + 1))
 
     # TODO UT
-    def link_sequence(self, nodes: Iterable[NRef]):
+    # TODO rename chain_together
+    def link_sequence(
+        self,
+        nodes: Iterable[NRef],
+        prev_label: PortLabel='prev',
+        next_label: PortLabel='next'
+    ):
         nodes = list(nodes)
         for prev, next in zip(nodes[:-1], nodes[1:]):
-            self.add_edge(prev, 'next', next, 'prev')
+            self.add_edge(prev, next_label, next, prev_label)
 
     def inhibit_all_next(self, node: NRefs):
         for n in as_iter(node):
@@ -664,7 +670,10 @@ class ActiveGraph(
         nodes = as_list(self.as_nodes(nrefs))
         if not nodes:
             return False
-        nodeclasses = self.as_nodeclasses(nodeclasses)
+        try:
+            nodeclasses = self.as_nodeclasses(nodeclasses)
+        except NoSuchNodeclass:
+            return False
         if not nodeclasses:
             return False
         return all(
