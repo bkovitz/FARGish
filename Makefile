@@ -24,7 +24,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testStdGraph.TestStdGraph.test_walkd
+	$(PY) -m unittest -v testNumboGraph.TestNumboGraph.test_favor_closer_to_focal_point
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

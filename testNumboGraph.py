@@ -3,6 +3,7 @@
 import unittest
 from pprint import pprint as pp
 import inspect
+from collections import Counter
 
 from NumboGraph import *
 from log import *
@@ -44,3 +45,21 @@ class TestNumboGraph(unittest.TestCase):
 
         block = g.add_node(Block, value=9, source=plus)
         self.assertTrue(g.has_hop(plus, 'result', block, 'source'))
+
+    def test_favor_closer_to_focal_point(self):
+        g = NumboGraph(Numble([4, 5, 6], 15))
+        b4 = g.look_for(Brick(4), within=g.ws)
+        b5 = g.look_for(Brick(5), within=g.ws)
+        diff = g.add_node(Diff, lesser=b4, greater=b5, value=1)
+        tups = [
+            g.look_for([CTagged(Avail), CTagged(Avail)], within=diff)
+                for _ in range(50)  
+        ]
+        # All or nearly all of the tuples found should contain Brick(4)
+        # and Brick(5), and not Brick(6), since Brick(4) and Brick(5) are
+        # tagged directly by the focal point, i.e. the Diff tag.
+        ct = Counter(tups)
+        self.assertGreaterEqual(
+            ct.get((b4, b5), 0) + ct.get((b5, b4), 0),
+            45
+        )

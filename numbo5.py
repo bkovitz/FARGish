@@ -44,8 +44,6 @@ result_consumer -- source  # HACK: should be 'consumer'; see unique_mate().
 consume_operands -- proposer
 proposed_operator -- proposer
 
-Workspace
-
 Tag(taggees)
 Avail, Consumed, Allowed, Done, Exclude : Tag
 #AllBricksAvail : Tag
@@ -63,6 +61,7 @@ Want : Tag
 #  => build SameNumber(n1, n2)
 
 Group(members)
+Workspace : Group
 Glom : Group
 Equation : Group
 

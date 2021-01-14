@@ -351,14 +351,6 @@ class TestStdGraph(unittest.TestCase):
 
     def test_walkd(self):
         g = TestGraph()
-#        g.build_subgraph('''
-#b1: Brick(1)
-#b2: Brick(2)
-#plus: Plus
-#b1 -- plus
-#b2 -- plus
-#plus -- Block(3)
-#'''
         n1 = g.add_node(WNode)
         n1_a1 = g.add_node(W2Node, n1)
         g.add_edge(n1, 'wto', n1_a1, 'from')

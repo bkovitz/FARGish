@@ -956,6 +956,30 @@ class ActiveGraph(
         else:
             return [self.activation(node) for node in nodes_or_tups]
 
+    def choose_by_dict_weight(
+        self,
+        nodes_or_tups: Union[List[NodeId], List[Tuple[NodeId]]],
+        d: Dict[NodeId, float]
+    ) -> MaybeNRef:
+        if not nodes_or_tups:
+            return None
+        return choices(nodes_or_tups, self._weighted(nodes_or_tups, d))[0]
+
+    def _weighted(
+        self,
+        nodes_or_tups: Union[List[NodeId], List[Tuple[NodeId]]],
+        d: Dict[NodeId, float]
+    ) -> List[float]:
+        if not nodes_or_tups:
+            return []
+        if isinstance(nodes_or_tups[0], tuple):
+            return [
+                sum(d.get(node, 0.0) for node in tup)
+                    for tup in nodes_or_tups
+            ]
+        else:
+            return [d.get(node, 0.0) for node in nodes_or_tups]
+
     def look_for(
         self,
         criterion: Union[Criterion, Sequence[Criterion]],
@@ -963,18 +987,48 @@ class ActiveGraph(
         subset: Union[Set[NodeId], None]=None,
         tupcond: Callable[[Tuple[NRef], PortLabel], bool]=always_true
     ) -> Union[NodeId, None, Tuple[NodeId]]:
-        '''Returns one node that meets criteria, or None if not found.
-        criteria are functions that take two arguments: g, nodeid, and
-        return a true value if nodeid matches the criterion.'''
-        #TODO Document Cartesian product
+        '''Returns one node that meets 'criterion', or None if not found.'''
+        #TODO Document Cartesian product, weighting, walking near.
+        # If 'within' is a node other than a Group node, we treat it as a
+        # focal point, and only search near it.
+        weight_by_distance = False
+        if within:
+            if self.is_of_class(within, 'Group'):
+                nodes = self.members_recursive(within)
+            else:
+                weight_by_distance = True
+                nodesd = dict(self.walkd(
+                    within,
+                    max_hops=5,
+                    neighbor_label={
+                        'taggees', 'tags', 'built', 'built_by',
+                        'source', 'consumer',   # are these two HACKs?
+                        'next', 'prev',
+                        'problem', 'problem_solver'
+                    }
+                    # TODO Make it easy to override neighbor_label.
+                ))
+                nodes = nodesd.keys()
+            if subset is None:
+                subset = as_set(nodes)
+            else:
+                subset = subset.intersection(nodes)
+
         nodes_or_tups = self.find_all(
             criterion, within=within, subset=subset, tupcond=tupcond
         )
-        try:
-            #return choice(nodes_or_tups) # TODO choose by salience?
-            return self.choose_by_activation(nodes_or_tups)
-        except IndexError:
-            return None
+        if weight_by_distance:
+            nodesd = dict(
+                (nodeid, self.activation(nodeid) / (dist + 1))
+                    for nodeid, dist in nodesd.items()
+            )
+            return self.choose_by_dict_weight(nodes_or_tups, nodesd)
+        else:
+            try:
+                #return choice(nodes_or_tups) # TODO choose by salience?
+                return self.choose_by_activation(nodes_or_tups)
+            except IndexError:
+                return None
 
     def find_all(
         self,
@@ -983,14 +1037,16 @@ class ActiveGraph(
         subset: Union[Set[NodeId], None]=None,
         tupcond: Callable[[Tuple[NRef], PortLabel], bool]=always_true
     ) -> Union[List[NodeId], List[Tuple[NodeId]]]:
-        '''Returns list of all nodes that meet criteria. criteria are functions
-        that take two arguments: g and nodeid. A criterion function returns
-        a true value if nodeid matches the criteria, false if not.'''
+        '''Returns list of all nodes that meet 'criterion'.'''
         #TODO Document Cartesian product
         if within is None:
             nodes = self.nodeids()  # Start with all nodes (INEFFICIENT)
-        else:
+        elif self.is_of_class(within, 'Group'):
             nodes = self.members_recursive(within)
+        else:
+            # TODO Somehow need to make it more likely that .look_for()
+            # finds nearer nodes.
+            nodes = self.walk(within, max_hops=4)
         if subset is not None:
             nodes = as_set(subset).intersection(nodes)
 
