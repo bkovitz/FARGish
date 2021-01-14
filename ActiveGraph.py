@@ -938,23 +938,27 @@ class ActiveGraph(
         self,
         nodes_or_tups: Union[List[NodeId], List[Tuple[NodeId]]]
     ) -> MaybeNRef:
-        if not nodes_or_tups:
-            return None
-        return choices(nodes_or_tups, self.activations_of(nodes_or_tups))[0]
+#        if not nodes_or_tups:
+#            return None
+#        return choices(nodes_or_tups, self.activations_of(nodes_or_tups))[0]
+        d = dict(
+            (nodeid, self.activation(nodeid))
+                for nodeid in self._uniq_in_tups(nodes_or_tups)
+        )
+        return self.choose_by_dict_weight(nodes_or_tups, d)
 
-    def activations_of(
+    def _uniq_in_tups(
         self,
         nodes_or_tups: Union[List[NodeId], List[Tuple[NodeId]]]
-    ) -> List[float]:
-        if not nodes_or_tups:
-            return []
+    ) -> Iterable[NodeId]:
         if isinstance(nodes_or_tups[0], tuple):
-            return [
-                sum(self.activation(node) for node in tup)
+            return set(
+                x
                     for tup in nodes_or_tups
-            ]
+                        for x in tup
+            )
         else:
-            return [self.activation(node) for node in nodes_or_tups]
+            return nodes_or_tups
 
     def choose_by_dict_weight(
         self,
