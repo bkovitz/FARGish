@@ -1013,9 +1013,11 @@ class ActiveGraph(
                 subset = as_set(nodes)
             else:
                 subset = subset.intersection(nodes)
+        else:
+            nodes = subset
 
         nodes_or_tups = self.find_all(
-            criterion, within=within, subset=subset, tupcond=tupcond
+            criterion, subset=nodes, tupcond=tupcond
         )
         if weight_by_distance:
             nodesd = dict(
@@ -1025,7 +1027,6 @@ class ActiveGraph(
             return self.choose_by_dict_weight(nodes_or_tups, nodesd)
         else:
             try:
-                #return choice(nodes_or_tups) # TODO choose by salience?
                 return self.choose_by_activation(nodes_or_tups)
             except IndexError:
                 return None
@@ -1039,28 +1040,27 @@ class ActiveGraph(
     ) -> Union[List[NodeId], List[Tuple[NodeId]]]:
         '''Returns list of all nodes that meet 'criterion'.'''
         #TODO Document Cartesian product
-        if within is None:
-            nodes = self.nodeids()  # Start with all nodes (INEFFICIENT)
-        elif self.is_of_class(within, 'Group'):
-            nodes = self.members_recursive(within)
+        if within:
+            if self.is_of_class(within, 'Group'):
+                nodes = self.members_recursive(within)
+            else:
+                # TODO Somehow need to make it more likely that .look_for()
+                # finds nearer nodes.
+                nodes = self.walk(within, max_hops=4)
+            if subset is not None:
+                nodes = subset.intersection(nodes)
         else:
-            # TODO Somehow need to make it more likely that .look_for()
-            # finds nearer nodes.
-            nodes = self.walk(within, max_hops=4)
-        if subset is not None:
-            nodes = as_set(subset).intersection(nodes)
+            if subset is not None:
+                nodes = subset
+            else:
+                nodes = self.nodeids()
 
-#        for c in criteria:
-#            c = self.as_criterion(c)
-#            nodes = [n for n in nodes if c(self, n)]
-#            if not nodes:
-#                return []
-#        return as_list(nodes)
         if is_iter(criterion):  # If sequence of criteria, return tuples
             # TODO Shouldn't c be found by .as_criterion()?
             return list(
                 tup for tup in product(
-                    *(self.find_all(c, within=within, subset=subset)
+                    #*(self.find_all(c, within=within, subset=subset)
+                    *(self.find_all(c, subset=nodes)
                         for c in criterion
                     )
                 ) if len(set(tup)) == len(tup) and tupcond(self, tup)
