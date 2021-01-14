@@ -50,7 +50,8 @@ class ActiveGraph(
 ):
     std_port_mates = PortMates([
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
-        ('next', 'prev'), ('copy_of', 'copies'), ('problem', 'problem_solver')
+        ('next', 'prev'), ('copy_of', 'copies'), ('problem', 'problem_solver'),
+        ('activation_from', 'activation_to'), ('support_from', 'support_to')
     ])
 
     def __init__(
@@ -1077,10 +1078,10 @@ class ActiveGraph(
     def as_criterion(self, x: Union[Node, CRef, Criterion]) -> Criterion:
         if isinstance(x, Criterion):
             return x
-        elif isinstance(x, Node):
-            return NodeEq(x)
         elif isclass(x) and issubclass(x, Node):
             return OfClass(x)
+        elif isinstance(x, Node):
+            return NodeEq(x)
         assert False, f"Can't convert {x} to Criterion"
 
     def partition_nodes(self, nodes: NRefs, gpred: Callable[['G', NRef], bool]):

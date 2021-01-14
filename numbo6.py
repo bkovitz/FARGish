@@ -111,12 +111,20 @@ class RunPassiveChain(Action):
         # Yes: sleep
         # No following node in archetype: Completed
         # TODO Fail when we wait too long.
-        print('RUNPASSIVECHAIN')
         current_live_node = g.neighbor(actor, 'current_live_node')
+        print('RUNPASSIVECHAIN', g.nodestr(current_live_node))
 
         #HACK
-        # NEXT
-        # Build a DiffIsWantedTagger with a focal point of current_live_node
+        anclass = DiffIsWantedTagger  # active node class
+        anode = g.add_node(DiffIsWantedTagger, within=current_live_node)
+        g.set_mutual_activation(actor, anode)
+
+        # NEXT Get those other nodes to calm down so the DiffIsWantedTagger
+        # can run.
+
+        # THEN Write code to step to the next current_live_node and
+        # current_source_node.
+
 
         #current_source_node = g.neighbor(actor, 'current_source_node')
         #next_source_node = g.neighbor(current_source_node, 'next')
@@ -139,12 +147,14 @@ class StartPassiveChainRunner(Action):
         )
         if not triggering_node:
             raise Fizzle
-        g.add_node(
+        runner = g.add_node(
             RunPassiveChain,
             current_live_node=triggering_node,
             current_source_node=initial_node,
-            member_of=g.containers_of(triggering_node)
+            member_of=g.containers_of(triggering_node),
+            activation_from=triggering_node
         )
+        g.boost_activation_from_to(actor, runner)
         g.calm(actor)
 
 # Custom ActiveNodes
@@ -173,7 +183,7 @@ class Numbo6Graph(NumboGraph):
         ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
         pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         difft = self.add_node(DiffTagger, member_of=self.ws)
-        diwt = self.add_node(DiffIsWantedTagger, member_of=self.ws)
+        diwt = None #self.add_node(DiffIsWantedTagger, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
         oogtt = self.add_node(OoMGreaterThanTagger, member_of=self.ws)
         oo1bt = self.add_node(OoMSmallGapToWantedTagger, member_of=self.ws)
