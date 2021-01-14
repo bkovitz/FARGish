@@ -58,8 +58,6 @@ minuend, subtrahend : operands
 proposed_operands : operands
 result : consumer
 
-Workspace
-
 Tag(taggees)
 Want : Tag
 Avail, Consumed, Allowed, Done : Tag
@@ -79,7 +77,7 @@ Plus, Times : Operator
 Minus(minuend, subtrahend) : Operator
 
 Group(members)
-Slipnet : Group
+Workspace, Slipnet : Group
 Glom : Group
 '''
 #exec(compile_fargish(prog), globals())

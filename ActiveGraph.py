@@ -421,6 +421,37 @@ class ActiveGraph(
                     if max_hops is None or num_hops + 1 < max_hops:
                         to_visit.append((n, num_hops + 1))
 
+    def walkd(
+        self,
+        nodes: NRefs,
+        port_label: PortLabels = None,
+        neighbor_class: Union[Type[Node], NRef] = None,
+        neighbor_label: PortLabels = None,
+        include_start = True,
+        max_hops: Union[int, None] = None
+    ) -> Iterable[Tuple[NodeId, int]]:
+        '''Same as .walk() but generates tuples of
+        (nodeid, distance-from-start-node[s]).'''
+        seen: Set[NodeId] = set()
+        to_visit: List[Tuple(NodeId, int)] = []  # int is # of hops
+        for node in as_iter(nodes):
+            nodeid = as_nodeid(node)
+            if nodeid not in seen:
+                if include_start:
+                    yield (nodeid, 0)
+                seen.add(nodeid)
+                to_visit.append((nodeid, 0))
+        while to_visit:
+            nodeid, num_hops = to_visit.pop(0)
+            for n in self.neighbors(
+                nodeid, port_label, neighbor_class, neighbor_label
+            ):
+                if n not in seen:
+                    yield (n, num_hops + 1)
+                    seen.add(n)
+                    if max_hops is None or num_hops + 1 < max_hops:
+                        to_visit.append((n, num_hops + 1))
+
     # TODO UT
     # TODO rename chain_together
     def link_sequence(
@@ -430,8 +461,8 @@ class ActiveGraph(
         next_label: PortLabel='next'
     ):
         nodes = list(nodes)
-        for prev, next in zip(nodes[:-1], nodes[1:]):
-            self.add_edge(prev, next_label, next, prev_label)
+        for prev_node, next_node in zip(nodes[:-1], nodes[1:]):
+            self.add_edge(prev_node, next_label, next_node, prev_label)
 
     def inhibit_all_next(self, node: NRefs):
         for n in as_iter(node):
@@ -969,7 +1000,7 @@ class ActiveGraph(
 #            if not nodes:
 #                return []
 #        return as_list(nodes)
-        if is_iter(criterion):
+        if is_iter(criterion):  # If sequence of criteria, return tuples
             # TODO Shouldn't c be found by .as_criterion()?
             return list(
                 tup for tup in product(

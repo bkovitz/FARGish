@@ -349,6 +349,42 @@ class TestStdGraph(unittest.TestCase):
             [n1, n1_a2]
         )
 
+    def test_walkd(self):
+        g = TestGraph()
+#        g.build_subgraph('''
+#b1: Brick(1)
+#b2: Brick(2)
+#plus: Plus
+#b1 -- plus
+#b2 -- plus
+#plus -- Block(3)
+#'''
+        n1 = g.add_node(WNode)
+        n1_a1 = g.add_node(W2Node, n1)
+        g.add_edge(n1, 'wto', n1_a1, 'from')
+        n1_a2 = g.add_node(WNode, n1)
+        g.add_edge(n1, 'to', n1_a2, 'wfrom')
+        n1_a3 = g.add_node(WNode, n1)
+        n1_a1_b1 = g.add_node(WNode, n1_a1)
+        n1_a1_b2 = g.add_node(WNode, n1_a1)
+        g.add_edge(n1_a1, 'wto', n1_a1_b2, 'from')
+        n1_a1_b1_c1 = g.add_node(WNode, n1_a1_b1)
+
+        # No restrictions on walk returns everything (since the graph is
+        # connected).
+        self.assertCountEqual(
+            g.walkd(n1),
+            [
+                (n1.id, 0),
+                (n1_a1.id, 1),
+                (n1_a2.id, 1),
+                (n1_a3.id, 1),
+                (n1_a1_b1.id, 2),
+                (n1_a1_b2.id, 2),
+                (n1_a1_b1_c1.id, 3)
+            ]
+        )
+
     def test_touch_on_removal(self):
         g = TestGraph()
         b1 = g.add_node(Brick, 1)
