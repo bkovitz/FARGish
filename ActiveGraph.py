@@ -988,22 +988,22 @@ class ActiveGraph(
     def look_for(
         self,
         criterion: Union[Criterion, Sequence[Criterion]],
-        within: MaybeNRef=None,
+        focal_point: MaybeNRef=None,
         subset: Union[Set[NodeId], None]=None,
         tupcond: Callable[[Tuple[NRef], PortLabel], bool]=always_true
     ) -> Union[NodeId, None, Tuple[NodeId]]:
         '''Returns one node that meets 'criterion', or None if not found.'''
         #TODO Document Cartesian product, weighting, walking near.
-        # If 'within' is a node other than a Group node, we treat it as a
+        # If 'focal_point' is a node other than a Group node, we treat it as a
         # focal point, and only search near it.
         weight_by_distance = False
-        if within:
-            if self.is_of_class(within, 'Group'):
-                nodes = self.members_recursive(within)
+        if focal_point:
+            if self.is_of_class(focal_point, 'Group'):
+                nodes = self.members_recursive(focal_point)
             else:
                 weight_by_distance = True
                 nodesd = dict(self.walkd(
-                    within,
+                    focal_point,
                     max_hops=5,
                     neighbor_label={
                         'taggees', 'tags', 'built', 'built_by',
@@ -1039,19 +1039,19 @@ class ActiveGraph(
     def find_all(
         self,
         criterion: Union[Criterion, Sequence[Criterion]],
-        within: MaybeNRef=None,
+        focal_point: MaybeNRef=None,
         subset: Union[Set[NodeId], None]=None,
         tupcond: Callable[[Tuple[NRef], PortLabel], bool]=always_true
     ) -> Union[List[NodeId], List[Tuple[NodeId]]]:
         '''Returns list of all nodes that meet 'criterion'.'''
         #TODO Document Cartesian product
-        if within:
-            if self.is_of_class(within, 'Group'):
-                nodes = self.members_recursive(within)
+        if focal_point:
+            if self.is_of_class(focal_point, 'Group'):
+                nodes = self.members_recursive(focal_point)
             else:
                 # TODO Somehow need to make it more likely that .look_for()
                 # finds nearer nodes.
-                nodes = self.walk(within, max_hops=4)
+                nodes = self.walk(focal_point, max_hops=4)
             if subset is not None:
                 nodes = subset.intersection(nodes)
         else:
@@ -1064,7 +1064,7 @@ class ActiveGraph(
             # TODO Shouldn't c be found by .as_criterion()?
             return list(
                 tup for tup in product(
-                    #*(self.find_all(c, within=within, subset=subset)
+                    #*(self.find_all(c, focal_point=focal_point, subset=subset)
                     *(self.find_all(c, subset=nodes)
                         for c in criterion
                     )
@@ -1367,7 +1367,10 @@ class ActiveGraph(
         '''Greatly reduce activation--especially, so that an ActiveNode
         becomes much less likely to be chosen on the next timestep.'''
         for node in self.as_nodes(nodes):
-            self.set_activation(node, node.initial_activation / 20.0)
+            new_a = node.initial_activation / 20.0
+            if ShowPrimitives:
+                print(f'calmed  {node.nodestr()}  a={new_a:.3f}')
+            self.set_activation(node, new_a)
 
     #TODO UT
     def move_tag(self, tagclass, fromids, toids):
@@ -1886,7 +1889,7 @@ class Context(ABC):
 
     @classmethod
     @abstractmethod
-    def within(cls, g: G, actor: NRef) -> MaybeNRef:
+    def focal_point(cls, g: G, actor: NRef) -> MaybeNRef:
         '''Should return the group node that is the relevant context
         for 'actor'.'''
         pass
@@ -1900,10 +1903,10 @@ class Context(ABC):
 class MyContext(Context):
 
     @classmethod
-    def within(cls, g: G, actor: NRef) -> MaybeNRef:
+    def focal_point(cls, g: G, actor: NRef) -> MaybeNRef:
         result = g.neighbor(actor, 'member_of')
         if g.is_of_class(result, 'ActionSeqNode'):  # HACK
-            return cls.within(g, result)
+            return cls.focal_point(g, result)
         else:
             return result
 
@@ -1911,7 +1914,7 @@ class MyContext(Context):
 class InWorkspace(Context):
 
     @classmethod
-    def within(cls, g: G, actor: NRef) -> MaybeNRef:
+    def focal_point(cls, g: G, actor: NRef) -> MaybeNRef:
         return g.ws
 
 def pt(g: G):

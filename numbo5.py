@@ -123,7 +123,7 @@ Want.min_activation = 1.0
 @dataclass
 class NotAllSameValue(FizzleAndBlock):
     value: Any=None
-    within: NRef=None
+    focal_point: NRef=None
 
 @dataclass
 class NotSameValue(FizzleAndBlock):
@@ -186,12 +186,12 @@ class ActivateSlipnode(Action):
 @dataclass
 class SeekAndGlom(Action):
     criteria: Union[Criterion, List[Criterion], None] = None
-    within: Union[int, None] = None
+    focal_point: Union[int, None] = None
 
     threshold = 1.0
 
     def go(self, g, actor):
-        glommees = g.find_all(*as_iter(self.criteria), within=self.within)
+        glommees = g.find_all(*as_iter(self.criteria), focal_point=self.focal_point)
         if glommees:
             #g.do(Build.maybe_make(g, Glom, [glommees], {}))
             g.do(Build.maybe_make(g, Glom, glommees))
@@ -201,10 +201,10 @@ class SeekAndGlom(Action):
 @dataclass
 class SeekNode(Action):
     criteria: Union[Criterion, List[Criterion], None]=None
-    within: Union[int, None]=None
+    focal_point: Union[int, None]=None
     
     def go(self, g, actor):
-        node = g.look_for(self.criteria, within=self.within)
+        node = g.look_for(self.criteria, focal_point=self.focal_point)
         #print('SeekNode found:', node)
 
 @dataclass
@@ -213,13 +213,13 @@ class TagNodeWithSameValue(Action):
     anchor: MaybeNRef=None  # Seek node with same value as anchor
     criteria: Union[Criterion, List[Criterion], None]=None
         # criteria in addition to having the same value
-    within: Union[int, None]=None
+    focal_point: Union[int, None]=None
 
     def go(self, g, actor):
-        # What do we do if anchor or within is missing?
+        # What do we do if anchor or focal_point is missing?
         criteria = Criterion.append(self.criteria, HasSameValueAs(self.anchor))
         print('GO', repr(criteria))
-        node = g.look_for(*criteria, within=self.within)
+        node = g.look_for(*criteria, focal_point=self.focal_point)
         if not node:
             raise CantFindNode
         g.add_tag(self.tagclass, [self.anchor, node])
@@ -228,61 +228,61 @@ class TagNodeWithSameValue(Action):
 class BuildProposal(Action):
     consume_operands: NRefs = None
     proposed_operator: MaybeNRef = None
-    within: MaybeNRef = None
+    focal_point: MaybeNRef = None
     
     def go(self, g, actor):
         g.add_node(Proposal,
             ConsumeOperands(),
             consume_operands=self.consume_operands,
             proposed_operator=self.proposed_operator,
-            member_of=self.within
+            member_of=self.focal_point
         )
 
 @dataclass
 class NoticeAllSameValue(Action):
     value: Any=None
-    within: Union[int, None]=None
+    focal_point: Union[int, None]=None
 
     threshold = 1.0
 
     def go(self, g, actor):
-        # Test that all members of 'within' have value 'value'.
-        # If so, tag 'within' AllMembersSameValue
+        # Test that all members of 'focal_point' have value 'value'.
+        # If so, tag 'focal_point' AllMembersSameValue
 
-        # HACK  Need to find 'within' node left by SeekAndGlom or whatever
+        # HACK  Need to find 'focal_point' node left by SeekAndGlom or whatever
         # process set up the node in which we should NoticeAllSameValue.
-        #within = first(g.prev_new_nodes)
-#        if not self.within:
-#            self.within = g.look_for(OfClass(Glom))
-#            if not self.within:
+        #focal_point = first(g.prev_new_nodes)
+#        if not self.focal_point:
+#            self.focal_point = g.look_for(OfClass(Glom))
+#            if not self.focal_point:
 #                return # TODO FAIL
-        if not self.within:
-            raise NeedArg(ac=self, name='within')
+        if not self.focal_point:
+            raise NeedArg(ac=self, name='focal_point')
         if self.value is None:
             raise NeedArg(ac=self, name='value')
         if all(
             g.value_of(memberid) == self.value
-                #for memberid in g.members_of(self.within)
-                for memberid in g.find_all(OfClass(Number), within=self.within)
+                #for memberid in g.members_of(self.focal_point)
+                for memberid in g.find_all(OfClass(Number), focal_point=self.focal_point)
         ):
-            #g.do(Build.maybe_make(g, AllMembersSameValue, [self.within], {}))
-            g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
+            #g.do(Build.maybe_make(g, AllMembersSameValue, [self.focal_point], {}))
+            g.do(Build.maybe_make(g, AllMembersSameValue, self.focal_point))
             g.new_state(self.actor, Completed)
         else:
-            raise NotAllSameValue(self, value=self.value, within=self.within)
+            raise NotAllSameValue(self, value=self.value, focal_point=self.focal_point)
         # TODO else: FAILED
 
 @dataclass
 class CountMembers(Action):
-    within: Union[int, None]=None
+    focal_point: Union[int, None]=None
 
     threshold = 1.0
 
     def go(self, g, actor):
-        if not self.within:
-            raise NeedArg(self, 'within')  # TODO kws
-        num_members = len(g.neighbors(self.within, port_label='members'))
-        g.add_node(Count, taggees=self.within, value=num_members)
+        if not self.focal_point:
+            raise NeedArg(self, 'focal_point')  # TODO kws
+        num_members = len(g.neighbors(self.focal_point, port_label='members'))
+        g.add_node(Count, taggees=self.focal_point, value=num_members)
         g.new_state(self.actor, Completed)
 
 @dataclass
@@ -309,22 +309,22 @@ class NoticeSameValue(Action):
 
 @dataclass
 class AddAllInGlom(Action):
-    within: Union[int, None]=None
+    focal_point: Union[int, None]=None
 
     threshold: float = 1.0
 
     def go(self, g, actor):
-        if not self.within:
-            raise NeedArg(self, 'within')
+        if not self.focal_point:
+            raise NeedArg(self, 'focal_point')
         g.add_node(Proposal,
             ConsumeOperands(),
             consume_operands=g.find_all(
                 OfClass(Number), CTagged(Avail),
-                within=self.within
+                focal_point=self.focal_point
             ),
             proposed_operator=g.look_for(
                 OfClass(Plus), CTagged(Allowed),  # TODO 'and' these criteria
-                within=g.ws
+                focal_point=g.ws
             ),
             member_of=g.ws
         )
@@ -364,10 +364,10 @@ class SeekArg(Action, ResetAndKeepTrying):
 class SeekNewValue(Action):
     for_node: NRef
     port_label: PortLabel
-    within: NRef
+    focal_point: NRef
 
     def go(self, g, actor):
-        found_node = g.look_for(HasAttr('value'), within=self.within)
+        found_node = g.look_for(HasAttr('value'), focal_point=self.focal_point)
         if found_node:
             g.add_override_node(self.for_node, self.port_label, found_node)
             g.boost_activation(self.for_node)
@@ -393,14 +393,14 @@ class StartScout(Action):
 
 @dataclass
 class ExcludeOperand(Action):
-    within: Union[NRef, None]=None
+    focal_point: Union[NRef, None]=None
 
     threshold: float = 1.0
 
     def go(self, g, actor):
-        if not self.within:
-            raise NeedArg(self, 'within')
-        operand = g.look_for(OfClass(Brick), within=self.within)
+        if not self.focal_point:
+            raise NeedArg(self, 'focal_point')
+        operand = g.look_for(OfClass(Brick), focal_point=self.focal_point)
         if operand:
             g.add_node(Exclude, operand)
             g.new_state(self.actor, Completed)
@@ -445,7 +445,7 @@ class Slipnet(Group, ActiveNode):
         actives = self.g.find_all(
             Activated(), OfClass(ActiveNode),
             subset=self.g.members_of(self)
-            #TODO within=self ?
+            #TODO focal_point=self ?
         )
         #print('ACTIVE SLIPNODES', actives)
         return [
@@ -459,7 +459,7 @@ class AssessorScout(ActiveNode):
 
     def actions(self):
         #TODO 'and' these criteria
-        node = self.g.look_for(CTagged(Avail), NotTagged(Assessment), within=self.g.ws)
+        node = self.g.look_for(CTagged(Avail), NotTagged(Assessment), focal_point=self.g.ws)
         if node:
             return assess(g, node, self.g.neighbor(self, 'target'))
 
@@ -471,7 +471,7 @@ class FixerScout(ActiveNode):
         badnode = self.g.look_for(
             #TODO 'and' these criteria
             OfClass(Block), CTagged(Avail), CTagged(NotGoodEnough),
-            within=self.g.ws
+            focal_point=self.g.ws
         )
         if badnode:
             return FuncAction(start_fixer_seq, badnode)
@@ -568,7 +568,7 @@ class Blocked(ActiveNode, Tag):
     node_params = NodeParams(MateParam('taggees', 'tags'), AttrParam('reason'))
 
     port_label_to_nodeclass = dict(   # HACK
-        within=Glom,
+        focal_point=Glom,
         node1=Target,
         node2=Count,
         operand=Brick,
@@ -587,7 +587,7 @@ class Blocked(ActiveNode, Tag):
             action = SeekNewValue(
                 for_node=self.g.neighbor(self, 'taggees'),
                 port_label='value',
-                within=self.reason.within
+                focal_point=self.reason.focal_point
             )
         else:
             return  # No recognized reason => no action
@@ -642,9 +642,9 @@ class DemoGraph(ExprAsEquation, Graph):
     def fill_slipnet(self, slipnet: int):
         seqnode = make_action_sequence(
             self,
-            SeekAndGlom(within=ws, criteria=OfClass(Brick)),
-            NoticeAllSameValue(value=1, within=None),
-            CountMembers(within=None),
+            SeekAndGlom(focal_point=ws, criteria=OfClass(Brick)),
+            NoticeAllSameValue(value=1, focal_point=None),
+            CountMembers(focal_point=None),
             NoticeSameValue(node1=None, node2=None),
             AddAllInGlom(),
             member_of=slipnet,
@@ -670,7 +670,7 @@ class DemoGraph(ExprAsEquation, Graph):
     def find_archetype(self, node):
         return self.find_all(
             OfClass(self.class_of(node)), subset=self.members_of(self.slipnet)
-            # TODO within?
+            # TODO focal_point?
         )
 
     def consume_operands(
@@ -818,7 +818,7 @@ if __name__ == '__main__':
 
 #    g.do_action_sequence([
 #        catcher(SeekAndGlom(OfClass(Brick), ws), built),
-#        NoticeAllSameValue(within=catcher.get('built'), value=1),
+#        NoticeAllSameValue(focal_point=catcher.get('built'), value=1),
 #    ])
 
 
@@ -826,7 +826,7 @@ if __name__ == '__main__':
 #    g.do_action_sequence([
 #        SeekAndGlom(OfClass(Brick), ws),
 #        SaveBuiltAs('glom'),
-#        NoticeAllSameValue(within=Saved('glom'), value=1),
+#        NoticeAllSameValue(focal_point=Saved('glom'), value=1),
 #    ])
 
 
@@ -846,7 +846,7 @@ if __name__ == '__main__':
 
     #dt = g.datum(3)
     #dt2 = copy(dt)
-    #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), within=None), 'state': Start}
+    #kwargs = {'action': SeekAndGlom(criteria=OfClass(Brick), focal_point=None), 'state': Start}
     #an = ActionNode(**kwargs)
 
     #g.do_timestep(num=55)
@@ -854,6 +854,6 @@ if __name__ == '__main__':
 
     g.do_timestep(num=11)
     a = TagNodeWithSameValue(
-        SameNumber, anchor=11, criteria=OfClass(Number), within=52
+        SameNumber, anchor=11, criteria=OfClass(Number), focal_point=52
     )
     g.do_action(a)

@@ -18,7 +18,7 @@ class TestFind(unittest.TestCase):
 
     def test_find_ofclass(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
-        brickids = g.find_all(OfClass(Brick), within=g.ws)
+        brickids = g.find_all(OfClass(Brick), focal_point=g.ws)
         expected = [Brick(4), Brick(5), Brick(6)]
         self.assertCountEqual(g.as_nodes(brickids), expected)
 
@@ -27,7 +27,7 @@ class TestFind(unittest.TestCase):
 
     def test_find_class(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
-        brickids = g.find_all(Brick, within=g.ws)
+        brickids = g.find_all(Brick, focal_point=g.ws)
         expected = [Brick(4), Brick(5), Brick(6)]
         self.assertCountEqual(g.as_nodes(brickids), expected)
 
@@ -58,7 +58,7 @@ class TestFind(unittest.TestCase):
         b4 = g.look_for(Brick(4))
         b5 = g.look_for(Brick(5))
         b6 = g.look_for(Brick(6))
-        brickpairs = g.find_all([Brick, Brick], within=g.ws)
+        brickpairs = g.find_all([Brick, Brick], focal_point=g.ws)
         self.assertCountEqual(
             brickpairs,
             [

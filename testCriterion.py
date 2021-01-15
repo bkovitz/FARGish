@@ -13,7 +13,7 @@ class TestCriterion(unittest.TestCase):
     def test_and(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
         for _ in range(5):
-            ur_plus = g.look_for(And(Plus, CTagged(Allowed)), within=g.ws)
+            ur_plus = g.look_for(And(Plus, CTagged(Allowed)), focal_point=g.ws)
             self.assertTrue(
                 g.is_of_class(ur_plus, Plus),
                 f'{g.nodestr(ur_plus)} is not a Plus'

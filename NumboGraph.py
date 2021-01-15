@@ -38,7 +38,7 @@ lesser, greater : taggees
 wanted : taggees
 current_live_node, current_source_node : taggees
 
-within -- overriding
+focal_point -- overriding
 node1 -- overriding
 node2 -- overriding
 target -- overriding
@@ -92,6 +92,12 @@ Numble = make_numble_class(
 Number.is_duplicable = True
 Operator.is_duplicable = True
 
+Brick.initial_activation = 1.0
+Brick.min_support_for = 1.0
+
+Target.initial_activation = 1.0
+Target.min_support_for = 1.0
+
 Want.min_activation = 1.0
 Want.min_support_for = 10.0
 
@@ -111,6 +117,8 @@ Diff.node_params = NodeParams(
     MateParam('greater', 'tags'),
     AttrParam('value')
 )
+
+OoM.initial_activation = 1.0
 
 # TODO rm these functions?
 
@@ -152,7 +160,7 @@ class NumboSuccess(FargDone):
 class NotAllThisValue(FizzleAndFail):
     #TODO Supply the commented-out parameters.
     value: Any=None
-    #within: NRef=None
+    #focal_point: NRef=None
 
     @classmethod
     def from_env(cls, value: Union[int, None]=None, **kwargs):
@@ -231,15 +239,15 @@ class ConsumeOperands(Action):
 
 @dataclass
 class CountMembers(Action):
-    within: Union[int, None]=None
+    focal_point: Union[int, None]=None
 
     threshold = 1.0
 
     def go(self, g, actor):
-        if not self.within:
-            raise NeedArg(ac=self, name='within')
-        num_members = len(g.neighbors(self.within, port_label='members'))
-        g.add_node(Count, taggees=self.within, value=num_members)
+        if not self.focal_point:
+            raise NeedArg(ac=self, name='focal_point')
+        num_members = len(g.neighbors(self.focal_point, port_label='members'))
+        g.add_node(Count, taggees=self.focal_point, value=num_members)
         g.new_state(self.actor, Completed)
 
 # TODO UT
@@ -259,7 +267,7 @@ class AssessProposal(Action):
         g.sleep(actor)
 
         # Look up the proposal
-        proposal = g.look_for(Proposal, within=g.ws)
+        proposal = g.look_for(Proposal, focal_point=g.ws)
         # TODO Require that proposal's proposed_operands be Avail
         if not proposal:
             raise Fizzle
@@ -338,7 +346,7 @@ class NoticeSolved(Persistent, AcNode):
 
 class AllBricksAvail(Tag, HasUpdate, ActiveNode):
     update_action: Actions = Ac.as_action([
-        All(OfClass(Brick), within=MyContext),
+        All(OfClass(Brick), focal_point=MyContext),
         AcNot(AllAre(CTagged(Avail))),
         SelfDestruct()
     ])
@@ -348,7 +356,7 @@ class AllBricksAvail(Tag, HasUpdate, ActiveNode):
 
 class NoticeAllBricksAreAvail(Persistent, AcNode):
     acs = [
-        All(OfClass(Brick)),  # missing 'within' argument
+        All(OfClass(Brick)),  # missing 'focal_point' argument
         AllAre(CTagged(Avail)),
         TagWith(AllBricksAvail, taggees='nodes')
     ]
@@ -360,7 +368,7 @@ class SeekAndGlom(AcNode):
 
     threshold = 1.0
     acs = [
-        All(OfClass('seekclass'), within=MyContext),
+        All(OfClass('seekclass'), focal_point=MyContext),
         AddNode(Glom, members='nodes')
     ]
 
@@ -389,7 +397,7 @@ class NoticeAllHaveThisValue(AcNode):
             # TODO Get 'value' from env so search and exc are assuredly
             # consistent
         ),
-        TagWith(AllMembersHaveThisValue, taggees='within')
+        TagWith(AllMembersHaveThisValue, taggees='focal_point')
     ]
 
 class NoticeCountSameAsTarget(AcNode):
@@ -443,8 +451,8 @@ class AddAllInGlom(AcNode):
     acs = [
         All(And(OfClass(Number), CTagged(Avail))),
         WithNameOverride(
-            LookFor(And(OfClass(Plus), CTagged(Allowed)), within=InWorkspace),
-            within='opwithin'
+            LookFor(And(OfClass(Plus), CTagged(Allowed)), focal_point=InWorkspace),
+            focal_point='opwithin'
         ),
         AddNode(
             Proposal,
@@ -459,7 +467,7 @@ class OoMTagger(Nonstop, AcNode):
     acs = [
         LookForTup(
             And(Number, NotTagged(OoM)),
-            within=InWorkspace
+            focal_point=InWorkspace
         ),
         LogValue(),
         AddNode(
@@ -479,7 +487,7 @@ class OoMGreaterThanTagger(Persistent, AcNode):
                 NotTheArgsOf(OoMGreaterThan, 'taggees'),
                 TagValuesGt(OoM)
             ),
-            within=InWorkspace
+            focal_point=InWorkspace
         ),
         DeTup(asgn_to=('node1', 'node2')),
         AddNode(
@@ -497,7 +505,7 @@ class OoMSmallGapToWantedTagger(Persistent, AcNode):
                 NotTheArgsOf(OoMSmallGapToWanted, 'taggees'),
                 TagValuesSmallGap(OoM)
             ),
-            within=InWorkspace
+            focal_point=InWorkspace
         ),
         DeTup(asgn_to=('node1', 'node2')),
         AddNode(
@@ -515,7 +523,7 @@ class OoMBigGapToWantedTagger(Persistent, AcNode):
                 NotTheArgsOf(OoMBigGapToWanted, 'taggees'),
                 TagValuesBigGap(OoM)
             ),
-            within=InWorkspace
+            focal_point=InWorkspace
         ),
         DeTup(asgn_to=('node1', 'node2')),
         AddNode(
@@ -534,7 +542,7 @@ class DiffTagger(Persistent, AcNode):
                 NotTheArgsOf(Diff, 'taggees'),
                 GreaterThanOrEqual(),
             ),
-            within=InWorkspace
+            focal_point=InWorkspace
         ),
         DeTup(asgn_to=('greater', 'lesser')),
         ValueDifference(arg1='greater', arg2='lesser'),
@@ -555,7 +563,7 @@ class DiffIsWantedTagger(Persistent, AcNode):
                 NotTheArgsOf(DiffIsWanted, 'taggees'),
                 TupSameValue()
             ),
-            within=InWorkspace
+            focal_point=InWorkspace
         ),
         AddNode(DiffIsWanted, taggees='nodes')
     ]
@@ -582,16 +590,16 @@ class NumboGraph(Graph):
         self.add_node(Workspace)
         self.make_slipnet()
         self.numble.build(self, self.ws)
-        self.add_node(NoticeSolved, member_of=self.ws, within=self.ws)
+        self.add_node(NoticeSolved, member_of=self.ws, focal_point=self.ws)
 
     def make_slipnet(self):
         self.seqnode = make_action_sequence(
             self,
-            SeekAndGlom(within=self.ws, criteria=OfClass(Brick)),
-            NoticeAllHaveThisValue(value=1, within=None),
-            CountMembers(within=None),
+            SeekAndGlom(focal_point=self.ws, criteria=OfClass(Brick)),
+            NoticeAllHaveThisValue(value=1, focal_point=None),
+            CountMembers(focal_point=None),
             NoticeCountSameAsTarget(
-                node1=None, node2=None, value=1, within=InWorkspace
+                node1=None, node2=None, value=1, focal_point=InWorkspace
             ),
             AddAllInGlom(),
             member_of=self.slipnet,

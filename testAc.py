@@ -46,31 +46,31 @@ class TestAc(unittest.TestCase):
 
         env = Ac.run(
             g,
-            All(OfClass(Brick), within=g.ws),
+            All(OfClass(Brick), focal_point=g.ws),
             actor=targetid
         )
         nodes = map(g.as_node, env['nodes'])
         self.assertCountEqual(nodes, [Brick(4), Brick(5), Brick(6)])
 
-        # Should fail because All is missing a 'within' arg.
+        # Should fail because All is missing a 'focal_point' arg.
         try:
             env = Ac.run(g, All(OfClass(Brick)), actor=targetid)
         except NeedArg as exc:
             self.assertEqual(
-                exc, NeedArg(ac=All(OfClass(Brick)), name='within')
+                exc, NeedArg(ac=All(OfClass(Brick)), name='focal_point')
             )
         else:
-            self.fail("Missing 'within' failed to raise AcNeedArg.")
+            self.fail("Missing 'focal_point' failed to raise AcNeedArg.")
 
         env = Ac.run(g, [
-            All(OfClass(Brick), within=g.ws),
+            All(OfClass(Brick), focal_point=g.ws),
             AllAre(CTagged(Avail))
         ], actor=targetid)
         nodes = map(g.as_node, env['nodes'])
         self.assertCountEqual(nodes, [Brick(4), Brick(5), Brick(6)])
 
         env = Ac.run(g, [
-            All(OfClass(Brick), within=g.ws),
+            All(OfClass(Brick), focal_point=g.ws),
             AllAre(CTagged(Avail)),
             TagWith(AllBricksAvail, taggees='nodes')
         ], actor=targetid)
@@ -85,7 +85,7 @@ class TestAc(unittest.TestCase):
         g = NumboGraph(Numble([4, 5, 6], 15))
         
         noticer = g.add_node(AdHocAcNode, [
-            All(OfClass(Brick), within=g.ws),
+            All(OfClass(Brick), focal_point=g.ws),
             AllAre(CTagged(Avail)),
             TagWith(AllBricksAvail, taggees='nodes')
         ], member_of=g.ws)
@@ -110,34 +110,34 @@ class TestAc(unittest.TestCase):
         g.do_timestep(actor=noticer)
 
         # Since the NoticeAllBricksAreAvail can't run, it should get tagged
-        # Blocked(NeedArg('within')).
+        # Blocked(NeedArg('focal_point')).
         tag = g.as_node(g.tag_of(noticer, Blocked))
         self.assertTrue(
             tag,
-            "Failed to create Blocked tag for missing 'within' argument."
+            "Failed to create Blocked tag for missing 'focal_point' argument."
         )
         reason = g.getattr(tag, 'reason')
         self.assertTrue(isinstance(reason, NeedArg))
-        self.assertEqual(reason.name, 'within')
+        self.assertEqual(reason.name, 'focal_point')
 
         self.assertTrue(g.is_blocked(noticer))
 
-        # Now we manually override the 'within' argument.
-        g.add_override_node(noticer, 'within', glom)
+        # Now we manually override the 'focal_point' argument.
+        g.add_override_node(noticer, 'focal_point', glom)
         g.remove_tag(noticer, Blocked)
 
         g.do_timestep(actor=noticer)
         bricks = g.find_all(OfClass(Brick))
         self.assertTrue(
             g.has_tag(bricks, AllBricksAvail),
-            "Did not tag the Bricks even when 'within' was overridden."
+            "Did not tag the Bricks even when 'focal_point' was overridden."
         )
 
     def test_ac_add_node(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
         bricks = g.find_all(OfClass(Brick))
 
-        seek_and_glom = g.add_node(SeekAndGlom, member_of=g.ws, within=g.ws)
+        seek_and_glom = g.add_node(SeekAndGlom, member_of=g.ws, focal_point=g.ws)
 
         g.do_timestep(actor=seek_and_glom)
         glom = g.look_for(
@@ -153,7 +153,7 @@ class TestAc(unittest.TestCase):
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(
-            NoticeAllHaveThisValue, member_of=g.ws, within=glom
+            NoticeAllHaveThisValue, member_of=g.ws, focal_point=glom
         )
 
         g.do_timestep(actor=noticer)
@@ -164,7 +164,7 @@ class TestAc(unittest.TestCase):
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
         noticer = g.add_node(
-            NoticeAllHaveThisValue, member_of=g.ws, within=glom
+            NoticeAllHaveThisValue, member_of=g.ws, focal_point=glom
         )
 
         g.do_timestep(actor=noticer)
@@ -183,9 +183,9 @@ class TestAc(unittest.TestCase):
         # Tests that fields in Criterion objects can be overridden by the
         # same mechanisms as fields in Ac objects.
         g = NumboGraph(Numble([4, 5, 6], 15))
-        target = g.look_for(OfClass(Target), within=g.ws)
+        target = g.look_for(OfClass(Target), focal_point=g.ws)
         assert target, 'No Target node'
-        seeker = g.add_node(SeekAndGlom(seekclass=Target, within=g.ws))
+        seeker = g.add_node(SeekAndGlom(seekclass=Target, focal_point=g.ws))
 
         g.do_timestep(actor=seeker)
         glom = g.look_for(
@@ -198,9 +198,9 @@ class TestAc(unittest.TestCase):
     def test_ac_count_members(self):
         class CountMembers(AcNode):
             acs = [
-                MembersOf('within'),
+                MembersOf('focal_point'),
                 Len('nodes'),
-                TagWith(Count, taggees='within', value='value')
+                TagWith(Count, taggees='focal_point', value='value')
             ]
 
         g = NumboGraph(Numble([4, 5, 6], 15))
@@ -208,14 +208,14 @@ class TestAc(unittest.TestCase):
 
         self.assertFalse(g.has_tag(glom, Count(value=3)))
 
-        counter = g.add_node(CountMembers, within=glom)
+        counter = g.add_node(CountMembers, focal_point=glom)
         g.do_timestep(actor=counter)
         self.assertTrue(g.has_tag(glom, Count(value=3)))
 
     def test_ac_inworkspace(self):
         class FindPlus(AcNode):
             acs = [
-                LookFor(OfClass(Plus), within=InWorkspace),
+                LookFor(OfClass(Plus), focal_point=InWorkspace),
                 Raise(FoundNode, node='node')
             ]
 
@@ -225,7 +225,7 @@ class TestAc(unittest.TestCase):
 
         finder = g.add_node(FindPlus)
         self.assertEqual(
-            as_nodeid(InWorkspace.within(g, finder)),
+            as_nodeid(InWorkspace.focal_point(g, finder)),
             as_nodeid(g.ws)
         )
 
@@ -236,19 +236,19 @@ class TestAc(unittest.TestCase):
     def test_ac_mycontext(self):
         class FindPlus(AcNode):
             acs = [
-                LookFor(Plus, within=MyContext),
+                LookFor(Plus, focal_point=MyContext),
                 Raise(FoundNode, node='node')
             ]
         
         g = NumboGraph(Numble([4, 5, 6], 15))
-        wrong_plus = g.look_for(OfClass(Plus), within=g.ws)
+        wrong_plus = g.look_for(OfClass(Plus), focal_point=g.ws)
         assert wrong_plus, 'No Plus in workspace'
         glom = g.add_node(Glom)
         right_plus = g.add_node(Plus, member_of=glom)
 
         finder = g.add_node(FindPlus, member_of=glom)
         self.assertEqual(
-            as_nodeid(MyContext.within(g, finder)),
+            as_nodeid(MyContext.focal_point(g, finder)),
             as_nodeid(glom.id)
         )
 
@@ -266,7 +266,7 @@ class TestAc(unittest.TestCase):
             NoticeCountSameAsTarget,
             node1=target,
             node2=count,
-            within=g.ws
+            focal_point=g.ws
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
@@ -280,7 +280,7 @@ class TestAc(unittest.TestCase):
 
         noticer = g.add_node(
             NoticeCountSameAsTarget,
-            within=InWorkspace
+            focal_point=InWorkspace
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.has_tag([count, target], SameValue))
@@ -293,7 +293,7 @@ class TestAc(unittest.TestCase):
 
         noticer = g.add_node(
             NoticeCountSameAsTarget,
-            within=InWorkspace
+            focal_point=InWorkspace
         )
         g.do_timestep(actor=noticer)
         self.assertTrue(g.is_failed(noticer))
@@ -302,9 +302,9 @@ class TestAc(unittest.TestCase):
     def test_ac_add_all_in_glom(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
-        proposer = g.add_node(AddAllInGlom, within=glom)
+        proposer = g.add_node(AddAllInGlom, focal_point=glom)
 
-        a_brick = g.look_for(OfClass(Brick), within=g.ws)
+        a_brick = g.look_for(OfClass(Brick), focal_point=g.ws)
         self.assertEqual(g.containers_of_recursive(a_brick), {glom.id, g.ws.id})
 
         g.do_timestep(actor=proposer)
@@ -336,7 +336,7 @@ class TestAc(unittest.TestCase):
         target = g.look_for(OfClass(Target))
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
 
-        noticer = g.add_node(NoticeSolved, within=glom, target=target)
+        noticer = g.add_node(NoticeSolved, focal_point=glom, target=target)
 
         g.do_timestep(actor=noticer)
 
@@ -355,7 +355,7 @@ class TestAc(unittest.TestCase):
             ]
 
         g = NumboGraph(Numble([4, 5, 6, 15], 15))
-        looker = g.add_node(Looker, within=g.ws)
+        looker = g.add_node(Looker, focal_point=g.ws)
 
         g.do_timestep(actor=looker)
         self.assertFalse(g.done())
@@ -366,7 +366,7 @@ class TestAc(unittest.TestCase):
                 LookForTup(
                     [CTagged(Avail), CTagged(Avail)],
                     tupcond=NotTheArgsOf(Plus, 'operands'),
-                    within=InWorkspace
+                    focal_point=InWorkspace
                 ),
                 Raise(FoundTup, tup='nodes')
             ]
@@ -375,7 +375,7 @@ class TestAc(unittest.TestCase):
         b5 = g.look_for(Brick(5))
         b6 = g.look_for(Brick(6))
         plus = g.add_node(Plus, operands=[b4, b5])
-        looker = g.add_node(Looker, within=g.ws)
+        looker = g.add_node(Looker, focal_point=g.ws)
 
         g.do_timestep(actor=looker)
 
@@ -417,14 +417,14 @@ class TestAc(unittest.TestCase):
         glom = g.add_node(Glom, g.find_all(OfClass(Brick)))
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
         tag = g.add_tag(
-            Blocked(reason=NeedArg(ac=noticer.action, name='within')),
+            Blocked(reason=NeedArg(ac=noticer.action, name='focal_point')),
             noticer
         )
         scout = g.add_node(FillParamScout, behalf_of=noticer, problem=tag)
         g.do_timestep(actor=scout)
 
         # The FillParamScout should do the override:
-        self.assertTrue(g.has_hop(noticer, 'within', glom, 'overriding'))
+        self.assertTrue(g.has_hop(noticer, 'focal_point', glom, 'overriding'))
 
         # and remove the Blocked tag:
         self.assertFalse(g.has_node(tag))
@@ -433,7 +433,7 @@ class TestAc(unittest.TestCase):
         g = NumboGraph(Numble([4, 5, 6], 15))
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
         tag = g.add_tag(
-            Blocked(reason=NeedArg(ac=noticer.action, name='within')),
+            Blocked(reason=NeedArg(ac=noticer.action, name='focal_point')),
             noticer
         )
         scout = g.add_node(FillParamScout, behalf_of=noticer, problem=tag)
@@ -452,7 +452,7 @@ class TestAc(unittest.TestCase):
         g = NumboGraph(Numble([4, 5, 6], 15))
         noticer = g.add_node(NoticeAllBricksAreAvail, member_of=g.ws)
         tag = g.add_tag(
-            Blocked(reason=NeedArg(ac=noticer.action, name='within')),
+            Blocked(reason=NeedArg(ac=noticer.action, name='focal_point')),
             noticer
         )
         scout = g.add_node(MyScout, behalf_of=noticer, problem=tag)
@@ -466,21 +466,21 @@ class TestAc(unittest.TestCase):
             acs = [
                 LookForTup(
                     [Brick(4), Brick(5)],
-                    within=InWorkspace,
+                    focal_point=InWorkspace,
                     asgn_to='operands'
                 ),
                 BuildOpResult(operands='operands')
             ]
             
         g = NumboGraph(Numble([4, 5, 6], 15))
-        plus = g.look_for(Plus, within=g.ws)
-        b4 = g.look_for(Brick(4), within=g.ws)
-        b5 = g.look_for(Brick(5), within=g.ws)
+        plus = g.look_for(Plus, focal_point=g.ws)
+        b4 = g.look_for(Brick(4), focal_point=g.ws)
+        b5 = g.look_for(Brick(5), focal_point=g.ws)
         builder = g.add_node(Builder, member_of=g.ws, opclass=plus)
 
         g.do_timestep(actor=builder)
 
-        block = g.as_node(g.look_for(Block, within=g.ws))
+        block = g.as_node(g.look_for(Block, focal_point=g.ws))
         new_plus = g.neighbor(block, 'source')
         self.assertTrue(g.is_of_class(new_plus, Plus))
         self.assertEqual(block, Block(9))
@@ -522,7 +522,7 @@ class TestAc(unittest.TestCase):
         assert len(bricks) == 3
 
         # First, the Noticer tries to run, but can't, because it's missing
-        # a 'within' argument. So, it posts a Blocked tag about it:
+        # a 'focal_point' argument. So, it posts a Blocked tag about it:
         g.do_timestep(actor=noticer)
         problem_tag = g.neighbor(noticer, neighbor_class=Blocked)
         assert problem_tag, 'Noticer did not create problem tag.'
@@ -546,7 +546,7 @@ class TestAc(unittest.TestCase):
         # and should only want to boost the scout:
         self.assertEqual(g.actions(noticer), BoostFromTo({scout}))
 
-        # The Scout should find the Glom, override the Noticer's 'within'
+        # The Scout should find the Glom, override the Noticer's 'focal_point'
         # arg with it, and remove the Blocked tag.
         g.do_timestep(actor=scout)
 
@@ -562,7 +562,7 @@ class TestAc(unittest.TestCase):
         self.assertTrue(g.is_sleeping(noticer))
 #        self.assertTrue(g.is_active(noticer))  # Noticer should stay active
 #                                               # even after success
-        # TODO self.assertEqual(g.get(noticer, 'within'), glom)
+        # TODO self.assertEqual(g.get(noticer, 'focal_point'), glom)
 
     def test_oom_and_gt(self):
         class ActivationTrap(Node):

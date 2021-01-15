@@ -19,7 +19,7 @@ class TestCopyGroup(unittest.TestCase):
 
     def test_copy_slipnode_to_ws(self):
         g = newg()
-        old_node = g.look_for(OfClass(ActionSeqNode), within=g.slipnet)
+        old_node = g.look_for(OfClass(ActionSeqNode), focal_point=g.slipnet)
         assert old_node, "Couldn't find slipnode to copy"
         assert not g.getattr(old_node, 'is_duplicable'), \
             "We're testing the ability to copy a non-duplicable node"
@@ -41,7 +41,7 @@ class TestCopyGroup(unittest.TestCase):
         g = newg()
         slipnet = g.slipnet
         ws = g.ws
-        ns = g.find_all(OfClass(ActionSeqNode), within=slipnet)
+        ns = g.find_all(OfClass(ActionSeqNode), focal_point=slipnet)
         assert len(ns) == 1, 'numbo5 no longer has only one ActionSeqNode in the slipnet. Need to revise (unhack) this test.'
         old_action_seq_node = ns[0]
         #pg(g, g.members_recursive(old_action_seq_node) | {old_action_seq_node})
@@ -68,16 +68,16 @@ class TestCopyGroup(unittest.TestCase):
 #            ), f'Missing child-parent link: {new_seq, new_member}')
             self.assertEqual(g.value_of(new_member, 'state'), Start)
         seek_and_glom = SeekAndGlom(OfClass(Brick), None)
-        notice_all_same_value = NoticeAllSameValue(1, within=None)
-        count_members = CountMembers(within=None)
+        notice_all_same_value = NoticeAllSameValue(1, focal_point=None)
+        count_members = CountMembers(focal_point=None)
         notice_same_value = NoticeSameValue(None, None)
         add_all_in_glom = AddAllInGlom(None, threshold=1.0)
 
-        new_member1 = g.look_for(IsAction(seek_and_glom), within=ws)
-        new_member2 = g.look_for(IsAction(notice_all_same_value), within=ws)
-        new_member3 = g.look_for(IsAction(count_members), within=ws)
-        new_member4 = g.look_for(IsAction(notice_same_value), within=ws)
-        new_member5 = g.look_for(IsAction(add_all_in_glom), within=ws)
+        new_member1 = g.look_for(IsAction(seek_and_glom), focal_point=ws)
+        new_member2 = g.look_for(IsAction(notice_all_same_value), focal_point=ws)
+        new_member3 = g.look_for(IsAction(count_members), focal_point=ws)
+        new_member4 = g.look_for(IsAction(notice_same_value), focal_point=ws)
+        new_member5 = g.look_for(IsAction(add_all_in_glom), focal_point=ws)
         self.assertTrue(new_member1)
         self.assertTrue(new_member2)
         self.assertTrue(new_member3)

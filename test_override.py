@@ -76,12 +76,12 @@ Tag.add_tag = cls_add_tag  # HACK
 @dataclass
 class SeekAndGlom(Action):
     criteria: Union[Criterion, List[Criterion], None]
-    within: int
+    focal_point: int
 
     threshold = 1.0
 
     def go(self, g, actor):
-        glommees = g.find_all(*as_iter(self.criteria), within=self.within)
+        glommees = g.find_all(*as_iter(self.criteria), focal_point=self.focal_point)
         if glommees:
             g.do(Build.maybe_make(g, Glom, glommees))
             g.new_state(actor, Completed)
@@ -89,22 +89,22 @@ class SeekAndGlom(Action):
 
 @dataclass
 class NoticeAllSameValue(Action):
-    within: Union[int, None]
+    focal_point: Union[int, None]
     value: Union[Any, None]
 
     threshold: float = 1.0
 
     def go(self, g, actor):
-        # Test that all members of 'within' have value 'value'.
-        # If so, tag 'within' AllMembersSameValue
+        # Test that all members of 'focal_point' have value 'value'.
+        # If so, tag 'focal_point' AllMembersSameValue
 
-        if not self.within:
-            raise NeedArg(ac=self, name='within')
+        if not self.focal_point:
+            raise NeedArg(ac=self, name='focal_point')
         if all(
             g.value_of(memberid) == self.value
-                for memberid in g.members_of(self.within)
+                for memberid in g.members_of(self.focal_point)
         ):
-            g.do(Build.maybe_make(g, AllMembersSameValue, self.within))
+            g.do(Build.maybe_make(g, AllMembersSameValue, self.focal_point))
             g.new_state(actor, Completed)
         # TODO else: FAILED
 
@@ -139,32 +139,32 @@ class TestOverride(unittest.TestCase):
         g = new_graph()
         g.do_timestep(action=SeekAndGlom(
             criteria=OfClass(Brick),
-            within=g.ws
+            focal_point=g.ws
         ))
         glom = g.look_for(OfClass(Glom))
         assert glom is not None
 
-        # Action lacks 'within' arg
+        # Action lacks 'focal_point' arg
         noticer = g.add_node(
             ActionNode,
-            NoticeAllSameValue(within=None, value=1, threshold=0.0),
+            NoticeAllSameValue(focal_point=None, value=1, threshold=0.0),
             min_support_for=1.0,
             member_of=g.ws
         )
 
         # There are no overrides yet
         param_names = g.datum(noticer).action.param_names()
-        self.assertEqual(param_names, {'within', 'value', 'threshold'})
+        self.assertEqual(param_names, {'focal_point', 'value', 'threshold'})
         self.assertEqual(g.get_overrides(noticer, param_names), {})
 
         # Verify that nothing happens without override
         g.do_timestep()
         self.assertEqual(g.nodes_of_class(AllMembersSameValue), [])
 
-        # Override 'within' by linking from ActionNode's 'within' port
-        g.add_override_node(noticer, 'within', glom)
+        # Override 'focal_point' by linking from ActionNode's 'focal_point' port
+        g.add_override_node(noticer, 'focal_point', glom)
         new_action = g.datum(noticer).action.with_overrides_from(g, noticer)
-        self.assertEqual(new_action.within, glom)
+        self.assertEqual(new_action.focal_point, glom)
 
         # Also remove the Blocked tag
         g.remove_tag(noticer, Blocked)
@@ -185,15 +185,15 @@ class TestOverride(unittest.TestCase):
         g = new_graph()
         g.do_timestep(action=SeekAndGlom(
             criteria=OfClass(Brick),
-            within=g.ws
+            focal_point=g.ws
         ))
         glom = g.look_for(OfClass(Glom))
         assert glom is not None
 
-        # Action lacks 'within' arg
+        # Action lacks 'focal_point' arg
         noticer = g.add_node(
             ActionNode,
-            NoticeAllSameValue(within=None, value=1, threshold=0.0)
+            NoticeAllSameValue(focal_point=None, value=1, threshold=0.0)
         )
 
         # ...So performing it should make a Blocked tag
@@ -203,7 +203,7 @@ class TestOverride(unittest.TestCase):
         self.assertTrue(g.is_of_class(tag, Blocked))
         reason = g.value_of(tag, 'reason')
         self.assertTrue(isinstance(reason, NeedArg))
-        self.assertEqual(reason.name, 'within')
+        self.assertEqual(reason.name, 'focal_point')
         self.assertTrue(g.is_built_by(tag, noticer))
 
         self.assertTrue(g.is_blocked(noticer))

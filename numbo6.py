@@ -21,7 +21,7 @@ class NeedOperands(FizzleAndBlock):
 class LookForOperands(OneShot, AcNode):
     # TODO If no operands, raise an alarm
     acs = [
-        All(CTagged(Avail), within=MyContext),
+        All(CTagged(Avail), focal_point=MyContext),
         Boost(),
         RemoveBlockedTag()
     ]
@@ -37,7 +37,7 @@ class NoticeCouldMakePlus(LateNoticer):
                 [And(CTagged(Avail), MinActivation(3.0)),
                  And(CTagged(Avail), MinActivation(3.0))],
                 tupcond=NotTheArgsOf(Plus, 'source'),
-                within=InWorkspace,
+                focal_point=InWorkspace,
             ),
             NeedOperands.from_env()
         ),
@@ -52,7 +52,7 @@ class NoticeCouldMakeTimes(LateNoticer):
                 [And(CTagged(Avail), MinActivation(3.0)),
                  And(CTagged(Avail), MinActivation(3.0))],
                 tupcond=NotTheArgsOf(Times, 'source'),
-                within=InWorkspace,
+                focal_point=InWorkspace,
             ),
             NeedOperands.from_env()
         ),
@@ -70,7 +70,7 @@ class NoticeCouldMakeMinus(LateNoticer):
                     NotTheArgsOf(Minus, 'source'),
                     GreaterThan()
                 ),
-                within=InWorkspace,
+                focal_point=InWorkspace,
             ),
             NeedOperands.from_env()
         ),
@@ -82,7 +82,7 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
     acs = [
         LookFor(
             OperatorWithAvailOperands(),
-            within=InWorkspace,
+            focal_point=InWorkspace,
             asgn_to='operator'
         ),
         #AsgnNeighbors(node='operator', port_label=Quote('operands')),
@@ -116,14 +116,12 @@ class RunPassiveChain(Action):
 
         #HACK
         anclass = DiffIsWantedTagger  # active node class
-        anode = g.add_node(DiffIsWantedTagger, within=current_live_node)
+        anode = g.add_node(DiffIsWantedTagger, focal_point=current_live_node)
         g.set_mutual_activation(actor, anode)
-
-        # NEXT Get those other nodes to calm down so the DiffIsWantedTagger
-        # can run.
 
         # THEN Write code to step to the next current_live_node and
         # current_source_node.
+
 
 
         #current_source_node = g.neighbor(actor, 'current_source_node')
@@ -174,7 +172,7 @@ class Numbo6Graph(NumboGraph):
 
     def make_initial_nodes(self):
         super().make_initial_nodes()
-        target = self.look_for(Target, within=self.ws)
+        target = self.look_for(Target, focal_point=self.ws)
         want = self.tag_of(target, Want)
         assessor = self.add_node(AssessProposal, behalf_of=want)
         self.set_support_from_to(want, assessor, 1.0)
@@ -257,7 +255,7 @@ if __name__ == '__main__':
     #g.do_timestep(num=39)
 
     g.do_timestep(actor=difft, num=4)
-    g.do_timestep(num=4)
+    g.do_timestep(num=9)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

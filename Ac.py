@@ -94,7 +94,7 @@ class Ac(ABC):
             #print('GETRECUR2', repr(result))
             return result
         elif Context.is_context(result):
-            result = result.within(g, actor)
+            result = result.focal_point(g, actor)
             #print('GETCTX', result)
             return result
         elif is_seq_of(result, Criterion):
@@ -228,28 +228,28 @@ class AcAction(Action):
 @dataclass
 class All(Ac):
     criterion: Acs = None
-    within: MaybeNRef = None   #TODO Allow MyContext
+    focal_point: MaybeNRef = None   #TODO Allow MyContext
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
-        within = self.get(g, actor, env, 'within')
-        env['nodes'] = g.find_all(criterion, within=within)
+        focal_point = self.get(g, actor, env, 'focal_point')
+        env['nodes'] = g.find_all(criterion, focal_point=focal_point)
 
 @dataclass
 class LookFor(Ac):
     criterion: Criterion = None
-    within: MaybeNRef = None
+    focal_point: MaybeNRef = None
     cond: Acs = None  # Acs to check further criteria
     asgn_to: str = 'node'
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
-        within = self.get(g, actor, env, 'within')
+        focal_point = self.get(g, actor, env, 'focal_point')
         node = None
-        #print('LNODE0', node, criterion, within)
+        #print('LNODE0', node, criterion, focal_point)
         # TODO Call g.look_for() and pass a function that checks self.cond
-        for node in g.find_all(criterion, within=within):
-            #print('LNODE', node, criterion, within)
+        for node in g.find_all(criterion, focal_point=focal_point):
+            #print('LNODE', node, criterion, focal_point)
             try:
                 env['node'] = node  # TODO Push/pop 'node'
                 Ac.call(g, self.cond, actor, env)
@@ -332,15 +332,15 @@ class ValueDifference(Ac):
 @dataclass
 class LookForTup(Ac):
     criterion: Criterion = None
-    within: MaybeNRef = None
+    focal_point: MaybeNRef = None
     tupcond: Any = always_true  # TODO appropriate type hint
     asgn_to: str = 'nodes'
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
         criterion = self.get(g, actor, env, 'criterion')
-        within = self.get(g, actor, env, 'within')
+        focal_point = self.get(g, actor, env, 'focal_point')
         tupcond = self.get(g, actor, env, 'tupcond')
-        tup = g.look_for(criterion, within=within, tupcond=tupcond)
+        tup = g.look_for(criterion, focal_point=focal_point, tupcond=tupcond)
         if not tup:
             raise AcFalse(self, actor, env)
         env[self.asgn_to] = tup
@@ -382,11 +382,11 @@ class EqualValue(Ac):
 
 @dataclass
 class MembersOf(Ac):
-    within: MaybeNRef = None
+    focal_point: MaybeNRef = None
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        within = self.get(g, actor, env, 'within')
-        env['nodes'] = g.members_of(within)
+        focal_point = self.get(g, actor, env, 'focal_point')
+        env['nodes'] = g.members_of(focal_point)
 
 @dataclass
 class Len(Ac):
@@ -495,16 +495,16 @@ class FindParamName(Ac):
 
 @dataclass
 class LookForArg(Ac):
-    within: MaybeNRef = MyContext  # TODO type hint should allow MyContext
+    focal_point: MaybeNRef = MyContext  # TODO type hint should allow MyContext
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        within = self.get(g, actor, env, 'within')
+        focal_point = self.get(g, actor, env, 'focal_point')
         #name = self.get(g, actor, env, 'name')
         # TODO Determine the class from 'name'
         criterion = OfClass('Glom')  # HACK
-        node = g.look_for(criterion, within=within)  # HACK
+        node = g.look_for(criterion, focal_point=focal_point)  # HACK
         if not node:
-            #print('LOOKCANT', criterion, node, within)
+            #print('LOOKCANT', criterion, node, focal_point)
             raise CantFind(criterion)
         env['node'] = node
 
@@ -653,7 +653,10 @@ class Restartable(Persistent):
 class Nonstop(AcNode):
     '''Mix-in for an AcNode that should keep running even after completing its
     action.'''
-    post_acs = NewState(Start)
+    post_acs = [
+        NewState(Start),
+        Calm()
+    ]
 
     # TODO OAOO
     def on_completion(self):

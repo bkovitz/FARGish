@@ -18,10 +18,10 @@ class TestNumboGraph(unittest.TestCase):
         g = NumboGraph(Numble([4, 5, 6], 15))
 
         # Don't accept the Plus that is tagged Allowed and has no operands
-        ur_plus = g.look_for(And(Plus, CTagged(Allowed)), within=g.ws)
+        ur_plus = g.look_for(And(Plus, CTagged(Allowed)), focal_point=g.ws)
         self.assertFalse(criterion(g, ur_plus))
 
-        (b4, b5) = g.look_for([Brick(4), Brick(5)], within=g.ws)
+        (b4, b5) = g.look_for([Brick(4), Brick(5)], focal_point=g.ws)
         (plus, block) = g.build_op_and_result(Plus, operands=(b4, b5))
         self.assertTrue(criterion(g, plus))
 
@@ -35,7 +35,7 @@ class TestNumboGraph(unittest.TestCase):
         # a 'consumer' port for the Plus, even though Block's definition
         # says that it links 'source -- consumer'.
         g = NumboGraph(Numble([4, 5, 6], 15))
-        (b4, b5) = g.look_for([Brick(4), Brick(5)], within=g.ws)
+        (b4, b5) = g.look_for([Brick(4), Brick(5)], focal_point=g.ws)
 
         plus = g.add_node(Plus, operands=(b4, b5))
         self.assertCountEqual(
@@ -48,11 +48,11 @@ class TestNumboGraph(unittest.TestCase):
 
     def test_favor_closer_to_focal_point(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
-        b4 = g.look_for(Brick(4), within=g.ws)
-        b5 = g.look_for(Brick(5), within=g.ws)
+        b4 = g.look_for(Brick(4), focal_point=g.ws)
+        b5 = g.look_for(Brick(5), focal_point=g.ws)
         diff = g.add_node(Diff, lesser=b4, greater=b5, value=1)
         tups = [
-            g.look_for([CTagged(Avail), CTagged(Avail)], within=diff)
+            g.look_for([CTagged(Avail), CTagged(Avail)], focal_point=diff)
                 for _ in range(50)  
         ]
         # All or nearly all of the tuples found should contain Brick(4)
