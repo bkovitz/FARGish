@@ -24,7 +24,7 @@ from ActiveNode import ActiveNode, ActionNode, Sleeping
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, \
-    always_true, filter_none
+    always_true, filter_none, clip
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
     FizzleWithTag, Fizzle
 from log import *
@@ -221,6 +221,8 @@ class ActiveGraph(
                     print('removed node', self.long_nodestr(n))
                 self._remove_node(self.as_nodeid(n))
 
+    # TODO Allow either port_label1 or port_label2 to be None; fill in
+    # default from port_mates.
     def add_edge(
         self,
         nodes1: NRefs,
@@ -243,6 +245,17 @@ class ActiveGraph(
                                 self.hopstr(fromid, fromlabel, toid, tl),
                                 attr
                             )
+
+    def move_edge(
+        self,
+        nodes1: NRefs,
+        port_label1: PortLabels,
+        nodes2: NRefs,
+        port_label2: PortLabels,
+        **attr
+    ):
+        self.remove_hops_from_port(nodes1, port_label1)
+        self.add_edge(nodes1, port_label1, nodes2, port_label2, **attr)
 
     def edge_weight(
         self,
@@ -552,6 +565,7 @@ class ActiveGraph(
             return None
 
         filled_params = nodeclas.make_filled_params(self, *args, **kwargs)
+        filled_params.remove_ignored_for_dupcheck(nodeclas)
         if filled_params.specifies_mates():
             candidates = self.neighbors(filled_params.potential_neighbors())
         else:
@@ -1009,7 +1023,8 @@ class ActiveGraph(
                         'taggees', 'tags', 'built', 'built_by',
                         'source', 'consumer',   # are these two HACKs?
                         'next', 'prev',
-                        'problem', 'problem_solver'
+                        'problem', 'problem_solver',
+                        'member_of', 'members' # TODO longer distance?
                     }
                     # TODO Make it easy to override neighbor_label.
                 ))
@@ -1127,7 +1142,8 @@ class ActiveGraph(
 
     def list(self, *nodes, **kwargs) -> List[NodeId]:
         '''For debugging. Called by pg() to get ordered list of nodes to
-        print.'''
+        print. Filters out nodes that do not exist. (That might not be a good
+        idea, if pg() needs to show that the node does not exist.)'''
         if not nodes:
             return sorted(self.nodeids())
 
@@ -1140,7 +1156,8 @@ class ActiveGraph(
         def iterate(nodes: Iterable[MaybeNRef]):
             for node in nodes:
                 if is_nodeid(node) or isinstance(node, Node):
-                    add(node)
+                    if self.has_node(node):
+                        add(node)
                 elif is_iter(node):
                     iterate(node)
                 elif isclass(node):
@@ -1303,14 +1320,18 @@ class ActiveGraph(
         self,
         fromnodes: NRefs,
         tonodes: NRefs,
-        by: float=1.0
+        by: float=3.0
     ):
         for fromnode in as_iter(fromnodes):
             for tonode in as_iter(tonodes):
                 self.boost_activation(
                     tonode,
-                    boost_amount=min(10.0, by * self.support_for(fromnode))
+                    boost_amount=clip(1.0, 10.0, by * self.activation(fromnode))
                 )
+
+    excite = boost_activation_from_to
+    # TODO rm boost_activation_from_to; all callers should call excite().
+    # Or maybe excite_from().
         
     def call_method(self, nref: MaybeNRef, method_name: str, *args, **kwargs):
         '''Returns result of calling method method_name(self, nodeid) on nodeid
@@ -1345,7 +1366,7 @@ class ActiveGraph(
         node = self.as_node(node)
         if node:
             node.state = state
-            if state.is_completed:
+            if state.is_completed(self, node):
                 node.on_completion()
 
     # TODO UT
@@ -1359,8 +1380,7 @@ class ActiveGraph(
             node,
             Sleeping(self.getattr(node, 'state'), until=until)
         )
-        #self.set_activation(node, node.initial_activation / 10.0)
-        self.calm(node)
+        #self.calm(node)
 
     # TODO UT
     def calm(self, nodes: NRefs):
@@ -1735,6 +1755,13 @@ class ActiveGraph(
             self.activation(action.actor),
             self.support_for(action.actor)
         )
+
+    def unexpected_abort(self, actor: NRef, msg: str):
+        '''Destroy 'actor' and log a error message 'msg' if ShowPrimitives
+        or ShowActionsPerformed.'''
+        if ShowPrimitives or ShowActionsPerformed:
+            print(f'unexpected abort  {self.nodestr(actor)}: {msg}')
+        self.remove_node(actor)
 
     def print_actions_header(self, actions: Sequence):
         if not actions:

@@ -64,11 +64,12 @@ Criteria = Sequence[Criterion]
 # TODO UT
 @dataclass
 class NodeEq(Criterion):
-    node: Node
+    node: Node  # Not a NodeId! This enables NodeEq to compare against
+                # Nodes that don't exist.
 
     def __call__(self, g, nref):
-        node = g.datum(nref)
-        return node == self.node
+        that_node = g.datum(nref)
+        return self.node == that_node
 
 @dataclass
 class Tagged(Criterion):

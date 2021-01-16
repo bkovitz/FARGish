@@ -111,6 +111,7 @@ class ActiveNodeState(metaclass=ClassStrIsName):
         method?'''
         return not cls.is_completed(g, thisid)
 
+    # BUGPRONE: we expect to just say .is_completed, not .is_completed(g, nodeid)
     @classmethod
     def is_completed(cls, g, thisid):
         '''Does this state mean that the ActiveNode has finished its

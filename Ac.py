@@ -341,6 +341,7 @@ class LookForTup(Ac):
         focal_point = self.get(g, actor, env, 'focal_point')
         tupcond = self.get(g, actor, env, 'tupcond')
         tup = g.look_for(criterion, focal_point=focal_point, tupcond=tupcond)
+        #print('LOOKFORTUP', tup, criterion, focal_point, tupcond)
         if not tup:
             raise AcFalse(self, actor, env)
         env[self.asgn_to] = tup

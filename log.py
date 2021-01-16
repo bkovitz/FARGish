@@ -57,6 +57,9 @@ ShowAnnotations = LoggingObject()
 ShowIsMatch = LoggingObject()
 ShowResults = LoggingObject()
 
+# TODO Allow LoggingObjects to be or'ed together, e.g.
+# (ShowPrimitives or ShowActionsPerformed)('something happened')
+
 logging.add(ShowResults)
 
 def start_logging(os):

@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from copy import copy
-from itertools import chain
+from itertools import chain, filterfalse
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
@@ -468,10 +468,9 @@ class FilledAttr(FilledParam):
 
 class FilledParams(NiceRepr):
 
-    def __init__(self, fps):
-        '''fps is a dictionary of FilledParam objects.'''
+    def __init__(self, fps: Dict[str, FilledParam]):
         #print('FPS', fps)
-        self.fps = fps
+        self.fps: Dict[str, FilledParam] = fps
 
     def is_match(self, g, nodeclass, nodeid):
         #print('FPS', nodeid, nodeclass, g.is_of_class(nodeid, nodeclass))
@@ -497,6 +496,16 @@ class FilledParams(NiceRepr):
         ))
         #print('FPS_POT', result)
         return result
+
+    def remove_ignored_for_dupcheck(self, nodeclass: Type['Node']):
+        '''Remove any parameters that the nodeclass says should not count
+        for determining whether an instance of the nodeclass has already
+        been built.'''
+        ignored_names = list(filter(
+            nodeclass.ignored_for_dupcheck, self.fps.keys()
+        ))
+        for ignored_name in ignored_names:
+            del self.fps[ignored_name]
 
     def apply_to_node(self, g, nodeid):
         '''Applies the filled parameters to nodeid: sets specified links, adds

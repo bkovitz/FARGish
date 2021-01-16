@@ -74,6 +74,14 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         )
 
     @classmethod
+    def ignored_for_dupcheck(cls, param_name: str) -> bool:
+        return (
+            param_name in cls.attrs_not_to_copy
+            or
+            param_name.startswith('current_')
+        )
+
+    @classmethod
     def defined_roles(cls) -> List[PortLabel]:
         '''Returns list of roles, i.e. port labels from which a neighboring
         node connects to a node of this class, that are defined in this

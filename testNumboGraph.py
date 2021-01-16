@@ -63,3 +63,7 @@ class TestNumboGraph(unittest.TestCase):
             ct.get((b4, b5), 0) + ct.get((b5, b4), 0),
             45
         )
+        # TODO Update this UT to find the Target node from the same
+        # focal_point. This will verify that g.look_for can find a node
+        # in the same Group if it's the only one around but is still heavily
+        # biased toward immediate neighbors.

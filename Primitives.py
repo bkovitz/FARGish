@@ -233,12 +233,15 @@ class ActiveGraphPrimitives(PortGraphPrimitives):
         return self._hops_from_node(as_nodeid(node))
 
     def hops_from_port(self, node: NRef, port_label: PortLabel):
+        # TODO expand_port_label?
         return self._hops_from_port(as_nodeid(node), port_label)
 
     def hops_to_neighbor(self, node: NRef, neighbor: NRef):
         return self._hops_to_neighbor(as_nodeid(node), as_nodeid(neighbor))
 
     def remove_hops_from_port(self, node: NRef, port_label: PortLabel):
+        # TODO Allow NRefs etc.
+        # TODO document that this will expand_port_label?
         self.remove_hop(self.hops_from_port(node, port_label))
 
 class ActivationPrimitives(ABC):

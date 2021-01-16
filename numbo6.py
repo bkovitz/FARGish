@@ -7,6 +7,7 @@ from NumboGraph import *
 from log import *
 from exc import *
 from ActiveGraph import pg, pa, pai, paa, ps
+from ActiveNode import ActionNode
 from criteria import NotTagged, TupAnd as CTupAnd
 
 # Custom exceptions
@@ -111,22 +112,118 @@ class RunPassiveChain(Action):
         # Yes: sleep
         # No following node in archetype: Completed
         # TODO Fail when we wait too long.
+        focal_point = g.neighbors(actor, 'focal_point')
+        current_source_node = g.neighbor(actor, 'current_source_node')
+        next_source_node = g.neighbor(current_source_node, 'next')
         current_live_node = g.neighbor(actor, 'current_live_node')
-        print('RUNPASSIVECHAIN', g.nodestr(current_live_node))
+        current_active_node = g.neighbor(actor, 'current_active_node')
 
-        #HACK
-        anclass = DiffIsWantedTagger  # active node class
-        anode = g.add_node(DiffIsWantedTagger, focal_point=current_live_node)
-        g.set_mutual_activation(actor, anode)
+        print('RUNPASSIVECHAIN', actor, ' ', g.nodestr(current_live_node))
 
-        # THEN Write code to step to the next current_live_node and
-        # current_source_node.
+        if not focal_point:
+            g.unexpected_abort(actor, 'no focal_point')
+        elif not current_source_node:
+            g.unexpected_abort(actor, 'no current_source_node')
+        elif not next_source_node:
+            g.unexpected_abort(actor, 'no next_source_node')
+            # If there's no remaining source node to build an analog of, then
+            # we're done.
+            #g.new_state(actor, Completed)
+        elif not current_live_node:
+            # No current_live_node => we're just starting up.
+            # We take the focal_point as the node that triggered actor to be
+            # built, so we 
+            if g.is_of_class(focal_point, current_source_node):
+                g.add_edge(
+                    actor,
+                    'current_live_node',
+                    focal_point,
+                    'tags'  # TODO omit 'tags' when .add_edge can handle it
+                )
+            else:
+                fp = g.nodestr(focal_point)
+                csn = g.nodestr(current_source_node)
+                g.unexpected_abort(
+                    actor,
+                    f'attempted to start but focal_point {fp}' +
+                    f' not an instance of current_source_node {csn}'
+                )
+        elif not current_active_node:
+            # Make agent to produce the analog of the next_source_node
+            next_active_node_class = self.look_up_active_node_class(
+                g,
+                actor,
+                current_live_node,
+                next_source_node
+            )
+            new_active_node = g.add_node(
+                next_active_node_class, focal_point=focal_point
+            )
+            g.excite(actor, new_active_node)
+            # TODO Support, too
+            g.set_mutual_activation(actor, new_active_node)
+            g.cut_off_support(actor, current_active_node)
+            g.add_edge(
+                actor, 'current_active_node', new_active_node, 'behalf_of'
+            )
+            g.sleep(actor)
+        else:
+            # There is a current_active_node running. Let's see if it has built
+            # the next node in the live chain.
+            next_live_node = g.neighbor(
+                current_active_node,
+                port_label='built',
+                neighbor_class=next_source_node
+            )
+            if next_live_node:
+                # Yes: the current_active_node has built the next step in
+                # the new chain.
+                next_next_source_node = g.neighbor(next_source_node, 'next')
+                if not next_next_source_node:  # Are we done?
+                    g.new_state(Completed)
+                else: # No, so advance to the next step in the source chain
+                    g.move_edge(
+                        actor,
+                        'current_source_node',
+                        next_source_node,
+                        'tags'
+                    )
+                    g.move_edge(
+                        actor,
+                        'next_source_node',
+                        next_next_source_node,
+                        'tags'
+                    )
+                    g.move_edge(
+                        actor,
+                        'current_live_node',
+                        next_live_node,
+                        'tags'
+                    )
+                    g.remove_hops_from_port(actor, 'current_active_node')
+            else:
+                # No: we're waiting for the current_active_node to build the
+                # next node in the live chain.
+                # TODO Fail if current_active_node Failed.
+                # TODO Fail or something if we've waited too long.
+                g.sleep(actor)
 
-
-
-        #current_source_node = g.neighbor(actor, 'current_source_node')
-        #next_source_node = g.neighbor(current_source_node, 'next')
+    def look_up_active_node_class(
+        self, g, actor, current_live_node, next_source_node
+    ) -> CRef:
+        # HACK
+        print(f'LOOKUP ANC {g.nodestr(current_live_node)}, {g.nodestr(next_source_node)}')
         
+        fromclass = g.as_nodeclass(current_live_node)
+        toclass = g.as_nodeclass(next_source_node)
+        return self.anc_dict[(fromclass.__name__, toclass.__name__)]
+
+    # HACK
+    anc_dict = {
+        ('Diff', 'DiffIsWanted'): DiffIsWantedTagger,
+        ('DiffIsWanted', 'Minus'): NoticeCouldMakeMinus,
+        ('Minus', 'Proposal'): ProposeDoingNoticedOperation
+    }
 
 class StartPassiveChainRunner(Action):
 
@@ -138,19 +235,25 @@ class StartPassiveChainRunner(Action):
         initial_node = g.initial_member_of(actor)
         if not initial_node:
             raise Fizzle
+        initial_node = g.as_node(initial_node)
+        # TODO It would be nice if you could pass a nodeid directly to
+        # NodeEq. The current way, requiring a Node, is bug-prone (but
+        # needed for unit tests, at the least).
         triggering_node = g.look_for(
-            OfClass(initial_node),
+            NodeEq(initial_node), #OfClass(initial_node),
             tupcond=NotTheArgsOf(RunPassiveChain, 'triggering_node'),
             subset=g.neighbors(initial_node, 'activation_from')
         )
         if not triggering_node:
             raise Fizzle
         runner = g.add_node(
-            RunPassiveChain,
+            #RunPassiveChain,
+            PassiveChainRunner,
+            passive_chain=actor,
+            focal_point=triggering_node,
             current_live_node=triggering_node,
             current_source_node=initial_node,
-            member_of=g.containers_of(triggering_node),
-            activation_from=triggering_node
+            member_of=g.containers_of(triggering_node)
         )
         g.boost_activation_from_to(actor, runner)
         g.calm(actor)
@@ -162,6 +265,16 @@ class PassiveChain(ActiveNode, Group):
     def actions(self):
         # TODO Only if there is an actual need to start a runner
         return StartPassiveChainRunner()
+
+class PassiveChainRunner(ActiveNode):
+
+    node_params = NodeParams(
+        MateParam('focal_point', 'tags'),
+        MateParam('passive_chain', 'tags')
+    )
+
+    def actions(self):
+        return RunPassiveChain()
 
 class Numbo6Graph(NumboGraph):
 
@@ -178,7 +291,7 @@ class Numbo6Graph(NumboGraph):
         self.set_support_from_to(want, assessor, 1.0)
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
-        ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
+        #ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
         pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         difft = self.add_node(DiffTagger, member_of=self.ws)
         diwt = None #self.add_node(DiffIsWantedTagger, member_of=self.ws)
@@ -194,7 +307,7 @@ class Numbo6Graph(NumboGraph):
             (OoMGreaterThan, [oo1bt, oobigt]),
             (OoM, [oogtt, oo1bt, oobigt]),
             (Diff, diwt),
-            (DiffIsWanted, ncmm),
+            #(DiffIsWanted, ncmm),
             (Number, [difft, oot]),
             (Avail, nsolved),
             (Operator, pdno)  # TODO Only "noticed" Operators
@@ -255,7 +368,9 @@ if __name__ == '__main__':
     #g.do_timestep(num=39)
 
     g.do_timestep(actor=difft, num=4)
-    g.do_timestep(num=9)
+    #g.do_timestep(num=9)
+    g.do_timestep(num=11)
+    #g.do_timestep(num=26)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #
