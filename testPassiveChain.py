@@ -56,10 +56,9 @@ class TestPassiveChain(unittest.TestCase):
         tag1 = g.look_for(DiffIsWanted, subset=g.new_nodes)
         self.assertTrue(tag1)
 
-        g.do_timestep(actor=runner, num=2)  # TODO should happen on 1st timestep
+        g.do_timestep(actor=runner)
         agent2 = g.look_for(NoticeCouldMakeMinus, subset=g.new_nodes)
         self.assertTrue(agent2)
-
 
         for _ in range(6):
             g.do_timestep(actor=as_set(g.walk(agent2, 'agents')))
@@ -82,7 +81,7 @@ class TestPassiveChain(unittest.TestCase):
         )
         '''
 
-        g.do_timestep(actor=runner, num=2)
+        g.do_timestep(actor=runner)
         agent3 = g.look_for(ProposeDoingNoticedOperation, subset=g.new_nodes)
         self.assertTrue(agent3)
 
@@ -94,7 +93,5 @@ class TestPassiveChain(unittest.TestCase):
         self.assertEqual(g.getattr(runner, 'state'), Completed)
 
         #target = g.look_for(Target, focal_point=g.ws)
-        #pg(g, runner, agent3, minus, diff1)
+        #pg(g, runner, agent3, minus, Diff)
         #print('UT', g.new_nodes, )
-
-

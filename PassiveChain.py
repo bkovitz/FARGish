@@ -118,23 +118,10 @@ class RunPassiveChain(Action):
                 )
         elif not current_active_node:
             # Make agent to produce the analog of the next_source_node
-            next_active_node_class = self.look_up_active_node_class(
-                g,
-                actor,
-                current_live_node,
-                next_source_node
+            self.start_new_active_node(
+                g, actor, current_live_node, next_source_node, focal_point,
+                current_active_node
             )
-            new_active_node = g.add_node(
-                next_active_node_class, focal_point=focal_point
-            )
-            g.excite(actor, new_active_node)
-            # TODO Support, too
-            g.set_mutual_activation(actor, new_active_node)
-            g.cut_off_support(actor, current_active_node)
-            g.add_edge(
-                actor, 'current_active_node', new_active_node, 'behalf_of'
-            )
-            g.sleep(actor)
         else:
             # There is a current_active_node running. Let's see if the next
             # node in the live chain (not necessarily by the
@@ -169,13 +156,39 @@ class RunPassiveChain(Action):
                         next_live_node,
                         'tags'
                     )
-                    g.remove_hops_from_port(actor, 'current_active_node')
+                    self.start_new_active_node(
+                        g, actor, next_live_node, next_next_source_node,
+                        focal_point, current_active_node
+                    )
             else:
                 # No: we're waiting for the current_active_node to build the
                 # next node in the live chain.
                 # TODO Fail if current_active_node Failed.
                 # TODO Fail or something if we've waited too long.
                 g.sleep(actor)
+
+    def start_new_active_node(
+        self, g, actor, current_live_node, next_source_node, focal_point,
+        current_active_node
+    ):
+        g.remove_hops_from_port(actor, 'current_active_node')
+        next_active_node_class = self.look_up_active_node_class(
+            g,
+            actor,
+            current_live_node,
+            next_source_node
+        )
+        new_active_node = g.add_node(
+            next_active_node_class, focal_point=focal_point
+        )
+        g.excite(actor, new_active_node)
+        # TODO Support, too
+        g.set_mutual_activation(actor, new_active_node)
+        g.cut_off_support(actor, current_active_node)
+        g.add_edge(
+            actor, 'current_active_node', new_active_node, 'behalf_of'
+        )
+        g.sleep(actor)
 
     def look_up_active_node_class(
         self, g, actor, current_live_node, next_source_node
