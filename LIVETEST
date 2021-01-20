@@ -9,6 +9,7 @@ testNetworkxPortGraph.py
 testNumboGraph.py
 testNodeParams.py
 testNumble.py
+testPassiveChain.py
 testPostamble.py
 testPropagator.py
 testStdGraph.py

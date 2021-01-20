@@ -13,6 +13,7 @@ Node.py
 NodeParams.py
 Numble.py
 NumboGraph.py
+PassiveChain.py
 PortMates.py
 Predefs.py
 Primitives.py
