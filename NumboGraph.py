@@ -565,7 +565,7 @@ class DiffIsWantedTagger(Persistent, AcNode):
             ),
             focal_point=InWorkspace
         ),
-        AddNode(DiffIsWanted, taggees='nodes')
+        AddNode(DiffIsWanted, taggees='nodes', completion_of='this')
     ]
 
 # The Graph class

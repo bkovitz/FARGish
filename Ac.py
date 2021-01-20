@@ -63,6 +63,9 @@ class Ac(ABC):
         recursive lookup, if you need to actually return a string.
         Raises NeedArg if the value found is None or not found.'''
         # TODO Document name_overrides_
+        # TODO Document special meaning of 'this'
+        if name == 'this':
+            return actor
         #print('ACNAME0', name, self.name_overrides_)
         name = self.name_overrides_.get(name, name)
         #print('ACNAME1', name)

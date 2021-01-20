@@ -76,7 +76,12 @@ class NoticeCouldMakeMinus(LateNoticer):
             NeedOperands.from_env()
         ),
         DeTup(asgn_to=('minuend', 'subtrahend')),
-        BuildOpResult(Minus, minuend='minuend', subtrahend='subtrahend')
+        BuildOpResult(
+            Minus,
+            minuend='minuend',
+            subtrahend='subtrahend',
+            completion_of='this'
+        )
     ]
 
 class ProposeDoingNoticedOperation(Persistent, AcNode):
@@ -95,7 +100,8 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
             #proposed_operands='operands',
             neighbors='proposed',
                 # HACKish: neighbors is a dict; handled specially by AddNode
-            proposed_operator='operator'
+            proposed_operator='operator',
+            completion_of='this'
         ),
         Boost(nodes='node')
     ]
@@ -168,19 +174,20 @@ class RunPassiveChain(Action):
             )
             g.sleep(actor)
         else:
-            # There is a current_active_node running. Let's see if it has built
-            # the next node in the live chain.
+            # There is a current_active_node running. Let's see if the next
+            # node in the live chain (not necessarily by the
+            # current_active_node).
             next_live_node = g.neighbor(
                 current_active_node,
-                port_label='built',
+                port_label='completion',
                 neighbor_class=next_source_node
             )
             if next_live_node:
                 # Yes: the current_active_node has built the next step in
-                # the new chain.
+                # the new chain, or something else built it.
                 next_next_source_node = g.neighbor(next_source_node, 'next')
                 if not next_next_source_node:  # Are we done?
-                    g.new_state(Completed)
+                    g.new_state(actor, Completed)
                 else: # No, so advance to the next step in the source chain
                     g.move_edge(
                         actor,
