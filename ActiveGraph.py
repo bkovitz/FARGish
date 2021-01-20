@@ -1499,7 +1499,10 @@ class ActiveGraph(
                 elif actor is not None:
                     if is_abstract_cref(actor):
                         actor = self.look_for(actor)
-                    actions_to_do = self.collect_actions([actor])
+                    #actions_to_do = self.collect_actions([actor])
+                    actions_to_do = self.collect_actions(
+                        as_set(self.as_nodeids(actor))
+                    )
                 else:
                     actions_to_do = self.collect_actions_from_graph()
 

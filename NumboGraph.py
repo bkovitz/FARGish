@@ -20,7 +20,7 @@ from Ac import Ac, AcNode, AdHocAcNode, All, AllAre, TagWith, AddNode, OrFail, \
     SelfDestruct, FindParamName, LookForArg, AddOverride, RemoveBlockedTag, \
     WithNameOverride, LookForTup, HasKwargs, Persistent, Boost, OrBlock, \
     Restartable, DeTup, Nonstop, CantFind, NotEqualValue, AsgnNeighbors, \
-    LogValue, OneShot, AsgnProposedNeighbors, ValueDifference
+    LogValue, OneShot, AsgnProposedNeighbors, ValueDifference, LateNoticer
 from ActiveNode import ActiveNode, Start, Completed, HasUpdate, \
     make_action_sequence
 from Action import Action, Actions, BuildAgent
@@ -154,6 +154,10 @@ class NumboSuccess(FargDone):
     succeeded: bool = field(init=False, default=True)
     node: NRef
     target: NRef
+
+@dataclass
+class NeedOperands(FizzleAndBlock):
+    agent_nodeclass = 'LookForOperands'
 
 @dataclass
 #class NotAllThisValue(AcFailed):
@@ -387,6 +391,14 @@ class FillParamScout(AcNode):
         RemoveBlockedTag()
     ]
 
+class LookForOperands(OneShot, AcNode):
+    # TODO If no operands, raise an alarm
+    acs = [
+        All(CTagged(Avail), focal_point=MyContext),
+        Boost(),
+        RemoveBlockedTag()
+    ]
+
 class NoticeAllHaveThisValue(AcNode):
     threshold = 1.0
     acs = [
@@ -568,6 +580,81 @@ class DiffIsWantedTagger(Persistent, AcNode):
         AddNode(DiffIsWanted, taggees='nodes', completion_of='this')
     ]
 
+class NoticeCouldMakePlus(LateNoticer):
+    min_support_for = 1.0
+    acs = [
+        OrBlock(
+            LookForTup(
+                [And(CTagged(Avail), MinActivation(3.0)),
+                 And(CTagged(Avail), MinActivation(3.0))],
+                tupcond=NotTheArgsOf(Plus, 'source'),
+                focal_point=InWorkspace,
+            ),
+            NeedOperands.from_env()
+        ),
+        BuildOpResult(Plus, operands='nodes')
+    ]
+
+class NoticeCouldMakeTimes(LateNoticer):
+    min_support_for = 1.0
+    acs = [
+        OrBlock(
+            LookForTup(
+                [And(CTagged(Avail), MinActivation(3.0)),
+                 And(CTagged(Avail), MinActivation(3.0))],
+                tupcond=NotTheArgsOf(Times, 'source'),
+                focal_point=InWorkspace,
+            ),
+            NeedOperands.from_env()
+        ),
+        BuildOpResult(Times, operands='nodes')
+    ]
+
+class NoticeCouldMakeMinus(LateNoticer):
+    min_support_for = 1.0
+    acs = [
+        OrBlock(
+            LookForTup(
+                [And(CTagged(Avail), MinActivation(3.0)),
+                 And(CTagged(Avail), MinActivation(3.0))],
+                tupcond=CTupAnd(
+                    NotTheArgsOf(Minus, 'source'),
+                    GreaterThan()
+                ),
+                focal_point=InWorkspace,
+            ),
+            NeedOperands.from_env()
+        ),
+        DeTup(asgn_to=('minuend', 'subtrahend')),
+        BuildOpResult(
+            Minus,
+            minuend='minuend',
+            subtrahend='subtrahend',
+            completion_of='this'
+        )
+    ]
+
+class ProposeDoingNoticedOperation(Persistent, AcNode):
+    acs = [
+        LookFor(
+            OperatorWithAvailOperands(),
+            focal_point=InWorkspace,
+            asgn_to='operator'
+        ),
+        #AsgnNeighbors(node='operator', port_label=Quote('operands')),
+        AsgnProposedNeighbors(node='operator', port_label=Quote('operands')),
+        AddNode(
+            Proposal,
+            action=ConsumeOperands(),
+            #proposed_operands='operands',
+            neighbors='proposed',
+                # HACKish: neighbors is a dict; handled specially by AddNode
+            proposed_operator='operator',
+            completion_of='this'
+        ),
+        Boost(nodes='node')
+    ]
+
 # The Graph class
 
 class NumboGraph(Graph):
@@ -576,7 +663,8 @@ class NumboGraph(Graph):
         super().__init__(*args, **kwargs)
         self.nodeclasses.update(nodeclasses)
         self.add_nodeclasses(
-            AllBricksAvail, NoticeAllBricksAreAvail, FillParamScout, Proposal
+            AllBricksAvail, NoticeAllBricksAreAvail, FillParamScout, Proposal,
+            LookForOperands
         )
 
         #TODO rm

@@ -654,6 +654,9 @@ class Restartable(Persistent):
     successfully completing its action.'''
     post_acs = SleepUntilAwakened()
 
+class LateNoticer(Persistent, AcNode):
+    initial_activation = 0.02
+
 class Nonstop(AcNode):
     '''Mix-in for an AcNode that should keep running even after completing its
     action.'''

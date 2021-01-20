@@ -56,7 +56,6 @@ class TestFind(unittest.TestCase):
     def test_find_cartesian_product(self):
         g = NumboGraph(Numble([4, 5, 6], 15))
         b4 = g.look_for(Brick(4))
-        print('UT', b4)
         b5 = g.look_for(Brick(5))
         b6 = g.look_for(Brick(6))
         brickpairs = g.find_all([Brick, Brick], focal_point=g.ws)
