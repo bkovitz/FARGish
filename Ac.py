@@ -344,7 +344,7 @@ class LookForTup(Ac):
         focal_point = self.get(g, actor, env, 'focal_point')
         tupcond = self.get(g, actor, env, 'tupcond')
         tup = g.look_for(criterion, focal_point=focal_point, tupcond=tupcond)
-        #print('LOOKFORTUP', tup, criterion, focal_point, tupcond)
+        print(f'LOOKFORTUP tup={tup}, criterion={criterion}, focal_point={focal_point}, tupcond={tupcond}')
         if not tup:
             raise AcFalse(self, actor, env)
         env[self.asgn_to] = tup
@@ -609,7 +609,14 @@ class PrintEnv(Ac):
     '''For debugging.'''
 
     def go(self, g: 'G', actor: NRef, env: AcEnv) -> None:
-        print('ENV', env)
+        print('PRINTENV', env)
+
+@dataclass
+class PrintInfo(Ac):
+    '''For debugging.'''
+
+    def go(self, g, actor, env):
+        print('INFO:', g.nodestr(actor), env)
 
 class AcNode(ActionNode):
     '''A node that holds one or more Ac objects and tries to perform them.

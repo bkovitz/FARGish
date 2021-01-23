@@ -1000,6 +1000,25 @@ class ActiveGraph(
         else:
             return [d.get(node, 0.0) for node in nodes_or_tups]
 
+    def _asum(self, nnn: Union[NRef, List[NRef], Tuple[NRef]]) \
+    -> float:
+        '''Returns the sum of the activations of all the NRefs passed in.'''
+        if not nnn:
+            return 0.0
+        elif self.is_nref(nnn):
+            return self.activation(nnn)
+        elif (
+            isinstance(nnn[0], tuple)
+            or
+            isinstance(nnn[0], list)
+        ):
+            return [
+                sum(self.activation(node) for node in tup)
+                    for tup in nnn
+            ]
+        else:
+            return sum(self.activation(node) for node in nnn)
+
     def look_for(
         self,
         criterion: Union[Criterion, Sequence[Criterion]],
@@ -1012,6 +1031,7 @@ class ActiveGraph(
         # If 'focal_point' is a node other than a Group node, we treat it as a
         # focal point, and only search near it.
         weight_by_distance = False
+        print('LOOK_FOR0', focal_point, criterion)
         if focal_point:
             if self.is_of_class(focal_point, 'Group'):
                 nodes = self.members_recursive(focal_point)
@@ -1041,11 +1061,18 @@ class ActiveGraph(
             criterion, subset=nodes, tupcond=tupcond
         )
         if weight_by_distance:
-            nodesd = dict(
-                (nodeid, self.activation(nodeid) / (dist + 1))
+            nodesw = dict(
+                (nodeid, self.activation(nodeid) / abs(dist + 1) ** 10)
                     for nodeid, dist in nodesd.items()
             )
-            return self.choose_by_dict_weight(nodes_or_tups, nodesd)
+            print('LOOK_FOR1', self.nodestr(focal_point))
+            print('LOOK_FOR2')
+            for nodeid in [10, 12, 14]:  #DEBUG
+                dist = nodesd[nodeid]
+                print(f'  {nodeid} {dist} {1 / (dist + 1)**2:.3f}  a={self.activation(nodeid):.3f}')
+            for nt, w in zip(nodes_or_tups, self._weighted(nodes_or_tups, nodesw)): #DEBUG
+                print(f'  {nt} {self._asum(nt):.3f} {w:.3f}')
+            return self.choose_by_dict_weight(nodes_or_tups, nodesw)
         else:
             try:
                 return self.choose_by_activation(nodes_or_tups)
