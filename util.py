@@ -4,8 +4,8 @@ from collections.abc import Iterable
 import random
 import sys
 from inspect import isclass
-from typing import Union, List, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Callable, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
@@ -167,6 +167,35 @@ def rescale(xs, new_total=1.0):
     else:
         multiplier = new_total / sum(xs)
         return [multiplier * x for x in xs]
+
+def rescale_to_max(xs: Sequence[float]) -> Iterable[float]:
+    '''Returns xs, rescaled so that max(xs) == 1.0.'''
+    #TODO Deal with it in a nice way if max(xs) <= 0.0.'''
+    if not xs:
+        return xs
+    m = max(xs)
+    if m <= 0.0:
+        offset = 1.0 - m
+        for x in xs:
+            yield x + offset
+    else:
+        for x in xs:
+            yield x / m
+
+def reweight(xs: Sequence[float], s: float) -> Iterable[float]:
+    '''See Ben's notes, 23-Dec-2019. 0.0 <= s <= 1.0. s small scales weights to
+    be all nearly 1.0 except for the very lowest ones. s large scales weights
+    to be be all nearly 0.0 except for the very highest ones. If s == 0.5,
+    the weights will be unchanged. 's' stands for sensitivity to the weights.'''
+    if not xs:
+        return []
+    p = 10 ** (4 * s - 2)
+    m = max(xs)
+    #print('REWxs', xs)
+    #print('REWrxs', list(rescale_to_max(xs)))
+    for x in rescale_to_max(xs):
+        #print('REWx', x, x ** p)
+        yield x ** p
 
 # TODO BUG numpy has its own random-number generator. This results in
 # indeterminism because other code invokes Python's random-number generator.

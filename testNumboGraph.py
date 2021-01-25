@@ -61,7 +61,7 @@ class TestNumboGraph(unittest.TestCase):
         ct = Counter(tups)
         self.assertGreaterEqual(
             ct.get((b4, b5), 0) + ct.get((b5, b4), 0),
-            45
+            35
         )
         # TODO Update this UT to find the Target node from the same
         # focal_point. This will verify that g.look_for can find a node

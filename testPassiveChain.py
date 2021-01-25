@@ -33,15 +33,11 @@ class TestPassiveChain(unittest.TestCase):
         # counts ((greater, lesser), (minuend, subtrahend)) in order to verify
         # that usually the Minus's operands match the Diff's taggees
 
-        for testi in range(1):
+        for testi in range(10):
             g = TestGraph(Numble([4, 5, 6], 1))
-            if testi == 0:
-                pg(g, Brick)
             difft = g.add_node(DiffTagger, member_of=g.ws)
 
-            print('T0')
             g.do_timestep(actor=difft, num=6)
-            print('T1') #DEBUG
             diff1 = g.look_for(Diff(value=1), focal_point=g.ws)
             assert diff1, "Initialization didn't build a Diff(value=1) tag."
             passive_chain = g.look_for(PassiveChain, focal_point=g.slipnet)
@@ -70,7 +66,6 @@ class TestPassiveChain(unittest.TestCase):
             agent2 = g.look_for(NoticeCouldMakeMinus, subset=g.new_nodes)
             self.assertTrue(agent2)
 
-            pg(g, Brick) #DEBUG
             for _ in range(6):
                 g.do_timestep(actor=as_set(g.walk(agent2, 'agents')))
                 minus = g.neighbor(agent2, 'completion', neighbor_class=Minus)
@@ -120,5 +115,10 @@ class TestPassiveChain(unittest.TestCase):
                 same_operands_counter[True] += count
             else:
                 same_operands_counter[False] += count
-        print('UT', test_counter.items())
-        print(same_operands_counter)
+        #print('UT', test_counter.items())
+        #print(same_operands_counter, len(same_operands_counter), len(test_counter))
+        self.assertGreaterEqual(
+            same_operands_counter[True],
+            0.6 * sum(same_operands_counter.values())
+            # TODO Raise 0.6 to 0.9 once this test runs faster.
+        )

@@ -8,6 +8,7 @@ from log import *
 from exc import *
 from ActiveGraph import pg, pa, pai, paa, ps
 from ActiveNode import ActionNode
+from PassiveChain import PassiveChain
 from criteria import NotTagged, TupAnd as CTupAnd
 
 # Custom exceptions

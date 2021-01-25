@@ -24,7 +24,7 @@ from ActiveNode import ActiveNode, ActionNode, Sleeping
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, \
-    always_true, filter_none, clip
+    always_true, filter_none, clip, reweight
 from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
     FizzleWithTag, Fizzle
 from log import *
@@ -983,7 +983,11 @@ class ActiveGraph(
     ) -> MaybeNRef:
         if not nodes_or_tups:
             return None
-        return choices(nodes_or_tups, self._weighted(nodes_or_tups, d))[0]
+        weights = list(reweight(self._weighted(nodes_or_tups, d), s=0.78))
+#        print('CBDW', nodes_or_tups, weights)
+#        for nt, w in zip(nodes_or_tups, weights):
+#            print(f'  {nt}  {w:.3f}')
+        return choices(nodes_or_tups, weights)[0]
 
     def _weighted(
         self,
@@ -1031,7 +1035,6 @@ class ActiveGraph(
         # If 'focal_point' is a node other than a Group node, we treat it as a
         # focal point, and only search near it.
         weight_by_distance = False
-        print('LOOK_FOR0', focal_point, criterion)
         if focal_point:
             if self.is_of_class(focal_point, 'Group'):
                 nodes = self.members_recursive(focal_point)
@@ -1062,16 +1065,22 @@ class ActiveGraph(
         )
         if weight_by_distance:
             nodesw = dict(
-                (nodeid, self.activation(nodeid) / abs(dist + 1) ** 10)
+                #(nodeid, self.activation(nodeid) / abs(dist + 1) ** 10)
+                (nodeid, self.activation(nodeid) / max(dist + 1, 1))
                     for nodeid, dist in nodesd.items()
             )
-            print('LOOK_FOR1', self.nodestr(focal_point))
-            print('LOOK_FOR2')
-            for nodeid in [10, 12, 14]:  #DEBUG
-                dist = nodesd[nodeid]
-                print(f'  {nodeid} {dist} {1 / (dist + 1)**2:.3f}  a={self.activation(nodeid):.3f}')
-            for nt, w in zip(nodes_or_tups, self._weighted(nodes_or_tups, nodesw)): #DEBUG
-                print(f'  {nt} {self._asum(nt):.3f} {w:.3f}')
+#            nodesw = dict(zip(
+#                nodesw.keys(), reweight(nodesw.values(), 0.8)
+#            ))
+#            print('LOOK_FOR1', self.nodestr(focal_point))
+#            print('LOOK_FOR2')
+#            for nodeid in [10, 12, 14]:  #DEBUG
+#                dist = nodesd[nodeid]
+#                m = 1 / (dist + 1)**1
+#                a = self.activation(nodeid)
+#                print(f'  {nodeid} {dist} {m:.3f}  a={a:.3f}  {a*m:.3f}  {nodesw[nodeid]}')
+#            for nt, w in zip(nodes_or_tups, self._weighted(nodes_or_tups, nodesw)): #DEBUG
+#                print(f'  {nt} {self._asum(nt):.3f} {w}')
             return self.choose_by_dict_weight(nodes_or_tups, nodesw)
         else:
             try:
