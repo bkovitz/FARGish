@@ -48,8 +48,7 @@ if __name__ == '__main__':
     ShowPrimitives.start_logging()
     neural_program = g.copy_group(g.seqnode, g.ws)
     neural_program.min_activation = 10.0
-    g.do_timestep(num=10)
+    #g.do_timestep(num=10)
     pg(g)
-    print(g.done())
+    #print(g.done())
     #g.do_timestep()
-    

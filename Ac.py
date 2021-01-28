@@ -602,7 +602,8 @@ class NewState(Ac):
     def go(self, g, actor, env):
         actor = g.as_node(actor)
         new_state = self.get(g, actor, env, 'new_state')
-        actor.state = new_state
+        #actor.state = new_state
+        g.new_state(actor, new_state)
 
 @dataclass
 class PrintEnv(Ac):

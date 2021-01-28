@@ -100,6 +100,7 @@ class ActiveNode(ABC, Node):
         #TODO Remove excitation/inhibition edges, not support edges
         #g.remove_support_edges(thisid)
         # TODO Better: zero the weights rather than remove the edges.
+        print('ONCOMPL', self.nodestr())
         self.g.remove_outgoing_activation_edges(self)
         self.g.remove_incoming_activation_edges(self)
 
