@@ -1,6 +1,8 @@
 # PassiveChain.py -- PassiveChain and ancillary nodeclasses
 
 from pprint import pprint as pp
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
+    NewType, Type, ClassVar, Sequence, Callable
 
 from log import *
 from exc import Fizzle
@@ -206,3 +208,15 @@ class RunPassiveChain(Action):
         ('DiffIsWanted', 'Minus'): NoticeCouldMakeMinus,
         ('Minus', 'Proposal'): ProposeDoingNoticedOperation
     }
+
+def make_passive_chain(
+    g: 'G', *nodespecs: Iterable['Node'], **kwargs
+):
+    '''You will probably want to provide member_of=g.ws or
+    member_of=g.slipnet.'''
+    pchain = g.add_node(PassiveChain, **kwargs)
+    members = [
+        g.add_node(nodespec, member_of=pchain) for nodespec in nodespecs
+    ]
+    g.link_sequence(members)
+    g.set_mutual_activation(pchain, members)

@@ -8,7 +8,7 @@ from log import *
 from exc import *
 from ActiveGraph import pg, pa, pai, paa, ps
 from ActiveNode import ActionNode
-from PassiveChain import PassiveChain
+from PassiveChain import PassiveChain, make_passive_chain
 from criteria import NotTagged, TupAnd as CTupAnd
 
 # Custom exceptions
@@ -63,13 +63,17 @@ class Numbo6Graph(NumboGraph):
 
     def make_slipnet(self):
         sl = self.add_node(Slipnet)
-        pc1 = self.add_node(PassiveChain, member_of=sl)
-        n1 = self.add_node(Diff, value=1, member_of=pc1)
-        n2 = self.add_node(DiffIsWanted, member_of=pc1)
-        n3 = self.add_node(Minus, member_of=pc1)
-        n4 = self.add_node(Proposal, member_of=pc1)
-        self.link_sequence([n1, n2, n3, n4])
-        self.set_mutual_activation(pc1, [n1, n2, n3, n4])
+#        pc1 = self.add_node(PassiveChain, member_of=sl)
+#        n1 = self.add_node(Diff, value=1, member_of=pc1)
+#        n2 = self.add_node(DiffIsWanted, member_of=pc1)
+#        n3 = self.add_node(Minus, member_of=pc1)
+#        n4 = self.add_node(Proposal, member_of=pc1)
+#        self.link_sequence([n1, n2, n3, n4])
+#        self.set_mutual_activation(pc1, [n1, n2, n3, n4])
+        make_passive_chain(
+            self, Diff(value=1), DiffIsWanted, Minus, Proposal,
+            member_of=sl
+        )
         self.set_activation(self.members_recursive(sl), 0.0)
 
     def end_of_timestep(self):
@@ -117,7 +121,8 @@ if __name__ == '__main__':
     #g.do_timestep(num=39)
 
     g.do_timestep(actor=difft, num=4)
-    g.do_timestep(num=23)
+    g.do_timestep(num=38)
+    print(g.done())
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #
