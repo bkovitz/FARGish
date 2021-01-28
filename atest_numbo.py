@@ -107,6 +107,7 @@ class NumboTest(unittest.TestCase):
         # The solution will need a Minus.
         g = GraphWithPassiveChain(Numble([4, 5, 6], 1))
         g.do_timestep(num=60)
+        #print(f't={g.t}')
         self.assertTrue(g.succeeded())
 
 if __name__ == '__main__':

@@ -88,7 +88,7 @@ g = None
 if __name__ == '__main__':
     #numble = Numble([4, 5, 6], 15)
     #numble = Numble([4, 5, 6], 34)
-    numble = Numble([4, 5, 6], 1)
+    numble = Numble([4, 5, 6], 30)
     g = newg(numble)
     want = g.look_for(Want)
     assert want
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
-    ShowIsMatch.start_logging()
+    #ShowIsMatch.start_logging()
 
     oot = g.look_for(OoMTagger)
     oobigt = g.look_for(OoMBigGapToWantedTagger)
@@ -113,7 +113,7 @@ if __name__ == '__main__':
     #g.do_timestep(actor=ncmm)
     #g.do_timestep(num=39)
 
-    g.do_timestep(actor=difft, num=4)
+    #g.do_timestep(actor=difft, num=4)
     g.do_timestep(num=38)
     print(g.done())
 
