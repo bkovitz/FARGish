@@ -486,7 +486,7 @@ class FilledParams(NiceRepr):
             fps = all(fp.is_match(g, nodeid) for fp in self.fps.values())
             for fp in self.fps.values():
                 print(fp.is_match(g, nodeid), fp)
-            print(f'IS_MATCH {self} nodeid={nodeid} ioc={ioc} fps={fps} result={result}')
+            print(f'IS_MATCH nodeclass={nodeclass} {self} nodeid={nodeid} ioc={ioc} fps={fps} result={result}')
         return result
 
     # TODO Rename this: very confusing!  potential_mates()?

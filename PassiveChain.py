@@ -182,7 +182,7 @@ class RunPassiveChain(Action):
             next_active_node_class, focal_point=focal_point
         )
         g.excite(actor, new_active_node)
-        # TODO Support, too
+        g.set_support_from_to(actor, new_active_node, 1.0)
         g.set_mutual_activation(actor, new_active_node)
         g.cut_off_support(actor, current_active_node)
         g.add_edge(

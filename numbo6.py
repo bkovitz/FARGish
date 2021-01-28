@@ -102,6 +102,7 @@ if __name__ == '__main__':
     ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
     ShowPrimitives.start_logging()
+    ShowIsMatch.start_logging()
 
     oot = g.look_for(OoMTagger)
     oobigt = g.look_for(OoMBigGapToWantedTagger)
@@ -116,9 +117,7 @@ if __name__ == '__main__':
     #g.do_timestep(num=39)
 
     g.do_timestep(actor=difft, num=4)
-    #g.do_timestep(num=9)
-    g.do_timestep(num=11)
-    #g.do_timestep(num=26)
+    g.do_timestep(num=23)
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

@@ -661,7 +661,8 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
             neighbors='proposed',
                 # HACKish: neighbors is a dict; handled specially by AddNode
             proposed_operator='operator',
-            completion_of='this'
+            completion_of='this',
+            support_from='this'
         ),
         Boost(nodes='node')
     ]

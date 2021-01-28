@@ -49,6 +49,10 @@ class Node:
         'id', 'g', 'filled_params', 'tob', 'support_for', 'state'
     ])
 
+    mates_ignored_for_dupcheck: ClassVar[Set[PortLabel]] = frozenset([
+        'completion', 'completion_of', 'support_from', 'support_to'
+    ])
+
     def __init__(self, *args, **kwargs):
         if len(args) == 1 and isinstance(args[0], FilledParams):
             #TODO apply FilledParams, just Attrs
@@ -75,8 +79,11 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
 
     @classmethod
     def ignored_for_dupcheck(cls, param_name: str) -> bool:
+        # BUG TODO We also need to ignore subclasses of ignored mate labels.
         return (
             param_name in cls.attrs_not_to_copy
+            or
+            param_name in cls.mates_ignored_for_dupcheck
             or
             param_name.startswith('current_')
         )
