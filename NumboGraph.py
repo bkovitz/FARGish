@@ -275,19 +275,29 @@ class AssessProposal(Action):
         proposal = g.look_for(Proposal, focal_point=g.ws)
         # TODO Require that proposal's proposed_operands be Avail
         if not proposal:
-            raise Fizzle
+            raise Fizzle  # TODO Indicate why we fizzled
+        proposal = g.as_node(proposal)
         if g.has_tag(proposal, Done):
             g.cut_off_support(actor, proposal)
             return
         operator = g.neighbor(proposal, 'proposed_operator')
+        if not operator:
+            raise Fizzle  # TODO Indicate why we fizzled
+        operands = g.neighbors(proposal, 'proposed_operands')
+        if not operands:
+            raise Fizzle  # TODO Indicate why we fizzled
+        operand_values = list(map(g.value_of, operands))
         result = g.neighbor(operator, 'result')
         result_value = g.value_of(result)
-        operands = g.neighbors(proposal, 'proposed_operands')
-        operand_values = list(map(g.value_of, operands))
-        # TODO Fizzle and/or get Blocked if anything is missing
-
+        if result_value is None:
+            # HACK: Should put pressure on something else to estimate the
+            # result, not calculate it ourselves. But as of 28-Jan-2021,
+            # this gets the atests to pass.
+            operator_class = g.class_of(operator)
+            result_value = operator_class.result_value(proposal)
+        
         # Assess whether we think the Proposal makes progress
-        print('ASSESS', operator, result, operands)
+        #print('ASSESS', operator, result, result_value, operands)
         result_dist = abs(target_value - result_value)
         if result_dist == 0:
             g.add_support(actor, proposal, 5.0)

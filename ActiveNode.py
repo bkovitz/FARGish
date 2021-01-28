@@ -100,7 +100,6 @@ class ActiveNode(ABC, Node):
         #TODO Remove excitation/inhibition edges, not support edges
         #g.remove_support_edges(thisid)
         # TODO Better: zero the weights rather than remove the edges.
-        print('ONCOMPL', self.nodestr())
         self.g.remove_outgoing_activation_edges(self)
         self.g.remove_incoming_activation_edges(self)
 
@@ -214,6 +213,7 @@ class ActionSeqNode(ActiveNode):
         #print('ONB', self.id, self.g.members_of(self))
         for member in self.g.members_of(self):
             self.g.set_activation_from_to(self, member, 0.5)
+            self.g.set_support_from_to(self, member, 1.0)
             self.g.inhibit_all_next(member)
 
     def update_asup(self):
@@ -221,6 +221,8 @@ class ActionSeqNode(ActiveNode):
             self.g.set_activation_from_to(
                 self, member, 0.5 if self.g.is_active(member) else 0.0
             )
+            for b in self.g.neighbors(member, 'built'):
+                self.g.set_support_from_to(self, b, 1.0)
 
 # Move to ActiveGraph
 def make_action_sequence(g, *actions: Action, **kwargs):

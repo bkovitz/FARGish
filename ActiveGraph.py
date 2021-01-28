@@ -1403,7 +1403,6 @@ class ActiveGraph(
         node = self.as_node(node)
         if node:
             node.state = state
-            print('NEWSTATE', node, state)
             if state.is_completed(self, node):
                 node.on_completion()
 
