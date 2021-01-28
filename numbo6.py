@@ -63,13 +63,6 @@ class Numbo6Graph(NumboGraph):
 
     def make_slipnet(self):
         sl = self.add_node(Slipnet)
-#        pc1 = self.add_node(PassiveChain, member_of=sl)
-#        n1 = self.add_node(Diff, value=1, member_of=pc1)
-#        n2 = self.add_node(DiffIsWanted, member_of=pc1)
-#        n3 = self.add_node(Minus, member_of=pc1)
-#        n4 = self.add_node(Proposal, member_of=pc1)
-#        self.link_sequence([n1, n2, n3, n4])
-#        self.set_mutual_activation(pc1, [n1, n2, n3, n4])
         make_passive_chain(
             self, Diff(value=1), DiffIsWanted, Minus, Proposal,
             member_of=sl
