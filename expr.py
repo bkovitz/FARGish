@@ -1,4 +1,5 @@
-# expr.py -- Classes to hold an expression as a tree
+# expr.py -- Classes to hold an expression as a tree and make it into a
+#            nice string
 #
 # Some of these classes have the same names as Numbo node classes. So,
 # you should refer to them by expr.Plus, expr.Times, and not import

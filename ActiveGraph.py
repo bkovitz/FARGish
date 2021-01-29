@@ -1255,6 +1255,7 @@ class ActiveGraph(
             self.print_action(action)
         with PushAttr(self, 'builder'):
             self.builder = action.actor
+            self.setattr(actor, 'tola', self.t)
             self.prev_actions.append(action)
             try:
                 action.go(self, actor)
@@ -1390,7 +1391,15 @@ class ActiveGraph(
 
     def getattr(self, nref: MaybeNRef, attrname: str) -> Union[Any, None]:
         node = self.as_node(nref)
-        return getattr(node, attrname)
+        if node:
+            return getattr(node, attrname)
+        else:
+            return None
+
+    def setattr(self, nref: MaybeNRef, attrname: str, value: Any):
+        node = self.as_node(nref)
+        if node:
+            setattr(node, attrname, value)
 
     def behalf_of(self, nref: MaybeNRef) -> MaybeNRef:
         result = self.neighbor(nref, port_label='behalf_of')
@@ -1865,16 +1874,26 @@ class ActiveGraph(
             return node.nodestr()
 
     def long_nodestr(self, node: NRef) -> str:
-        return '%-25s  a=%.3f s=%.3f   tob=%d    %s' % (
+        if self.is_of_class(node, ActiveNode):
+            tolastr = 'tola=%s' % self.tola(node)
+        else:
+            tolastr = ''
+        return '%-25s  a=%.3f s=%.3f   tob=%s %s    %s' % (
             self.nodestr(node),
             self.activation(node),
             self.support_for(node),
             self.tob(node),
+            tolastr,
             self.statestr(node)
         )
 
     def tob(self, nref: NRef) -> int:
-        return self.as_node(nref).tob
+        '''Time of birth.'''
+        return self.getattr(nref, 'tob')
+
+    def tola(self, nref: NRef) -> int:
+        '''Time of last (most recent) action.'''
+        return self.getattr(nref, 'tola')
 
     def statestr(self, node: NRef) -> str:
         node = self.as_node(node)

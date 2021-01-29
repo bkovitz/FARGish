@@ -281,10 +281,10 @@ class NetworkxActivation(
         w = self.edge_weight(
             from_node, 'activation_to', to_node, 'activation_from'
         )
-        if w == 0.0:
-            hop = self.find_hop(from_node, 'agents', to_node, 'behalf_of')  # HACK
-            if hop:
-                w = self._hop_weight(hop)
+#        if w == 0.0:
+#            hop = self.find_hop(from_node, 'agents', to_node, 'behalf_of')  # HACK
+#            if hop:
+#                w = self._hop_weight(hop)
         return w
 
     # TODO Move this out of Networkx code

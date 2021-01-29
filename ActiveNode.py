@@ -35,7 +35,9 @@ class ActiveNode(ABC, Node):
     def actions(self) -> Actions:
         '''What Actions does this ActiveNode want to do in this timestep?
         We assume that .can_go() has been called and has returned True before
-        .actions() is called. So, it is not necessary to check .state.'''
+        .actions() is called. So, it is not necessary to check .state.
+        This assumption enables unit tests, acceptance tests, and command-line
+        operation to force a node to do its action(s) even when dormant.'''
         raise NotImplementedError
 
     def on_blocked(self) -> Actions:

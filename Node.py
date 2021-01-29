@@ -46,7 +46,9 @@ class Node:
     needs_update: bool = False
 
     attrs_not_to_copy: ClassVar[Set[str]] = frozenset([
-        'id', 'g', 'filled_params', 'tob', 'support_for', 'state'
+        'id', 'g', 'filled_params', 'tob', 'tola', 'support_for', 'state'
+        # tob = time of birth
+        # tola = time of last action
     ])
 
     mates_ignored_for_dupcheck: ClassVar[Set[PortLabel]] = frozenset([

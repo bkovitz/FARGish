@@ -4,6 +4,7 @@ from pprint import pprint as pp
 from itertools import chain
 
 from NumboGraph import *
+from ExprAsEquation import ExprAsEquation
 from log import *
 from exc import *
 from ActiveGraph import pg, pa, pai, paa, ps
@@ -25,10 +26,10 @@ from criteria import NotTagged, TupAnd as CTupAnd
 #        ('Minus', 'Proposal'): ProposeDoingNoticedOperation
 #    }
 
-class Numbo6Graph(NumboGraph):
+class Numbo6Graph(NumboGraph, ExprAsEquation):
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, seed=8028868705202140491, **kwargs):
+        super().__init__(*args, seed=seed, **kwargs)
         self.max_actions = 2
 
     def make_initial_nodes(self):
@@ -37,6 +38,7 @@ class Numbo6Graph(NumboGraph):
         want = self.tag_of(target, Want)
         assessor = self.add_node(AssessProposal, behalf_of=want)
         self.set_support_from_to(want, assessor, 1.0)
+        self.set_activation_from_to(want, assessor, 1.0)
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
         #ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
@@ -56,6 +58,7 @@ class Numbo6Graph(NumboGraph):
             (OoM, [oogtt, oo1bt, oobigt]),
             (Diff, diwt),
             #(DiffIsWanted, ncmm),
+            (Proposal, assessor),
             (Number, [difft, oot]),
             (Avail, nsolved),
             (Operator, pdno)  # TODO Only "noticed" Operators
@@ -63,10 +66,10 @@ class Numbo6Graph(NumboGraph):
 
     def make_slipnet(self):
         sl = self.add_node(Slipnet)
-        make_passive_chain(
-            self, Diff(value=1), DiffIsWanted, Minus, Proposal,
-            member_of=sl
-        )
+#        make_passive_chain(
+#            self, Diff(value=1), DiffIsWanted, Minus, Proposal,
+#            member_of=sl
+#        )
         self.set_activation(self.members_recursive(sl), 0.0)
 
     def end_of_timestep(self):
@@ -79,6 +82,15 @@ class Numbo6Graph(NumboGraph):
             self.find_all(PassiveChain, subset=self.members_of(self.slipnet))
         )
 
+    def current_soln(self) -> str:
+        '''The candidate solution (partial or complete) that the model is
+        currently considering.'''
+        return ', '.join(
+            str(self.expr_in_progress(node))
+                for node in g.find_all(CTagged(Avail), focal_point=self.ws)
+        )
+
+# TODO rm
 def newg(numble: Numble, seed=8028868705202140491):
     return Numbo6Graph(numble=numble, seed=seed)
 
@@ -89,7 +101,7 @@ if __name__ == '__main__':
     #numble = Numble([4, 5, 6], 15)
     #numble = Numble([4, 5, 6], 34)
     numble = Numble([4, 5, 6], 30)
-    g = newg(numble)
+    g = Numbo6Graph(numble)
     want = g.look_for(Want)
     assert want
     #g.do_timestep(num=2)
@@ -111,11 +123,11 @@ if __name__ == '__main__':
 
     #g.do_timestep(actor=oot, num=4)
     #g.do_timestep(actor=ncmm)
-    #g.do_timestep(num=39)
+    #g.do_timestep(num=70)
 
     #g.do_timestep(actor=difft, num=4)
-    g.do_timestep(num=38)
-    print(g.done())
+    #g.do_timestep(num=38)
+    #print(g.done())
 
 #    ncmp = g.as_node(g.look_for(NoticeCouldMakePlus))
 #

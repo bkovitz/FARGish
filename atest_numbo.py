@@ -39,6 +39,7 @@ class GraphWithPassiveChain(NumboGraph):
         want = self.tag_of(target, Want)
         assessor = self.add_node(AssessProposal, behalf_of=want)
         self.set_support_from_to(want, assessor, 1.0)
+        self.set_activation_from_to(want, assessor, 1.0)
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
         #ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
@@ -111,7 +112,9 @@ class NumboTest(unittest.TestCase):
         self.assertTrue(g.succeeded())
 
 if __name__ == '__main__':
-    g = GraphRunningActiveSeq(Numble([1, 1, 1, 1, 1], 5))
+    #g = GraphRunningActiveSeq(Numble([1, 1, 1, 1, 1], 5))
+    #g = GraphWithPassiveChain(Numble([4, 5, 6], 30))
+    g = GraphWithPassiveChain(Numble([4, 5, 6], 1))
     #g.max_actions = 2
     ShowActiveNodes.start_logging()
     ShowActionList.start_logging()
@@ -120,7 +123,7 @@ if __name__ == '__main__':
     #neural_program = g.copy_group(g.seqnode, g.ws)
     #neural_program.min_activation = 10.0
     #neural_program.min_support_for = 10.0
-    g.do_timestep(num=31)
+    #g.do_timestep(num=31)
     #pg(g)
     #print(g.done())
     #g.do_timestep()
