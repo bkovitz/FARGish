@@ -4,7 +4,6 @@ from pprint import pprint as pp
 from itertools import chain
 
 from NumboGraph import *
-from ExprAsEquation import ExprAsEquation
 from log import *
 from exc import *
 from ActiveGraph import pg, pa, pai, paa, ps
@@ -80,14 +79,6 @@ class Numbo6Graph(NumboGraph, ExprAsEquation):
         return chain(
             super().allowable_active_nodes(), 
             self.find_all(PassiveChain, subset=self.members_of(self.slipnet))
-        )
-
-    def current_soln(self) -> str:
-        '''The candidate solution (partial or complete) that the model is
-        currently considering.'''
-        return ', '.join(
-            str(self.expr_in_progress(node))
-                for node in g.find_all(CTagged(Avail), focal_point=self.ws)
         )
 
 # TODO rm

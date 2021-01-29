@@ -29,6 +29,7 @@ from criteria import OfClass, Tagged as CTagged, HasThisValue, And, \
     NotTheArgsOf, Criterion, MinActivation, NotTagged, TupAnd as CTupAnd, \
     TagValuesGt, TagValuesSmallGap, TagValuesBigGap, GreaterThanOrEqual, \
     TupSameValue, GreaterThan, NodeEq
+from ExprAsEquation import ExprAsEquation
 from exc import FargDone, NeedArg, FizzleAndFail, FizzleAndBlock, Fizzle
 from util import Quote, omit, first, as_set, clip
 
@@ -669,7 +670,7 @@ class ProposeDoingNoticedOperation(Persistent, AcNode):
 
 # The Graph class
 
-class NumboGraph(Graph):
+class NumboGraph(Graph, ExprAsEquation):
     def __init__(self, numble, *args, **kwargs):
         global port_mates, nodeclasses
         super().__init__(*args, **kwargs)
@@ -727,7 +728,7 @@ class NumboGraph(Graph):
         operands = set()
         for mates in kwargs.values():
             # Wrong: member_of is not an operand  TODO 
-            operands.update(as_set(mates))
+            operands.update(self.as_nodeids(mates))
         if not self.has_tag(operands, Avail):
             return  # TODO Raise a failure exception.
         (operator, result) = self.build_op_and_result(
@@ -738,6 +739,16 @@ class NumboGraph(Graph):
         self.add_tag(Done, actor) # TODO rm?
         return (operator, result)
 
+    # TODO UT
+    def current_soln(self) -> str:
+        '''The candidate solution (partial or complete) that the model is
+        currently considering.'''
+        return ', '.join(
+            str(self.expr_in_progress(node))
+                for node in self.find_all(CTagged(Avail), focal_point=self.ws)
+        )
+
+# TODO rm
 def newg(numble=Numble([4, 5, 6], 15), seed=8028868705202140491):
     return NumboGraph(numble=numble, seed=seed)
 

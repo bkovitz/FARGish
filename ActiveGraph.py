@@ -25,8 +25,8 @@ from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
     intersection, empty_set, sample_without_replacement, PushAttr, \
     always_true, filter_none, clip, reweight
-from exc import NodeLacksMethod, NoSuchNodeclass, NeedArg, FargDone, \
-    FizzleWithTag, Fizzle
+from exc import NodeLacksMethod, NoSuchNode, NoSuchNodeclass, NeedArg, \
+    FargDone, FizzleWithTag, Fizzle
 from log import *
 from criteria import Criterion, OfClass, NodeEq, NoMate
 
@@ -1125,6 +1125,24 @@ class ActiveGraph(
         else:
             criterion = self.as_criterion(criterion)
             return [n for n in nodes if criterion(self, n)]
+
+    def get_nodes(
+        self,
+        *nodespecs: Union[Node, Type[Node]],
+        within: MaybeNRef=None
+    ) -> Sequence[Node]:
+        '''Convenience function for extracting nodes whose type and
+        attributes are known, but not their nodeids. Raises an exception
+        if any nodes are not found. 'within' defaults to self.ws.'''
+        if not within:
+            within = self.ws
+        result = []
+        for nodespec in nodespecs:
+            node = self.as_node(self.look_for(nodespec, focal_point=within))
+            if not node:
+                raise NoSuchNode(nodespec)
+            result.append(node)
+        return result
 
     # TODO OAOO
     def as_criterion(self, x: Union[Node, CRef, Criterion]) -> Criterion:

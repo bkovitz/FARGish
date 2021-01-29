@@ -67,3 +67,16 @@ class TestNumboGraph(unittest.TestCase):
         # focal_point. This will verify that g.look_for can find a node
         # in the same Group if it's the only one around but is still heavily
         # biased toward immediate neighbors.
+
+    def test_current_soln(self):
+        g = NumboGraph(Numble([4, 5, 6], 15))
+        b4, b5, b6 = g.get_nodes(Brick(4), Brick(5), Brick(6))
+
+        self.assertEqual(g.current_soln(), '4, 5, 6')
+
+        (plus1, sum1) = g.build_op_and_result(Plus, operands=[b4, b5, b6])
+        self.assertEqual(g.current_soln(), '4, 5, 6')
+
+        (plus2, sum2) = g.consume_operands(Plus, operands=[b4, b5, b6])
+        self.assertEqual(g.current_soln(), '4 + 5 + 6 = 15')
+

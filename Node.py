@@ -30,8 +30,8 @@ class Node:
     Two nodes are 'equal' (as concerns __eq__) if they hold the same attributes,
     even if they have different NodeIds and come from different graphs.'''
 
-    id: NodeId = field(init=False, compare=False)
-    g: 'ActiveGraph' = field(init=False, compare=False)
+    id: Union[NodeId, None] = field(init=False, compare=False)
+    g: Union['ActiveGraph', None] = field(init=False, compare=False)
 
     node_params: ClassVar[Union[NodeParams, None]] = NodeParams()
     is_tag: ClassVar[bool] = False
@@ -135,6 +135,17 @@ f'''{self.__class__.__name__}: More arguments ({len(exc.args)}) than parameters 
         
     def is_same_node(self, other: 'Node') -> bool:
         return self.id == other.id and self == other
+
+    def is_node(self) -> bool:
+        '''True iff this Node has a .g and .id, i.e. if this Node is at least
+        supposed to represent a node in a graph. False indicates that this
+        Node object only specifies a node abstractly, e.g. when you
+        construct Number(4) without providing .g and .id, the Number object
+        only specifies a node that could be built, not an actual node in any
+        particular graph. Note, however, that .is_node() returns True for a
+        Node that represents a deleted node; in other words, the represented
+        node might no longer exist.'''
+        return self.g and (self.id is not None)
 
     def __eq__(self, other):
         if self.__class__ != other.__class__:
