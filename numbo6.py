@@ -99,9 +99,9 @@ if __name__ == '__main__':
     #booster = g.add_node(LookForOperands, behalf_of=want, activation=2.0)
 
     #ShowActiveNodes.start_logging()
-    ShowActionList.start_logging()
+    #ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
-    ShowPrimitives.start_logging()
+    #ShowPrimitives.start_logging()
     #ShowIsMatch.start_logging()
 
     oot = g.look_for(OoMTagger)

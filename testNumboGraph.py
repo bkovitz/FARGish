@@ -79,4 +79,3 @@ class TestNumboGraph(unittest.TestCase):
 
         (plus2, sum2) = g.consume_operands(Plus, operands=[b4, b5, b6])
         self.assertEqual(g.current_soln(), '4 + 5 + 6 = 15')
-

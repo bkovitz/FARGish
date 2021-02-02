@@ -41,14 +41,21 @@ class TooManyTimestepsWithNoResponse(FargDone):
 class FargCantRespond(Exception):
     pass
 
-@dataclass
-class Fizzle(Exception):
+#@dataclass
+#class Fizzle(Exception):
+#
+#    def __str__(self):
+#        if not fields(self):
+#            return self.__class__.__name__
+#        else:
+#            return repr(self)
 
-    def __str__(self):
-        if not fields(self):
-            return self.__class__.__name__
-        else:
-            return repr(self)
+class Fizzle(Exception):
+    pass
+
+class UnexpectedFizzle(Fizzle):
+    '''Indicates a probable bug.'''
+    pass
 
 @dataclass
 class FizzleWithTag(Fizzle, ABC):

@@ -66,8 +66,8 @@ class GraphWithPassiveChain(NumboGraph):
 
     def make_slipnet(self):
         sl = self.add_node(Slipnet)
-        make_passive_chain(
-            self, Diff(value=1), DiffIsWanted, Minus, Proposal,
+        make_passive_chain(self,d
+            Diff(value=1), DiffIsWanted, Minus, Proposal,
             member_of=sl
         )
         self.set_activation(self.members_recursive(sl), 0.0)
@@ -123,7 +123,7 @@ if __name__ == '__main__':
     #neural_program = g.copy_group(g.seqnode, g.ws)
     #neural_program.min_activation = 10.0
     #neural_program.min_support_for = 10.0
-    #g.do_timestep(num=31)
+    g.do_timestep(num=31)
     #pg(g)
     #print(g.done())
     #g.do_timestep()

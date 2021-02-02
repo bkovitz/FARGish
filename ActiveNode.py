@@ -148,9 +148,14 @@ class Sleeping(Dormant):
     def awaken_if_done_sleeping_next_t(self, g, node):
         if self.until is None:
             if g.activation(node) >= 1.0:
-                g.new_state(node, Start)
+                #g.new_state(node, Start)
+                self.wake(g, node)
         elif g.t + 1 >= self.until:
-            g.new_state(node, self.saved_state)
+            #g.new_state(node, self.saved_state)
+            self.wake(g, node)
+
+    def wake(self, g, node):
+        g.new_state(node, self.saved_state)
 
 class Completed(Dormant):
 

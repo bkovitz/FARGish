@@ -24,7 +24,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNumboGraph.TestNumboGraph.test_current_soln
+	$(PY) -m unittest -v testPassiveChain.TestPassiveChain.test_need_basis_like
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

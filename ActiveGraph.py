@@ -19,7 +19,7 @@ from Node import Node, NodeId, MaybeNodeId, PortLabel, PortLabels, is_nodeid, \
     NRef, NRefs, CRef, CRefs, MaybeNRef, MaybeCRef, \
     as_nodeid, as_node, as_nodeids, as_nodes, is_abstract_cref
 from PortMates import PortMates
-from Action import Action, Actions
+from Action import Action, Actions, FindBasis
 from ActiveNode import ActiveNode, ActionNode, Sleeping
 from Propagator import Propagator
 from util import as_iter, as_list, as_set, is_iter, repr_str, first, reseed, \
@@ -52,7 +52,8 @@ class ActiveGraph(
         ('members', 'member_of'), ('tags', 'taggees'), ('built_by', 'built'),
         ('next', 'prev'), ('copy_of', 'copies'), ('problem', 'problem_solver'),
         ('activation_from', 'activation_to'), ('support_from', 'support_to'),
-        ('completion', 'completion_of')
+        ('completion', 'completion_of'), ('basis', 'basis_of'),
+        ('need_basis_like', 'archetypal_basis_of')
     ])
 
     def __init__(
@@ -1293,9 +1294,9 @@ class ActiveGraph(
                     print(f'ACTION: {action}')
                     print(f'EXC2: {exc2}')
                     raise
-            except Fizzle:
+            except Fizzle as exc:
                 if ShowActionsPerformed or ShowPrimitives:
-                    print('fizzled')
+                    print(f'fizzled: {exc}')
                 action.on_fizzle(self, actor)
 #            except ActionBlocked as exc:
 #                if ShowActionsPerformed or ShowPrimitives:
@@ -1327,7 +1328,6 @@ class ActiveGraph(
 #                    print(f'ACTION: {action}')
 #                    print(f'EXC2: {exc2}')
 #                    raise
-            # TODO catch Fizzle
             except FargDone:
                 raise
             except:
@@ -1455,6 +1455,12 @@ class ActiveGraph(
             if ShowPrimitives:
                 print(f'calmed  {node.nodestr()}  a={new_a:.3f}')
             self.set_activation(node, new_a)
+
+    # TODO IT
+    def wake(self, nrefs: NRefs):
+        for nref in as_iter(nrefs):
+            if self.is_sleeping(nref):
+                self.getattr(nref, 'state').wake(self, nref)
 
     #TODO UT
     def move_tag(self, tagclass, fromids, toids):
@@ -1696,12 +1702,19 @@ class ActiveGraph(
 
     def actions(self, nref: NRef) -> Actions:
         # TODO Refactor: just call .datum() once; never call .has_node().
+        # TODO Document 'need_basis_like'.
         if not self.has_node(nref):
             return None
         if self.datum(nref).needs_update:
             result = self.datum(nref).update()
             if result:
                 return result
+        if (
+            self.has_neighbor_at(nref, 'need_basis_like')
+            and
+            not self.has_neighbor_at(nref, 'basis')
+        ):
+            return FindBasis()
         return self.datum(nref).actions()
 
     def collect_actions(self, active_nodes: NRefs) -> List[Action]:

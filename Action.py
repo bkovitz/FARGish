@@ -10,7 +10,7 @@ from copy import copy
 from util import nice_object_repr, as_iter, NiceRepr
 from Node import NRef, MaybeNRef, NRefs, CRef, as_classname
 from BuildSpec import make_buildspec
-from exc import NeedArg
+from exc import NeedArg, Fizzle, UnexpectedFizzle
 
 
 class BaseAction(ABC):
@@ -277,3 +277,27 @@ class SelfDestruct(Action):
         g.remove_node(self.node)
 
 RemoveNode = SelfDestruct
+
+@dataclass
+class FindBasis(Action):
+
+    def go(self, g, actor):
+        if g.has_neighbor_at(actor, 'basis'):
+            raise Fizzle('already has basis')
+        archetypal_basis = g.neighbor(actor, 'need_basis_like')
+        if not archetypal_basis:
+            raise UnexpectedFizzle('no archetypal_basis')
+        focal_point = g.neighbors(actor, 'focal_point')
+        if not focal_point:
+            #raise UnexpectedFizzle('no focal_point')
+            focal_point = actor
+        basis = g.look_for(g.as_node(archetypal_basis), focal_point=focal_point)
+        if basis:
+            g.add_edge(actor, 'basis', basis, 'basis_of')
+            g.wake(actor)
+        else:
+            # TODO FizzleAndBlock, making an active node that tries to create
+            # the missing basis.
+            g.sleep(actor)
+            raise Fizzle('could not find basis')
+

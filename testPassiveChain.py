@@ -122,3 +122,36 @@ class TestPassiveChain(unittest.TestCase):
             0.6 * sum(same_operands_counter.values())
             # TODO Raise 0.6 to 0.9 once this test runs faster.
         )
+
+    def test_need_basis_like(self):
+        g = TestGraph(Numble([4, 5, 6], 15))
+        b4, b5, b6 = g.get_nodes(Brick(4), Brick(5), Brick(6))
+        diff = g.add_node(Diff(value=1), greater=b5, lesser=b4)
+        [diw_archetype] = g.get_nodes(DiffIsWanted, within=g.slipnet)
+        noticer = g.add_node(
+            NoticeCouldMakeMinus, focal_point=diff, need_basis_like=diw_archetype
+        )
+
+        # noticer should sleep because it can't find a basis
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.is_sleeping(noticer))
+
+        # now the noticer
+        diw = g.add_node(DiffIsWanted, taggees=diff)
+        g.do_timestep(actor=noticer)
+        self.assertTrue(g.has_edge(noticer, 'basis', diw, 'basis_of'))
+        self.assertFalse(g.is_sleeping(noticer))
+
+if __name__ == '__main__':
+    g = TestGraph(Numble([4, 5, 6], 15))
+    b4, b5, b6 = g.get_nodes(Brick(4), Brick(5), Brick(6))
+    diff = g.add_node(Diff(value=1), greater=b5, lesser=b4)
+    [diw_archetype] = g.get_nodes(DiffIsWanted, within=g.slipnet)
+    noticer = g.add_node(
+        NoticeCouldMakeMinus, focal_point=diff, need_basis_like=diw_archetype
+    )
+    ShowActionsPerformed.start_logging()
+    g.do_timestep(actor=noticer)
+    diw = g.add_node(DiffIsWanted, taggees=diff)
+    g.do_timestep(actor=noticer)
+    pg(g, noticer)
