@@ -53,7 +53,8 @@ class ActiveGraph(
         ('next', 'prev'), ('copy_of', 'copies'), ('problem', 'problem_solver'),
         ('activation_from', 'activation_to'), ('support_from', 'support_to'),
         ('completion', 'completion_of'), ('basis', 'basis_of'),
-        ('need_basis_like', 'archetypal_basis_of')
+        ('need_basis_like', 'archetypal_basis_of'),
+        ('source_chain', 'live_chain')
     ])
 
     def __init__(
@@ -1104,7 +1105,7 @@ class ActiveGraph(
             else:
                 # TODO Somehow need to make it more likely that .look_for()
                 # finds nearer nodes.
-                nodes = self.walk(focal_point, max_hops=4)
+                nodes = list(self.walk(focal_point, max_hops=4))
             if subset is not None:
                 nodes = subset.intersection(nodes)
         else:
@@ -1144,6 +1145,17 @@ class ActiveGraph(
                 raise NoSuchNode(nodespec)
             result.append(node)
         return result
+
+    def get_node(
+        self,
+        nodespec: Union[Node, Type[Node]],
+        within: MaybeNRef=None
+    ) -> Node:
+        '''Like .get_nodes() but only gets one node.'''
+        node = self.as_node(self.look_for(nodespec, focal_point=within))
+        if not node:
+            raise NoSuchNode(nodespec)
+        return node
 
     # TODO OAOO
     def as_criterion(self, x: Union[Node, CRef, Criterion]) -> Criterion:
@@ -1366,6 +1378,11 @@ class ActiveGraph(
         if state:
             return state.is_sleeping(self, node)
 
+    def is_completed(self, node: NRef) -> bool:
+        state = self.getattr(node, 'state')
+        if state:
+            return state.is_completed(self, node)
+        
     def is_failed(self, node):
         return self.has_tag(node, 'Failed')  # TODO not if Failed is canceled
 

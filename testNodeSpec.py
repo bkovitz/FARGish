@@ -20,7 +20,7 @@ Numble = make_numble_class(
     Brick, Target, Want, Avail, Allowed, [Plus, Times]
 )
 
-class TestGraph(ExprAsEquation, NumboGraph):
+class TestGraph(NumboGraph):
     port_mates = port_mates  # imported from NumboGraph
 
 #    def __init__(self, numble, **kwargs):

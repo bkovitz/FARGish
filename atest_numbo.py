@@ -43,7 +43,7 @@ class GraphWithPassiveChain(NumboGraph):
         ncmp = self.add_node(NoticeCouldMakePlus, member_of=self.ws)
         ncmt = self.add_node(NoticeCouldMakeTimes, member_of=self.ws)
         #ncmm = self.add_node(NoticeCouldMakeMinus, member_of=self.ws)
-        pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
+        #pdno = self.add_node(ProposeDoingNoticedOperation, member_of=self.ws)
         difft = self.add_node(DiffTagger, member_of=self.ws)
         diwt = None #self.add_node(DiffIsWantedTagger, member_of=self.ws)
         oot = self.add_node(OoMTagger, member_of=self.ws)
@@ -61,12 +61,12 @@ class GraphWithPassiveChain(NumboGraph):
             #(DiffIsWanted, ncmm),
             (Number, [difft, oot]),
             (Avail, nsolved),
-            (Operator, pdno)  # TODO Only "noticed" Operators
+            #(Operator, pdno)  # TODO Only "noticed" Operators
         )
 
     def make_slipnet(self):
         sl = self.add_node(Slipnet)
-        make_passive_chain(self,d
+        make_passive_chain(self,
             Diff(value=1), DiffIsWanted, Minus, Proposal,
             member_of=sl
         )
@@ -107,6 +107,8 @@ class NumboTest(unittest.TestCase):
     def test_456_1(self):
         # The solution will need a Minus.
         g = GraphWithPassiveChain(Numble([4, 5, 6], 1))
+        #ShowActionList.start_logging()
+        #ShowActionsPerformed.start_logging()
         g.do_timestep(num=60)
         #print(f't={g.t}')
         self.assertTrue(g.succeeded())

@@ -6,7 +6,7 @@ import inspect
 from collections import Counter
 
 from NumboGraph import *
-from PassiveChain import PassiveChain, RunPassiveChain, PassiveChainRunner
+from PassiveChain import PassiveChain, make_live_active_chain
 from log import *
 from ActiveGraph import pg, pa
 from util import as_set
@@ -28,101 +28,6 @@ class TestGraph(NumboGraph):
 
 class TestPassiveChain(unittest.TestCase):
 
-    def test_run_passive_chain(self):
-        test_counter = Counter()
-        # counts ((greater, lesser), (minuend, subtrahend)) in order to verify
-        # that usually the Minus's operands match the Diff's taggees
-
-        for testi in range(10):
-            g = TestGraph(Numble([4, 5, 6], 1))
-            difft = g.add_node(DiffTagger, member_of=g.ws)
-
-            g.do_timestep(actor=difft, num=6)
-            diff1 = g.look_for(Diff(value=1), focal_point=g.ws)
-            assert diff1, "Initialization didn't build a Diff(value=1) tag."
-            passive_chain = g.look_for(PassiveChain, focal_point=g.slipnet)
-            assert passive_chain, "Initialization didn't find a PassiveChain in the slipnet."
-            diff1_archetype = g.initial_member_of(passive_chain)
-            assert diff1_archetype, "Passive chain lacks its initial member"
-            g.set_activation_from_to(diff1, diff1_archetype)
-            #ShowPrimitives.start_logging()
-            #ShowActionsPerformed.start_logging()
-
-            # This should start a PassiveChainRunner
-            g.do_timestep(actor=passive_chain)
-            runner = g.look_for(PassiveChainRunner, subset=g.new_nodes)
-            self.assertTrue(runner,
-                'PassiveChain failed to build PassiveChainRunner')
-
-            g.do_timestep(actor=runner)
-            agent1 = g.look_for(DiffIsWantedTagger, subset=g.new_nodes)
-            self.assertTrue(agent1)
-
-            g.do_timestep(actor=agent1)
-            tag1 = g.look_for(DiffIsWanted, subset=g.new_nodes)
-            self.assertTrue(tag1)
-
-            g.do_timestep(actor=runner)
-            agent2 = g.look_for(NoticeCouldMakeMinus, subset=g.new_nodes)
-            self.assertTrue(agent2)
-
-            for _ in range(6):
-                g.do_timestep(actor=as_set(g.walk(agent2, 'agents')))
-                minus = g.neighbor(agent2, 'completion', neighbor_class=Minus)
-                if minus:
-                    break
-            else:
-                self.fail('NoticeCouldMakeMinus never built a Minus')
-            #pg(g, NoticeCouldMakeMinus, Minus) #DEBUG
-
-            # Verify that the Minus's operands are the taggees of the right Diff(1),
-            # viz. the one that triggered the PassiveChainRunner.
-            '''
-            self.assertEqual(
-                g.neighbor(diff1, 'greater'),
-                g.neighbor(minus, 'minuend')
-            )
-            self.assertEqual(
-                g.neighbor(diff1, 'lesser'),
-                g.neighbor(minus, 'subtrahend')
-            )
-            '''
-
-            g.do_timestep(actor=runner)
-            agent3 = g.look_for(ProposeDoingNoticedOperation, subset=g.new_nodes)
-            self.assertTrue(agent3)
-
-            g.do_timestep(actor=agent3)
-            proposal = g.look_for(Proposal, subset=g.new_nodes)
-            self.assertTrue(proposal)
-
-            g.do_timestep(actor=runner)
-            self.assertEqual(g.getattr(runner, 'state'), Completed)
-
-            got_tup = (
-                (g.neighbor(diff1, 'greater'), g.neighbor(diff1, 'lesser')),
-                (g.neighbor(minus, 'minuend'), g.neighbor(minus, 'subtrahend'))
-            )
-            test_counter[got_tup] += 1
-
-            #target = g.look_for(Target, focal_point=g.ws)
-            #pg(g, runner, agent3, minus, Diff)
-            #print('UT', g.new_nodes, )
-
-        same_operands_counter = Counter()
-        for tup, count in test_counter.items():
-            if tup[0] == tup[1]:
-                same_operands_counter[True] += count
-            else:
-                same_operands_counter[False] += count
-        #print('UT', test_counter.items())
-        #print(same_operands_counter, len(same_operands_counter), len(test_counter))
-        self.assertGreaterEqual(
-            same_operands_counter[True],
-            0.6 * sum(same_operands_counter.values())
-            # TODO Raise 0.6 to 0.9 once this test runs faster.
-        )
-
     def test_need_basis_like(self):
         g = TestGraph(Numble([4, 5, 6], 15))
         b4, b5, b6 = g.get_nodes(Brick(4), Brick(5), Brick(6))
@@ -142,16 +47,79 @@ class TestPassiveChain(unittest.TestCase):
         self.assertTrue(g.has_edge(noticer, 'basis', diw, 'basis_of'))
         self.assertFalse(g.is_sleeping(noticer))
 
+    def test_run_passive_chain(self):
+        results: List[Tuple(int, int)] = []
+        num_trials = 10
+        for _ in range(num_trials):
+            results.append(self.run_one_passive_chain())
+
+        # Now we check that the generated Proposal's operands were usually
+        # the taggees of the Diff tag that triggered the PassiveChain.
+        self.assertGreaterEqual(
+            sum(1 for operands in results if operands == (5, 4)),
+            0.6 * num_trials
+        )
+
+    def run_one_passive_chain(self) -> Tuple[int, int]:
+        '''Builds a graph and runs a PassiveChain that should make a
+        Proposal to try '5 - 4'. Returns (minuend_value, subtrahend_value)
+        from the generated Proposal. Fails if no Proposal is generated.'''
+        g = TestGraph(Numble([4, 5, 6], 1))
+        b4, b5, b6 = g.get_nodes(Brick(4), Brick(5), Brick(6))
+
+        # A Diff tag will trigger the PassiveChain
+        diff1 = g.add_node(Diff(value=1), greater=b5, lesser=b4)
+        passive_chain = g.get_node(PassiveChain, within=g.slipnet)
+        diff1_archetype = g.initial_member_of(passive_chain)
+        g.set_activation_from_to(diff1, diff1_archetype)
+
+        # The PassiveChain should start a LiveActiveChain in the workspace
+        g.do_timestep(actor=passive_chain)
+        lac = g.neighbor(
+            passive_chain, 'built', neighbor_class='LiveActiveChain'
+        )
+        self.assertTrue(lac, 'Failed to build LiveActiveChain')
+        self.assertTrue(g.is_member(lac, g.ws))
+        (diff_is_wanted_tagger, notice_could_make_minus,
+         propose_doing_noticed_operation) = g.get_nodes(
+         DiffIsWantedTagger, NoticeCouldMakeMinus,
+         ProposeDoingNoticedOperation,
+         within=lac
+        )
+
+        # Now let the system run. The active nodes inside the LiveActiveChain
+        # should build a Minus and a Proposal to try it out.
+        #ShowActionsPerformed.start_logging()
+        g.do_timestep(num=15)
+        proposal = g.look_for(Proposal, focal_point=g.ws)
+        self.assertTrue(proposal, 'Failed to build Proposal')
+        #pg(g)
+
+        return (
+            g.value_of(g.neighbor(proposal, 'proposed_minuend')),
+            g.value_of(g.neighbor(proposal, 'proposed_subtrahend'))
+        )
+
 if __name__ == '__main__':
-    g = TestGraph(Numble([4, 5, 6], 15))
+    #g = TestGraph(Numble([4, 5, 6], 15))
+    g = TestGraph(Numble([4, 5, 6], 1), seed=1)
     b4, b5, b6 = g.get_nodes(Brick(4), Brick(5), Brick(6))
     diff = g.add_node(Diff(value=1), greater=b5, lesser=b4)
-    [diw_archetype] = g.get_nodes(DiffIsWanted, within=g.slipnet)
-    noticer = g.add_node(
-        NoticeCouldMakeMinus, focal_point=diff, need_basis_like=diw_archetype
-    )
+#    [diw_archetype] = g.get_nodes(DiffIsWanted, within=g.slipnet)
+#    noticer = g.add_node(
+#        NoticeCouldMakeMinus, focal_point=diff, need_basis_like=diw_archetype
+#    )
+    ShowActionList.start_logging()
     ShowActionsPerformed.start_logging()
-    g.do_timestep(actor=noticer)
-    diw = g.add_node(DiffIsWanted, taggees=diff)
-    g.do_timestep(actor=noticer)
-    pg(g, noticer)
+#    g.do_timestep(actor=noticer)
+#    diw = g.add_node(DiffIsWanted, taggees=diff)
+#    g.do_timestep(actor=noticer)
+#    pg(g, noticer)
+    
+    [pchain] = g.get_nodes(PassiveChain, within=g.slipnet)
+    lac = make_live_active_chain(g, pchain, diff, member_of=g.ws)
+    a1 = g.initial_member_of(lac)
+    ShowPrimitives.start_logging()
+    #g.do_timestep(actor=a1, num=2)
+    pg(g, lac, a1)
+    g.do_timestep(num=9)

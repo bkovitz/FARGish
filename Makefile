@@ -24,7 +24,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testPassiveChain.TestPassiveChain.test_need_basis_like
+	$(PY) -m unittest -v testPassiveChain.TestPassiveChain.test_run_passive_chainNEW
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests
@@ -32,7 +32,7 @@ at:
 	$(PY) -m unittest -v atest*.py
 
 a:
-	$(PY) -m unittest -v atest_numbo.NumboTest.test_22222_5
+	$(PY) -m unittest -v atest_numbo.NumboTest.test_456_1
 
 # line counts
 lc: clean

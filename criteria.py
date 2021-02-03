@@ -8,8 +8,6 @@ from inspect import isclass
 
 from Node import Node, NodeId, NRef, MaybeNRef, PortLabel, PortLabels, \
     CRef, MaybeCRef
-from Action import Action
-from ActiveNode import ActionNode
 from util import as_iter, as_list
 
 
@@ -120,11 +118,11 @@ class Activated(Criterion):
 
 @dataclass
 class IsAction(Criterion):
-    action: Action
+    action: 'Action'
 
     def __call__(self, g, nodeid):
         return (
-            g.is_of_class(nodeid, ActionNode)
+            g.is_of_class(nodeid, 'ActionNode')
             and
             g.value_of(nodeid, 'action') == self.action
         )

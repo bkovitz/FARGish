@@ -80,7 +80,7 @@ Minus(minuend, subtrahend) : Operator
 
 Group(members)
 Workspace, Slipnet : Group
-Glom : Group
+Glom, LiveActiveChain : Group
 '''
 #exec(compile_fargish(prog), globals())
 exec(compile_fargish(prog, saveto='NumboGraph.gen.py'), globals())
@@ -579,7 +579,8 @@ class DiffTagger(Persistent, AcNode):
     ]
 
 # TODO UT
-class DiffIsWantedTagger(Persistent, AcNode):
+#class DiffIsWantedTagger(Persistent, AcNode):
+class DiffIsWantedTagger(AcNode):
     acs = [
         LookForTup(
             [Diff, CTagged(Want)],
@@ -622,13 +623,14 @@ class NoticeCouldMakeTimes(LateNoticer):
         BuildOpResult(Times, operands='nodes')
     ]
 
-class NoticeCouldMakeMinus(LateNoticer):
+#class NoticeCouldMakeMinus(LateNoticer):
+class NoticeCouldMakeMinus(AcNode):
     min_support_for = 1.0
     acs = [
         OrBlock(
             LookForTup(
-                [And(CTagged(Avail), MinActivation(3.0)),
-                 And(CTagged(Avail), MinActivation(3.0))],
+                [And(CTagged(Avail), MinActivation(0.0)),
+                 And(CTagged(Avail), MinActivation(0.0))],
                 tupcond=CTupAnd(
                     NotTheArgsOf(Minus, 'source'),
                     GreaterThan()

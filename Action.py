@@ -11,6 +11,7 @@ from util import nice_object_repr, as_iter, NiceRepr
 from Node import NRef, MaybeNRef, NRefs, CRef, as_classname
 from BuildSpec import make_buildspec
 from exc import NeedArg, Fizzle, UnexpectedFizzle
+from criteria import And, NotTagged
 
 
 class BaseAction(ABC):
@@ -278,6 +279,7 @@ class SelfDestruct(Action):
 
 RemoveNode = SelfDestruct
 
+
 @dataclass
 class FindBasis(Action):
 
@@ -291,7 +293,13 @@ class FindBasis(Action):
         if not focal_point:
             #raise UnexpectedFizzle('no focal_point')
             focal_point = actor
-        basis = g.look_for(g.as_node(archetypal_basis), focal_point=focal_point)
+        #basis = g.look_for(g.as_node(archetypal_basis), focal_point=focal_point)
+        basis = g.look_for(
+            # HACK!! Should not 'see' Operator nodes that aren't linked in
+            # some way analogous to the archetypal_basis.
+            And(g.as_node(archetypal_basis), NotTagged('Allowed')),
+            focal_point=focal_point
+        )
         if basis:
             g.add_edge(actor, 'basis', basis, 'basis_of')
             g.wake(actor)
@@ -300,4 +308,3 @@ class FindBasis(Action):
             # the missing basis.
             g.sleep(actor)
             raise Fizzle('could not find basis')
-

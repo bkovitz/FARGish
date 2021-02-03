@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable
 from types import SimpleNamespace
-from itertools import chain
+from itertools import chain, tee
 
 
 empty_set = frozenset()
@@ -259,6 +259,11 @@ def clip(lb, ub, x):
         return ub
     else:
         return x
+
+def pairwise(iterable):
+    iterable1, iterable2 = tee(iterable)
+    next(iterable2, None)
+    return zip(iterable1, iterable2)
 
 def filter_none(f, iterable):
     xs = [f(i) for i in iterable if i is not None]
