@@ -24,7 +24,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testPassiveChain.TestPassiveChain.test_run_passive_chainNEW
+	$(PY) -m unittest -v test_sa.TestSA.test_sa
+	#$(PY) -m unittest -v testPassiveChain.TestPassiveChain.test_run_passive_chainNEW
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute
 
 # Acceptance tests

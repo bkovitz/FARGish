@@ -53,11 +53,11 @@ class SolnState:
 
 @dataclass(frozen=True)
 class SolnCanvas:
-    states: List[SolnState]
+    cells: List[SolnState]
 
     def move(self, operator: Operator, operands: List[int]) -> 'SolnCanvas':
-        ss = copy(self.states)
-        # TODO Exception if self.states is empty
+        ss = copy(self.cells)
+        # TODO Exception if self.cells is empty
         new_state = ss[-1].move(operator, operands)
         ss.append(new_state)
         return self.__class__(ss)
@@ -67,8 +67,8 @@ class SolnCanvas:
         return cls([SolnState(avails)])
 
     def __str__(self):
-        # TODO string when self.states is empty
-        return '; '.join(str(s) for s in self.states)
+        # TODO string when self.cells is empty
+        return '; '.join(str(s) for s in self.cells)
 
 
 numble = Numble([4, 5, 6], 15)
