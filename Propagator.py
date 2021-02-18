@@ -21,6 +21,10 @@ def reverse_sigmoid(x: float, p: float=0.5):
 class Delta:
     nodeid: NodeId    # The node whose value is to be changed
     amt: float        # The amount by which it is to be changed
+    neighborid: NodeId  # The neighbor that is the source of the change
+
+    def __str__(self):
+        return f'{self.nodeid!s:20s} {self.amt:1.10f}   {self.neighborid}'
 
 @dataclass
 class Propagator(ABC):
@@ -37,6 +41,7 @@ class Propagator(ABC):
     num_iterations: int = 1
 
     def propagate_once(self, g, old_d: Dict[NodeId, float]):
+        # decay
         new_d: Dict[NodeId, float] = defaultdict(float,
             #((nodeid, a * self.alpha)
             ((nodeid, max(self.min_value(g, nodeid), a * self.alpha))
@@ -45,10 +50,21 @@ class Propagator(ABC):
         )
         # apply all the deltas
         for delta in self.make_deltas(g, old_d):
-            actual_delta = \
-                delta.amt * (1.0 - self.alpha) + gauss(0.0, self.noise)
+            actual_delta = (
+                (
+                    delta.amt
+                    * (1.0 + self.positive_feedback_rate
+                           * old_d.get(delta.nodeid, 0.0))
+                    * (1.0 - self.alpha)
+                    #+
+                )
+                + gauss(0.0, self.noise)
+            )
+            print(f'{delta.nodeid!s:20s} {delta.amt!s:20s}  {actual_delta!s:20s}   {delta.neighborid}') #DEBUG
             #print('PONCE', delta.nodeid, old_d[delta.nodeid], new_d[delta.nodeid], delta.amt, actual_delta)
             new_d[delta.nodeid] += actual_delta
+            if delta.neighborid not in new_d:
+                new_d[delta.neighborid] = 0.0
         # clip to min_value
         new_d = defaultdict(float,
             ((nodeid, max(self.min_value(g, nodeid), s))
