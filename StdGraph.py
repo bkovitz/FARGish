@@ -38,7 +38,8 @@ class StdActivationPropagator(Propagator):
             incoming_deltas.append(Delta(
                 nodeid,
                 g.activation_from_to(neighborid, nodeid) *
-                    support_for_neighbor
+                    support_for_neighbor,
+                neighborid
             ))
         return incoming_deltas
 
@@ -121,7 +122,8 @@ class StdSupportPropagator(Propagator):
             outgoing_deltas.append(Delta(
                 neighborid,
                 hop_weight + 
-                    self.positive_feedback_rate * support_for_neighbor
+                    self.positive_feedback_rate * support_for_neighbor,
+                nodeid
             ))
         result = self.rescale_deltas(outgoing_deltas, support_for_node)
         #print('DFROM', nodeid, result)
@@ -138,7 +140,7 @@ class StdSupportPropagator(Propagator):
         else:
             multiplier = support_for_node / ssum
             return [
-                Delta(d.nodeid, d.amt * multiplier)
+                Delta(d.nodeid, d.amt * multiplier, d.neighborid)
                     for d in outgoing_deltas
             ]
 

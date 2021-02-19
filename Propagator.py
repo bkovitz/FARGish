@@ -60,7 +60,7 @@ class Propagator(ABC):
                 )
                 + gauss(0.0, self.noise)
             )
-            print(f'{delta.nodeid!s:20s} {delta.amt!s:20s}  {actual_delta!s:20s}   {delta.neighborid}') #DEBUG
+            #print(f'{delta.nodeid!s:20s} {delta.amt!s:20s}  {actual_delta!s:20s}   {delta.neighborid}') #DEBUG
             #print('PONCE', delta.nodeid, old_d[delta.nodeid], new_d[delta.nodeid], delta.amt, actual_delta)
             new_d[delta.nodeid] += actual_delta
             if delta.neighborid not in new_d:

@@ -116,7 +116,7 @@ class Equation(Node):
 class TestSA(unittest.TestCase):
 
     def test_sa(self):
-        p = MyProp()
+        p = MyProp(positive_feedback_rate=0.0)
         self.assertEqual(p.noise, 0.0)
 
         g = nx.Graph()  # undirected graph

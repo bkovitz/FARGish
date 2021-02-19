@@ -37,7 +37,8 @@ class MyPropagator(Propagator):
             support_for_neighbor = old_d.get(neighborid, 0.0)
             incoming_deltas.append(Delta(
                 nodeid,
-                self.hop_weight(g, neighborid, nodeid) * support_for_neighbor
+                self.hop_weight(g, neighborid, nodeid) * support_for_neighbor,
+                neighborid
             ))
         return incoming_deltas
 
@@ -50,7 +51,7 @@ class TestPropagator(unittest.TestCase):
     def test_propagator(self):
         g = GraphWithNetworkxActivation()
         p = MyPropagator(
-            positive_feedback_rate=1.2,
+            positive_feedback_rate=0.2,
             alpha=0.9,
             max_total=1.0,
             noise=0.0
@@ -65,6 +66,6 @@ class TestPropagator(unittest.TestCase):
 
         d = p.propagate(g, g.activation_dict())
 
-        self.assertAlmostEqual(d[a.id], 0.5709545145009379)
-        self.assertAlmostEqual(d[b.id], 0.31759853198595706)
-        self.assertAlmostEqual(d[o.id], 0.11144695351310495)
+        self.assertAlmostEqual(d[a.id], 0.569072143062159)
+        self.assertAlmostEqual(d[b.id], 0.319848331226608)
+        self.assertAlmostEqual(d[o.id], 0.11107952571123292)
