@@ -3,11 +3,12 @@
 import unittest
 from pprint import pprint as pp
 import inspect
+from time import process_time
 
 from dataclasses import dataclass
 import operator
 from operator import itemgetter
-from time import process_time
+from heapq import nlargest
 
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable
@@ -26,7 +27,7 @@ class MyProp(Propagator):
     noise: float = 0.0
     
     def make_deltas(self, g, old_d):
-        print() #DEBUG
+        #print() #DEBUG
         return chain.from_iterable(
             self.deltas_from(g, old_d, nodeid)
                 for nodeid in old_d
@@ -105,14 +106,6 @@ class Equation(Node):
         expr = f' {self.operator} '.join(str(n) for n in self.operands)
         return f'{expr} = {self.result}'
 
-#class Graph:
-#
-#    def __init__(self):
-#        impl = nx.Graph()
-#
-#    def add_edge(
-    
-
 class TestSA(unittest.TestCase):
 
     def test_sa(self):
@@ -138,18 +131,56 @@ class TestSA(unittest.TestCase):
         self.assertEqual(got, {1: 1.026, 2: 1.0, 3: 1.006, 4: 0.98})
 
     def test_eqns(self):
-        pass
+        p = MyProp(positive_feedback_rate=0.0, sigmoid_p=1.5)
+
+        def query(g, features, k=10):
+            activations_in = dict((f, 1.0) for f in features)
+            activations_out = p.propagate(g, activations_in, num_iterations=10)
+            tups = [
+                (node, a)
+                    for (node, a) in activations_out.items()
+                        if isinstance(node, Equation)
+            ]
+            return nlargest(k, tups, itemgetter(1))
+
+        def see(activations_d):
+            for node, a in sorted(activations_d.items(), key=itemgetter(1)):
+                print(f'{node!s:20s} {a:0.3f}')
+
+        g = nx.Graph()
+
+        # Make slipnet: a bipartite graph of Equations and features
+        for a in range(1, 11):
+            for b in range(1, 11):
+                if b >= a:
+                    continue
+                for operator in [plus, minus, times]:
+                    e = Equation((a, b), operator, operator.call(a, b))
+                    g.add_node(e)
+                    for f in e.features():
+                        g.add_edge(f, e, weight=1.0)
+
+        tups = query(g, [4, 5, Before(4), Before(5)], k=3)
+        self.assertCountEqual(
+            ['5 + 4 = 9', '5 x 4 = 20', '5 - 4 = 1'],
+            [str(eqn) for (eqn, a) in tups]
+        )
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
     plt.ion()
 
-    p = MyProp(positive_feedback_rate=0.0, sigmoid_p=0.9)
+    p = MyProp(positive_feedback_rate=0.0, sigmoid_p=1.5)
 
-    def query(g, features):
+    def query(g, features, k=4):
         activations_in = dict((f, 1.0) for f in features)
         activations_out = p.propagate(g, activations_in, num_iterations=10)
-        return activations_out
+        tups = [
+            (node, a)
+                for (node, a) in activations_out.items()
+                    if isinstance(node, Equation)
+        ]
+        return nlargest(k, tups, itemgetter(1))
 
     def see(activations_d):
         for node, a in sorted(activations_d.items(), key=itemgetter(1)):
@@ -166,23 +197,26 @@ if __name__ == '__main__':
                 g.add_node(e)
                 for f in e.features():
                     g.add_edge(f, e, weight=1.0)
+
     #e1 = Equation((2, 3), plus, plus.call(2, 3))
     #print(e1)
 #    g.add_node(e1)
 #    for f in e1.features():
 #        g.add_edge(f, e1, weight=1.0)
 
-    #a0 = dict((f, 1.0) for f in [4, 5, Before(4), Before(5)])
-    a0 = dict((f, 1.0) for f in [7, 6, Before(7), Before(6)])
-    see(a0)
-    print()
+#    a0 = dict((f, 1.0) for f in [4, 5, Before(4), Before(5)])
+#    #a0 = dict((f, 1.0) for f in [7, 6, Before(7), Before(6)])
+#    see(a0)
+#    print()
+#
+#    start = process_time()
+#    a1 = p.propagate(g, a0, num_iterations=10)
+#    end = process_time()
+#    print(end - start)
+#    #see(a1)
+#    print(sum(a1.values()))
+    es = query(g, [4, 5, Before(4), Before(5)])
+    pp(es)
 
-    start = process_time()
-    a1 = p.propagate(g, a0, num_iterations=20)
-    end = process_time()
-    print(end - start)
-    see(a1)
-    print(sum(a1.values()))
-
-    nx.draw(g, with_labels=True, pos=nx.bipartite_layout(g, [n for n in g.nodes if isinstance(n, Equation)]))
+    #nx.draw(g, with_labels=True, pos=nx.bipartite_layout(g, [n for n in g.nodes if isinstance(n, Equation)]))
     #plt.show()
