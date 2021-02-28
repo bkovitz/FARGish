@@ -17,11 +17,13 @@ from collections import Counter
 import networkx as nx
 
 from Propagator import Propagator, Delta
-from util import is_iter
+from util import is_iter, as_iter
 
 
-def pts(ls):
+def pts(ls, n=None):
     '''Print as a table of strings. For debugging.'''
+    if n is not None:
+        ls = ls[:n]
     for x in ls:
         if is_iter(x):
             print(', '.join(str(y) for y in x))
@@ -65,6 +67,9 @@ class FeatureWrapper:
     def __str__(self):
         return f'{self.__class__.__name__}({self.feature})'
 
+    def features(self):
+        yield self.feature
+
 class Before(FeatureWrapper):
     pass
 
@@ -84,6 +89,22 @@ class NumOperands(FeatureWrapper):
     pass
 
 class OneUniqueBefore(FeatureWrapper):
+    pass
+
+class Leading(FeatureWrapper):
+    '''Indicates the leading digit of something.'''
+    pass
+
+class Trailing(FeatureWrapper):
+    '''Indicates the last digit of something.'''
+    pass
+
+@dataclass(frozen=True)
+class Even:
+    pass
+
+@dataclass(frozen=True)
+class Odd:
     pass
 
 @dataclass(frozen=True)
@@ -219,7 +240,7 @@ class SlipnetPropagator(Propagator):
     max_total: float = 10.0
     positive_feedback_rate: float = 0.0  # higher -> initial features matter more
     sigmoid_p: float = 1.1  # higher -> sharper distinctions, more salience
-    num_iterations: int = 8
+    num_iterations: int = 20
     alpha: float = 0.95
     inflation_constant: float = 5.0  # 2.0 is minimum
     
@@ -282,12 +303,50 @@ class Slipnet(nx.Graph):
         self.propagator = SlipnetPropagator()
         self.add_layer2_nodes(nodes)
 
+    def ns(self, node) -> List[str]:
+        '''Returns list of neighbors represented as strings.'''
+        return [str(neighbor) for neighbor in self.neighbors(node)]
+
     def add_layer2_nodes(self, nodes: Iterable[Node]):
         for node in nodes:
             self.add_node(node)
-            for f in node.features():
+            for f in as_iter(self.features_of(node)):
                 self.add_edge(f, node, weight=1.0)
                 self.features.add(f)
+
+    # NEXT Limit to 2 levels of features
+    def xfeatures_of(self, x0) -> Set[Hashable]:
+        result = set()
+        visited = set()
+        to_visit = {x0}
+        while to_visit:
+            next_to_visit = set()
+            for x in to_visit:
+                visited.add(x)
+                for f in self.features_of1(x):
+                    result.add(f)
+                    if f not in visited:
+                        next_to_visit.add(f)
+            to_visit = next_to_visit
+        return result
+
+    def features_of1(self, x) -> Union[Iterable[Hashable], None]:
+        if hasattr(x, 'features'):
+            yield from x.features()
+        elif isinstance(x, int):
+            if x & 1:
+                yield Odd()
+            else:
+                yield Even()
+            s = str(x)
+            if len(s) > 1:
+                yield Leading(int(s[0]))
+                yield Trailing(int(s[1]))
+        else:
+            #raise ValueError(x)
+            return
+
+    features_of = features_of1
 
     def incident_nws(self, node: Hashable) -> List[NeighborW]:
         return [
@@ -295,12 +354,11 @@ class Slipnet(nx.Graph):
                 for neighbor, edge_d in self.adj[node].items()
         ]
 
-    def query(
+    def dquery(
         self,
-        features: Iterable[Hashable],
-        type: Type,
-        k: Union[int, None]=None
-    ) -> List:
+        features: Iterable[Hashable]
+    ) -> Dict[Hashable, float]:
+        '''Returns dictionary of activations.'''
         activations_in = {}
         for f in features:
             if isinstance(f, NodeA):
@@ -312,13 +370,27 @@ class Slipnet(nx.Graph):
                 except AttributeError:
                     a = 1.0
             activations_in[f] = max(activations_in.get(f, 0.0), a)
-        activations_out = self.propagator.propagate(
-            self, activations_in
-        )
+        return self.propagator.propagate(self, activations_in)
+
+    def query(
+        self,
+        features: Iterable[Hashable],
+        type: Type,
+        k: Union[int, None]=None
+    ) -> List:
+        activations_out = self.dquery(features)
         print('SUM', sum(activations_out.values()))
+        return self.top(activations_out, type, k)
+
+    def top(
+        self,
+        d: Dict[Hashable, float],
+        type: Type,
+        k: Union[int, None]=None
+    ) -> List[NodeA]:
         nas = [
             NodeA(node, a)
-                for (node, a) in activations_out.items()
+                for (node, a) in d.items()
                     if isinstance(node, type)
         ]
         if k is None:
@@ -361,4 +433,14 @@ f456 = [Before(4), Before(5), Before(6), After(15)]
 f22 = [Before(2), Doubled(2), After(4)] # WANT addition favored by default
                                         # over multiplication.
 f1 = [1]
-pts(slipnet.query(f456, object, k=20))
+#q = slipnet.query(f456, object)
+#pts(q)
+#d = slipnet.dquery(f456)
+
+slipnet.add_layer2_nodes([40, 50, 60])
+slipnet.add_edge(Leading(4), 40, weight=1.0)
+slipnet.add_edge(Leading(5), 50, weight=1.0)
+
+# "Backwash" test: will 40 and 50 receive much activation?
+q = slipnet.dquery([Equation((5, 4), plus, 9)])
+pts(q)
