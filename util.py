@@ -1,15 +1,14 @@
 # util.py -- Generic utility functions and classes for FARGish
 
 from collections.abc import Iterable
+import collections
 import random
 import sys
 from inspect import isclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Callable, Sequence
+    NewType, Type, ClassVar, Sequence, Callable, Hashable
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable
 from types import SimpleNamespace
 from itertools import chain, tee
 
@@ -53,6 +52,20 @@ def as_set(o):
         return o
     else:
         return set(as_iter(o))
+
+def as_hashable(o) -> Hashable:
+    '''Tries to make a Hashable object out of o if it's not. It will probably
+    fail.'''
+    if isinstance(o, collections.Hashable):
+        # Warning: if o is a dataclass with frozen=True, it will be seen as
+        # Hashable but it won't be if it contains any unhashable members,
+        # like a list or dict.
+        return o
+    if isinstance(o, list):
+        o = tuple(o)
+    else:
+        raise ValueError(f'{o} cannot be made hashable. Maybe it contains a list.')
+    return o
 
 # TODO UT
 def omit(d: Dict, keys: Iterable) -> Dict:
@@ -155,6 +168,14 @@ def nrepr(o):
 class NiceRepr:
     "Mix-in to give descendants nice_object_repr."
     __repr__ = nice_object_repr
+
+def csep(xs) -> str:
+    '''Comma-separated string for whatever you pass it.'''
+    return ', '.join(str(x) for x in as_iter(xs))
+
+def ssep(xs) -> str:
+    '''Space-separated string for whatever you pass it.'''
+    return ' '.join(str(x) for x in as_iter(xs))
 
 def rescale(xs, new_total=1.0):
     '''Returns list of xs, rescaled to sum to new_total.'''
@@ -357,3 +378,15 @@ class Quote:
 class ClassStrIsName(type):
     def __str__(self):
         return self.__name__
+
+# Debugging
+
+def pts(ls, n=None):
+    '''Print as a table of strings. For debugging.'''
+    if n is not None:
+        ls = ls[:n]
+    for x in ls:
+        if is_iter(x):
+            print(', '.join(str(y) for y in x))
+        else:
+            print(str(x))

@@ -17,18 +17,7 @@ from collections import Counter
 import networkx as nx
 
 from Propagator import Propagator, Delta
-from util import is_iter, as_iter
-
-
-def pts(ls, n=None):
-    '''Print as a table of strings. For debugging.'''
-    if n is not None:
-        ls = ls[:n]
-    for x in ls:
-        if is_iter(x):
-            print(', '.join(str(y) for y in x))
-        else:
-            print(str(x))
+from util import is_iter, as_iter, pts
 
 
 NodeId = NewType('NodeId', int)
