@@ -15,6 +15,7 @@ from heapq import nlargest
 from collections import Counter
 
 import networkx as nx
+import matplotlib.pyplot as plt
 
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, csep, ssep, as_hashable
@@ -25,14 +26,83 @@ NodeId = NewType('NodeId', int)
 Value = NewType('Value', Hashable)
 Painter = Any  # TODO narrow this down
 
+# Classes
+
+class SupportGraph(nx.Graph):
+
+    def ns(self, node) -> List[str]:
+        '''Returns list of neighbors represented as strings.'''
+        return [str(neighbor) for neighbor in self.neighbors(node)]
+
+
+@dataclass
+class Workspace:
+    elems: Set['WorkspaceElement'] = field(default_factory=set)
+    d: Dict[Hashable, Any] = field(default_factory=dict)
+
+    support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
+
+    mutual_antipathy_weight: ClassVar[float] = -0.2
+    
+    def add(self, elem: 'WorkspaceElement'):
+        self.elems.add(elem)
+
+    def get(self, addr: Hashable) -> Hashable:
+        return self.d.get(addr, None)
+
+    def paint(self, addr: Hashable, elem: 'WorkspaceElement'):
+        '''
+        anything at that addr yet?
+        no: add it
+        yes, but it's already elem: do nothing
+        yes, and it's a different elem: split into Cell with competing Values
+        yes, and it's a Cell with competing Values: add elem to that Cell
+        '''
+        #elems.add(elem)
+        existing = self.d.get(addr, None)
+        if existing is None:
+            self.d[addr] = elem
+            return
+        elif existing == elem:
+            return
+        if isinstance(existing, Cell):
+            cell = existing
+        else:  # else it's a competing elem
+            cell = Cell()
+            existing = ValueInCell(existing, addr)
+            cell.add(existing)
+        new_vic = ValueInCell(elem, addr)
+        for old_elem in cell:
+            self.support_g.add_edge(
+                new_vic, old_elem, weight=self.mutual_antipathy_weight
+            )
+        cell.add(new_vic)
+        self.d[addr] = cell
+
+    def __str__(self):
+        return 'Workspace\n' + self.dstr(prefix='  ')
+
+    def dstr(self, prefix: str='  ') -> str:
+        lines = []
+        for addr, elem in self.d.items():
+            lines.append(f'{prefix}{addr} -> {elem}')
+        return '\n'.join(lines)
+
 @dataclass
 class Cell:
+    #canvas: 'Canvas'
     values: Set[Value] = field(default_factory=set)
 
     def add_value(self, source: Painter, value: Value):
         self.values.add(as_hashable(value))
         #NEXT Mutual support to painter
         #NEXT Mutual opposition between values
+
+    def add(self, value: Value):
+        self.values.add(as_hashable(value))
+
+    def __iter__(self):
+        return iter(self.values)
 
     def __str__(self):
         if not self.values:
@@ -42,8 +112,20 @@ class Cell:
         else:
             return f'{{{ssep(self.values)}}}'
 
-@dataclass
-class SeqCanvas:
+@dataclass(frozen=True)
+class ValueInCell:
+    value: Hashable
+    addr: Hashable
+
+    def __str__(self):
+        return f'ValueInCell({self.value}, {self.addr})'
+
+@dataclass(frozen=True)
+class Canvas:
+    pass
+
+@dataclass(frozen=True)
+class SeqCanvas(Canvas):
     car: Cell = None
     cdr: Cell = None
 
@@ -128,9 +210,37 @@ class Consume:  # TODO inherit from Painter
     def __str__(self):
         return f'C({self.operator}, {ssep(self.operands)})'
 
+# Global variable
+
+ws = Workspace()
+
+# 'main' test code
+
+plt.ion()
+
 soln_canvas = SeqCanvas(Numble((4, 5, 6), 15))
-c1 = Consume(plus, [4, 5])
-c1.paint(soln_canvas)
-c2 = Consume(times, [4, 5])
-c2.paint(soln_canvas)
-print(soln_canvas)
+#c1 = Consume(plus, [4, 5])
+#c1.paint(soln_canvas)
+#c2 = Consume(times, [4, 5])
+#c2.paint(soln_canvas)
+#print(soln_canvas)
+
+ss2a = SolnState((6, 9), '4+5=9')
+ss2b = SolnState((6, 9), '4x5=20')
+ss2c = SolnState((5, 24), '4x6=24')
+ss2d = SolnState((4, 30), '5x6=30')
+#print(soln_canvas)
+print(ws.get(('SolnCanvas', 'cdr')))
+#ws.paint(('SolnCanvas', 'cdr'), ss2a)
+#ws.paint(('SolnCanvas', 'cdr'), ss2a)
+#ws.paint(('SolnCanvas', 'cdr'), ss2b)
+#ws.paint(('SolnCanvas', 'cdr'), ss2c)
+for ss in [ss2a, ss2a, ss2b, ss2c, ss2d]:
+    ws.paint(('SolnCanvas', 'cdr'), ss)
+    print(ws.get(('SolnCanvas', 'cdr')))
+    print()
+    
+print(ws)
+pos = nx.spring_layout(ws.support_g)
+nx.draw(ws.support_g, pos, with_labels=True)
+nx.draw_networkx_edge_labels(ws.support_g, pos, edge_labels=nx.get_edge_attributes(ws.support_g, 'weight'))
