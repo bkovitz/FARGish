@@ -34,6 +34,11 @@ class SupportGraph(nx.Graph):
         '''Returns list of neighbors represented as strings.'''
         return [str(neighbor) for neighbor in self.neighbors(node)]
 
+    def draw(self):
+        pos = nx.spring_layout(self)
+        nx.draw(self, pos, with_labels=True)
+        nx.draw_networkx_edge_labels(self, pos, edge_labels=nx.get_edge_attributes(self, 'weight'))
+
 
 @dataclass
 class Workspace:
@@ -42,6 +47,7 @@ class Workspace:
 
     support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
 
+    mutual_support_weight: ClassVar[float] = 1.0
     mutual_antipathy_weight: ClassVar[float] = -0.2
     
     def add(self, elem: 'WorkspaceElement'):
@@ -50,7 +56,9 @@ class Workspace:
     def get(self, addr: Hashable) -> Hashable:
         return self.d.get(addr, None)
 
-    def paint(self, addr: Hashable, elem: 'WorkspaceElement'):
+    def paint(
+        self, addr: Hashable, elem: 'WorkspaceElement', painter: Hashable=None
+    ):
         '''
         anything at that addr yet?
         no: add it
@@ -59,25 +67,34 @@ class Workspace:
         yes, and it's a Cell with competing Values: add elem to that Cell
         '''
         #elems.add(elem)
+        vic = ValueInCell(elem, addr)
+        if painter is not None:
+            self.add_mut_support(painter, vic)
         existing = self.d.get(addr, None)
         if existing is None:
-            self.d[addr] = elem
+            self.d[addr] = vic
             return
-        elif existing == elem:
+        elif existing == vic:
             return
         if isinstance(existing, Cell):
             cell = existing
         else:  # else it's a competing elem
             cell = Cell()
-            existing = ValueInCell(existing, addr)
             cell.add(existing)
-        new_vic = ValueInCell(elem, addr)
-        for old_elem in cell:
-            self.support_g.add_edge(
-                new_vic, old_elem, weight=self.mutual_antipathy_weight
-            )
-        cell.add(new_vic)
+        for old_vic in cell:
+            self.add_mut_antipathy(vic, old_vic)
+        cell.add(vic)
         self.d[addr] = cell
+
+    def add_mut_support(self, a: Hashable, b: Hashable):
+        self.support_g.add_edge(
+            a, b, weight=self.mutual_support_weight
+        )
+        
+    def add_mut_antipathy(self, a: Hashable, b: Hashable):
+        self.support_g.add_edge(
+            a, b, weight=self.mutual_antipathy_weight
+        )
 
     def __str__(self):
         return 'Workspace\n' + self.dstr(prefix='  ')
@@ -104,6 +121,9 @@ class Cell:
     def __iter__(self):
         return iter(self.values)
 
+    def __len__(self):
+        return len(self.values)
+
     def __str__(self):
         if not self.values:
             return '{}'
@@ -128,6 +148,7 @@ class Canvas:
 class SeqCanvas(Canvas):
     car: Cell = None
     cdr: Cell = None
+    pre: 'SeqCanvas' = None
 
     def add_value(self, source: Painter, cell_name: str, value: Value):
         cell = getattr(self, cell_name, None)
@@ -187,17 +208,27 @@ def avails(o) -> List[int]:
     return as_list(o.avails)
     
 @dataclass(frozen=True)
+class PainterWithArgs:
+    painter: Hashable
+    arg: Hashable
+    # TODO more flexibility for arg/args
+
+    def __str__(self):
+        return "PARG"
+
+@dataclass(frozen=True)
 class Consume:  # TODO inherit from Painter
     # TODO Cell[Operator], etc.
     operator: Union[Operator, None] = None
-    operands: Union[List[int], None] = None
+    operands: Union[Tuple[int], None] = None
     
-    def paint(self, canvas: SeqCanvas):
+    def next_state(self, canvas: SeqCanvas):
         new_avails = self.without_operands(canvas)
         result = self.operator.call(*self.operands)
         expr = f' {self.operator} '.join(str(n) for n in self.operands)
         move_str = f'{expr} = {result}'
-        canvas.add_value(self, 'cdr', SolnState(new_avails, move_str))
+        #canvas.add_value(self, 'cdr', SolnState(new_avails, move_str))
+        return SolnState(new_avails, move_str)
         # TODO catch exc from without_operands
 
     def without_operands(self, canvas: SeqCanvas) -> Tuple[int]:
@@ -206,6 +237,18 @@ class Consume:  # TODO inherit from Painter
         for operand in self.operands:
             new_avails.remove(operand)
         return tuple(new_avails)
+
+    def paint(self, ws: Workspace, canvas: SeqCanvas) -> SeqCanvas:
+        new_state = self.next_state(canvas)
+        new_canvas = SeqCanvas(car=new_state, pre=canvas)
+        pargs = PainterWithArgs(self, canvas)
+        ws.paint(
+            (canvas, 'cdr'),
+            new_canvas,
+            painter=pargs
+        )
+        ws.add_mut_support(canvas, pargs)
+        return new_canvas
 
     def __str__(self):
         return f'C({self.operator}, {ssep(self.operands)})'
@@ -219,6 +262,7 @@ ws = Workspace()
 plt.ion()
 
 soln_canvas = SeqCanvas(Numble((4, 5, 6), 15))
+canvas = soln_canvas
 #c1 = Consume(plus, [4, 5])
 #c1.paint(soln_canvas)
 #c2 = Consume(times, [4, 5])
@@ -230,17 +274,29 @@ ss2b = SolnState((6, 9), '4x5=20')
 ss2c = SolnState((5, 24), '4x6=24')
 ss2d = SolnState((4, 30), '5x6=30')
 #print(soln_canvas)
-print(ws.get(('SolnCanvas', 'cdr')))
+print(ws.get((canvas, 'cdr')))
 #ws.paint(('SolnCanvas', 'cdr'), ss2a)
 #ws.paint(('SolnCanvas', 'cdr'), ss2a)
 #ws.paint(('SolnCanvas', 'cdr'), ss2b)
 #ws.paint(('SolnCanvas', 'cdr'), ss2c)
-for ss in [ss2a, ss2a, ss2b, ss2c, ss2d]:
-    ws.paint(('SolnCanvas', 'cdr'), ss)
-    print(ws.get(('SolnCanvas', 'cdr')))
+for ss in [ss2a]: #, ss2a, ss2b, ss2c, ss2d]:
+    ws.paint((canvas, 'cdr'), ss)
+    print(ws.get((canvas, 'cdr')))
     print()
     
 print(ws)
-pos = nx.spring_layout(ws.support_g)
-nx.draw(ws.support_g, pos, with_labels=True)
-nx.draw_networkx_edge_labels(ws.support_g, pos, edge_labels=nx.get_edge_attributes(ws.support_g, 'weight'))
+
+# Draw the support graph
+#pos = nx.spring_layout(ws.support_g)
+#nx.draw(ws.support_g, pos, with_labels=True)
+#nx.draw_networkx_edge_labels(ws.support_g, pos, edge_labels=nx.get_edge_attributes(ws.support_g, 'weight'))
+
+cs1 = Consume(plus, (4, 5))
+#print(c1.next_state(canvas))
+canvas2 = cs1.paint(ws, canvas)
+print(canvas2)
+#print(ws.get((canvas, 'cdr')))
+x = ws.get((canvas, 'cdr'))
+print(len(x))
+print(x)
+ws.support_g.draw()
