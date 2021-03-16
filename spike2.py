@@ -16,9 +16,11 @@ from collections import Counter
 
 import networkx as nx
 import matplotlib.pyplot as plt
+import netgraph
 
 from Propagator import Propagator, Delta
-from util import is_iter, as_iter, as_list, pts, csep, ssep, as_hashable
+from util import is_iter, as_iter, as_list, pts, csep, ssep, as_hashable, \
+    backslash
 
 
 NodeId = NewType('NodeId', int)
@@ -26,19 +28,52 @@ NodeId = NewType('NodeId', int)
 Value = NewType('Value', Hashable)
 Painter = Any  # TODO narrow this down
 
+# Global vars to keep a object instances around for InteractiveGraph
+pos = None 
+node_labels = None
+plot_instance = None
+
+def gstr(node):
+    '''Returns a string for node suitable for displaying in a visualization
+    of a graph.'''
+    if hasattr(node, 'gstr'):
+        return node.gstr()
+    else:
+        return str(node)
+
+def astr(node):
+    '''Returns a string for an addr suitable for displaying in a visualization
+    of a graph.'''
+    if hasattr(node, 'astr'):
+        return node.astr()
+    elif isinstance(node, tuple):
+        return str(tuple(astr(x) for x in node))
+    else:
+        return str(node)
+
 # Classes
 
 class SupportGraph(nx.Graph):
 
     def ns(self, node) -> List[str]:
         '''Returns list of neighbors represented as strings.'''
-        return [str(neighbor) for neighbor in self.neighbors(node)]
+        return [gstr(neighbor) for neighbor in self.neighbors(node)]
 
     def draw(self):
-        pos = nx.spring_layout(self)
-        nx.draw(self, pos, with_labels=True)
-        nx.draw_networkx_edge_labels(self, pos, edge_labels=nx.get_edge_attributes(self, 'weight'))
-
+        global pos, node_labels, plot_instance
+        pos = nx.layout.spring_layout(self)
+        node_labels = dict((node, gstr(node)) for node in self.nodes)
+#        nx.draw(self, pos, with_labels=True, labels=node_labels)
+#        nx.draw_networkx_edge_labels(
+#            self, pos, edge_labels=nx.get_edge_attributes(self, 'weight')
+#        )
+        plot_instance = netgraph.InteractiveGraph(
+            self,
+            node_positions=pos,
+            node_labels=node_labels,
+            node_label_font_size=6
+        )
+        #plot_instance = netgraph.InteractiveGraph(self)
 
 @dataclass
 class Workspace:
@@ -140,6 +175,10 @@ class ValueInCell:
     def __str__(self):
         return f'ValueInCell({self.value}, {self.addr})'
 
+    def gstr(self):
+        return f'VIC-{self.value.__class__.__name__}({gstr(self.value)})'
+        #return f'{gstr(self.value)}{backslash}{astr(self.addr)}'
+
 @dataclass(frozen=True)
 class Canvas:
     pass
@@ -159,6 +198,9 @@ class SeqCanvas(Canvas):
 
     def __str__(self):
         return f'{self.car}; {self.cdr}'
+
+    def astr(self):
+        return f'{self.__class__.__name__}({astr(self.car), astr(self.cdr)})'
 
 @dataclass(frozen=True)
 class Operator:
@@ -225,6 +267,7 @@ class Consume:  # TODO inherit from Painter
     def next_state(self, canvas: SeqCanvas):
         new_avails = self.without_operands(canvas)
         result = self.operator.call(*self.operands)
+        new_avails = new_avails + (result,)
         expr = f' {self.operator} '.join(str(n) for n in self.operands)
         move_str = f'{expr} = {result}'
         #canvas.add_value(self, 'cdr', SolnState(new_avails, move_str))
@@ -248,6 +291,7 @@ class Consume:  # TODO inherit from Painter
             painter=pargs
         )
         ws.add_mut_support(canvas, pargs)
+        ws.add_mut_support(self, pargs)
         return new_canvas
 
     def __str__(self):
@@ -299,4 +343,6 @@ print(canvas2)
 x = ws.get((canvas, 'cdr'))
 print(len(x))
 print(x)
+v = list(x)[0]
+print(v)
 ws.support_g.draw()

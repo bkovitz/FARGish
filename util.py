@@ -15,6 +15,7 @@ from itertools import chain, tee
 
 empty_set = frozenset()
 newline = '\n'
+backslash = '\\'
 
 def is_iter(o):
     return (
