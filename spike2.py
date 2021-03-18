@@ -52,15 +52,15 @@ def astr(node):
     else:
         return str(node)
 
-def items(x) -> Iterable[Any]:
-    if hasattr(x, 'items'):
-        yield from x.items()
+def elems(x) -> Iterable[Any]:
+    if hasattr(x, 'elems'):
+        yield from x.elems()
     else:
         yield x
 
-def hasa(container, item) -> bool:
+def hasa(container, elem) -> bool:
     if hasattr(container, 'hasa'):
-        return container.hasa(item)
+        return container.hasa(elem)
     else:
         return False
 
@@ -90,7 +90,7 @@ class SupportGraph(nx.Graph):
 
 @dataclass
 class Workspace:
-    elems: Set['WorkspaceElement'] = field(default_factory=set)
+    #elems: Set['WorkspaceElement'] = field(default_factory=set)
     d: Dict[Hashable, Any] = field(default_factory=dict)
 
     support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
@@ -153,12 +153,12 @@ class Workspace:
             lines.append(f'{prefix}{addr} -> {elem}')
         return '\n'.join(lines)
 
-    def items(self) -> Iterable[Any]:
+    def elems(self) -> Iterable[Any]:
         for x in self.d.values():
-            yield from items(x)
+            yield from elems(x)
 
     def hasa(self, elem):
-        return any(e == elem or hasa(e, elem) for e in self.items())
+        return any(e == elem or hasa(e, elem) for e in self.elems())
 
 @dataclass
 class Cell:
@@ -187,9 +187,9 @@ class Cell:
         else:
             return f'{{{ssep(self.values)}}}'
 
-    def items(self):
+    def elems(self):
         for value in self.values:
-            yield from items(value)
+            yield from elems(value)
 
 @dataclass(frozen=True)
 class ValueInCell:
@@ -203,8 +203,8 @@ class ValueInCell:
         return f'VIC-{self.value.__class__.__name__}({gstr(self.value)})'
         #return f'{gstr(self.value)}{backslash}{astr(self.addr)}'
 
-    def items(self):
-        return items(self.value)
+    def elems(self):
+        return elems(self.value)
 
 @dataclass(frozen=True)
 class Canvas:
@@ -275,9 +275,9 @@ class SolnState:
         else:
             return f'[{self.last_move}; {ssep(self.avails)}]'
 
-    def hasa(self, item):
+    def hasa(self, elem):
         for a in as_iter(self.avails):
-            if a == item:
+            if a == elem:
                 return True
         return False
 
@@ -421,7 +421,7 @@ ws.support_g.draw()
 
 print()
 print()
-for item in ws.items():
-    print(hasa(item, 15), str(item))
+for elem in ws.elems():
+    print(hasa(elem, 15), str(elem))
 
 noticer15.go(ws)
