@@ -7,6 +7,7 @@ from time import process_time
 from dataclasses import dataclass, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable
+from abc import ABC, abstractmethod
 from itertools import chain
 from copy import copy
 import operator
@@ -19,7 +20,7 @@ import matplotlib.pyplot as plt
 import netgraph
 
 from Propagator import Propagator, Delta
-from util import is_iter, as_iter, as_list, pts, csep, ssep, as_hashable, \
+from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
     backslash
 
 
@@ -50,6 +51,18 @@ def astr(node):
         return str(tuple(astr(x) for x in node))
     else:
         return str(node)
+
+def items(x) -> Iterable[Any]:
+    if hasattr(x, 'items'):
+        yield from x.items()
+    else:
+        yield x
+
+def hasa(container, item) -> bool:
+    if hasattr(container, 'hasa'):
+        return container.hasa(item)
+    else:
+        return False
 
 # Classes
 
@@ -140,6 +153,13 @@ class Workspace:
             lines.append(f'{prefix}{addr} -> {elem}')
         return '\n'.join(lines)
 
+    def items(self) -> Iterable[Any]:
+        for x in self.d.values():
+            yield from items(x)
+
+    def hasa(self, elem):
+        return any(e == elem or hasa(e, elem) for e in self.items())
+
 @dataclass
 class Cell:
     #canvas: 'Canvas'
@@ -167,6 +187,10 @@ class Cell:
         else:
             return f'{{{ssep(self.values)}}}'
 
+    def items(self):
+        for value in self.values:
+            yield from items(value)
+
 @dataclass(frozen=True)
 class ValueInCell:
     value: Hashable
@@ -178,6 +202,9 @@ class ValueInCell:
     def gstr(self):
         return f'VIC-{self.value.__class__.__name__}({gstr(self.value)})'
         #return f'{gstr(self.value)}{backslash}{astr(self.addr)}'
+
+    def items(self):
+        return items(self.value)
 
 @dataclass(frozen=True)
 class Canvas:
@@ -201,6 +228,9 @@ class SeqCanvas(Canvas):
 
     def astr(self):
         return f'{self.__class__.__name__}({astr(self.car), astr(self.cdr)})'
+
+    def hasa(self, elem):
+        return hasa(self.car, elem) or hasa(self.cdr, elem)
 
 @dataclass(frozen=True)
 class Operator:
@@ -244,6 +274,12 @@ class SolnState:
                 return f'[{self.last_move}; ]'
         else:
             return f'[{self.last_move}; {ssep(self.avails)}]'
+
+    def hasa(self, item):
+        for a in as_iter(self.avails):
+            if a == item:
+                return True
+        return False
 
 def avails(o) -> List[int]:
     #TODO try-except
@@ -297,6 +333,36 @@ class Consume:  # TODO inherit from Painter
     def __str__(self):
         return f'C({self.operator}, {ssep(self.operands)})'
 
+@dataclass(frozen=True)
+class Agent(ABC):
+    
+    @abstractmethod
+    def go(self, ws: Workspace):
+        pass
+
+@dataclass(frozen=True)
+class FoundIt(Agent):
+
+    def go(self, ws: Workspace):
+        print("Found it!")
+
+@dataclass(frozen=True)
+class Noticer:
+    target: Hashable
+    continuation: Agent
+
+    def go(self, ws: Workspace):
+        # TODO
+        # See what's new.
+        # Does it match the target?
+        # Get its addr.
+        # yes: Start the continuation
+
+        # We'll need to exclude what we've noticed before, at least for a
+        # while.
+        if hasa(ws, self.target):
+            self.continuation.go(ws)
+
 # Global variable
 
 ws = Workspace()
@@ -335,7 +401,11 @@ print(ws)
 #nx.draw(ws.support_g, pos, with_labels=True)
 #nx.draw_networkx_edge_labels(ws.support_g, pos, edge_labels=nx.get_edge_attributes(ws.support_g, 'weight'))
 
+foundit = FoundIt()
+noticer15 = Noticer(15, foundit)
+
 cs1 = Consume(plus, (4, 5))
+cs2 = Consume(plus, (9, 6))
 #print(c1.next_state(canvas))
 canvas2 = cs1.paint(ws, canvas)
 print(canvas2)
@@ -345,4 +415,13 @@ print(len(x))
 print(x)
 v = list(x)[0]
 print(v)
+
+canvas3 = cs2.paint(ws, canvas2)
 ws.support_g.draw()
+
+print()
+print()
+for item in ws.items():
+    print(hasa(item, 15), str(item))
+
+noticer15.go(ws)

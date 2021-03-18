@@ -383,7 +383,7 @@ class ClassStrIsName(type):
 # Debugging
 
 def pts(ls, n=None):
-    '''Print as a table of strings. For debugging.'''
+    '''Prints ls as a table of strings. For debugging.'''
     if n is not None:
         ls = ls[:n]
     for x in ls:
@@ -391,3 +391,8 @@ def pts(ls, n=None):
             print(', '.join(str(y) for y in x))
         else:
             print(str(x))
+
+def pl(x: Any):
+    '''Prints x as a list, one line at a time.'''
+    for a in as_iter(x):
+        print(a)
