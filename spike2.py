@@ -34,6 +34,23 @@ pos = None
 node_labels = None
 plot_instance = None
 
+
+@dataclass(frozen=True)
+class ValueInCell:
+    value: Hashable
+    addr: Hashable
+
+    def __str__(self):
+        typename = self.value.__class__.__name__
+        return f'ViC({self.value}: {typename}, addr={astr(self.addr)})'
+
+#    def gstr(self):
+#        return f'ViC-{self.value.__class__.__name__}({gstr(self.value)})'
+#        #return f'{gstr(self.value)}{backslash}{astr(self.addr)}'
+
+    def elems(self):
+        return elems(self.value)
+
 def gstr(node):
     '''Returns a string for node suitable for displaying in a visualization
     of a graph.'''
@@ -63,6 +80,14 @@ def hasa(container, elem) -> bool:
         return container.hasa(elem)
     else:
         return False
+
+def value_of(x: Hashable) -> Hashable:
+    '''If x holds a value, i.e. has a .value member, return x.value.
+    Otherwise x is a value, so we return x.'''
+    try:
+        return x.value
+    except AttributeError:
+        return x
 
 # Classes
 
@@ -106,8 +131,10 @@ class Workspace:
 
     def paint(
         self, addr: Hashable, elem: 'WorkspaceElement', painter: Hashable=None
-    ):
+    ) -> ValueInCell:
         '''
+        Paints elem at addr.
+
         anything at that addr yet?
         no: add it
         yes, but it's already elem: do nothing
@@ -119,20 +146,21 @@ class Workspace:
         if painter is not None:
             self.add_mut_support(painter, vic)
         existing = self.d.get(addr, None)
-        if existing is None:
+        if existing is None: # Nothing is at that address yet
             self.d[addr] = vic
-            return
-        elif existing == vic:
-            return
-        if isinstance(existing, Cell):
-            cell = existing
-        else:  # else it's a competing elem
-            cell = Cell()
-            cell.add(existing)
-        for old_vic in cell:
-            self.add_mut_antipathy(vic, old_vic)
-        cell.add(vic)
-        self.d[addr] = cell
+        elif existing == vic: # One thing is at that address: vic
+            pass # so there's nothing to do
+        else:
+            if isinstance(existing, Cell):
+                cell = existing
+            else:  # else it's a competing elem
+                cell = Cell()
+                cell.add(existing)
+            for old_vic in cell:
+                self.add_mut_antipathy(vic, old_vic)
+            cell.add(vic)
+            self.d[addr] = cell
+        return vic
 
     def add_mut_support(self, a: Hashable, b: Hashable):
         self.support_g.add_edge(
@@ -190,21 +218,6 @@ class Cell:
     def elems(self):
         for value in self.values:
             yield from elems(value)
-
-@dataclass(frozen=True)
-class ValueInCell:
-    value: Hashable
-    addr: Hashable
-
-    def __str__(self):
-        return f'ValueInCell({self.value}, {self.addr})'
-
-    def gstr(self):
-        return f'VIC-{self.value.__class__.__name__}({gstr(self.value)})'
-        #return f'{gstr(self.value)}{backslash}{astr(self.addr)}'
-
-    def elems(self):
-        return elems(self.value)
 
 @dataclass(frozen=True)
 class Canvas:
@@ -317,18 +330,20 @@ class Consume:  # TODO inherit from Painter
             new_avails.remove(operand)
         return tuple(new_avails)
 
-    def paint(self, ws: Workspace, canvas: SeqCanvas) -> SeqCanvas:
+    def paint(self, ws: Workspace, c: Union[SeqCanvas, ValueInCell]) \
+    -> ValueInCell:
+        canvas = value_of(c)
         new_state = self.next_state(canvas)
         new_canvas = SeqCanvas(car=new_state, pre=canvas)
         pargs = PainterWithArgs(self, canvas)
-        ws.paint(
+        new_vic = ws.paint(
             (canvas, 'cdr'),
             new_canvas,
             painter=pargs
         )
-        ws.add_mut_support(canvas, pargs)
+        ws.add_mut_support(c, pargs)
         ws.add_mut_support(self, pargs)
-        return new_canvas
+        return new_vic
 
     def __str__(self):
         return f'C({self.operator}, {ssep(self.operands)})'

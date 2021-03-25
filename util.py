@@ -382,11 +382,12 @@ class ClassStrIsName(type):
 
 # Debugging
 
-def pts(ls, n=None):
+def pts(ls: Iterable, n=None):
     '''Prints ls as a table of strings. For debugging.'''
     if n is not None:
         ls = ls[:n]
-    for x in ls:
+    # TODO check n inside loop
+    for x in as_iter(ls):
         if is_iter(x):
             print(', '.join(str(y) for y in x))
         else:
