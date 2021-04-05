@@ -91,6 +91,11 @@ def with_addr(value: Hashable, addr: Hashable) -> Hashable:
 
 # Classes
 
+@dataclass
+class NoSuchOperand(Exception):
+    painter: Any
+    operand: Any
+
 class SupportGraph(nx.Graph):
 
     def ns(self, node) -> List[str]:
@@ -116,6 +121,8 @@ class SupportGraph(nx.Graph):
 @dataclass
 class Workspace:
     #elems: Set['WorkspaceElement'] = field(default_factory=set)
+    top_level: Set['WorkspaceElement'] = field(default_factory=set)
+    # top_level is elements with addr==None
     d: Dict[Hashable, Any] = field(default_factory=dict)
 
     support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
@@ -123,11 +130,21 @@ class Workspace:
     mutual_support_weight: ClassVar[float] = 1.0
     mutual_antipathy_weight: ClassVar[float] = -0.2
     
-    def add(self, elem: 'WorkspaceElement'):
-        self.elems.add(elem)
+    def add(self, elem: 'WorkspaceElement', addr: Hashable):
+        elem = with_addr(elem, addr)
+        if addr is None:
+            self.top_level.add(elem)
+        else:
+            self.d[addr] = elem
 
     def get(self, addr: Hashable) -> Hashable:
         return self.d.get(addr, None)
+
+    def get_of_class(self, addr: Hashable, cl: Type) -> Iterable[Hashable]:
+        if addr is None:
+            return [e for e in self.top_level if isinstance(e, cl)]
+        else:
+            raise NotImplementedError
 
     def paint(
         self, addr: Hashable, elem: 'WorkspaceElement', painter: Hashable=None
@@ -158,7 +175,8 @@ class Workspace:
             for old_elem in cell:
                 self.add_mut_antipathy(elem, old_elem)
             cell.add(elem)
-            self.d[addr] = cell
+            #self.d[addr] = cell
+            self.add(cell, addr)
         return elem
 
     def add_mut_support(self, a: Hashable, b: Hashable):
@@ -324,9 +342,11 @@ class Consume:  # TODO inherit from Painter
 
     def without_operands(self, canvas: SeqCanvas) -> Tuple[int]:
         new_avails = list(avails(canvas.car))
-        # TODO something when .remove fails
         for operand in self.operands:
-            new_avails.remove(operand)
+            try:
+                new_avails.remove(operand)
+            except ValueError:
+                raise NoSuchOperand(self, operand)
         return tuple(new_avails)
 
     def paint(self, ws: Workspace, canvas: SeqCanvas) \
@@ -342,6 +362,15 @@ class Consume:  # TODO inherit from Painter
         ws.add_mut_support(canvas, pargs)
         ws.add_mut_support(self, pargs)
         return new_elem
+
+    def try_to_run(self, ws: Workspace):
+        '''Try to find a canvas and paint on it.'''
+        # Current version just runs on all canvases. TODO: Better.
+        for c in ws.get_of_class(None, Canvas):
+            try:
+                self.paint(ws, c)
+            except NoSuchOperand:
+                pass
 
     def __str__(self):
         return f'C({self.operator}, {ssep(self.operands)})'
@@ -386,64 +415,74 @@ ws = Workspace()
 
 plt.ion()
 
+def run1():
+    '''A manual test. Uncomment and run from the REPL to get access to
+    local variables.'''
+    soln_canvas = SeqCanvas(Numble((4, 5, 6), 15))
+    canvas = soln_canvas
+    #c1 = Consume(plus, [4, 5])
+    #c1.paint(soln_canvas)
+    #c2 = Consume(times, [4, 5])
+    #c2.paint(soln_canvas)
+    #print(soln_canvas)
+
+    ss2a = SolnState((6, 9), '4+5=9')
+    ss2b = SolnState((6, 9), '4x5=20')
+    ss2c = SolnState((5, 24), '4x6=24')
+    ss2d = SolnState((4, 30), '5x6=30')
+    #print(soln_canvas)
+    print(ws.get((canvas, 'cdr')))
+    #ws.paint(('SolnCanvas', 'cdr'), ss2a)
+    #ws.paint(('SolnCanvas', 'cdr'), ss2a)
+    #ws.paint(('SolnCanvas', 'cdr'), ss2b)
+    #ws.paint(('SolnCanvas', 'cdr'), ss2c)
+    for ss in [ss2a]: #, ss2a, ss2b, ss2c, ss2d]:
+        ws.paint((canvas, 'cdr'), ss)
+        print(ws.get((canvas, 'cdr')))
+        print()
+        
+    print(ws)
+
+    # Draw the support graph
+    #pos = nx.spring_layout(ws.support_g)
+    #nx.draw(ws.support_g, pos, with_labels=True)
+    #nx.draw_networkx_edge_labels(ws.support_g, pos, edge_labels=nx.get_edge_attributes(ws.support_g, 'weight'))
+
+    foundit = FoundIt()
+    noticer15 = Noticer(15, foundit)
+
+    cs1 = Consume(plus, (4, 5))
+    cs2 = Consume(plus, (9, 6))
+    #print(c1.next_state(canvas))
+    canvas2 = cs1.paint(ws, canvas)
+    print(canvas2)
+    #print(ws.get((canvas, 'cdr')))
+    x = ws.get((canvas, 'cdr'))
+    print(len(x))
+    print(x)
+    v = list(x)[0]
+    print(v)
+
+    canvas3 = cs2.paint(ws, canvas2)
+    ws.support_g.draw()
+
+    print()
+    print()
+    for elem in ws.elems():
+        print(hasa(elem, 15), str(elem))
+
+    noticer15.go(ws)
+
+soln_canvas = SeqCanvas(Numble((4, 5, 6), 15))
 painters = [
     Consume(plus, (4, 5)),
     Consume(plus, (9, 6)),
     Consume(plus, (5, 6))
 ]
-
-
-soln_canvas = SeqCanvas(Numble((4, 5, 6), 15))
-canvas = soln_canvas
-#c1 = Consume(plus, [4, 5])
-#c1.paint(soln_canvas)
-#c2 = Consume(times, [4, 5])
-#c2.paint(soln_canvas)
-#print(soln_canvas)
-
-ss2a = SolnState((6, 9), '4+5=9')
-ss2b = SolnState((6, 9), '4x5=20')
-ss2c = SolnState((5, 24), '4x6=24')
-ss2d = SolnState((4, 30), '5x6=30')
-#print(soln_canvas)
-print(ws.get((canvas, 'cdr')))
-#ws.paint(('SolnCanvas', 'cdr'), ss2a)
-#ws.paint(('SolnCanvas', 'cdr'), ss2a)
-#ws.paint(('SolnCanvas', 'cdr'), ss2b)
-#ws.paint(('SolnCanvas', 'cdr'), ss2c)
-for ss in [ss2a]: #, ss2a, ss2b, ss2c, ss2d]:
-    ws.paint((canvas, 'cdr'), ss)
-    print(ws.get((canvas, 'cdr')))
-    print()
-    
+ws.add(soln_canvas, None)
+for p in painters:
+    ws.add(p, None)
+for p in ws.get_of_class(None, Consume):
+    p.try_to_run(ws)
 print(ws)
-
-# Draw the support graph
-#pos = nx.spring_layout(ws.support_g)
-#nx.draw(ws.support_g, pos, with_labels=True)
-#nx.draw_networkx_edge_labels(ws.support_g, pos, edge_labels=nx.get_edge_attributes(ws.support_g, 'weight'))
-
-foundit = FoundIt()
-noticer15 = Noticer(15, foundit)
-
-cs1 = Consume(plus, (4, 5))
-cs2 = Consume(plus, (9, 6))
-#print(c1.next_state(canvas))
-canvas2 = cs1.paint(ws, canvas)
-print(canvas2)
-#print(ws.get((canvas, 'cdr')))
-x = ws.get((canvas, 'cdr'))
-print(len(x))
-print(x)
-v = list(x)[0]
-print(v)
-
-canvas3 = cs2.paint(ws, canvas2)
-ws.support_g.draw()
-
-print()
-print()
-for elem in ws.elems():
-    print(hasa(elem, 15), str(elem))
-
-noticer15.go(ws)
+# NEXT Do second timestep: the 9+6=15 should run.
