@@ -42,6 +42,26 @@ pos = None
 node_labels = None
 plot_instance = None
 
+# Global atoms (constants)
+
+@dataclass(frozen=True)
+class Atom:
+    name: str
+
+    atoms: ClassVar[Set['Atom']] = set()
+
+    def __new__(cls, name: str):
+        pass
+        #NEXT singleton
+
+    def __post_init__(self):
+        pass
+
+    def __str__(self):
+        return self.name
+
+Top = Atom('Top')
+
 
 def gstr(node):
     '''Returns a string for node suitable for displaying in a visualization
@@ -132,6 +152,7 @@ class Workspace:
     
     def add(self, elem: 'WorkspaceElement', addr: Hashable):
         elem = with_addr(elem, addr)
+        print('WS.ADD', elem)
         if addr is None:
             self.top_level.add(elem)
         else:
@@ -194,11 +215,14 @@ class Workspace:
 
     def dstr(self, prefix: str='  ') -> str:
         lines = []
+        for elem in self.top_level:
+            lines.append(f'{prefix}None -> {elem}')
         for addr, elem in self.d.items():
             lines.append(f'{prefix}{addr} -> {elem}')
         return '\n'.join(lines)
 
     def elems(self) -> Iterable[Any]:
+        # TODO Update this; it's wrong.
         for x in self.d.values():
             yield from elems(x)
 
@@ -482,7 +506,22 @@ painters = [
 ws.add(soln_canvas, None)
 for p in painters:
     ws.add(p, None)
-for p in ws.get_of_class(None, Consume):
-    p.try_to_run(ws)
+
+def runps():
+    '''Run painters.'''
+    global ws
+    for p in ws.get_of_class(None, Consume):
+        p.try_to_run(ws)
+
 print(ws)
+print()
+runps()
+print(ws)
+print()
+runps()
+print(ws)
+print()
+#p96 = 
 # NEXT Do second timestep: the 9+6=15 should run.
+
+print(Top)
