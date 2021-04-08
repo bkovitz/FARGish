@@ -53,7 +53,10 @@ class Atom:
         return self.name
 
 Top = Atom(name='Top')
+All = Atom(name='All')
 
+
+# Functions for querying an constructing
 
 def gstr(node):
     '''Returns a string for node suitable for displaying in a visualization
@@ -158,6 +161,8 @@ class Workspace:
     def get_of_class(self, addr: Hashable, cl: Type) -> Iterable[Hashable]:
         if addr is Top:
             return [e for e in self.top_level if isinstance(e, cl)]
+        elif addr is All:
+            return [e for e in self.elems() if isinstance(e, cl)]
         else:
             raise NotImplementedError
 
@@ -216,7 +221,8 @@ class Workspace:
         return '\n'.join(lines)
 
     def elems(self) -> Iterable[Any]:
-        # TODO Update this; it's wrong.
+        for x in self.top_level:
+            yield from elems(x)
         for x in self.d.values():
             yield from elems(x)
 
@@ -230,8 +236,8 @@ class Cell:
 
     def add_value(self, source: Painter, value: Value):
         self.values.add(as_hashable(value))
-        #NEXT Mutual support to painter
-        #NEXT Mutual opposition between values
+        #TODO Mutual support to painter
+        #TODO Mutual opposition between values
 
     def add(self, value: Value):
         self.values.add(as_hashable(value))
@@ -377,6 +383,7 @@ class Consume:  # TODO inherit from Painter
             new_canvas,
             painter=pargs
         )
+        print('PAINTED', new_elem)
         ws.add_mut_support(canvas, pargs)
         ws.add_mut_support(self, pargs)
         return new_elem
@@ -384,7 +391,7 @@ class Consume:  # TODO inherit from Painter
     def try_to_run(self, ws: Workspace):
         '''Try to find a canvas and paint on it.'''
         # Current version just runs on all canvases. TODO: Better.
-        for c in ws.get_of_class(Top, Canvas):
+        for c in ws.get_of_class(All, Canvas):
             try:
                 self.paint(ws, c)
             except NoSuchOperand:
@@ -504,7 +511,7 @@ for p in painters:
 def runps():
     '''Run painters.'''
     global ws
-    for p in ws.get_of_class(Top, Consume):
+    for p in ws.get_of_class(All, Consume):
         p.try_to_run(ws)
 
 print(ws)
@@ -515,7 +522,7 @@ print()
 runps()
 print(ws)
 print()
-#p96 = 
-# NEXT Do second timestep: the 9+6=15 should run.
+# NEXT Make a crude version of Want(15), or maybe refactor to do a timestep
+# and with unit tests.
 
 print(Top)
