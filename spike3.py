@@ -29,7 +29,7 @@ import netgraph
 
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
-    backslash
+    backslash, singleton
 
 
 NodeId = NewType('NodeId', int)
@@ -44,23 +44,15 @@ plot_instance = None
 
 # Global atoms (constants)
 
+@singleton
 @dataclass(frozen=True)
 class Atom:
     name: str
 
-    atoms: ClassVar[Set['Atom']] = set()
-
-    def __new__(cls, name: str):
-        pass
-        #NEXT singleton
-
-    def __post_init__(self):
-        pass
-
     def __str__(self):
         return self.name
 
-Top = Atom('Top')
+Top = Atom(name='Top')
 
 
 def gstr(node):
@@ -142,7 +134,7 @@ class SupportGraph(nx.Graph):
 class Workspace:
     #elems: Set['WorkspaceElement'] = field(default_factory=set)
     top_level: Set['WorkspaceElement'] = field(default_factory=set)
-    # top_level is elements with addr==None
+    # top_level is elements with addr==Top
     d: Dict[Hashable, Any] = field(default_factory=dict)
 
     support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
@@ -151,9 +143,11 @@ class Workspace:
     mutual_antipathy_weight: ClassVar[float] = -0.2
     
     def add(self, elem: 'WorkspaceElement', addr: Hashable):
+        if addr is None:
+            raise ValueError(f'addr must not be None')
         elem = with_addr(elem, addr)
         print('WS.ADD', elem)
-        if addr is None:
+        if addr is Top:
             self.top_level.add(elem)
         else:
             self.d[addr] = elem
@@ -162,7 +156,7 @@ class Workspace:
         return self.d.get(addr, None)
 
     def get_of_class(self, addr: Hashable, cl: Type) -> Iterable[Hashable]:
-        if addr is None:
+        if addr is Top:
             return [e for e in self.top_level if isinstance(e, cl)]
         else:
             raise NotImplementedError
@@ -216,7 +210,7 @@ class Workspace:
     def dstr(self, prefix: str='  ') -> str:
         lines = []
         for elem in self.top_level:
-            lines.append(f'{prefix}None -> {elem}')
+            lines.append(f'{prefix}Top -> {elem}')
         for addr, elem in self.d.items():
             lines.append(f'{prefix}{addr} -> {elem}')
         return '\n'.join(lines)
@@ -390,7 +384,7 @@ class Consume:  # TODO inherit from Painter
     def try_to_run(self, ws: Workspace):
         '''Try to find a canvas and paint on it.'''
         # Current version just runs on all canvases. TODO: Better.
-        for c in ws.get_of_class(None, Canvas):
+        for c in ws.get_of_class(Top, Canvas):
             try:
                 self.paint(ws, c)
             except NoSuchOperand:
@@ -503,14 +497,14 @@ painters = [
     Consume(plus, (9, 6)),
     Consume(plus, (5, 6))
 ]
-ws.add(soln_canvas, None)
+ws.add(soln_canvas, Top)
 for p in painters:
-    ws.add(p, None)
+    ws.add(p, Top)
 
 def runps():
     '''Run painters.'''
     global ws
-    for p in ws.get_of_class(None, Consume):
+    for p in ws.get_of_class(Top, Consume):
         p.try_to_run(ws)
 
 print(ws)
