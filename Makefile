@@ -17,6 +17,9 @@ current:
 test: ut at
 
 ut:
+	$(PY) -m unittest -v testFARGish.py
+
+oldut:
 	$(PY) -m unittest -v
 
 lut:
