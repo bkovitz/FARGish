@@ -12,7 +12,7 @@ import operator
 import matplotlib.pyplot as plt
 #import netgraph
 
-from FARGish import Workspace, Top, addr_of
+from FARGish import FARGModel, Workspace, Top, caddr_of
 
 
 @dataclass(frozen=True)
@@ -47,12 +47,12 @@ class Numble:
 
 class testFARGish(unittest.TestCase):
 
-    #NEXT Write a unit test to add things to a Workspace
     def test_ws(self):
-        ws = Workspace()
-        canvas1 = ws.add(Top, Numble((4, 5, 6), 15))
-        self.assertEqual(canvas1, Numble((4, 5, 6), 15))
-        self.assertEqual(addr_of(canvas1), Top)
+        fm = FARGModel()
+        numble = fm.paint(None, Numble((4, 5, 6), 15))
+        self.assertEqual(caddr_of(numble), (fm.ws, Top))
+        self.assertEqual(numble, Numble((4, 5, 6), 15))
+        self.assertCountEqual(fm.all_at(None), [Numble((4, 5, 6), 15)])
         #NEXT add something else to Top
 
     @unittest.skip('not implemented yet')

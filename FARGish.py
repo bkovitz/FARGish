@@ -44,9 +44,10 @@ All = Atom(name='All')
 Elem = NewType('Elem', Hashable)
 Addr = NewType('Addr', Hashable)
 Value = NewType('Value', Hashable)
+CAddr = Union[Tuple['Canvas', Addr], 'Canvas', None]
 
-def addr_of(x: Any) -> Addr:
-    return getattr(x, 'addr', None)
+def caddr_of(x: Any) -> Tuple['Canvas', Addr]:
+    return (getattr(x, 'canvas', None), getattr(x, 'addr', None))
 
 class ElemSet(set):
     '''A set of Elems that share the same Addr but do not compete with each
@@ -57,6 +58,101 @@ class ElemSet(set):
         else:
             self.add(other)
         return self
+
+@dataclass
+class Canvas(ABC):
+    @abstractmethod
+    def paint(self, fm: 'FARGModel', addr: Addr, value, **kwargs) -> Value:
+        pass
+
+    @abstractmethod
+    def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
+        pass
+
+    @abstractmethod
+    def get(self, addr, **kwargs) -> Value:
+        pass
+
+    @abstractmethod
+    def find_one(self, criterion, **kwargs) -> Value:
+        pass
+
+    @abstractmethod
+    def find_all(self, criterion, **kwargs) -> Iterable[Value]:
+        pass
+
+@dataclass
+class Workspace(Canvas):
+    '''In a Workspace, all Values with addr==Top coexist with no mutual
+    antipathy.'''
+    top_level: Set[Elem] = field(default_factory=set)
+
+    def paint(self, fm: 'FARGModel', addr: Addr, value, **kwargs) -> Value:
+        '''Returns value updated with .canvas=self and .addr=Top.'''
+        if addr is Top or addr is None:
+            value = fm.with_caddr(value, (self, Top))
+            self.top_level.add(value)
+            # TODO Initialize activation level?
+            return value
+        else:
+            raise ValueError(
+                f'The addr for a Value in a Workspace must be Top; was {repr(addr)}'
+            )
+
+    def all_at(self, fm: 'FARGModel', addr: Addr, **kwargs) -> Iterable[Value]:
+        if addr is Top or addr is None:
+            return self.top_level
+        else:
+            raise ValueError(
+                f'The addr for a Value in a Workspace must be Top; was {repr(addr)}'
+            )
+
+    def get(self, addr, **kwargs) -> Value:
+        raise NotImplementedError
+
+    def find_one(self, criterion, **kwargs) -> Value:
+        raise NotImplementedError
+
+    def find_all(self, criterion, **kwargs) -> Iterable[Value]:
+        raise NotImplementedError
+
+@dataclass
+class FARGModel:
+    ws: Workspace = field(default_factory=Workspace)
+
+    def paint(self, caddr: Union[CAddr, None], value: Value, **kwargs):
+        canvas, addr = self.unpack_caddr(caddr)
+        return canvas.paint(self, addr, value, **kwargs)
+
+    def all_at(self, caddr: Addr, **kwargs) -> Iterable[Value]:
+        canvas, addr = self.unpack_caddr(caddr)
+        return canvas.all_at(self, addr, **kwargs)
+
+    def unpack_caddr(self, caddr: CAddr) -> Tuple[Canvas, Addr]:
+        if caddr is None:
+            return (self.ws, Top)
+        elif isinstance(caddr, tuple):
+            assert len(caddr) == 2
+            return caddr
+        elif isinstance(caddr, Canvas):
+            return (caddr, None)
+        else:
+            raise ValueError(
+                f'caddr must be (Canvas, Addr), Canvas, or None; was {repr(caddr)}'
+            )
+
+    def with_caddr(self, value: Hashable, caddr: CAddr) -> Hashable:
+        canvas, addr = self.unpack_caddr(caddr)
+        oldcanvas = getattr(value, 'canvas', None)
+        oldaddr = getattr(value, 'addr', None)
+        if oldaddr == addr and oldcanvas is canvas:
+            return value
+        new_value = copy(value)
+        object.__setattr__(new_value, 'canvas', canvas)  # TODO document this
+        object.__setattr__(new_value, 'addr', addr)  # TODO document this
+        return new_value
+
+
 
 @dataclass
 class Cell:
@@ -119,7 +215,7 @@ class SupportGraph(nx.Graph):
         #plot_instance = netgraph.InteractiveGraph(self)
 
 @dataclass
-class Workspace:
+class OLDWorkspace:  # TODO Make some of this into FARGModel
     d: Dict[Hashable, Any] = field(default_factory=dict)
 
     support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
@@ -163,12 +259,6 @@ class Workspace:
         )
         
         
-# Functions for querying and constructing Elems
+# Functions for querying and constructing Elems and Addrs
 
-def with_addr(value: Hashable, addr: Hashable) -> Hashable:
-    oldaddr = getattr(value, 'addr', None)
-    if oldaddr == addr:
-        return value
-    new_value = copy(value)
-    object.__setattr__(new_value, 'addr', addr)  # HACK
-    return new_value
+#def with_addr(value: Hashable, canvas: Canvas, addr: Addr) -> Hashable:
