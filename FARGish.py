@@ -110,8 +110,25 @@ class Canvas(ABC):
 
 @dataclass
 class Cell:
-    #NEXT
-    pass
+    '''A set of Values that share the same Addr and compete with each other,
+    such as mutually contrary values for one element of a canvas.
+
+    No two Cells may have the same CAddr.
+
+    A Cell is not a Value. It cannot be put into another Cell.
+    '''
+    canvas: Union[Canvas, None] = None
+    addr: Addr = None
+    values: Set[Value] = field(default_factory=set)
+
+    def add_value(self, fm: 'FARGModel', value: Value, painter: Value=None):
+        '''Returns 'value' with this Cell's CAddr added.'''
+        value = fm.with_caddr(as_hashable(value), (self.canvas, self.addr))
+        for oldv in self.values:
+            fm.add_mut_antipathy(oldv, value)
+        self.values.add(value)
+        fm.add_mut_support(value, painter)
+        return value
 
 @dataclass
 class SeqCanvas(Canvas):
@@ -179,13 +196,75 @@ class Workspace(Canvas):
     def find_all(self, criterion, **kwargs) -> Iterable[Value]:
         raise NotImplementedError
 
+@dataclass(frozen=True)
+class NodeWrapper:
+    node: Hashable
+    caddr: CAddr
+
+class SupportGraph(nx.Graph):
+
+    def ns(self, node) -> List[str]:
+        '''Returns list of neighbors represented as strings.'''
+        return [gstr(neighbor) for neighbor in self.neighbors(node)]
+
+    def draw(self):
+        global pos, node_labels, plot_instance
+        pos = nx.layout.spring_layout(self)
+        node_labels = dict((node, gstr(node)) for node in self.nodes)
+#        nx.draw(self, pos, with_labels=True, labels=node_labels)
+#        nx.draw_networkx_edge_labels(
+#            self, pos, edge_labels=nx.get_edge_attributes(self, 'weight')
+#        )
+        plot_instance = netgraph.InteractiveGraph(
+            self,
+            node_positions=pos,
+            node_labels=node_labels,
+            node_label_font_size=6
+        )
+        #plot_instance = netgraph.InteractiveGraph(self)
+
 @dataclass
 class FARGModel:
     ws: Workspace = field(default_factory=Workspace)
 
+    support_g: SupportGraph = field(default_factory=SupportGraph, init=False)
+    mutual_support_weight: ClassVar[float] = 1.0
+    mutual_antipathy_weight: ClassVar[float] = -0.2
+
     def paint(self, caddr: Union[CAddr, None], value: Value, **kwargs):
         canvas, addr = self.unpack_caddr(caddr)
         return canvas.paint(self, addr, value, **kwargs)
+
+    def add_mut_support(self, a: Hashable, b: Hashable):
+        a = self.as_node(a)
+        b = self.as_node(b)
+        self.support_g.add_edge(
+            a, b, weight=self.mutual_support_weight
+        )
+        
+    def add_mut_antipathy(self, a: Hashable, b: Hashable):
+        a = self.as_node(a)
+        b = self.as_node(b)
+        self.support_g.add_edge(
+            a, b, weight=self.mutual_antipathy_weight
+        )
+
+    def support_weight(self, a: Hashable, b: Hashable) -> float:
+        '''Returns the mutual support between nodes 'a' and 'b'. If neither
+        node exists, or there is no edge between them in self.support_g,
+        then the weight is 0.0.'''
+        a = self.as_node(a)
+        b = self.as_node(b)
+        try:
+            return self.support_g.edges[a, b]['weight']
+        except KeyError:
+            return 0.0
+
+    def as_node(self, a: Hashable) -> Hashable:
+        if hasattr(a, 'canvas') or hasattr(a, 'addr'):
+            return NodeWrapper(a, caddr_of(a))
+        else:
+            return a
 
     def all_at(self, caddr: Addr, **kwargs) -> Iterable[Value]:
         canvas, addr = self.unpack_caddr(caddr)
@@ -218,7 +297,7 @@ class FARGModel:
 
 
 @dataclass
-class Cell:
+class Cell0:
     '''A set of Elems that share the same Addr and compete with each other,
     such as mutually contrary values for one cell of a canvas.'''
     #canvas: 'Canvas'

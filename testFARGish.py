@@ -12,7 +12,7 @@ import operator
 import matplotlib.pyplot as plt
 #import netgraph
 
-from FARGish import FARGModel, Workspace, SeqState, Top, caddr_of, \
+from FARGish import FARGModel, Workspace, Cell, SeqState, Top, caddr_of, \
     ValueNotAvail
 
 
@@ -45,6 +45,16 @@ class Numble:
         bricks_str = ', '.join(str(b) for b in self.bricks)
         return f'from {bricks_str} make {self.target}'
 
+@dataclass(frozen=True)
+class Wrapper:
+    '''For wrapping primitives types like int and str.'''
+    x: Any
+
+@dataclass(frozen=True)
+class TestPainter:
+    '''For testing whether support networks are set up correctly.'''
+    name: str
+
 
 class testFARGish(unittest.TestCase):
 
@@ -68,6 +78,49 @@ class testFARGish(unittest.TestCase):
             taken, remaining = ss.take_avails([5, 400])
         self.assertEqual(cm.exception, ValueNotAvail(ss, 400))
 
+    def test_cell(self):
+        fm = FARGModel()
+        cell = Cell(canvas='CV', addr=100)
+        self.assertEqual(cell.values, set())
+
+        painter1a = TestPainter('1a')
+        painter1b = TestPainter('1b')
+        self.assertEqual(fm.support_weight(Wrapper(1), painter1a), 0.0)
+
+        # Add a value to the Cell. There should be mutual support between
+        # the painter and the value.
+        w1a = cell.add_value(fm, Wrapper(1), painter=painter1a)
+        self.assertEqual(cell.values, set([w1a]))
+        self.assertEqual(caddr_of(w1a), ('CV', 100))
+        self.assertEqual(fm.support_weight(Wrapper(1), painter1a), 0.0)
+        self.assertEqual(fm.support_weight(w1a, painter1a), 1.0)
+
+        w1b = cell.add_value(fm, Wrapper(1), painter=painter1b)
+        # Identical value, so no new value is added, but support from
+        # painter1b is added.
+        self.assertEqual(cell.values, set([w1a]))
+        self.assertEqual(caddr_of(w1a), caddr_of(w1b))
+        self.assertEqual(fm.support_weight(w1a, painter1b), 1.0)
+
+        painter2 = TestPainter('2')
+        # Different value, so there should be mutual antipathy between the
+        # values.
+        w2 = cell.add_value(fm, Wrapper(2), painter=painter2)
+        self.assertEqual(cell.values, set([w1a, w2]))
+        self.assertEqual(caddr_of(w1a), caddr_of(w2))
+        self.assertEqual(fm.support_weight(w1a, w2), -0.2)
+
+        # Now let's make a different Cell containing the same value. There
+        # should be no support or antipathy between the values of different
+        # Cells, even if the values are equal.
+        cell2 = Cell(canvas='CV', addr=101)
+        painter1c = TestPainter('1c')
+        w1c = cell2.add_value(fm, Wrapper(1), painter=painter1c)
+        self.assertEqual(w1a, w1c) # The values are equal...
+        self.assertNotEqual(caddr_of(w1a), caddr_of(w1c))
+            # ...but have different CAddrs.
+        self.assertEqual(fm.support_weight(w1a, w1c), 0.0)
+        self.assertEqual(fm.support_weight(w2, w1c), 0.0)
 
     @unittest.skip('not implemented yet')
     def test_consume(self):

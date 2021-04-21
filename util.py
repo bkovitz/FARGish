@@ -58,7 +58,7 @@ def as_set(o):
 def as_hashable(o) -> Hashable:
     '''Tries to make a Hashable object out of o if it's not. It will probably
     fail.'''
-    if isinstance(o, collections.Hashable):
+    if isinstance(o, collections.abc.Hashable):
         # Warning: if o is a dataclass with frozen=True, it will be seen as
         # Hashable but it won't be if it contains any unhashable members,
         # like a list or dict.
