@@ -60,9 +60,72 @@ class ElemSet(set):
         return self
 
 @dataclass
+class ValueNotAvail(Exception):
+    container: Any
+    value: Any
+
+@dataclass(frozen=True)
+class SeqState:  # TODO Inherit from Value?
+    avails: Union[Tuple[int], None] = None
+    last_move: Union[str, None] = None
+
+    #TODO In __iter__, make a tuple out of avails if it's not Hashable
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        '''Returns (taken_avails, remaining_avails). Might raise
+        ValueNotAvail.'''
+        remaining_avails = [] if self.avails is None else list(self.avails)
+        taken_avails = []
+        for v in values:
+            try:
+                remaining_avails.remove(v)
+            except ValueError:
+                raise ValueNotAvail(self, v)
+            taken_avails.append(v)
+        return (taken_avails, remaining_avails)
+    
+@dataclass
 class Canvas(ABC):
+    '''A Canvas changes when it's painted to; a Value is what is painted;
+    painting always occurs at an Addr.'''
     @abstractmethod
     def paint(self, fm: 'FARGModel', addr: Addr, value, **kwargs) -> Value:
+        pass
+
+    @abstractmethod
+    def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
+        pass
+
+    @abstractmethod
+    def get(self, addr, **kwargs) -> Value:
+        pass
+
+    @abstractmethod
+    def find_one(self, criterion, **kwargs) -> Value:
+        pass
+
+    @abstractmethod
+    def find_all(self, criterion, **kwargs) -> Iterable[Value]:
+        pass
+
+@dataclass
+class Cell:
+    #NEXT
+    pass
+
+@dataclass
+class SeqCanvas(Canvas):
+    car: Cell = field(default_factory=Cell)  # Cell[SeqState]
+    cdr: Cell = field(default_factory=Cell)  # Cell[SeqCanvas]
+
+    #TODO __init__: accept a value for car
+
+    # TODO Make 'value' the 2nd arg so addr can have a default
+    #def paint(self, fm: 'FARGModel', addr: Addr='cdr', value, **kwargs) \
+    def paint(self, fm: 'FARGModel', addr: Addr, value, **kwargs) \
+    -> Value:
+        # stash value in addr Cell
+        # update support_g or leave that to Cell?
         pass
 
     @abstractmethod

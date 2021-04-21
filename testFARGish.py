@@ -12,7 +12,8 @@ import operator
 import matplotlib.pyplot as plt
 #import netgraph
 
-from FARGish import FARGModel, Workspace, Top, caddr_of
+from FARGish import FARGModel, Workspace, SeqState, Top, caddr_of, \
+    ValueNotAvail
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,19 @@ class testFARGish(unittest.TestCase):
         self.assertEqual(numble, Numble((4, 5, 6), 15))
         self.assertCountEqual(fm.all_at(None), [Numble((4, 5, 6), 15)])
         #NEXT add something else to Top
+
+    def test_seqstate(self):
+        ss = SeqState((4, 5, 6))
+        self.assertEqual(ss.avails, (4, 5, 6))
+
+        taken, remaining = ss.take_avails([5, 4])
+        self.assertCountEqual(taken, [4, 5])
+        self.assertCountEqual(remaining, [6])
+
+        with self.assertRaises(ValueNotAvail) as cm:
+            taken, remaining = ss.take_avails([5, 400])
+        self.assertEqual(cm.exception, ValueNotAvail(ss, 400))
+
 
     @unittest.skip('not implemented yet')
     def test_consume(self):
