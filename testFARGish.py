@@ -12,8 +12,8 @@ import operator
 import matplotlib.pyplot as plt
 #import netgraph
 
-from FARGish import FARGModel, Workspace, Cell, SeqState, Top, caddr_of, \
-    ValueNotAvail
+from FARGish import FARGModel, Workspace, Cell, SeqState, SeqCanvas, Top, \
+    caddr_of, ValueNotAvail
 
 
 @dataclass(frozen=True)
@@ -56,7 +56,7 @@ class TestPainter:
     name: str
 
 
-class testFARGish(unittest.TestCase):
+class TestFARGish(unittest.TestCase):
 
     def test_ws(self):
         fm = FARGModel()
@@ -64,14 +64,15 @@ class testFARGish(unittest.TestCase):
         self.assertEqual(caddr_of(numble), (fm.ws, Top))
         self.assertEqual(numble, Numble((4, 5, 6), 15))
         self.assertCountEqual(fm.all_at(None), [Numble((4, 5, 6), 15)])
-        #NEXT add something else to Top
+        # TODO add something else to Top
+        # TODO test for support betw painter and value
 
     def test_seqstate(self):
         ss = SeqState((4, 5, 6))
         self.assertEqual(ss.avails, (4, 5, 6))
 
         taken, remaining = ss.take_avails([5, 4])
-        self.assertCountEqual(taken, [4, 5])
+        self.assertEqual(taken, [5, 4])
         self.assertCountEqual(remaining, [6])
 
         with self.assertRaises(ValueNotAvail) as cm:
@@ -121,6 +122,22 @@ class testFARGish(unittest.TestCase):
             # ...but have different CAddrs.
         self.assertEqual(fm.support_weight(w1a, w1c), 0.0)
         self.assertEqual(fm.support_weight(w2, w1c), 0.0)
+
+    def test_seqcanvas(self):
+        fm = FARGModel()
+        canvas1 = fm.paint(None, SeqCanvas(Numble((4, 5, 6), 15)))
+        self.assertTrue(isinstance(canvas1, SeqCanvas))
+        # TODO Test for same Cell contents
+        state1 = fm.paint((canvas1, 'cdr'), SeqCanvas(SeqState((6, 9), '4+5=9')))
+        #self.assertEqual(state1, SeqCanvas(SeqState((6, 9), '4+5=9')))
+        self.assertTrue(isinstance(state1, SeqCanvas))
+        ca = caddr_of(state1)
+        #print(state1)
+        #self.assertEqual(ca[0], canvas1)
+        self.assertEqual(ca[1], 'cdr')
+        #self.assertEqual(caddr_of(state1), (canvas1, 'cdr'))
+        #TODO Verify that the SeqCanvas in 'cdr' is correct
+        #print(state1)
 
     @unittest.skip('not implemented yet')
     def test_consume(self):

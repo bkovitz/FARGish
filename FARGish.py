@@ -49,6 +49,9 @@ CAddr = Union[Tuple['Canvas', Addr], 'Canvas', None]
 def caddr_of(x: Any) -> Tuple['Canvas', Addr]:
     return (getattr(x, 'canvas', None), getattr(x, 'addr', None))
 
+def needs_init(x: Any) -> Union[bool, Callable]:
+    return getattr(x, 'needs_make', False)
+
 class ElemSet(set):
     '''A set of Elems that share the same Addr but do not compete with each
     other.'''
@@ -131,35 +134,69 @@ class Cell:
         return value
 
 @dataclass
+class Maker:
+    o: Any
+
+@dataclass
 class SeqCanvas(Canvas):
     car: Cell = field(default_factory=Cell)  # Cell[SeqState]
     cdr: Cell = field(default_factory=Cell)  # Cell[SeqCanvas]
 
-    #TODO __init__: accept a value for car
+#    needs_init: Union[bool, Callable] = field(
+#        default=False, init=False, repr=False
+#    )
+#    _args: Tuple = field(default=(), init=False, repr=False)
+#    _kwargs: Dict = field(default_factory=dict, init=False, repr=False)
+
+    def __init__(self, car=None, cdr=None):
+        self.car = Cell()
+        self.cdr = Cell()
+        def f(
+            fm: 'FARGModel',
+            painter: Value
+        ):
+            self.car.canvas = self
+            self.car.addr = 'car'
+            if car is not None:
+                self.car.add_value(fm, car, painter=painter)
+            self.cdr.canvas = self
+            self.cdr.addr = 'cdr'
+            if cdr is not None:
+                self.cdr.add_value(fm, cdr, painter=painter)
+            self.needs_init = False
+        self.needs_init = f
 
     # TODO Make 'value' the 2nd arg so addr can have a default
     #def paint(self, fm: 'FARGModel', addr: Addr='cdr', value, **kwargs) \
-    def paint(self, fm: 'FARGModel', addr: Addr, value, **kwargs) \
-    -> Value:
-        # stash value in addr Cell
-        # update support_g or leave that to Cell?
-        pass
+    def paint(
+        self,
+        fm: 'FARGModel',
+        addr: Addr,
+        value,
+        painter: Value=None,
+        **kwargs
+    ) -> Value:
+        cell = getattr(self, addr)  # TODO Catch invalid addr?
+        value = cell.add_value(fm, value, painter)
+        return value
 
-    @abstractmethod
     def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     def get(self, addr, **kwargs) -> Value:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     def find_one(self, criterion, **kwargs) -> Value:
-        pass
+        raise NotImplementedError
 
-    @abstractmethod
     def find_all(self, criterion, **kwargs) -> Iterable[Value]:
-        pass
+        raise NotImplementedError
+
+    def __hash__(self):
+        return hash(id(self))
+
+    def __eq__(self, other):
+        return self is other
 
 @dataclass
 class Workspace(Canvas):
@@ -231,9 +268,18 @@ class FARGModel:
     mutual_support_weight: ClassVar[float] = 1.0
     mutual_antipathy_weight: ClassVar[float] = -0.2
 
-    def paint(self, caddr: Union[CAddr, None], value: Value, **kwargs):
+    def paint(
+        self,
+        caddr: Union[CAddr, None],
+        value: Value,
+        painter: Value=None,
+        **kwargs
+    ):
+        needs_init = getattr(value, 'needs_init', False)
+        if needs_init:
+            needs_init(self, painter)
         canvas, addr = self.unpack_caddr(caddr)
-        return canvas.paint(self, addr, value, **kwargs)
+        return canvas.paint(self, addr, value, painter=painter, **kwargs)
 
     def add_mut_support(self, a: Hashable, b: Hashable):
         a = self.as_node(a)
