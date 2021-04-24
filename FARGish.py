@@ -181,7 +181,8 @@ class SeqCanvas(Canvas):
         return value
 
     def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
-        raise NotImplementedError
+        cell = getattr(self, addr)  # TODO Catch invalid addr?
+        return cell.values
 
     def get(self, addr, **kwargs) -> Value:
         raise NotImplementedError
@@ -314,7 +315,7 @@ class FARGModel:
 
     def all_at(self, caddr: Addr, **kwargs) -> Iterable[Value]:
         canvas, addr = self.unpack_caddr(caddr)
-        return canvas.all_at(self, addr, **kwargs)
+        return canvas.all_at(addr, **kwargs)
 
     def unpack_caddr(self, caddr: CAddr) -> Tuple[Canvas, Addr]:
         if caddr is None:
@@ -339,8 +340,6 @@ class FARGModel:
         object.__setattr__(new_value, 'canvas', canvas)  # TODO document this
         object.__setattr__(new_value, 'addr', addr)  # TODO document this
         return new_value
-
-
 
 @dataclass
 class Cell0:

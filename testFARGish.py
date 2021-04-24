@@ -135,6 +135,7 @@ class TestFARGish(unittest.TestCase):
         #print(state1)
         #self.assertEqual(ca[0], canvas1)
         self.assertEqual(ca[1], 'cdr')
+        print(fm.all_at((canvas1, 'cdr')))
         #self.assertEqual(caddr_of(state1), (canvas1, 'cdr'))
         #TODO Verify that the SeqCanvas in 'cdr' is correct
         #print(state1)
