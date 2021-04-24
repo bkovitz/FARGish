@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt
 
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
-    backslash, singleton
+    backslash, singleton, first
 
 # Global atoms (constants)
 
@@ -51,6 +51,10 @@ def caddr_of(x: Any) -> Tuple['Canvas', Addr]:
 
 def needs_init(x: Any) -> Union[bool, Callable]:
     return getattr(x, 'needs_make', False)
+
+def as_seqstate(x: Any) -> 'SeqState':
+    # TODO Catch exception if x has no .as_seqstate()?
+    return x.as_seqstate()
 
 class ElemSet(set):
     '''A set of Elems that share the same Addr but do not compete with each
@@ -86,6 +90,9 @@ class SeqState:  # TODO Inherit from Value?
                 raise ValueNotAvail(self, v)
             taken_avails.append(v)
         return (taken_avails, remaining_avails)
+
+    def as_seqstate(self):
+        return self
     
 @dataclass
 class Canvas(ABC):
@@ -110,6 +117,12 @@ class Canvas(ABC):
     @abstractmethod
     def find_all(self, criterion, **kwargs) -> Iterable[Value]:
         pass
+
+    def __hash__(self):
+        return hash(id(self))
+
+    def __eq__(self, other):
+        return self is other
 
 @dataclass
 class Cell:
@@ -181,11 +194,21 @@ class SeqCanvas(Canvas):
         return value
 
     def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
+        addr = self.normalize_addr(addr, **kwargs)
         cell = getattr(self, addr)  # TODO Catch invalid addr?
         return cell.values
 
+    def normalize_addr(self, addr: Addr, **kwargs) -> Addr:
+        if addr is None or addr is Top:
+            return 'car'
+        else:
+            return addr
+
     def get(self, addr, **kwargs) -> Value:
-        raise NotImplementedError
+        # TODO Better way of choosing which Cell value
+        # TODO Throw exception if nothing is at 'addr'
+        # TODO Translate numerical addr into advancing that many steps forward
+        return first(self.all_at(addr, **kwargs))
 
     def find_one(self, criterion, **kwargs) -> Value:
         raise NotImplementedError
@@ -217,7 +240,7 @@ class Workspace(Canvas):
                 f'The addr for a Value in a Workspace must be Top; was {repr(addr)}'
             )
 
-    def all_at(self, fm: 'FARGModel', addr: Addr, **kwargs) -> Iterable[Value]:
+    def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
         if addr is Top or addr is None:
             return self.top_level
         else:
@@ -233,6 +256,12 @@ class Workspace(Canvas):
 
     def find_all(self, criterion, **kwargs) -> Iterable[Value]:
         raise NotImplementedError
+
+    def __hash__(self):
+        return hash(id(self))
+
+    def __eq__(self, other):
+        return self is other
 
 @dataclass(frozen=True)
 class NodeWrapper:
@@ -312,6 +341,12 @@ class FARGModel:
             return NodeWrapper(a, caddr_of(a))
         else:
             return a
+
+    def get(self, caddr: Addr, **kwargs) -> Value:
+        # TODO Document exception thrown if nothing is at caddr
+        # Reject if canvas no longer exists (even if the object still exists)
+        canvas, addr = self.unpack_caddr(caddr)
+        return canvas.get(addr, **kwargs)
 
     def all_at(self, caddr: Addr, **kwargs) -> Iterable[Value]:
         canvas, addr = self.unpack_caddr(caddr)
@@ -444,8 +479,70 @@ class OLDWorkspace:  # TODO Make some of this into FARGModel
         self.support_g.add_edge(
             a, b, weight=self.mutual_antipathy_weight
         )
-        
-        
+
+@dataclass(frozen=True)
+class Operator:
+    func: Callable
+    name: str
+
+    def call(self, *operands: int) -> int:
+        return self.func(*operands)
+
+    def __str__(self):
+        return self.name
+
+plus = Operator(operator.add, '+')
+times = Operator(operator.mul, 'x')
+minus = Operator(operator.sub, '-')
+
+@dataclass(frozen=True)
+class PainterWithArgs:
+    painter: Hashable
+    arg: Hashable
+    # TODO more flexibility for arg/args
+
+    def __str__(self):
+        return "PARG"
+
+@dataclass(frozen=True)
+class Consume:
+    operator: Union[Operator, None] = None
+    operands: Union[Tuple[Value], None] = None
+
+    def paint(self, fm: FARGModel, caddr: CAddr) -> SeqCanvas:
+        '''Tries to consume avails from caddr, paint a new value to caddr,
+        and return the SeqCanvas whose car is the result of applying
+        'self.operation' to the avails.
+        TODO Document exception thrown if avails are lacking.
+        '''
+        start_canvas, start_addr = fm.unpack_caddr(caddr)
+        start_state = as_seqstate(fm.get(caddr))
+        taken_avails, remaining_avails = start_state.take_avails(self.operands)
+        result = self.operator.call(*taken_avails)
+        new_avails = tuple(remaining_avails) + (result,)
+        expr = f' {self.operator} '.join(str(n) for n in taken_avails)
+        move_str = f'{expr} = {result}'
+        pargs = PainterWithArgs(self, start_canvas)
+        new_canvas = fm.paint(
+            (start_canvas, 'cdr'),
+            SeqCanvas(SeqState(new_avails, move_str)),
+            painter=pargs
+        )
+        fm.add_mut_support(new_canvas, pargs)
+        fm.add_mut_support(self, pargs)
+        return new_canvas
+
+    def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
+        raise NotImplementedError
+
+    def get(self, addr, **kwargs) -> Value:
+        raise NotImplementedError
+
+    def find_one(self, criterion, **kwargs) -> Value:
+        raise NotImplementedError
+
+    def find_all(self, criterion, **kwargs) -> Iterable[Value]:
+        raise NotImplementedError
 # Functions for querying and constructing Elems and Addrs
 
 #def with_addr(value: Hashable, canvas: Canvas, addr: Addr) -> Hashable:

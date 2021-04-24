@@ -13,23 +13,8 @@ import matplotlib.pyplot as plt
 #import netgraph
 
 from FARGish import FARGModel, Workspace, Cell, SeqState, SeqCanvas, Top, \
-    caddr_of, ValueNotAvail
+    caddr_of, ValueNotAvail, Operator, plus, times, minus, Consume
 
-
-@dataclass(frozen=True)
-class Operator:
-    func: Callable
-    name: str
-
-    def call(self, *operands: int) -> int:
-        return self.func(*operands)
-
-    def __str__(self):
-        return self.name
-
-plus = Operator(operator.add, '+')
-times = Operator(operator.mul, 'x')
-minus = Operator(operator.sub, '-')
 
 @dataclass(frozen=True)
 class Numble:
@@ -44,6 +29,9 @@ class Numble:
     def __str__(self):
         bricks_str = ', '.join(str(b) for b in self.bricks)
         return f'from {bricks_str} make {self.target}'
+
+    def as_seqstate(self):
+        return SeqState(self.bricks, None)
 
 @dataclass(frozen=True)
 class Wrapper:
@@ -135,15 +123,25 @@ class TestFARGish(unittest.TestCase):
         #print(state1)
         #self.assertEqual(ca[0], canvas1)
         self.assertEqual(ca[1], 'cdr')
-        print(fm.all_at((canvas1, 'cdr')))
+        #print(fm.all_at((canvas1, 'cdr')))
         #self.assertEqual(caddr_of(state1), (canvas1, 'cdr'))
         #TODO Verify that the SeqCanvas in 'cdr' is correct
         #print(state1)
 
-    @unittest.skip('not implemented yet')
+    #@unittest.skip('not implemented yet')
     def test_consume(self):
-        ws = Workspace()
-        canvas1 = ws.add(Top, SeqCanvas(Numble((4, 5, 6), 15)))
-        consume1 = ws.add(Top, Consume(plus, (4, 5)))
-        canvas2 = consume1.paint(ws, canvas1)
-        self.assertEqual(ws.get((canvas1, 'cdr')), canvas2)
+        #ws = Workspace()
+        #canvas1 = ws.add(Top, SeqCanvas(Numble((4, 5, 6), 15)))
+        #consume1 = ws.add(Top, Consume(plus, (4, 5)))
+        #canvas2 = consume1.paint(ws, canvas1)
+        #self.assertEqual(ws.get((canvas1, 'cdr')), canvas2)
+
+        fm = FARGModel()
+        canvas1 = fm.paint(None, SeqCanvas(Numble((4, 5, 6), 15)))
+        consume1 = fm.paint(None, Consume(plus, (4, 5)))
+        canvas2 = consume1.paint(fm, canvas1)
+        self.assertEqual(
+            canvas2.get('car'),
+            SeqState(avails=(6, 9), last_move='4 + 5 = 9')
+        )
+        #print('CANVAS2', canvas2)
