@@ -156,7 +156,8 @@ class Maker:
 
 @dataclass
 class SeqCanvas(Canvas):
-    car: Cell = field(default_factory=Cell)  # Cell[SeqState]
+    #car: Cell = field(default_factory=Cell)  # Cell[SeqState]
+    car: SeqState
     cdr: Cell = field(default_factory=Cell)  # Cell[SeqCanvas]
 
 #    needs_init: Union[bool, Callable] = field(
@@ -165,23 +166,26 @@ class SeqCanvas(Canvas):
 #    _args: Tuple = field(default=(), init=False, repr=False)
 #    _kwargs: Dict = field(default_factory=dict, init=False, repr=False)
 
-    def __init__(self, car=None, cdr=None):
-        self.car = Cell()
-        self.cdr = Cell()
-        def f(
-            fm: 'FARGModel',
-            painter: Value
-        ):
-            self.car.canvas = self
-            self.car.addr = 'car'
-            if car is not None:
-                self.car.add_value(fm, car, painter=painter)
-            self.cdr.canvas = self
-            self.cdr.addr = 'cdr'
-            if cdr is not None:
-                self.cdr.add_value(fm, cdr, painter=painter)
-            self.needs_init = False
-        self.needs_init = f
+    def __init__(self, car: SeqState):
+        self.car = with_caddr_without_fm(car, (self, 'car'))
+        self.cdr = Cell(canvas=self, addr='cdr')
+#    def __init__(self, car=None, cdr=None):
+#        self.car = Cell()
+#        self.cdr = Cell()
+#        def f(
+#            fm: 'FARGModel',
+#            painter: Value
+#        ):
+#            self.car.canvas = self
+#            self.car.addr = 'car'
+#            if car is not None:
+#                self.car.add_value(fm, car, painter=painter)
+#            self.cdr.canvas = self
+#            self.cdr.addr = 'cdr'
+#            if cdr is not None:
+#                self.cdr.add_value(fm, cdr, painter=painter)
+#            self.needs_init = False
+#        self.needs_init = f
 
     # TODO Make 'value' the 2nd arg so addr can have a default
     #def paint(self, fm: 'FARGModel', addr: Addr='cdr', value, **kwargs) \
@@ -193,14 +197,21 @@ class SeqCanvas(Canvas):
         painter: Value=None,
         **kwargs
     ) -> Value:
+        assert addr is None or addr == 'cdr'
         cell = getattr(self, addr)  # TODO Catch invalid addr?
         value = cell.add_value(fm, value, painter)
         return value
 
     def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
         addr = self.normalize_addr(addr, **kwargs)
-        cell = getattr(self, addr)  # TODO Catch invalid addr?
-        return cell.values
+        if addr == 'car':
+            return [self.car]
+        elif addr == 'cdr':
+            return self.cdr.values
+        else:
+            raise ValueError(
+                f"SeqCanvas.all_at(): addr must be 'car' or 'cdr'; was {repr(addr)}"
+            )
 
     def normalize_addr(self, addr: Addr, **kwargs) -> Addr:
         if addr is None or addr is Top:
@@ -227,13 +238,12 @@ class SeqCanvas(Canvas):
         return self is other
 
     def all_seqs(self) -> Iterable[List[SeqState]]:
-        c = first(self.car.values)  # TODO self.car
         if not self.cdr.values:
-            yield [c]
+            yield [self.car]
         else:
             for next_seq in self.cdr.values:
                 for seq in next_seq.all_seqs():
-                    yield [c] + seq
+                    yield [self.car] + seq
             
     def __str__(self):
         result = StringIO()
@@ -324,7 +334,7 @@ class FARGModel:
         value: Value,
         painter: Value=None,
         **kwargs
-    ):
+    ) -> Value:
         needs_init = getattr(value, 'needs_init', False)
         if needs_init:
             needs_init(self, painter)
@@ -386,15 +396,28 @@ class FARGModel:
             )
 
     def with_caddr(self, value: Hashable, caddr: CAddr) -> Hashable:
-        canvas, addr = self.unpack_caddr(caddr)
+        return with_caddr_without_fm(value, self.unpack_caddr(caddr))
+
+def with_caddr_without_fm(value: Hashable, caddr: Tuple[Canvas, Addr]) \
+-> Hashable:
+    canvas, addr = caddr
+    try:
+        #print('WITH_CWOFM', type(value), str(value), type(canvas), getattr(canvas, 'name', 'NONAME'), str(canvas), str(addr))
+        pass
+    except AttributeError:
+        pass
+    if hasattr(value, 'canvas') and hasattr(value, 'addr'):
         oldcanvas = getattr(value, 'canvas', None)
         oldaddr = getattr(value, 'addr', None)
         if oldaddr == addr and oldcanvas is canvas:
             return value
+        print('ABOUT TO COPY', type(value), value, addr)
         new_value = copy(value)
-        object.__setattr__(new_value, 'canvas', canvas)  # TODO document this
-        object.__setattr__(new_value, 'addr', addr)  # TODO document this
-        return new_value
+    else:
+        new_value = value
+    object.__setattr__(new_value, 'canvas', canvas)  # TODO document this
+    object.__setattr__(new_value, 'addr', addr)  # TODO document this
+    return new_value
 
 @dataclass
 class Cell0:

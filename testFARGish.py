@@ -116,12 +116,12 @@ class TestFARGish(unittest.TestCase):
         canvas1 = fm.paint(None, SeqCanvas(Numble((4, 5, 6), 15)))
         self.assertTrue(isinstance(canvas1, SeqCanvas))
         # TODO Test for same Cell contents
-        state1 = fm.paint((canvas1, 'cdr'), SeqCanvas(SeqState((6, 9), '4+5=9')))
+        canvas2 = fm.paint((canvas1, 'cdr'), SeqCanvas(SeqState((6, 9), '4+5=9')))
         #self.assertEqual(state1, SeqCanvas(SeqState((6, 9), '4+5=9')))
-        self.assertTrue(isinstance(state1, SeqCanvas))
-        ca = caddr_of(state1)
+        self.assertTrue(isinstance(canvas2, SeqCanvas))
+        ca = caddr_of(canvas2)
         #print(state1)
-        #self.assertEqual(ca[0], canvas1)
+        self.assertEqual(ca[0], canvas1)
         self.assertEqual(ca[1], 'cdr')
         #print(fm.all_at((canvas1, 'cdr')))
         #self.assertEqual(caddr_of(state1), (canvas1, 'cdr'))
@@ -145,4 +145,4 @@ class TestFARGish(unittest.TestCase):
             SeqState(avails=(6, 9), last_move='4 + 5 = 9')
         )
         #print('\nCCC', list(canvas1.all_seqs()))
-        print('CANVAS1', canvas1)
+        #print('CANVAS1', canvas1)  # TODO smoke test for SeqCanvas.__str__
