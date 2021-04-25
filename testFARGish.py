@@ -144,4 +144,5 @@ class TestFARGish(unittest.TestCase):
             canvas2.get('car'),
             SeqState(avails=(6, 9), last_move='4 + 5 = 9')
         )
-        #print('CANVAS2', canvas2)
+        #print('\nCCC', list(canvas1.all_seqs()))
+        print('CANVAS1', canvas1)

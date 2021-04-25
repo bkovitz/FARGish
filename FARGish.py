@@ -17,6 +17,7 @@ import operator
 from operator import itemgetter, attrgetter
 from heapq import nlargest
 from collections import Counter
+from io import StringIO
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -93,6 +94,9 @@ class SeqState:  # TODO Inherit from Value?
 
     def as_seqstate(self):
         return self
+
+    def __str__(self):
+        return f"[{self.last_move}; {' '.join(str(a) for a in self.avails)}]"
     
 @dataclass
 class Canvas(ABC):
@@ -221,6 +225,22 @@ class SeqCanvas(Canvas):
 
     def __eq__(self, other):
         return self is other
+
+    def all_seqs(self) -> Iterable[List[SeqState]]:
+        c = first(self.car.values)  # TODO self.car
+        if not self.cdr.values:
+            yield [c]
+        else:
+            for next_seq in self.cdr.values:
+                for seq in next_seq.all_seqs():
+                    yield [c] + seq
+            
+    def __str__(self):
+        result = StringIO()
+        for seq in self.all_seqs():
+            s = '; '.join(str(state) for state in seq)
+            print(s, file=result)
+        return result.getvalue()
 
 @dataclass
 class Workspace(Canvas):
@@ -515,23 +535,28 @@ class Consume:
         'self.operation' to the avails.
         TODO Document exception thrown if avails are lacking.
         '''
-        start_canvas, start_addr = fm.unpack_caddr(caddr)
-        start_state = as_seqstate(fm.get(caddr))
-        taken_avails, remaining_avails = start_state.take_avails(self.operands)
-        result = self.operator.call(*taken_avails)
-        new_avails = tuple(remaining_avails) + (result,)
-        expr = f' {self.operator} '.join(str(n) for n in taken_avails)
-        move_str = f'{expr} = {result}'
+        start_canvas, new_state = self.next_state(fm, caddr)
         pargs = PainterWithArgs(self, start_canvas)
         new_canvas = fm.paint(
             (start_canvas, 'cdr'),
-            SeqCanvas(SeqState(new_avails, move_str)),
+            SeqCanvas(new_state),
             painter=pargs
         )
         fm.add_mut_support(new_canvas, pargs)
         fm.add_mut_support(self, pargs)
         return new_canvas
 
+    def next_state(self, fm: FARGModel, caddr: CAddr) \
+    -> Tuple[Canvas, SeqState]:
+        #TODO Document exception thrown if avails are lacking.
+        start_canvas, start_addr = fm.unpack_caddr(caddr)
+        start_state = as_seqstate(fm.get(caddr))
+        taken_avails, remaining_avails = start_state.take_avails(self.operands)
+        result = self.operator.call(*taken_avails)
+        new_avails = tuple(remaining_avails) + (result,)
+        expr = f' {self.operator} '.join(str(n) for n in taken_avails)
+        return (start_canvas, SeqState(new_avails, f'{expr} = {result}'))
+        
     def all_at(self, addr: Addr, **kwargs) -> Iterable[Value]:
         raise NotImplementedError
 
