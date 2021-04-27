@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 from FARGish import FARGModel, Workspace, Cell, SeqState, SeqCanvas, Top, \
     caddr_of, ValueNotAvail, Operator, plus, times, minus, Consume
+from util import first
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,47 @@ class TestFARGish(unittest.TestCase):
         #self.assertEqual(caddr_of(state1), (canvas1, 'cdr'))
         #TODO Verify that the SeqCanvas in 'cdr' is correct
         #print(state1)
+
+    def test_cells_get_new_caddr(self):
+        fm = FARGModel()
+        canvas1 = SeqCanvas(Numble((4, 5, 6), 15))
+        got = fm.paint(None, canvas1)
+        self.assertEqual(caddr_of(canvas1), (fm.ws, Top))
+        self.assertEqual(id(canvas1), id(got))
+
+        canvas2 = SeqCanvas(SeqState('bogus_avails', 'bogus_lastop'))
+        got = fm.paint((canvas1, 'cdr'), canvas2)
+        self.assertEqual(caddr_of(canvas2), (canvas1, 'cdr'))
+
+        # Put in a second instance of canvas2: this must create a new,
+        # identical Canvas, with a different caddr.
+        canvas3 = fm.paint((canvas2, 'cdr'), canvas2)
+        self.assertNotEqual(canvas2, canvas3)  # Different canvases
+        self.assertEqual(canvas2.car, canvas3.car)  # Identical 'car' states
+        self.assertEqual(canvas2.canvas, canvas1)
+        self.assertEqual(canvas3.canvas, canvas2)
+        self.assertEqual(fm.get((canvas2, 'car')), fm.get((canvas3, 'car')))
+
+        # The caddrs of the Values and Cells must be different
+        self.assertEqual(canvas2.car.canvas, canvas2)
+        self.assertEqual(canvas3.car.canvas, canvas3)
+        self.assertEqual(canvas2.cdr.canvas, canvas2)
+        self.assertEqual(canvas2.cdr.values, {canvas3})
+        self.assertEqual(first(canvas2.cdr.values).canvas, canvas2)
+        self.assertEqual(canvas3.cdr.canvas, canvas3)
+        self.assertEqual(canvas3.cdr.values, set())
+
+        # TODO Get the rest of this to pass
+
+        # Do it again, putting canvas2 into the cdr of yet another Canvas.
+        # This is needed to test that canvas2.cdr (which contains canvas3)
+        # gets a new addr.
+
+        #canvas4 = fm.paint(None, SeqCanvas(SeqState('new_avails', 'new_op')))
+        #canvas5 = fm.paint((canvas4, 'cdr'), canvas2)
+        #(self.assertEqual(canvas2
+        #print('C4', canvas4)
+        #print('CADDRS', id(canvas2.car.canvas), id(canvas3.car.canvas))
 
     #@unittest.skip('not implemented yet')
     def test_consume(self):

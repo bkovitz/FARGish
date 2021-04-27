@@ -213,6 +213,14 @@ class SeqCanvas(Canvas):
                 f"SeqCanvas.all_at(): addr must be 'car' or 'cdr'; was {repr(addr)}"
             )
 
+    #def with_caddr(self, fm: FARGModel, caddr: CAddr) -> SeqCanvas:
+    def __copy__(self):
+        result = SeqCanvas(self.car)
+        for v in self.all_at('cdr'):
+            #print('COPYING', v)
+            result.paint(v, 'cdr')  # TODO What about the painter?
+        return result
+        
     def normalize_addr(self, addr: Addr, **kwargs) -> Addr:
         if addr is None or addr is Top:
             return 'car'
@@ -411,7 +419,7 @@ def with_caddr_without_fm(value: Hashable, caddr: Tuple[Canvas, Addr]) \
         oldaddr = getattr(value, 'addr', None)
         if oldaddr == addr and oldcanvas is canvas:
             return value
-        print('ABOUT TO COPY', type(value), value, addr)
+        #print('ABOUT TO COPY', type(value), value, addr)
         new_value = copy(value)
     else:
         new_value = value
