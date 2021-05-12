@@ -16,6 +16,8 @@ from dataclasses import dataclass, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
+from numbers import Number, Real
+from math import exp
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import copy
@@ -221,6 +223,53 @@ class Parg(Painter):
         # TODO Throw exception of .painter doesn't have enough args
         self.painter.paint(fm)
 
+@dataclass(frozen=True)
+class MatchFunc(ABC):
+    '''Give a MatchFunc a thing and a context, and it will give you a
+    number from 0.0 to 1.0. Each MatchFunc specifies how sensitive it
+    is to different kinds of things, relative to their context.'''
+
+    @abstractmethod
+    def __call__(self, thing, context) -> float:
+        pass
+
+def x_in_context(thing, context) -> Real:
+    # TODO Consider the context; force thing to be a number if it's not.
+    return thing
+
+@dataclass(frozen=True)
+class MatchByPeaks(MatchFunc):
+    '''A MatchByPeaks is a function with one or more centers of peak
+    sensitivity, and a specificity parameter determining how sensitivity falls
+    off depending on how far away a stimulus is from a peak. The greater the
+    specificity, the faster the function decays as x gets further from a peak.
+    The result of a MatchByPeaks is the maximum of the results of trying
+    the thing against each peak.'''
+    # TODO Add noise
+
+    peaks: Set[Number]
+    squeeze: Real = 1.0
+
+    def __call__(self, thing, context) -> float:
+        x = x_in_context(thing, context)
+        return max(
+            (self.peak_f(peak, x) for peak in self.peaks),
+            default=0.0
+        )
+
+    def peak_f(self, peak, x) -> float:
+        return exp(- self.squeeze * (peak - x) **2)
+
+@dataclass(frozen=True)
+class ExactMatchFunc(MatchFunc):
+    target: Hashable
+
+    def __call__(self, thing, context) -> float:
+        if thing == self.target:
+            return 1.0
+        else:
+            return 0.0
+
 if __name__ == '__main__':
     if False:
         # TODO Make a UT out of this
@@ -231,7 +280,7 @@ if __name__ == '__main__':
         cu.paint(fm)
         print(c)
 
-    if True:
+    if False:
         # TODO Make a UT out of this
         fm = FARGModel()
         s0 = SeqState((4, 5, 6), None)
@@ -257,6 +306,12 @@ if __name__ == '__main__':
         # make a Consume
         # let it build LiteralPainters
         # LiteralPainters paint on SeqCanvas
+
+    if True:
+        mf = MatchByPeaks({4, 7}, 2.0)
+        ef = ExactMatchFunc(4)
+        for x in range(1, 11):
+            print(x, mf(x, None), ef(x, None))
 
 
     #s0 = fm.add(Top, SeqState((2, 3, 4, 5, 11), None))
