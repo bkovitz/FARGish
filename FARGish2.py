@@ -14,7 +14,8 @@ from time import process_time
 
 from dataclasses import dataclass, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable
+    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
+    Sequence
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import copy
@@ -46,11 +47,21 @@ class FARGModel:
     def paint_value(self, canvas: 'Canvas', addr: Addr, v: Value):
         canvas.paint_value(self, addr, v)
 
+@dataclass(frozen=True)
+class StateDelta:
+    '''A change from one state to another.'''
+    before: Any    # What got replaced
+    after: Any     # What replaced it
+    how: Union[Any, None]   # Some clue about how it happened
+
+    def seq_str(self):
+        '''How to display this inside SeqState.__str__.'''
+        return str(self)
 
 @dataclass(frozen=True)
 class SeqState:  # TODO Inherit from Value?
     avails: Union[Tuple[int], None] = None
-    last_move: Union[str, None] = None
+    last_move: Union[StateDelta, None] = None
 
     #TODO In __iter__, make a tuple out of avails if it's not Hashable
     def take_avails(self, values: Iterable[Value]) \
@@ -66,6 +77,20 @@ class SeqState:  # TODO Inherit from Value?
                 raise ValueNotAvail(self, v)
             taken_avails.append(v)
         return (taken_avails, remaining_avails)
+
+    def __str__(self):
+        if self.avails is None:
+            avails_str = str(self.avails)
+        else:
+            avails_str = f"({' '.join(str(a) for a in self.avails)})"
+        if self.last_move is None:
+            return avails_str
+        else:
+            try:
+                last_move_str = self.last_move.seq_str()
+            except AttributeError:
+                last_move_str = str(self.last_move)
+            return f'{last_move_str} {avails_str}'
 
 
 @dataclass(eq=False)
@@ -89,7 +114,7 @@ class Canvas(ABC):
 
 @dataclass(eq=False)
 class SeqCanvas:
-    states: List[SeqState]
+    states: List[SeqState] = field(default_factory=list)
 
     def paint_value(self, fm: FARGModel, addr: Addr, v: Value):
         # TODO Handle addr that doesn't work as a list index
@@ -104,6 +129,9 @@ class SeqCanvas:
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
         return self.states[addr]
+
+    def __str__(self):
+        return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
 
 
 @dataclass(frozen=True)
@@ -121,6 +149,17 @@ plus = Operator(operator.add, '+')
 times = Operator(operator.mul, 'x')
 minus = Operator(operator.sub, '-')
 
+@dataclass(frozen=True)
+class ArithDelta(StateDelta):
+    '''A completed arithmetic operation.'''
+    before: Sequence
+    after: Union[Value, Collection]
+    how: Operator
+
+    def seq_str(self):
+        expr = f' {self.how} '.join(str(n) for n in self.before)
+        return f'{expr} = {self.after}'
+
 
 @dataclass(frozen=True)
 class Painter(ABC):
@@ -130,6 +169,18 @@ class Painter(ABC):
     def paint(self, fm: FARGModel):
         pass
 
+@dataclass(frozen=True)
+class LiteralPainter(Painter):
+    canvas: Canvas
+    addr: Addr
+    value: Value
+
+    def paint(self, fm: FARGModel):
+        # TODO Throw exc if any members are missing? Or should that be an
+        # assertion (if it's illegal to create a LiteralPainter that's missing
+        # any args)?
+        self.canvas.paint_value(fm, self.addr, self.value)
+    
 @dataclass(frozen=True)
 class Consume(Painter):
     operator: Union[Operator, None] = None
@@ -143,7 +194,8 @@ class Consume(Painter):
         taken_avails, remaining_avails = s0.take_avails(self.operands)
         result = self.operator.call(*taken_avails)
         new_avails = tuple(remaining_avails) + (result,)
-        s1 = SeqState(new_avails, self)
+        delta = ArithDelta(taken_avails, result, self.operator)
+        s1 = SeqState(new_avails, delta)
         fm.paint_value(self.canvas, self.addr, s1)
 
     #def __str__(self):
@@ -179,14 +231,32 @@ if __name__ == '__main__':
         cu.paint(fm)
         print(c)
 
-    fm = FARGModel()
-    s0 = SeqState((4, 5, 6), None)
-    c = SeqCanvas([s0])
-    p = Parg(Consume())
-    p.add_arg(canvas=c)
-    p.add_arg(addr=1, operator=plus, operands=(5, 4))
-    p.paint(fm)
-    print(c)
+    if True:
+        # TODO Make a UT out of this
+        fm = FARGModel()
+        s0 = SeqState((4, 5, 6), None)
+        c = SeqCanvas([s0])
+        p = Parg(Consume())
+        p.add_arg(canvas=c)
+        p.add_arg(addr=1, operator=plus, operands=(5, 4))
+        p.paint(fm)
+        print(c)
+
+    if False:
+        fm = FARGModel()
+        c = SeqCanvas()
+        s0 = SeqState((4, 5, 6), None)
+        lp = LiteralPainter(c, 0, s0)
+        lp.paint(fm)
+        print(c)
+
+    if False:  # sketching
+        fm = FARGModel()
+        ca = fm.add(SeqCanvas([SeqState((4, 5, 6), None)]))
+        co = fm.add(Consume(plus, (4, 5)))  # missing canvas and addr
+        # make a Consume
+        # let it build LiteralPainters
+        # LiteralPainters paint on SeqCanvas
 
 
     #s0 = fm.add(Top, SeqState((2, 3, 4, 5, 11), None))
