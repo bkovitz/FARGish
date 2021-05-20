@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     Sequence
 
 from FARGish2 import FARGModel, SeqCanvas, SeqState, Want, Consume, Blocked, \
-    Detector, AgentSeq, CellRef, Halt
+    Detector, AgentSeq, CellRef, SolvedNumble
 from util import tupdict
 
 
@@ -47,7 +47,13 @@ class TestFARGish2(unittest.TestCase):
         aseq.act(fm)
 
         d15 = fm.ws_query1(Detector, target=15)
-        with self.assertRaises(Halt):
+        try:
             d15.go(fm)
+            self.fail('Detector did not detect solution.')
+        except SolvedNumble as exc:
+            self.assertEqual(
+                str(exc),
+                '4 + 5 = 9; 9 + 6 = 15'
+            )
 
         #print(fm)

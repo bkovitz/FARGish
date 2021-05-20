@@ -112,8 +112,16 @@ def search1(*args, **kwargs):
 
 # Exceptions
 
+@dataclass(frozen=True)
 class Halt(Exception):
     pass
+
+@dataclass(frozen=True)
+class SolvedNumble(Halt):
+    cellref: 'CellRef'
+
+    def __str__(self):
+        return self.cellref.canvas.as_solution()
 
 @dataclass(frozen=True)
 class ValueNotAvail(Exception):
@@ -277,6 +285,12 @@ class SeqState:  # TODO Inherit from Value?
     def has_avail_value(self, v: Value) -> bool:
         return v in self.avails
 
+    def last_move_str(self):
+        try:
+            return self.last_move.seq_str()
+        except AttributeError:
+            return str(self.last_move)
+
     def __str__(self):
         if self.avails is None:
             avails_str = str(self.avails)
@@ -285,11 +299,7 @@ class SeqState:  # TODO Inherit from Value?
         if self.last_move is None:
             return avails_str
         else:
-            try:
-                last_move_str = self.last_move.seq_str()
-            except AttributeError:
-                last_move_str = str(self.last_move)
-            return f'{last_move_str} {avails_str}'
+            return f'{self.last_move_str()} {avails_str}'
 
 
 @dataclass(frozen=True)  # TODO Allow AgentSeq to change
@@ -354,7 +364,7 @@ class HasAvailValue:
         return has_avail_value(elem, self.v)
 
 @dataclass(eq=False)
-class Canvas(ABC):
+class Canvas(Elem, ABC):
 
     @abstractmethod
     def raw_paint_value(self, fm: FARGModel, addr: Addr, v: Value):
@@ -372,8 +382,12 @@ class Canvas(ABC):
     def __getitem__(self, addr: Addr) -> Value:
         pass
 
+    @abstractmethod
+    def cellrefs(self) -> Iterable['CellRef']:
+        pass
+
 @dataclass(eq=False)
-class SeqCanvas(Elem):
+class SeqCanvas(Canvas):
     states: List[SeqState] = field(default_factory=list)
 
     def raw_paint_value(self, fm: FARGModel, addr: Addr, v: Value):
@@ -395,11 +409,20 @@ class SeqCanvas(Elem):
     def search(self, fm, pred):
         yield from search(fm, self.cellrefs(), pred)
 
+    def cellrefs(self):
+        for addr, state in enumerate(self.states):
+            yield CellRef(self, addr)
+        
     def has_avail_value(self, v: Value):
         for addr, state in enumerate(self.states):
             if has_avail_value(state, v):
                 return CellRef(self, addr)
         return False
+
+    def as_solution(self) -> str:
+        return '; '.join(
+            st.last_move_str() for st in self.states if st.last_move
+        )
 
     def __str__(self):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
@@ -421,6 +444,9 @@ class CellRef:
         self.canvas.raw_paint_value(fm, self.addr, v)
         return self
 
+    def has_avail_value(self, v):
+        return has_avail_value(self.contents, v)
+
     def preceding_contents(self) -> Hashable:
         if self.addr <= 0:
             return self.contents
@@ -429,6 +455,9 @@ class CellRef:
 
     def next(self) -> 'CellRef':
         return replace(self, addr=self.addr + 1)
+
+    def is_real(self):
+        return True
 
     def imaginary_next_cellref(self):
         '''Returns an ImCell to hold a hypothetical/imagined next cell after
@@ -457,10 +486,35 @@ class ImCell(CellRef):
         else:
             return self
         
+    def is_real(self):
+        return False
+
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.contents})'
     
+@dataclass(frozen=True)
+class CellWithAvailValue:
+    v: Value
+
+    def is_candidate(self, fm: FARGModel, x: Any) -> bool:
+        '''Is x even something we want to check for a match?'''
+        return isinstance(x, (CellRef, Canvas))
+
+    def candidates(self, fm: FARGModel) -> Iterable[CellRef]:
+        for x in fm.ws_query(self.is_candidate):
+            if isinstance(x, Canvas):
+                yield from x.cellrefs()
+            else:
+                yield x
+
+    def search(self, fm: FARGModel) -> Iterable[CellRef]:
+        for c in self.candidates(fm):
+            if has_avail_value(c, self.v):
+                yield c
+        
+    #def matchpct(self, 
+
 @dataclass(frozen=True)
 class Operator:
     func: Callable
@@ -609,25 +663,29 @@ class Detector:
     def go(self, fm: FARGModel):
         # TODO See if self.target is there, favoring new elems
 
-        found = fm.ws_query1(pred=HasAvailValue(self.target))
-        #found = fm.search_ws1(pred=HasAvailValue(self.target))
-        print('FOUND', found)
-        if found:
-            self.action(fm)
-        '''
-        if True: # TODO Actually search
-            de
-            self.action(fm, detected)
-        '''
-        pass
+        #found = fm.ws_query(pred=HasAvailValue(self.target))
+        found = CellWithAvailValue(self.target).search(fm)
+        found = list(found)
+        #print('FOUND', found)
+        for cellref in found:
+            if cellref.is_real():
+                self.action(fm, cellref)
+            #self.action(fm, found, agent=self)
 
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.target}, {name_of(self.action)})'
         
 
-def halt(fm: FARGModel):
-    raise Halt
+def halt(fm: FARGModel, *args, **kwargs):
+    raise Halt(*args, **kwargs)
+
+@dataclass(frozen=True)
+class RaiseException:
+    exc_class: Type
+
+    def __call__(self, fm: FARGModel, *args, **kwargs):
+        raise self.exc_class(*args, **kwargs)
 
 @dataclass(frozen=True)
 class Want:
@@ -637,7 +695,7 @@ class Want:
 
     def go(self, fm: FARGModel):
         # TODO Don't build these if they're already built
-        fm.build(Detector(self.target, action=halt))
+        fm.build(Detector(self.target, action=RaiseException(SolvedNumble)))
         # TODO Get the Consume objects from a slipnet search
         #co = Consume(operator=plus, dest=CellRef(self.canvas, self.addr + 1))
         #co = Consume(operator=plus, source=CellRef(self.canvas, self.addr))
@@ -804,7 +862,6 @@ if __name__ == '__main__':
                 )
             )
         )
-        fm.pr(LiteralPainter)
         print(f'aseq0: {aseq0}')
         aseq0.go(fm)  #This should not complain
 
@@ -812,6 +869,15 @@ if __name__ == '__main__':
         aseq.act(fm)
 
         d15 = fm.ws_query1(Detector, target=15)
-        d15.go(fm)
+        try:
+            d15.go(fm)
+            print('FAILED! Did not detect 15.')
+        except Halt as exc:
+            print('SUCCEEDED', exc)
 
         print(fm)
+        print()
+        pred = CellWithAvailValue(15)
+        l = (list(pred.search(fm)))
+        pl(l)
+        print(len(l))
