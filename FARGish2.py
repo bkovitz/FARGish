@@ -42,9 +42,34 @@ from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
 Value = NewType('Value', Hashable)
 Addr = NewType('Addr', Hashable)
 
-# TODO Make Agent into a base class
-Agent = NewType('Agent', Hashable)
+class Elem(ABC):
+    '''Anything that can go in the ws without being contained by something
+    else; not a CellRef and not a Value (except for special CellRefs and
+    Values that have been made to serve as Elems).'''
 
+    '''
+    @abstractmethod
+    def search(self, fm: 'FARGModel', pred: Union[Type, Callable]) \
+    -> Iterable[Union['Elem', 'CellRef']]:
+        pass
+    '''
+
+Searchable1 = Union[Elem, 'CellRef']
+Searchable = Union[Searchable1, Iterable[Searchable1]]
+
+class Agent(Elem):
+
+    @abstractmethod
+    def go(self, fm: 'FARGModel', **overrides):
+        '''The Agent should do its agenda tentatively, i.e. without painting
+        on any real canvases.'''
+        pass
+
+    @abstractmethod
+    def act(self, fm: 'FARGModel', **overrides):
+        '''The Agent should do agenda officially, including painting values on
+        real canvases.'''
+        pass
 
 # Generic functions with defaults
 
@@ -54,11 +79,36 @@ def name_of(o: Any):
     except AttributeError:
         return short(o)
 
-def has_avail_value(elem, v: Value) -> bool:
+def has_avail_value(
+    elem: Union['CellRef', Elem, None],
+    v: Value
+) -> Union[bool, None, 'CellRef', Elem]:
+    if elem is None:
+        return False
     try:
         return elem.has_avail_value(v)
     except AttributeError:
-        return elem == v
+        if elem == v:
+            return elem
+        else:
+            return False
+
+def search(
+    fm: 'FARGModel',
+    items: Searchable,
+    pred: Union[Type, Callable]
+) -> Iterable[Union['Elem', 'CellRef']]:
+    for item in as_iter(items):
+        if hasattr(item, 'search'):
+            yield from item.search(fm, pred)
+        else:
+            # TODO Figure out the correct response here
+            print('NO-SEARCH', item)
+            raise NotImplementedError
+
+def search1(*args, **kwargs):
+    # TODO Give higher probability based on activation
+    return first(search(*args, **kwargs))
 
 # Exceptions
 
@@ -85,7 +135,7 @@ class ValueNotAvail(Exception):
 @dataclass
 class ElemInWS:
     '''An element in the workspace.'''
-    elem: Hashable
+    elem: Elem
     builder: Union[Agent, None] = None
         # TODO Allow multiple builders?
     # activation: float = 1.0
@@ -128,6 +178,17 @@ class FARGModel:
 #            self.ws.add(obj)
 #            return obj
 
+    def search_ws1(self, pred: Union[Type, Callable]) \
+    -> Union[Elem, bool, 'CellRef']:
+        # TODO Search randomly; weight by activation
+        for elem in self.ws.keys():
+            found = search1(self, elem, pred)
+            if found:
+                return found
+        return False
+
+    # Ancillary functions, callable by codelets and Agents
+
     def in_ws(self, obj: Hashable) -> Hashable:
         '''Returns the object from the workspace if it exists, otherwise
         None.'''
@@ -137,14 +198,7 @@ class FARGModel:
             return None
         return eiws.elem
 
-    def OLDws_query(self, cl: Type, builder=Union[Agent, None]) \
-    -> Iterable[Hashable]:
-        for eiws in list(self.ws.values()):
-            #print('WSQ', eiws, builder, eiws.builder == builder)
-            #print('WSQ', cl, isinstance(eiws.elem, cl))
-            if isinstance(eiws.elem, cl):
-                if builder is None or eiws.builder == builder:
-                    yield eiws.elem
+    # Functions for display and debugging
 
     def ws_query(self, pred: Union[Type, Callable], **kwargs) \
     -> Iterable[Hashable]:
@@ -174,8 +228,6 @@ class FARGModel:
             )
         except AttributeError:
             return False
-
-    # Functions for display and debugging
 
     def __str__(self):
         result = StringIO()
@@ -241,20 +293,31 @@ class SeqState:  # TODO Inherit from Value?
 
 
 @dataclass(frozen=True)  # TODO Allow AgentSeq to change
-class AgentSeq:
+class AgentSeq(Agent):
     agents: Tuple[Agent]
     initial_kwargs: Collection[Tuple[str, Hashable]]
 
-    def go(self, fm: FARGModel):
-        kwargs = as_dict(self.initial_kwargs)
+    def go(self, fm: FARGModel, **overrides):
+        kwargs = {**as_dict(self.initial_kwargs), **overrides}
         source = kwargs.get('source', None)
 
         for agent in self.agents:
             agent = replace(agent, **kwargs)
+            print('AgSeq', repr(source))
             dest = source.imaginary_next_cellref()
             source = agent.go(fm, source=source, dest=dest, builder=self)
-            print(f'NEWSRC = {source}')
             #kwargs = self.next_kwargs(kwargs)
+        # TODO Return a value
+
+    def act(self, fm: FARGModel, **overrides):
+        kwargs = {**as_dict(self.initial_kwargs), **overrides}
+        source = kwargs.get('source', None)
+
+        for agent in self.agents:
+            agent = replace(agent, **kwargs)
+            dest = source.next()
+            source = agent.act(fm, source=source, dest=dest, builder=self)
+        # TODO Return a value
 
     '''
     def next_kwargs(self, kwargs: Dict[str, Hashable]) -> Dict:
@@ -310,7 +373,7 @@ class Canvas(ABC):
         pass
 
 @dataclass(eq=False)
-class SeqCanvas:
+class SeqCanvas(Elem):
     states: List[SeqState] = field(default_factory=list)
 
     def raw_paint_value(self, fm: FARGModel, addr: Addr, v: Value):
@@ -328,6 +391,15 @@ class SeqCanvas:
         # TODO Handle addr that can't be found or is not an index
         print('SEQCGET', addr, len(self.states))
         return self.states[addr]
+
+    def search(self, fm, pred):
+        yield from search(fm, self.cellrefs(), pred)
+
+    def has_avail_value(self, v: Value):
+        for addr, state in enumerate(self.states):
+            if has_avail_value(state, v):
+                return CellRef(self, addr)
+        return False
 
     def __str__(self):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
@@ -361,7 +433,7 @@ class CellRef:
     def imaginary_next_cellref(self):
         '''Returns an ImCell to hold a hypothetical/imagined next cell after
         this one.'''
-        return ImCell()
+        return ImCell(canvas=self.canvas, addr=self.addr + 1)
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -381,7 +453,7 @@ class ImCell(CellRef):
         print('ImC', v, self.contents)
         if v != self.contents:
             print('ImC2')
-            return fm.build(ImCell(contents=v), builder=builder)
+            return fm.build(replace(self, contents=v), builder=builder)
         else:
             return self
         
@@ -458,13 +530,11 @@ class Blocked:
         return f'{cl}({self.taggee}, {self.reason})'
     
 @dataclass(frozen=True)
-class Consume(Painter):
+class Consume(Agent):
     operator: Union[Operator, None] = None
     operands: Union[Tuple[Value], None] = None
-    #canvas: Union[SeqCanvas, None] = None  # what to paint on
-    #addr: Hashable = None                  # where to paint result
-    source: Union[CellRef, None] = None
-    dest: Union[CellRef, None] = None   # where to paint result
+    source: Union[CellRef, None] = None  # where to get operands
+    dest: Union[CellRef, None] = None    # where to paint result
 
     # NEXT add source and dest args; call from .go and .act
     def paint(
@@ -472,7 +542,8 @@ class Consume(Painter):
         fm: FARGModel,
         source: CellRef,
         dest: CellRef,
-        builder: Union[Agent, None]=None
+        builder: Union[Agent, None]=None,
+        **ignored
     ):
         # TODO throw if any members/args are missing
         print('CPAIN', builder)
@@ -491,47 +562,27 @@ class Consume(Painter):
         s1 = SeqState(new_avails, delta)
         return fm.paint_value(dest, s1, builder=builder)
 
-    '''
-        # TODO Throw exception if any members (args) are missing
-        s0: SeqState = self.canvas[self.addr - 1]
-        taken_avails, remaining_avails = s0.take_avails(self.operands)
-        result = self.operator.call(*taken_avails)
-        new_avails = tuple(remaining_avails) + (result,)
-        delta = ArithDelta(tuple(taken_avails), result, self.operator)
-        s1 = SeqState(new_avails, delta)
-        fm.paint_value(self.canvas, self.addr, s1)
-    '''
-
-    def OLDgo(self, fm: FARGModel):
-        print('CONSGO', self.dest)
-        #s0: SeqState = self.canvas[self.addr - 1]
-        if self.dest is None:
-            raise NotImplementedError('Need to decide what to do when a Consume is asked to .go without a .dest specified.')
-        s0: SeqState = self.source_state()
-        try:
-            taken_avails, remaining_avails = s0.take_avails(self.operands)
-        except ValueNotAvail as exc:
-            fm.build(Blocked(taggee=self, reason=exc), builder=self)
-            return
-        result = self.operator.call(*taken_avails)
-        new_avails = tuple(remaining_avails) + (result,)
-        delta = ArithDelta(tuple(taken_avails), result, self.operator)
-        s1 = SeqState(new_avails, delta)
-        #fm.build(LiteralPainter(self.canvas, self.addr, s1), builder=self)
-        fm.build(LiteralPainter(self.dest, s1), builder=self)
-
     def go(
         self,
         fm: FARGModel,
-        source: Union[CellRef, None]=None,
-        dest: Union[CellRef, None]=None,
-        builder: Union[Agent, None]=None
-    ):
-        if source is None:
-            source = self.source
-        if dest is None:
-            dest = source.imaginary_next_cellref()
-        return self.paint(fm, source=source, dest=dest, builder=builder)
+        **overrides
+        #source: Union[CellRef, None]=None,
+        #dest: Union[CellRef, None]=None,
+        #builder: Union[Agent, None]=None
+    ) -> CellRef:
+        if overrides.get('source', None) is None:
+            overrides['source'] = self.source
+        if overrides.get('dest', None) is None:
+            overrides['dest'] = overrides['source'].imaginary_next_cellref()
+        return self.paint(fm, **overrides)
+
+    def act(self, fm, **kwargs) -> CellRef:
+        # TODO throw if there are any imaginary CellRefs
+        if kwargs.get('source', None) is None:
+            kwargs['source'] = self.source
+        if kwargs.get('dest', None) is None:
+            kwargs['dest'] = kwargs['source'].next()
+        return self.paint(fm, **kwargs)
         
     def source_state(self):
         if self.source is None:
@@ -559,7 +610,10 @@ class Detector:
         # TODO See if self.target is there, favoring new elems
 
         found = fm.ws_query1(pred=HasAvailValue(self.target))
+        #found = fm.search_ws1(pred=HasAvailValue(self.target))
         print('FOUND', found)
+        if found:
+            self.action(fm)
         '''
         if True: # TODO Actually search
             de
@@ -754,12 +808,10 @@ if __name__ == '__main__':
         print(f'aseq0: {aseq0}')
         aseq0.go(fm)  #This should not complain
 
-        '''
         aseq = fm.ws_query1(AgentSeq)
         aseq.act(fm)
 
         d15 = fm.ws_query1(Detector, target=15)
         d15.go(fm)
 
-        '''
         print(fm)

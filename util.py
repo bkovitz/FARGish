@@ -326,7 +326,7 @@ def union(*sets: Iterable) -> Set:
 
 def first(iterable):
     '''Returns first element in iterable, or None if iterable is empty.'''
-    for x in iterable:
+    for x in as_iter(iterable):
         return x
 
 def input_integers(prompt):
