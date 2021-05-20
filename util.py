@@ -6,7 +6,8 @@ import random
 import sys
 from inspect import isclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable
+    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
+    Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -84,6 +85,20 @@ def loose_dict_eq(d1: Dict, d2: Dict) -> bool:
         if d1.get(k, None) != d2.get(k, None):
             return False
     return True
+
+# TODO Rename this to something clearer
+def tupdict(**kwargs) -> Tuple[Tuple[str, Hashable]]:
+    return tuple(
+        (k, v) for k, v in kwargs.items()
+    )
+
+def as_dict(x: Union[Dict, None, Collection[Tuple[str, Hashable]]]) -> Dict:
+    if isinstance(x, dict):
+        return x
+    elif x is None:
+        return dict()
+    else:
+        return dict(x)
 
 def as_name(x):
     try:
