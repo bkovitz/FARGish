@@ -590,7 +590,6 @@ class Consume(Agent):
     source: Union[CellRef, None] = None  # where to get operands
     dest: Union[CellRef, None] = None    # where to paint result
 
-    # NEXT add source and dest args; call from .go and .act
     def paint(
         self,
         fm: FARGModel,
@@ -704,7 +703,8 @@ class Want:
             source=CellRef(self.canvas, self.addr),
             dest=CellRef(self.canvas, self.addr).next()
         )
-        for operands in ((4, 5), (4, 6), (9, 6)):
+        # NEXT Consult the slipnet
+        for operands in ((4, 5), (4, 6), (9, 6)):  # HACK
             fm.build(replace(co, operands=operands), builder=self)
         #fm.build(Consume(plus, (4, 5), self.canvas, self.addr + 1), builder=self)
         #fm.build(Consume(plus, (4, 6), self.canvas, self.addr + 1), builder=self)
