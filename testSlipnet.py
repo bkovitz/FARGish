@@ -189,6 +189,9 @@ class TestSlipnet(unittest.TestCase):
         q3 = slipnet.query([Before(4), Before(5), After(15)], Equation, k=20)
         d3 = slipnet.to_d(q3)
         pts(q3)
+        self.assertTrue(e1 in d3)
+        self.assertTrue(e2 in d3)
+        self.assertTrue(e3 in d3)
 
 
 if __name__ == '__main__':

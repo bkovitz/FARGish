@@ -117,13 +117,6 @@ class Halt(Exception):
     pass
 
 @dataclass(frozen=True)
-class SolvedNumble(Halt):
-    cellref: 'CellRef'
-
-    def __str__(self):
-        return self.cellref.canvas.as_solution()
-
-@dataclass(frozen=True)
 class ValueNotAvail(Exception):
     container: Any
     value: Any
@@ -313,7 +306,6 @@ class AgentSeq(Agent):
 
         for agent in self.agents:
             agent = replace(agent, **kwargs)
-            print('AgSeq', repr(source))
             dest = source.imaginary_next_cellref()
             source = agent.go(fm, source=source, dest=dest, builder=self)
             #kwargs = self.next_kwargs(kwargs)
@@ -493,54 +485,6 @@ class ImCell(CellRef):
         cl = self.__class__.__name__
         return f'{cl}({self.contents})'
     
-@dataclass(frozen=True)
-class CellWithAvailValue:
-    v: Value
-
-    def is_candidate(self, fm: FARGModel, x: Any) -> bool:
-        '''Is x even something we want to check for a match?'''
-        return isinstance(x, (CellRef, Canvas))
-
-    def candidates(self, fm: FARGModel) -> Iterable[CellRef]:
-        for x in fm.ws_query(self.is_candidate):
-            if isinstance(x, Canvas):
-                yield from x.cellrefs()
-            else:
-                yield x
-
-    def search(self, fm: FARGModel) -> Iterable[CellRef]:
-        for c in self.candidates(fm):
-            if has_avail_value(c, self.v):
-                yield c
-        
-    #def matchpct(self, 
-
-@dataclass(frozen=True)
-class Operator:
-    func: Callable
-    name: str
-
-    def call(self, *operands: int) -> int:
-        return self.func(*operands)
-
-    def __str__(self):
-        return self.name
-
-plus = Operator(operator.add, '+')
-times = Operator(operator.mul, 'x')
-minus = Operator(operator.sub, '-')
-
-@dataclass(frozen=True)
-class ArithDelta(StateDelta):
-    '''A completed arithmetic operation.'''
-    before: Sequence
-    after: Union[Value, Collection]
-    how: Operator
-
-    def seq_str(self):
-        expr = f' {self.how} '.join(str(n) for n in self.before)
-        return f'{expr} = {self.after}'
-
 
 @dataclass(frozen=True)
 class Painter(ABC):
@@ -584,77 +528,6 @@ class Blocked:
         return f'{cl}({self.taggee}, {self.reason})'
     
 @dataclass(frozen=True)
-class Consume(Agent):
-    operator: Union[Operator, None] = None
-    operands: Union[Tuple[Value], None] = None
-    source: Union[CellRef, None] = None  # where to get operands
-    dest: Union[CellRef, None] = None    # where to paint result
-
-    def paint(
-        self,
-        fm: FARGModel,
-        source: CellRef,
-        dest: CellRef,
-        builder: Union[Agent, None]=None,
-        **ignored
-    ):
-        # TODO throw if any members/args are missing
-        print('CPAIN', builder)
-        if builder is None:
-            builder = self
-        s0: SeqState = source.contents
-        try:
-            taken_avails, remaining_avails = s0.take_avails(self.operands)
-        except ValueNotAvail as exc:
-            # TODO builder=self even if builder overridden by caller?
-            fm.build(Blocked(taggee=self, reason=exc), builder=self)
-            return
-        result = self.operator.call(*taken_avails)
-        new_avails = tuple(remaining_avails) + (result,)
-        delta = ArithDelta(tuple(taken_avails), result, self.operator)
-        s1 = SeqState(new_avails, delta)
-        return fm.paint_value(dest, s1, builder=builder)
-
-    def go(
-        self,
-        fm: FARGModel,
-        **overrides
-        #source: Union[CellRef, None]=None,
-        #dest: Union[CellRef, None]=None,
-        #builder: Union[Agent, None]=None
-    ) -> CellRef:
-        if overrides.get('source', None) is None:
-            overrides['source'] = self.source
-        if overrides.get('dest', None) is None:
-            overrides['dest'] = overrides['source'].imaginary_next_cellref()
-        return self.paint(fm, **overrides)
-
-    def act(self, fm, **kwargs) -> CellRef:
-        # TODO throw if there are any imaginary CellRefs
-        if kwargs.get('source', None) is None:
-            kwargs['source'] = self.source
-        if kwargs.get('dest', None) is None:
-            kwargs['dest'] = kwargs['source'].next()
-        return self.paint(fm, **kwargs)
-        
-    def source_state(self):
-        if self.source is None:
-            return self.dest.preceding_contents()
-        else:
-            return self.source.contents
-
-    def __str__(self):
-        cl = self.__class__.__name__
-        os = ' '.join(str(o) for o in [self.operator] + as_list(self.operands))
-        # TODO Include canvas and addr
-        xs = [os]
-        if self.source is not None:
-            xs.append(f'source={self.source}')
-        if self.dest is not None:
-            xs.append(f'dest={self.dest}')
-        return f"{cl}({', '.join(xs)})"
-
-@dataclass(frozen=True)
 class Detector:
     target: Value  # Change to a match function?
     action: Callable
@@ -685,35 +558,6 @@ class RaiseException:
 
     def __call__(self, fm: FARGModel, *args, **kwargs):
         raise self.exc_class(*args, **kwargs)
-
-@dataclass(frozen=True)
-class Want:
-    target: Value
-    canvas: SeqCanvas
-    addr: Addr
-
-    def go(self, fm: FARGModel):
-        # TODO Don't build these if they're already built
-        fm.build(Detector(self.target, action=RaiseException(SolvedNumble)))
-        # TODO Get the Consume objects from a slipnet search
-        #co = Consume(operator=plus, dest=CellRef(self.canvas, self.addr + 1))
-        #co = Consume(operator=plus, source=CellRef(self.canvas, self.addr))
-        co = Consume(
-            operator=plus,
-            source=CellRef(self.canvas, self.addr),
-            dest=CellRef(self.canvas, self.addr).next()
-        )
-        # NEXT Consult the slipnet
-        for operands in ((4, 5), (4, 6), (9, 6)):  # HACK
-            fm.build(replace(co, operands=operands), builder=self)
-        #fm.build(Consume(plus, (4, 5), self.canvas, self.addr + 1), builder=self)
-        #fm.build(Consume(plus, (4, 6), self.canvas, self.addr + 1), builder=self)
-        #fm.build(Consume(plus, (9, 6), self.canvas, self.addr + 1), builder=self)
-
-    def __str__(self):
-        cl = self.__class__.__name__
-        # TODO Include canvas and addr
-        return f'{cl}({self.target})'
 
 @dataclass
 class Parg(Painter):
@@ -781,6 +625,28 @@ class ExactMatchFunc(MatchFunc):
             return 1.0
         else:
             return 0.0
+
+@dataclass(frozen=True)
+class CellWithAvailValue:
+    v: Value
+
+    def is_candidate(self, fm: FARGModel, x: Any) -> bool:
+        '''Is x even something we want to check for a match?'''
+        return isinstance(x, (CellRef, Canvas))
+
+    def candidates(self, fm: FARGModel) -> Iterable[CellRef]:
+        for x in fm.ws_query(self.is_candidate):
+            if isinstance(x, Canvas):
+                yield from x.cellrefs()
+            else:
+                yield x
+
+    def search(self, fm: FARGModel) -> Iterable[CellRef]:
+        for c in self.candidates(fm):
+            if has_avail_value(c, self.v):
+                yield c
+        
+    #def matchpct(self, 
 
 if __name__ == '__main__':
     if False:

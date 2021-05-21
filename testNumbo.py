@@ -1,4 +1,4 @@
-# testFARGish2.py -- Unit tests for FARGish2.py
+# testNumbo.py -- unit tests for Numbo.py
 
 import unittest
 from pprint import pprint as pp
@@ -8,14 +8,13 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 
-from FARGish2 import FARGModel, SeqCanvas, SeqState, Want, Consume, Blocked, \
+from Numbo import FARGModel, SeqCanvas, SeqState, Want, Consume, Blocked, \
     Detector, AgentSeq, CellRef, SolvedNumble
 from util import tupdict
 
 
 class TestFARGish2(unittest.TestCase):
 
-    @unittest.skip('obsolete; see testNumbo.py')
     def test_hardcoded_pons_asinorum(self):
         fm = FARGModel()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
