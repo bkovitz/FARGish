@@ -67,10 +67,20 @@ class Agent(Elem):
         pass
 
     @abstractmethod
+    def can_go(self, fm: 'FARGModel') -> bool:
+        '''Is the Agent capable of executing its .go() method right now?
+        Should return False if the Agent has a Blocked tag or it's already
+        "gone" and is only waiting to .act().'''
+        pass
+
     def act(self, fm: 'FARGModel', **overrides):
         '''The Agent should do agenda officially, including painting values on
         real canvases.'''
         pass
+
+    def can_act(self, fm: 'FARGModel') -> bool:
+        '''Is the Agent capable of executing its .act() method right now?'''
+        return False
 
 # Generic functions with defaults
 
@@ -79,6 +89,12 @@ def name_of(o: Any):
         return o.__name__
     except AttributeError:
         return short(o)
+
+def is_real(x: Any) -> bool:
+    try:
+        return x.is_real()
+    except AttributeError:
+        return False
 
 def has_avail_value(
     elem: Union['CellRef', Elem, None],
@@ -216,7 +232,9 @@ class FARGModel:
         self, dest: 'CellRef', v: Value, builder: Union[Agent, None]=None
     ) -> 'CellRef':
         cr = dest.paint_value(self, v, builder=builder)
-        print(f'PAINTED {v} in {cr}')
+
+        if cr.is_real():
+            print(f'PAINTED {v} in {cr}')
         return cr
 
     # Codelet functions
@@ -278,20 +296,35 @@ class FARGModel:
     def agents(self) -> List[Agent]:
         return list(self.ws_query(Agent))
 
+    # TODO Should we allow **overrides?
+    def is_blocked(self, elem: Hashable) -> bool:
+        '''Does elem have a Blocked tag?'''
+        # TODO INEFFICIENT (False result will check entire ws)
+        def pred(fm: 'FARGModel', x: Elem) -> bool:
+            return (
+                isinstance(x, Blocked) and x.taggee == elem
+            )
+        return first(self.ws_query(pred))
+
     # Timestep functions
 
     def do_timestep(self, num: int=1):
         for i in range(num):
             self.t += 1
             self.activation_g.decay()
-            # TODO Weighted choice by activation
-            agent = self.choose_agent_by_activation()
+            if self.t % 10 == 0:
+                pred = CanAct
+                run = CallAct
+            else:
+                pred = CanGo
+                run = CallGo
+            agent = self.choose_agent_by_activation(pred)
             if agent:
-                agent.go(self)
-            # TODO .act every 10 timesteps
+                run(self, agent)
+                #agent.go(self)
 
-    def choose_agent_by_activation(self):
-        agents = self.agents()
+    def choose_agent_by_activation(self, pred: Callable):
+        agents = list(self.ws_query(pred))
         activations = [self.a(agent) for agent in agents]
         return first(sample_without_replacement(agents, weights=activations))
             
@@ -356,6 +389,20 @@ class FARGModel:
         print(f't={self.t}')
         for s in sorted(str(item) for item in self.ws_query(pred, **kwargs)):
             print(f'  {s}')
+
+def CanGo(fm: FARGModel, elem: Elem) -> bool:
+    return isinstance(elem, Agent) and elem.can_go(fm)
+
+def CallGo(fm: FARGModel, elem: Elem):
+    print(f'go: {elem}')
+    elem.go(fm)
+
+def CanAct(fm: FARGModel, elem: Elem) -> bool:
+    return isinstance(elem, Agent) and elem.can_act(fm)
+
+def CallAct(fm: FARGModel, elem: Elem):
+    print(f'act: {elem}')
+    elem.act(fm)
 
 @dataclass(frozen=True)
 class StateDelta:
@@ -529,6 +576,11 @@ class SeqCanvas(Canvas):
             st.last_move_str() for st in self.states if st.last_move
         )
 
+    def last_nonblank(self) -> 'CellRef':
+        # TODO Actually check for 'blank' SeqStates (which will require
+        # implementing that concept)
+        return CellRef(self, len(self.states) - 1)
+
     def __str__(self):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
 
@@ -635,8 +687,8 @@ class Blocked(Agent):
         # shouldn't).
         self.reason.try_to_fix(fm, behalf_of=self.taggee, builder=self)
 
-    def act(self, fm):
-        pass
+    def can_go(self, fm):
+        return False
 
     def __str__(self):
         cl = self.__class__.__name__

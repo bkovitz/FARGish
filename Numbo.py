@@ -10,7 +10,7 @@ from collections import Counter
 
 from FARGish2 import FARGModel, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
-    StateDelta, ValueNotAvail, CellWithAvailValue
+    StateDelta, ValueNotAvail, CellWithAvailValue, is_real
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
     backslash, singleton, first, tupdict, as_dict, short, \
@@ -48,7 +48,7 @@ class Consume(Agent):
         builder: Union[Agent, None]=None,
         **ignored
     ):
-        print('CPAINT', self)
+        #print('CPAINT', self)
         # TODO throw if any members/args are missing
         if builder is None:
             builder = self
@@ -57,15 +57,18 @@ class Consume(Agent):
             taken_avails, remaining_avails = s0.take_avails(self.operands)
         except ValueNotAvail as exc:
             # TODO builder=self even if builder overridden by caller?
-            print('CNOT')
+            #print('CNOT')
             fm.build(Blocked(taggee=self, reason=exc), builder=self)
-            fm.deactivate(self)
             return
         result = self.operator.call(*taken_avails)
         new_avails = tuple(remaining_avails) + (result,)
         delta = ArithDelta(tuple(taken_avails), result, self.operator)
         s1 = SeqState(new_avails, delta)
         return fm.paint_value(dest, s1, builder=builder)
+
+    def can_go(self, fm):
+        # TODO Return False if we painted an ImCell from .source
+        return not fm.is_blocked(self)
 
     def go(
         self,
@@ -81,6 +84,15 @@ class Consume(Agent):
             overrides['dest'] = overrides['source'].imaginary_next_cellref()
         return self.paint(fm, **overrides)
 
+    def can_act(self, fm):
+        return (
+            self.have_all_args()
+            and
+            is_real(self.source)
+            and
+            not fm.is_blocked(self)
+        )
+
     def act(self, fm, **kwargs) -> CellRef:
         # TODO throw if there are any imaginary CellRefs
         if kwargs.get('source', None) is None:
@@ -89,6 +101,14 @@ class Consume(Agent):
             kwargs['dest'] = kwargs['source'].next()
         return self.paint(fm, **kwargs)
         
+    def have_all_args(self) -> bool:
+        return (
+            self.operator is not None
+            and
+            self.operands
+        )
+
+    # TODO rm
     def source_state(self):
         if self.source is None:
             return self.dest.preceding_contents()
@@ -174,12 +194,16 @@ class Exclude:
 
 @dataclass(frozen=True)
 class Want(Agent):
+    '''Represents the pressure to find or construct a value on a canvas.'''
     target: Value
     canvas: SeqCanvas
-    addr: Addr
+    addr: Addr  # Addr of the start state, before
 
     def act(self, fm: FARGModel):
         pass
+
+    def can_go(self, fm: FARGModel):
+        return not fm.is_blocked(self)
 
     def go(self, fm: FARGModel):
         # TODO Don't build these if they're already built
@@ -211,7 +235,9 @@ class Want(Agent):
         self.consult_slipnet(fm)
 
     def consult_slipnet(self, fm: FARGModel):
-        avails = self.canvas[self.addr].avails
+        source = self.canvas.last_nonblank()
+        #avails = self.canvas[self.addr].avails
+        avails = source.contents.avails
         activations_in = {}
         for avail in avails:
             activations_in[Before(avail)] = 1.0
@@ -219,7 +245,7 @@ class Want(Agent):
         if all(avail > self.target for avail in avails):
             activations_in[Increase()] = 10.0
 
-        source = CellRef(self.canvas, self.addr)
+        #source = CellRef(self.canvas, self.addr)
         for agent in fm.pulse_slipnet(
             activations_in, k=20, type=Agent, num_get=3
         ):
@@ -281,6 +307,8 @@ class Numbo(FARGModel):
         )
 
 if __name__ == '__main__':
+    from FARGish2 import CanGo, CanAct
+
     if False:
         fm = Numbo()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
@@ -374,5 +402,5 @@ if __name__ == '__main__':
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
         #wa.go(fm)
-        fm.do_timestep(num=10)
+        fm.do_timestep(num=20)
         print(fm)
