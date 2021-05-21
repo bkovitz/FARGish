@@ -16,6 +16,12 @@ from util import tupdict
 
 class TestFARGish2(unittest.TestCase):
 
+    def test_numbo_smoke_test(self):
+        fm = Numbo()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        wa = fm.build(Want(15, canvas=ca, addr=0))
+        fm.do_timestep(num=10)
+
     @unittest.skip('On hold until we can force what Want builds.')
     def test_hardcoded_pons_asinorum(self):
         fm = Numbo()

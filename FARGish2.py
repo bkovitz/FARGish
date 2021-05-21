@@ -132,6 +132,51 @@ class ValueNotAvail(Exception):
             builder=builder
         )
 
+# Graphs
+
+class ActivationGraph(nx.Graph):
+
+    def ns(self, node) -> List[str]:
+        '''Returns list of neighbors represented as strings.'''
+        return [gstr(neighbor) for neighbor in self.neighbors(node)]
+
+    def add_node(self, node: Hashable, a=1.0):
+        super().add_node(node, a=a)
+
+    def draw(self):
+        global pos, node_labels, plot_instance
+        pos = nx.layout.spring_layout(self)
+        node_labels = dict((node, gstr(node)) for node in self.nodes)
+#        nx.draw(self, pos, with_labels=True, labels=node_labels)
+#        nx.draw_networkx_edge_labels(
+#            self, pos, edge_labels=nx.get_edge_attributes(self, 'weight')
+#        )
+        plot_instance = netgraph.InteractiveGraph(
+            self,
+            node_positions=pos,
+            node_labels=node_labels,
+            node_label_font_size=6
+        )
+        #plot_instance = netgraph.InteractiveGraph(self)
+
+    def pr(self):
+        '''Prints alphabetized list of nodes with activations.'''
+        for s in sorted(self.nodestr(n) for n in self.nodes):
+            print(s)
+
+    def nodestr(self, node):
+        return f"{node!s:50s} {self.nodes[node]['a']:2.5f}"
+
+    def decay(self):
+        for node in self.nodes:
+            self.nodes[node]['a'] *= 0.95
+
+    def boost(self, nodes):  # TODO type annotation
+        for node in as_iter(nodes):
+            a = self.nodes[node]['a']
+            incr = max(min(1.0, a), 2.0)
+            self.nodes[node]['a'] += incr
+
 # Classes
 
 @dataclass
@@ -151,6 +196,10 @@ class FARGModel:
     ws: Dict[Hashable, ElemInWS] = field(default_factory=dict)
     t: int = 0
     slipnet: Slipnet = empty_slipnet
+
+    activation_g: ActivationGraph = field(
+        default_factory=ActivationGraph, init=False
+    )
 
     # TODO support_g and associated methods
     # TODO activation_g and associated methods
@@ -180,6 +229,7 @@ class FARGModel:
             return o
         else:
             self.ws[obj] = ElemInWS(obj, builder)
+            self.activation_g.add_node(obj)
             print('BUILT', obj)
             return obj
 #        for o in self.ws.intersection(frozenset([obj])):
@@ -233,11 +283,30 @@ class FARGModel:
     def do_timestep(self, num: int=1):
         for i in range(num):
             self.t += 1
+            self.activation_g.decay()
             # TODO Weighted choice by activation
-            for agent in self.agents():
+            agent = self.choose_agent_by_activation()
+            if agent:
                 agent.go(self)
             # TODO .act every 10 timesteps
+
+    def choose_agent_by_activation(self):
+        agents = self.agents()
+        activations = [self.a(agent) for agent in agents]
+        return first(sample_without_replacement(agents, weights=activations))
             
+    # Activation and support
+
+    def a(self, node: Hashable) -> float:
+        '''Current activation level of node.'''
+        return self.activation_g.nodes[node]['a']
+
+    def boost(self, node: Hashable):
+        self.activation_g.boost(node)
+
+    def deactivate(self, node: Hashable):
+        self.activation_g.nodes[node]['a'] = 0.0
+
     # Functions for display and debugging
 
     def ws_query(self, pred: Union[Type, Callable], **kwargs) \
@@ -272,10 +341,15 @@ class FARGModel:
     def __str__(self):
         result = StringIO()
         print(f't={self.t}', file=result)
-        for s in sorted(str(item) for item in self.ws.values()):
-            # TODO Include activation level
-            print(f'  {s}', file=result)
+        #for s in sorted(str(item) for item in self.ws.values()):
+        for s in sorted(self.l1str(item) for item in self.ws.values()):
+            #print(f'  {s}', file=result)
+            print(s, file=result)
         return result.getvalue()
+
+    def l1str(self, eiws: ElemInWS, indent='  ') -> str:
+        '''The one-line string for a ws elem, showing its activation.'''
+        return f'{indent}{self.a(eiws.elem):2.3f}  {eiws}'
 
     def pr(self, pred: Union[Type, Callable, None], **kwargs) -> Hashable:
         '''Print a subset of the workspace.'''
@@ -531,6 +605,7 @@ class Painter(ABC):
     def paint(self, fm: FARGModel):
         pass
 
+# TODO rm?
 @dataclass(frozen=True)
 class LiteralPainter(Painter):
     cell: CellRef
@@ -599,6 +674,7 @@ class RaiseException:
     def __call__(self, fm: FARGModel, *args, **kwargs):
         raise self.exc_class(*args, **kwargs)
 
+#TODO rm
 @dataclass(frozen=True)
 class Parg(Painter):
     '''A complex of painter objects and objects specifying arguments for

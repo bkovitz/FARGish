@@ -59,6 +59,7 @@ class Consume(Agent):
             # TODO builder=self even if builder overridden by caller?
             print('CNOT')
             fm.build(Blocked(taggee=self, reason=exc), builder=self)
+            fm.deactivate(self)
             return
         result = self.operator.call(*taken_avails)
         new_avails = tuple(remaining_avails) + (result,)
@@ -373,5 +374,5 @@ if __name__ == '__main__':
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
         #wa.go(fm)
-        fm.do_timestep(num=2)
+        fm.do_timestep(num=10)
         print(fm)
