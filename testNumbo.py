@@ -8,15 +8,17 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 
-from Numbo import FARGModel, SeqCanvas, SeqState, Want, Consume, Blocked, \
-    Detector, AgentSeq, CellRef, SolvedNumble
+from Slipnet import Slipnet, IntFeatures
+from Numbo import Numbo, SeqCanvas, SeqState, Want, Consume, Blocked, \
+    Detector, AgentSeq, CellRef, SolvedNumble, plus, times, minus
 from util import tupdict
 
 
 class TestFARGish2(unittest.TestCase):
 
+    @unittest.skip('On hold until we can force what Want builds.')
     def test_hardcoded_pons_asinorum(self):
-        fm = FARGModel()
+        fm = Numbo()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
         wa.go(fm) # Builds Consume objects and Detector
@@ -27,6 +29,8 @@ class TestFARGish2(unittest.TestCase):
         bl = fm.ws_query1(Blocked)
         bl.go(fm)
 
+        # TODO We need a way, in a test, to force Want(15) to build
+        # this Detector.
         d9 = fm.ws_query1(Detector, target=9)
         d9.go(fm)
 

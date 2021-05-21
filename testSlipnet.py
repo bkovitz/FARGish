@@ -12,7 +12,7 @@ import operator
 from operator import itemgetter, attrgetter
 from collections import Counter
 
-from Slipnet import Slipnet, Node, FeatureWrapper
+from Slipnet import Slipnet, Node, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, pts
 
 
@@ -96,40 +96,13 @@ class NumOperands(FeatureWrapper):
 class OneUniqueBefore(FeatureWrapper):
     pass
 
-class Leading(FeatureWrapper):
-    '''Indicates the leading digit of something.'''
-    pass
-
-class Trailing(FeatureWrapper):
-    '''Indicates the last digit of something.'''
-    pass
-
-@dataclass(frozen=True)
-class Even:
-    pass
-
-@dataclass(frozen=True)
-class Odd:
-    pass
-
 @dataclass(frozen=True)
 class SequentialBefore:
     lb: Any
     ub: Any
 
-class UTSlipnet(Slipnet):
-    '''Slipnet for unit testing.'''
-
-    def default_features(self, x):
-        if isinstance(x, int):
-            if x & 1:
-                yield Odd()
-            else:
-                yield Even()
-            s = str(x)
-            if len(s) > 1:
-                yield Leading(int(s[0]))
-                yield Trailing(int(s[1]))
+class UTSlipnet(IntFeatures, Slipnet):
+    pass
 
 class TestSlipnet(unittest.TestCase):
 
@@ -168,7 +141,7 @@ class TestSlipnet(unittest.TestCase):
         e2 = Equation((5, 4), plus, 9)
         e3 = Equation((5, 4), minus, 1)
 
-        q1 = slipnet.query([4, 5], Equation, k=20)
+        q1 = slipnet.query(features=[4, 5], type=Equation, k=20)
         d1 = slipnet.to_d(q1)
         #pts(q1)
         #print()
@@ -177,7 +150,7 @@ class TestSlipnet(unittest.TestCase):
         self.assertTrue(e2 in d1)
         self.assertTrue(e3 in d1)
 
-        q2 = slipnet.query([Before(4), Before(5)], Equation, k=20)
+        q2 = slipnet.query(features=[Before(4), Before(5)], type=Equation, k=20)
         d2 = slipnet.to_d(q2)
         pts(q2)
         self.assertTrue(e1 in d2)
@@ -186,7 +159,9 @@ class TestSlipnet(unittest.TestCase):
         self.assertGreater(d2[e1], d1[e1])
 
         print()
-        q3 = slipnet.query([Before(4), Before(5), After(15)], Equation, k=20)
+        q3 = slipnet.query(
+            features=[Before(4), Before(5), After(15)], type=Equation, k=20
+        )
         d3 = slipnet.to_d(q3)
         pts(q3)
         self.assertTrue(e1 in d3)

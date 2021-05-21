@@ -53,7 +53,7 @@ class SlipnetPropagator(Propagator):
     noise: float = 0.0  #0.005
     max_total: float = 10.0
     positive_feedback_rate: float = 0.5  # higher -> initial features matter more
-    sigmoid_p: float = 1.1  # higher -> sharper distinctions, more salience
+    sigmoid_p: float = 1.05  # higher -> sharper distinctions, more salience
     num_iterations: int = 10
     alpha: float = 0.95
     inflation_constant: float = 5.0  # 2.0 is minimum
@@ -165,31 +165,38 @@ class Slipnet(nx.Graph):
 
     def dquery(
         self,
-        features: Iterable[Hashable]
+        features: Iterable[Hashable]=None,
+        activations_in: Dict[Hashable, float]=None
     ) -> Dict[Hashable, float]:
-        '''Returns dictionary of activations.'''
-        activations_in = {}
-        for f in features:
-            if isinstance(f, NodeA):
-                a = f.a
-                f = f.node
-            else:
-                try:
-                    a = f.default_a
-                except AttributeError:
-                    a = 1.0
-            activations_in[f] = max(activations_in.get(f, 0.0), a)
+        '''Pass either features or a dictionary of activations.
+        Returns dictionary of activations.'''
+        if activations_in is None:
+            activations_in = {}
+            for f in as_iter(features):
+                if isinstance(f, NodeA):
+                    a = f.a
+                    f = f.node
+                else:
+                    try:
+                        a = f.default_a
+                    except AttributeError:
+                        a = 1.0
+                activations_in[f] = max(activations_in.get(f, 0.0), a)
         return self.propagator.propagate(self, activations_in)
 
     def query(
         self,
-        features: Iterable[Hashable],
-        type: Type,
-        k: Union[int, None]=None
+        features: Iterable[Hashable]=None,
+        activations_in: Dict[Hashable, float]=None,
+        type: Type=None,
+        k: Union[int, None]=None,
+        filter: Union[Callable, None]=None
     ) -> List:
-        activations_out = self.dquery(features)
+        activations_out = self.dquery(
+            features=features, activations_in=activations_in
+        )
         #print('SUM', sum(activations_out.values()))
-        return self.top(activations_out, type, k)
+        return self.top(activations_out, type, k, filter=filter)
 
     @classmethod
     def to_d(cls, nas: List[NodeA]) -> Dict[Hashable, float]:
@@ -198,15 +205,59 @@ class Slipnet(nx.Graph):
     def top(
         self,
         d: Dict[Hashable, float],
-        type: Type,
-        k: Union[int, None]=None
+        type: Type=None,
+        k: Union[int, None]=None,
+        filter: Union[Callable, None]=None
     ) -> List[NodeA]:
-        nas = [
-            NodeA(node, a)
-                for (node, a) in d.items()
-                    if isinstance(node, type)
-        ]
+        if filter is None:
+            filter = lambda x: True
+        if type is None:
+            nas = [
+                NodeA(node, a)
+                    for (node, a) in d.items()
+                        if filter(node)
+            ]
+        else:
+            nas = [
+                NodeA(node, a)
+                    for (node, a) in d.items()
+                        if isinstance(node, type) and filter(node)
+            ]
         if k is None:
             return sorted(nas, key=attrgetter('a'), reverse=True)
         else:
             return nlargest(k, nas, key=attrgetter('a'))
+
+class Leading(FeatureWrapper):
+    '''Indicates the leading digit of something.'''
+    pass
+
+class Trailing(FeatureWrapper):
+    '''Indicates the last digit of something.'''
+    pass
+
+@dataclass(frozen=True)
+class Even:
+    pass
+
+@dataclass(frozen=True)
+class Odd:
+    pass
+
+class IntFeatures(Slipnet):
+
+    def default_features(self, x):
+        print('INTF')
+        if isinstance(x, int):
+            if x & 1:
+                yield Odd()
+            else:
+                yield Even()
+            s = str(x)
+            if len(s) > 1:
+                yield Leading(int(s[0]))
+                yield Trailing(int(s[1]))
+        else:
+            yield from super().default_features(x)
+
+empty_slipnet = Slipnet()

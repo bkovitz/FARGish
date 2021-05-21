@@ -32,9 +32,10 @@ import networkx as nx
 import matplotlib.pyplot as plt
 #import netgraph
 
-from Propagator import Propagator, Delta
+from Slipnet import Slipnet, empty_slipnet
 from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
-    backslash, singleton, first, tupdict, as_dict, short
+    backslash, singleton, first, tupdict, as_dict, short, \
+    sample_without_replacement
 
 
 # Types
@@ -149,9 +150,17 @@ class FARGModel:
     #ws: Set[Hashable] = field(default_factory=set, init=False)
     ws: Dict[Hashable, ElemInWS] = field(default_factory=dict)
     t: int = 0
+    slipnet: Slipnet = empty_slipnet
 
     # TODO support_g and associated methods
     # TODO activation_g and associated methods
+
+    def __post_init__(self):
+        self.make_slipnet()
+
+    def make_slipnet(self):
+        '''Subclasses should override this to initialize the slipnet.'''
+        pass
 
     #def paint_value(self, canvas: 'Canvas', addr: Addr, v: Value):
     def paint_value(
@@ -166,12 +175,12 @@ class FARGModel:
     def build(self, obj, builder: Union[Agent, None]=None) -> Hashable:
         # TODO Support graph, activation graph, initialize activation
         o = self.in_ws(obj)
-        print('BU', obj, o)
+        #print('BU', obj, o)
         if o is not None:  # If somegthing == obj is already in ws
             return o
         else:
             self.ws[obj] = ElemInWS(obj, builder)
-            print('BUI', obj)
+            print('BUILT', obj)
             return obj
 #        for o in self.ws.intersection(frozenset([obj])):
 #            return o
@@ -188,6 +197,23 @@ class FARGModel:
                 return found
         return False
 
+    def pulse_slipnet(
+        self,
+        activations_in: Dict[Hashable, float],
+        type: Union[Type, None]=None,
+        k: int=20,
+        num_get: int=1,  # number of slipnodes to return
+        filter: Union[Callable, None]=lambda x: True
+    ) -> List[Hashable]:
+        q = self.slipnet.query(
+            activations_in=activations_in, type=type, k=k, filter=filter
+        )
+        return list(sample_without_replacement(
+            [nas.node for nas in q],
+            k=num_get,
+            weights=[nas.a for nas in q]
+        ))
+
     # Ancillary functions, callable by codelets and Agents
 
     def in_ws(self, obj: Hashable) -> Hashable:
@@ -199,6 +225,19 @@ class FARGModel:
             return None
         return eiws.elem
 
+    def agents(self) -> List[Agent]:
+        return list(self.ws_query(Agent))
+
+    # Timestep functions
+
+    def do_timestep(self, num: int=1):
+        for i in range(num):
+            self.t += 1
+            # TODO Weighted choice by activation
+            for agent in self.agents():
+                agent.go(self)
+            # TODO .act every 10 timesteps
+            
     # Functions for display and debugging
 
     def ws_query(self, pred: Union[Type, Callable], **kwargs) \
@@ -395,7 +434,7 @@ class SeqCanvas(Canvas):
 
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
-        print('SEQCGET', addr, len(self.states))
+        #print('SEQCGET', addr, len(self.states))
         return self.states[addr]
 
     def search(self, fm, pred):
@@ -471,9 +510,7 @@ class ImCell(CellRef):
         self, fm: FARGModel, v: Value, builder: Union[Agent, None]=None
     ) -> CellRef:
         '''Builds ImCell(v) if v is different than .contents.'''
-        print('ImC', v, self.contents)
         if v != self.contents:
-            print('ImC2')
             return fm.build(replace(self, contents=v), builder=builder)
         else:
             return self
@@ -514,7 +551,7 @@ class LiteralPainter(Painter):
         return f'{cl}({self.cell}, {self.value})'
 
 @dataclass(frozen=True)
-class Blocked:
+class Blocked(Agent):
     taggee: Hashable
     reason: Hashable
 
@@ -522,6 +559,9 @@ class Blocked:
         # TODO The .reason might not have a .try_to_fix method (and probably
         # shouldn't).
         self.reason.try_to_fix(fm, behalf_of=self.taggee, builder=self)
+
+    def act(self, fm):
+        pass
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -559,7 +599,7 @@ class RaiseException:
     def __call__(self, fm: FARGModel, *args, **kwargs):
         raise self.exc_class(*args, **kwargs)
 
-@dataclass
+@dataclass(frozen=True)
 class Parg(Painter):
     '''A complex of painter objects and objects specifying arguments for
     them, suitable for support relationships between PargComplexes, painters,
@@ -702,7 +742,7 @@ if __name__ == '__main__':
     # Now see the support graph
 
     # Pons asinorum, hard-coded codelet sequence
-    if True:
+    if False:
         fm = FARGModel()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
