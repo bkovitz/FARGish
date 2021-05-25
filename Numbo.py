@@ -10,7 +10,7 @@ from collections import Counter
 
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
-    StateDelta, ValueNotAvail, CellWithAvailValue, is_real
+    StateDelta, ValueNotAvail, CellWithAvailValue, is_real, GoIsDone
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -89,6 +89,7 @@ class Consume(Agent):
         result = self.paint(fm, **overrides)
         if result is not None:
             fm.boost(self)
+            fm.build(GoIsDone(taggee=self))
         return result
 
     def can_act(self, fm):

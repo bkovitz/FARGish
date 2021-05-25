@@ -421,6 +421,14 @@ class FARGModel:
     def agents(self) -> List[Agent]:
         return list(self.ws_query(Agent))
 
+    def is_tagged(self, elems, tagpred) -> bool:
+        '''Are any of elems tagged with a tag matching tagpred?'''
+        return any(
+            tag.is_tagging(elem)
+                for elem in as_iter(elems)
+                    for tag in self.elems(fmpred=tagpred)
+        )
+
     # TODO Should we allow **overrides?
     def is_blocked(self, elem: Hashable) -> bool:
         '''Does elem have a Blocked tag?'''
@@ -500,8 +508,6 @@ class FARGModel:
 
     def degree(self, a: Elem) -> int:
         return self.activation_g.degree(a)
-
-    # NEXT Make a Propagator for support
 
     # Functions for display and debugging
 
@@ -585,7 +591,13 @@ class FARGModel:
             print(f'n={count}', file=tofile)
 
 def CanGo(fm: FARGModel, elem: Elem) -> bool:
-    return isinstance(elem, Agent) and elem.can_go(fm)
+    return (
+        isinstance(elem, Agent)
+        and
+        not fm.is_tagged(elem, NoGo)
+        and
+        elem.can_go(fm)
+    )
 
 def CallGo(fm: FARGModel, elem: Elem):
     print(f'go: {elem}')
@@ -876,7 +888,35 @@ class LiteralPainter(Painter):
         return f'{cl}({self.cell}, {self.value})'
 
 @dataclass(frozen=True)
-class Blocked(Agent):
+class Tag(Elem, ABC):
+    '''A workspace element that indicates something about another workspace
+    element.'''
+
+    @abstractmethod
+    def is_tagging(self, elems: Union[Elem, Iterable[Elem], None]) -> bool:
+        '''Is this Tag on any of 'elems'?'''
+        pass
+
+@dataclass(frozen=True)
+class NoGo(Tag):
+    '''Indicates that the taggee's .go() method should not be called.'''
+    taggee: Agent
+
+    def is_tagging(self, elems):
+        return any(self.taggee == elem for elem in as_iter(elems))
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.taggee})'
+
+@dataclass(frozen=True)
+class GoIsDone(NoGo):
+    '''Indicates that taggee's .go() method has been run successfully and there
+    is no need to call it again, even if the taggee has high activation.'''
+    taggee: Agent
+
+@dataclass(frozen=True)
+class Blocked(NoGo):
     taggee: Hashable
     reason: Hashable
 
@@ -885,6 +925,7 @@ class Blocked(Agent):
         # shouldn't).
         self.reason.try_to_fix(fm, behalf_of=self.taggee, builder=self)
 
+    # NEXT go
     def can_go(self, fm):
         return False
 
