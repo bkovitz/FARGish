@@ -49,7 +49,6 @@ class FeatureWrapper:
 
 @dataclass
 class SlipnetPropagator(Propagator):
-
     noise: float = 0.0  #0.005
     max_total: float = 10.0
     positive_feedback_rate: float = 0.5  # higher -> initial features matter more
@@ -128,7 +127,7 @@ class Slipnet(nx.Graph):
                 self.add_edge(f, node, weight=1.0)
                 self.features.add(f)
 
-    # NEXT Limit to 2 levels of features
+    # TODO Limit to 2 levels of features
     def xfeatures_of(self, x0) -> Set[Hashable]:
         result = set()
         visited = set()
@@ -157,11 +156,16 @@ class Slipnet(nx.Graph):
         if False:
             yield None
 
+    # TODO UT, UT with non-existent node
     def incident_nws(self, node: Hashable) -> List[NeighborW]:
-        return [
-            NeighborW(neighbor, edge_d.get('weight', 1.0))
-                for neighbor, edge_d in self.adj[node].items()
-        ]
+        try:
+            return [
+                NeighborW(neighbor, edge_d.get('weight', 1.0))
+                    for neighbor, edge_d in self.adj[node].items()
+            ]
+        except KeyError:
+            print('INCNWS', node, len(self.nodes))
+            return []
 
     def dquery(
         self,

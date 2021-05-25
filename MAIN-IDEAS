@@ -1,0 +1,26 @@
+Two kinds of bias in the parallel terraced scan:
+
+    1. What possibilities get put into the workspace?
+
+    2. How are those possibilities whittled down?
+
+For example, in 4 5 6; 15, pulsing the slipnet will bring up possibilities like "Try 6 - 4", which are absurd and no one would say that they even came to mind. But it's hard or impossible to design a system that gives zero attention to superficially "near" but actually "absurd" possibilities and only retrieves genuinely relevant and promising ones, if the system is to have anything like the flexibility of a human mind.
+
+Suppose that the slipnet was designed so that querying {Before(4 5 6),
+After(15)} only brought up possibilities that could actually lead to a
+solution. Even inside this slipnet, "6 - 4" would get some activation. That
+activation likely even contributes to choosing relevant equations.
+
+My conclusion: *some* activation must be given to possibilities that are
+superficially near the current problem but are absurd. A certain amount of that
+is beneficial because it creates flexibility: the ability to pounce on
+unexpectedly fruitful possibilities. A second process must whittle down these
+possibilities, after they're given a chance to combine.
+
+
+The model should always be trying to exploit "flattened" look-ahead. Anticipate
+where a certain process is going without actually doing the process.
+
+Can that be achieved by a convergence of self-descriptions, with each
+description at a larger scale? Could descriptions of each step "tile" the
+description of the path?

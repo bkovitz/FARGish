@@ -12,8 +12,8 @@ from FARGish2 import FARGModel, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
     StateDelta, ValueNotAvail, CellWithAvailValue, is_real
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
-from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
-    backslash, singleton, first, tupdict, as_dict, short, \
+from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
+    as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement
 
 
@@ -39,6 +39,10 @@ class Consume(Agent):
     operands: Union[Tuple[Value], None] = None
     source: Union[CellRef, None] = None  # where to get operands
     dest: Union[CellRef, None] = None    # where to paint result
+
+    def on_build(self, fm: FARGModel):
+        fm.build(self.source, builder=self)
+        fm.build(self.dest, builder=self)
 
     def paint(
         self,
@@ -207,32 +211,12 @@ class Want(Agent):
 
     def go(self, fm: FARGModel):
         # TODO Don't build these if they're already built
-        fm.build(Detector(self.target, action=RaiseException(SolvedNumble)))
-
-        '''
-        co = Consume(
-            operator=plus,
-            source=CellRef(self.canvas, self.addr),
-            dest=CellRef(self.canvas, self.addr).next()
+        fm.build(
+            Detector(self.target, action=RaiseException(SolvedNumble)),
+            builder=self
         )
-
-        for operands in ((4, 5), (4, 6), (9, 6)):  # HACK
-            fm.build(replace(co, operands=operands), builder=self)
-        '''
-
-        '''
-        avails = self.canvas[self.addr].avails
-        slipnet_keys = [Before(n) for n in avails]
-        slipnet_keys.append(After(self.target))
-        q = self.slipnet.query(keys, Agent, k=20)
-        agent = sample_without_replacement(
-            [nas.node for nas in q],
-            k=1,
-            weights=[nas.a for nas in q]
-        )
-        #fm.build
-        '''
         self.consult_slipnet(fm)
+        # NEXT update support weights
 
     def consult_slipnet(self, fm: FARGModel):
         source = self.canvas.last_nonblank()
@@ -404,3 +388,6 @@ if __name__ == '__main__':
         #wa.go(fm)
         fm.do_timestep(num=20)
         print(fm)
+
+        print()
+        fm.pr(fm.search_ws(Consume, max_n=5))

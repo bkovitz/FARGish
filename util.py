@@ -455,3 +455,11 @@ def pl(x: Any):
     '''Prints x as a list, one line at a time.'''
     for a in as_iter(x):
         print(a)
+
+def pr(x: Any, *args, **kwargs):
+    '''Prints x as a list, one line at a time, alphabetized.'''
+    if hasattr(x, 'pr'):
+        x.pr(*args, **kwargs)
+    else:
+        for s in sorted(str(a) for a in as_iter(x)):
+            print(s)

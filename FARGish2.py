@@ -33,8 +33,9 @@ import matplotlib.pyplot as plt
 #import netgraph
 
 from Slipnet import Slipnet, empty_slipnet
-from util import is_iter, as_iter, as_list, pts, pl, csep, ssep, as_hashable, \
-    backslash, singleton, first, tupdict, as_dict, short, \
+from Propagator import Propagator, Delta
+from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
+    as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement
 
 
@@ -110,11 +111,24 @@ def has_avail_value(
         else:
             return False
 
+def as_fmpred(o: Union[Type, Callable, None]) -> Callable:
+    if isclass(o):
+        return lambda fm, x: isinstance(x, o)
+    elif callable(o):
+        return o
+    elif o is None:
+        return lambda fm, x: True
+    else:
+        raise ValueError(
+            f'as_pred: {repr(o)} must be a class, a callable, or None.'
+        )
+
 def search(
     fm: 'FARGModel',
     items: Searchable,
     pred: Union[Type, Callable]
 ) -> Iterable[Union['Elem', 'CellRef']]:
+    print('SEARCH', items, pred)
     for item in as_iter(items):
         if hasattr(item, 'search'):
             yield from item.search(fm, pred)
@@ -152,12 +166,32 @@ class ValueNotAvail(Exception):
 
 class ActivationGraph(nx.Graph):
 
+    def __init__(self):
+        super().__init__()
+        self.propagator = ActivationPropagator()
+
     def ns(self, node) -> List[str]:
         '''Returns list of neighbors represented as strings.'''
         return [gstr(neighbor) for neighbor in self.neighbors(node)]
 
     def add_node(self, node: Hashable, a=1.0):
         super().add_node(node, a=a)
+
+    def a_dict(self) -> Dict[Elem, float]:
+        '''Activations dictionary.'''
+        return dict(
+            (node, self.a(node)) for node in self.nodes
+        )
+
+    # TODO OAOO
+    def a(self, node: Elem) -> float:
+        return self.nodes[node]['a']
+
+    def propagate(self) -> Dict:  # TODO Update the graph
+        d = self.propagator.propagate(self, self.a_dict())
+        for node, a in d.items():
+            self.nodes[node]['a'] = a
+        return d
 
     def draw(self):
         global pos, node_labels, plot_instance
@@ -193,6 +227,57 @@ class ActivationGraph(nx.Graph):
             incr = max(min(1.0, a), 2.0)
             self.nodes[node]['a'] += incr
 
+@dataclass
+class ActivationPropagator(Propagator):
+    '''This works like StdGraph.StdSupportPropagator, except that activation
+    rather than support flows between nodes, and every edge (not just edges
+    with certain labels) is taken as a path for activation to flow.'''
+    noise: float = 0.0  #0.005
+    max_total: float = 10.0
+    positive_feedback_rate: float = 0.5  # higher -> initial features matter more
+    sigmoid_p: float = 1.05  # higher -> sharper distinctions, more salience
+    num_iterations: int = 3
+    alpha: float = 0.90
+    inflation_constant: float = 5.0  # 2.0 is minimum  # TODO rm?
+
+    def min_value(self, g, node):
+        return 0.0
+
+    def make_deltas(self, g, old_d):
+        return chain.from_iterable(
+            self.deltas_from(g, old_d, nodeid)
+                for nodeid in old_d
+        )
+
+    def deltas_from(self, g, old_d, node) -> Iterable[Delta]:
+        '''Deltas specify changes to node's neighbors, not to node.'''
+        node_a = old_d.get(node, 0.0)  # node's current activation
+        outgoing_deltas = []
+        for neighbor, edge_d in g.adj[node].items():
+            weight = edge_d.get('weight', 1.0)
+            neighbor_a = old_d.get(node, 0.0)  # neighbor's current activation
+            outgoing_deltas.append(
+                Delta(
+                    neighbor,
+                    weight + self.positive_feedback_rate * neighbor_a,
+                    node
+                )
+            )
+        return self.rescale_deltas(outgoing_deltas, node_a)
+
+    def rescale_deltas(self, deltas, node_a) -> List[Delta]:
+        if not deltas:
+            return deltas
+        ssum = sum(delta.amt for delta in deltas)
+        if ssum <= node_a:
+            return deltas
+        else:
+            multiplier = node_a / ssum
+            return [
+                Delta(d.nodeid, d.amt * multiplier, d.neighborid)
+                    for d in deltas
+            ]
+
 # Classes
 
 @dataclass
@@ -227,6 +312,9 @@ class FARGModel:
         '''Subclasses should override this to initialize the slipnet.'''
         pass
 
+    def slipnodes(self) -> List[Hashable]:
+        return list(self.slipnet.nodes)
+
     #def paint_value(self, canvas: 'Canvas', addr: Addr, v: Value):
     def paint_value(
         self, dest: 'CellRef', v: Value, builder: Union[Agent, None]=None
@@ -240,21 +328,24 @@ class FARGModel:
     # Codelet functions
 
     def build(self, obj, builder: Union[Agent, None]=None) -> Hashable:
-        # TODO Support graph, activation graph, initialize activation
-        o = self.in_ws(obj)
-        #print('BU', obj, o)
-        if o is not None:  # If somegthing == obj is already in ws
-            return o
+        if obj is None:
+            return None
+        existing_o = self.in_ws(obj)
+        #print('BU', obj, existing_o)
+        if existing_o is not None:
+            obj = existing_o
         else:
             self.ws[obj] = ElemInWS(obj, builder)
             self.activation_g.add_node(obj)
             print('BUILT', obj)
-            return obj
-#        for o in self.ws.intersection(frozenset([obj])):
-#            return o
-#        else:
-#            self.ws.add(obj)
-#            return obj
+            try:
+                obj.on_build(self)
+            except AttributeError:
+                pass
+        if builder:
+            self.add_mut_support(builder, obj)
+        return obj
+        
 
     def search_ws1(self, pred: Union[Type, Callable]) \
     -> Union[Elem, bool, 'CellRef']:
@@ -264,6 +355,21 @@ class FARGModel:
             if found:
                 return found
         return False
+
+    def search_ws(
+        self,
+        fmpred: Union[Type, Callable, None]=None,
+        min_a: Union[float, None]=None,
+        max_n: int=1
+    ) -> Iterable[Elem]:
+        elems = self.elems(fmpred)
+        if min_a is not None:
+            elems = (e for e in elems if self.a(e) >= min_a)
+        elems = list(elems)
+        activations = [self.a(e) for e in elems]
+        yield from sample_without_replacement(
+            elems, weights=activations, k=max_n
+        )
 
     def pulse_slipnet(
         self,
@@ -293,6 +399,12 @@ class FARGModel:
             return None
         return eiws.elem
 
+    def elems(self, fmpred=None, es=None) -> Iterable[Elem]:
+        fmpred = as_fmpred(fmpred)
+        if es is None:
+            es = self.ws.keys()
+        return (e for e in as_iter(es) if fmpred(self, e))
+
     def agents(self) -> List[Agent]:
         return list(self.ws_query(Agent))
 
@@ -311,7 +423,8 @@ class FARGModel:
     def do_timestep(self, num: int=1):
         for i in range(num):
             self.t += 1
-            self.activation_g.decay()
+            #self.activation_g.decay()
+            self.activation_g.propagate()
             if self.t % 10 == 0:
                 pred = CanAct
                 run = CallAct
@@ -324,11 +437,12 @@ class FARGModel:
                 #agent.go(self)
 
     def choose_agent_by_activation(self, pred: Callable):
+        # TODO OAOO .search_ws
         agents = list(self.ws_query(pred))
         activations = [self.a(agent) for agent in agents]
         return first(sample_without_replacement(agents, weights=activations))
             
-    # Activation and support
+    # Activation
 
     def a(self, node: Hashable) -> float:
         '''Current activation level of node.'''
@@ -339,6 +453,35 @@ class FARGModel:
 
     def deactivate(self, node: Hashable):
         self.activation_g.nodes[node]['a'] = 0.0
+
+    # Support
+
+    mutual_support_weight: ClassVar[float] = 1.0
+    mutual_antipathy_weight: ClassVar[float] = -0.2
+
+    def add_mut_support(self, a: Hashable, b: Hashable):
+        self.activation_g.add_edge(
+            a, b, weight=self.mutual_support_weight
+        )
+
+    def add_mut_antipathy(self, a: Hashable, b: Hashable):
+        self.support_g.add_edge(
+            a, b, weight=self.mutual_antipathy_weight
+        )
+
+    def support_weight(self, a: Hashable, b: Hashable) -> float:
+        '''Returns the mutual support between nodes 'a' and 'b'. If neither
+        node exists, or there is no edge between them in self.support_g,
+        then the weight is 0.0.'''
+        try:
+            return self.support_g.edges[a, b]['weight']
+        except KeyError:
+            return 0.0
+
+    def degree(self, a: Elem) -> int:
+        return self.activation_g.degree(a)
+
+    # NEXT Make a Propagator for support
 
     # Functions for display and debugging
 
@@ -374,21 +517,37 @@ class FARGModel:
     def __str__(self):
         result = StringIO()
         print(f't={self.t}', file=result)
-        #for s in sorted(str(item) for item in self.ws.values()):
-        for s in sorted(self.l1str(item) for item in self.ws.values()):
-            #print(f'  {s}', file=result)
-            print(s, file=result)
+        #print(self.elines(self.elems(), tofile=result))
+        self.pr(tofile=result, show_n=True)
         return result.getvalue()
 
-    def l1str(self, eiws: ElemInWS, indent='  ') -> str:
+    def l1str(self, eiws: Union[ElemInWS, Elem], indent=None) -> str:
         '''The one-line string for a ws elem, showing its activation.'''
-        return f'{indent}{self.a(eiws.elem):2.3f}  {eiws}'
+        if indent is None:
+            indent = '  '
+        if not isinstance(eiws, ElemInWS):
+            eiws = self.ws[eiws]  # TODO if the elem does not exist
+        return f'{indent}{self.a(eiws.elem):2.3f}  {eiws} deg={self.degree(eiws.elem)}'
 
-    def pr(self, pred: Union[Type, Callable, None], **kwargs) -> Hashable:
-        '''Print a subset of the workspace.'''
-        print(f't={self.t}')
-        for s in sorted(str(item) for item in self.ws_query(pred, **kwargs)):
-            print(f'  {s}')
+    def pr(
+        self,
+        es=None,  # Elem, Elems, or None for all Elems
+        fmpred: Union[Type, Callable, None]=None,
+        tofile=None,
+        indent=None,
+        show_n=False,
+        **kwargs
+    ):
+        '''Prints a subset of the workspace.'''
+        count = 0
+        for s in sorted(
+            self.l1str(elem, indent)
+                for elem in self.elems(fmpred=fmpred, es=es)
+        ):
+            count += 1
+            print(s, file=tofile)
+        if show_n:
+            print(f'n={count}', file=tofile)
 
 def CanGo(fm: FARGModel, elem: Elem) -> bool:
     return isinstance(elem, Agent) and elem.can_go(fm)
@@ -593,6 +752,9 @@ class CellRef:
     def contents(self) -> Hashable:
         # TODO What if .canvas is not in FARGModel?
         return self.canvas[self.addr]
+
+    def on_build(self, fm: FARGModel):
+        fm.add_mut_support(self, self.canvas)
 
     def paint_value(
         self, fm: FARGModel, v: Value, builder: Union[Agent, None]=None
