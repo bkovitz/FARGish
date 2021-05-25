@@ -8,7 +8,7 @@ import operator
 from operator import itemgetter, attrgetter
 from collections import Counter
 
-from FARGish2 import FARGModel, Value, SeqCanvas, Addr, Agent, AgentSeq, \
+from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
     StateDelta, ValueNotAvail, CellWithAvailValue, is_real
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
@@ -86,7 +86,10 @@ class Consume(Agent):
             overrides['source'] = self.source
         if overrides.get('dest', None) is None:
             overrides['dest'] = overrides['source'].imaginary_next_cellref()
-        return self.paint(fm, **overrides)
+        result = self.paint(fm, **overrides)
+        if result is not None:
+            fm.boost(self)
+        return result
 
     def can_act(self, fm):
         return (
@@ -191,7 +194,7 @@ class Exclude:
                  item.operands == x.operands
                  and
                  item.operator == x.operator
-                ) for x in self.items
+                ) for item in self.items
             )
         else:
             return x not in self.items
@@ -202,6 +205,9 @@ class Want(Agent):
     target: Value
     canvas: SeqCanvas
     addr: Addr  # Addr of the start state, before
+
+    def on_build(self, fm: FARGModel):
+        fm.add_mut_support(self, self.canvas)
 
     def act(self, fm: FARGModel):
         pass
@@ -216,7 +222,7 @@ class Want(Agent):
             builder=self
         )
         self.consult_slipnet(fm)
-        # NEXT update support weights
+        self.update_support(fm)
 
     def consult_slipnet(self, fm: FARGModel):
         source = self.canvas.last_nonblank()
@@ -229,14 +235,31 @@ class Want(Agent):
         if all(avail > self.target for avail in avails):
             activations_in[Increase()] = 10.0
 
+        exclude = Exclude(fm.neighbors(self))
         #source = CellRef(self.canvas, self.addr)
-        for agent in fm.pulse_slipnet(
-            activations_in, k=20, type=Agent, num_get=3
-        ):
+        agents = fm.pulse_slipnet(
+            activations_in, k=20, type=Agent, num_get=2, filter=exclude
+        )
+        print('WANT got from slipnet:', [str(a) for a in agents])
+        for agent in agents:
             if isinstance(agent, Consume):  #HACK
                 agent = replace(agent, source=source)
             fm.build(agent, builder=self)
 
+    def update_support(self, fm: FARGModel):
+        for consume in fm.search_ws((Consume, CellRef), max_n=20):
+            fm.set_mut_support(
+                self, consume, weight=self.promisingness_of(fm, consume)
+            )
+
+    def promisingness_of(self, fm: FARGModel, elem: Elem) -> float:
+        if isinstance(elem, Consume):
+            return 1.0 if elem.can_act(fm) else 0.0
+        elif isinstance(elem, CellRef):
+            return 2.0 if elem.contents == self.target else 0.0
+        else:
+            return 0.0
+            
     def __str__(self):
         cl = self.__class__.__name__
         # TODO Include canvas and addr
@@ -387,7 +410,9 @@ if __name__ == '__main__':
         wa = fm.build(Want(15, canvas=ca, addr=0))
         #wa.go(fm)
         fm.do_timestep(num=20)
-        print(fm)
+        pr(fm, edges=True)
 
         print()
         fm.pr(fm.search_ws(Consume, max_n=5))
+        print()
+        w = first(fm.elems(Want))

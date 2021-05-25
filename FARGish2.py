@@ -111,8 +111,8 @@ def has_avail_value(
         else:
             return False
 
-def as_fmpred(o: Union[Type, Callable, None]) -> Callable:
-    if isclass(o):
+def as_fmpred(o: Union[Type, Tuple[Type], Callable, None]) -> Callable:
+    if isinstance(o, tuple) or isclass(o):
         return lambda fm, x: isinstance(x, o)
     elif callable(o):
         return o
@@ -177,6 +177,16 @@ class ActivationGraph(nx.Graph):
     def add_node(self, node: Hashable, a=1.0):
         super().add_node(node, a=a)
 
+    def add_edge(self, node1: Hashable, node2: Hashable, weight=1.0):
+        if abs(weight) < 0.001:
+            self.remove_edge(node1, node2)
+        else:
+            super().add_edge(node1, node2, weight=weight)
+            
+    def remove_edge(self, node1: Hashable, node2: Hashable):
+        if self.has_edge(node1, node2):
+            super().remove_edge(node1, node2)
+
     def a_dict(self) -> Dict[Elem, float]:
         '''Activations dictionary.'''
         return dict(
@@ -226,6 +236,7 @@ class ActivationGraph(nx.Graph):
             a = self.nodes[node]['a']
             incr = max(min(1.0, a), 2.0)
             self.nodes[node]['a'] += incr
+            print('BOOST', node, 'TO', self.a(node))
 
 @dataclass
 class ActivationPropagator(Propagator):
@@ -362,6 +373,8 @@ class FARGModel:
         min_a: Union[float, None]=None,
         max_n: int=1
     ) -> Iterable[Elem]:
+        '''Returns generator of up to max_n nodes that match fmpred,
+        chosen randomly, weighted by activation.'''
         elems = self.elems(fmpred)
         if min_a is not None:
             elems = (e for e in elems if self.a(e) >= min_a)
@@ -459,10 +472,14 @@ class FARGModel:
     mutual_support_weight: ClassVar[float] = 1.0
     mutual_antipathy_weight: ClassVar[float] = -0.2
 
-    def add_mut_support(self, a: Hashable, b: Hashable):
-        self.activation_g.add_edge(
-            a, b, weight=self.mutual_support_weight
-        )
+    def add_mut_support(
+        self, a: Hashable, b: Hashable, weight: Union[float, None]=None
+    ):
+        if weight is None:
+            weight = self.mutual_support_weight
+        self.activation_g.add_edge(a, b, weight=weight)
+
+    set_mut_support = add_mut_support
 
     def add_mut_antipathy(self, a: Hashable, b: Hashable):
         self.support_g.add_edge(
@@ -477,6 +494,9 @@ class FARGModel:
             return self.support_g.edges[a, b]['weight']
         except KeyError:
             return 0.0
+
+    def neighbors(self, e: Elem) -> List[Elem]:
+        return list(self.activation_g.adj[e].keys())
 
     def degree(self, a: Elem) -> int:
         return self.activation_g.degree(a)
@@ -529,6 +549,14 @@ class FARGModel:
             eiws = self.ws[eiws]  # TODO if the elem does not exist
         return f'{indent}{self.a(eiws.elem):2.3f}  {eiws} deg={self.degree(eiws.elem)}'
 
+    def e1str(self, node1: Elem, node2: Elem, indent=None) -> str:
+        '''The one-line string for the edge from node1 to node2. Does not
+        show node1. Indented one level further than 'indent'.'''
+        if indent is None:
+            indent = '  '
+        weight = self.activation_g.edges[node1, node2]['weight']
+        return f'{indent}  {weight:2.3f} -- {node2}'
+
     def pr(
         self,
         es=None,  # Elem, Elems, or None for all Elems
@@ -536,16 +564,23 @@ class FARGModel:
         tofile=None,
         indent=None,
         show_n=False,
+        edges=False,
         **kwargs
     ):
         '''Prints a subset of the workspace.'''
         count = 0
-        for s in sorted(
-            self.l1str(elem, indent)
+        for s, elem in sorted(
+            (self.l1str(elem, indent), elem)
                 for elem in self.elems(fmpred=fmpred, es=es)
         ):
             count += 1
             print(s, file=tofile)
+            if edges:
+                for e in sorted(
+                    self.e1str(elem, neighbor)
+                        for neighbor in self.neighbors(elem)
+                ):
+                    print(' ', e, file=tofile)
         if show_n:
             print(f'n={count}', file=tofile)
 
@@ -580,6 +615,7 @@ class SeqState:  # TODO Inherit from Value?
     last_move: Union[StateDelta, None] = None
 
     #TODO In __iter__, make a tuple out of avails if it's not Hashable
+    #TODO UT, UT taking the same value twice
     def take_avails(self, values: Iterable[Value]) \
     -> Tuple[Iterable[Value], Iterable[Value]]:
         '''Returns (taken_avails, remaining_avails). Might raise
