@@ -12,7 +12,8 @@ from pprint import pprint as pp
 import inspect
 from time import process_time
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, replace, is_dataclass
+import dataclasses
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
@@ -27,6 +28,7 @@ from heapq import nlargest
 from collections import Counter
 from io import StringIO
 from inspect import isclass
+import inspect
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -111,17 +113,45 @@ def has_avail_value(
         else:
             return False
 
+def match_wo_none(other, obj_template) -> bool:
+    '''Does obj_template == other if we ignore any fields in obj_template
+    with a value of None? If other is an object of a subclass of obj_template's
+    class, that also counts as a match.'''
+    if not isinstance(other, obj_template.__class__):
+        return False
+    if not is_dataclass(obj_template) or not is_dataclass(other):
+        return obj_template == other
+    other_d = dataclasses.asdict(other)
+    return all(
+        v is None or v == other_d.get(k, None)
+            for k, v in dataclasses.asdict(obj_template).items()
+    )
+
 def as_fmpred(o: Union[Type, Tuple[Type], Callable, None]) -> Callable:
+    '''Returns a predicate function that takes two arguments: a FARGModel and
+    an object.'''
+    # TODO Document the many ways this thing constructs a function.
     if isinstance(o, tuple) or isclass(o):
         return lambda fm, x: isinstance(x, o)
     elif callable(o):
-        return o
+        if first_arg_is_fargmodel(o):
+            return o
+        else:
+            return lambda fm, x: o(x)
     elif o is None:
         return lambda fm, x: True
     else:
-        raise ValueError(
-            f'as_pred: {repr(o)} must be a class, a callable, or None.'
-        )
+        return lambda fm, x: match_wo_none(x, o)
+#        raise ValueError(
+#            f'as_pred: {repr(o)} must be a class, a callable, or None.'
+#        )
+
+def first_arg_is_fargmodel(o: Callable) -> bool:
+    p0 = first(inspect.signature(o).parameters.values())
+    try:
+        return issubclass(p0, FARGModel)
+    except TypeError:
+        return False
 
 def search(
     fm: 'FARGModel',
@@ -295,12 +325,13 @@ class ActivationPropagator(Propagator):
 class ElemInWS:
     '''An element in the workspace.'''
     elem: Elem
-    builder: Union[Agent, None] = None
+    builder: Union[Agent, None]
+    tob: int   # time of birth (when Elem was added to the ws)
         # TODO Allow multiple builders?
     # activation: float = 1.0
 
     def __str__(self):
-        return f'{self.elem}  builder={self.builder}'
+        return f'{self.elem}  builder={self.builder} tob={self.tob}'
 
 @dataclass
 class FARGModel:
@@ -346,7 +377,7 @@ class FARGModel:
         if existing_o is not None:
             obj = existing_o
         else:
-            self.ws[obj] = ElemInWS(obj, builder)
+            self.ws[obj] = ElemInWS(obj, builder, self.t)
             self.activation_g.add_node(obj)
             print('BUILT', obj)
             try:
@@ -369,13 +400,13 @@ class FARGModel:
 
     def search_ws(
         self,
-        fmpred: Union[Type, Callable, None]=None,
+        pred: Union[Type, Callable, None]=None,
         min_a: Union[float, None]=None,
         max_n: int=1
     ) -> Iterable[Elem]:
-        '''Returns generator of up to max_n nodes that match fmpred,
+        '''Returns generator of up to max_n nodes that match pred,
         chosen randomly, weighted by activation.'''
-        elems = self.elems(fmpred)
+        elems = self.elems(pred)
         if min_a is not None:
             elems = (e for e in elems if self.a(e) >= min_a)
         elems = list(elems)
@@ -412,8 +443,8 @@ class FARGModel:
             return None
         return eiws.elem
 
-    def elems(self, fmpred=None, es=None) -> Iterable[Elem]:
-        fmpred = as_fmpred(fmpred)
+    def elems(self, pred=None, es=None) -> Iterable[Elem]:
+        fmpred = as_fmpred(pred)
         if es is None:
             es = self.ws.keys()
         return (e for e in as_iter(es) if fmpred(self, e))
@@ -426,8 +457,14 @@ class FARGModel:
         return any(
             tag.is_tagging(elem)
                 for elem in as_iter(elems)
-                    for tag in self.elems(fmpred=tagpred)
+                    for tag in self.elems(pred=tagpred)
         )
+
+    def can_go(self, elem: Elem):
+        return CanGo(self, elem)
+
+    def can_act(self, elem: Elem):
+        return CanAct(self, elem)
 
     # TODO Should we allow **overrides?
     def is_blocked(self, elem: Hashable) -> bool:
@@ -540,6 +577,10 @@ class FARGModel:
         except AttributeError:
             return False
 
+    def __repr__(self):
+        cl = self.__class__.__name__
+        return f'<{cl} object, t={self.t}>'
+
     def __str__(self):
         result = StringIO()
         print(f't={self.t}', file=result)
@@ -565,8 +606,8 @@ class FARGModel:
 
     def pr(
         self,
+        pred: Union[Type, Callable, None]=None,
         es=None,  # Elem, Elems, or None for all Elems
-        fmpred: Union[Type, Callable, None]=None,
         tofile=None,
         indent=None,
         show_n=False,
@@ -577,7 +618,7 @@ class FARGModel:
         count = 0
         for s, elem in sorted(
             (self.l1str(elem, indent), elem)
-                for elem in self.elems(fmpred=fmpred, es=es)
+                for elem in self.elems(pred=pred, es=es)
         ):
             count += 1
             print(s, file=tofile)
@@ -964,6 +1005,10 @@ class RaiseException:
 
     def __call__(self, fm: FARGModel, *args, **kwargs):
         raise self.exc_class(*args, **kwargs)
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.exc_class.__name__})'
 
 #TODO rm
 @dataclass(frozen=True)

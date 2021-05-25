@@ -1,6 +1,7 @@
 # Numbo.py -- Run this to run Numbo; main classes specific to Numbo
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, replace, asdict
+import dataclasses
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
@@ -10,7 +11,8 @@ from collections import Counter
 
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
-    StateDelta, ValueNotAvail, CellWithAvailValue, is_real, GoIsDone
+    StateDelta, ValueNotAvail, CellWithAvailValue, is_real, GoIsDone, \
+    match_wo_none
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -255,7 +257,16 @@ class Want(Agent):
 
     def promisingness_of(self, fm: FARGModel, elem: Elem) -> float:
         if isinstance(elem, Consume):
-            return 1.0 if elem.can_act(fm) else 0.0
+            result = 0.0
+            if not fm.can_go(elem):
+                result += 0.1
+            else:
+                result += 1.0
+                if fm.is_tagged(elem, GoIsDone):
+                    result += 1.0
+                if fm.can_act(elem):
+                    result += 1.0
+            return result
         elif isinstance(elem, CellRef):
             return 2.0 if elem.contents == self.target else 0.0
         else:
@@ -417,3 +428,5 @@ if __name__ == '__main__':
         fm.pr(fm.search_ws(Consume, max_n=5))
         print()
         w = first(fm.elems(Want))
+        cs = list(fm.elems(Consume))
+        pts(cs)
