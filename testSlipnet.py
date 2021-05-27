@@ -13,7 +13,7 @@ from operator import itemgetter, attrgetter
 from collections import Counter
 
 from Slipnet import Slipnet, Node, FeatureWrapper, IntFeatures
-from util import is_iter, as_iter, pts
+from util import is_iter, as_iter, pts, pr
 
 
 @dataclass(frozen=True)
@@ -170,17 +170,35 @@ class TestSlipnet(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    slipnet = TestSlipnet.make_slipnet()
+    sl = TestSlipnet.make_slipnet()
+    sl2 = TestSlipnet.make_slipnet()
+    sl2.features_of = sl2.xfeatures_of # Oops, after construction is too late
+                                       # for this
+    top = Slipnet.top
 
-    e = Equation((5, 4), plus, 9)
+    if False:
+        e = Equation((5, 4), plus, 9)
 
-    # "Backwash" test: will 40 and 50 receive much activation?
-    q = slipnet.dquery([Equation((5, 4), plus, 9)])
-    #pts(q)
+        # "Backwash" test: will 40 and 50 receive much activation?
+        q = sl.dquery([Equation((5, 4), plus, 9)])
+        #pts(q)
 
-    da = {
-        4: 1.0,
-        5: 1.0
-    }
-    t = slipnet.query(da, Equation, k=20)
-    pts(t)
+        da = {
+            4: 1.0,
+            5: 1.0
+        }
+        t = sl.query(activations_in=da, type=Equation, k=20)
+        pts(t)
+
+    if True:
+        # What happens if we pulse a non-existent feature node?
+
+        fs = [Before(11)]
+        d1 = sl.dquery(features=fs)
+        d2 = sl2.dquery(features=fs)
+
+        #pts(top(d1))
+        print(sl.ns(Before(11)))
+        print(sl2.ns(Before(11)))
+
+

@@ -8,8 +8,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 
+'''
 from FARGish2 import FARGModel, SeqCanvas, SeqState, Want, Consume, Blocked, \
     Detector, AgentSeq, CellRef, SolvedNumble
+'''
 from util import tupdict
 
 

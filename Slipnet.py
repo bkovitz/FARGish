@@ -13,7 +13,7 @@ from heapq import nlargest
 import networkx as nx
 
 from Propagator import Propagator, Delta
-from util import is_iter, as_iter, pts
+from util import is_iter, as_iter, pts, pl, pr
 
 
 NodeId = NewType('NodeId', int)
@@ -132,6 +132,7 @@ class Slipnet(nx.Graph):
         result = set()
         visited = set()
         to_visit = {x0}
+        print('XF', x0)
         while to_visit:
             next_to_visit = set()
             for x in to_visit:
@@ -186,6 +187,7 @@ class Slipnet(nx.Graph):
                     except AttributeError:
                         a = 1.0
                 activations_in[f] = max(activations_in.get(f, 0.0), a)
+        #print('DQ', type(activations_in))
         return self.propagator.propagate(self, activations_in)
 
     def query(
@@ -199,6 +201,8 @@ class Slipnet(nx.Graph):
         activations_out = self.dquery(
             features=features, activations_in=activations_in
         )
+        #print('QUERY')
+        #pr(self.top(activations_out, k=k))
         #print('SUM', sum(activations_out.values()))
         return self.top(activations_out, type, k, filter=filter)
 
@@ -206,8 +210,9 @@ class Slipnet(nx.Graph):
     def to_d(cls, nas: List[NodeA]) -> Dict[Hashable, float]:
         return dict((na.node, na.a) for na in nas)
 
+    @classmethod
     def top(
-        self,
+        cls,
         d: Dict[Hashable, float],
         type: Type=None,
         k: Union[int, None]=None,

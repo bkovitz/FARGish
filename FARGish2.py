@@ -148,8 +148,10 @@ def as_fmpred(o: Union[Type, Tuple[Type], Callable, None]) -> Callable:
 
 def first_arg_is_fargmodel(o: Callable) -> bool:
     p0 = first(inspect.signature(o).parameters.values())
+    #print('FIRARG', o, p0, p0.annotation, type(p0.annotation))
     try:
-        return issubclass(p0, FARGModel)
+        # TODO What if annotation is a string?
+        return issubclass(p0.annotation, FARGModel)
     except TypeError:
         return False
 
@@ -171,6 +173,26 @@ def search1(*args, **kwargs):
     # TODO Give higher probability based on activation
     return first(search(*args, **kwargs))
 
+def source_cellref_of(fm: 'FARGModel', elem: Elem) -> Union['CellRef', None]:
+    '''Returns the first .source attr found in elem, elem's builder, and elem's
+    builder's builder, or None if not found.'''
+    # TODO Should check that the .source is annotated as a CellRef.
+    try:
+        return elem.source
+    except AttributeError:
+        bu = fm.builder_of(elem)
+        if bu is None:
+            return None
+        else:
+            try:
+                return bu.source
+            except AttributeError:
+                bu = fm.builder_of(elem)
+                try:
+                    return bu.source
+                except AttributeError:
+                    return None
+
 # Exceptions
 
 @dataclass(frozen=True)
@@ -187,10 +209,35 @@ class ValueNotAvail(Exception):
     ):
         # TODO The decision of how to go about fixing the problem should
         # result from a slipnet search rather than being hard-coded.
+        #source = getattr(builder, 'source', None)
+        source = source_cellref_of(fm, builder)
+        if source is not None:
+            mca = MustComeAfter(source)
+        else:
+            mca = None
+        print('VNAVAIL', self, builder, source)
         fm.build(
-            Detector(self.value, MakeAgentSeq(tail=behalf_of)),
+            Detector(
+                self.value,
+                MakeAgentSeq(tail=behalf_of),
+                mca
+            ),
             builder=builder
         )
+
+@dataclass(frozen=True)
+class MustComeAfter:
+    cellref: 'CellRef'
+
+    def __call__(self, x: Hashable) -> bool:
+        if isinstance(x, CellRef):
+            try:
+                print('MCA  ', x, self.cellref)
+                return x.addr > self.cellref.addr
+            except (AttributeError, TypeError):
+                return True   # don't filter CellRef with indeterminate addr
+        else:
+            return True  # if not a CellRef, don't filter
 
 # Graphs
 
@@ -278,7 +325,7 @@ class ActivationPropagator(Propagator):
     positive_feedback_rate: float = 0.5  # higher -> initial features matter more
     sigmoid_p: float = 1.05  # higher -> sharper distinctions, more salience
     num_iterations: int = 3
-    alpha: float = 0.90
+    alpha: float = 0.95
     inflation_constant: float = 5.0  # 2.0 is minimum  # TODO rm?
 
     def min_value(self, g, node):
@@ -342,6 +389,9 @@ class FARGModel:
 
     activation_g: ActivationGraph = field(
         default_factory=ActivationGraph, init=False
+    )
+    sleeping: Dict[Elem, int] = field(
+        default_factory=dict, init=False
     )
 
     # TODO support_g and associated methods
@@ -432,6 +482,12 @@ class FARGModel:
             weights=[nas.a for nas in q]
         ))
 
+    def sleep(self, elem: Elem, num_timesteps=2):
+        if elem in self.sleeping:
+            self.sleeping[elem] += num_timesteps
+        else:
+            self.sleeping[elem] = self.t + num_timesteps
+
     # Ancillary functions, callable by codelets and Agents
 
     def in_ws(self, obj: Hashable) -> Hashable:
@@ -466,6 +522,9 @@ class FARGModel:
     def can_act(self, elem: Elem):
         return CanAct(self, elem)
 
+    def is_sleeping(self, elem: Elem):
+        return elem in self.sleeping
+            
     # TODO Should we allow **overrides?
     def is_blocked(self, elem: Hashable) -> bool:
         '''Does elem have a Blocked tag?'''
@@ -476,13 +535,22 @@ class FARGModel:
             )
         return first(self.ws_query(pred))
 
+    def builder_of(self, elem: Elem) -> Union[Elem, None]:
+        try:
+            eiws = self.ws[elem]
+        except KeyError:
+            return None
+        return eiws.builder
+
     # Timestep functions
 
     def do_timestep(self, num: int=1):
         for i in range(num):
             self.t += 1
+            self.remove_sleepers()
             #self.activation_g.decay()
             self.activation_g.propagate()
+            self.run_detectors()
             if self.t % 10 == 0:
                 pred = CanAct
                 run = CallAct
@@ -494,12 +562,23 @@ class FARGModel:
                 run(self, agent)
                 #agent.go(self)
 
+    def run_detectors(self):
+        for detector in self.elems(Detector):
+            print('look:', detector)
+            detector.look(self)
+
     def choose_agent_by_activation(self, pred: Callable):
         # TODO OAOO .search_ws
         agents = list(self.ws_query(pred))
         activations = [self.a(agent) for agent in agents]
         return first(sample_without_replacement(agents, weights=activations))
-            
+
+    def remove_sleepers(self):
+        for waking in [
+            elem for (elem, t) in self.sleeping.items() if t <= self.t
+        ]:
+            del self.sleeping[waking]
+
     # Activation
 
     def a(self, node: Hashable) -> float:
@@ -508,6 +587,11 @@ class FARGModel:
 
     def boost(self, node: Hashable):
         self.activation_g.boost(node)
+
+    def downboost(self, node: Hashable):
+        # HACK to make a node quiet down for a bit after it's done something;
+        # better to explicitly sleep for a few timesteps?
+        self.activation_g.nodes[node]['a'] /= 2.0
 
     def deactivate(self, node: Hashable):
         self.activation_g.nodes[node]['a'] = 0.0
@@ -637,6 +721,8 @@ def CanGo(fm: FARGModel, elem: Elem) -> bool:
         and
         not fm.is_tagged(elem, NoGo)
         and
+        not fm.is_sleeping(elem)
+        and
         elem.can_go(fm)
     )
 
@@ -748,8 +834,9 @@ class AgentSeq(Agent):
 class MakeAgentSeq:
     tail: Agent  # TODO Allow an AgentSeq, too
 
-    def __call__(self, fm: FARGModel):
+    def __call__(self, fm: FARGModel, elem: Union[Elem, None]):
         # TODO
+        print('MAKE AGENT SEQ', self.tail)
         pass
 
     def __str__(self):
@@ -957,7 +1044,7 @@ class GoIsDone(NoGo):
     taggee: Agent
 
 @dataclass(frozen=True)
-class Blocked(NoGo):
+class Blocked(NoGo, Agent):
     taggee: Hashable
     reason: Hashable
 
@@ -965,10 +1052,10 @@ class Blocked(NoGo):
         # TODO The .reason might not have a .try_to_fix method (and probably
         # shouldn't).
         self.reason.try_to_fix(fm, behalf_of=self.taggee, builder=self)
+        fm.build(GoIsDone(taggee=self))
 
-    # NEXT go
     def can_go(self, fm):
-        return False
+        return True
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -978,18 +1065,36 @@ class Blocked(NoGo):
 class Detector:
     target: Value  # Change to a match function?
     action: Callable
+    filter: Union[Elem, None] = None
 
-    def go(self, fm: FARGModel):
+    def look(self, fm: FARGModel):
         # TODO See if self.target is there, favoring new elems
 
-        #found = fm.ws_query(pred=HasAvailValue(self.target))
-        found = CellWithAvailValue(self.target).search(fm)
-        found = list(found)
-        #print('FOUND', found)
+        #found = CellWithAvailValue(self.target).search(fm)
+        found = fm.search_ws(self.make_pred())
+        found = set(found)
+        if found:
+            print(f"FOUND {self} {', '.join(str(f) for f in found)}")
         for cellref in found:
             if cellref.is_real():
                 self.action(fm, cellref)
             #self.action(fm, found, agent=self)
+
+    def make_pred(self):
+        if self.filter:
+            f = as_fmpred(self.filter)
+            def pred(fm: FARGModel, x: Elem) -> bool:
+                return (
+                    f(fm, x)
+                    and
+                    isinstance(x, CellRef) and has_avail_value(x, self.target)
+                )
+        else:
+            def pred(fm: FARGModel, x: Elem) -> bool:
+                return (
+                    isinstance(x, CellRef) and has_avail_value(x, self.target)
+                )
+        return pred
 
     def __str__(self):
         cl = self.__class__.__name__

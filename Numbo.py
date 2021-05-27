@@ -205,9 +205,9 @@ class Exclude:
 @dataclass(frozen=True)
 class Want(Agent):
     '''Represents the pressure to find or construct a value on a canvas.'''
-    target: Value
-    canvas: SeqCanvas
-    addr: Addr  # Addr of the start state, before
+    target: Value = None
+    canvas: SeqCanvas = None
+    addr: Addr = None  # Addr of the start state, before
 
     def on_build(self, fm: FARGModel):
         fm.add_mut_support(self, self.canvas)
@@ -226,6 +226,7 @@ class Want(Agent):
         )
         self.consult_slipnet(fm)
         self.update_support(fm)
+        fm.sleep(self)
 
     def consult_slipnet(self, fm: FARGModel):
         source = self.canvas.last_nonblank()
