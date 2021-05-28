@@ -44,7 +44,8 @@ class Propagator(ABC):
         # decay
         new_d: Dict[NodeId, float] = defaultdict(float,
             #((nodeid, a * self.alpha)
-            ((nodeid, max(self.min_value(g, nodeid), a * self.alpha))
+            #((nodeid, max(self.min_value(g, nodeid), a * self.alpha))
+            ((nodeid, self.clip_a(g, nodeid, a * self.alpha))
                 for nodeid, a in old_d.items()
             )
         )
@@ -67,7 +68,8 @@ class Propagator(ABC):
                 new_d[delta.neighborid] = 0.0
         # clip to min_value
         new_d = defaultdict(float,
-            ((nodeid, max(self.min_value(g, nodeid), s))
+            #((nodeid, max(self.min_value(g, nodeid), s))
+            ((nodeid, self.clip_a(g, nodeid, s))
                 for nodeid, s in new_d.items()
             )
         )
@@ -85,9 +87,11 @@ class Propagator(ABC):
     def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
         pass
 
-    @abstractmethod
-    def min_value(self, g, nodeid: NodeId) -> float:
-        pass
+#    @abstractmethod
+#    def min_value(self, g, nodeid: NodeId) -> float:
+#        pass
+    def clip_a(self, g, nodeid, a: float) -> float:
+        return a
 
     def normalize(self, d: Dict[NodeId, float]) -> Dict[NodeId, float]:
         '''Returns d normalized so the sum of all the values does not

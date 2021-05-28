@@ -17,7 +17,7 @@ current:
 test: ut at
 
 ut:
-	$(PY) -m unittest -v testSlipnet.py testFARGish2.py
+	$(PY) -m unittest -v testSlipnet.py testFARGish2.py testPropagator.py
 
 oldut:
 	$(PY) -m unittest -v

@@ -38,7 +38,7 @@ from Slipnet import Slipnet, empty_slipnet
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
-    sample_without_replacement
+    sample_without_replacement, clip
 
 
 # Types
@@ -321,15 +321,19 @@ class ActivationPropagator(Propagator):
     rather than support flows between nodes, and every edge (not just edges
     with certain labels) is taken as a path for activation to flow.'''
     noise: float = 0.0  #0.005
-    max_total: float = 10.0
+    max_total: float = 20.0
     positive_feedback_rate: float = 0.5  # higher -> initial features matter more
     sigmoid_p: float = 1.05  # higher -> sharper distinctions, more salience
     num_iterations: int = 3
     alpha: float = 0.95
     inflation_constant: float = 5.0  # 2.0 is minimum  # TODO rm?
 
-    def min_value(self, g, node):
-        return 0.0
+#    def min_value(self, g, node):
+#        return 0.0
+    def clip_a(self, g, node, a):
+        lb = getattr(node, 'min_a', 0.0)
+        ub = getattr(node, 'max_a', 4.0)
+        return clip(lb, ub, a)
 
     def make_deltas(self, g, old_d):
         return chain.from_iterable(
@@ -419,7 +423,12 @@ class FARGModel:
 
     # Codelet functions
 
-    def build(self, obj, builder: Union[Agent, None]=None) -> Hashable:
+    def build(
+        self,
+        obj,
+        builder: Union[Agent, None]=None,
+        edge_weight: Union[float, None]=None
+    ) -> Hashable:
         if obj is None:
             return None
         existing_o = self.in_ws(obj)
@@ -430,6 +439,8 @@ class FARGModel:
             self.ws[obj] = ElemInWS(obj, builder, self.t)
             self.activation_g.add_node(obj)
             print('BUILT', obj)
+            for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
+                self.add_mut_antipathy(obj, elem)
             try:
                 obj.on_build(self)
             except AttributeError:
@@ -516,6 +527,9 @@ class FARGModel:
                     for tag in self.elems(pred=tagpred)
         )
 
+    def is_blocked(self, elems) -> bool:
+        return self.is_tagged(elems, Blocked)
+
     def can_go(self, elem: Elem):
         return CanGo(self, elem)
 
@@ -544,7 +558,7 @@ class FARGModel:
 
     # Timestep functions
 
-    def do_timestep(self, num: int=1):
+    def do_timestep(self, ag: Union[Agent, None]=None, num: int=1):
         for i in range(num):
             self.t += 1
             self.remove_sleepers()
@@ -557,7 +571,10 @@ class FARGModel:
             else:
                 pred = CanGo
                 run = CallGo
-            agent = self.choose_agent_by_activation(pred)
+            if ag is None:
+                agent = self.choose_agent_by_activation(pred)
+            else:
+                agent = ag
             if agent:
                 run(self, agent)
                 #agent.go(self)
@@ -585,6 +602,9 @@ class FARGModel:
         '''Current activation level of node.'''
         return self.activation_g.nodes[node]['a']
 
+    def sum_a(self) -> float:
+        return sum(self.a(elem) for elem in self.elems())
+
     def boost(self, node: Hashable):
         self.activation_g.boost(node)
 
@@ -610,17 +630,27 @@ class FARGModel:
 
     set_mut_support = add_mut_support
 
-    def add_mut_antipathy(self, a: Hashable, b: Hashable):
-        self.support_g.add_edge(
+    def add_mut_antipathy(
+        self, a: Hashable, b: Hashable, weight: Union[float, None]=None
+    ):
+        if weight is None:
+            weight = self.mutual_support_weight
+        self.activation_g.add_edge(
             a, b, weight=self.mutual_antipathy_weight
         )
+
+    def has_antipathy_to(self, a: Hashable, b: Hashable) -> bool:
+        try:
+            return a.has_antipathy_to(b)
+        except AttributeError:
+            return False
 
     def support_weight(self, a: Hashable, b: Hashable) -> float:
         '''Returns the mutual support between nodes 'a' and 'b'. If neither
         node exists, or there is no edge between them in self.support_g,
         then the weight is 0.0.'''
         try:
-            return self.support_g.edges[a, b]['weight']
+            return self.activation_g.edges[a, b]['weight']
         except KeyError:
             return 0.0
 
@@ -667,7 +697,7 @@ class FARGModel:
 
     def __str__(self):
         result = StringIO()
-        print(f't={self.t}', file=result)
+        print(f't={self.t}  sum_a={self.sum_a():2.3f}', file=result)
         #print(self.elines(self.elems(), tofile=result))
         self.pr(tofile=result, show_n=True)
         return result.getvalue()
@@ -850,6 +880,17 @@ class HasAvailValue:
     def __call__(self, fm: FARGModel, elem) -> bool:
         return has_avail_value(elem, self.v)
 
+@dataclass(frozen=True)
+class HasAntipathyTo:
+    elem: Elem
+    ignore: Union[Elem, None]=None
+
+    def __call__(self, fm: FARGModel, elem) -> bool:
+        if elem == self.ignore:
+            return False
+        else:
+            return fm.has_antipathy_to(self.elem, elem)
+
 @dataclass(eq=False)
 class Canvas(Elem, ABC):
 
@@ -891,7 +932,10 @@ class SeqCanvas(Canvas):
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
         #print('SEQCGET', addr, len(self.states))
-        return self.states[addr]
+        if addr < len(self.states):
+            return self.states[addr]
+        else:
+            return None
 
     def search(self, fm, pred):
         yield from search(fm, self.cellrefs(), pred)
@@ -975,6 +1019,7 @@ class ImCell(CellRef):
     ) -> CellRef:
         '''Builds ImCell(v) if v is different than .contents.'''
         if v != self.contents:
+            print('IMCELL', v)
             return fm.build(replace(self, contents=v), builder=builder)
         else:
             return self

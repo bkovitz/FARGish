@@ -12,7 +12,7 @@ from collections import Counter
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
     StateDelta, ValueNotAvail, CellWithAvailValue, is_real, GoIsDone, \
-    match_wo_none
+    match_wo_none, has_avail_value
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -44,7 +44,7 @@ class Consume(Agent):
 
     def on_build(self, fm: FARGModel):
         fm.build(self.source, builder=self)
-        fm.build(self.dest, builder=self)
+        fm.build(self.dest, builder=self, edge_weight=1.0)
 
     def paint(
         self,
@@ -59,12 +59,15 @@ class Consume(Agent):
         if builder is None:
             builder = self
         s0: SeqState = source.contents
+        if s0 is None:
+            return
         try:
             taken_avails, remaining_avails = s0.take_avails(self.operands)
         except ValueNotAvail as exc:
             # TODO builder=self even if builder overridden by caller?
             #print('CNOT')
             fm.build(Blocked(taggee=self, reason=exc), builder=self)
+            fm.downboost(self)
             return
         result = self.operator.call(*taken_avails)
         new_avails = tuple(remaining_avails) + (result,)
@@ -124,6 +127,16 @@ class Consume(Agent):
             return self.dest.preceding_contents()
         else:
             return self.source.contents
+
+    # TODO UT
+    def has_antipathy_to(self, other: Union[Elem, None]) -> bool:
+        return (
+            self is not other
+            and
+            isinstance(other, Consume)
+            and
+            self.source == other.source
+        )
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -209,6 +222,8 @@ class Want(Agent):
     canvas: SeqCanvas = None
     addr: Addr = None  # Addr of the start state, before
 
+    max_a: ClassVar[float] = 2.0
+
     def on_build(self, fm: FARGModel):
         fm.add_mut_support(self, self.canvas)
 
@@ -259,17 +274,16 @@ class Want(Agent):
     def promisingness_of(self, fm: FARGModel, elem: Elem) -> float:
         if isinstance(elem, Consume):
             result = 0.0
-            if not fm.can_go(elem):
+            if fm.is_blocked(elem):
                 result += 0.1
             else:
-                result += 1.0
-                if fm.is_tagged(elem, GoIsDone):
-                    result += 1.0
+                result += 0.5
                 if fm.can_act(elem):
-                    result += 1.0
+                    result += 0.5
             return result
         elif isinstance(elem, CellRef):
-            return 2.0 if elem.contents == self.target else 0.0
+            #return 2.0 if elem.contents == self.target else 0.0
+            return 10.0 if has_avail_value(elem.contents, self.target) else 0.0
         else:
             return 0.0
             
@@ -416,7 +430,7 @@ if __name__ == '__main__':
         print(agent)
         '''
 
-    if True:
+    if False:
         fm = Numbo()
         c = Consume(operands=(5, 4), operator=plus)
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
@@ -431,3 +445,18 @@ if __name__ == '__main__':
         w = first(fm.elems(Want))
         cs = list(fm.elems(Consume))
         pts(cs)
+
+    if True:
+        fm = Numbo()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        wa = fm.build(Want(15, canvas=ca, addr=0))
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        c1 = fm.build(Consume(operands=(5, 4), operator=plus, source=cr0))
+        c2 = fm.build(Consume(operands=(9, 6), operator=plus, source=cr1))
+        fm.t = 9
+        print('C1', fm.can_act(c1))
+        fm.do_timestep(c1)
+        fm.do_timestep(c2)
+        fm.do_timestep(wa)
+        fm.pr(edges=True)

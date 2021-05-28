@@ -21,6 +21,7 @@ class MyPropagator(Propagator):
     def hop_weight(self, g, fromid, toid):
         return g.activation_from_to(fromid, toid)
 
+    #TODO Replace with clip_a
     def min_value(self, g, nodeid):
         return g.min_activation(nodeid)
 
