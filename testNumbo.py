@@ -9,10 +9,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     Sequence
 
 from Slipnet import Slipnet, IntFeatures
-from FARGish2 import FARGModel, Elem
+from FARGish2 import FARGModel, Elem, NoGo, ImCell
 from Numbo import Numbo, SeqCanvas, SeqState, Want, Consume, Blocked, \
     Detector, AgentSeq, CellRef, SolvedNumble, plus, times, minus
-from util import tupdict
+from util import tupdict, pr, pts
 
 
 class TestNumbo(unittest.TestCase):
@@ -35,6 +35,27 @@ class TestNumbo(unittest.TestCase):
         print(fm)
 
         self.assertTrue(fm.is_blocked(co1))
+
+    def test_winning_consume_attracts_support(self):
+        fm = Numbo(seed=1886246070452261567)
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        wa = fm.build(Want(15, canvas=ca, addr=0))
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        co1 = fm.build(Consume(operands=(5, 4), operator=plus, source=cr0))
+        co2 = fm.build(Consume(operands=(9, 6), operator=plus, source=cr1))
+
+        fm.do_timestep(co1, act=True)
+        print('UT', cr1.contents, type(cr1.contents))
+        self.assertCountEqual(cr1.contents.avails, (6, 9))
+        self.assertTrue(fm.is_tagged(co1, NoGo))
+
+        fm.do_timestep(co2)
+        fm.do_timestep(until=9)
+        print(fm)
+        pr(fm, (Want, Consume, ImCell), edges=True)
+        pts(sorted(fm.elems(Consume), key=fm.a, reverse=True))
+        print(fm.seed)
 
     @unittest.skip('On hold until we can force what Want builds.')
     def test_hardcoded_pons_asinorum(self):

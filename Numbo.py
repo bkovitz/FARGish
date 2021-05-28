@@ -11,8 +11,8 @@ from collections import Counter
 
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
-    StateDelta, ValueNotAvail, CellWithAvailValue, is_real, GoIsDone, \
-    match_wo_none, has_avail_value
+    StateDelta, ValueNotAvail, CellWithAvailValue, is_real, \
+    GoIsDone, ActIsDone, match_wo_none, has_avail_value
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -112,7 +112,9 @@ class Consume(Agent):
             kwargs['source'] = self.source
         if kwargs.get('dest', None) is None:
             kwargs['dest'] = kwargs['source'].next()
-        return self.paint(fm, **kwargs)
+        result = self.paint(fm, **kwargs)
+        fm.build(ActIsDone(taggee=self))
+        return result
         
     def have_all_args(self) -> bool:
         return (
@@ -283,7 +285,7 @@ class Want(Agent):
             return result
         elif isinstance(elem, CellRef):
             #return 2.0 if elem.contents == self.target else 0.0
-            return 10.0 if has_avail_value(elem.contents, self.target) else 0.0
+            return 20.0 if has_avail_value(elem.contents, self.target) else 0.0
         else:
             return 0.0
             

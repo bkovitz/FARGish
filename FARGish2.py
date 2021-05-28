@@ -38,7 +38,7 @@ from Slipnet import Slipnet, empty_slipnet
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
-    sample_without_replacement, clip
+    sample_without_replacement, clip, reseed
 
 
 # Types
@@ -321,7 +321,7 @@ class ActivationPropagator(Propagator):
     rather than support flows between nodes, and every edge (not just edges
     with certain labels) is taken as a path for activation to flow.'''
     noise: float = 0.0  #0.005
-    max_total: float = 20.0
+    max_total: float = 40.0
     positive_feedback_rate: float = 0.5  # higher -> initial features matter more
     sigmoid_p: float = 1.05  # higher -> sharper distinctions, more salience
     num_iterations: int = 3
@@ -332,7 +332,7 @@ class ActivationPropagator(Propagator):
 #        return 0.0
     def clip_a(self, g, node, a):
         lb = getattr(node, 'min_a', 0.0)
-        ub = getattr(node, 'max_a', 4.0)
+        ub = getattr(node, 'max_a', 10.0)
         return clip(lb, ub, a)
 
     def make_deltas(self, g, old_d):
@@ -389,7 +389,8 @@ class FARGModel:
     #ws: Set[Hashable] = field(default_factory=set, init=False)
     ws: Dict[Hashable, ElemInWS] = field(default_factory=dict)
     t: int = 0
-    slipnet: Slipnet = empty_slipnet
+    slipnet: Slipnet = empty_slipnet  # TODO copy empty_slipnet?
+    seed: Union[int, None] = None
 
     activation_g: ActivationGraph = field(
         default_factory=ActivationGraph, init=False
@@ -402,6 +403,7 @@ class FARGModel:
     # TODO activation_g and associated methods
 
     def __post_init__(self):
+        self.seed = reseed(self.seed)
         self.make_slipnet()
 
     def make_slipnet(self):
@@ -558,14 +560,21 @@ class FARGModel:
 
     # Timestep functions
 
-    def do_timestep(self, ag: Union[Agent, None]=None, num: int=1):
-        for i in range(num):
+    def do_timestep(
+        self, ag: Union[Agent, None]=None, num: int=1, act=False, until=None
+    ):
+        '''act: whether to force agents to .act even if the current timestep
+        isn't designated for acting.
+        until: last timestep; overrides num.'''
+        if until is None:
+            until = self.t + num
+        while self.t < until:
             self.t += 1
             self.remove_sleepers()
             #self.activation_g.decay()
             self.activation_g.propagate()
             self.run_detectors()
-            if self.t % 10 == 0:
+            if act or self.t % 10 == 0:
                 pred = CanAct
                 run = CallAct
             else:
@@ -716,7 +725,7 @@ class FARGModel:
         if indent is None:
             indent = '  '
         weight = self.activation_g.edges[node1, node2]['weight']
-        return f'{indent}  {weight:2.3f} -- {node2}'
+        return f'{indent}  {weight:2.3f} -- {node2}  a={self.a(node2):2.3f}'
 
     def pr(
         self,
@@ -761,7 +770,13 @@ def CallGo(fm: FARGModel, elem: Elem):
     elem.go(fm)
 
 def CanAct(fm: FARGModel, elem: Elem) -> bool:
-    return isinstance(elem, Agent) and elem.can_act(fm)
+    return (
+        isinstance(elem, Agent)
+        and
+        not fm.is_tagged(elem, NoAct)
+        and
+        elem.can_act(fm)
+    )
 
 def CallAct(fm: FARGModel, elem: Elem):
     print(f'act: {elem}')
@@ -1071,9 +1086,8 @@ class Tag(Elem, ABC):
         pass
 
 @dataclass(frozen=True)
-class NoGo(Tag):
-    '''Indicates that the taggee's .go() method should not be called.'''
-    taggee: Agent
+class TaggeeTag(Tag):
+    taggee: Hashable
 
     def is_tagging(self, elems):
         return any(self.taggee == elem for elem in as_iter(elems))
@@ -1083,10 +1097,25 @@ class NoGo(Tag):
         return f'{cl}({self.taggee})'
 
 @dataclass(frozen=True)
+class NoGo(TaggeeTag):
+    '''Indicates that the taggee's .go() method should not be called.'''
+    taggee: Agent
+
+@dataclass(frozen=True)
+class NoAct(TaggeeTag):
+    '''Indicates that the taggee's .act() method should not be called.'''
+    taggee: Agent
+
+@dataclass(frozen=True)
 class GoIsDone(NoGo):
     '''Indicates that taggee's .go() method has been run successfully and there
     is no need to call it again, even if the taggee has high activation.'''
-    taggee: Agent
+
+@dataclass(frozen=True)
+class ActIsDone(NoGo, NoAct):
+    '''Indicates that taggee's .act() method has been run successfully and there
+    is no need to call it again, nor to call its .go() method, even if the
+    taggee has high activation.'''
 
 @dataclass(frozen=True)
 class Blocked(NoGo, Agent):
@@ -1144,7 +1173,6 @@ class Detector:
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.target}, {name_of(self.action)})'
-        
 
 def halt(fm: FARGModel, *args, **kwargs):
     raise Halt(*args, **kwargs)
