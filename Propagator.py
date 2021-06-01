@@ -1,7 +1,7 @@
 # Propagator.py
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, replace, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from random import gauss
@@ -40,6 +40,8 @@ class Propagator(ABC):
         # sigma parameter for normal dist. sampled and added
     num_iterations: int = 1
 
+    flows: Dict[Any, float] = field(default_factory=lambda: defaultdict(float))
+
     def propagate_once(self, g, old_d: Dict[NodeId, float]):
         # decay
         new_d: Dict[NodeId, float] = defaultdict(float,
@@ -51,11 +53,12 @@ class Propagator(ABC):
         )
         # apply all the deltas
         for delta in self.make_deltas(g, old_d):
+            #print('DELT0', delta)
             actual_delta = (
                 (
                     delta.amt
                     * (1.0 + self.positive_feedback_rate
-                           * old_d.get(delta.nodeid, 0.0))
+                             * old_d.get(delta.nodeid, 0.0))
                     * (1.0 - self.alpha)
                     #+
                 )
@@ -63,7 +66,9 @@ class Propagator(ABC):
             )
             #print(f'{delta.nodeid!s:20s} {delta.amt!s:20s}  {actual_delta!s:20s}   {delta.neighborid}') #DEBUG
             #print('PONCE', delta.nodeid, old_d[delta.nodeid], new_d[delta.nodeid], delta.amt, actual_delta)
+            #print('DELTA', replace(delta, amt=actual_delta))
             new_d[delta.nodeid] += actual_delta
+            self.flows[(delta.neighborid, delta.nodeid)] += actual_delta
             if delta.neighborid not in new_d:
                 new_d[delta.neighborid] = 0.0
         # clip to min_value
@@ -76,6 +81,7 @@ class Propagator(ABC):
         return self.normalize(new_d)
 
     def propagate(self, g, old_d: Dict[NodeId, float], num_iterations=None):
+        self.flows.clear()
         if num_iterations is None:
             num_iterations = self.num_iterations
         new_d = old_d

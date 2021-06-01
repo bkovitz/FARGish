@@ -160,6 +160,8 @@ class SeqCanvas(Canvas):
     car: SeqState
     cdr: Cell = field(default_factory=Cell)  # Cell[SeqCanvas]
 
+    max_a: float = 1.0
+
 #    needs_init: Union[bool, Callable] = field(
 #        default=False, init=False, repr=False
 #    )

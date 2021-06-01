@@ -37,13 +37,16 @@ class TestNumbo(unittest.TestCase):
         self.assertTrue(fm.is_blocked(co1))
 
     def test_winning_consume_attracts_support(self):
-        fm = Numbo(seed=1886246070452261567)
+        fm = Numbo(seed=1886246070452261567, mutual_antipathy_weight=-0.4)
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
         cr0 = CellRef(ca, 0)
         cr1 = CellRef(ca, 1)
         co1 = fm.build(Consume(operands=(5, 4), operator=plus, source=cr0))
         co2 = fm.build(Consume(operands=(9, 6), operator=plus, source=cr1))
+
+        co3 = fm.build(Consume(operands=(9, 6), operator=times, source=cr1))
+        co4 = fm.build(Consume(operands=(9, 6), operator=minus, source=cr1))
 
         fm.do_timestep(co1, act=True)
         print('UT', cr1.contents, type(cr1.contents))
@@ -54,7 +57,8 @@ class TestNumbo(unittest.TestCase):
         fm.do_timestep(until=9)
         print(fm)
         pr(fm, (Want, Consume, ImCell), edges=True)
-        pts(sorted(fm.elems(Consume), key=fm.a, reverse=True))
+        #pts(sorted(fm.elems(Consume), key=fm.a, reverse=True))
+        pr(fm, Consume)
         print(fm.seed)
 
     @unittest.skip('On hold until we can force what Want builds.')

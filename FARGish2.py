@@ -12,7 +12,7 @@ from pprint import pprint as pp
 import inspect
 from time import process_time
 
-from dataclasses import dataclass, field, replace, is_dataclass
+from dataclasses import dataclass, field, fields, replace, is_dataclass, InitVar
 import dataclasses
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
@@ -38,7 +38,7 @@ from Slipnet import Slipnet, empty_slipnet
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
-    sample_without_replacement, clip, reseed
+    sample_without_replacement, clip, reseed, default_field_value
 
 
 # Types
@@ -243,9 +243,9 @@ class MustComeAfter:
 
 class ActivationGraph(nx.Graph):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
-        self.propagator = ActivationPropagator()
+        self.propagator = ActivationPropagator(**kwargs)
 
     def ns(self, node) -> List[str]:
         '''Returns list of neighbors represented as strings.'''
@@ -280,6 +280,19 @@ class ActivationGraph(nx.Graph):
             self.nodes[node]['a'] = a
         return d
 
+    def pr_flows(self):
+        lines = [
+            f'{self.arrow(k):75s} {v:= 3.5f}'
+                for k, v in self.propagator.flows.items()
+        ]
+        pr(lines)
+
+    @classmethod
+    def arrow(cls, k) -> str:
+        fromnode = k[0]
+        tonode = k[1]
+        return f'{fromnode} -> {tonode}'
+
     def draw(self):
         global pos, node_labels, plot_instance
         pos = nx.layout.spring_layout(self)
@@ -311,7 +324,8 @@ class ActivationGraph(nx.Graph):
     def boost(self, nodes):  # TODO type annotation
         for node in as_iter(nodes):
             a = self.nodes[node]['a']
-            incr = max(min(1.0, a), 2.0)
+            #incr = max(min(1.0, a), 2.0)
+            incr = clip(0.5, 1.0, a)
             self.nodes[node]['a'] += incr
             print('BOOST', node, 'TO', self.a(node))
 
@@ -322,10 +336,10 @@ class ActivationPropagator(Propagator):
     with certain labels) is taken as a path for activation to flow.'''
     noise: float = 0.0  #0.005
     max_total: float = 40.0
-    positive_feedback_rate: float = 0.5  # higher -> initial features matter more
-    sigmoid_p: float = 1.05  # higher -> sharper distinctions, more salience
-    num_iterations: int = 3
-    alpha: float = 0.95
+    positive_feedback_rate: float = 0.1 #0.5  # higher -> initial features matter more
+    sigmoid_p: float = 0.9 #1.05  # higher -> sharper distinctions, more salience
+    num_iterations: int = 10
+    alpha: float = 0.98
     inflation_constant: float = 5.0  # 2.0 is minimum  # TODO rm?
 
 #    def min_value(self, g, node):
@@ -351,7 +365,7 @@ class ActivationPropagator(Propagator):
             outgoing_deltas.append(
                 Delta(
                     neighbor,
-                    weight + self.positive_feedback_rate * neighbor_a,
+                    weight, # + self.positive_feedback_rate * neighbor_a,
                     node
                 )
             )
@@ -395,16 +409,28 @@ class FARGModel:
     activation_g: ActivationGraph = field(
         default_factory=ActivationGraph, init=False
     )
-    sleeping: Dict[Elem, int] = field(
-        default_factory=dict, init=False
-    )
+    sleeping: InitVar[Dict[Elem, int]] = None # = field(
+#        default_factory=dict, init=False
+#    )
 
-    # TODO support_g and associated methods
-    # TODO activation_g and associated methods
+    mutual_support_weight: float = 1.0
+    mutual_antipathy_weight: float = -0.2
 
-    def __post_init__(self):
+    def __init__(self, **kwargs):
+        for f in fields(self):
+            if not f.init:
+                continue
+            try:
+                v = kwargs.pop(f.name)
+            except KeyError:
+                setattr(self, f.name, default_field_value(f))
+            else:
+                setattr(self, f.name, v)
+            print('INIT', f.name, getattr(self, f.name))
         self.seed = reseed(self.seed)
-        self.make_slipnet()
+        self.sleeping = {}
+        self.activation_g = ActivationGraph(**kwargs)
+        self.make_slipnet()  # TODO rename to fill_slipnet()
 
     def make_slipnet(self):
         '''Subclasses should override this to initialize the slipnet.'''
@@ -573,6 +599,7 @@ class FARGModel:
             self.remove_sleepers()
             #self.activation_g.decay()
             self.activation_g.propagate()
+            self.activation_g.pr_flows()
             self.run_detectors()
             if act or self.t % 10 == 0:
                 pred = CanAct
@@ -586,6 +613,7 @@ class FARGModel:
                 agent = ag
             if agent:
                 run(self, agent)
+            print(self) #DEBUG
                 #agent.go(self)
 
     def run_detectors(self):
@@ -626,9 +654,6 @@ class FARGModel:
         self.activation_g.nodes[node]['a'] = 0.0
 
     # Support
-
-    mutual_support_weight: ClassVar[float] = 1.0
-    mutual_antipathy_weight: ClassVar[float] = -0.2
 
     def add_mut_support(
         self, a: Hashable, b: Hashable, weight: Union[float, None]=None
@@ -933,6 +958,8 @@ class Canvas(Elem, ABC):
 class SeqCanvas(Canvas):
     states: List[SeqState] = field(default_factory=list)
 
+    max_a: float = 1.0
+
     def raw_paint_value(self, fm: FARGModel, addr: Addr, v: Value):
         # TODO Handle addr that doesn't work as a list index
         # TODO Accept a builder argument?
@@ -982,6 +1009,8 @@ class SeqCanvas(Canvas):
 class CellRef:
     canvas: Union[SeqCanvas, None] = None
     addr: Union[int, None] = None
+
+    max_a: float = 2.0
 
     @property
     def contents(self) -> Hashable:

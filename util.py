@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 from contextlib import AbstractContextManager
-from dataclasses import dataclass
+from dataclasses import dataclass, Field
 from types import SimpleNamespace
 from itertools import chain, tee
 import functools
@@ -193,6 +193,12 @@ def csep(xs) -> str:
 def ssep(xs) -> str:
     '''Space-separated string for whatever you pass it.'''
     return ' '.join(str(x) for x in as_iter(xs))
+
+def default_field_value(f: Field) -> Any:
+    if callable(f.default_factory):
+        return f.default_factory()
+    else:
+        return f.default
 
 def rescale(xs, new_total=1.0):
     '''Returns list of xs, rescaled to sum to new_total.'''
