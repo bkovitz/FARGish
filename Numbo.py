@@ -269,7 +269,7 @@ class Want(Agent):
 
     def update_support(self, fm: FARGModel):
         for consume in fm.search_ws((Consume, CellRef), max_n=20):
-            fm.set_mut_support(
+            fm.set_support_edge(
                 self, consume, weight=self.promisingness_of(fm, consume)
             )
 

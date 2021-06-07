@@ -27,9 +27,9 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNumbo.TestNumbo.test_mut_antipathy_and_support
+	#$(PY) -m unittest -v testNumbo.TestNumbo.test_mut_antipathy_and_support
 	#$(PY) -m unittest -v testNumbo.TestNumbo.test_numbo_smoke_test
-	#$(PY) -m unittest -v testNumbo.TestNumbo.test_winning_consume_attracts_support
+	$(PY) -m unittest -v testNumbo.TestNumbo.test_winning_consume_attracts_support
 	#$(PY) -m unittest -v testSlipnet
 	#$(PY) -m unittest -v testPassiveChain.TestPassiveChain.test_run_passive_chainNEW
 	#$(PY) -m unittest -v testBrute.TestBrute.test_brute

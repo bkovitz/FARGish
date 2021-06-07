@@ -684,6 +684,13 @@ class FARGModel:
 
     set_mut_support = add_mut_support
 
+    def set_support_edge(
+        self, a: Hashable, b: Hashable, weight: Union[float, None]=None
+    ):
+        if weight is None:
+            weight = self.mutual_support_weight
+        self.activation_g.add_edge(a, b, weight=weight)
+
     def add_mut_antipathy(
         self, a: Hashable, b: Hashable, weight: Union[float, None]=None
     ):
@@ -708,7 +715,9 @@ class FARGModel:
             return 0.0
 
     def neighbors(self, e: Elem) -> List[Elem]:
-        return list(self.activation_g.adj[e].keys())
+        #return list(self.activation_g.adj[e].keys())
+        g = self.activation_g
+        return set(list(g.successors(e)) + list(g.predecessors(e)))
 
     def degree(self, a: Elem) -> int:
         return self.activation_g.degree(a)
@@ -761,15 +770,25 @@ class FARGModel:
             indent = '  '
         if not isinstance(eiws, ElemInWS):
             eiws = self.ws[eiws]  # TODO if the elem does not exist
-        return f'{indent}{self.a(eiws.elem):2.3f}  {eiws} deg={self.degree(eiws.elem)}'
+        return f'{indent}{self.a(eiws.elem): 7.3f}  {eiws} deg={self.degree(eiws.elem)}'
 
     def e1str(self, node1: Elem, node2: Elem, indent=None) -> str:
         '''The one-line string for the edge from node1 to node2. Does not
         show node1. Indented one level further than 'indent'.'''
         if indent is None:
             indent = '  '
-        weight = self.activation_g.edges[node1, node2]['weight'] # TODO a_weight
-        return f'{indent}  {weight: 7.3f} -- {node2}  a={self.a(node2):2.3f}'
+        #weight = self.activation_g.edges[node1, node2]['weight'] # TODO a_weight
+        weight = self.ae_weight(node1, node2)
+        return_weight = self.ae_weight(node2, node1)
+        if weight != 0.0:
+            if return_weight != 0.0:
+                arrow = f'{weight: 6.3f} <--> {return_weight: 6.3f}'
+            else:
+                arrow = f'        -->'
+        else:
+            arrow = f'       <--  {return_weight: 6.3f}'
+        #return f'{indent}  {weight: 7.3f} --> {node2}  a={self.a(node2):2.3f}'
+        return f'{indent}  {arrow} {node2}  a={self.a(node2):2.3f}'
 
     def pr(
         self,
