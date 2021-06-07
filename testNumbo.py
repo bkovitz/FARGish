@@ -36,8 +36,32 @@ class TestNumbo(unittest.TestCase):
 
         self.assertTrue(fm.is_blocked(co1))
 
+    def test_mut_antipathy_and_support(self):
+        fm = Numbo()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        co1 = fm.build(
+            Consume(operator=plus, operands=(5, 4), source=CellRef(ca, 0))
+        )
+        co2 = fm.build(
+            Consume(operator=plus, operands=(6, 4), source=CellRef(ca, 0))
+        )
+        w12 = fm.ae_weight(co1, co2)
+        w21 = fm.ae_weight(co2, co1)
+        self.assertLess(w12, 0.0)
+        self.assertEqual(w12, w21)
+
+        wcr = fm.ae_weight(co1, CellRef(ca, 0))
+        wrc = fm.ae_weight(CellRef(ca, 0), co1)
+        self.assertGreater(wcr, 0.0)
+        self.assertEqual(wcr, wrc)
+
     def test_winning_consume_attracts_support(self):
-        fm = Numbo(seed=1886246070452261567, mutual_antipathy_weight=-0.4)
+        fm = Numbo(
+            seed=1886246070452261567,
+            #mutual_antipathy_weight=-0.2,
+            #mutual_support_weight=5.0
+            positive_feedback_rate=2.0
+        )
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
         cr0 = CellRef(ca, 0)

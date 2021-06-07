@@ -11,6 +11,7 @@
 from pprint import pprint as pp
 import inspect
 from time import process_time
+import csv
 
 from dataclasses import dataclass, field, fields, replace, is_dataclass, InitVar
 import dataclasses
@@ -241,7 +242,7 @@ class MustComeAfter:
 
 # Graphs
 
-class ActivationGraph(nx.Graph):
+class ActivationGraph(nx.DiGraph):
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -613,8 +614,19 @@ class FARGModel:
                 agent = ag
             if agent:
                 run(self, agent)
+            self.log_activations()
             print(self) #DEBUG
                 #agent.go(self)
+
+    def log_activations(self):
+        mode = 'w' if self.t == 0 else 'a'
+        with open('activation.csv', mode=mode, newline='') as csvfile:
+            writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+            for node in self.nodes_to_log():
+                writer.writerow([t, node, self.a(node)])
+
+    def nodes_to_log(self) -> Iterable[Hashable]:
+        return [] # TODO
 
     def run_detectors(self):
         for detector in self.elems(Detector):
@@ -639,6 +651,13 @@ class FARGModel:
         '''Current activation level of node.'''
         return self.activation_g.nodes[node]['a']
 
+    def ae_weight(self, from_node: Hashable, to_node: Hashable) -> float:
+        '''Activation edge weight. 0.0 if either node does not exist.'''
+        try:
+            return self.activation_g.edges[from_node, to_node]['weight']
+        except KeyError:
+            return 0.0
+
     def sum_a(self) -> float:
         return sum(self.a(elem) for elem in self.elems())
 
@@ -661,6 +680,7 @@ class FARGModel:
         if weight is None:
             weight = self.mutual_support_weight
         self.activation_g.add_edge(a, b, weight=weight)
+        self.activation_g.add_edge(b, a, weight=weight)
 
     set_mut_support = add_mut_support
 
@@ -668,10 +688,9 @@ class FARGModel:
         self, a: Hashable, b: Hashable, weight: Union[float, None]=None
     ):
         if weight is None:
-            weight = self.mutual_support_weight
-        self.activation_g.add_edge(
-            a, b, weight=self.mutual_antipathy_weight
-        )
+            weight = self.mutual_antipathy_weight
+        self.activation_g.add_edge(a, b, weight=weight)
+        self.activation_g.add_edge(b, a, weight=weight)
 
     def has_antipathy_to(self, a: Hashable, b: Hashable) -> bool:
         try:
@@ -749,8 +768,8 @@ class FARGModel:
         show node1. Indented one level further than 'indent'.'''
         if indent is None:
             indent = '  '
-        weight = self.activation_g.edges[node1, node2]['weight']
-        return f'{indent}  {weight:2.3f} -- {node2}  a={self.a(node2):2.3f}'
+        weight = self.activation_g.edges[node1, node2]['weight'] # TODO a_weight
+        return f'{indent}  {weight: 7.3f} -- {node2}  a={self.a(node2):2.3f}'
 
     def pr(
         self,
