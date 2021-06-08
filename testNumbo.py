@@ -55,6 +55,12 @@ class TestNumbo(unittest.TestCase):
         self.assertGreater(wcr, 0.0)
         self.assertEqual(wcr, wrc)
 
+    def test_log_activations(self):
+        fm = Numbo(seed=1)
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        wa = fm.build(Want(15, canvas=ca, addr=0))
+        fm.do_timestep(num=40)
+
     def test_winning_consume_attracts_support(self):
         fm = Numbo(
             seed=1886246070452261567,

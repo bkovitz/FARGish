@@ -619,14 +619,14 @@ class FARGModel:
                 #agent.go(self)
 
     def log_activations(self):
-        mode = 'w' if self.t == 0 else 'a'
-        with open('activation.csv', mode=mode, newline='') as csvfile:
+        mode = 'w' if self.t == 1 else 'a'
+        with open('a.csv', mode=mode, newline='') as csvfile:
             writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
             for node in self.nodes_to_log():
-                writer.writerow([t, node, self.a(node)])
+                writer.writerow([self.t, node, self.a(node)])
 
     def nodes_to_log(self) -> Iterable[Hashable]:
-        return [] # TODO
+        return self.elems() # TODO
 
     def run_detectors(self):
         for detector in self.elems(Detector):
@@ -777,16 +777,15 @@ class FARGModel:
         show node1. Indented one level further than 'indent'.'''
         if indent is None:
             indent = '  '
-        #weight = self.activation_g.edges[node1, node2]['weight'] # TODO a_weight
-        weight = self.ae_weight(node1, node2)
-        return_weight = self.ae_weight(node2, node1)
-        if weight != 0.0:
-            if return_weight != 0.0:
-                arrow = f'{weight: 6.3f} <--> {return_weight: 6.3f}'
+        outgoing_weight = self.ae_weight(node1, node2)
+        incoming_weight = self.ae_weight(node2, node1)
+        if outgoing_weight != 0.0:
+            if incoming_weight != 0.0:
+                arrow = f'{outgoing_weight: 6.3f} <--> {incoming_weight: 6.3f}'
             else:
-                arrow = f'        -->'
+                arrow = f'{outgoing_weight: 6.3f}  -->       '
         else:
-            arrow = f'       <--  {return_weight: 6.3f}'
+            arrow = f'       <--  {incoming_weight: 6.3f}'
         #return f'{indent}  {weight: 7.3f} --> {node2}  a={self.a(node2):2.3f}'
         return f'{indent}  {arrow} {node2}  a={self.a(node2):2.3f}'
 
