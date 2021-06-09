@@ -7,6 +7,8 @@ import inspect
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
+import os
+import csv
 
 from Slipnet import Slipnet, IntFeatures
 from FARGish2 import FARGModel, Elem, NoGo, ImCell
@@ -109,6 +111,20 @@ class TestNumbo(unittest.TestCase):
             fm.elems((Consume(operands=(6, 4)), ImCell)),
             imcells + [co2]
         )
+
+    def test_logpred(self):
+        os.unlink('logpred.csv')
+        fm = Numbo(logpred=Consume, alog='logpred.csv')
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        wa = fm.build(Want(15, canvas=ca, addr=0))
+        fm.do_timestep(num=20)
+
+        with open('logpred.csv', mode='r') as f:
+            reader = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
+            for row in reader:
+                t, node, a = row
+                self.assertTrue(node.startswith('Consume'))
+
 
     def test_winning_consume_attracts_support(self):
         fm = Numbo(

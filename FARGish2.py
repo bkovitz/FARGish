@@ -39,7 +39,8 @@ from Slipnet import Slipnet, empty_slipnet
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
-    sample_without_replacement, clip, reseed, default_field_value
+    sample_without_replacement, clip, reseed, default_field_value, d_subset, \
+    fields_for
 
 
 # Types
@@ -250,7 +251,9 @@ class ActivationGraph(nx.DiGraph):
 
     def __init__(self, **kwargs):
         super().__init__()
-        self.propagator = ActivationPropagator(**kwargs)
+        self.propagator = ActivationPropagator(
+            **fields_for(ActivationPropagator, kwargs)
+        )
 
     def ns(self, node) -> List[str]:
         '''Returns list of neighbors represented as strings.'''
@@ -421,7 +424,10 @@ class FARGModel:
     mutual_support_weight: float = 1.0
     mutual_antipathy_weight: float = -0.2
 
+    kwargs: Dict[str, Any] = field(default_factory=dict, init=False)
+
     def __init__(self, **kwargs):
+        self.kwargs = kwargs  # TODO Supply defaults
         for f in fields(self):
             if not f.init:
                 continue
@@ -435,6 +441,7 @@ class FARGModel:
         self.seed = reseed(self.seed)
         self.sleeping = {}
         self.activation_g = ActivationGraph(**kwargs)
+        #self.activation_g = ActivationGraph(**d_subset(kwargs, fields(ActivationGraph)))
         self.make_slipnet()  # TODO rename to fill_slipnet()
 
     def make_slipnet(self):
@@ -624,13 +631,14 @@ class FARGModel:
 
     def log_activations(self):
         mode = 'w' if self.t == 1 else 'a'
-        with open('a.csv', mode=mode, newline='') as csvfile:
+        with open(self.kwargs.get('alog', 'a.csv'), mode=mode, newline='') \
+        as csvfile:
             writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
             for node in self.nodes_to_log():
                 writer.writerow([self.t, node, self.a(node)])
 
     def nodes_to_log(self) -> Iterable[Hashable]:
-        return self.elems() # TODO
+        return self.elems(self.kwargs.get('logpred', None))
 
     def run_detectors(self):
         for detector in self.elems(Detector):

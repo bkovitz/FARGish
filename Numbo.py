@@ -343,8 +343,8 @@ class Numbo(FARGModel):
         )
 
     # TODO rm this; should only happen in base class
-    def nodes_to_log(self):
-        return self.elems(Consume(operands=(6, 4)))
+#    def nodes_to_log(self):
+#        return self.elems(Consume(operands=(6, 4)))
 
 if __name__ == '__main__':
     from FARGish2 import CanGo, CanAct

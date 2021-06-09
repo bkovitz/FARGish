@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, Field
+from dataclasses import dataclass, Field, fields
 from types import SimpleNamespace
 from itertools import chain, tee
 import functools
@@ -76,6 +76,19 @@ def omit(d: Dict, keys: Iterable) -> Dict:
     return dict(
         (k, v) for k, v in d.items() if k not in as_set(keys)
     )
+
+def d_subset(d: Dict, keys: Iterable) -> Dict:
+    '''Returns copy of 'd' with only members of 'keys'; all other items are
+    omitted.'''
+    return dict(
+        (k, v) for k, v in d.items() if k in as_set(keys)
+    )
+
+def field_names(dclass) -> List[str]:
+    return [f.name for f in fields(dclass)]
+
+def fields_for(dclass, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    return d_subset(kwargs, field_names(dclass))
 
 #TODO UT
 def loose_dict_eq(d1: Dict, d2: Dict) -> bool:

@@ -27,7 +27,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testNumbo.TestNumbo.test_as_fmpred
+	$(PY) -m unittest -v testNumbo.TestNumbo.test_logpred
 	#$(PY) -m unittest -v testNumbo.TestNumbo.test_log_activations
 	#$(PY) -m unittest -v testNumbo.TestNumbo.test_numbo_smoke_test
 	#$(PY) -m unittest -v testNumbo.TestNumbo.test_winning_consume_attracts_support
