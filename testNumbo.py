@@ -60,6 +60,55 @@ class TestNumbo(unittest.TestCase):
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
         fm.do_timestep(num=40)
+        # TODO Check the a.csv file
+
+    def test_as_fmpred(self):
+        fm = Numbo()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        co1 = fm.build(
+            Consume(operator=plus, operands=(5, 4), source=CellRef(ca, 0))
+        )
+        co2 = fm.build(
+            Consume(operator=plus, operands=(6, 4), source=CellRef(ca, 0))
+        )
+        fm.do_timestep(ag=co1)
+        fm.do_timestep(ag=co2)
+
+        # None = match everything
+        es = list(fm.elems())
+        self.assertCountEqual(fm.elems(None), es)
+        pts(es)
+
+        # A class = all elems of that class
+        self.assertCountEqual(fm.elems(Consume), [co1, co2])
+
+        # A tuple of classes = match all classes in tuple
+        imcells = list(fm.elems(ImCell))
+        assert(len(imcells) == 2)
+        self.assertCountEqual(fm.elems((Consume, ImCell)), [co1, co2] + imcells)
+
+        # A func with first argument annotated as FARGModel
+        co1_a = fm.a(co1)
+        def pred1(fm: FARGModel, o: Hashable) -> bool:
+            return fm.a(o) == co1_a
+        self.assertCountEqual(fm.elems(pred1), [co1])
+
+        # A func with only one argument
+        def pred2(o: Hashable) -> bool:
+            try:
+                return 6 in o.operands
+            except AttributeError:
+                return False
+        self.assertCountEqual(fm.elems(pred2), [co2])
+
+        # An object with some but not all of its members filled in
+        self.assertCountEqual(fm.elems(Consume(operands=(5, 4))), [co1])
+
+        # A tuple with an object and a class
+        self.assertCountEqual(
+            fm.elems((Consume(operands=(6, 4)), ImCell)),
+            imcells + [co2]
+        )
 
     def test_winning_consume_attracts_support(self):
         fm = Numbo(

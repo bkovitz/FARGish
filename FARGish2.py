@@ -128,12 +128,16 @@ def match_wo_none(other, obj_template) -> bool:
             for k, v in dataclasses.asdict(obj_template).items()
     )
 
-def as_fmpred(o: Union[Type, Tuple[Type], Callable, None]) -> Callable:
+def as_fmpred(o: Union[Type, Tuple, Callable, None]) -> Callable:
     '''Returns a predicate function that takes two arguments: a FARGModel and
     an object.'''
     # TODO Document the many ways this thing constructs a function.
-    if isinstance(o, tuple) or isclass(o):
+    #if isinstance(o, tuple) or isclass(o):
+    if isclass(o):
         return lambda fm, x: isinstance(x, o)
+    elif isinstance(o, tuple):
+        preds = tuple(as_fmpred(p) for p in o)
+        return lambda fm, x: any(p(fm, x) for p in preds)
     elif callable(o):
         if first_arg_is_fargmodel(o):
             return o
