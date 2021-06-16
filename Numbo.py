@@ -8,6 +8,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 import operator
 from operator import itemgetter, attrgetter
 from collections import Counter
+import math
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
@@ -224,7 +228,7 @@ class Want(Agent):
     canvas: SeqCanvas = None
     addr: Addr = None  # Addr of the start state, before
 
-    max_a: ClassVar[float] = 2.0
+    max_a: ClassVar[float] = 4.0
 
     def on_build(self, fm: FARGModel):
         fm.add_mut_support(self, self.canvas)
@@ -346,6 +350,25 @@ class Numbo(FARGModel):
 #    def nodes_to_log(self):
 #        return self.elems(Consume(operands=(6, 4)))
 
+@dataclass
+class NumberLine:
+    lb: float
+    ub: float
+    peaks: List[float]
+    peakwidth: float
+
+    #TODO noise
+    #TODO scaling   log or linear
+    def f(self, x: float) -> float:
+        return sum(self.peakf(peak, x) for peak in self.peaks)
+
+    def peakf(self, peak, x) -> float:
+        return (
+            (self.peakwidth / 2.0)
+            /
+            (math.pi * (x - peak)**2 + (self.peakwidth / 2.0)**2)
+        )
+
 if __name__ == '__main__':
     from FARGish2 import CanGo, CanAct
 
@@ -452,7 +475,7 @@ if __name__ == '__main__':
         cs = list(fm.elems(Consume))
         pts(cs)
 
-    if True:
+    if False:
         fm = Numbo()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
@@ -466,3 +489,16 @@ if __name__ == '__main__':
         fm.do_timestep(c2)
         fm.do_timestep(wa)
         fm.pr(edges=True)
+
+    if True:
+        pf = NumberLine(lb=1, ub=10, peaks=[2.0, 3.0], peakwidth=1.0)
+        
+        plt.ion()
+        plt.xlabel('f')
+        plt.ylabel('x')
+        xs = np.linspace(pf.lb, pf.ub, 100)
+        plt.plot(xs, [pf.f(x) for x in xs])
+#        for node, series in d.items():
+#            plt.plot(*zip(*series), label=node)
+        #plt.axis([0, max_t, 0, max_a])
+        #plt.legend()

@@ -131,7 +131,8 @@ class TestNumbo(unittest.TestCase):
             seed=1886246070452261567,
             #mutual_antipathy_weight=-0.2,
             #mutual_support_weight=5.0
-            positive_feedback_rate=2.0
+            positive_feedback_rate=2.0,
+            logpred=(Want, Consume(operands=(9, 6)))
         )
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
@@ -149,12 +150,15 @@ class TestNumbo(unittest.TestCase):
         self.assertTrue(fm.is_tagged(co1, NoGo))
 
         fm.do_timestep(co2)
+        fm.do_timestep(co3)
+        fm.do_timestep(co4)
         fm.do_timestep(until=9)
         print(fm)
         pr(fm, (Want, Consume, ImCell), edges=True)
         #pts(sorted(fm.elems(Consume), key=fm.a, reverse=True))
-        pr(fm, Consume)
-        print(fm.seed)
+        pr(fm, Consume, edges=True)
+        #print(fm.seed)
+
 
     @unittest.skip('On hold until we can force what Want builds.')
     def test_hardcoded_pons_asinorum(self):
