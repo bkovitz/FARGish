@@ -491,12 +491,12 @@ if __name__ == '__main__':
         fm.pr(edges=True)
 
     if True:
-        pf = NumberLine(lb=1, ub=10, peaks=[2.0, 3.0], peakwidth=1.0)
+        pf = NumberLine(lb=1, ub=10, peaks=[2.0, 3.0], peakwidth=2.0)
         
         plt.ion()
         plt.xlabel('f')
         plt.ylabel('x')
-        xs = np.linspace(pf.lb, pf.ub, 100)
+        xs = np.linspace(pf.lb, pf.ub, 200)
         plt.plot(xs, [pf.f(x) for x in xs])
 #        for node, series in d.items():
 #            plt.plot(*zip(*series), label=node)

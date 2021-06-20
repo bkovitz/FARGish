@@ -8,14 +8,22 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 
-'''
-from FARGish2 import FARGModel, SeqCanvas, SeqState, Want, Consume, Blocked, \
-    Detector, AgentSeq, CellRef, SolvedNumble
-'''
-from util import tupdict
+from FARGish2 import FARGModel, ActivationGraph
+    #, SeqCanvas, SeqState, Want, Consume, Blocked, \
+    #Detector, AgentSeq, CellRef, SolvedNumble
+from util import tupdict, pts
 
 
 class TestFARGish2(unittest.TestCase):
+
+    def test_global_params(self):
+        fm = FARGModel(seed=1)
+        self.assertEqual(fm.seed, 1)
+        self.assertTrue(isinstance(fm.activation_g, ActivationGraph))
+
+        fm = FARGModel(aprop=dict(alpha=0.92))
+        self.assertEqual(fm.activation_g.propagator.alpha, 0.92)
+        print('UT', fm.globals)
 
     @unittest.skip('obsolete; see testNumbo.py')
     def test_hardcoded_pons_asinorum(self):

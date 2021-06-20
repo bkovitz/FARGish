@@ -131,8 +131,10 @@ class TestNumbo(unittest.TestCase):
             seed=1886246070452261567,
             #mutual_antipathy_weight=-0.2,
             #mutual_support_weight=5.0
-            positive_feedback_rate=2.0,
-            logpred=(Want, Consume(operands=(9, 6)))
+            logpred=(Want, Consume(operands=(9, 6))),
+            aprop=dict(
+                positive_feedback_rate=2.0
+            )
         )
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         wa = fm.build(Want(15, canvas=ca, addr=0))
