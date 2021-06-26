@@ -26,7 +26,7 @@ from copy import copy
 import operator
 from operator import itemgetter, attrgetter
 from heapq import nlargest
-from collections import Counter
+from collections import Counter, defaultdict
 from io import StringIO
 from inspect import isclass
 import inspect
@@ -1356,6 +1356,26 @@ class CellWithAvailValue:
                 yield c
         
     #def matchpct(self, 
+
+@dataclass
+class Glom:
+    _members: Counter = field(
+        default_factory=lambda: Counter()
+    )
+
+    @property
+    def members(self) -> List[Hashable]:
+        return list(self._members.elements())
+
+    @classmethod
+    def make_from(cls, f: Callable, avails: Iterable[Hashable]) -> 'Glom':
+        members = Counter()
+        for a in avails:
+            print('F', a, f(a))
+            if f(a) > 0.80:
+                members[a] += 1
+        return Glom(members)
+
 
 if __name__ == '__main__':
     if False:

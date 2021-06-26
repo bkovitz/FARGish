@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
-    RaiseException, Blocked, Detector, CellRef, SeqState, Halt, \
+    RaiseException, Blocked, Detector, CellRef, SeqState, Halt, Glom, \
     StateDelta, ValueNotAvail, CellWithAvailValue, is_real, \
     GoIsDone, ActIsDone, match_wo_none, has_avail_value
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
@@ -490,7 +490,7 @@ if __name__ == '__main__':
         fm.do_timestep(wa)
         fm.pr(edges=True)
 
-    if True:
+    if False:
         pf = NumberLine(lb=1, ub=10, peaks=[2.0, 3.0], peakwidth=2.0)
         
         plt.ion()
@@ -502,3 +502,12 @@ if __name__ == '__main__':
 #            plt.plot(*zip(*series), label=node)
         #plt.axis([0, max_t, 0, max_a])
         #plt.legend()
+
+    if True:
+        fm = Numbo()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr = CellRef(ca, 0)
+        avails = cr.contents.avails
+
+        pf = NumberLine(lb=1, ub=10, peaks=[4.0], peakwidth=2.0)
+        g = Glom.make_from(pf.f, avails)

@@ -9,12 +9,15 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     Sequence
 import os
 import csv
+from dataclasses import replace
 
 from Slipnet import Slipnet, IntFeatures
-from FARGish2 import FARGModel, Elem, NoGo, ImCell
+from FARGish2 import FARGModel, Elem, NoGo, ImCell, Glom
 from Numbo import Numbo, SeqCanvas, SeqState, Want, Consume, Blocked, \
-    Detector, AgentSeq, CellRef, SolvedNumble, plus, times, minus
+    Detector, AgentSeq, CellRef, SolvedNumble, plus, times, minus, \
+    NumberLine
 from util import tupdict, pr, pts
+from plots import plotf
 
 
 class TestNumbo(unittest.TestCase):
@@ -207,3 +210,18 @@ class TestNumbo(unittest.TestCase):
             )
 
         #print(fm)
+
+    def test_simple_glom(self):
+        fm = Numbo()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr = CellRef(ca, 0)
+        avails = cr.contents.avails
+        
+        pf = NumberLine(lb=1, ub=10, peaks=[4.0], peakwidth=2.0)
+        g = Glom.make_from(pf.f, avails)
+        self.assertCountEqual(g.members, [4])
+
+        pf46 = replace(pf, peaks=[4.0, 6.0])
+        plotf(pf46.f)
+        g = Glom.make_from(pf46.f, avails)
+        self.assertCountEqual(g.members, [4, 6])
