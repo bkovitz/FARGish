@@ -165,7 +165,7 @@ class Slipnet(nx.Graph):
                     for neighbor, edge_d in self.adj[node].items()
             ]
         except KeyError:
-            print('INCNWS', node, len(self.nodes))
+            #print('INCNWS', node, len(self.nodes)) #DIAG
             return []
 
     def dquery(

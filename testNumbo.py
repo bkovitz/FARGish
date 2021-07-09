@@ -37,7 +37,7 @@ class TestNumbo(unittest.TestCase):
 
         self.assertFalse(fm.is_blocked(co1))
         co1.go(fm)
-        print(fm)
+        #print(fm)
 
         self.assertTrue(fm.is_blocked(co1))
 
@@ -82,7 +82,7 @@ class TestNumbo(unittest.TestCase):
         # None = match everything
         es = list(fm.elems())
         self.assertCountEqual(fm.elems(None), es)
-        pts(es)
+        #pts(es)
 
         # A class = all elems of that class
         self.assertCountEqual(fm.elems(Consume), [co1, co2])
@@ -150,7 +150,7 @@ class TestNumbo(unittest.TestCase):
         co4 = fm.build(Consume(operands=(9, 6), operator=minus, source=cr1))
 
         fm.do_timestep(co1, act=True)
-        print('UT', cr1.contents, type(cr1.contents))
+        #print('UT', cr1.contents, type(cr1.contents))
         self.assertCountEqual(cr1.contents.avails, (6, 9))
         self.assertTrue(fm.is_tagged(co1, NoGo))
 
@@ -158,11 +158,12 @@ class TestNumbo(unittest.TestCase):
         fm.do_timestep(co3)
         fm.do_timestep(co4)
         fm.do_timestep(until=9)
-        print(fm)
-        pr(fm, (Want, Consume, ImCell), edges=True)
+        #print(fm)
+        #pr(fm, (Want, Consume, ImCell), edges=True)
         #pts(sorted(fm.elems(Consume), key=fm.a, reverse=True))
-        pr(fm, Consume, edges=True)
+        #pr(fm, Consume, edges=True)
         #print(fm.seed)
+        # TODO Assert that the winning Consume attracts support!
 
 
     @unittest.skip('On hold until we can force what Want builds.')
@@ -222,6 +223,6 @@ class TestNumbo(unittest.TestCase):
         self.assertCountEqual(g.members, [4])
 
         pf46 = replace(pf, peaks=[4.0, 6.0])
-        plotf(pf46.f)
+        #plotf(pf46.f)  # Should see two peaks
         g = Glom.make_from(pf46.f, avails)
         self.assertCountEqual(g.members, [4, 6])

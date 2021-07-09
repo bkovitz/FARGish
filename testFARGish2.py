@@ -23,7 +23,7 @@ class TestFARGish2(unittest.TestCase):
 
         fm = FARGModel(aprop=dict(alpha=0.92))
         self.assertEqual(fm.activation_g.propagator.alpha, 0.92)
-        print('UT', fm.globals)
+        #print('UT', fm.globals)
 
     @unittest.skip('obsolete; see testNumbo.py')
     def test_hardcoded_pons_asinorum(self):

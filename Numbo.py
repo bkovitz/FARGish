@@ -265,7 +265,7 @@ class Want(Agent):
         agents = fm.pulse_slipnet(
             activations_in, k=20, type=Agent, num_get=2, filter=exclude
         )
-        print('WANT got from slipnet:', [str(a) for a in agents])
+        #print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
         for agent in agents:
             if isinstance(agent, Consume):  #HACK
                 agent = replace(agent, source=source)

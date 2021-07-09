@@ -221,7 +221,7 @@ class ValueNotAvail(Exception):
             mca = MustComeAfter(source)
         else:
             mca = None
-        print('VNAVAIL', self, builder, source)
+        #print('VNAVAIL', self, builder, source)  #DIAG
         fm.build(
             Detector(
                 self.value,
@@ -238,7 +238,7 @@ class MustComeAfter:
     def __call__(self, x: Hashable) -> bool:
         if isinstance(x, CellRef):
             try:
-                print('MCA  ', x, self.cellref)
+                #print('MCA  ', x, self.cellref)  #DIAG
                 return x.addr > self.cellref.addr
             except (AttributeError, TypeError):
                 return True   # don't filter CellRef with indeterminate addr
@@ -335,7 +335,7 @@ class ActivationGraph(nx.DiGraph):
             #incr = max(min(1.0, a), 2.0)
             incr = clip(0.5, 1.0, a)
             self.nodes[node]['a'] += incr
-            print('BOOST', node, 'TO', self.a(node))
+            #print('BOOST', node, 'TO', self.a(node)) #DIAG
 
 @dataclass
 class ActivationPropagator(Propagator):
@@ -437,7 +437,7 @@ class FARGModel:
                 setattr(self, f.name, default_field_value(f))
             else:
                 setattr(self, f.name, v)
-            print('INIT', f.name, getattr(self, f.name))
+            #print('INIT', f.name, getattr(self, f.name))  #DIAG
         self.seed = reseed(self.seed)
         self.sleeping = {}
         #self.activation_g = ActivationGraph(**kwargs)
@@ -459,7 +459,8 @@ class FARGModel:
         cr = dest.paint_value(self, v, builder=builder)
 
         if cr.is_real():
-            print(f'PAINTED {v} in {cr}')
+            #print(f'PAINTED {v} in {cr}')  #DIAG
+            pass
         return cr
 
     # Codelet functions
@@ -479,7 +480,7 @@ class FARGModel:
         else:
             self.ws[obj] = ElemInWS(obj, builder, self.t)
             self.activation_g.add_node(obj)
-            print('BUILT', obj)
+            #print('BUILT', obj) #DIAG
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
                 self.add_mut_antipathy(obj, elem)
             try:
@@ -612,7 +613,7 @@ class FARGModel:
             self.remove_sleepers()
             #self.activation_g.decay()
             self.activation_g.propagate()
-            self.activation_g.pr_flows()
+            #self.activation_g.pr_flows()  #DIAG
             self.run_detectors()
             if act or self.t % 10 == 0:
                 pred = CanAct
@@ -627,7 +628,7 @@ class FARGModel:
             if agent:
                 run(self, agent)
             self.log_activations()
-            print(self) #DEBUG
+            #print(self) #DIAG
                 #agent.go(self)
 
     def log_activations(self):
@@ -643,7 +644,7 @@ class FARGModel:
 
     def run_detectors(self):
         for detector in self.elems(Detector):
-            print('look:', detector)
+            #print('look:', detector)  #DIAG
             detector.look(self)
 
     def choose_agent_by_activation(self, pred: Callable):
@@ -841,7 +842,7 @@ def CanGo(fm: FARGModel, elem: Elem) -> bool:
     )
 
 def CallGo(fm: FARGModel, elem: Elem):
-    print(f'go: {elem}')
+    #print(f'go: {elem}') #DIAG
     elem.go(fm)
 
 def CanAct(fm: FARGModel, elem: Elem) -> bool:
@@ -854,7 +855,7 @@ def CanAct(fm: FARGModel, elem: Elem) -> bool:
     )
 
 def CallAct(fm: FARGModel, elem: Elem):
-    print(f'act: {elem}')
+    #print(f'act: {elem}')  #DIAG
     elem.act(fm)
 
 @dataclass(frozen=True)
@@ -956,7 +957,7 @@ class MakeAgentSeq:
 
     def __call__(self, fm: FARGModel, elem: Union[Elem, None]):
         # TODO
-        print('MAKE AGENT SEQ', self.tail)
+        #print('MAKE AGENT SEQ', self.tail)  #DIAG
         pass
 
     def __str__(self):
@@ -1113,7 +1114,7 @@ class ImCell(CellRef):
     ) -> CellRef:
         '''Builds ImCell(v) if v is different than .contents.'''
         if v != self.contents:
-            print('IMCELL', v)
+            #print('IMCELL', v) #DIAG
             return fm.build(replace(self, contents=v), builder=builder)
         else:
             return self
@@ -1227,7 +1228,8 @@ class Detector:
         found = fm.search_ws(self.make_pred())
         found = set(found)
         if found:
-            print(f"FOUND {self} {', '.join(str(f) for f in found)}")
+            #print(f"FOUND {self} {', '.join(str(f) for f in found)}") #DIAG
+            pass
         for cellref in found:
             if cellref.is_real():
                 self.action(fm, cellref)
@@ -1371,7 +1373,7 @@ class Glom:
     def make_from(cls, f: Callable, avails: Iterable[Hashable]) -> 'Glom':
         members = Counter()
         for a in avails:
-            print('F', a, f(a))
+            #print('F', a, f(a))  #DIAG
             if f(a) > 0.80:
                 members[a] += 1
         return Glom(members)
