@@ -9,14 +9,17 @@ import operator
 from operator import itemgetter, attrgetter
 from collections import Counter
 import math
+from numbers import Number
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
-    RaiseException, Blocked, Detector, CellRef, SeqState, Halt, Glom, \
+    Tag, TaggeeTag, \
+    RaiseException, Blocked, BaseDetector, Detector, CellRef, ImCell, \
+    SeqState, Halt, Glom, \
     StateDelta, ValueNotAvail, CellWithAvailValue, is_real, \
-    GoIsDone, ActIsDone, match_wo_none, has_avail_value
+    GoIsDone, ActIsDone, match_wo_none, has_avail_value, dig_attr
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -97,7 +100,7 @@ class Consume(Agent):
             overrides['dest'] = overrides['source'].imaginary_next_cellref()
         result = self.paint(fm, **overrides)
         if result is not None:
-            fm.boost(self)
+            #fm.boost(self)
             fm.build(GoIsDone(taggee=self))
         return result
 
@@ -222,6 +225,51 @@ class Exclude:
             return x not in self.items
 
 @dataclass(frozen=True)
+class GettingCloser(TaggeeTag):
+    target: Number = None
+    weight: float = None
+
+    @dataclass(frozen=True)
+    class Tagger(BaseDetector):
+        target: Number
+
+        def look(self, fm: FARGModel):
+            # TODO Exclude nodes already tagged GettingCloser
+            found = first(fm.search_ws(ImCell))
+            print('GettingCloser.Tagger FOUND', found)
+            if found:
+                weight = GettingCloser.calc_weight(found, self.target)
+                if weight > 0.001:
+                    # TODO Indicate the Want node? The target?
+                    # TODO Indicate builder
+                    tag = fm.build(GettingCloser(
+                        taggee=found, target=self.target, weight=weight
+                    ))
+                    fm.add_mut_support(tag, found)
+
+    @classmethod
+    def calc_weight(cls, node: Hashable, target: Number) \
+    -> float:
+        arith_delta = dig_attr(node, 'last_move')
+        before = dig_attr(arith_delta, 'before')
+        after = dig_attr(arith_delta, 'after')
+        if before is None or after is None:
+            return 0.0
+        try:
+            start_dist = min(abs(target - b) for b in before)
+        except ValueError:
+            return 0.0
+        after_dist = abs(target - after)
+        closer_by = start_dist - after_dist
+        if closer_by <= 0.0:
+            return 0.0
+        return closer_by / start_dist
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.taggee}, target={self.target}, weight={self.weight})'
+
+@dataclass(frozen=True)
 class Want(Agent):
     '''Represents the pressure to find or construct a value on a canvas.'''
     target: Value = None
@@ -245,6 +293,10 @@ class Want(Agent):
             Detector(self.target, action=RaiseException(SolvedNumble)),
             builder=self
         )
+        fm.build(
+            GettingCloser.Tagger(target=self.target),
+            builder=self
+        )
         self.consult_slipnet(fm)
         self.update_support(fm)
         fm.sleep(self)
@@ -263,16 +315,20 @@ class Want(Agent):
         exclude = Exclude(fm.neighbors(self))
         #source = CellRef(self.canvas, self.addr)
         agents = fm.pulse_slipnet(
-            activations_in, k=20, type=Agent, num_get=2, filter=exclude
+            # GLOBAL constants in next line
+            activations_in, k=20, type=Agent, num_get=1, filter=exclude
         )
-        #print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
+        print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
         for agent in agents:
             if isinstance(agent, Consume):  #HACK
                 agent = replace(agent, source=source)
-            fm.build(agent, builder=self)
+            fm.build(agent, builder=self, init_a=0.1)
 
     def update_support(self, fm: FARGModel):
-        for consume in fm.search_ws((Consume, CellRef), max_n=20):
+        for consume in fm.search_ws(
+            (Consume, CellRef, GettingCloser(taggee=None, target=self.target)),
+            max_n=20
+        ):
             fm.set_support_edge(
                 self, consume, weight=self.promisingness_of(fm, consume)
             )
@@ -283,13 +339,16 @@ class Want(Agent):
             if fm.is_blocked(elem):
                 result += 0.1
             else:
-                result += 0.5
+                result += 0.2
                 if fm.can_act(elem):
-                    result += 0.5
+                    result += 0.2
             return result
         elif isinstance(elem, CellRef):
             #return 2.0 if elem.contents == self.target else 0.0
             return 20.0 if has_avail_value(elem.contents, self.target) else 0.0
+        elif isinstance(elem, GettingCloser): # TODO Promising, not GettingCloser
+            print('WANTGC', elem)  #DIAG
+            return 10 * elem.weight
         else:
             return 0.0
             
@@ -368,6 +427,18 @@ class NumberLine:
             /
             (math.pi * (x - peak)**2 + (self.peakwidth / 2.0)**2)
         )
+
+def r4_5_6__15(*args, **kwargs):
+    global fm, ca, wa
+    fm = Numbo(*args, **kwargs)
+    ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+    wa = fm.build(Want(15, canvas=ca, addr=0))
+    fm.do_timestep(num=8)
+    pr(fm, edges=True)
+    print()
+    fm.pr_flows()
+    print(f'seed={fm.seed}')
+    
 
 if __name__ == '__main__':
     from FARGish2 import CanGo, CanAct
@@ -503,7 +574,7 @@ if __name__ == '__main__':
         #plt.axis([0, max_t, 0, max_a])
         #plt.legend()
 
-    if True:
+    if False:
         fm = Numbo()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         cr = CellRef(ca, 0)
@@ -511,3 +582,8 @@ if __name__ == '__main__':
 
         pf = NumberLine(lb=1, ub=10, peaks=[4.0], peakwidth=2.0)
         g = Glom.make_from(pf.f, avails)
+
+    if True:
+        r4_5_6__15(seed=23686273699696067)
+        ic = first(fm.elems(ImCell))
+        print('CALC', GettingCloser.calc_weight(ic, 15))

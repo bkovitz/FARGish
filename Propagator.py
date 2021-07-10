@@ -6,6 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar
 from random import gauss
 from collections import defaultdict
+import sys
 
 from Node import NodeId
 
@@ -26,6 +27,48 @@ class Delta:
     def __str__(self):
         return f'{self.nodeid!s:20s} {self.amt:1.10f}   {self.neighborid}'
 
+@dataclass(frozen=True)
+class Flows:
+    '''Holds a record of activation flows.'''
+    _fromto: Dict[Tuple[NodeId, NodeId], float] = \
+        field(default_factory=lambda: defaultdict(float))
+    _total_in: Dict[NodeId, float] = \
+        field(default_factory=lambda: defaultdict(float))
+    _total_out: Dict[NodeId, float] = \
+        field(default_factory=lambda: defaultdict(float))
+
+    def clear(self):
+        self._fromto.clear()
+        self._total_in.clear()
+        self._total_out.clear()
+
+    def add_flow(self, fromnode: NodeId, tonode: NodeId, a: float):
+        self._fromto[(fromnode, tonode)] += a
+        self._total_in[tonode] += a
+        self._total_out[fromnode] += a
+
+    def pr(self):
+        for node in self.nodes:
+            #print(f'{str(node):30s}  in={self._total_in[node]:= 3.5f} out={self._total_out[node]:= 3.5f}')
+            print(f'{str(node):50s}  {self._total_in[node]:= 3.5f}  {self._total_out[node]:= 3.5f}')
+            for neighbor in self.nodes:
+                a_in = self._fromto.get((neighbor, node), None)
+                a_out = self._fromto.get((node, neighbor), None)
+                #a_out = self._fromto.get((node, neighbor), None)
+                if a_in is None and a_out is None:
+                    continue
+                elif a_in is None:
+                    a_in = 0.0
+                elif a_out is None:
+                    a_out = 0.0
+                print(f'  {str(neighbor):70s}  {a_in:= 3.5f}  {a_out:= 3.5f}')
+
+    @property
+    def nodes(self) -> Iterable[NodeId]:
+        '''Returns generator of nodes, sorted by str.'''
+        for node in sorted(self._total_in.keys(), key=str):
+            yield node
+
 @dataclass
 class Propagator(ABC):
     positive_feedback_rate: float = 1.2
@@ -40,7 +83,9 @@ class Propagator(ABC):
         # sigma parameter for normal dist. sampled and added
     num_iterations: int = 1
 
-    flows: Dict[Any, float] = field(default_factory=lambda: defaultdict(float))
+#    flows: Dict[Tuple(NodeId, NodeId), float] = \
+#        field(default_factory=lambda: defaultdict(float))
+    flows: Flows = field(default_factory=Flows)
 
     def propagate_once(self, g, old_d: Dict[NodeId, float]):
         # decay
@@ -68,7 +113,8 @@ class Propagator(ABC):
             #print('PONCE', delta.nodeid, old_d[delta.nodeid], new_d[delta.nodeid], delta.amt, actual_delta)
             #print('DELTA', replace(delta, amt=actual_delta))
             new_d[delta.nodeid] += actual_delta
-            self.flows[(delta.neighborid, delta.nodeid)] += actual_delta
+            #self.flows[(delta.neighborid, delta.nodeid)] += actual_delta
+            self.flows.add_flow(delta.neighborid, delta.nodeid, actual_delta)
             if delta.neighborid not in new_d:
                 new_d[delta.neighborid] = 0.0
         # clip to min_value

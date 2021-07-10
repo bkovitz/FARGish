@@ -115,6 +115,17 @@ def has_avail_value(
         else:
             return False
 
+def dig_attr(elem: Union[Elem, None], attr: str) -> Hashable:
+    '''Returns value of attr within elem. If elem contains no attr,
+    digs through elem.contents, the .contents of that, and so on, until
+    finding an attribute named attr. Returns None if the search fails.'''
+    if elem is None:
+        return None
+    try:
+        return getattr(elem, attr)
+    except AttributeError:
+        return dig_attr(getattr(elem, 'contents', None), attr)
+
 def match_wo_none(other, obj_template) -> bool:
     '''Does obj_template == other if we ignore any fields in obj_template
     with a value of None? If other is an object of a subclass of obj_template's
@@ -133,7 +144,6 @@ def as_fmpred(o: Union[Type, Tuple, Callable, None]) -> Callable:
     '''Returns a predicate function that takes two arguments: a FARGModel and
     an object.'''
     # TODO Document the many ways this thing constructs a function.
-    #if isinstance(o, tuple) or isclass(o):
     if isclass(o):
         return lambda fm, x: isinstance(x, o)
     elif isinstance(o, tuple):
@@ -278,9 +288,11 @@ class ActivationGraph(nx.DiGraph):
             (node, self.a(node)) for node in self.nodes
         )
 
-    # TODO OAOO
     def a(self, node: Elem) -> float:
-        return self.nodes[node]['a']
+        try:
+            return self.nodes[node]['a']
+        except KeyError:
+            return 0.0
 
     def propagate(self) -> Dict:  # TODO Update the graph
         d = self.propagator.propagate(self, self.a_dict())
@@ -288,18 +300,20 @@ class ActivationGraph(nx.DiGraph):
             self.nodes[node]['a'] = a
         return d
 
+#    def pr_flows(self):
+#        lines = [
+#            f'{self.arrow(k):75s} {v:= 3.5f}'
+#                for k, v in self.propagator.flows.items()
+#        ]
+#        pr(lines)
+#
+#    @classmethod
+#    def arrow(cls, k) -> str:
+#        fromnode = k[0]
+#        tonode = k[1]
+#        return f'{fromnode} -> {tonode}'
     def pr_flows(self):
-        lines = [
-            f'{self.arrow(k):75s} {v:= 3.5f}'
-                for k, v in self.propagator.flows.items()
-        ]
-        pr(lines)
-
-    @classmethod
-    def arrow(cls, k) -> str:
-        fromnode = k[0]
-        tonode = k[1]
-        return f'{fromnode} -> {tonode}'
+        pr(self.propagator.flows)
 
     def draw(self):
         global pos, node_labels, plot_instance
@@ -335,7 +349,7 @@ class ActivationGraph(nx.DiGraph):
             #incr = max(min(1.0, a), 2.0)
             incr = clip(0.5, 1.0, a)
             self.nodes[node]['a'] += incr
-            #print('BOOST', node, 'TO', self.a(node)) #DIAG
+            print('BOOST', node, 'TO', self.a(node)) #DIAG
 
 @dataclass
 class ActivationPropagator(Propagator):
@@ -469,7 +483,8 @@ class FARGModel:
         self,
         obj,
         builder: Union[Agent, None]=None,
-        edge_weight: Union[float, None]=None
+        edge_weight: Union[float, None]=None,
+        init_a: Union[float, None]=None
     ) -> Hashable:
         if obj is None:
             return None
@@ -479,8 +494,13 @@ class FARGModel:
             obj = existing_o
         else:
             self.ws[obj] = ElemInWS(obj, builder, self.t)
-            self.activation_g.add_node(obj)
-            #print('BUILT', obj) #DIAG
+            if init_a is None:
+                if builder is None:
+                    init_a = 1.0
+                else:
+                    init_a = min(1.0, self.a(builder))
+            self.activation_g.add_node(obj, a=init_a)
+            print('BUILT', obj) #DIAG
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
                 self.add_mut_antipathy(obj, elem)
             try:
@@ -612,7 +632,7 @@ class FARGModel:
             self.t += 1
             self.remove_sleepers()
             #self.activation_g.decay()
-            self.activation_g.propagate()
+            self.activation_g.propagate()  # TODO Do this last?
             #self.activation_g.pr_flows()  #DIAG
             self.run_detectors()
             if act or self.t % 10 == 0:
@@ -643,14 +663,15 @@ class FARGModel:
         return self.elems(self.globals.get('logpred', None))
 
     def run_detectors(self):
-        for detector in self.elems(Detector):
+        for detector in list(self.elems(BaseDetector)):
             #print('look:', detector)  #DIAG
             detector.look(self)
 
     def choose_agent_by_activation(self, pred: Callable):
         # TODO OAOO .search_ws
         agents = list(self.ws_query(pred))
-        activations = [self.a(agent) for agent in agents]
+        # GLOBAL constant in next line
+        activations = [self.a(agent) ** 2.0 for agent in agents]
         return first(sample_without_replacement(agents, weights=activations))
 
     def remove_sleepers(self):
@@ -663,7 +684,7 @@ class FARGModel:
 
     def a(self, node: Hashable) -> float:
         '''Current activation level of node.'''
-        return self.activation_g.nodes[node]['a']
+        return self.activation_g.a(node)
 
     def ae_weight(self, from_node: Hashable, to_node: Hashable) -> float:
         '''Activation edge weight. 0.0 if either node does not exist.'''
@@ -830,6 +851,10 @@ class FARGModel:
         if show_n:
             print(f'n={count}', file=tofile)
 
+    def pr_flows(self):
+        print(f'FLOWS t={self.t}')
+        self.activation_g.pr_flows()
+
 def CanGo(fm: FARGModel, elem: Elem) -> bool:
     return (
         isinstance(elem, Agent)
@@ -842,7 +867,7 @@ def CanGo(fm: FARGModel, elem: Elem) -> bool:
     )
 
 def CallGo(fm: FARGModel, elem: Elem):
-    #print(f'go: {elem}') #DIAG
+    print(f'go: {elem}') #DIAG
     elem.go(fm)
 
 def CanAct(fm: FARGModel, elem: Elem) -> bool:
@@ -855,7 +880,7 @@ def CanAct(fm: FARGModel, elem: Elem) -> bool:
     )
 
 def CallAct(fm: FARGModel, elem: Elem):
-    #print(f'act: {elem}')  #DIAG
+    print(f'act: {elem}')  #DIAG
     elem.act(fm)
 
 @dataclass(frozen=True)
@@ -1216,7 +1241,14 @@ class Blocked(NoGo, Agent):
         return f'{cl}({self.taggee}, {self.reason})'
     
 @dataclass(frozen=True)
-class Detector:
+class BaseDetector(ABC):
+
+    @abstractmethod
+    def look(self, fm: FARGModel):
+        pass
+
+@dataclass(frozen=True)
+class Detector(BaseDetector):
     target: Value  # Change to a match function?
     action: Callable
     filter: Union[Elem, None] = None
