@@ -40,7 +40,7 @@ from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement, clip, reseed, default_field_value, d_subset, \
-    fields_for
+    fields_for, filter_none
 
 
 # Types
@@ -108,7 +108,8 @@ def has_avail_value(
     if elem is None:
         return False
     try:
-        return elem.has_avail_value(v)
+        #return elem.has_avail_value(v)
+        return any(elem.has_avail_value(v1) for v1 in as_iter(v))
     except AttributeError:
         if elem == v:
             return elem
@@ -215,6 +216,7 @@ def source_cellref_of(fm: 'FARGModel', elem: Elem) -> Union['CellRef', None]:
 class Halt(Exception):
     pass
 
+# TODO rm (replaced by ValuesNotAvail)
 @dataclass(frozen=True)
 class ValueNotAvail(Exception):
     container: Any
@@ -240,6 +242,36 @@ class ValueNotAvail(Exception):
             ),
             builder=builder
         )
+
+@dataclass(frozen=True)
+class ValuesNotAvail(Exception):
+    container: Hashable
+    avails: Tuple[Hashable]
+    unavails: Tuple[Hashable]
+
+    def try_to_fix(
+        self, fm: 'FARGModel', behalf_of: 'Agent', builder=Union[Agent, None]
+    ):
+        # TODO The decision of how to go about fixing the problem should
+        # result from a slipnet search rather than being hard-coded.
+        #source = getattr(builder, 'source', None)
+        source = source_cellref_of(fm, builder)
+        if source is not None:
+            mca = MustComeAfter(source)
+        else:
+            mca = None
+        fm.build(
+            Detector(
+                #self.value,
+                tuple(a for a in self.avails if a is not None),
+                MakeAgentSeq(tail=behalf_of),
+                mca
+            ),
+            builder=builder
+        )
+        if hasattr(behalf_of, 'rebuild_with_blanks'):
+            behalf_of.rebuild_with_blanks(fm, self.avails, self.unavails)
+
 
 @dataclass(frozen=True)
 class MustComeAfter:
@@ -500,7 +532,7 @@ class FARGModel:
                 else:
                     init_a = min(1.0, self.a(builder))
             self.activation_g.add_node(obj, a=init_a)
-            print('BUILT', obj) #DIAG
+            #print('BUILT', obj) #DIAG
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
                 self.add_mut_antipathy(obj, elem)
             try:
@@ -631,9 +663,6 @@ class FARGModel:
         while self.t < until:
             self.t += 1
             self.remove_sleepers()
-            #self.activation_g.decay()
-            self.activation_g.propagate()  # TODO Do this last?
-            #self.activation_g.pr_flows()  #DIAG
             self.run_detectors()
             if act or self.t % 10 == 0:
                 pred = CanAct
@@ -647,6 +676,9 @@ class FARGModel:
                 agent = ag
             if agent:
                 run(self, agent)
+            #self.activation_g.decay()
+            self.activation_g.propagate()
+            #self.activation_g.pr_flows()  #DIAG
             self.log_activations()
             #print(self) #DIAG
                 #agent.go(self)
@@ -867,7 +899,7 @@ def CanGo(fm: FARGModel, elem: Elem) -> bool:
     )
 
 def CallGo(fm: FARGModel, elem: Elem):
-    print(f'go: {elem}') #DIAG
+    #print(f'go: {elem}') #DIAG
     elem.go(fm)
 
 def CanAct(fm: FARGModel, elem: Elem) -> bool:
@@ -880,7 +912,7 @@ def CanAct(fm: FARGModel, elem: Elem) -> bool:
     )
 
 def CallAct(fm: FARGModel, elem: Elem):
-    print(f'act: {elem}')  #DIAG
+    #print(f'act: {elem}')  #DIAG
     elem.act(fm)
 
 @dataclass(frozen=True)
@@ -901,7 +933,7 @@ class SeqState:  # TODO Inherit from Value?
 
     #TODO In __iter__, make a tuple out of avails if it's not Hashable
     #TODO UT, UT taking the same value twice
-    def take_avails(self, values: Iterable[Value]) \
+    def take_avails0(self, values: Iterable[Value]) \
     -> Tuple[Iterable[Value], Iterable[Value]]:
         '''Returns (taken_avails, remaining_avails). Might raise
         ValueNotAvail.'''
@@ -915,6 +947,32 @@ class SeqState:  # TODO Inherit from Value?
             taken_avails.append(v)
         return (taken_avails, remaining_avails)
 
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        '''Returns (taken_avails, remaining_avails). Might raise
+        ValuesNotAvail.'''
+        remaining_avails = [] if self.avails is None else list(self.avails)
+        taken_avails = []
+        missing_avails = []
+        for v in values:
+            try:
+                remaining_avails.remove(v)
+            except ValueError:
+                #raise ValueNotAvail(self, v)
+                taken_avails.append(None)
+                missing_avails.append(v)
+            else:
+                taken_avails.append(v)
+                missing_avails.append(None)
+        if any(t is None for t in taken_avails):
+            #raise ValueNotAvail(self, first(m for m in missing_avails if m is not None))
+            raise ValuesNotAvail(
+                self,
+                tuple(taken_avails),
+                tuple(missing_avails)
+            )
+        return (taken_avails, remaining_avails)
+        
     def has_avail_value(self, v: Value) -> bool:
         return v in self.avails
 

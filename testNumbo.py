@@ -161,7 +161,7 @@ class TestNumbo(unittest.TestCase):
         #print(fm)
         #pr(fm, (Want, Consume, ImCell), edges=True)
         #pts(sorted(fm.elems(Consume), key=fm.a, reverse=True))
-        pr(fm, (Want, Consume), edges=True)
+        ##pr(fm, (Want, Consume), edges=True)
         #print(fm.seed)
         # TODO Assert that the winning Consume attracts support!
 

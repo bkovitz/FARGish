@@ -18,7 +18,7 @@ from FARGish2 import FARGModel, Elem, Value, SeqCanvas, Addr, Agent, AgentSeq, \
     Tag, TaggeeTag, \
     RaiseException, Blocked, BaseDetector, Detector, CellRef, ImCell, \
     SeqState, Halt, Glom, \
-    StateDelta, ValueNotAvail, CellWithAvailValue, is_real, \
+    StateDelta, ValueNotAvail, ValuesNotAvail, CellWithAvailValue, is_real, \
     GoIsDone, ActIsDone, match_wo_none, has_avail_value, dig_attr
 from Slipnet import Slipnet, FeatureWrapper, IntFeatures
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
@@ -53,6 +53,15 @@ class Consume(Agent):
         fm.build(self.source, builder=self)
         fm.build(self.dest, builder=self, edge_weight=1.0)
 
+    def rebuild_with_blanks(
+        self,
+        fm: FARGModel,
+        avail_operands: Tuple[Value],
+        unavail_operands: Tuple[Value]
+    ):
+        print('REBU', self, avail_operands, unavail_operands)
+        fm.build(replace(self, operands=avail_operands), builder=self)
+
     def paint(
         self,
         fm: FARGModel,
@@ -70,7 +79,7 @@ class Consume(Agent):
             return
         try:
             taken_avails, remaining_avails = s0.take_avails(self.operands)
-        except ValueNotAvail as exc:
+        except ValuesNotAvail as exc:
             # TODO builder=self even if builder overridden by caller?
             #print('CNOT')
             fm.build(Blocked(taggee=self, reason=exc), builder=self)
@@ -186,6 +195,18 @@ class Consume(Agent):
             yield SequentialBefore(mino, maxo)
 
 @dataclass(frozen=True)
+class TakeAvailsScout(Agent):
+    
+    def go(self, fm, **overrides):
+        # TODO Make a Consume (or whatever) with existing avails
+        pass
+
+    def can_go(self, fm):
+        # TODO Self-destruct when there are no more avail combinations from
+        # which to make new and different Consumes?
+        return True
+
+@dataclass(frozen=True)
 class ArithDelta(StateDelta):
     '''A completed arithmetic operation.'''
     before: Sequence
@@ -236,7 +257,7 @@ class GettingCloser(TaggeeTag):
         def look(self, fm: FARGModel):
             # TODO Exclude nodes already tagged GettingCloser
             found = first(fm.search_ws(ImCell))
-            print('GettingCloser.Tagger FOUND', found)
+            #print('GettingCloser.Tagger FOUND', found)
             if found:
                 weight = GettingCloser.calc_weight(found, self.target)
                 if weight > 0.001:
@@ -318,7 +339,9 @@ class Want(Agent):
             # GLOBAL constants in next line
             activations_in, k=20, type=Agent, num_get=1, filter=exclude
         )
-        print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
+        # TODO We need a way to get an Agent from the slipnet that means
+        # something like "Just add what you have."
+        #print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
         for agent in agents:
             if isinstance(agent, Consume):  #HACK
                 agent = replace(agent, source=source)
@@ -334,6 +357,9 @@ class Want(Agent):
             )
 
     def promisingness_of(self, fm: FARGModel, elem: Elem) -> float:
+        # TODO Scouts, probably constructed from the slipnet, should search
+        # for what's promising and apply tags. It shouldn't be hard-coded
+        # in the Want class.
         if isinstance(elem, Consume):
             result = 0.0
             if fm.is_blocked(elem):
@@ -347,7 +373,7 @@ class Want(Agent):
             #return 2.0 if elem.contents == self.target else 0.0
             return 20.0 if has_avail_value(elem.contents, self.target) else 0.0
         elif isinstance(elem, GettingCloser): # TODO Promising, not GettingCloser
-            print('WANTGC', elem)  #DIAG
+            #print('WANTGC', elem)  #DIAG
             return 10 * elem.weight
         else:
             return 0.0
@@ -433,10 +459,10 @@ def r4_5_6__15(*args, **kwargs):
     fm = Numbo(*args, **kwargs)
     ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
     wa = fm.build(Want(15, canvas=ca, addr=0))
-    fm.do_timestep(num=8)
+    fm.do_timestep(num=19)
     pr(fm, edges=True)
     print()
-    fm.pr_flows()
+    #fm.pr_flows()
     print(f'seed={fm.seed}')
     
 
