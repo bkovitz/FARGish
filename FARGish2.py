@@ -542,7 +542,6 @@ class FARGModel:
         if builder:
             self.add_mut_support(builder, obj)
         return obj
-        
 
     def search_ws1(self, pred: Union[Type, Callable]) \
     -> Union[Elem, bool, 'CellRef']:
