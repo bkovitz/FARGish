@@ -16,11 +16,18 @@ current:
 
 test: ut at
 
-ut:
+# Unit tests for FARGish2. This will be obsolete once FARGModel.py and its
+# mates are done.
+ut2:
 	$(PY) -m unittest -v testSlipnet.py testFARGish2.py testPropagator.py testNumbo.py
 
-oldut:
+# Run all unit tests. 'ut' should be set to this. It's only here as a temporary
+# measure before clearing out a bunch of obsolete unit tests.
+full_ut:
 	$(PY) -m unittest -v
+
+ut:
+	$(PY) -m unittest -v testFARGModel
 
 lut:
 	$(PY) -m unittest -v `cat LIVETEST`

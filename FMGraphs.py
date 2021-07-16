@@ -1,9 +1,4 @@
-# FARGish3.py -- The generic classes and functions for making a FARG model
-
-# Unlike in FARGish2.py, this version doesn't build instances of workspace
-# objects. It builds only objects that contain a class, a dictionary of
-# contents, and a dictionary defining an orientation. FARG classes contain
-# only class methods, passed these dictionaries as arguments.
+# FMGraphs.py -- Activation graphs held within a FARGModel
 
 from pprint import pprint as pp
 import inspect
@@ -32,6 +27,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 #import netgraph
 
+from FMTypes import Elem, Value, Addr
 from Slipnet import Slipnet, empty_slipnet
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
@@ -39,19 +35,6 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     sample_without_replacement, clip, reseed, default_field_value, d_subset, \
     fields_for, filter_none
 
-
-# Types
-
-Value = NewType('Value', Hashable)
-Addr = NewType('Addr', Hashable)
-
-@dataclass(frozen=True)
-class Elem(ABC):
-    # An element of the workspace, possibly of the slipnet
-    #cl: Union[Type, None]
-    contents: Dict[str, Hashable]
-
-# Graphs
 
 class ActivationGraph(nx.DiGraph):
 
@@ -202,38 +185,3 @@ class ActivationPropagator(Propagator):
                     for d in deltas
             ]
 
-# Classes
-
-@dataclass
-class ElemInWS:
-    '''An element in the workspace.'''
-    elem: Elem
-    builder: Union[Agent, None]
-    behalf_of: Union[List[Agent], None]
-    tob: int   # time of birth (when Elem was added to the ws)
-        # TODO Allow multiple builders?
-    # activation: float = 1.0
-
-    def __str__(self):
-        return f'{self.elem}  builder={self.builder} tob={self.tob}'
-
-
-# Numbo-specific
-
-@dataclass(frozen=True)
-class Want(Agent):
-    fs = ['target']  # fields
-
-    def __init__(self, *args, **kwargs):
-
-
-
-@dataclass(frozen=True)
-class Consume(Painter):
-
-    def paint(self, fm, src: CellRef, dest: CellRef, **kwargs):
-        raise NotImplementedError
-
-    def value_to_paint(self, fm, src: CellRef, **kwargs):
-        '''Returns the value even if the operands are not avail.'''
-        raise NotImplementedError
