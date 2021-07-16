@@ -37,6 +37,53 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     fields_for, filter_none
 
 
+def as_fmpred(o: Union[Type, Tuple, Callable, None]) -> Callable:
+    '''Returns a predicate function that takes two arguments: a FARGModel and
+    an object.'''
+    # TODO Document the many ways this thing constructs a function.
+    if isclass(o):
+        return lambda fm, x: isinstance(x, o)
+    elif isinstance(o, tuple):
+        preds = tuple(as_fmpred(p) for p in o)
+        return lambda fm, x: any(p(fm, x) for p in preds)
+    elif callable(o):
+        if first_arg_is_fargmodel(o):
+            return o
+        else:
+            return lambda fm, x: o(x)
+    elif o is None:
+        return lambda fm, x: True
+    else:
+        return lambda fm, x: match_wo_none(x, o)
+#        raise ValueError(
+#            f'as_pred: {repr(o)} must be a class, a callable, or None.'
+#        )
+
+def first_arg_is_fargmodel(o: Callable) -> bool:
+    p0 = first(inspect.signature(o).parameters.values())
+    #print('FIRARG', o, p0, p0.annotation, type(p0.annotation))
+    try:
+        # TODO What if annotation is a string?
+        return issubclass(p0.annotation, FARGModel)
+    except TypeError:
+        return False
+
+def match_wo_none(other, obj_template) -> bool:
+    '''Does obj_template == other if we ignore any fields in obj_template
+    with a value of None? If other is an object of a subclass of obj_template's
+    class, that also counts as a match.'''
+    if not isinstance(other, obj_template.__class__):
+        return False
+    if not is_dataclass(obj_template) or not is_dataclass(other):
+        return obj_template == other
+    other_d = dataclasses.asdict(other)
+    return all(
+        v is None or v == other_d.get(k, None)
+            for k, v in dataclasses.asdict(obj_template).items()
+    )
+
+# Classes
+
 @dataclass(frozen=True)
 class Agent: #(Elem):
     '''A workspace element that does things.'''
@@ -64,6 +111,9 @@ class ElemInWS:
         # but not limited to its builder.
     tob: int   # time of birth (when Elem was added to the ws)
     # activation: float = 1.0
+
+    def add_behalf_of(self, agents):
+        self.behalf_of += as_iter(agents)
 
     def __str__(self):
         return f'{self.elem}  builder={self.builder} tob={self.tob}'
@@ -118,6 +168,7 @@ class FARGModel:
                 pass
             '''
         if builder:
+            eiws.add_behalf_of(builder)
             self.add_mut_support(builder, obj)
         return obj
 
@@ -180,7 +231,10 @@ class FARGModel:
     def elems(self, pred=None, es=None) -> Iterable[Elem]:
         '''Returns a generator for *all* matches of pred. Unlike .ws_query(),
         .elems() does not make a weighted choice.'''
-        raise NotImplementedError
+        fmpred = as_fmpred(pred)
+        if es is None:
+            es = self.ws.keys()
+        return (e for e in as_iter(es) if fmpred(self, e))
 
     def get_eiws(self, obj) -> Union[ElemInWS, None]:
         '''Returns the ElemInWS from the workspace if it exists, otherwise
@@ -189,10 +243,10 @@ class FARGModel:
 
     # Debugging and reporting
 
-    def the(self, pred) -> Elem:
-        '''Returns the only match of pred that really matters.'''
-        # TODO
-        pass
+    def the(self, pred, es=None) -> Union[Elem, None]:
+        '''Returns the first element from .elems(), or None if there isn't
+        one.'''
+        return first(self.elems(pred=pred, es=es))
 
 @dataclass(frozen=True)
 class StateDelta:
