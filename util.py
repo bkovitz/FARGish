@@ -480,5 +480,6 @@ def pr(x: Any, *args, **kwargs):
     if hasattr(x, 'pr'):
         x.pr(*args, **kwargs)
     else:
-        for s in sorted(str(a) for a in as_iter(x)):
-            print(s)
+        pts(sorted(as_iter(x), key=str))
+#        for s in sorted(str(a) for a in as_iter(x)):
+#            print(s)

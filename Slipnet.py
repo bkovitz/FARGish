@@ -9,10 +9,12 @@ from copy import copy
 import operator
 from operator import itemgetter, attrgetter
 from heapq import nlargest
+import sys
 
 import networkx as nx
 
 from Propagator import Propagator, Delta
+from Indenting import Indenting, indent
 from util import is_iter, as_iter, pts, pl, pr
 
 
@@ -120,6 +122,16 @@ class Slipnet(nx.Graph):
         '''Returns list of neighbors represented as strings.'''
         return [str(neighbor) for neighbor in self.neighbors(node)]
 
+    def weight(self, node1, node2) -> float:
+        '''Returns weight of the edge from node1 to node2, or 0.0 if no such
+        edge exists. It is not an error to pass a non-existent node.'''
+        try:
+            edge_d = self[node1][node2]
+        except KeyError:
+            return 0.0
+        return edge_d.get('weight', 0.0)
+
+    # TODO Mutual inhibition between layer-2 nodes
     def add_layer2_nodes(self, nodes: Iterable[Node]):
         for node in nodes:
             self.add_node(node)
@@ -197,7 +209,7 @@ class Slipnet(nx.Graph):
         type: Type=None,
         k: Union[int, None]=None,
         filter: Union[Callable, None]=None
-    ) -> List:
+    ) -> List[NodeA]:
         activations_out = self.dquery(
             features=features, activations_in=activations_in
         )
@@ -236,6 +248,24 @@ class Slipnet(nx.Graph):
             return sorted(nas, key=attrgetter('a'), reverse=True)
         else:
             return nlargest(k, nas, key=attrgetter('a'))
+
+    def qnodes(self, pred) -> Iterable:
+        ''''Query the nodes'. Returns a generator of all the nodes that meet
+        pred.'''
+        # TODO Allow pred to a function, not just a class.
+        return (node for node in self if isinstance(node, pred))
+
+    def pr(self):
+        '''Prints the slipnet.'''
+        p = Indenting(sys.stdout, prefix='  ')
+        for node in sorted(self.nodes, key=str):
+            print(str(node), file=p)
+            with indent(p):
+                for neighbor in sorted(self.neighbors(node), key=str):
+                    print(
+                        f'{self.weight(node, neighbor): .2f}  {neighbor}',
+                        file=p
+                    )
 
 class Leading(FeatureWrapper):
     '''Indicates the leading digit of something.'''
