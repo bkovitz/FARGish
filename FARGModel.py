@@ -172,6 +172,9 @@ class FARGModel:
             self.add_mut_support(builder, obj)
         return obj
 
+    def paint(self, cr: 'CellRef', v: Value):
+        cr.paint(v)
+
     # Activation
 
     def a(self, node: Hashable) -> float:
@@ -266,13 +269,42 @@ class SeqState:  # TODO Inherit from Value?
 
 @dataclass(eq=False)
 class Canvas(ABC):
-    pass
-    # TODO abstractmethods to paint and get values, and get an iterator of
-    # all CellRefs.
+    # TODO get an iterator of all CellRefs, search for a value
+
+    @abstractmethod
+    def __getitem__(self, addr: Addr) -> Value:
+        pass
+
+    @abstractmethod
+    def __setitem__(self, addr: Addr, v: Value):
+        pass
 
 @dataclass(eq=False)
 class SeqCanvas(Canvas):
     states: List[SeqState] = field(default_factory=list)
+
+    def __getitem__(self, addr: Addr) -> Value:
+        # TODO Handle addr that can't be found or is not an index
+        #print('SEQCGET', addr, len(self.states))
+        if addr < len(self.states):
+            return self.states[addr]
+        else:
+            return None
+
+    def __setitem__(self, addr: Addr, v: Value):
+        # TODO Handle addr that doesn't work as a list index
+        # TODO Accept a builder argument?
+        while len(self.states) <= addr:
+            self.states.append(None)
+        self.states[addr] = v
+
+@dataclass(frozen=True)
+class CellRef:
+    canvas: Union[Canvas, None] = None
+    addr: Union[Addr, None] = None
+
+    def paint(self, v: Value):
+        self.canvas[self.addr] = v
 
 """
 class Copycat(Agent):
