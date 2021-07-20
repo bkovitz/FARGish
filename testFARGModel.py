@@ -10,11 +10,12 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 import operator
 from operator import itemgetter, attrgetter
 
-from util import pr, pts
+from util import pr, pts, is_iter
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
-    AvailDetector, Agent
+    AvailDetector, Agent, Want
+from Slipnet import Slipnet, IntFeatures, Before, After
 from FMTypes import Value, Addr
 
 
@@ -57,6 +58,37 @@ class TestWant(Agent):
         fm.sleep(self)
 
 
+class SlipnetWithInt(IntFeatures, Slipnet):
+    pass
+
+class TestFM(FARGModel):
+    slipnet_ctor = SlipnetWithInt
+
+    def fill_slipnet(self):
+        self.slipnet.add_layer2_nodes(
+            Consume(operator, (a, b))
+                for a in range(1, 21)
+                for b in range(1, 11)
+                for operator in [plus, times, minus]
+                    if a >= b
+        )
+        self.mut_inh(Before)
+        self.mut_inh(After)
+        self.mut_inh(int)
+        self.mut_inh(Operator)
+        self.mut_inh(Consume)
+
+    def mut_inh(self, pred):
+        if is_iter(pred):
+            nodes1 = nodes2 = pred
+        else:
+            nodes1 = self.slipnet.qnodes(pred)
+            nodes2 = self.slipnet.qnodes(pred)
+        for n1 in nodes1:
+            for n2 in nodes2:
+                if n1 != n2:
+                    self.slipnet.add_edge(n1, n2, weight=-0.2)
+
 class TestFARGModel(unittest.TestCase):
 
     def test_basics(self):
@@ -91,7 +123,7 @@ class TestFARGModel(unittest.TestCase):
         cr = CellRef(ca, 1)  # pointer to 2nd cell on canvas
         state1 = SeqState((9, 6), ArithDelta((4, 5), 9, plus))
         lp = fm.build(LitPainter(cr, state1))
-        lp.go(fm, None, None)  # TODO Call fm.go() and let it fill in args?
+        lp.go(fm)  # TODO Call fm.go() and let it fill in args?
         # TODO A threshold for painting
         self.assertEqual(ca[1], state1)
 
@@ -147,8 +179,11 @@ class TestFARGModel(unittest.TestCase):
     def test_consume(self):
         fm = FARGModel()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
-        cr0 = CellRef(ca, 0)
-        cr1 = CellRef(ca, 1)
+        cr0 = fm.build(CellRef(ca, 0))
+        cr1 = fm.build(CellRef(ca, 1))
+
+        self.assertCountEqual(cr0.avails, [4, 5, 6])
+        self.assertCountEqual(cr1.avails, [])
 
         co = fm.build(Consume(plus, (4, 5), source=cr0, dest=cr1))
         fm.run(co)
@@ -161,7 +196,10 @@ class TestFARGModel(unittest.TestCase):
         #TODO UT behalf_of
         self.assertCountEqual(fm.neighbors(co), [lp])
         self.assertEqual(fm.degree(co), 1)
-        #pr(fm, edges=True) #DEBUG
+
+        self.assertCountEqual(cr1.avails, [])
+        fm.run(lp)
+        self.assertCountEqual(cr1.avails, [6, 9])
 
     def test_values_not_avail(self):
         fm = FARGModel()
@@ -171,22 +209,45 @@ class TestFARGModel(unittest.TestCase):
 
         # This must fail because there is only one 4 avail
         co = fm.build(Consume(plus, (4, 4), source=cr0, dest=cr1))
+        self.assertTrue(fm.can_go(co))
         fm.run(co)
         self.assertIsNone(fm.the(LitPainter))
         # TODO fm.tags_of()
         self.assertTrue(fm.is_tagged(co, Blocked))
         self.assertTrue(fm.is_blocked(co))
+        self.assertFalse(fm.can_go(co))
         # TODO assert that co is the builder_of the Blocked, and that there
         # is mutual support between them. This will likely require writing
         # another query function (or extending .tags_of() to find just the
         # Blocked).
         # TODO assert that the Blocked has the right ValuesNotAvail.
 
+    def test_want(self):
+        fm = TestFM()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr0 = fm.build(CellRef(ca, 0))
+        cr1 = cr0.next_cellref()
+        wa = fm.build(
+            Want(target=15, startcell=cr0, sk=RaiseException(TestFound))
+        )
+        co0 = Consume(plus, (5, 4))
+        fm.run(wa, force_slipnet_result=[co0])
+        co = fm.the(co0)
+        self.assertEqual(co, Consume(plus, (5, 4), source=cr0, dest=cr1))
+        self.assertEqual(fm.builder_of(co), wa)
+        # NEXT assert that co was built by wa; better yet, query for BuiltBy(wa)
+
+        fm.run(co)
+        #pr(fm, edges=True) #DEBUG
+
+        # TODO Somehow the cr1 object needs to get built in the ws so activation
+        # can flow through it.
+        #cr1a = fm.the(cr1)
+        #self.assertEqual(cr1a, cr1)
+        
         """
         Blocked: build a Detector for the missing operand, and build an
         agent to scout for avail operands.
-
-        Detector for 15
 
         override contents of a Consume
         fill in a Blank?

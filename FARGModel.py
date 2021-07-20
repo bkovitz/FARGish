@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 #import netgraph
 
 from FMTypes import Elem, Value, Addr, FMPred
-from Slipnet import Slipnet, empty_slipnet
+from Slipnet import Slipnet, empty_slipnet, Before, After
 from FMGraphs import ActivationGraph
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -109,13 +109,18 @@ class Agent(ABC): #(Elem):
 
     @abstractmethod
     # TODO Maybe put desired args explicitly in go()'s signature
-    def go(cls, fm: 'FARGModel', contents, orientation):
+    def go(self, fm: 'FARGModel', contents, orientation):
         pass
 
-    @abstractmethod
     # TODO Default impl should check if Agent is Blocked
-    def can_go(cls, fm: 'FARGModel', contents, orientation) -> bool:
-        pass
+    def can_go(self, fm: 'FARGModel', **kwargs) -> bool:
+        '''Is the Agent capable of executing its .go() method? If False,
+        FARGModel.do_timestep() will give the Agent a zero probability of
+        running. Default implementation: True unless Agent has a Blocked
+        tag.'''
+        #TODO Default implementation should also return False if Agent has
+        # any Blanks.
+        return not fm.is_blocked(self)
 
     def update_support(cls, fm: 'FARGModel'):
         '''The Agent should update the weights from itself to other Elems.
@@ -165,21 +170,34 @@ class ValuesNotAvail(Exception):
 class FARGModel:
     ws: Dict[Elem, ElemInWS] = field(default_factory=dict)
     t: int = 0
-    slipnet: Slipnet = empty_slipnet  # TODO copy empty_slipnet?
+    slipnet: Slipnet = None
+    slipnet_ctor: ClassVar[Callable[[], Slipnet]] = Slipnet
     seed: Union[int, None] = None
 
     activation_g: ActivationGraph = field(
         default_factory=ActivationGraph, init=False
     )
-    sleeping: InitVar[Dict[Elem, int]] = None # = field(
-#        default_factory=dict, init=False
-#    )
+    sleeping: Dict[Elem, int] = field(
+        default_factory=dict, init=False
+    )
 
     mutual_support_weight: float = 1.0
     mutual_antipathy_weight: float = -0.2
 
     globals: Dict[str, Any] = field(default_factory=dict, init=False)
 
+    # Initialization
+
+    def __post_init__(self):
+        if self.slipnet is None:
+            self.slipnet = self.slipnet_ctor()
+        self.fill_slipnet()
+
+    def fill_slipnet(self):
+        '''Should add nodes and edges to self.slipnet(). Default implementation
+        does nothing.'''
+        pass
+        
     # Whole-codelet functions
 
     def build(self, *args, **kwargs) -> Elem:
@@ -230,6 +248,25 @@ class FARGModel:
         # TODO Not if agent doesn't exist?
         agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
         agent.update_support(self)
+
+    def pulse_slipnet(
+        self,
+        activations_in: Dict[Hashable, float],
+        type: Union[Type, None]=None,
+        k: int=20,
+        num_get: int=1,  # number of slipnodes to return
+        filter: Union[Callable, None]=lambda x: True
+    ) -> List[Hashable]:
+        q = self.slipnet.query(
+            activations_in=activations_in, type=type, k=k, filter=filter
+        )
+        print('PULSE')
+        pts(q)
+        return list(sample_without_replacement(
+            [nas.node for nas in q],
+            k=num_get,
+            weights=[nas.a for nas in q]
+        ))
 
     # Activation
 
@@ -333,7 +370,6 @@ class FARGModel:
         return self.is_tagged(elems, Blocked)
 
     def degree(self, a: Elem) -> int:
-        #return self.activation_g.degree(a)
         return len(self.neighbors(a))
 
     def neighbors(self, e: Elem) -> List[Elem]:
@@ -375,6 +411,9 @@ class FARGModel:
         else:
             # TODO only if elem is in the ws
             self.sleeping[elem] = self.t + num_timesteps
+
+    def can_go(self, agent: Agent) -> bool:
+        return agent.can_go(self)
 
     # Debugging and reporting
 
@@ -553,6 +592,11 @@ class SeqCanvas(Canvas):
             self.states.append(None)
         self.states[addr] = v
 
+    def last_nonblank_cellref(self) -> 'CellRef':
+        # TODO Actually check for 'blank' SeqStates (which will require
+        # implementing that concept)
+        return CellRef(self, len(self.states) - 1)
+
     def __str__(self):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
 
@@ -563,6 +607,14 @@ class CellRef:
 
     def paint(self, v: Value):
         self.canvas[self.addr] = v
+
+    @property
+    def avails(self) -> Sequence[Value]:
+        cell = self.canvas[self.addr]
+        if cell is None:
+            return []
+        else:
+            return cell.avails
 
     def take_avails(self, values: Iterable[Value]) \
     -> Tuple[Iterable[Value], Iterable[Value]]:
@@ -577,6 +629,14 @@ class CellRef:
 
     def has_avail_value(self, v):
         return has_avail_value(self.canvas[self.addr], v)
+
+    def last_nonblank_cellref(self) -> 'CellRef':
+        return self.canvas.last_nonblank_cellref()
+
+    def next_cellref(self):
+        '''Returns CellRef for the next cell in the canvas.'''
+        # HACK TODO This is wrong: it's limited to SeqCanvas.
+        return replace(self, addr=self.addr+1)
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -614,7 +674,7 @@ class LitPainter(Agent):
     cellref: CellRef
     value: Value
 
-    def go(self, fm, contents, orientation):
+    def go(self, fm, **kwargs):
         fm.paint(self.cellref, self.value)
 
     def can_go(self, fm, contents, orientation):
@@ -654,7 +714,7 @@ class Blocked(Agent):
         return f'{cl}({self.taggee}, {self.reason})'
 
 @dataclass(frozen=True)
-class Operator(ABC):
+class Operator:
     '''Computes the result when Consume consumes operands.'''
     func: Callable
     name: str
@@ -710,9 +770,6 @@ class Consume(Agent):
         fm.build(LitPainter(self.dest, s1), builder=self)
         #TODO Mark that we're done
 
-    def can_go(self, *args, **kwargs):
-        return True  # TODO False if any blank args
-
     def __str__(self):
         cl = self.__class__.__name__
         os = ' '.join(str(o) for o in [self.operator] + as_list(self.operands))
@@ -726,6 +783,106 @@ class Consume(Agent):
             if self.dest is not None:
                 xs.append(f'dest={self.dest}')
         return f"{cl}({', '.join(xs)})"
+
+    def features(self) -> Iterable[Hashable]:
+        for operand in self.operands:
+            yield operand
+            yield Before(operand)
+        yield self.operator
+        result = self.operator.call(*self.operands)
+        yield result
+        yield After(result)
+
+@dataclass(frozen=True)
+class Want(Agent):
+    '''Agent that guides the creation of a chain of Consumes to produce a
+    wanted avail value within a SeqCanvas.'''
+    #TODO Rename Want to something that suggests more narrowly what it tries
+    #to build.
+    target: Value = None
+    startcell: CellRef = None
+    sk: Callable = None   # success continuation
+
+    max_a: ClassVar[float] = 4.0
+
+    def go(self, fm: FARGModel, **kwargs):
+        # TODO Don't build these if they're already built
+        fm.build(
+            AvailDetector(self.target, filter=CellRef, action=self.sk),
+            builder=self
+        )
+        '''
+        fm.build(
+            GettingCloser.Tagger(target=self.target),
+            builder=self
+        )
+        '''
+        self.consult_slipnet(fm, **kwargs)
+        fm.sleep(self)
+
+    def consult_slipnet(self, fm: FARGModel, **kwargs):
+        source = self.startcell.last_nonblank_cellref()
+        activations_in = {}
+        self.update_activations_in(fm, source, activations_in)
+
+        exclude = Exclude(fm.neighbors(self))
+        try:
+            # HACK
+            agents = kwargs['force_slipnet_result']
+        except KeyError:
+            agents = fm.pulse_slipnet(
+                # GLOBAL constants in next line
+                activations_in, k=20, type=Agent, num_get=1, filter=exclude
+            )
+            print('XXX', activations_in)
+            pts(agents)
+            #pr(fm.slipnet)
+            # TODO We need a way to get an Agent from the slipnet that means
+            # something like "Just add what you have."
+            #print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
+        dest = source.next_cellref()
+        for agent in agents:
+            if isinstance(agent, Consume):  #HACK
+                agent = replace(agent, source=source, dest=dest)
+            fm.build(agent, builder=self, init_a=0.1)
+
+    def update_activations_in(
+        self, fm: FARGModel, cr: CellRef, activations_in: Dict[Hashable, float]
+    ) -> Dict[Hashable, float]:
+        # TODO Should add to existing activation levels, not overwrite
+        for avail in cr.avails:
+            activations_in[Before(avail)] = 1.0
+        activations_in[After(self.target)] = 1.0
+        # TODO (in a subclass specific to arithmetic)
+#        if all(avail > self.target for avail in avails):
+#            activations_in[Increase()] = 10.0
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        # TODO Include canvas and addr
+        return f'{cl}({self.target})'
+
+# TODO UT
+@dataclass(frozen=True)
+class Exclude:
+    '''A filter predicate: returns True iff its argument is not in .items,
+    using a weaker condition than strict equality. This enables excluding
+    Consume objects only on the basis of their non-null fields.'''
+    items: Collection[Hashable]
+
+    def __call__(self, x: Hashable) -> bool:
+        if isinstance(x, Consume):  #HACK
+            return not any(
+                (isinstance(item, Consume)
+                 and
+                 item.operands == x.operands
+                 and
+                 item.operator == x.operator
+                ) for item in self.items
+            )
+        else:
+            return x not in self.items
+
 
 """
 class Copycat(Agent):

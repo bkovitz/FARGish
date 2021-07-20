@@ -49,6 +49,12 @@ class FeatureWrapper:
     def features(self):
         yield self.feature
 
+class Before(FeatureWrapper):
+    pass
+
+class After(FeatureWrapper):
+    pass
+
 @dataclass
 class SlipnetPropagator(Propagator):
     noise: float = 0.0  #0.005
@@ -286,7 +292,7 @@ class Odd:
 class IntFeatures(Slipnet):
 
     def default_features(self, x):
-        print('INTF')
+        #print('INTF')
         if isinstance(x, int):
             if x & 1:
                 yield Odd()
