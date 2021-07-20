@@ -11,7 +11,7 @@ import operator
 from operator import itemgetter, attrgetter
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
-    CellRef, LitPainter, Operator, Consume
+    CellRef, LitPainter, Operator, Consume, Blocked
 from FMTypes import Value, Addr
 
 
@@ -105,7 +105,29 @@ class TestFARGModel(unittest.TestCase):
         self.assertEqual(fm.ae_weight(co, lp), fm.mutual_support_weight)
         #TODO UT behalf_of
 
+    def test_values_not_avail(self):
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+
+        # This must fail because there is only one 4 avail
+        co = fm.build(Consume(plus, (4, 4), source=cr0, dest=cr1))
+        fm.run(co)
+        self.assertIsNone(fm.the(LitPainter))
+        # TODO fm.tags_of()
+        self.assertTrue(fm.is_tagged(co, Blocked))
+        self.assertTrue(fm.is_blocked(co))
+        # TODO assert that co is the builder_of the Blocked, and that there
+        # is mutual support between them. This will likely require writing
+        # another query function (or extending .tags_of() to find just the
+        # Blocked).
+        # TODO assert that the Blocked has the right ValuesNotAvail.
+
         """
+        Blocked: build a Detector for the missing operand, and build an
+        agent to scout for avail operands.
+
         Detector for 15
 
         override contents of a Consume

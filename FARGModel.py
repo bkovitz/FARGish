@@ -254,6 +254,36 @@ class FARGModel:
         self.activation_g.add_edge(a, b, weight=weight)
         self.activation_g.add_edge(b, a, weight=weight)
 
+    # Querying
+
+    def is_tagged(self, elems, tagpred) -> bool:
+        '''Are any of elems tagged with a tag matching tagpred?'''
+        # TODO Optimize; this now searches the entire ws
+        return any(
+            self.is_tagging(tag, elem)
+                for elem in as_iter(elems)
+                    for tag in self.elems(pred=tagpred)
+        )
+
+    def is_tagging(self, tag: Elem, elem: Elem) -> bool:
+        try:
+            return tag.is_tagging(elem)
+        except AttributeError:
+            return elem in self.taggees_of(tag)
+
+    def taggees_of(self, tag: Elem) -> Iterable[Elem]:
+        try:
+            yield tag.taggees_of()
+        except AttributeError:
+            yield tag.taggee
+        except AttributeError:
+            yield from tag.taggees
+        except AttributeError:
+            return
+
+    def is_blocked(self, elems) -> bool:
+        return self.is_tagged(elems, Blocked)
+
     # Ancillary functions, callable by codelets and Agents
 
     def elems(self, pred=None, es=None) -> Iterable[Elem]:
@@ -413,6 +443,25 @@ class LitPainter(Agent):
         )
 
 @dataclass(frozen=True)
+class Blocked(Agent):
+    taggee: Elem
+    reason: Hashable
+
+    def go(self, fm: FARGModel):
+        # TODO The .reason might not have a .try_to_fix method (and probably
+        # shouldn't).
+        #self.reason.try_to_fix(fm, behalf_of=self.taggee, builder=self)
+        #fm.build(GoIsDone(taggee=self))
+        raise NotImplementedError
+
+    def can_go(self, fm):
+        return True
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.taggee}, {self.reason})'
+
+@dataclass(frozen=True)
 class Operator:
     '''Computes the result when Consume consumes operands.'''
     func: Callable
@@ -436,7 +485,8 @@ class Consume(Agent):
             taken_avails, remaining_avails = \
                 self.source.take_avails(self.operands)
         except ValuesNotAvail as exc:
-            # TODO tag self as Blocked
+            # tag self as Blocked
+            fm.build(Blocked(taggee=self, reason=exc), builder=self)
             return
         result = self.operator.call(*taken_avails)
         new_avails = tuple(remaining_avails) + (result,)
