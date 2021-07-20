@@ -10,18 +10,52 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 import operator
 from operator import itemgetter, attrgetter
 
+from util import pr, pts
+
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
-    AvailDetector
+    AvailDetector, Agent
 from FMTypes import Value, Addr
 
 
-plus = Operator(operator.add, '+')
-times = Operator(operator.mul, 'x')
-minus = Operator(operator.sub, '-')
+@dataclass(frozen=True)
+class ArithDelta(StateDelta):
+    '''A completed arithmetic operation.'''
+    before: Sequence
+    after: Union[Value, Collection]
+    how: Operator
 
-class Found(Exception):
+    def seq_str(self):
+        expr = f' {self.how} '.join(str(n) for n in self.before)
+        return f'{expr} = {self.after}'
+
+class ArithOperator(Operator):
+    statedelta_ctor = ArithDelta
+
+plus = ArithOperator(operator.add, '+')
+times = ArithOperator(operator.mul, 'x')
+minus = ArithOperator(operator.sub, '-')
+
+class TestFound(Exception):
     pass
+
+class TestWant(Agent):
+
+    def go(self, fm: FARGModel, **kwargs):
+        # TODO Don't build these if they're already built
+        fm.build(
+            Detector(self.target, action=RaiseException(SolvedNumble)),
+            builder=self
+        )
+        '''
+        fm.build(
+            GettingCloser.Tagger(target=self.target),
+            builder=self
+        )
+        '''
+        #self.consult_slipnet(fm)
+        fm.sleep(self)
+
 
 class TestFARGModel(unittest.TestCase):
 
@@ -43,8 +77,10 @@ class TestFARGModel(unittest.TestCase):
         # TODO Check builder and behalf_of
 
         # TODO Log the BUILT?
-        cr = CellRef(ca, 1)  # pointer to 2nd cell on canvas
-        delta = StateDelta((4, 5), 9, plus)
+        cr = fm.build(CellRef(ca, 1))  # pointer to 2nd cell on canvas
+        # TODO auto-support between CellRef and Canvas? (as in next line)
+        #self.assertEqual(fm.ae_weight(cr, ca), fm.mutual_support_weight)
+        delta = ArithDelta((4, 5), 9, plus)
         state1 = SeqState((9, 6), delta)
         fm.paint(cr, state1)  # TODO paint_on()?
         self.assertEqual(ca[1], state1)
@@ -53,7 +89,7 @@ class TestFARGModel(unittest.TestCase):
         fm = FARGModel()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         cr = CellRef(ca, 1)  # pointer to 2nd cell on canvas
-        state1 = SeqState((9, 6), StateDelta((4, 5), 9, plus))
+        state1 = SeqState((9, 6), ArithDelta((4, 5), 9, plus))
         lp = fm.build(LitPainter(cr, state1))
         lp.go(fm, None, None)  # TODO Call fm.go() and let it fill in args?
         # TODO A threshold for painting
@@ -64,12 +100,12 @@ class TestFARGModel(unittest.TestCase):
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         cr = CellRef(ca, 1)  # pointer to 2nd cell on canvas
 
-        state1 = SeqState((9, 6), StateDelta((4, 5), 9, plus))
+        state1 = SeqState((9, 6), ArithDelta((4, 5), 9, plus))
         lp1a = fm.build(LitPainter(cr, state1))
         lp1b = fm.build(LitPainter(cr, state1))
         self.assertIs(lp1a, lp1b)
 
-        state2 = SeqState((10, 5), StateDelta((4, 6), 10, plus))
+        state2 = SeqState((10, 5), ArithDelta((4, 6), 10, plus))
         lp2 = fm.build(LitPainter(cr, state2))
         self.assertIsNot(lp1a, lp2)
         
@@ -82,9 +118,9 @@ class TestFARGModel(unittest.TestCase):
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         cr = CellRef(ca, 1)  # pointer to 2nd cell on canvas
 
-        state1 = SeqState((9, 6), StateDelta((4, 5), 9, plus))
+        state1 = SeqState((9, 6), ArithDelta((4, 5), 9, plus))
         lp1 = fm.build(LitPainter(cr, state1))
-        state2 = SeqState((10, 5), StateDelta((4, 6), 10, plus))
+        state2 = SeqState((10, 5), ArithDelta((4, 6), 10, plus))
         lp2 = fm.build(LitPainter(cr, state2))
 
         self.assertTrue(fm.has_antipathy_to(lp1, lp2))
@@ -100,12 +136,12 @@ class TestFARGModel(unittest.TestCase):
         cr1 = fm.build(CellRef(ca, 1))
         
         # TODO The Detector should only look within ca
-        det = fm.build(AvailDetector(9, CellRef, RaiseException(Found)))
+        det = fm.build(AvailDetector(9, CellRef, RaiseException(TestFound)))
         det.look(fm)
 
-        fm.paint(cr1, SeqState((6, 9), StateDelta((4, 5), 9, plus)))
-        with self.assertRaises(Found):
-            for _ in range(10):
+        fm.paint(cr1, SeqState((6, 9), ArithDelta((4, 5), 9, plus)))
+        with self.assertRaises(TestFound):
+            for _ in range(40):
                 det.look(fm)
         
     def test_consume(self):
@@ -118,11 +154,14 @@ class TestFARGModel(unittest.TestCase):
         fm.run(co)
         lp = fm.the(LitPainter)
         self.assertEqual(lp,
-            LitPainter(cr1, SeqState((6, 9), StateDelta((4, 5), 9, plus)))
+            LitPainter(cr1, SeqState((6, 9), ArithDelta((4, 5), 9, plus)))
         )
         self.assertEqual(fm.builder_of(lp), co)
         self.assertEqual(fm.ae_weight(co, lp), fm.mutual_support_weight)
         #TODO UT behalf_of
+        self.assertCountEqual(fm.neighbors(co), [lp])
+        self.assertEqual(fm.degree(co), 1)
+        #pr(fm, edges=True) #DEBUG
 
     def test_values_not_avail(self):
         fm = FARGModel()

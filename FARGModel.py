@@ -117,6 +117,12 @@ class Agent(ABC): #(Elem):
     def can_go(cls, fm: 'FARGModel', contents, orientation) -> bool:
         pass
 
+    def update_support(cls, fm: 'FARGModel'):
+        '''The Agent should update the weights from itself to other Elems.
+        Default implementation: do nothing.'''
+        # TODO Return an iterable of updates so they're easy to log.
+        pass
+
 @dataclass(frozen=True)
 class Detector(ABC):
 
@@ -223,6 +229,7 @@ class FARGModel:
         # TODO Not if agent can't go?
         # TODO Not if agent doesn't exist?
         agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
+        agent.update_support(self)
 
     # Activation
 
@@ -325,6 +332,15 @@ class FARGModel:
     def is_blocked(self, elems) -> bool:
         return self.is_tagged(elems, Blocked)
 
+    def degree(self, a: Elem) -> int:
+        #return self.activation_g.degree(a)
+        return len(self.neighbors(a))
+
+    def neighbors(self, e: Elem) -> List[Elem]:
+        g = self.activation_g
+        return set(list(g.successors(e)) + list(g.predecessors(e)))
+
+
     # Ancillary functions, callable by codelets and Agents
 
     def elems(self, pred=None, es=None) -> Iterable[Elem]:
@@ -353,12 +369,87 @@ class FARGModel:
         except AttributeError:
             return False
 
+    def sleep(self, elem: Elem, num_timesteps=2):
+        if elem in self.sleeping:
+            self.sleeping[elem] += num_timesteps
+        else:
+            # TODO only if elem is in the ws
+            self.sleeping[elem] = self.t + num_timesteps
+
     # Debugging and reporting
 
     def the(self, pred, es=None) -> Union[Elem, None]:
         '''Returns the first element from .elems(), or None if there isn't
         one.'''
         return first(self.elems(pred=pred, es=es))
+
+    def __repr__(self):
+        cl = self.__class__.__name__
+        return f'<{cl} object, t={self.t}>'
+
+    def __str__(self):
+        result = StringIO()
+        print(f't={self.t}  sum_a={self.sum_a():2.3f}', file=result)
+        #print(self.elines(self.elems(), tofile=result))
+        self.pr(tofile=result, show_n=True)
+        return result.getvalue()
+
+    def l1str(self, eiws: Union[ElemInWS, Elem], indent=None) -> str:
+        '''The one-line string for a ws elem, showing its activation.'''
+        if indent is None:
+            indent = '  '
+        if not isinstance(eiws, ElemInWS):
+            eiws = self.ws[eiws]  # TODO if the elem does not exist
+        return f'{indent}{self.a(eiws.elem): 7.3f}  {eiws} deg={self.degree(eiws.elem)}'
+
+    def e1str(self, node1: Elem, node2: Elem, indent=None) -> str:
+        '''The one-line string for the edge from node1 to node2. Does not
+        show node1. Indented one level further than 'indent'.'''
+        if indent is None:
+            indent = '  '
+        outgoing_weight = self.ae_weight(node1, node2)
+        incoming_weight = self.ae_weight(node2, node1)
+        if outgoing_weight != 0.0:
+            if incoming_weight != 0.0:
+                arrow = f'{outgoing_weight: 6.3f} <--> {incoming_weight: 6.3f}'
+            else:
+                arrow = f'{outgoing_weight: 6.3f}  -->       '
+        else:
+            arrow = f'       <--  {incoming_weight: 6.3f}'
+        #return f'{indent}  {weight: 7.3f} --> {node2}  a={self.a(node2):2.3f}'
+        return f'{indent}  {arrow} {node2}  a={self.a(node2):2.3f}'
+
+    def pr(
+        self,
+        pred: Union[Type, Callable, None]=None,
+        es=None,  # Elem, Elems, or None for all Elems
+        tofile=None,
+        indent=None,
+        show_n=False,
+        edges=False,
+        **kwargs
+    ):
+        '''Prints a subset of the workspace.'''
+        count = 0
+        for s, elem in sorted(
+            (self.l1str(elem, indent), elem)
+                for elem in self.elems(pred=pred, es=es)
+        ):
+            count += 1
+            print(s, file=tofile)
+            if edges:
+                for e in sorted(
+                    self.e1str(elem, neighbor)
+                        for neighbor in self.neighbors(elem)
+                ):
+                    print(' ', e, file=tofile)
+        if show_n:
+            print(f'n={count}', file=tofile)
+
+    def pr_flows(self):
+        print(f'FLOWS t={self.t}')
+        self.activation_g.pr_flows()
+
 
 @dataclass(frozen=True)
 class HasAntipathyTo:
@@ -415,6 +506,22 @@ class SeqState:  # TODO Inherit from Value?
     def has_avail_value(self, v):
         return v in self.avails
 
+    def last_move_str(self):
+        try:
+            return self.last_move.seq_str()
+        except AttributeError:
+            return str(self.last_move)
+
+    def __str__(self):
+        if self.avails is None:
+            avails_str = str(self.avails)
+        else:
+            avails_str = f"({' '.join(str(a) for a in self.avails)})"
+        if self.last_move is None:
+            return avails_str
+        else:
+            return f'{self.last_move_str()} {avails_str}'
+
 @dataclass(eq=False)
 class Canvas(ABC):
     # TODO get an iterator of all CellRefs, search for a value
@@ -446,6 +553,9 @@ class SeqCanvas(Canvas):
             self.states.append(None)
         self.states[addr] = v
 
+    def __str__(self):
+        return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
+
 @dataclass(frozen=True)
 class CellRef:
     canvas: Union[Canvas, None] = None
@@ -467,6 +577,10 @@ class CellRef:
 
     def has_avail_value(self, v):
         return has_avail_value(self.canvas[self.addr], v)
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'canvas[{self.addr}]'
 
 @dataclass(frozen=True)
 class RaiseException:
@@ -516,6 +630,10 @@ class LitPainter(Agent):
             self.cellref == other.cellref
         )
 
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.cellref}, {self.value})'
+
 @dataclass(frozen=True)
 class Blocked(Agent):
     taggee: Elem
@@ -536,13 +654,29 @@ class Blocked(Agent):
         return f'{cl}({self.taggee}, {self.reason})'
 
 @dataclass(frozen=True)
-class Operator:
+class Operator(ABC):
     '''Computes the result when Consume consumes operands.'''
     func: Callable
     name: str
 
+    statedelta_ctor: ClassVar[Callable] = StateDelta
+
     def call(self, *operands) -> int:
         return self.func(*operands)
+
+    def consume(self, source_state: 'SeqState', operands: Collection[Value]) \
+    -> 'SeqState':
+        '''Should try to consume operands from the avails in source_state,
+        returning the resulting SeqState. For example, a 'plus' Operator
+        consuming (4, 5) should return a SeqState with the 4 and 5 removed
+        and replaced with a 9, and a StateDelta describing that. If any
+        of the operands are not avail in source_state, then should raise
+        ValuesNotAvail.'''
+        taken_avails, remaining_avails = source_state.take_avails(operands)
+        result = self.call(*taken_avails)
+        new_avails = tuple(remaining_avails) + (result,)
+        delta = self.statedelta_ctor(tuple(taken_avails), result, self)
+        return SeqState(new_avails, delta)
 
     def __str__(self):
         return self.name
@@ -566,11 +700,32 @@ class Consume(Agent):
         new_avails = tuple(remaining_avails) + (result,)
         delta = StateDelta(tuple(taken_avails), result, self.operator)
         s1 = SeqState(new_avails, delta)
+
+        try:
+            s1 = self.operator.consume(self.source, self.operands)
+        except ValuesNotAvail as exc:
+            # tag self as Blocked
+            fm.build(Blocked(taggee=self, reason=exc), builder=self)
+            return
         fm.build(LitPainter(self.dest, s1), builder=self)
         #TODO Mark that we're done
 
     def can_go(self, *args, **kwargs):
         return True  # TODO False if any blank args
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        os = ' '.join(str(o) for o in [self.operator] + as_list(self.operands))
+        # TODO Include canvas and addr
+        xs = [os]
+        if self.source is not None and self.dest is not None:
+            xs.append(f'{self.source}->{self.dest}')
+        else:
+            if self.source is not None:
+                xs.append(f'source={self.source}')
+            if self.dest is not None:
+                xs.append(f'dest={self.dest}')
+        return f"{cl}({', '.join(xs)})"
 
 """
 class Copycat(Agent):
