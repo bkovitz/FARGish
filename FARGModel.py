@@ -28,7 +28,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 #import netgraph
 
-from FMTypes import Elem, Value, Addr
+from FMTypes import Elem, Value, Addr, FMPred
 from Slipnet import Slipnet, empty_slipnet
 from FMGraphs import ActivationGraph
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
@@ -37,7 +37,9 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     fields_for, filter_none
 
 
-def as_fmpred(o: Union[Type, Tuple, Callable, None]) -> Callable:
+# Global functions
+
+def as_fmpred(o: FMPred) -> Callable:
     '''Returns a predicate function that takes two arguments: a FARGModel and
     an object.'''
     # TODO Document the many ways this thing constructs a function.
@@ -82,6 +84,21 @@ def match_wo_none(other, obj_template) -> bool:
             for k, v in dataclasses.asdict(obj_template).items()
     )
 
+def has_avail_value(
+    elem: Union['CellRef', Elem, None],
+    v: Value
+) -> Union[bool, None, 'CellRef', Elem]:
+    if elem is None:
+        return False
+    try:
+        #return elem.has_avail_value(v)
+        return any(elem.has_avail_value(v1) for v1 in as_iter(v))
+    except AttributeError:
+        if elem == v:
+            return elem
+        else:
+            return False
+
 # Element classes
 
 @dataclass(frozen=True)
@@ -98,6 +115,13 @@ class Agent(ABC): #(Elem):
     @abstractmethod
     # TODO Default impl should check if Agent is Blocked
     def can_go(cls, fm: 'FARGModel', contents, orientation) -> bool:
+        pass
+
+@dataclass(frozen=True)
+class Detector(ABC):
+
+    @abstractmethod
+    def look(self, fm: 'FARGModel'):
         pass
 
 @dataclass
@@ -256,6 +280,23 @@ class FARGModel:
 
     # Querying
 
+    def search_ws(
+        self,
+        pred: Union[Type, Callable, None]=None,
+        min_a: Union[float, None]=None,
+        max_n: int=1
+    ) -> Iterable[Elem]:
+        '''Returns generator of up to max_n nodes that match pred,
+        chosen randomly, weighted by activation.'''
+        elems = self.elems(pred)
+        if min_a is not None:
+            elems = (e for e in elems if self.a(e) >= min_a)
+        elems = list(elems)
+        activations = [self.a(e) for e in elems]
+        yield from sample_without_replacement(
+            elems, weights=activations, k=max_n
+        )
+
     def is_tagged(self, elems, tagpred) -> bool:
         '''Are any of elems tagged with a tag matching tagpred?'''
         # TODO Optimize; this now searches the entire ws
@@ -371,6 +412,9 @@ class SeqState:  # TODO Inherit from Value?
             )
         return (taken_avails, remaining_avails)
 
+    def has_avail_value(self, v):
+        return v in self.avails
+
 @dataclass(eq=False)
 class Canvas(ABC):
     # TODO get an iterator of all CellRefs, search for a value
@@ -421,6 +465,36 @@ class CellRef:
             raise ValuesNotAvail(self, values)
         return cell.take_avails(values)
 
+    def has_avail_value(self, v):
+        return has_avail_value(self.canvas[self.addr], v)
+
+@dataclass(frozen=True)
+class RaiseException:
+    exc_class: Type
+
+    def __call__(self, fm: FARGModel, *args, **kwargs):
+        raise self.exc_class(*args, **kwargs)
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.exc_class.__name__})'
+
+@dataclass(frozen=True)
+class AvailDetector(Detector):
+    target: Union[Value, Collection[Value]]
+    filter: FMPred  # Detector looks only at elements that match this predicate
+    action: Callable
+
+    # TODO Don't look at things previously found
+    def look(self, fm):
+        # TODO Should has_avail_value be included in pred?
+        found = set(fm.search_ws(self.filter))
+        # TODO log found
+        for elem in found:
+            if has_avail_value(elem, self.target):
+                # TODO action should be a codelet
+                self.action(fm, elem)
+    
 @dataclass(frozen=True)
 class LitPainter(Agent):
     cellref: CellRef

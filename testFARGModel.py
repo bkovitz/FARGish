@@ -11,13 +11,17 @@ import operator
 from operator import itemgetter, attrgetter
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
-    CellRef, LitPainter, Operator, Consume, Blocked
+    CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
+    AvailDetector
 from FMTypes import Value, Addr
 
 
 plus = Operator(operator.add, '+')
 times = Operator(operator.mul, 'x')
 minus = Operator(operator.sub, '-')
+
+class Found(Exception):
+    pass
 
 class TestFARGModel(unittest.TestCase):
 
@@ -40,8 +44,8 @@ class TestFARGModel(unittest.TestCase):
 
         # TODO Log the BUILT?
         cr = CellRef(ca, 1)  # pointer to 2nd cell on canvas
-        ad = StateDelta((4, 5), 9, plus)
-        state1 = SeqState((9, 6), ad)
+        delta = StateDelta((4, 5), 9, plus)
+        state1 = SeqState((9, 6), delta)
         fm.paint(cr, state1)  # TODO paint_on()?
         self.assertEqual(ca[1], state1)
 
@@ -89,6 +93,21 @@ class TestFARGModel(unittest.TestCase):
 
         #TODO LitPainter done (so don't paint again)
 
+    def test_avail_detector(self):
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr0 = fm.build(CellRef(ca, 0))
+        cr1 = fm.build(CellRef(ca, 1))
+        
+        # TODO The Detector should only look within ca
+        det = fm.build(AvailDetector(9, CellRef, RaiseException(Found)))
+        det.look(fm)
+
+        fm.paint(cr1, SeqState((6, 9), StateDelta((4, 5), 9, plus)))
+        with self.assertRaises(Found):
+            for _ in range(10):
+                det.look(fm)
+        
     def test_consume(self):
         fm = FARGModel()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))

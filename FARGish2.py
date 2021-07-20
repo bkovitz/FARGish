@@ -554,7 +554,8 @@ class FARGModel:
 
     def search_ws(
         self,
-        pred: Union[Type, Callable, None]=None,
+        #pred: Union[Type, Callable, None]=None,
+        pred: FMPred
         min_a: Union[float, None]=None,
         max_n: int=1
     ) -> Iterable[Elem]:

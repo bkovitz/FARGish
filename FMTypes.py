@@ -14,3 +14,7 @@ Value = NewType('Value', Hashable)
 
 # The address of a Canvas cell within its Canvas
 Addr = NewType('Addr', Hashable)
+
+# Something that can be converted into a predicate function whose first
+# argument is the FARGModel
+FMPred = NewType('FMPred', Union[Type, Tuple, Callable, None])

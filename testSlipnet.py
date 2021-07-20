@@ -158,7 +158,7 @@ class TestSlipnet(unittest.TestCase):
         self.assertTrue(e3 in d2)
         self.assertGreater(d2[e1], d1[e1])
 
-        print()
+        #print()
         q3 = slipnet.query(
             features=[Before(4), Before(5), After(15)], type=Equation, k=20
         )
