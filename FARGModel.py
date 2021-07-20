@@ -85,18 +85,19 @@ def match_wo_none(other, obj_template) -> bool:
 # Classes
 
 @dataclass(frozen=True)
-class Agent: #(Elem):
+class Agent(ABC): #(Elem):
     '''A workspace element that does things.'''
 
-    orientation: Dict[str, Hashable]
+    #orientation: Dict[str, Hashable]
 
     @abstractmethod
+    # TODO Maybe put desired args explicitly in go()'s signature
     def go(cls, fm: 'FARGModel', contents, orientation):
         pass
 
     @abstractmethod
     # TODO Default impl should check if Agent is Blocked
-    def can_go(cls, fm: 'FARGModel', contents, orientation):
+    def can_go(cls, fm: 'FARGModel', contents, orientation) -> bool:
         pass
 
 @dataclass
@@ -111,6 +112,8 @@ class ElemInWS:
         # but not limited to its builder.
     tob: int   # time of birth (when Elem was added to the ws)
     # activation: float = 1.0
+    # overrides for contents?
+    # overrides for orientation?
 
     def add_behalf_of(self, agents):
         self.behalf_of += as_iter(agents)
@@ -156,7 +159,12 @@ class FARGModel:
         eiws = self.get_eiws(obj)
         if eiws is None:  # the Elem is not there, so now we really build it
             self.ws[obj] = eiws = ElemInWS(obj, builder=builder, tob=self.t)
-            obj = eiws.elem
+            if init_a is None:
+                if builder is None:
+                    init_a = 1.0
+                else:
+                    init_a = min(1.0, self.a(builder))
+            self.activation_g.add_node(obj, a=init_a)
             # create antipathy between obj and its enemies
             ''' TODO
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
@@ -167,6 +175,8 @@ class FARGModel:
             except AttributeError:
                 pass
             '''
+        else:  # the Elem is already there, so don't build a new one
+            obj = eiws.elem
         if builder:
             eiws.add_behalf_of(builder)
             self.add_mut_support(builder, obj)
@@ -305,6 +315,18 @@ class CellRef:
 
     def paint(self, v: Value):
         self.canvas[self.addr] = v
+
+@dataclass(frozen=True)
+class LitPainter(Agent):
+    cellref: CellRef
+    value: Value
+
+    def go(self, fm, contents, orientation):
+        fm.paint(self.cellref, self.value)
+
+    def can_go(self, fm, contents, orientation):
+        # TODO Check that we have enough activation?
+        return True
 
 """
 class Copycat(Agent):
