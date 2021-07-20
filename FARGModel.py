@@ -82,7 +82,7 @@ def match_wo_none(other, obj_template) -> bool:
             for k, v in dataclasses.asdict(obj_template).items()
     )
 
-# Classes
+# Element classes
 
 @dataclass(frozen=True)
 class Agent(ABC): #(Elem):
@@ -120,6 +120,16 @@ class ElemInWS:
 
     def __str__(self):
         return f'{self.elem}  builder={self.builder} tob={self.tob}'
+
+# Exceptions
+
+@dataclass(frozen=True)
+class ValuesNotAvail(Exception):
+    container: Hashable
+    avails: Tuple[Hashable]
+    unavails: Tuple[Hashable]
+
+# Generic FARG model
 
 @dataclass
 class FARGModel:
@@ -166,9 +176,9 @@ class FARGModel:
                     init_a = min(1.0, self.a(builder))
             self.activation_g.add_node(obj, a=init_a)
             # create antipathy between obj and its enemies
-            ''' TODO
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
-                self.add_mut_antipathy(obj, elem)
+                self.add_mutual_antipathy(obj, elem)
+            '''
             # .on_build
             try:
                 obj.on_build(self)
@@ -179,11 +189,16 @@ class FARGModel:
             obj = eiws.elem
         if builder:
             eiws.add_behalf_of(builder)
-            self.add_mut_support(builder, obj)
+            self.add_mutual_support(builder, obj)
         return obj
 
     def paint(self, cr: 'CellRef', v: Value):
         cr.paint(v)
+
+    def run(self, agent: Agent, **kwargs):
+        # TODO Not if agent can't go?
+        # TODO Not if agent doesn't exist?
+        agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
 
     # Activation
 
@@ -214,7 +229,7 @@ class FARGModel:
 
     # Support
 
-    def add_mut_support(
+    def add_mutual_support(
         self, a: Hashable, b: Hashable, weight: Union[float, None]=None
     ):
         if weight is None:
@@ -222,7 +237,7 @@ class FARGModel:
         self.activation_g.add_edge(a, b, weight=weight)
         self.activation_g.add_edge(b, a, weight=weight)
 
-    set_mut_support = add_mut_support
+    set_mutual_support = add_mutual_support
 
     def set_support_edge(
         self, a: Hashable, b: Hashable, weight: Union[float, None]=None
@@ -231,7 +246,7 @@ class FARGModel:
             weight = self.mutual_support_weight
         self.activation_g.add_edge(a, b, weight=weight)
 
-    def add_mut_antipathy(
+    def add_mutual_antipathy(
         self, a: Hashable, b: Hashable, weight: Union[float, None]=None
     ):
         if weight is None:
@@ -254,12 +269,36 @@ class FARGModel:
         None.'''
         return self.ws.get(obj, None)
 
+    def builder_of(self, elem: Elem) -> Union[Elem, None]:
+        try:
+            eiws = self.ws[elem]
+        except KeyError:
+            return None
+        return eiws.builder
+
+    def has_antipathy_to(self, a: Hashable, b: Hashable) -> bool:
+        try:
+            return a.has_antipathy_to(b)
+        except AttributeError:
+            return False
+
     # Debugging and reporting
 
     def the(self, pred, es=None) -> Union[Elem, None]:
         '''Returns the first element from .elems(), or None if there isn't
         one.'''
         return first(self.elems(pred=pred, es=es))
+
+@dataclass(frozen=True)
+class HasAntipathyTo:
+    elem: Elem
+    ignore: Union[Elem, None]=None
+
+    def __call__(self, fm: FARGModel, elem) -> bool:
+        if elem == self.ignore:
+            return False
+        else:
+            return fm.has_antipathy_to(self.elem, elem)
 
 @dataclass(frozen=True)
 class StateDelta:
@@ -276,6 +315,31 @@ class StateDelta:
 class SeqState:  # TODO Inherit from Value?
     avails: Union[Tuple[int], None] = None
     last_move: Union[StateDelta, None] = None
+
+    # TODO Put this into a WithAvails mix-in.
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        '''Returns (taken_avails, remaining_avails). Might raise
+        ValuesNotAvail.'''
+        remaining_avails = [] if self.avails is None else list(self.avails)
+        taken_avails = []
+        missing_avails = []
+        for v in values:
+            try:
+                remaining_avails.remove(v)
+            except ValueError:
+                taken_avails.append(None)
+                missing_avails.append(v)
+            else:
+                taken_avails.append(v)
+                missing_avails.append(None)
+        if any(t is None for t in taken_avails):
+            raise ValuesNotAvail(
+                self,
+                tuple(taken_avails),
+                tuple(missing_avails)
+            )
+        return (taken_avails, remaining_avails)
 
 @dataclass(eq=False)
 class Canvas(ABC):
@@ -316,6 +380,17 @@ class CellRef:
     def paint(self, v: Value):
         self.canvas[self.addr] = v
 
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        '''Returns (taken_avails, remaining_avails). Might raise
+        ValuesNotAvail.'''
+        # TODO Require a determinate Collection, not just an Iterable (since
+        # we might fail and need to put 'values' into an exception).
+        cell = self.canvas[self.addr]
+        if cell is None:
+            raise ValuesNotAvail(self, values)
+        return cell.take_avails(values)
+
 @dataclass(frozen=True)
 class LitPainter(Agent):
     cellref: CellRef
@@ -327,6 +402,51 @@ class LitPainter(Agent):
     def can_go(self, fm, contents, orientation):
         # TODO Check that we have enough activation?
         return True
+
+    def has_antipathy_to(self, other) -> bool:
+        return (
+            self is not other
+            and
+            isinstance(other, LitPainter)
+            and
+            self.cellref == other.cellref
+        )
+
+@dataclass(frozen=True)
+class Operator:
+    '''Computes the result when Consume consumes operands.'''
+    func: Callable
+    name: str
+
+    def call(self, *operands) -> int:
+        return self.func(*operands)
+
+    def __str__(self):
+        return self.name
+
+@dataclass(frozen=True)
+class Consume(Agent):
+    operator: Union[Operator, None] = None
+    operands: Union[Tuple[Value], None] = None
+    source: Union[CellRef, None] = None  # where to get operands
+    dest: Union[CellRef, None] = None    # where to paint result
+
+    def go(self, fm, *args, **kwargs):
+        try:
+            taken_avails, remaining_avails = \
+                self.source.take_avails(self.operands)
+        except ValuesNotAvail as exc:
+            # TODO tag self as Blocked
+            return
+        result = self.operator.call(*taken_avails)
+        new_avails = tuple(remaining_avails) + (result,)
+        delta = StateDelta(tuple(taken_avails), result, self.operator)
+        s1 = SeqState(new_avails, delta)
+        fm.build(LitPainter(self.dest, s1), builder=self)
+        #TODO Mark that we're done
+
+    def can_go(self, *args, **kwargs):
+        return True  # TODO False if any blank args
 
 """
 class Copycat(Agent):
