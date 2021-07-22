@@ -130,11 +130,26 @@ class AwaitingDelegate(AgentState):
     def can_go(self):
         return False
 
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.delegate})'
+
 '''
 @dataclass(frozen=True)
 class AwaitingOK(AgentState):
 '''
 
+@dataclass(frozen=True)
+class MustCheckIfSucceeded(AgentState):
+    prev_agentstate: AgentState
+    delegate: 'Agent'
+
+    def can_go(self):
+        return True
+    
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.prev_agentstate}, {self.delegate})'
 
 @dataclass(frozen=True)
 class Agent(ABC): #(Elem):
@@ -162,6 +177,14 @@ class Agent(ABC): #(Elem):
         Default implementation: do nothing.'''
         # TODO Return an iterable of updates so they're easy to log.
         pass
+
+    def check_if_succeeded(self, fm: 'FARGModel', **kwargs):
+        '''The Agent should look at the ws to see if it has succeeded, and
+        update its AgentState accordingly. Default implementation: revert
+        to previous AgentState if current AgentState is MustCheckIfSucceeded.'''
+        st = fm.agent_state(self)
+        if isinstance(st, MustCheckIfSucceeded):
+            fm.set_agent_state(self, st.prev_agentstate)
 
 @dataclass(frozen=True)
 class Detector(ABC):
@@ -298,7 +321,10 @@ class FARGModel:
     def run(self, agent: Agent, **kwargs):
         # TODO Not if agent can't go?
         # TODO Not if agent doesn't exist?
-        agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
+        if isinstance(self.agent_state(agent), MustCheckIfSucceeded):
+            agent.check_if_succeeded(self, **kwargs)
+        else:
+            agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
         agent.update_support(self)
 
     def pulse_slipnet(
@@ -465,6 +491,12 @@ class FARGModel:
                 if self.builder_of(e) is agent
         ]
 
+    def behalf_of(self, elem: Elem) -> List[Elem]:
+        try:
+            return self.ws[elem].behalf_of
+        except KeyError:
+            return []
+
     def has_antipathy_to(self, a: Hashable, b: Hashable) -> bool:
         try:
             return a.has_antipathy_to(b)
@@ -493,6 +525,9 @@ class FARGModel:
     def agent_state(self, agent: Agent):
         return self._agent_states.get(agent, None)
 
+    def set_agent_state(self, agent: Agent, agent_state: AgentState):
+        self._agent_states[agent] = agent_state
+
     def awaiting_delegate(self, agent: Agent, delegate: Agent):
         '''Marks that agent is waiting for delegate to succeed.'''
         # TODO Handle multiple delegates
@@ -500,6 +535,24 @@ class FARGModel:
 
     def succeeded(self, agent: Agent):
         self._agent_states[agent] = Succeeded()
+        for a in self.behalf_of(agent):
+            if not isinstance(a, Agent):
+                continue
+            if not self.has_succeeded(a):
+                self.must_check_if_succeeded(a, agent)
+
+    def has_succeeded(self, agent: Agent) -> bool:
+        try:
+            return self.agent_state(agent).succeeded
+        except AttributeError:  # if no such agent
+            return False
+
+    def must_check_if_succeeded(
+        self, agent: Agent, delegate: Union[Agent, None]=None
+    ):
+        prev_agentstate = self._agent_states[agent]
+        self._agent_states[agent] = \
+            MustCheckIfSucceeded(prev_agentstate, delegate)
 
     # Debugging and reporting
 
@@ -532,7 +585,10 @@ class FARGModel:
             indent = '  '
         if not isinstance(eiws, ElemInWS):
             eiws = self.ws[eiws]  # TODO if the elem does not exist
-        return f'{indent}{self.a(eiws.elem): 7.3f}  {eiws} deg={self.degree(eiws.elem)}'
+        result = f'{indent}{self.a(eiws.elem): 7.3f}  {eiws} deg={self.degree(eiws.elem)}'
+        if isinstance(eiws.elem, Agent):
+            result += f'  {self.agent_state(eiws.elem)}'
+        return result
 
     def e1str(self, node1: Elem, node2: Elem, indent=None) -> str:
         '''The one-line string for the edge from node1 to node2. Does not
@@ -876,6 +932,14 @@ class Consume(Agent):
         lp = fm.build(LitPainter(self.dest, s1), builder=self)
         fm.awaiting_delegate(self, lp)
         #TODO Shut down completely when and if delegate succeeds
+
+    def check_if_succeeded(self, fm, **kwargs):
+        st = fm.agent_state(self)
+        if isinstance(st, MustCheckIfSucceeded):
+            if fm.has_succeeded(st.delegate):
+                fm.succeeded(self)
+            else:
+                fm.set_agent_state(st.prev_agentstate)
 
     def __str__(self):
         cl = self.__class__.__name__

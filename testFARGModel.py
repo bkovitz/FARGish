@@ -14,7 +14,7 @@ from util import pr, pts, is_iter, first
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
-    AvailDetector, Agent, Want, Succeeded
+    AvailDetector, Agent, Want, Succeeded, MustCheckIfSucceeded, Active
 from Slipnet import Slipnet, IntFeatures, Before, After
 from FMTypes import Value, Addr
 
@@ -273,17 +273,28 @@ class TestFARGModel(unittest.TestCase):
 
         # When the LitPainter paints, it should be marked Succeeded
         fm.run(lp)
-        #;pr(fm, edges=True) #DEBUG
         self.assertEqual(fm.agent_state(lp), Succeeded())
+        self.assertTrue(fm.has_succeeded(lp))
         self.assertFalse(fm.can_go(lp))
 
-        # NEXT The Consume should be marked Succeeded
+        # The Consume should be marked MustCheckIfSucceeded
+        self.assertIsInstance(fm.agent_state(co), MustCheckIfSucceeded)
+
+        # Running the Consume should make it see that it has succeeded
+        fm.run(co)
+        self.assertTrue(fm.has_succeeded(co))
+        self.assertFalse(fm.can_go(co))
+        self.assertIsInstance(fm.agent_state(wa), MustCheckIfSucceeded)
+
+        # Running the Want should make it see that it has still not succeeded
+        fm.run(wa)
+        #pr(fm, edges=True) #DEBUG
+        self.assertIsInstance(fm.agent_state(wa), Active)
+        self.assertFalse(fm.has_succeeded(wa))
 
         
         """
         MIN PATH TO DEMOABLE AGAIN
-
-        once a Consume or LitPainter is Done, .can_go() == False
 
         do a timestep
             query the ws; choose by activation
@@ -327,6 +338,9 @@ class TestFARGModel(unittest.TestCase):
         a Promisingness scout
 
         (later)
+        A FARGModel method to mark an object as a delegate, or maybe pass
+        that information when building it.
+
         A Cell or CellRef should store the threshold to paint on it. Possibly
         a minimum activation level for the painter, and/or 'the painter clearly
         beats its competition.'
