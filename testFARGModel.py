@@ -14,7 +14,8 @@ from util import pr, pts, is_iter, first
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
-    AvailDetector, Agent, Want, Succeeded, MustCheckIfSucceeded, Active
+    AvailDetector, Agent, Want, Succeeded, MustCheckIfSucceeded, Active, \
+    RemoveBlocked
 from Slipnet import Slipnet, IntFeatures, Before, After
 from FMTypes import Value, Addr
 
@@ -312,25 +313,75 @@ class TestFARGModel(unittest.TestCase):
             min_a = 4.0
         )
         fm.do_timestep(until=10)
-        #pr(fm, edges=True, seed=True, extra=True) #DEBUG
         self.assertEqual(fm.t, 10)
         self.assertGreaterEqual(len(fm), 5)
+        #pr(fm, edges=True, seed=True, extra=True) #DEBUG
+
+    def test_blocked_makes_want(self):
+        fm = TestFM(seed=1)
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr0 = fm.build(CellRef(ca, 0))
+        cr1 = cr0.next_cellref()
+        co69 = fm.build(Consume(plus, (6, 9), source=cr0, dest=cr1))
+
+        fm.run(co69)
+        bl = fm.the(Blocked)  # TODO query for built_by co69
+        assert bl is not None
+
+        fm.run(bl)
+        wa = fm.the(Want)  # TODO query for built_by bl
+        self.assertIsNotNone(wa)
+        self.assertEqual(wa.target, 9)
+        self.assertEqual(wa.startcell, cr0)
+        self.assertEqual(wa.sk, RemoveBlocked(bl))
+
+        fm.run(wa, force_slipnet_result=Consume(plus, (4, 5)))
+        co45 = fm.the(Consume(plus, (4, 5)))
+        self.assertEqual(co45, Consume(plus, (4, 5), source=cr0, dest=cr1))
+
+        fm.run(co45)
+        lp9 = fm.the(LitPainter)
+        self.assertIsNotNone(lp9)
+
+        fm.run(lp9)
+        self.assertTrue(fm.has_succeeded(lp9))
+        self.assertIsInstance(fm.agent_state(co45), MustCheckIfSucceeded)
+        
+        fm.run(co45)
+        self.assertTrue(fm.has_succeeded(co45))
+        self.assertIsInstance(fm.agent_state(wa), MustCheckIfSucceeded)
+
+        fm.run(wa)
+        self.assertTrue(fm.has_succeeded(wa))
+        cr2 = cr1.next_cellref()
+        co69b = fm.the(Consume(plus, (6, 9)))
+        self.assertEqual(co69b.source, cr1)
+        self.assertEqual(co69b.dest, cr2)
+        self.assertFalse(fm.is_blocked(co69b))
+        self.assertIsNone(fm.the(Blocked))
+        self.assertIsInstance(fm.agent_state(co69b), Active)
+        # TODO Make sure node for cr[2] gets built
+
+        fm.run(co69b)
+        lp15 = fm.the(LitPainter(cellref=cr2))
+        self.assertEqual(lp15.value.avails, (15,))
+
+        fm.run(lp15)
+        self.assertTrue(fm.has_succeeded(lp15))
 
 
         
         """
-        MIN PATH TO DEMOABLE AGAIN
+        MUSTANG SALLY
 
         NEXT
-        Make a runner or something in __main__ so I can watch the action
-        starting from a Want.
-
-
-        Blocked: build a Detector for the missing operand, and build an
-        agent to scout for avail operands.
+        Blocked: build a scout for avail operands
 
         Want gives support to promising LitPainters, Consumes
         
+        Make a runner or something in __main__ so I can watch the action
+        starting from a Want.
+
         tag GettingCloser
 
         'slip' a Consume: Blank that wants to be filled with avails
@@ -342,7 +393,17 @@ class TestFARGModel(unittest.TestCase):
         TODO
         Replace state-setting methods with .set_agent_state() only.
 
+        sk should apply generally to Agents.
+            .succeeded() should run sk.
+            sk should be a Codelet.
+
+        Argument to do_timestep() to choose from an agent or the transitive
+        closure of its delegates.
+
         Specify Slipnet features func in FARGModel ctor.
+
+        Some sort of Reset codelet, which ensures that an Agent's helpers,
+        CellRef nodes, etc. are built.
 
         some unit tests to verify that the slipnet is returning reasonable
         Consumes

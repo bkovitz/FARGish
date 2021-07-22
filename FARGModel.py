@@ -23,6 +23,7 @@ from collections import Counter, defaultdict
 from io import StringIO
 from inspect import isclass
 import inspect
+from random import choice
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -34,7 +35,7 @@ from FMGraphs import ActivationGraph
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement, clip, reseed, default_field_value, d_subset, \
-    fields_for, filter_none, force_setattr
+    fields_for, filter_none, force_setattr, PushAttr
 
 
 # Global functions
@@ -225,13 +226,14 @@ class ElemInWS:
 
 @dataclass(frozen=True)
 class ValuesNotAvail(Exception):
-    container: Hashable
-    avails: Tuple[Hashable]
-    unavails: Tuple[Hashable]
+    #container: Hashable  # Change this to a CellRef?
+    cellref: Union['CellRef', None]
+    avails: Tuple[Value]
+    unavails: Tuple[Value]
 
     def __str__(self):
         cl = self.__class__.__name__
-        return f'{cl}({self.container}, avails={self.avails}, unavails={self.unavails})'
+        return f'{cl}({self.cellref}, avails={self.avails}, unavails={self.unavails})'
         
 
 # Generic FARG model
@@ -258,6 +260,8 @@ class FARGModel:
     mutual_antipathy_weight: float = -0.2
 
     globals: Dict[str, Any] = field(default_factory=dict, init=False)
+
+    force_slipnet_result: Hashable = field(default=None, init=False)
 
     # Initialization
 
@@ -327,13 +331,17 @@ class FARGModel:
         cr.paint(v)
 
     def run(self, agent: Agent, **kwargs):
-        # TODO Not if agent can't go?
+        '''Calls the agent's .go() method regardless of whether its .can_go()
+        would return False.'''
         # TODO Not if agent doesn't exist?
-        if isinstance(self.agent_state(agent), MustCheckIfSucceeded):
-            agent.check_if_succeeded(self, **kwargs)
-        else:
-            agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
-        agent.update_support(self)
+        # TODO Document force_slipnet_result
+        with PushAttr(self, 'force_slipnet_result'):
+            self.force_slipnet_result = kwargs.pop('force_slipnet_result', None)
+            if isinstance(self.agent_state(agent), MustCheckIfSucceeded):
+                agent.check_if_succeeded(self, **kwargs)
+            else:
+                agent.go(self, **kwargs)  # TODO Supply overrides from eiws?
+            agent.update_support(self)
 
     def pulse_slipnet(
         self,
@@ -343,6 +351,8 @@ class FARGModel:
         num_get: int=1,  # number of slipnodes to return
         filter: Union[Callable, None]=lambda x: True
     ) -> List[Hashable]:
+        if self.force_slipnet_result is not None:
+            return as_list(self.force_slipnet_result)
         q = self.slipnet.query(
             activations_in=activations_in, type=type, k=k, filter=filter
         )
@@ -490,6 +500,49 @@ class FARGModel:
         '''Returns the ElemInWS from the workspace if it exists, otherwise
         None.'''
         return self.ws.get(obj, None)
+
+    # TODO UT
+    def override(self, elem: Elem, **kwargs):
+        '''Replaces elem with an elem containing new values, taken from
+        kwargs.'''
+        # MAJOR TODO We really should store the overrides in the ElemInWS,
+        # and require that all code dereference an Elem to get the overridden
+        # version. Tracking stale references is just too hard. If all
+        # Agent actions are done inside Codelet objects, called by fm,
+        # this shouldn't be too hard. The model itself should figure out
+        # how to deal with messy situations that result from overrides.
+        # TODO This should be done as a paint operation.
+        # HACK This assumes that Elem is a dataclass.
+        if not kwargs:
+            return
+        old_eiws = self.get_eiws(elem)
+        if not old_eiws:
+            return
+        new_elem = replace(elem, **kwargs)
+        if new_elem in self.ws:
+            raise NotImplementedError
+        else:
+            self.ws[new_elem] = new_eiws = replace(old_eiws, elem=new_elem)
+            self.activation_g.add_node(new_elem, a=self.a(elem))
+            for u, v, d in chain(
+                self.activation_g.in_edges(elem, data=True),
+            ):
+                self.activation_g.add_edge(u, new_elem, **d)
+            for u, v, d in chain(
+                self.activation_g.out_edges(elem, data=True)
+            ):
+                self.activation_g.add_edge(new_elem, v, **d)
+            self.set_agent_state(new_elem, self.agent_state(elem))
+            self.remove_elem(elem)
+
+    def remove_elem(self, elem):
+        # TODO Must remove all references to elem
+        for d in [self.ws, self._agent_states, self.sleeping]:
+            try:
+                del d[elem]
+            except KeyError:
+                pass
+        self.activation_g.remove_node(elem)
 
     def builder_of(self, elem: Elem) -> Union[Elem, None]:
         try:
@@ -791,7 +844,7 @@ class SeqState:  # TODO Inherit from Value?
                 missing_avails.append(None)
         if any(t is None for t in taken_avails):
             raise ValuesNotAvail(
-                self,
+                None,
                 tuple(taken_avails),
                 tuple(missing_avails)
             )
@@ -854,6 +907,11 @@ class SeqCanvas(Canvas):
         # implementing that concept)
         return CellRef(self, len(self.states) - 1)
 
+    # TODO UT
+    def cellrefs_forward(self, addr: Addr) -> Iterable['CellRef']:
+        for i in range(addr, len(self.states)):
+            yield CellRef(self, i)
+
     def __str__(self):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
 
@@ -871,6 +929,10 @@ class CellRef:
 
     def has_value(self) -> bool:
         return self.value is not None
+
+    # TODO UT
+    def cellrefs_forward(self) -> Iterable['CellRef']:
+        yield from self.canvas.cellrefs_forward(self.addr)
 
     @property
     def avails(self) -> Sequence[Value]:
@@ -939,8 +1001,8 @@ class AvailDetector(Detector):
     
 @dataclass(frozen=True)
 class LitPainter(Agent):
-    cellref: CellRef
-    value: Value
+    cellref: CellRef = None
+    value: Value = None
 
     def on_build(self, fm, **kwargs):
         fm.build(self.cellref, builder=self)
@@ -972,8 +1034,13 @@ class Blocked(Agent):
 
     def go(self, fm: FARGModel):
         #fm.build(GoIsDone(taggee=self))
-        return  # TODO
-        raise NotImplementedError
+        self.make_want_unavail(fm, self.reason)
+        # TODO Alternatively, TakeFromAvails
+
+        return
+
+        # TODO The right way: by consulting the slipnet. (Even better:
+        # an unhappiness Detector notices the Blocked and consults the slipnet.)
         [
             After(Removed(self))
             #Maybe get some more context from the ws, like the behalf_of
@@ -990,12 +1057,39 @@ class Blocked(Agent):
         # Instead of simply building a copy of what we get from the slipnet,
         # we should build a Copycat agent to do the reorienting and slipping.
 
+    # HACK Some other Agent should do this.
+    def make_want_unavail(self, fm: FARGModel, vna: ValuesNotAvail):
+        target = choice([a for a in vna.unavails if a is not None])
+            # TODO Not right: need to cover 4+4; crude anyway
+        fm.build(Want(
+            target,
+            vna.cellref,
+            RemoveBlocked(self)
+        ))
+
     def can_go(self, fm):
         return True
 
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.taggee}, {self.reason})'
+
+@dataclass(frozen=True)
+class RemoveBlocked:
+    blocked: Blocked
+
+    def __call__(self, fm: FARGModel, found: Elem):
+        taggee = self.blocked.taggee
+        # HACK This assumes that the taggee is a Consume; should delegate
+        # 'what to do when unblocked' to something else. Really, this is
+        # a form of slippage and should be explicitly coded that way.
+        assert isinstance(taggee, Consume)
+        fm.override(taggee, source=found, dest=found.next_cellref())
+        fm.remove_elem(self.blocked)
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.blocked})'
 
 @dataclass(frozen=True)
 class Operator:
@@ -1041,7 +1135,8 @@ class Consume(Agent):
             s1 = self.operator.consume(self.source, self.operands)
         except ValuesNotAvail as exc:
             # tag self as Blocked
-            fm.build(Blocked(taggee=self, reason=exc), builder=self)
+            reason = replace(exc, cellref=self.source)
+            fm.build(Blocked(taggee=self, reason=reason), builder=self)
             return
         lp = fm.build(LitPainter(self.dest, s1), builder=self)
         fm.awaiting_delegate(self, lp)
@@ -1154,6 +1249,20 @@ class Want(Agent):
         # TODO (in a subclass specific to arithmetic)
 #        if all(avail > self.target for avail in avails):
 #            activations_in[Increase()] = 10.0
+
+    def check_if_succeeded(self, fm, **kwargs):
+        # TODO Separate checking for success from following up
+        for cellref in self.startcell.cellrefs_forward():
+            if has_avail_value(cellref, self.target):
+                fm.succeeded(self)
+                # TODO What follows should be in FARGModel.succeeded()
+                if self.sk:
+                    self.sk(fm, cellref)
+        else:
+            st = fm.agent_state(self)
+            # TODO What follows should be a method of AgentState
+            if isinstance(st, MustCheckIfSucceeded):
+                fm.set_agent_state(self, st.prev_agentstate)
 
     def __str__(self):
         cl = self.__class__.__name__
