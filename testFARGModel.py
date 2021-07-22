@@ -14,7 +14,7 @@ from util import pr, pts, is_iter, first
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
-    AvailDetector, Agent, Want
+    AvailDetector, Agent, Want, Succeeded
 from Slipnet import Slipnet, IntFeatures, Before, After
 from FMTypes import Value, Addr
 
@@ -248,6 +248,7 @@ class TestFARGModel(unittest.TestCase):
         self.assertEqual(co, Consume(plus, (5, 4), source=cr0, dest=cr1))
         self.assertEqual(fm.builder_of(co), wa)
         self.assertIn(co, fm.built_by(wa))
+        self.assertTrue(fm.can_go(co))
 
         # The Consume should build a LitPainter
         fm.run(co)
@@ -255,25 +256,32 @@ class TestFARGModel(unittest.TestCase):
         lp = fm.the(LitPainter)
         self.assertEqual(lp, LitPainter(cr1, expected_value))
         self.assertTrue(fm.is_mutual_support(co, lp))
+        self.assertFalse(fm.can_go(co))
 
         # The LitPainter shouldn't paint yet: activation is too low
         self.assertFalse(fm.ok_to_paint(lp, cr1))
+        self.assertFalse(fm.can_go(lp))
 
         # Eventually, the LitPainter should be able to paint
         fm.propagate_a(num=20)
-        pr(fm, edges=True) #DEBUG
         self.assertTrue(fm.ok_to_paint(lp, cr1))
+        self.assertTrue(fm.can_go(lp))
         # TODO Somehow the cr1 object needs to get built in the ws so activation
         # can flow through it.
         #cr1a = fm.the(cr1)
         #self.assertEqual(cr1a, cr1)
 
-        #NEXT flow support to LitPainter until it paints
+        # When the LitPainter paints, it should be marked Succeeded
+        fm.run(lp)
+        #;pr(fm, edges=True) #DEBUG
+        self.assertEqual(fm.agent_state(lp), Succeeded())
+        self.assertFalse(fm.can_go(lp))
+
+        # NEXT The Consume should be marked Succeeded
+
         
         """
         MIN PATH TO DEMOABLE AGAIN
-
-        threshold to really paint
 
         once a Consume or LitPainter is Done, .can_go() == False
 

@@ -102,6 +102,41 @@ def has_avail_value(
 # Element classes
 
 @dataclass(frozen=True)
+class AgentState(ABC):
+    succeeded: ClassVar[bool] = False
+
+    @abstractmethod
+    def can_go(self) -> bool:
+        '''While in this AgentState, can the Agent go?'''
+        pass
+
+@dataclass(frozen=True)
+class Active(AgentState):
+
+    def can_go(self):
+        return True
+
+@dataclass(frozen=True)
+class Succeeded(AgentState):
+    succeeded: ClassVar[bool] = True
+
+    def can_go(self):
+        return False
+
+@dataclass(frozen=True)
+class AwaitingDelegate(AgentState):
+    delegate: 'Agent'
+
+    def can_go(self):
+        return False
+
+'''
+@dataclass(frozen=True)
+class AwaitingOK(AgentState):
+'''
+
+
+@dataclass(frozen=True)
 class Agent(ABC): #(Elem):
     '''A workspace element that does things.'''
 
@@ -185,6 +220,9 @@ class FARGModel:
     sleeping: Dict[Elem, int] = field(
         default_factory=dict, init=False
     )
+    _agent_states: Dict[Elem, AgentState] = field(
+        default_factory=dict, init=False
+    )
 
     mutual_support_weight: float = 1.0
     mutual_antipathy_weight: float = -0.2
@@ -241,6 +279,8 @@ class FARGModel:
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
                 self.add_mutual_antipathy(obj, elem)
             # call the obj's .on_build() method
+            if isinstance(obj, Agent):
+                self._agent_states[obj] = Active()
             try:
                 obj.on_build(self, **kwargs)
             except AttributeError:
@@ -439,12 +479,27 @@ class FARGModel:
             self.sleeping[elem] = self.t + num_timesteps
 
     def can_go(self, agent: Agent) -> bool:
+        if not self._agent_states[agent].can_go():
+            return False
+        if self.is_tagged(agent, Blocked):
+            return False
         return agent.can_go(self)
 
     def ok_to_paint(self, painter: Agent, cellref: 'CellRef') -> bool:
         # TODO Check that the painter beats its competition?
         # TODO Get threshold information from cellref?
         return self.a(painter) >= 1.0
+
+    def agent_state(self, agent: Agent):
+        return self._agent_states.get(agent, None)
+
+    def awaiting_delegate(self, agent: Agent, delegate: Agent):
+        '''Marks that agent is waiting for delegate to succeed.'''
+        # TODO Handle multiple delegates
+        self._agent_states[agent] = AwaitingDelegate(delegate)
+
+    def succeeded(self, agent: Agent):
+        self._agent_states[agent] = Succeeded()
 
     # Debugging and reporting
 
@@ -723,10 +778,10 @@ class LitPainter(Agent):
 
     def go(self, fm, **kwargs):
         fm.paint(self.cellref, self.value)
+        fm.succeeded(self)
 
-    def can_go(self, fm, contents, orientation):
-        # TODO Check that we have enough activation?
-        return True
+    def can_go(self, fm, **kwargs):
+        return fm.ok_to_paint(self, self.cellref)
 
     def has_antipathy_to(self, other) -> bool:
         return (
@@ -818,8 +873,9 @@ class Consume(Agent):
             # tag self as Blocked
             fm.build(Blocked(taggee=self, reason=exc), builder=self)
             return
-        fm.build(LitPainter(self.dest, s1), builder=self)
-        #TODO Mark that we're done
+        lp = fm.build(LitPainter(self.dest, s1), builder=self)
+        fm.awaiting_delegate(self, lp)
+        #TODO Shut down completely when and if delegate succeeds
 
     def __str__(self):
         cl = self.__class__.__name__
