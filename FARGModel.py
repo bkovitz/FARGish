@@ -454,6 +454,9 @@ class FARGModel:
     def is_blocked(self, elems) -> bool:
         return self.is_tagged(elems, Blocked)
 
+    def is_sleeping(self, elem: Elem):
+        return elem in self.sleeping
+            
     def degree(self, a: Elem) -> int:
         return len(self.neighbors(a))
 
@@ -511,6 +514,8 @@ class FARGModel:
             self.sleeping[elem] = self.t + num_timesteps
 
     def can_go(self, agent: Agent) -> bool:
+        if self.is_sleeping(agent):
+            return False
         if not self._agent_states[agent].can_go():
             return False
         if self.is_tagged(agent, Blocked):
@@ -520,7 +525,11 @@ class FARGModel:
     def ok_to_paint(self, painter: Agent, cellref: 'CellRef') -> bool:
         # TODO Check that the painter beats its competition?
         # TODO Get threshold information from cellref?
-        return self.a(painter) >= 1.0
+        return (
+            not cellref.has_value()
+            and
+            self.a(painter) >= 1.0
+        )
 
     def agent_state(self, agent: Agent):
         return self._agent_states.get(agent, None)
@@ -760,8 +769,15 @@ class CellRef:
         self.canvas[self.addr] = v
 
     @property
+    def value(self) -> Union[Value, None]:
+        return self.canvas[self.addr]
+
+    def has_value(self) -> bool:
+        return self.value is not None
+
+    @property
     def avails(self) -> Sequence[Value]:
-        cell = self.canvas[self.addr]
+        cell = self.value
         if cell is None:
             return []
         else:

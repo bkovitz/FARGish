@@ -163,7 +163,17 @@ class TestFARGModel(unittest.TestCase):
         self.assertFalse(fm.has_antipathy_to(lp1, lp1))
         self.assertEqual(fm.ae_weight(lp1, lp2), fm.mutual_antipathy_weight)
 
-        #TODO LitPainter done (so don't paint again)
+        self.assertTrue(fm.can_go(lp1))
+        self.assertTrue(fm.can_go(lp2))
+
+        self.assertFalse(cr.has_value())
+
+        # When lp1 paints, lp2 should be locked out
+        fm.run(lp1)
+        #pr(fm, edges=True) #DEBUG
+        self.assertEqual(cr.value, state1)
+        self.assertTrue(cr.has_value())
+        self.assertFalse(fm.can_go(lp2))
 
     def test_avail_detector(self):
         fm = FARGModel()
@@ -266,10 +276,7 @@ class TestFARGModel(unittest.TestCase):
         fm.propagate_a(num=20)
         self.assertTrue(fm.ok_to_paint(lp, cr1))
         self.assertTrue(fm.can_go(lp))
-        # TODO Somehow the cr1 object needs to get built in the ws so activation
-        # can flow through it.
-        #cr1a = fm.the(cr1)
-        #self.assertEqual(cr1a, cr1)
+        self.assertEqual(fm.the(cr1), cr1)
 
         # When the LitPainter paints, it should be marked Succeeded
         fm.run(lp)
@@ -288,7 +295,6 @@ class TestFARGModel(unittest.TestCase):
 
         # Running the Want should make it see that it has still not succeeded
         fm.run(wa)
-        #pr(fm, edges=True) #DEBUG
         self.assertIsInstance(fm.agent_state(wa), Active)
         self.assertFalse(fm.has_succeeded(wa))
 
@@ -296,19 +302,34 @@ class TestFARGModel(unittest.TestCase):
         """
         MIN PATH TO DEMOABLE AGAIN
 
+        NEXT
+        LitPainter: can't go if CellRef already has a value
+
         do a timestep
             query the ws; choose by activation
 
+        Make a runner or something in __main__ so I can watch the action
+        starting from a Want.
+
+
+        give_boost on success
 
         Blocked: build a Detector for the missing operand, and build an
         agent to scout for avail operands.
 
-        min_a for Want
-
         Want gives support to promising LitPainters, Consumes
         
+        tag GettingCloser
+
+        'slip' a Consume: Blank that wants to be filled with avails
+        TakeAvailsScout: paint avails on a Consume
+
+        "Backtrack": erase a canvas and start over
+
 
         TODO
+        Replace state-setting methods with .set_agent_state() only.
+
         Specify Slipnet features func in FARGModel ctor.
 
         some unit tests to verify that the slipnet is returning reasonable
@@ -324,22 +345,21 @@ class TestFARGModel(unittest.TestCase):
         tag something
         Blocked as an Agent
 
-        tag GettingCloser
-
-        'slip' a Consume: Blank that wants to be filled with avails
-        TakeAvailsScout: paint avails on a Consume
-
         Want creates helpers
         Want gives activation to promising Consumes
         Want.go() returns codelets?
-
-        "Backtrack": erase a canvas and start over
 
         a Promisingness scout
 
         (later)
         A FARGModel method to mark an object as a delegate, or maybe pass
         that information when building it.
+
+        Instead of MustCheckIfSucceeded, build a Detector that gets a boost
+        when a delegate succeeds.
+
+        When an elem is unhappy, query the slipnet for an Agent whose after is
+        MadeHappy. Having a Blocked tag counts as unhappy.
 
         A Cell or CellRef should store the threshold to paint on it. Possibly
         a minimum activation level for the painter, and/or 'the painter clearly
