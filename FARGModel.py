@@ -100,6 +100,19 @@ def has_avail_value(
         else:
             return False
 
+# TODO UT
+def dig_attr(elem: Union[Elem, None], attr: str) -> Hashable:
+    '''Returns value of attr within elem. If elem contains no attr,
+    digs through elem.contents, the .contents of that, and so on, until
+    finding an attribute named attr. Returns None if the search fails.'''
+    if elem is None:
+        return None
+    try:
+        return getattr(elem, attr)
+    except AttributeError:
+        return dig_attr(getattr(elem, 'contents', None), attr)
+
+
 # Element classes
 
 @dataclass
@@ -297,6 +310,7 @@ class FARGModel:
         eiws = self.get_eiws(obj)
         if eiws is None:  # the Elem is not there, so now we really build it
             self.ws[obj] = eiws = ElemInWS(obj, builder=builder, tob=self.t)
+            #print('BUILT', obj)
             if init_a is None:
                 if builder is None:
                     init_a = 1.0
@@ -1023,6 +1037,9 @@ class LitPainter(Agent):
             self.cellref == other.cellref
         )
 
+    def has_avail_value(self, v):
+        return has_avail_value(self.value, v)
+
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.cellref}, {self.value})'
@@ -1203,12 +1220,10 @@ class Want(Agent):
             AvailDetector(self.target, filter=CellRef, action=self.sk),
             builder=self
         )
-        '''
-        fm.build(
+        fm.build(  # HACK Numbo-specific
             GettingCloser.Tagger(target=self.target),
             builder=self
         )
-        '''
         self.consult_slipnet(fm, **kwargs)
         fm.sleep(self, num_timesteps=5)
 
@@ -1264,6 +1279,32 @@ class Want(Agent):
             if isinstance(st, MustCheckIfSucceeded):
                 fm.set_agent_state(self, st.prev_agentstate)
 
+    def update_support(self, fm):
+        for elem in fm.ws_query((Consume, LitPainter), max_n=10):
+            fm.set_support_edge(self, elem, self.promisingness_of(fm, elem))
+
+    def promisingness_of(self, fm: FARGModel, elem: Elem) -> float:
+        # TODO Scouts, probably constructed from the slipnet, should search
+        # for what's promising and apply tags. It shouldn't be hard-coded
+        # in the Want class.
+        if isinstance(elem, Consume):
+            result = 0.0
+            if fm.is_blocked(elem):
+                result += 0.1
+            else:
+                result += 0.2
+                if fm.can_go(elem):
+                    result += 0.2
+            return result
+        elif isinstance(elem, LitPainter):
+            #return 2.0 if elem.contents == self.target else 0.0
+            return 20.0 if has_avail_value(elem, self.target) else 0.0
+#        elif isinstance(elem, GettingCloser): # TODO Promising, not GettingCloser
+#            #print('WANTGC', elem)  #DIAG
+#            return 10 * elem.weight
+        else:
+            return 0.0
+        
     def __str__(self):
         cl = self.__class__.__name__
         # TODO Include canvas and addr
@@ -1303,3 +1344,47 @@ class Copycat(Agent):
         masters.
         '''
 """
+
+
+# Everything after this is HACKs: code that should be in Numbo.py
+
+#TODO UT
+@dataclass(frozen=True)
+class GettingCloser:
+    taggee: Elem = None
+    target: int = None
+    weight: float = None
+
+    @dataclass(frozen=True)
+    class Tagger(Detector):
+        target: Number
+
+        def look(self, fm):
+            found = fm.ws_query(LitPainter)
+            if found is not None:
+                weight = GettingCloser.calc_weight(found, self.target)
+                if weight > 0.001:
+                    tag = fm.build(GettingCloser(
+                        taggee=found, target=self.target, weight=weight
+                    ))
+                    fm.add_mutual_support(tag, found)
+
+    @classmethod
+    def calc_weight(cls, elem: Elem, target: Number) \
+    -> float:
+        arith_delta = dig_attr(elem, 'last_move')
+        before = dig_attr(arith_delta, 'before')
+        after = dig_attr(arith_delta, 'after')
+        #print('CALC', as_list(elem), arith_delta, before, after)
+        if before is None or after is None:
+            return 0.0
+        try:
+            start_dist = min(abs(target - b) for b in before)
+        except ValueError:
+            return 0.0
+        after_dist = abs(target - after)
+        closer_by = start_dist - after_dist
+        if closer_by <= 0.0:
+            return 0.0
+        return closer_by / start_dist
+        

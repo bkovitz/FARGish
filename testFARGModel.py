@@ -15,7 +15,9 @@ from util import pr, pts, is_iter, first
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
     AvailDetector, Agent, Want, Succeeded, MustCheckIfSucceeded, Active, \
-    RemoveBlocked
+    RemoveBlocked, has_avail_value
+# next line: Numbo-specific
+from FARGModel import GettingCloser
 from Slipnet import Slipnet, IntFeatures, Before, After
 from FMTypes import Value, Addr
 
@@ -275,7 +277,7 @@ class TestFARGModel(unittest.TestCase):
         self.assertFalse(fm.can_go(lp))
 
         # Eventually, the LitPainter should be able to paint
-        fm.propagate_a(num=20)
+        fm.propagate_a(num=30)
         self.assertTrue(fm.ok_to_paint(lp, cr1))
         self.assertTrue(fm.can_go(lp))
         self.assertEqual(fm.the(cr1), cr1)
@@ -369,20 +371,33 @@ class TestFARGModel(unittest.TestCase):
         fm.run(lp15)
         self.assertTrue(fm.has_succeeded(lp15))
 
-
+    # TODO Move to testNumbo.py
+    @unittest.skip('GettingCloser not implemented yet')
+    def test_gettingcloser(self):
+        fm = TestFM(seed=1)
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        co = fm.build(Consume(plus, (6, 5), source=cr0, dest=cr1))
+        fm.run(co)
+        lp = fm.the(LitPainter)
+        pr(fm, LitPainter) #DEBUG
+        assert lp is not None
+        fm.run(lp)
+        print('UT', lp, GettingCloser.calc_weight(lp, 15))
+        
         
         """
         MUSTANG SALLY
 
         NEXT
-        Blocked: build a scout for avail operands
-
-        Want gives support to promising LitPainters, Consumes
-        
-        Make a runner or something in __main__ so I can watch the action
-        starting from a Want.
-
         tag GettingCloser
+            calc_weight
+            Get the right 'before', etc. from LitPainter (from the new value,
+            not from the cellref).
+
+        Blocked: build a scout for avail operands
+            For now, don't even bother with the secondary Want
 
         'slip' a Consume: Blank that wants to be filled with avails
         TakeAvailsScout: paint avails on a Consume
@@ -424,6 +439,9 @@ class TestFARGModel(unittest.TestCase):
 
         a Promisingness scout
 
+        The feature-tagger for generating the slipnet also needs to run on
+        the ws situation, or at least the Want.
+
         (later)
         A FARGModel method to mark an object as a delegate, or maybe pass
         that information when building it.
@@ -449,3 +467,16 @@ class TestFARGModel(unittest.TestCase):
         match/similarity measure
 
         """
+
+if __name__ == '__main__':
+    fm = TestFM(seed=1)
+    ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+    cr0 = CellRef(ca, 0)
+    wa = fm.build(
+        Want(target=15, startcell=cr0, sk=RaiseException(TestFoundIt)),
+        min_a = 4.0
+    )
+    fm.do_timestep(until=40)
+    #pr(fm, edges=True, seed=True, extra=True)
+    pr(fm, (LitPainter, Want), edges=True, extra=True)
+    pr(fm, SeqCanvas)
