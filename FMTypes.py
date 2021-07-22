@@ -8,6 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 
 # An element of the workspace or a node in the slipnet
 Elem = NewType('Elem', Hashable)
+Elems = Union[Elem, Iterable[Elem], None]
 
 # A value that can be stored in a Canvas cell
 Value = NewType('Value', Hashable)

@@ -118,17 +118,17 @@ class ActivationGraph(nx.DiGraph):
     def nodestr(self, node):
         return f"{node!s:50s} {self.nodes[node]['a']:2.5f}"
 
+    # TODO rm
     def decay(self):
         for node in self.nodes:
             self.nodes[node]['a'] *= 0.95
 
-    def boost(self, nodes):  # TODO type annotation
+    def boost(self, nodes, amt=None):  # TODO type annotation
         for node in as_iter(nodes):
-            a = self.nodes[node]['a']
-            #incr = max(min(1.0, a), 2.0)
-            incr = clip(0.5, 1.0, a)
-            self.nodes[node]['a'] += incr
-            print('BOOST', node, 'TO', self.a(node)) #DIAG
+            if amt is None:
+                amt = clip(0.5, 1.0, self.nodes[node]['a'])  # GLOBAL
+            self.nodes[node]['a'] += amt
+            #print('BOOST', node, 'TO', self.a(node)) #DIAG
 
 @dataclass
 class ActivationPropagator(Propagator):

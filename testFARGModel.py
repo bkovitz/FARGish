@@ -328,8 +328,6 @@ class TestFARGModel(unittest.TestCase):
         starting from a Want.
 
 
-        give_boost on success
-
         Blocked: build a Detector for the missing operand, and build an
         agent to scout for avail operands.
 

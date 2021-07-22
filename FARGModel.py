@@ -28,7 +28,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 #import netgraph
 
-from FMTypes import Elem, Value, Addr, FMPred
+from FMTypes import Elem, Elems, Value, Addr, FMPred
 from Slipnet import Slipnet, empty_slipnet, Before, After
 from FMGraphs import ActivationGraph
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
@@ -363,8 +363,11 @@ class FARGModel:
     def sum_a(self) -> float:
         return sum(self.a(elem) for elem in self.elems())
 
-    def boost(self, node: Hashable):
-        self.activation_g.boost(node)
+    def boost(self, node: Hashable, amt=None):
+        self.activation_g.boost(node, amt=amt)
+
+    def give_boost(self, from_elem: Elem, to_elem: Elems):
+        self.boost(to_elem, amt=self.a(from_elem))
 
     def downboost(self, node: Hashable):
         # HACK to make a node quiet down for a bit after it's done something;
@@ -565,6 +568,7 @@ class FARGModel:
         prev_agentstate = self._agent_states[agent]
         self._agent_states[agent] = \
             MustCheckIfSucceeded(prev_agentstate, delegate)
+        self.give_boost(delegate, agent)
         self.unsleep(agent)  # TODO UT
 
     # Timestep functions
