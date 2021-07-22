@@ -565,6 +565,7 @@ class FARGModel:
         prev_agentstate = self._agent_states[agent]
         self._agent_states[agent] = \
             MustCheckIfSucceeded(prev_agentstate, delegate)
+        self.unsleep(agent)  # TODO UT
 
     # Timestep functions
 
@@ -622,6 +623,14 @@ class FARGModel:
             elem for (elem, t) in self.sleeping.items() if t <= self.t
         ]:
             del self.sleeping[waking]
+
+    def unsleep(self, agent: Agent):
+        '''Removes agent from the sleeping list. Does not boost agent's
+        activation or otherwise notify agent.'''
+        try:
+            del self.sleeping[agent]
+        except KeyError:
+            pass
 
     # Debugging and reporting
 
@@ -1091,7 +1100,7 @@ class Want(Agent):
         )
         '''
         self.consult_slipnet(fm, **kwargs)
-        fm.sleep(self)
+        fm.sleep(self, num_timesteps=5)
 
     def consult_slipnet(self, fm: FARGModel, **kwargs):
         source = self.startcell.last_nonblank_cellref()

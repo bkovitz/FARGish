@@ -302,7 +302,8 @@ class TestFARGModel(unittest.TestCase):
     def test_timesteps(self):
         # Little more than a smoke test: start with Want and a SeqCanvas,
         # run a few timesteps, and verify that there are some more Elems.
-        fm = TestFM()
+        fm = TestFM(seed=1)
+        self.assertEqual(fm.seed, 1)
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         self.assertEqual(len(fm), 1)
         cr0 = CellRef(ca, 0)
@@ -313,7 +314,7 @@ class TestFARGModel(unittest.TestCase):
         fm.do_timestep(until=10)
         #pr(fm, edges=True, seed=True, extra=True) #DEBUG
         self.assertEqual(fm.t, 10)
-        self.assertGreaterEqual(len(fm), 10)
+        self.assertGreaterEqual(len(fm), 5)
 
 
         
@@ -321,9 +322,6 @@ class TestFARGModel(unittest.TestCase):
         MIN PATH TO DEMOABLE AGAIN
 
         NEXT
-        do a timestep
-            query the ws; choose by activation
-
         Allow AwaitingDelegate to take multiple delegates
 
         Make a runner or something in __main__ so I can watch the action
