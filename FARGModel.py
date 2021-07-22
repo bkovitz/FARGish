@@ -255,6 +255,7 @@ class FARGModel:
     # Initialization
 
     def __post_init__(self):
+        self.seed = reseed(self.seed)
         if self.slipnet is None:
             self.slipnet = self.slipnet_ctor()
         self.fill_slipnet()
@@ -338,8 +339,8 @@ class FARGModel:
         q = self.slipnet.query(
             activations_in=activations_in, type=type, k=k, filter=filter
         )
-        print('PULSE')
-        pts(q)
+        #print('PULSE')
+        #pts(q)
         return list(sample_without_replacement(
             [nas.node for nas in q],
             k=num_get,
@@ -514,6 +515,8 @@ class FARGModel:
             self.sleeping[elem] = self.t + num_timesteps
 
     def can_go(self, agent: Agent) -> bool:
+        if not isinstance(agent, Agent):
+            return False
         if self.is_sleeping(agent):
             return False
         if not self._agent_states[agent].can_go():
@@ -563,6 +566,63 @@ class FARGModel:
         self._agent_states[agent] = \
             MustCheckIfSucceeded(prev_agentstate, delegate)
 
+    # Timestep functions
+
+    def do_timestep(
+        self, ag: Union[Agent, None]=None, num: int=1, until=None
+    ):
+        '''act: whether to force agents to .act even if the current timestep
+        isn't designated for acting.
+        until: last timestep; overrides num.'''
+        if until is None:
+            until = self.t + num
+        while self.t < until:
+            self.t += 1
+            self.remove_sleepers()
+            self.run_detectors()
+            if ag is None:
+                agent = self.choose_agent_by_activation(self.can_go)
+            else:
+                agent = ag
+            if agent:
+                #print('AGENT', agent)
+                self.run(agent)
+            #self.activation_g.decay()
+            self.activation_g.propagate()
+            #self.activation_g.pr_flows()  #DIAG
+            self.log_activations()
+            #print(self) #DIAG
+                #agent.go(self)
+
+    def log_activations(self):
+        mode = 'w' if self.t == 1 else 'a'
+        with open(self.globals.get('alog', 'a.csv'), mode=mode, newline='') \
+        as csvfile:
+            writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+            for node in self.nodes_to_log():
+                writer.writerow([self.t, node, self.a(node)])
+
+    def nodes_to_log(self) -> Iterable[Hashable]:
+        return self.elems(self.globals.get('logpred', None))
+
+    def run_detectors(self):
+        for detector in list(self.elems(Detector)):
+            #print('look:', detector)  #DIAG
+            detector.look(self)
+
+    def choose_agent_by_activation(self, pred: Callable):
+        # TODO OAOO .search_ws
+        agents = list(self.ws_query(pred))
+        # GLOBAL constant in next line
+        activations = [self.a(agent) ** 2.0 for agent in agents]
+        return first(sample_without_replacement(agents, weights=activations))
+
+    def remove_sleepers(self):
+        for waking in [
+            elem for (elem, t) in self.sleeping.items() if t <= self.t
+        ]:
+            del self.sleeping[waking]
+
     # Debugging and reporting
 
     def the(self, pred, es=None) -> Union[Elem, None]:
@@ -570,15 +630,19 @@ class FARGModel:
         one.'''
         return first(self.elems(pred=pred, es=es))
 
+    def __len__(self):
+        '''Returns number of Elems in the ws.'''
+        return len(self.ws)
+
     def __repr__(self):
         cl = self.__class__.__name__
         return f'<{cl} object, t={self.t}>'
 
     def __str__(self):
         result = StringIO()
-        print(f't={self.t}  sum_a={self.sum_a():2.3f}', file=result)
+        #print(f't={self.t}  sum_a={self.sum_a():2.3f}', file=result)
         #print(self.elines(self.elems(), tofile=result))
-        self.pr(tofile=result, show_n=True)
+        self.pr(tofile=result, extra=True, seed=True)
         return result.getvalue()
 
     def is_mutual_support(self, a: Elem, b: Elem) -> bool:
@@ -596,7 +660,11 @@ class FARGModel:
             eiws = self.ws[eiws]  # TODO if the elem does not exist
         result = f'{indent}{self.a(eiws.elem): 7.3f}  {eiws} deg={self.degree(eiws.elem)}'
         if isinstance(eiws.elem, Agent):
-            result += f'  {self.agent_state(eiws.elem)}'
+            if self.is_blocked(eiws.elem):
+                bl = '  Blocked+'
+            else:
+                bl = ''
+            result += f'  {bl}{self.agent_state(eiws.elem)}'
         return result
 
     def e1str(self, node1: Elem, node2: Elem, indent=None) -> str:
@@ -622,11 +690,14 @@ class FARGModel:
         es=None,  # Elem, Elems, or None for all Elems
         tofile=None,
         indent=None,
-        show_n=False,
         edges=False,
+        extra=False,  # extra stuff like t, sum_a, and seed
+        seed=False,   # show seed?
         **kwargs
     ):
         '''Prints a subset of the workspace.'''
+        if extra:
+            print(f't={self.t}  elems={len(self.ws)}  sum_a={self.sum_a():2.3f}', file=tofile)
         count = 0
         for s, elem in sorted(
             (self.l1str(elem, indent), elem)
@@ -640,8 +711,10 @@ class FARGModel:
                         for neighbor in self.neighbors(elem)
                 ):
                     print(' ', e, file=tofile)
-        if show_n:
+        if pred:
             print(f'n={count}', file=tofile)
+        if seed:
+            print(f'seed={self.seed}')
 
     def pr_flows(self):
         print(f'FLOWS t={self.t}')
@@ -875,6 +948,7 @@ class Blocked(Agent):
 
     def go(self, fm: FARGModel):
         #fm.build(GoIsDone(taggee=self))
+        return  # TODO
         raise NotImplementedError
         [
             After(Removed(self))
@@ -948,6 +1022,15 @@ class Consume(Agent):
         lp = fm.build(LitPainter(self.dest, s1), builder=self)
         fm.awaiting_delegate(self, lp)
         #TODO Shut down completely when and if delegate succeeds
+
+    def has_antipathy_to(self, other) -> bool:
+        return (
+            self is not other
+            and
+            isinstance(other, Consume)
+            and
+            self.source == other.source
+        )
 
     def check_if_succeeded(self, fm, **kwargs):
         st = fm.agent_state(self)
@@ -1024,8 +1107,8 @@ class Want(Agent):
                 # GLOBAL constants in next line
                 activations_in, k=20, type=Agent, num_get=1, filter=exclude
             )
-            print('XXX', activations_in)
-            pts(agents)
+            #print('XXX', activations_in)
+            #pts(agents)
             #pr(fm.slipnet)
             # TODO We need a way to get an Agent from the slipnet that means
             # something like "Just add what you have."

@@ -97,6 +97,8 @@ class TestFARGModel(unittest.TestCase):
     def test_basics(self):
         fm = FARGModel()
 
+        # Did it initialize a random-number seed?
+        self.assertIsInstance(fm.seed, int)
         # Build something
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         # Is it there?
@@ -170,7 +172,6 @@ class TestFARGModel(unittest.TestCase):
 
         # When lp1 paints, lp2 should be locked out
         fm.run(lp1)
-        #pr(fm, edges=True) #DEBUG
         self.assertEqual(cr.value, state1)
         self.assertTrue(cr.has_value())
         self.assertFalse(fm.can_go(lp2))
@@ -298,15 +299,32 @@ class TestFARGModel(unittest.TestCase):
         self.assertIsInstance(fm.agent_state(wa), Active)
         self.assertFalse(fm.has_succeeded(wa))
 
+    def test_timesteps(self):
+        # Little more than a smoke test: start with Want and a SeqCanvas,
+        # run a few timesteps, and verify that there are some more Elems.
+        fm = TestFM()
+        ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
+        self.assertEqual(len(fm), 1)
+        cr0 = CellRef(ca, 0)
+        wa = fm.build(
+            Want(target=15, startcell=cr0, sk=RaiseException(TestFoundIt)),
+            min_a = 4.0
+        )
+        fm.do_timestep(until=10)
+        #pr(fm, edges=True, seed=True, extra=True) #DEBUG
+        self.assertEqual(fm.t, 10)
+        self.assertGreaterEqual(len(fm), 10)
+
+
         
         """
         MIN PATH TO DEMOABLE AGAIN
 
         NEXT
-        LitPainter: can't go if CellRef already has a value
-
         do a timestep
             query the ws; choose by activation
+
+        Allow AwaitingDelegate to take multiple delegates
 
         Make a runner or something in __main__ so I can watch the action
         starting from a Want.
