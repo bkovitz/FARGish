@@ -101,7 +101,7 @@ def has_avail_value(
 
 # Element classes
 
-@dataclass(frozen=True)
+@dataclass
 class AgentState(ABC):
     succeeded: ClassVar[bool] = False
 
@@ -110,36 +110,41 @@ class AgentState(ABC):
         '''While in this AgentState, can the Agent go?'''
         pass
 
-@dataclass(frozen=True)
+@dataclass
 class Active(AgentState):
 
     def can_go(self):
         return True
 
-@dataclass(frozen=True)
+@dataclass
 class Succeeded(AgentState):
     succeeded: ClassVar[bool] = True
 
     def can_go(self):
         return False
 
-@dataclass(frozen=True)
+@dataclass
 class AwaitingDelegate(AgentState):
-    delegate: 'Agent'
+    delegate: 'Agents'
 
     def can_go(self):
         return False
+
+    def add_delegate(self, new_delegate: 'Agents'):
+        if not isinstance(self.delegate, list):
+            self.delegate = [self.delegate]
+        self.delegate += as_iter(new_delegate)
 
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.delegate})'
 
 '''
-@dataclass(frozen=True)
+@dataclass
 class AwaitingOK(AgentState):
 '''
 
-@dataclass(frozen=True)
+@dataclass
 class MustCheckIfSucceeded(AgentState):
     prev_agentstate: AgentState
     delegate: 'Agent'
@@ -185,6 +190,8 @@ class Agent(ABC): #(Elem):
         st = fm.agent_state(self)
         if isinstance(st, MustCheckIfSucceeded):
             fm.set_agent_state(self, st.prev_agentstate)
+
+Agents = Union[Agent, List[Agent], None]
 
 @dataclass(frozen=True)
 class Detector(ABC):
@@ -545,8 +552,12 @@ class FARGModel:
 
     def awaiting_delegate(self, agent: Agent, delegate: Agent):
         '''Marks that agent is waiting for delegate to succeed.'''
-        # TODO Handle multiple delegates
-        self._agent_states[agent] = AwaitingDelegate(delegate)
+        # TODO UT for multiple delegates
+        st = self.agent_state(agent)
+        if isinstance(st, AwaitingDelegate):
+            st.add_delegate(delegate)
+        else:
+            self.set_agent_state(agent, AwaitingDelegate(delegate))
 
     def succeeded(self, agent: Agent):
         self._agent_states[agent] = Succeeded()

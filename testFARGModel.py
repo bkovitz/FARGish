@@ -322,8 +322,6 @@ class TestFARGModel(unittest.TestCase):
         MIN PATH TO DEMOABLE AGAIN
 
         NEXT
-        Allow AwaitingDelegate to take multiple delegates
-
         Make a runner or something in __main__ so I can watch the action
         starting from a Want.
 
