@@ -90,6 +90,10 @@ def field_names(dclass) -> List[str]:
 def fields_for(dclass, kwargs: Dict[str, Any]) -> Dict[str, Any]:
     return d_subset(kwargs, field_names(dclass))
 
+def force_setattr(obj, attrname, value):
+    '''Writes value on obj.attrname even if obj is immutable.'''
+    object.__setattr__(obj, attrname, value)
+
 #TODO UT
 def loose_dict_eq(d1: Dict, d2: Dict) -> bool:
     '''Are d1 and d2 equal, if we count a value of None as equal to not having
@@ -310,9 +314,10 @@ def always_false(*args, **kwargs) -> bool:
     return False
 
 def clip(lb, ub, x):
-    if x <= lb:
+    '''Passing None for lb and/ub gives that bound no effect.'''
+    if lb is not None and x <= lb:
         return lb
-    elif x >= ub:
+    elif ub is not None and x >= ub:
         return ub
     else:
         return x

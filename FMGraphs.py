@@ -146,8 +146,8 @@ class ActivationPropagator(Propagator):
 #    def min_value(self, g, node):
 #        return 0.0
     def clip_a(self, g, node, a):
-        lb = getattr(node, 'min_a', 0.0)
-        ub = getattr(node, 'max_a', 10.0)
+        lb = getattr(node, 'min_a', 0.0)   # GLOBAL
+        ub = getattr(node, 'max_a', 10.0)   # GLOBAL
         return clip(lb, ub, a)
 
     def make_deltas(self, g, old_d):

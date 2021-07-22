@@ -10,7 +10,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 import operator
 from operator import itemgetter, attrgetter
 
-from util import pr, pts, is_iter
+from util import pr, pts, is_iter, first
 
 from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     CellRef, LitPainter, Operator, Consume, Blocked, RaiseException, \
@@ -37,7 +37,7 @@ plus = ArithOperator(operator.add, '+')
 times = ArithOperator(operator.mul, 'x')
 minus = ArithOperator(operator.sub, '-')
 
-class TestFound(Exception):
+class TestFoundIt(Exception):
     pass
 
 class TestWant(Agent):
@@ -64,6 +64,9 @@ class SlipnetWithInt(IntFeatures, Slipnet):
 class TestFM(FARGModel):
     slipnet_ctor = SlipnetWithInt
 
+    # TODO Pass this as a function, possibly one among many, to
+    # FARGModel.__init__. Then get rid of TestFM; there should be no need to
+    # inherit from FARGModel.
     def fill_slipnet(self):
         self.slipnet.add_layer2_nodes(
             Consume(operator, (a, b))
@@ -126,6 +129,7 @@ class TestFARGModel(unittest.TestCase):
         lp.go(fm)  # TODO Call fm.go() and let it fill in args?
         # TODO A threshold for painting
         self.assertEqual(ca[1], state1)
+        self.assertTrue(fm.is_mutual_support(lp, cr))
 
     def test_no_duplicate(self):
         fm = FARGModel()
@@ -168,11 +172,11 @@ class TestFARGModel(unittest.TestCase):
         cr1 = fm.build(CellRef(ca, 1))
         
         # TODO The Detector should only look within ca
-        det = fm.build(AvailDetector(9, CellRef, RaiseException(TestFound)))
+        det = fm.build(AvailDetector(9, CellRef, RaiseException(TestFoundIt)))
         det.look(fm)
 
         fm.paint(cr1, SeqState((6, 9), ArithDelta((4, 5), 9, plus)))
-        with self.assertRaises(TestFound):
+        with self.assertRaises(TestFoundIt):
             for _ in range(40):
                 det.look(fm)
         
@@ -194,8 +198,10 @@ class TestFARGModel(unittest.TestCase):
         self.assertEqual(fm.builder_of(lp), co)
         self.assertEqual(fm.ae_weight(co, lp), fm.mutual_support_weight)
         #TODO UT behalf_of
-        self.assertCountEqual(fm.neighbors(co), [lp])
-        self.assertEqual(fm.degree(co), 1)
+        #self.assertCountEqual(fm.neighbors(co), [lp])
+        self.assertIn(lp, fm.neighbors(co))
+        self.assertIn(cr0, fm.neighbors(co))
+        self.assertIn(cr1, fm.neighbors(co))
 
         self.assertCountEqual(cr1.avails, [])
         fm.run(lp)
@@ -216,57 +222,90 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(fm.is_tagged(co, Blocked))
         self.assertTrue(fm.is_blocked(co))
         self.assertFalse(fm.can_go(co))
-        # TODO assert that co is the builder_of the Blocked, and that there
-        # is mutual support between them. This will likely require writing
-        # another query function (or extending .tags_of() to find just the
-        # Blocked).
+        bl = first(e for e in fm.built_by(co) if isinstance(e, Blocked))
+        self.assertIsNotNone(bl)
+        self.assertEqual(bl.reason.avails, (4, None))
+        self.assertEqual(bl.reason.unavails, (None, 4))
+        self.assertGreater(fm.ae_weight(co, bl), 0.0)
         # TODO assert that the Blocked has the right ValuesNotAvail.
 
-    def test_want(self):
+    def test_want_w_forced(self):
         fm = TestFM()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
         cr0 = fm.build(CellRef(ca, 0))
         cr1 = cr0.next_cellref()
         wa = fm.build(
-            Want(target=15, startcell=cr0, sk=RaiseException(TestFound))
+            Want(target=15, startcell=cr0, sk=RaiseException(TestFoundIt)),
+            min_a = 4.0
         )
-        co0 = Consume(plus, (5, 4))
-        fm.run(wa, force_slipnet_result=[co0])
-        co = fm.the(co0)
+        # TODO assert that cr1 got build as an Elem in the ws?
+        self.assertEqual(fm.a(wa), 4.0)
+
+        # The Want should build a Consume
+        expected_co = Consume(plus, (5, 4))
+        fm.run(wa, force_slipnet_result=[expected_co])
+        co = fm.the(expected_co)
         self.assertEqual(co, Consume(plus, (5, 4), source=cr0, dest=cr1))
         self.assertEqual(fm.builder_of(co), wa)
-        # NEXT assert that co was built by wa; better yet, query for BuiltBy(wa)
+        self.assertIn(co, fm.built_by(wa))
 
+        # The Consume should build a LitPainter
         fm.run(co)
-        #pr(fm, edges=True) #DEBUG
+        expected_value = SeqState((6, 9), ArithDelta((5, 4), 9, plus))
+        lp = fm.the(LitPainter)
+        self.assertEqual(lp, LitPainter(cr1, expected_value))
+        self.assertTrue(fm.is_mutual_support(co, lp))
 
+        # The LitPainter shouldn't paint yet: activation is too low
+        self.assertFalse(fm.ok_to_paint(lp, cr1))
+
+        # Eventually, the LitPainter should be able to paint
+        fm.propagate_a(num=20)
+        pr(fm, edges=True) #DEBUG
+        self.assertTrue(fm.ok_to_paint(lp, cr1))
         # TODO Somehow the cr1 object needs to get built in the ws so activation
         # can flow through it.
         #cr1a = fm.the(cr1)
         #self.assertEqual(cr1a, cr1)
+
+        #NEXT flow support to LitPainter until it paints
         
         """
+        MIN PATH TO DEMOABLE AGAIN
+
+        threshold to really paint
+
+        once a Consume or LitPainter is Done, .can_go() == False
+
+        do a timestep
+            query the ws; choose by activation
+
+
         Blocked: build a Detector for the missing operand, and build an
         agent to scout for avail operands.
+
+        min_a for Want
+
+        Want gives support to promising LitPainters, Consumes
+        
+
+        TODO
+        Specify Slipnet features func in FARGModel ctor.
+
+        some unit tests to verify that the slipnet is returning reasonable
+        Consumes
 
         override contents of a Consume
         fill in a Blank?
 
-        query the ws; choose by activation
-
         query for avails
 
-        filter predicate: Exclude
+        filter predicate: BuiltBy
 
         tag something
         Blocked as an Agent
 
         tag GettingCloser
-
-        threshold to really paint
-
-        query the slipnet: hardcoded result
-        query the slipnet: for real
 
         'slip' a Consume: Blank that wants to be filled with avails
         TakeAvailsScout: paint avails on a Consume
@@ -275,11 +314,15 @@ class TestFARGModel(unittest.TestCase):
         Want gives activation to promising Consumes
         Want.go() returns codelets?
 
-        do a timestep
-
         "Backtrack": erase a canvas and start over
 
+        a Promisingness scout
+
         (later)
+        A Cell or CellRef should store the threshold to paint on it. Possibly
+        a minimum activation level for the painter, and/or 'the painter clearly
+        beats its competition.'
+
         ImLitPainter: represents a move that we can't do yet because we lack
         avails; not as promising as a LitPainter that can really go
 

@@ -34,7 +34,7 @@ from FMGraphs import ActivationGraph
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement, clip, reseed, default_field_value, d_subset, \
-    fields_for, filter_none
+    fields_for, filter_none, force_setattr
 
 
 # Global functions
@@ -164,6 +164,11 @@ class ValuesNotAvail(Exception):
     avails: Tuple[Hashable]
     unavails: Tuple[Hashable]
 
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.container}, avails={self.avails}, unavails={self.unavails})'
+        
+
 # Generic FARG model
 
 @dataclass
@@ -212,6 +217,8 @@ class FARGModel:
         obj = args[0]
         builder = kwargs.pop('builder', None)
         init_a = kwargs.pop('init_a', None)
+        min_a = kwargs.pop('min_a', None) # only has effect on true build
+        max_a = kwargs.pop('max_a', None) # only has effect on true build
         if obj is None:  # attempting to build None builds nothing
             return None
         eiws = self.get_eiws(obj)
@@ -222,17 +229,22 @@ class FARGModel:
                     init_a = 1.0
                 else:
                     init_a = min(1.0, self.a(builder))
+            if min_a is not None:
+                force_setattr(obj, 'min_a', min_a)
+            min_a = getattr(obj, 'min_a', None)
+            if max_a is not None:
+                force_setattr(obj, 'max_a', max_a)
+            max_a = getattr(obj, 'max_a', None)
+            init_a = clip(min_a, max_a, init_a)
             self.activation_g.add_node(obj, a=init_a)
             # create antipathy between obj and its enemies
             for elem in self.elems(HasAntipathyTo(obj, ignore=builder)):
                 self.add_mutual_antipathy(obj, elem)
-            '''
-            # .on_build
+            # call the obj's .on_build() method
             try:
-                obj.on_build(self)
+                obj.on_build(self, **kwargs)
             except AttributeError:
                 pass
-            '''
         else:  # the Elem is already there, so don't build a new one
             obj = eiws.elem
         if builder:
@@ -295,6 +307,13 @@ class FARGModel:
     def deactivate(self, node: Hashable):
         self.activation_g.nodes[node]['a'] = 0.0
 
+    def propagate_a(self, num: int=1):
+        '''Propagate activation. num is the number of iterations--how many
+        times we call the propagator, not how many spreading steps happen
+        in each iteration.'''
+        for _ in range(num):
+            self.activation_g.propagate()
+
     # Support
 
     def add_mutual_support(
@@ -324,7 +343,7 @@ class FARGModel:
 
     # Querying
 
-    def search_ws(
+    def ws_query(
         self,
         pred: Union[Type, Callable, None]=None,
         min_a: Union[float, None]=None,
@@ -399,6 +418,13 @@ class FARGModel:
             return None
         return eiws.builder
 
+    def built_by(self, agent: Agent) -> Collection[Elem]:
+        # TODO Optimize: this checks all Elems in the ws
+        return [
+            e for e in self.elems()
+                if self.builder_of(e) is agent
+        ]
+
     def has_antipathy_to(self, a: Hashable, b: Hashable) -> bool:
         try:
             return a.has_antipathy_to(b)
@@ -414,6 +440,11 @@ class FARGModel:
 
     def can_go(self, agent: Agent) -> bool:
         return agent.can_go(self)
+
+    def ok_to_paint(self, painter: Agent, cellref: 'CellRef') -> bool:
+        # TODO Check that the painter beats its competition?
+        # TODO Get threshold information from cellref?
+        return self.a(painter) >= 1.0
 
     # Debugging and reporting
 
@@ -432,6 +463,13 @@ class FARGModel:
         #print(self.elines(self.elems(), tofile=result))
         self.pr(tofile=result, show_n=True)
         return result.getvalue()
+
+    def is_mutual_support(self, a: Elem, b: Elem) -> bool:
+        return (
+            self.ae_weight(a, b) > 0.0
+            and
+            self.ae_weight(b, a) > 0.0
+        )
 
     def l1str(self, eiws: Union[ElemInWS, Elem], indent=None) -> str:
         '''The one-line string for a ws elem, showing its activation.'''
@@ -577,6 +615,8 @@ class Canvas(ABC):
 class SeqCanvas(Canvas):
     states: List[SeqState] = field(default_factory=list)
 
+    min_a: ClassVar[float] = 1.0
+
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
         #print('SEQCGET', addr, len(self.states))
@@ -662,17 +702,24 @@ class AvailDetector(Detector):
     # TODO Don't look at things previously found
     def look(self, fm):
         # TODO Should has_avail_value be included in pred?
-        found = set(fm.search_ws(self.filter))
+        found = set(fm.ws_query(self.filter))
         # TODO log found
         for elem in found:
             if has_avail_value(elem, self.target):
                 # TODO action should be a codelet
                 self.action(fm, elem)
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.target}, {self.action})'
     
 @dataclass(frozen=True)
 class LitPainter(Agent):
     cellref: CellRef
     value: Value
+
+    def on_build(self, fm, **kwargs):
+        fm.build(self.cellref, builder=self)
 
     def go(self, fm, **kwargs):
         fm.paint(self.cellref, self.value)
@@ -700,11 +747,23 @@ class Blocked(Agent):
     reason: Hashable
 
     def go(self, fm: FARGModel):
-        # TODO The .reason might not have a .try_to_fix method (and probably
-        # shouldn't).
-        #self.reason.try_to_fix(fm, behalf_of=self.taggee, builder=self)
         #fm.build(GoIsDone(taggee=self))
         raise NotImplementedError
+        [
+            After(Removed(self))
+            #Maybe get some more context from the ws, like the behalf_of
+            #of the taggee and what's in the SeqCanvas.
+        ]
+        # Get one or two Agents from the slipnet.
+        # Build them, orienting them to self and/or taggee.
+        # Should get: Detector with follow-up of rerunning the Consume
+        # on a different cell. And a TakeAvailsScout that will make a Consume
+        # whose operands are avail now, with the same operator. Both of these
+        # are really slippages of the original Consume: SlipWaitForAvail and
+        # SlipToAvail.
+
+        # Instead of simply building a copy of what we get from the slipnet,
+        # we should build a Copycat agent to do the reorienting and slipping.
 
     def can_go(self, fm):
         return True
@@ -748,19 +807,11 @@ class Consume(Agent):
     source: Union[CellRef, None] = None  # where to get operands
     dest: Union[CellRef, None] = None    # where to paint result
 
-    def go(self, fm, *args, **kwargs):
-        try:
-            taken_avails, remaining_avails = \
-                self.source.take_avails(self.operands)
-        except ValuesNotAvail as exc:
-            # tag self as Blocked
-            fm.build(Blocked(taggee=self, reason=exc), builder=self)
-            return
-        result = self.operator.call(*taken_avails)
-        new_avails = tuple(remaining_avails) + (result,)
-        delta = StateDelta(tuple(taken_avails), result, self.operator)
-        s1 = SeqState(new_avails, delta)
+    def on_build(self, fm: FARGModel, **kwargs):
+        fm.build(self.source, builder=self)
+        fm.build(self.dest, builder=self)
 
+    def go(self, fm, *args, **kwargs):
         try:
             s1 = self.operator.consume(self.source, self.operands)
         except ValuesNotAvail as exc:
@@ -805,6 +856,9 @@ class Want(Agent):
 
     max_a: ClassVar[float] = 4.0
 
+    def on_build(self, fm: FARGModel, **kwargs):
+        fm.build(self.startcell, builder=self)
+
     def go(self, fm: FARGModel, **kwargs):
         # TODO Don't build these if they're already built
         fm.build(
@@ -840,6 +894,7 @@ class Want(Agent):
             # TODO We need a way to get an Agent from the slipnet that means
             # something like "Just add what you have."
             #print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
+        # TODO Save the results of the pulse so we can inspect it later.
         dest = source.next_cellref()
         for agent in agents:
             if isinstance(agent, Consume):  #HACK
