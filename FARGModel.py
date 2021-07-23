@@ -1375,9 +1375,11 @@ class GettingCloser:
     class Tagger(Detector):
         target: Number
 
+        # TODO How about inspecting Consumes?
+        # TODO How to focus search, e.g. on what's recently built?
+        # TODO Skip things already tagged.
         def look(self, fm):
-            found = fm.ws_query(LitPainter)
-            if found is not None:
+            for found in fm.ws_query(LitPainter):
                 weight = GettingCloser.calc_weight(found, self.target)
                 if weight > 0.001:
                     tag = fm.build(GettingCloser(

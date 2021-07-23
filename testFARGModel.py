@@ -317,7 +317,6 @@ class TestFARGModel(unittest.TestCase):
         fm.do_timestep(until=10)
         self.assertEqual(fm.t, 10)
         self.assertGreaterEqual(len(fm), 5)
-        #pr(fm, edges=True, seed=True, extra=True) #DEBUG
 
     def test_blocked_makes_want(self):
         fm = TestFM(seed=1)
@@ -382,6 +381,11 @@ class TestFARGModel(unittest.TestCase):
         fm.run(co)
         lp = fm.the(LitPainter)
         self.assertGreater(GettingCloser.calc_weight(lp, 15), 0.1)
+
+        tagger = fm.build(GettingCloser.Tagger(15))
+        tagger.look(fm)
+        self.assertTrue(fm.is_tagged(lp, GettingCloser))
+        #pr(fm, edges=True, seed=True, extra=True) #DEBUG
         
         
         """
@@ -389,10 +393,7 @@ class TestFARGModel(unittest.TestCase):
 
         NEXT
         tag GettingCloser
-            calc_weight
-            Get the right 'before', etc. from LitPainter (from the new value,
-            not from the cellref).
-                Make a generic before() function that works like dig_attr().
+            .look(fm, subset?)
 
         Blocked: build a scout for avail operands
             For now, don't even bother with the secondary Want
