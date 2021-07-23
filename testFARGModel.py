@@ -372,7 +372,7 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(fm.has_succeeded(lp15))
 
     # TODO Move to testNumbo.py
-    @unittest.skip('GettingCloser not implemented yet')
+    #@unittest.skip('GettingCloser not implemented yet')
     def test_gettingcloser(self):
         fm = TestFM(seed=1)
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
@@ -381,10 +381,7 @@ class TestFARGModel(unittest.TestCase):
         co = fm.build(Consume(plus, (6, 5), source=cr0, dest=cr1))
         fm.run(co)
         lp = fm.the(LitPainter)
-        pr(fm, LitPainter) #DEBUG
-        assert lp is not None
-        fm.run(lp)
-        print('UT', lp, GettingCloser.calc_weight(lp, 15))
+        self.assertGreater(GettingCloser.calc_weight(lp, 15), 0.1)
         
         
         """
@@ -395,6 +392,7 @@ class TestFARGModel(unittest.TestCase):
             calc_weight
             Get the right 'before', etc. from LitPainter (from the new value,
             not from the cellref).
+                Make a generic before() function that works like dig_attr().
 
         Blocked: build a scout for avail operands
             For now, don't even bother with the secondary Want

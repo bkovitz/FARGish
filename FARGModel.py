@@ -873,6 +873,14 @@ class SeqState:  # TODO Inherit from Value?
         except AttributeError:
             return str(self.last_move)
 
+    @property
+    def before(self):
+        return dig_attr(self.last_move, 'before')
+
+    @property
+    def after(self):
+        return dig_attr(self.last_move, 'after')
+
     def __str__(self):
         if self.avails is None:
             avails_str = str(self.avails)
@@ -1039,6 +1047,14 @@ class LitPainter(Agent):
 
     def has_avail_value(self, v):
         return has_avail_value(self.value, v)
+
+    @property
+    def before(self):
+        return dig_attr(self.value, 'before')
+
+    @property
+    def after(self):
+        return dig_attr(self.value, 'after')
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -1372,10 +1388,9 @@ class GettingCloser:
     @classmethod
     def calc_weight(cls, elem: Elem, target: Number) \
     -> float:
-        arith_delta = dig_attr(elem, 'last_move')
-        before = dig_attr(arith_delta, 'before')
-        after = dig_attr(arith_delta, 'after')
-        #print('CALC', as_list(elem), arith_delta, before, after)
+        before = dig_attr(elem, 'before')
+        after = dig_attr(elem, 'after')
+        #print('CALC', elem, before, after)
         if before is None or after is None:
             return 0.0
         try:
