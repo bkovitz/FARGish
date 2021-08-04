@@ -18,12 +18,12 @@ from NumberMatcher import NumberMatcher
 class TestNumberMatcher(unittest.TestCase):
 
     def test_numbermatcher_one_peak(self):
-        nm = NumberMatcher(lb=1, ub=10, peaks=[4.0], peakwidth=0.001)
+        nm = NumberMatcher(lb=1, ub=10, targets=[4.0], peakwidth=0.001)
         self.assertAlmostEqual(nm.f(4.0), 1.0)
         self.assertAlmostEqual(nm.f(5.0), 0.0, places=5)
 
     def test_numbermatcher_two_peaks(self):
-        nm = NumberMatcher(lb=1, ub=10, peaks=[4.0, 6.0], peakwidth=1.0)
+        nm = NumberMatcher(lb=1, ub=10, targets=[4.0, 6.0], peakwidth=1.0)
         f0, f3, f4, f5, f6 = [nm.f(x) for x in [0.0, 3.0, 4.0, 5.0, 6.0]]
         #print(f0, f3, f4, f5, f6)
         self.assertAlmostEqual(f4, 1.0)
@@ -33,6 +33,12 @@ class TestNumberMatcher(unittest.TestCase):
         self.assertLess(f0, f3)
 
     def test_numbermatcher_no_peaks(self):
-        nm = NumberMatcher(lb=1, ub=10, peaks=[], peakwidth=1.0)
+        nm = NumberMatcher(lb=1, ub=10, targets=[], peakwidth=1.0)
         self.assertAlmostEqual(nm.f(4.0), 0.0)
         self.assertAlmostEqual(nm.f(5.0), 0.0)
+
+    def test_numbermatcher_4_40(self):
+        # Verifies match in a different order of magnitude
+        nm = NumberMatcher(lb=1, ub=10, targets=[4.0, 6.0], peakwidth=1.0)
+        self.assertAlmostEqual(nm.f(4.0), nm.f(40.0, lb=10))
+        self.assertAlmostEqual(nm.f(2.0), nm.f(20.0, lb=10))
