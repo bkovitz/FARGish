@@ -392,11 +392,12 @@ class TestFARGModel(unittest.TestCase):
         MUSTANG SALLY
 
         NEXT
-        tag GettingCloser
-            .look(fm, subset?)
+        NumberMatcher
 
         Blocked: build a scout for avail operands
             For now, don't even bother with the secondary Want
+
+        Want gives activation to nodes tagged GettingCloser
 
         'slip' a Consume: Blank that wants to be filled with avails
         TakeAvailsScout: paint avails on a Consume
@@ -442,6 +443,8 @@ class TestFARGModel(unittest.TestCase):
         the ws situation, or at least the Want.
 
         (later)
+        Detectors should skip over what they've already seen or tagged.
+
         A FARGModel method to mark an object as a delegate, or maybe pass
         that information when building it.
 

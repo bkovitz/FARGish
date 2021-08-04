@@ -12,7 +12,6 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 from numbers import Number, Real
-from math import exp
 from abc import ABC, abstractmethod
 from itertools import chain
 from copy import copy
