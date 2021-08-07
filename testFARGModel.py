@@ -387,7 +387,7 @@ class TestFARGModel(unittest.TestCase):
         #pr(fm, edges=True, seed=True, extra=True) #DEBUG
         # TODO Test the weight
 
-    def test_vals_query(self):
+    def test_vals_query_4(self):
         fm = TestFM()
         self.assertEqual(fm.vals_query([1, 2, 3, 4, 5], 4), [4])
         self.assertEqual(fm.vals_query([1, 2, 3, 5], 4), [])

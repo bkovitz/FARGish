@@ -16,6 +16,8 @@ import math
 from abc import ABC, abstractmethod
 from itertools import chain
 
+from util import as_list
+
 
 @dataclass
 class NumberMatcher:
@@ -55,10 +57,18 @@ class NumberMatcher:
     # TODO Let caller specify lb and ub?
     # TODO Allow multiple targets.
     @classmethod
-    def make(cls, target: int) -> Callable[[Any], float]:
-        lb, ub = oom_bounds(target)
+    def make(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
+    -> Callable[[Any], float]:
+        #lb, ub = oom_bounds(target)
+        targets = as_list(targets)
+        if not targets:
+            lb, ub = oom_bounds(0)
+        else:
+            bs = list(chain.from_iterable(oom_bounds(t) for t in targets))
+            lb = min(bs)
+            ub = max(bs)
         return NumberMatcher(
-            lb=lb, ub=ub, targets=[target], peakwidth=0.01
+            lb=lb, ub=ub, targets=targets, peakwidth=peakwidth
         )
 
 # TODO UT

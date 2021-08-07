@@ -62,3 +62,19 @@ class TestNumberMatcher(unittest.TestCase):
         lb, ub = oom_bounds(0)
         self.assertEqual(lb, -1)
         self.assertEqual(ub, +1)
+
+    def test_numbermatcher_make_4(self):
+        nm = NumberMatcher.make(4)
+        self.assertEqual(nm.lb, 1)
+        self.assertEqual(nm.ub, 10)
+        self.assertAlmostEqual(nm(4), 1.0)
+        self.assertAlmostEqual(nm(5), 0.0, places=4)
+        
+    def test_numbermatcher_make_4_or_5(self):
+        nm = NumberMatcher.make(4, 5)
+        self.assertEqual(nm.lb, 1)
+        self.assertEqual(nm.ub, 10)
+        self.assertAlmostEqual(nm(4), 1.0)
+        self.assertAlmostEqual(nm(5), 1.0)
+        self.assertAlmostEqual(nm(6), 0.0, places=4)
+        
