@@ -66,6 +66,13 @@ def oom_bounds(target: int) -> Tuple[int, int]:
     '''Returns (lb, ub): lower and upper bounds of order of magnitude that
     contains target.'''
     # TODO Handle zero
-    # TODO Handle negative numbers
-    characteristic = int(log10(target))
-    return (10 ** characteristic, 10 ** (characteristic + 1))
+    sgn = copysign(1.0, target)
+    if target == 0:
+        return (-1, +1)
+    characteristic = int(log10(abs(target)))
+    lb, ub = 10 ** characteristic, 10 ** (characteristic + 1)
+    if sgn >= 0.0:
+        return (lb, ub)
+    else:
+        return (-ub, -lb)
+        

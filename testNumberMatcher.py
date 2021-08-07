@@ -12,7 +12,7 @@ from operator import itemgetter, attrgetter
 
 from util import pr, pts, is_iter, first
 
-from NumberMatcher import NumberMatcher
+from NumberMatcher import NumberMatcher, oom_bounds
 
 
 class TestNumberMatcher(unittest.TestCase):
@@ -42,3 +42,23 @@ class TestNumberMatcher(unittest.TestCase):
         nm = NumberMatcher(lb=1, ub=10, targets=[4.0, 6.0], peakwidth=1.0)
         self.assertAlmostEqual(nm.f(4.0), nm.f(40.0, lb=10))
         self.assertAlmostEqual(nm.f(2.0), nm.f(20.0, lb=10))
+
+    def test_oom_bounds_4(self):
+        lb, ub = oom_bounds(4)
+        self.assertEqual(lb, 1)
+        self.assertEqual(ub, 10)
+
+    def test_oom_bounds_10(self):
+        lb, ub = oom_bounds(10)
+        self.assertEqual(lb, 10)
+        self.assertEqual(ub, 100)
+
+    def test_oom_bounds_minus_4(self):
+        lb, ub = oom_bounds(-4)
+        self.assertEqual(lb, -10)
+        self.assertEqual(ub, -1)
+
+    def test_oom_bounds_0(self):
+        lb, ub = oom_bounds(0)
+        self.assertEqual(lb, -1)
+        self.assertEqual(ub, +1)
