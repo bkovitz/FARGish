@@ -31,6 +31,7 @@ import matplotlib.pyplot as plt
 from FMTypes import Elem, Elems, Value, Addr, FMPred
 from Slipnet import Slipnet, empty_slipnet, Before, After
 from FMGraphs import ActivationGraph
+from NumberMatcher import NumberMatcher
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement, clip, reseed, default_field_value, d_subset, \
@@ -39,7 +40,7 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
 
 # Global functions
 
-def as_fmpred(o: FMPred) -> Callable:
+def as_fmpred(o: FMPred) -> Callable[['FARGModel', ...], bool]:
     '''Returns a predicate function that takes two arguments: a FARGModel and
     an object.'''
     # TODO Document the many ways this thing constructs a function.
@@ -69,6 +70,14 @@ def first_arg_is_fargmodel(o: Callable) -> bool:
         return issubclass(p0.annotation, FARGModel)
     except TypeError:
         return False
+
+# TODO Type hint for 'o': int, str, fn
+def as_mpred(o) -> Callable[[Hashable], float]:
+    if isinstance(o, int):
+        return NumberMatcher.make(o)
+    raise NotImplementedError(
+        f"Can't convert {type(o)} into match predicate: {o}"
+    )
 
 def match_wo_none(other, obj_template) -> bool:
     '''Does obj_template == other if we ignore any fields in obj_template
@@ -459,6 +468,35 @@ class FARGModel:
         yield from sample_without_replacement(
             elems, weights=activations, k=max_n
         )
+
+    # TODO Make an MPred type: things that are or can be made into a predicate
+    # that returns a number indicating quality of match.
+    # TODO Make as_mpred().
+    def vals_query(self, vals: Iterable, mpred: Callable, k: int=1) -> Iterable:
+        '''Returns up to k values from vals, chosen randomly with weight
+        returned by mpred.'''
+        vals, weights = self.vals_weights(vals, mpred)
+        return list(sample_without_replacement(
+            vals, weights=weights, k=k
+        ))
+
+    def vals_weights(self, vals: Iterable, mpred: Callable, threshold=0.1) \
+    -> Tuple[List[Any], List[float]]:
+        '''Returns vals and weights, weighted by mpred. Filters out vals
+        whose weights are below threshold.'''
+        # TODO Add noise.
+        # TODO Involve the slipnet. Pass activations_in and/or features of
+        # the vals.
+        mpred = as_mpred(mpred)
+        vs = []
+        ws = []
+        for v in as_list(vals):
+            w = mpred(v)
+            if w < threshold:
+                continue
+            vs.append(v)
+            ws.append(w)
+        return (vs, ws)
 
     def is_tagged(self, elems, tagpred) -> bool:
         '''Are any of elems tagged with a tag matching tagpred?'''

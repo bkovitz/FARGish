@@ -47,7 +47,10 @@ def as_iter(o):
         return [o]
 
 def as_list(o):
-    return list(as_iter(o))
+    if isinstance(o, list):
+        return o
+    else:
+        return list(as_iter(o))
 
 def as_set(o):
     '''Converts o to a set if it isn't a set already.'''

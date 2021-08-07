@@ -371,7 +371,6 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(fm.has_succeeded(lp15))
 
     # TODO Move to testNumbo.py
-    #@unittest.skip('GettingCloser not implemented yet')
     def test_gettingcloser(self):
         fm = TestFM(seed=1)
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
@@ -386,6 +385,13 @@ class TestFARGModel(unittest.TestCase):
         tagger.look(fm)
         self.assertTrue(fm.is_tagged(lp, GettingCloser))
         #pr(fm, edges=True, seed=True, extra=True) #DEBUG
+        # TODO Test the weight
+
+    def test_vals_query(self):
+        fm = TestFM()
+        self.assertEqual(fm.vals_query([1, 2, 3, 4, 5], 4), [4])
+        self.assertEqual(fm.vals_query([1, 2, 3, 5], 4), [])
+        #print('UT', str(fm.vals_query([1, 2, 3, 4, 5], 4)))
         
         
         """

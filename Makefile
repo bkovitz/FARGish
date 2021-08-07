@@ -27,7 +27,7 @@ full_ut:
 	$(PY) -m unittest -v
 
 ut:
-	$(PY) -m unittest -v testFARGModel testSlipnet
+	$(PY) -m unittest -v testFARGModel testSlipnet testNumberMatcher
 
 lut:
 	$(PY) -m unittest -v `cat LIVETEST`
