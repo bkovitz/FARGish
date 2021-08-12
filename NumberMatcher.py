@@ -142,12 +142,11 @@ class SumOfMatchers:
         ]
 
     def __call__(self, x, lb=None) -> float:
-        #return max((m(x, lb=lb) for m in self.matchers), default=0.0)
         return min([1.0, sum(m(x, lb=lb) for m in self.matchers)])
 
 # This might be the right way to do NumbleTupleMatcher, but that's not clear
 # as of 11-Aug-2021, so I'm going with the simpler approach in
-# NumberTupleMatcher.
+# NumberTupleMatcher for now. (BEN)
 class WrongNumberTupleMatcher:
     '''A horrible hack way of matching against a tuple. We just try all the
     possible sequences of matchers for the individual members of the tuple
@@ -206,7 +205,7 @@ class NumberTupleMatcher:
             replace(m, lb=self.lb, ub=self.ub) for m in self.matchers
         ]
 
-    def __call__(self, x: Union[int, None, Sequence[int]]) -> float:
+    def __call__(self, x, lb=None) -> float:
         '''How well does x satisfy 'has an element for each of the matchers'?'''
         x = list(as_iter(x))  # local copy of x, so we can remove items
                               # when matched
@@ -216,7 +215,7 @@ class NumberTupleMatcher:
         best_matches: List[IndexAndWeight] = []
         for m in self.matchers:
             bm = max(
-                (IndexAndWeight(i, m(x[i])) for i in range(len(x))),
+                (IndexAndWeight(i, m(x[i], lb=lb)) for i in range(len(x))),
                 key=attrgetter('w')
             )
             if bm.w < 0.001:

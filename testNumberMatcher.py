@@ -108,9 +108,14 @@ class TestNumberMatcher(unittest.TestCase):
         self.assertGreater(nm((4, 5)), 0.0)
         self.assertLess(nm((4, 5)), 1.0)
 
-    def test_numbermatcher_make_4_and_5(self):
+    def test_tuple_4_5(self):
         nm = NumberMatcher.make((4, 5))
         self.assertEqual(nm.lb, 1)
         self.assertEqual(nm.ub, 10)
         self.assertAlmostEqual(nm((4, 5)), 1.0)
         self.assertAlmostEqual(nm((4, 4)), 0.0, places=4)
+
+    def test_tuple_4_5_against_40_50(self):
+        nm = NumberMatcher.make((4, 5))
+        self.assertAlmostEqual(nm((40, 50), lb=10), 1.0)
+        self.assertAlmostEqual(nm((4, 5), lb=10), 0.0, places=4)
