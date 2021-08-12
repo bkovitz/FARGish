@@ -19,11 +19,11 @@ from functools import reduce
 import operator
 from operator import attrgetter
 
-from util import as_list, as_iter
+from util import as_list, as_iter, is_iter
 
 
 @dataclass
-class SingleNumberMatcher:
+class OLDSingleNumberMatcher:
     lb: float
     ub: float
     targets: Sequence[float]
@@ -58,11 +58,35 @@ class SingleNumberMatcher:
             (math.pi * (x - target)**2 + (self.peakwidth / 2.0)**2)
         )
 
+@dataclass
+class SingleNumberMatcher:
+    target: float
+    peakwidth: float
+    lb: float = field(default=None)
+    ub: float = field(default=None)
+
+    multiplier: float = field(default=1.0, init=False)
+
+    def __post_init__(self):
+        if self.lb is None or self.ub is None:
+            self.lb, self.ub = oom_bounds(self.target)
+        self.multiplier = 1.0 / self(self.target)
+
+    def __call__(self, x: float, lb: float=None) -> float:
+        if lb is not None:
+            x /= lb / self.lb
+        return self.multiplier * (
+            self.peakwidth
+            /
+            (math.pi * (x - self.target)**2 + (self.peakwidth / 2.0)**2)
+        )
+
+
 class NumberMatcher:
     # TODO Let caller specify lb and ub?
     # TODO Allow multiple targets.
     @classmethod
-    def make(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
+    def OLDmake(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
     -> Callable[[Any], float]:
         #lb, ub = oom_bounds(target)
         targets = as_list(targets)
@@ -76,8 +100,54 @@ class NumberMatcher:
             lb=lb, ub=ub, targets=targets, peakwidth=peakwidth
         )
 
+    @classmethod
+    def make(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
+    -> Callable[[Any], float]:
+        if len(targets) == 1:
+            return cls.matcher_for_one_target(targets[0], peakwidth=peakwidth)
+        else:
+            return cls.Or(*(
+                cls.make(t, peakwidth=peakwidth) for t in as_iter(targets)
+            ))
+
+    @classmethod
+    def Or(cls, *matchers) -> Callable[[Any], float]:
+        if len(matchers) == 1:
+            return matchers[0]
+        else:
+            return SumOfMatchers(matchers)
+
+    @classmethod
+    def matcher_for_one_target(cls, target, peakwidth=0.01) \
+    -> Callable[[Any], float]:
+        if is_iter(target):
+            return NumberTupleMatcher(tuple(
+                cls.make(t, peakwidth=peakwidth) for t in target
+            ))
+        else:
+            return SingleNumberMatcher(target, peakwidth=peakwidth)
+
+@dataclass
+class SumOfMatchers:
+    matchers: Sequence
+
+    lb: float = field(default=None)
+    ub: float = field(default=None)
+
+    def __post_init__(self):
+        if self.lb is None or self.ub is None:
+            self.lb, self.ub = oom_for_all(self.matchers)
+        self.matchers = [
+            replace(m, lb=self.lb, ub=self.ub) for m in self.matchers
+        ]
+
+    def __call__(self, x, lb=None) -> float:
+        #return max((m(x, lb=lb) for m in self.matchers), default=0.0)
+        return min([1.0, sum(m(x, lb=lb) for m in self.matchers)])
+
 # This might be the right way to do NumbleTupleMatcher, but that's not clear
-# as of 11-Aug-2021, so I'm going with a simpler approach.
+# as of 11-Aug-2021, so I'm going with the simpler approach in
+# NumberTupleMatcher.
 class WrongNumberTupleMatcher:
     '''A horrible hack way of matching against a tuple. We just try all the
     possible sequences of matchers for the individual members of the tuple
@@ -126,8 +196,18 @@ class NumberTupleMatcher:
     but it's simple and it'll do for now. 11-Aug-2021.'''
     matchers: Sequence[SingleNumberMatcher]
 
+    lb: float = field(default=None)
+    ub: float = field(default=None)
+
+    def __post_init__(self):
+        if self.lb is None or self.ub is None:
+            self.lb, self.ub = oom_for_all(self.matchers)
+        self.matchers = [
+            replace(m, lb=self.lb, ub=self.ub) for m in self.matchers
+        ]
+
     def __call__(self, x: Union[int, None, Sequence[int]]) -> float:
-        '''How well does x match self.targetss?'''
+        '''How well does x satisfy 'has an element for each of the matchers'?'''
         x = list(as_iter(x))  # local copy of x, so we can remove items
                               # when matched
         if len(x) < len(self.matchers):
@@ -143,7 +223,6 @@ class NumberTupleMatcher:
                 return 0.0
             best_matches.append(bm)
             del x[bm.i]
-        print('NTM', best_matches)
         return reduce(operator.mul, (bm.w for bm in best_matches))
                 
 # TODO UT
@@ -161,3 +240,9 @@ def oom_bounds(target: int) -> Tuple[int, int]:
     else:
         return (-ub, -lb)
         
+
+def oom_for_all(matchers) -> Tuple[int, int]:
+    bs = list(chain.from_iterable((m.lb, m.ub) for m in matchers))
+    lb = min(bs)
+    ub = max(bs)
+    return lb, ub
