@@ -34,7 +34,7 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testVirtualGraph.TestVirtualGraph
+	$(PY) -m unittest -v testGraph.TestGraph
 	#$(PY) -m unittest -v testNumberMatcher.TestNumberMatcher
 	#$(PY) -m unittest -v testNumbo.TestNumbo.test_simple_glom
 	#$(PY) -m unittest -v testFARGish2.TestFARGish2.test_global_params
