@@ -391,6 +391,10 @@ class TestFARGModel(unittest.TestCase):
         fm = TestFM()
         self.assertEqual(fm.vals_query([1, 2, 3, 4, 5], 4), [4])
         self.assertEqual(fm.vals_query([1, 2, 3, 5], 4), [])
+
+        #TODO
+        #self.assertEqual(fm.vals_query([1, 2, 3, 4, 5], (3, 5)), [(3, 5)])
+        #TODO Pass vals_query() a tuple-matcher.
         #print('UT', str(fm.vals_query([1, 2, 3, 4, 5], 4)))
         
         
@@ -398,7 +402,10 @@ class TestFARGModel(unittest.TestCase):
         MUSTANG SALLY
 
         NEXT
-        NumberMatcher
+        vals_query() for a tuple
+            NumberMatcher
+
+            pulse an extended slipnet?
 
         Blocked: build a scout for avail operands
             For now, don't even bother with the secondary Want

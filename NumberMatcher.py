@@ -224,7 +224,6 @@ class NumberTupleMatcher:
             del x[bm.i]
         return reduce(operator.mul, (bm.w for bm in best_matches))
                 
-# TODO UT
 def oom_bounds(target: int) -> Tuple[int, int]:
     '''Returns (lb, ub): lower and upper bounds of order of magnitude that
     contains target.'''
@@ -238,7 +237,6 @@ def oom_bounds(target: int) -> Tuple[int, int]:
         return (lb, ub)
     else:
         return (-ub, -lb)
-        
 
 def oom_for_all(matchers) -> Tuple[int, int]:
     bs = list(chain.from_iterable((m.lb, m.ub) for m in matchers))
