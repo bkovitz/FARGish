@@ -402,6 +402,20 @@ class TestFARGModel(unittest.TestCase):
         MUSTANG SALLY
 
         NEXT
+        Test slipnet hypothesis
+
+            Graph.augment  DONE
+
+            Construct graph of Equations
+
+                Construct feature nodes
+
+                Mutual inhibition
+
+                Test on pons asinorum
+
+            Augment with pons asinorum
+
         vals_query() for a tuple
             NumberMatcher
 
