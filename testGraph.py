@@ -23,6 +23,7 @@ class AlphabetGraph(Graph):
             yield chr(c)
 
     def has_node(self, x):
+        print('ALPHAS', x)
         try:
             return len(x) == 1 and x >= 'a' and x <= 'z'
         except TypeError:
@@ -62,7 +63,7 @@ class Graph123(WantEdges, LiteralGraph):
 
     def __init__(self):
         super().__init__(
-            literals=[1, 2, 3], want_edges={1: 'a', 2: 'b', 3: 'c'}
+            literals=[1, 2, 3], want_edges={1: {'a'}, 2: 'b', 3: 'c'}
         )
     
 
@@ -125,9 +126,16 @@ class TestGraph(unittest.TestCase):
     def test_augment_graph(self):
         g1 = AlphabetGraph()
         g2 = Graph123()
-        #g = Graph.augment(g2, g1)
+        g = Graph.augment(g2, g1)
 
         self.assertTrue(g2.has_node(1))
         self.assertFalse(g2.has_node('a'))
         self.assertFalse(g2.find_hop(1, 'a'))
-        #self.assertTrue(g.find_hop(1, 'a'))
+
+        print('UT', list(g1.all_nodes()), list(g2.all_nodes()))
+        self.assertTrue(g.has_node(1))
+        self.assertTrue(g.has_node('a'))
+        self.assertCountEqual(g.all_nodes(),
+            [1, 2, 3] + list('abcdefghijklmnopqrstuvwxyz')
+        )
+        self.assertTrue(g.find_hop(1, 'a'))

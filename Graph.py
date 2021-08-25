@@ -6,8 +6,9 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     Sequence, Literal
 from dataclasses import dataclass
 import math
+from itertools import chain
 
-from util import empty_set
+from util import empty_set, first_non_none, unique_everseen
 
 
 Node = Hashable
@@ -90,6 +91,11 @@ class Graph(ABC):
         '''An iterable of all the predecessor nodes of x.'''
         pass
 
+    @classmethod
+    def augment(cls, *graphs: 'Graph') -> 'Graph':
+        #TODO docstring
+        return GraphSeries(graphs)
+
 @dataclass
 class NoEdges(Graph):
     '''Has methods that override those in Graph to return no edges, with
@@ -125,6 +131,7 @@ class LiteralGraph(NoEdges):
 
 @dataclass
 class WantEdges(Graph):
+    #TODO docstring
     want_edges: Dict[Node, FrozenSet[Node]]
 
     def __init__(self, want_edges, **kwargs):
@@ -132,6 +139,13 @@ class WantEdges(Graph):
         super().__init__(**kwargs)
 
     def find_hop(self, from_node, to_node):
+        print('WAE', from_node, to_node,
+            self.has_node(from_node),
+            to_node in self.want_edges.get(from_node, empty_set),
+            self.has_node(to_node),
+            self.__class__,
+            self.all_nodes(),
+        )
         if (
             self.has_node(from_node)
             and
@@ -148,3 +162,47 @@ class WantEdges(Graph):
     def predecessors_of(self, to_node):
         raise NotImplementedError
         
+@dataclass
+class GraphSeries(Graph):
+    graphs: Sequence[Graph]
+    
+    def __len__(self):
+        raise NotImplementedError
+
+    def all_nodes(self):
+        return unique_everseen(chain.from_iterable(
+            g.all_nodes() for g in self.graphs)
+        )
+
+    def has_node(self, x):
+        return any(g.has_node(x) for g in self.graphs)
+
+    def hops_from_node(self, x):
+        raise NotImplementedError
+
+    def hops_to_node(self, x):
+        raise NotImplementedError
+
+    # BUG g.find_hop() calls its own has_node(), not our override.
+    # Consequently WantEdges.find_hop() doesn't see augmented nodes.
+    def find_hop(self, from_node, to_node):
+        for g in self.graphs:
+            method = g.__class__.find_hop
+            hop = method(self, from_node, to_node)
+            if hop is not None:
+                return hop
+        '''
+        return first_non_none(
+            g.find_hop(from_node, to_node) for g in self.graphs
+        )
+        '''
+
+    def successors_of(self, x):
+        return unique_everseen(chain.from_iterable(
+            g.successors_of(x) for g in self.graphs)
+        )
+
+    def predecessors_of(self, x):
+        return unique_everseen(chain.from_iterable(
+            g.predecessors_of(x) for g in self.graphs)
+        )

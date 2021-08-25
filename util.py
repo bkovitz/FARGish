@@ -11,7 +11,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, Field, fields
 from types import SimpleNamespace
-from itertools import chain, tee
+from itertools import chain, tee, filterfalse
 import functools
 
 
@@ -355,6 +355,30 @@ def first(iterable):
     '''Returns first element in iterable, or None if iterable is empty.'''
     for x in as_iter(iterable):
         return x
+
+def first_non_none(iterable):
+    '''Returns the first non-None in iterable, or None if there isn't one.'''
+    for x in as_iter(iterable):
+        if x is not None:
+            return x
+
+# Recipe from https://docs.python.org/3.7/library/itertools.html
+def unique_everseen(iterable, key=None):
+    "List unique elements, preserving order. Remember all elements ever seen."
+    # unique_everseen('AAAABBBCCDAABBB') --> A B C D
+    # unique_everseen('ABBCcAD', str.lower) --> A B C D
+    seen = set()
+    seen_add = seen.add
+    if key is None:
+        for element in filterfalse(seen.__contains__, iterable):
+            seen_add(element)
+            yield element
+    else:
+        for element in iterable:
+            k = key(element)
+            if k not in seen:
+                seen_add(k)
+                yield element
 
 def input_integers(prompt):
     '''Prompts the user to enter a list of integers separated by spaces.
