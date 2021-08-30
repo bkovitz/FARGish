@@ -9,7 +9,9 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence, Literal
 
-from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges
+from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
+    OfClass, MutualInhibition, Feature, features_of
+from util import pts, pr
 
 
 class AlphabetNodes:
@@ -57,14 +59,6 @@ def AlphabetGraph():
     where every node and edge as computed as it searched for, rather than
     each being represented explicitly by a separate object.'''
     return Graph(nodes=AlphabetNodes(), edges=AlphabetEdges())
-
-'''
-def Graph123():
-    return Graph(
-        nodes=LiteralNodes(frozenset([1, 2, 3])),
-        edges=WantEdges({1: {'a'}, 2: {'b'}, 3: {'c'}})
-    )
-'''
 
 class TestGraph(unittest.TestCase):
 
@@ -139,3 +133,51 @@ class TestGraph(unittest.TestCase):
         self.assertTrue(g.find_hop(1, 'a'))
         self.assertCountEqual(g.successors_of(2), ['b'])
         self.assertCountEqual(g.predecessors_of('b'), [2, 'a'])
+
+    def test_features(self):
+        @dataclass(frozen=True)
+        class Parity(Feature):
+            name: str
+
+        Even = Parity('Even')
+        Odd = Parity('Odd')
+
+        @dataclass(frozen=True)
+        class BaseNode:
+            n: int
+
+            def features_of(self):
+                if self.n & 1:
+                    yield Odd
+                else:
+                    yield Even
+
+        g = Graph.with_features([BaseNode(1), BaseNode(2), BaseNode(3)])
+
+        self.assertCountEqual(g.query(OfClass(Parity)), [Odd, Even])
+        self.assertCountEqual(
+            g.hops_to_node(BaseNode(1)),
+            [Hop(Odd, BaseNode(1), 1.0)]
+        )
+        self.assertCountEqual(
+            g.hops_from_node(Odd),
+            [Hop(Odd, BaseNode(1), 1.0),
+             Hop(Odd, BaseNode(3), 1.0)]
+        )
+        self.assertEqual(
+            g.find_hop(BaseNode(2), Even),
+            Hop(BaseNode(2), Even, 1.0)
+        )
+        self.assertEqual(g.find_hop(Even, Odd), None)
+
+        # Now add mutual inhibition
+        g = g.add_edges(MutualInhibition(Feature))
+
+        self.assertEqual(g.find_hop(Even, Odd), Hop(Even, Odd, -0.2))
+        self.assertEqual(g.find_hop(Odd, Even), Hop(Odd, Even, -0.2))
+
+
+if __name__ == '__main__':
+    # TODO mv this someplace where make_equations() is defined
+    g = Graph.with_features(make_equations(1, 20, {plus, minus, times})) \
+             .add_edges(MutualInhibition(Feature))

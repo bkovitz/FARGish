@@ -44,13 +44,39 @@ class Nodes(ABC):
     #TODO
     # all_nodes()
     # nodes(query)
+    @abstractmethod
+    #TODO type for q
+    def query(self, q) -> Iterable[Node]:
+        pass
+
+@dataclass(frozen=True)
+class OfClass:
+    cl: Type
 
 @dataclass
 class EnumNodes(Nodes):
     nodeset: Set[Node]  # TODO Container?
+    nodeclasses: Dict[Type, Set[Node]] = field(
+        init=False, default_factory=lambda: defaultdict(set)
+    )
+
+    def __post_init__(self):
+        for node in self.nodeset:
+            self.nodeclasses[node.__class__].add(node)
 
     def has_node(self, x):
         return x in self.nodeset
+
+    def query(self, q):
+        if isinstance(q, OfClass):
+            try:
+                yield from self.nodeclasses[q.cl]
+            except KeyError:
+                return
+        else:
+            #TODO allow multiple nodes in q
+            if q in self.nodeset:
+                yield q
 
 @dataclass
 class NodesSeries(Nodes):
@@ -58,6 +84,10 @@ class NodesSeries(Nodes):
 
     def has_node(self, x):
         return any(nodes.has_node(x) for nodes in self.nodess)
+
+    def query(self, q):
+        for nodes in self.nodess:
+            yield from nodes.query(q)
 
 class Edges(ABC):
     @abstractmethod
@@ -117,6 +147,46 @@ class EnumEdges(Edges):
             return None
 
 @dataclass
+class MutualInhibition(Edges):
+    #TODO docstring
+    superclass: Type
+    weight: float = -0.2
+
+    def hops_from_node(self, nodes, from_node):
+        if (
+            nodes.has_node(from_node)
+            and
+            isinstance(from_node, self.superclass)
+        ):
+            for to_node in nodes.query(OfClass(from_node.__class__)):
+                if to_node != from_node:
+                    yield Hop(from_node, to_node, self.weight)
+
+    def hops_to_node(self, nodes, to_node):
+        if (
+            nodes.has_node(to_node)
+            and
+            isinstance(to_node, self.superclass)
+        ):
+            for from_node in nodes.query(OfClass(to_node.__class__)):
+                if from_node != to_node:
+                    yield Hop(from_node, to_node, self.weight)
+        
+    def find_hop(self, nodes, from_node, to_node):
+        if (
+            nodes.has_node(from_node)
+            and
+            nodes.has_node(to_node)
+            and
+            isinstance(from_node, self.superclass)
+            and
+            from_node.__class__ == to_node.__class__
+            and
+            from_node != to_node
+        ):
+            return Hop(from_node, to_node, self.weight)
+
+@dataclass
 class EdgesSeries(Edges):
     edgess: Sequence[Edges]
 
@@ -145,6 +215,10 @@ class Graph:
     def has_node(self, x: Any) -> bool:
         return self.nodes.has_node(x)
 
+    #TODO type for q
+    def query(self, q) -> Iterable[Node]:
+        return self.nodes.query(q)
+
     def hops_from_node(self, x: Any) -> Iterable[Hop]:
         return self.edges.hops_from_node(self, x)
 
@@ -168,3 +242,34 @@ class Graph:
             nodes=NodesSeries([g.nodes for g in graphs]),
             edges=EdgesSeries([g.edges for g in graphs])
         )
+
+    @classmethod
+    def with_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
+        '''Makes and returns a Graph containing all nodes in base_nodess,
+        as well as a node for each feature returned by features_of, and
+        a positive edge connecting each base node to its feature nodes.'''
+        nodeset = set()
+        hopset = set()
+        for base_node in chain.from_iterable(base_nodess):
+            nodeset.add(base_node)
+            for feature_node in features_of(base_node):
+                nodeset.add(feature_node)
+                hopset.add(Hop(base_node, feature_node, 1.0))
+                hopset.add(Hop(feature_node, base_node, 1.0))
+                # TODO Special nodes for feature classes?
+                
+        return Graph(
+            nodes=EnumNodes(nodeset),
+            edges=EnumEdges(hopset)
+        )
+
+    def add_edges(self, edges: Edges) -> 'Graph':
+        return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
+
+@dataclass(frozen=True)
+class Feature:
+    pass
+
+def features_of(x: Any) -> Iterable[Node]:
+    if hasattr(x, 'features_of'):
+        yield from x.features_of()

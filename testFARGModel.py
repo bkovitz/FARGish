@@ -408,9 +408,9 @@ class TestFARGModel(unittest.TestCase):
 
             Construct graph of Equations
 
-                Construct feature nodes
+                Construct feature nodes  DONE
 
-                Mutual inhibition
+                Mutual inhibition  DONE
 
                 Test on pons asinorum
 
