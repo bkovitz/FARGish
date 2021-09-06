@@ -2,7 +2,8 @@ ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
 PY = python3
 BROWSER = open
 else
-PY = python3.7
+#PY = python3.7
+PY = python3.9
 BROWSER = google-chrome
 endif
 
