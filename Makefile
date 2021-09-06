@@ -27,14 +27,14 @@ full_ut:
 	$(PY) -m unittest -v
 
 ut:
-	$(PY) -m unittest -v testFARGModel testSlipnet testNumberMatcher testGraph2
+	$(PY) -m unittest -v testFARGModel testSlipnet testNumberMatcher testGraph2 testEquation
 
 lut:
 	$(PY) -m unittest -v `cat LIVETEST`
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testGraph2.TestGraph
+	$(PY) -m unittest -v testEquation.TestEquation
 	#$(PY) -m unittest -v testNumberMatcher.TestNumberMatcher
 	#$(PY) -m unittest -v testNumbo.TestNumbo.test_simple_glom
 	#$(PY) -m unittest -v testFARGish2.TestFARGish2.test_global_params

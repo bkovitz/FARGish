@@ -273,3 +273,7 @@ class Feature:
 def features_of(x: Any) -> Iterable[Node]:
     if hasattr(x, 'features_of'):
         yield from x.features_of()
+
+@dataclass(frozen=True)
+class FeatureWrapper(Feature):
+    feature: Union[Hashable, None] = None
