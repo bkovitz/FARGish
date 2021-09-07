@@ -78,6 +78,9 @@ class EnumNodes(Nodes):
             if q in self.nodeset:
                 yield q
 
+    def __iter__(self):
+        return iter(self.nodeset)
+
 @dataclass
 class NodesSeries(Nodes):
     nodess: Sequence[Nodes]
@@ -145,6 +148,11 @@ class EnumEdges(Edges):
             return self.hops_from[from_node][to_node]
         except KeyError:
             return None
+
+    def __iter__(self):
+        for d in self.hops_from.values():
+            for hop in d.values():
+                yield hop
 
 @dataclass
 class MutualInhibition(Edges):
@@ -244,7 +252,7 @@ class Graph:
         )
 
     @classmethod
-    def with_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
+    def OLDwith_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
         '''Makes and returns a Graph containing all nodes in base_nodess,
         as well as a node for each feature returned by features_of, and
         a positive edge connecting each base node to its feature nodes.'''
@@ -263,8 +271,43 @@ class Graph:
             edges=EnumEdges(hopset)
         )
 
+    @classmethod
+    def with_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
+        nodeset = set()
+        hopset = set()
+
+        nodes_to_do = set(chain.from_iterable(base_nodess))
+        nodes_done = set()
+        
+        while nodes_to_do:
+            base_node = nodes_to_do.pop()
+            nodes_done.add(base_node)
+            new_features = (
+                set(add_features(base_node, nodeset, hopset))
+                -
+                nodes_done
+            )
+            nodes_to_do |= new_features
+
+        return Graph(
+            nodes=EnumNodes(nodeset),
+            edges=EnumEdges(hopset)
+        )
+
     def add_edges(self, edges: Edges) -> 'Graph':
         return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
+
+def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
+    '''Update nodeset and hopset.'''
+    new_features = set()
+    nodeset.add(base_node)
+    for feature_node in features_of(base_node):
+        new_features.add(feature_node)
+        nodeset.add(feature_node)
+        hopset.add(Hop(base_node, feature_node, 1.0))
+        hopset.add(Hop(feature_node, base_node, 1.0))
+        # TODO Special nodes for feature classes?
+    return new_features
 
 @dataclass(frozen=True)
 class Feature:

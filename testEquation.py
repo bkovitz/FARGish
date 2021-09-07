@@ -10,6 +10,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     Sequence, Literal
 
 from Equation import Equation, Operator, plus, times, minus
+from Equation import IncreaseOrDecrease, Increase, Decrease, NumOperands, \
+    Before, After, MaxBefore, MinBefore
 
 from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of
@@ -23,6 +25,25 @@ class TestEquation(unittest.TestCase):
         self.assertEqual(e.result, 15)
         self.assertEqual(str(e), '3 x 5 = 15')
 
+    def test_features(self):
+        e = Equation.make([3, 4], plus)
+        self.assertCountEqual(
+            features_of(e),
+            [plus, 3, 4, 7, Before(3), Before(4), After(7), Increase,
+             MaxBefore(4), MinBefore(3), NumOperands(2)
+            ]
+        )
+
+    def test_features_graph(self):
+        e = Equation.make([3, 4], plus)
+        g = Graph.with_features([e])
+        #print(type(g.edges))
+        #pr(g.edges)
+        self.assertTrue(g.has_node(NumOperands(2)))
+        self.assertTrue(g.has_node(2))
+
 #NEXT
-# test features
+# secondary features
+#  Why do we need secondary features? To link positively betw primary and
+#  secondary feature.
 # test mutual inh

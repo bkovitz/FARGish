@@ -7,6 +7,7 @@ from dataclasses import dataclass, field, InitVar
 import math
 import operator
 from operator import itemgetter, attrgetter
+from collections import Counter
 
 from Graph2 import Node, Feature, FeatureWrapper
 
@@ -17,6 +18,9 @@ from Graph2 import Node, Feature, FeatureWrapper
 class IncreaseOrDecrease(Feature):
     name: str
 
+    def __str__(self):
+        return self.name
+
 Increase = IncreaseOrDecrease('Increase')
 Decrease = IncreaseOrDecrease('Decrease')
 
@@ -24,20 +28,43 @@ Decrease = IncreaseOrDecrease('Decrease')
 class NumOperands(Feature):
     num: int
 
+    def features_of(self):
+        yield self.num
+
+@dataclass(frozen=True)
 class Before(Feature):
     x: Node
 
+    def features_of(self):
+        yield self.x
+
+@dataclass(frozen=True)
 class After(Feature):
     x: Node
 
+    def features_of(self):
+        yield self.x
+
+@dataclass(frozen=True)
 class MinBefore(Feature):
     x: Node
 
+    def features_of(self):
+        yield self.x
+
+@dataclass(frozen=True)
 class MaxBefore(Feature):
     x: Node
 
+    def features_of(self):
+        yield self.x
+
+@dataclass(frozen=True)
 class Doubled(Feature):
     x: Node
+
+    def features_of(self):
+        yield self.x
 
 
 # Operators and Equation
@@ -67,7 +94,7 @@ class Equation:
     def make(cls, operands: Sequence[int], operator: Operator) -> 'Equation':
         return Equation(tuple(operands), operator, operator(*operands))
 
-    def features(self) -> Iterable[Hashable]:
+    def features_of(self) -> Iterable[Hashable]:
         for operand in self.operands:
             yield operand
             yield Before(operand)
@@ -75,9 +102,9 @@ class Equation:
         yield self.result
         yield After(self.result)
         if all(self.result > operand for operand in self.operands):
-            yield Increase()
+            yield Increase
         elif any(self.result < operand for operand in self.operands):
-            yield Decrease()
+            yield Decrease
         counter = Counter(self.operands)
         for operand, count in counter.items():
             if count == 2:
@@ -92,3 +119,5 @@ class Equation:
         expr = f' {self.operator} '.join(str(n) for n in self.operands)
         return f'{expr} = {self.result}'
 
+    def __repr__(self):
+        return f'Equation({str(self)})'
