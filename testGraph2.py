@@ -85,11 +85,9 @@ class TestGraph(unittest.TestCase):
             [Hop('f', 'g', 1.0)]
         )
 
-        '''
         self.assertEqual(g.hop_weight('a', 'b'), 1.0)
         self.assertEqual(g.hop_weight('b', 'a'), 0.0)
         self.assertEqual(g.hop_weight(1, 'a'), 0.0)
-        '''
 
         self.assertTrue(g.find_hop('a', 'b'))
         self.assertFalse(g.find_hop('a', 'c'))

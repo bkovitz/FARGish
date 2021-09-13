@@ -242,7 +242,13 @@ class Graph:
     def predecessors_of(self, x: Any) -> Iterable[Node]:
         return (hop.from_node for hop in self.edges.hops_to_node(self.nodes, x))
 
-    #TODO hop_weight()
+    def hop_weight(self, from_node: Node, to_node: Node) -> float:
+        '''If either node does not exist, or there is no hop from from_node to
+        to_node, returns 0.0.'''
+        try:
+            return self.find_hop(from_node, to_node).weight
+        except AttributeError:
+            return 0.0
 
     @classmethod
     def augment(cls, *graphs: 'Graph') -> 'Graph':

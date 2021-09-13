@@ -42,8 +42,14 @@ class TestEquation(unittest.TestCase):
         self.assertTrue(g.has_node(NumOperands(2)))
         self.assertTrue(g.has_node(2))
 
+        self.assertEqual(g.hop_weight(e, plus), 1.0)
+        self.assertEqual(g.hop_weight(plus, e), 1.0)
+        self.assertEqual(g.hop_weight(e, 2), 0.0)
+
 #NEXT
-# secondary features
-#  Why do we need secondary features? To link positively betw primary and
-#  secondary feature.
 # test mutual inh
+#   two Equations
+#   add MutualInhibition
+#   test for inh across Equation features
+#  
+# test doubled graph
