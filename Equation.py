@@ -94,6 +94,21 @@ class Equation:
     def make(cls, operands: Sequence[int], operator: Operator) -> 'Equation':
         return Equation(tuple(operands), operator, operator(*operands))
 
+    @classmethod
+    def make_table(
+        cls,
+        rands1: Iterable[int],
+        rands2: Iterable[int],
+        rators: Iterable[Operator]
+    ) -> Iterable['Equation']:
+        for rand1 in rands1:
+            for rand2 in rands2:
+                for rator in rators:
+                    if rand1 >= rand2:
+                        e = cls.make([rand1, rand2], rator)
+                        if e.result != rand1 and e.result != rand2:
+                            yield e
+
     def features_of(self) -> Iterable[Hashable]:
         for operand in self.operands:
             yield operand

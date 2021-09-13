@@ -46,10 +46,23 @@ class TestEquation(unittest.TestCase):
         self.assertEqual(g.hop_weight(plus, e), 1.0)
         self.assertEqual(g.hop_weight(e, 2), 0.0)
 
+    def test_equation_table(self):
+        g = Graph.with_features(
+            Equation.make_table(
+                range(1, 11), range(1, 11), [plus, minus, times]
+            )
+        ).add_edges(MutualInhibition(Feature))
+        self.assertEqual(g.hop_weight(Before(2), Before(3)), -0.2)
+        # TODO Mutual inhibition between numbers
+
 #NEXT
-# test mutual inh
+# ?test mutual inh
 #   two Equations
 #   add MutualInhibition
 #   test for inh across Equation features
 #  
+# make Propagator work with Graph2
+#
+# test backwash
+#
 # test doubled graph

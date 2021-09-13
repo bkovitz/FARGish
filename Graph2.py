@@ -81,6 +81,9 @@ class EnumNodes(Nodes):
     def __iter__(self):
         return iter(self.nodeset)
 
+    def __len__(self):
+        return len(self.nodeset)
+
 @dataclass
 class NodesSeries(Nodes):
     nodess: Sequence[Nodes]
