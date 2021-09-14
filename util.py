@@ -511,6 +511,8 @@ def pr(x: Any, *args, **kwargs):
     '''Prints x as a list, one line at a time, alphabetized.'''
     if hasattr(x, 'pr'):
         x.pr(*args, **kwargs)
+    elif isinstance(x, dict):
+        pts(sorted(x.items(), key=str))
     else:
         pts(sorted(as_iter(x), key=str))
 #        for s in sorted(str(a) for a in as_iter(x)):

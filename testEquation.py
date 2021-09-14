@@ -55,13 +55,18 @@ class TestEquation(unittest.TestCase):
         self.assertEqual(g.hop_weight(Before(2), Before(3)), -0.2)
         # TODO Mutual inhibition between numbers
 
+    def test_pons_asinorum(self):
+        #TODO
+        pass
+
+
 #NEXT
 # ?test mutual inh
 #   two Equations
 #   add MutualInhibition
 #   test for inh across Equation features
 #  
-# make Propagator work with Graph2
+# make Propagator work with Graph2  DONE
 #
 # test backwash
 #

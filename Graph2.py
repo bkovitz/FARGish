@@ -74,6 +74,8 @@ class EnumNodes(Nodes):
                 yield from self.nodeclasses[q.cl]
             except KeyError:
                 return
+        elif q is None:
+            yield from self.nodeset
         else:
             #TODO allow multiple nodes in q
             if q in self.nodeset:
@@ -161,7 +163,7 @@ class EnumEdges(Edges):
 @dataclass
 class MutualInhibition(Edges):
     #TODO docstring
-    superclass: Type
+    superclass: Union[Type, Tuple[Type]]
     weight: float = -0.2
 
     def hops_from_node(self, nodes, from_node):
@@ -236,6 +238,14 @@ class Graph:
 
     def hops_to_node(self, x: Any) -> Iterable[Hop]:
         return self.edges.hops_to_node(self, x)
+
+    # TODO UT
+    def degree_out(self, x: Any) -> int:
+        return len(list(self.hops_from_node(x)))
+
+    # TODO UT
+    def degree_in(self, x: Any) -> int:
+        return len(list(self.hops_to_node(x)))
 
     def find_hop(self, from_node: Any, to_node: Any) -> Union[Hop, None]:
         return self.edges.find_hop(self.nodes, from_node, to_node)

@@ -151,13 +151,15 @@ class TestGraph(unittest.TestCase):
                     yield Odd
                 else:
                     yield Even
+                yield self.n
 
         g = Graph.with_features([BaseNode(1), BaseNode(2), BaseNode(3)])
 
         self.assertCountEqual(g.query(OfClass(Parity)), [Odd, Even])
         self.assertCountEqual(
             g.hops_to_node(BaseNode(1)),
-            [Hop(Odd, BaseNode(1), 1.0)]
+            [Hop(Odd, BaseNode(1), 1.0),
+             Hop(1, BaseNode(1), 1.0)]
         )
         self.assertCountEqual(
             g.hops_from_node(Odd),
@@ -171,10 +173,11 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(g.find_hop(Even, Odd), None)
 
         # Now add mutual inhibition
-        g = g.add_edges(MutualInhibition(Feature))
+        g = g.add_edges(MutualInhibition((Feature, int)))
 
         self.assertEqual(g.find_hop(Even, Odd), Hop(Even, Odd, -0.2))
         self.assertEqual(g.find_hop(Odd, Even), Hop(Odd, Even, -0.2))
+        self.assertEqual(g.find_hop(1, 2), Hop(1, 2, -0.2))
 
     def test_graph_propagator_incoming(self):
         g = Graph(
