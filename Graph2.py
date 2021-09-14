@@ -9,6 +9,7 @@ import math
 from itertools import chain
 from collections import defaultdict
 
+from Propagator import Propagator, Delta
 from util import as_iter, empty_set, first_non_none, unique_everseen
 
 
@@ -329,3 +330,44 @@ def features_of(x: Any) -> Iterable[Node]:
 @dataclass(frozen=True)
 class FeatureWrapper(Feature):
     feature: Union[Hashable, None] = None
+
+### Propagator classes that work with Graph
+
+@dataclass
+class GraphPropagatorIncoming(Propagator):
+    '''A Propagator that follows hops that lead to nodes whose keys are in the
+    activations dictionary. Each timestep, g.hops_to_node() supplies all the
+    edges. Because of this, only nodes explicitly included in old_d can
+    *ever* receive any activation when .propagate() is called.'''
+
+    def make_deltas(self, g: Graph, old_d):
+        return chain.from_iterable(
+            self.deltas_to(g, old_d, node) for node in old_d
+        )
+
+    def deltas_to(self, g, old_d, node):
+        for hop in g.hops_to_node(node):
+            if hop.weight >= 0.001:
+                neighbor_a = old_d.get(hop.from_node, 0.0)
+                if neighbor_a >= 0.001:
+                    yield Delta(node, hop.weight * neighbor_a, hop.from_node)
+
+@dataclass
+class GraphPropagatorOutgoing(Propagator):
+    '''A Propagator that follows hops that lead to nodes whose keys are in the
+    activations dictionary. Each timestep, g.hops_to_node() supplies all the
+    edges. Because of this, only nodes explicitly included in old_d can
+    *ever* receive any activation when .propagate() is called.'''
+
+    def make_deltas(self, g: Graph, old_d):
+        return chain.from_iterable(
+            self.deltas_from(g, old_d, node) for node in old_d
+        )
+
+    def deltas_from(self, g, old_d, node):
+        node_a = old_d.get(node, 0.0)
+        if node_a >= 0.001:
+            for hop in g.hops_from_node(node):
+                neighbor_a = old_d.get(hop.to_node, 0.0)
+                if hop.weight >= 0.001:
+                    yield Delta(hop.to_node, hop.weight * node_a, node)
