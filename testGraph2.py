@@ -8,9 +8,11 @@ from dataclasses import dataclass, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence, Literal
+from itertools import chain
 
 from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of
+from Propagator import Propagator, Delta
 from util import pts, pr
 
 
@@ -60,6 +62,19 @@ def AlphabetGraph():
     each being represented explicitly by a separate object.'''
     return Graph(nodes=AlphabetNodes(), edges=AlphabetEdges())
 
+class TestGraphPropagator(Propagator):
+
+    def make_deltas(self, g: Graph, old_d):
+        return chain.from_iterable(
+            self.deltas_to(g, old_d, node) for node in old_d
+        )
+
+    def deltas_to(self, g, old_d, node):
+        for hop in g.hops_to_node(node):
+            neighbor_a = old_d.get(hop.from_node, 0.0)
+            if neighbor_a >= 0.001:
+                yield(Delta(node, hop.weight * neighbor_a, hop.from_node))
+    
 class TestGraph(unittest.TestCase):
 
     def test_alphabet_graph(self):
@@ -173,6 +188,27 @@ class TestGraph(unittest.TestCase):
 
         self.assertEqual(g.find_hop(Even, Odd), Hop(Even, Odd, -0.2))
         self.assertEqual(g.find_hop(Odd, Even), Hop(Odd, Even, -0.2))
+
+    def test_with_propagator(self):
+        g = Graph(
+            nodes=EnumNodes(['a', 'b', 'o']),
+            edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
+        )
+        p = TestGraphPropagator(
+            positive_feedback_rate=0.2,
+            alpha=0.9,
+            max_total=1.0,
+            noise=0.0
+        )
+        # Because this Propagator only propagates to nodes in in_d, node 'o'
+        # won't receive any activation unless it's explicitly included in
+        # the dictionary.
+        in_d = dict(a=1.0, b=0.5, o=0.0)
+        out_d = p.propagate(g, in_d)
+        #pts(out_d.items())
+        self.assertAlmostEqual(out_d['a'], 0.569072143062159)
+        self.assertAlmostEqual(out_d['b'], 0.319848331226608)
+        self.assertAlmostEqual(out_d['o'], 0.11107952571123292)
 
 
 if __name__ == '__main__':

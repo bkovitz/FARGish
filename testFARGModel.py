@@ -412,6 +412,8 @@ class TestFARGModel(unittest.TestCase):
 
                 Mutual inhibition  DONE
 
+                GraphPropagatorOutgoing
+
                 Test on pons asinorum
 
             Augment with pons asinorum
