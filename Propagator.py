@@ -134,7 +134,7 @@ class Propagator(ABC):
         for i in range(num_iterations):
             new_d = self.propagate_once(g, new_d)
         return new_d
-        
+
     @abstractmethod
     def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
         pass

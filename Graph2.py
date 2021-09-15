@@ -10,6 +10,7 @@ from itertools import chain
 from collections import defaultdict
 
 from Propagator import Propagator, Delta
+from FMTypes import epsilon
 from util import as_iter, empty_set, first_non_none, unique_everseen
 
 
@@ -357,9 +358,9 @@ class GraphPropagatorIncoming(Propagator):
 
     def deltas_to(self, g, old_d, node):
         for hop in g.hops_to_node(node):
-            if hop.weight >= 0.001:
+            if abs(hop.weight) >= epsilon:
                 neighbor_a = old_d.get(hop.from_node, 0.0)
-                if neighbor_a >= 0.001:
+                if abs(neighbor_a) >= epsilon:
                     yield Delta(node, hop.weight * neighbor_a, hop.from_node)
 
 @dataclass
@@ -376,8 +377,8 @@ class GraphPropagatorOutgoing(Propagator):
 
     def deltas_from(self, g, old_d, node):
         node_a = old_d.get(node, 0.0)
-        if node_a >= 0.001:
+        if abs(node_a) >= epsilon:
             for hop in g.hops_from_node(node):
                 neighbor_a = old_d.get(hop.to_node, 0.0)
-                if hop.weight >= 0.001:
+                if abs(hop.weight) >= epsilon:
                     yield Delta(hop.to_node, hop.weight * node_a, node)
