@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, Field, fields
+from dataclasses import dataclass, Field, fields, is_dataclass
 from types import SimpleNamespace
 from itertools import chain, tee, filterfalse
 import functools
@@ -113,10 +113,17 @@ def tupdict(**kwargs) -> Tuple[Tuple[str, Hashable]]:
     )
 
 def as_dict(x: Union[Dict, None, Collection[Tuple[str, Hashable]]]) -> Dict:
+    # TODO Update type annotation to show that x can be a dataclass.
     if isinstance(x, dict):
         return x
     elif x is None:
         return dict()
+    elif is_dataclass_instance(x):
+        # dataclasses.asdict() fails on many objects because it recursively
+        # makes dictionaries for all of x's members. Here, we don't recurse.
+        return dict(
+            (name, getattr(x, name)) for name in field_names(x)
+        )
     else:
         return dict(x)
 
@@ -125,6 +132,9 @@ def as_name(x):
         return x.name
     except AttributeError:
         return str(x)
+
+def is_dataclass_instance(x):
+    return is_dataclass(x) and not isinstance(x, type)
 
 def short(x):
     '''Returns a short string representation of x. If x has a .short() method

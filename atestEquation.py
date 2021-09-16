@@ -21,7 +21,7 @@ from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of, GraphPropagatorOutgoing
 from Propagator import Propagator
 from FMTypes import epsilon
-from util import as_iter, union, pts, pr
+from util import as_iter, as_dict, union, pts, pr
 
 
 @dataclass
@@ -56,6 +56,12 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
                          * old_d.get(delta.nodeid, 0.0))
                 * (1.0 - self.alpha)
             )
+            '''
+            if delta.nodeid == Before(7) and delta.amt < 0.0:
+                print()
+                print('DE', delta, '   ', amt)
+                print()
+            '''
             if amt >= epsilon:
                 maxin_d[delta.nodeid] = max(maxin_d[delta.nodeid], amt)
                 possumin_d[delta.nodeid] += amt
@@ -67,6 +73,14 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
 
         for node in union(maxin_d.keys(), minin_d.keys()):
             #print('PR', node, maxin_d.get(node, 0.0), possumin_d.get(node, 0.0), minin_d.get(node, 0.0), negsumin_d.get(node, 0.0))
+            '''
+            print('PR1', node, minin_d.get(node, 0.0), negsumin_d.get(node, 0.0), (
+                (minin_d.get(node, 0.0)
+                  + self.tyrrell_beta * negsumin_d.get(node, 0.0))
+                /
+                (1 + self.tyrrell_beta)
+            ))
+            '''
             new_a = new_d[node] + (
                 (maxin_d.get(node, 0.0)
                   + self.tyrrell_alpha * possumin_d.get(node, 0.0))
@@ -87,16 +101,24 @@ eqn_graph = Graph.with_features(
     Equation.make_table(
         range(1, 11), range(1, 11), [plus, minus, times]
     )
-).add_edges(MutualInhibition((Feature, Equation, int), weight=-0.2))
+) #.add_edges(MutualInhibition((Feature, Equation, int), weight=-0.2))
 p = TyrrellPropagator(
     max_total=10.0,
     noise=0.0,
-    positive_feedback_rate=1.5,  # higher -> initial features matter more
-    sigmoid_p=1.25,  # higher -> sharper distinctions, more salience
+    positive_feedback_rate=0.0, #1.5,  # higher -> initial features matter more
+    sigmoid_p=1.5,  # higher -> sharper distinctions, more salience
     num_iterations=10,
     alpha=0.95,
-    tyrrell_alpha=0.05,
+    tyrrell_alpha=0.5,
     tyrrell_beta=0.1
+)
+p2 = GraphPropagatorOutgoing(
+    max_total=10.0,
+    noise=0.0,
+    positive_feedback_rate=1.5,  # higher -> initial features matter more
+    sigmoid_p=1.5,  # higher -> sharper distinctions, more salience
+    num_iterations=10,
+    alpha=0.95,
 )
 
 @dataclass(frozen=True)
@@ -179,7 +201,7 @@ class ATestEquation(unittest.TestCase):
     def test_4_10(self):
         t0 = process_time()
         out_d = slipnet_dquery(
-            eqn_graph, self.p1, features=[Before(4), After(10)]
+            eqn_graph, self.p1, features=[Before(4), After(10), Equation]
         )
         elapsed = process_time() - t0
         self.assertEqual(
@@ -213,6 +235,8 @@ class ATestEquation(unittest.TestCase):
         
 
 def run(features, p=p, g=eqn_graph, k=30):
+    pr(as_dict(p))
+    print()
     print('Input:')
     pr(features)
     print()
@@ -225,11 +249,16 @@ def run(features, p=p, g=eqn_graph, k=30):
     print()
     pts(topna(out_d, type=int, k=k))
     print()
+    pts(topna(out_d, type=Before, k=20))
+    print()
+    pts(topna(out_d, type=Type, k=20))
+    print()
+    print(out_d[NumOperands(2)])
     print(f'{t1 - t0:1.3f} sec')
 
 if __name__ == '__main__':
-    #run([Before(4), After(10)])
-    run([Equation.make([6, 4], plus)])
+    run([Before(4), After(10), Equation])
+    #run([Equation.make([6, 4], plus)], p=p)
 
     '''
     for eqn in sorted(eqn_graph.query(None), key=str):

@@ -7,7 +7,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 
 
 # Values with absolute value < epsilon are treated as zero
-epsilon = 0.001
+epsilon = 0.00001
 
 # An element of the workspace or a node in the slipnet
 Elem = NewType('Elem', Hashable)

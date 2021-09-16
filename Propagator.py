@@ -13,7 +13,18 @@ from Node import NodeId
 
 def reverse_sigmoid(x: float, p: float=0.5):
     '''Returns reverse sigmoid of x, where p is the exponent.
-    If x is negative, returns reverse sigmoid of -x.'''
+    If x is negative, returns reverse sigmoid of -x.
+
+    When p < 1.0, the function is a reverse sigmoid centered at x=0.5:
+    x values below 0.5 map to higher values; x values above 0.5 map to
+    lower values.
+
+    When p > 1.0, the function is an ordinary sigmoid centered at x=0.5:
+    "the rich get richer and the poor get poorer".
+
+    When p = 1.0, the function is equivalent to y=x.
+    '''
+
     if x < 0:
         x = -x
     return x ** p / (x ** p + (1 - x) ** p)
