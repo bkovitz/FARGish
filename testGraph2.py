@@ -159,12 +159,14 @@ class TestGraph(unittest.TestCase):
         self.assertCountEqual(
             g.hops_to_node(BaseNode(1)),
             [Hop(Odd, BaseNode(1), 1.0),
-             Hop(1, BaseNode(1), 1.0)]
+             Hop(1, BaseNode(1), 1.0),
+             Hop(BaseNode, BaseNode(1), 1.0)]
         )
         self.assertCountEqual(
             g.hops_from_node(Odd),
             [Hop(Odd, BaseNode(1), 1.0),
-             Hop(Odd, BaseNode(3), 1.0)]
+             Hop(Odd, BaseNode(3), 1.0),
+             Hop(Odd, Parity, 1.0)]
         )
         self.assertEqual(
             g.find_hop(BaseNode(2), Even),

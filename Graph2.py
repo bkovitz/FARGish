@@ -8,6 +8,7 @@ from dataclasses import dataclass, field, InitVar
 import math
 from itertools import chain
 from collections import defaultdict
+from inspect import isclass
 
 from Propagator import Propagator, Delta
 from FMTypes import epsilon
@@ -335,8 +336,10 @@ class Feature:
     pass
 
 def features_of(x: Any) -> Iterable[Node]:
-    if hasattr(x, 'features_of'):
-        yield from x.features_of()
+    if not isclass(x):
+        if hasattr(x, 'features_of'):
+            yield from x.features_of()
+        yield type(x)
 
 @dataclass(frozen=True)
 class FeatureWrapper(Feature):

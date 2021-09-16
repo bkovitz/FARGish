@@ -106,7 +106,11 @@ class NodeA:
     a: float
 
     def __str__(self):
-        return f'{self.node!s:20s} {self.a:2.5f}'
+        try:
+            nodestr = self.node.__name__
+        except AttributeError:
+            nodestr = str(self.node)
+        return f'{nodestr:20s} {self.a:2.5f}'
 
 def slipnet_dquery(
     g: Graph,
