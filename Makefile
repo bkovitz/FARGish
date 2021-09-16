@@ -50,10 +50,13 @@ u:
 
 # Acceptance tests
 at:
-	$(PY) -m unittest -v atest*.py
+	#$(PY) -m unittest -v atest*.py
+	# TODO Restore previous line after old atests are removed.
+	$(PY) -m unittest -v atestEquation
 
 a:
-	$(PY) -m unittest -v atest_numbo.NumboTest.test_456_1
+	#$(PY) -m unittest -v atest_numbo.NumboTest.test_456_1
+	$(PY) -m unittest -v atestEquation
 
 # line counts
 lc: clean

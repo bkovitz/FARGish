@@ -12,6 +12,7 @@ from heapq import nlargest
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence, Literal
+from time import process_time
 
 from Equation import Equation, Operator, plus, times, minus
 from Equation import IncreaseOrDecrease, Increase, Decrease, NumOperands, \
@@ -25,7 +26,7 @@ from util import as_iter, union, pts, pr
 
 @dataclass
 class TyrrellPropagator(GraphPropagatorOutgoing):
-    # The formulas that adjust of incoming weights come from p. 206 of Toby
+    # The formulas that adjust incoming weights come from p. 206 of Toby
     # Tyrrell's doctoral dissertation.
     tyrrell_alpha: float = 0.05
         # constant for reducing influence of edge multiplicity: positive inputs
@@ -90,12 +91,12 @@ eqn_graph = Graph.with_features(
 p = TyrrellPropagator(
     max_total=10.0,
     noise=0.0,
-    positive_feedback_rate=1.0,  # higher -> initial features matter more
-    sigmoid_p=1.15,  # higher -> sharper distinctions, more salience
-    num_iterations=80,
+    positive_feedback_rate=1.5,  # higher -> initial features matter more
+    sigmoid_p=1.25,  # higher -> sharper distinctions, more salience
+    num_iterations=10,
     alpha=0.95,
-    tyrrell_alpha=0.1,
-    tyrrell_beta=0.05
+    tyrrell_alpha=0.05,
+    tyrrell_beta=0.1
 )
 
 @dataclass(frozen=True)
@@ -122,12 +123,14 @@ def slipnet_dquery(
     #print('DQ', type(activations_in))
     return p.propagate(g, activations_in)
 
-def top(
-    d: Dict[Hashable, float],
+def topna(
+    d: Dict[Node, float],
     type: Type=None,
-    k: Union[int, None]=None,
+    k: Union[int, None]=1,
     filter: Union[Callable, None]=None
 ) -> List[NodeA]:
+    '''Returns a list of the top k nodes in d, by activation, restricted to
+    nodes of 'type' and that pass 'filter'.'''
     if filter is None:
         filter = lambda x: True
     if type is None:
@@ -147,13 +150,62 @@ def top(
     else:
         return nlargest(k, nas, key=attrgetter('a'))
 
+def top(*args, **kwargs) -> List[Node]:
+    return [na.node for na in topna(*args, **kwargs)]
+
+def top1(*args, **kwargs) -> Union[Node, None]:
+    try:
+        return top(*args, **kwargs)[0]
+    except IndexError:
+        return None
+
+class ATestEquation(unittest.TestCase):
+
+    p1 = TyrrellPropagator(
+        max_total=10.0,
+        noise=0.0,
+        positive_feedback_rate=1.5,
+        sigmoid_p=1.25,
+        num_iterations=10,
+        alpha=0.95,
+        tyrrell_alpha=0.05,
+        tyrrell_beta=0.1
+    )
+
+    def test_4_10(self):
+        t0 = process_time()
+        out_d = slipnet_dquery(
+            eqn_graph, self.p1, features=[Before(4), After(10)]
+        )
+        elapsed = process_time() - t0
+        self.assertEqual(
+            top1(out_d, type=Equation),
+            Equation.make([6, 4], plus)
+        )
+        self.assertCountEqual(
+            top(out_d, type=int, k=3),
+            [6, 4, 10]
+        )
+        self.assertLessEqual(elapsed, 5.0)
+
+def run(features, p=p, g=eqn_graph, k=30):
+    print('Input:')
+    pr(features)
+    print()
+    t0 = process_time()
+    out_d = slipnet_dquery(eqn_graph, p, features=features)
+    t1 = process_time()
+    pts(topna(out_d, k=k))
+    print()
+    pts(topna(out_d, type=Equation, k=k))
+    print()
+    pts(topna(out_d, type=int, k=k))
+    print()
+    print(f'{t1 - t0:1.3f} sec')
+
 if __name__ == '__main__':
-    out_d = slipnet_dquery(eqn_graph, p, features=[Before(4), After(10)])
-    pts(top(out_d, k=30))
-    print()
-    pts(top(out_d, type=Equation, k=30))
-    print()
-    pts(top(out_d, type=int, k=30))
+    #run([Before(4), After(10)])
+    run([Equation.make([6, 4], plus)])
 
     '''
     for eqn in sorted(eqn_graph.query(None), key=str):
