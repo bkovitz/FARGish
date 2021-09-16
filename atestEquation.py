@@ -188,6 +188,26 @@ class ATestEquation(unittest.TestCase):
         )
         self.assertLessEqual(elapsed, 5.0)
 
+    def test_backwash(self):
+        # Pulsing an Equation should activate the nodes for its main
+        # features.
+        out_d = slipnet_dquery(
+            eqn_graph, self.p1, features=[Equation.make([6, 4], plus)]
+        )
+        self.assertCountEqual(
+            top(out_d, type=int, k=3),
+            [6, 4, 10]
+        )
+        self.assertEqual(
+            top1(out_d, type=After),
+            After(10)
+        )
+        self.assertCountEqual(
+            top(out_d, type=Before, k=2),
+            [Before(6), Before(4)]
+        )
+        
+
 def run(features, p=p, g=eqn_graph, k=30):
     print('Input:')
     pr(features)
