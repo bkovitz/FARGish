@@ -328,7 +328,6 @@ def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
         nodeset.add(feature_node)
         hopset.add(Hop(base_node, feature_node, 1.0))
         hopset.add(Hop(feature_node, base_node, 1.0))
-        # TODO Special nodes for feature classes?
     return new_features
 
 @dataclass(frozen=True)

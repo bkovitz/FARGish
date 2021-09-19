@@ -257,8 +257,30 @@ def run(features, p=p, g=eqn_graph, k=30):
     print(f'{t1 - t0:1.3f} sec')
 
 if __name__ == '__main__':
-    run([Before(4), After(10), Equation])
+    #run([Before(4), After(10), Equation])
     #run([Equation.make([6, 4], plus)], p=p)
+    #run([Before(4), Before(5), Before(6), After(15), Before, Equation])
+    run([Before(4), Before(5), Before(6), After(15)])
+    #run([4, 5, 6, 15])
+
+    # NEXT
+    # custom features_of:
+    #   UT for custom features of an int
+    #
+    #   DivisibleBy(10)
+    #   NumDigits(1, 2)
+    #   FirstDigit
+    #   LastDigit
+    #   Before1
+    #   Before2
+    # Can we pulse just the numbers and see which features activate, in order
+    # to glom based on those features or activate those features when pulsing
+    # to solve the numble?
+    #
+    # How can the slipnet model "this equation is special because..."?
+    #
+    # "Doubling": two slipnets, joined by some plumbing so that After(*) in
+    # the first slipnet links to Before(*) in the second slipnet.
 
     '''
     for eqn in sorted(eqn_graph.query(None), key=str):
