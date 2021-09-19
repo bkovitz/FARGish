@@ -12,7 +12,7 @@ from inspect import isclass
 
 from Propagator import Propagator, Delta
 from FMTypes import epsilon
-from util import as_iter, empty_set, first_non_none, unique_everseen
+from util import as_iter, empty_set, first_non_none, unique_everseen, pr, pts
 
 
 Node = Hashable
@@ -150,11 +150,17 @@ class EnumEdges(Edges):
                 yield hop
 
     def find_hop(self, nodes, from_node, to_node):
+        print('H1', from_node, to_node, nodes.has_node(from_node), nodes.has_node(to_node))
+        print('H1.0', self.hops_from)
+        print('H1.1')
+        pr(self.hops_from[from_node])
         if not nodes.has_node(from_node) or not nodes.has_node(to_node):
             return None
+        print('H2')
         try:
             return self.hops_from[from_node][to_node]
         except KeyError:
+            print('H3')
             return None
 
     def __iter__(self):
@@ -318,6 +324,40 @@ class Graph:
 
     def add_edges(self, edges: Edges) -> 'Graph':
         return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
+
+### Prefixes
+
+@dataclass(frozen=True)
+class PrefixedNode:
+    prefix: Hashable
+    node: Node
+
+def unprefixed(x: Node) -> Node:
+    try:
+        return x.node
+    except AttributeError:
+        return x
+
+def tuples_with_prefix(prefix, *tups: Tuple[Node, Node]) \
+-> Iterable[Tuple[PrefixedNode, PrefixedNode]]:
+    for tup in tups:
+        yield (PrefixedNode(prefix, tup[0]), PrefixedNode(prefix, tup[1]))
+
+@dataclass(frozen=True)
+class PrefixedNodes(Nodes):
+    prefix: Hashable
+    nodes: Nodes
+
+    def has_node(self, x):
+        if not isinstance(x, PrefixedNode):
+            return False
+        else:
+            return self.nodes.has_node(unprefixed(x))
+    
+    def query(self, q):
+        return self.nodes.query(unprefixed(q))
+
+### Features
 
 def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
     '''Update nodeset and hopset.'''
