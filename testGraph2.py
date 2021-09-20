@@ -331,7 +331,6 @@ class TestGraph(unittest.TestCase):
             None
         )
 
-    @unittest.skip('not yet')
     def test_doubled_graph(self):
         g0 = Graph(
             nodes=EnumNodes(['a', 'b', 'o']),
@@ -341,7 +340,37 @@ class TestGraph(unittest.TestCase):
             PrefixedGraph(1, g0),
             PrefixedGraph(2, g0)
         )
-        
+
+        self.assertTrue(g.has_node(PrefixedNode(1, 'a')))
+        self.assertTrue(g.has_node(PrefixedNode(2, 'a')))
+        self.assertFalse(g.has_node(PrefixedNode(3, 'a')))
+        self.assertFalse(g.has_node('a'))
+        self.assertEqual(
+            g.find_hop(PrefixedNode(1, 'a'), PrefixedNode(1, 'b')),
+            Hop(PrefixedNode(1, 'a'), PrefixedNode(1, 'b'), 1.0)
+        )
+        self.assertEqual(
+            g.find_hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b')),
+            Hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b'), 1.0)
+        )
+        self.assertEqual(
+            g.find_hop(PrefixedNode(1, 'a'), PrefixedNode(2, 'b')),
+            None
+        )
+        self.assertEqual(
+            g.find_hop('a', 'b'),
+            None
+        )
+
+        # .add_edges() from one PrefixedGraph to the other
+
+        g2 = g.add_edges(EnumEdges(Hops.from_pairs(
+            (PrefixedNode(1, 'a'), PrefixedNode(2, 'a'))
+        )))
+        self.assertEqual(
+            g2.find_hop(PrefixedNode(1, 'a'), PrefixedNode(2, 'a')),
+            Hop(PrefixedNode(1, 'a'), PrefixedNode(2, 'a'), 1.0)
+        )
 
 
 if __name__ == '__main__':

@@ -115,6 +115,9 @@ class NodesSeries(Nodes):
         for nodes in self.nodess:
             yield from nodes.query(q)
 
+    def unprefixed(self, prefix):
+        return NodesSeries([nodes.unprefixed(prefix) for nodes in self.nodess])
+
 class Edges(ABC):
     @abstractmethod
     def hops_from_node(self, nodes: Nodes, x: Any) -> Iterable[Hop]:
