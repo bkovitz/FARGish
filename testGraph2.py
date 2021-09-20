@@ -12,7 +12,7 @@ from itertools import chain
 
 from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of, GraphPropagatorIncoming, \
-    GraphPropagatorOutgoing, PrefixedNode, PrefixedNodes, tuples_with_prefix
+    GraphPropagatorOutgoing, PrefixedNode, PrefixedGraph
 from util import pts, pr
 
 
@@ -217,24 +217,19 @@ class TestGraph(unittest.TestCase):
         self.assertAlmostEqual(out_d['o'], 0.11107952571123292)
 
     def test_prefix(self):
-        print('H0')
-        pts(tuples_with_prefix(2,
-                    ('a', 'b'), ('b', 'o')
-        ))
-        print('H0.1')
-        g = Graph(
-            nodes=PrefixedNodes(2, EnumNodes(['a', 'b', 'o'])),
-            # TODO Make PrefixedEdges instead?
-            edges=EnumEdges(Hops.from_pairs(tuples_with_prefix(2,
-                    ('a', 'b'), ('b', 'o')
-            )))
+        # TODO UT all of Graph's methods.
+        # NEXT Make an augmented Graph from two PrefixedGraphs, with some
+        # additional edges connecting them. That's a doubled graph!
+
+        g0 = Graph(
+            nodes=EnumNodes(['a', 'b', 'o']),
+            edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
         )
+        g = PrefixedGraph(2, g0)
+
         self.assertFalse(g.has_node('a'))
         self.assertTrue(g.has_node(PrefixedNode(2, 'a')))
         self.assertIsNone(g.find_hop('a', 'b'))
-        print('UT')
-        pts(g.edges)
-        print()
         self.assertEqual(
             g.find_hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b')),
             Hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b'), 1.0)

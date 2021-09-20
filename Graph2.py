@@ -24,6 +24,15 @@ class Hop:
     to_node: Node
     weight: float
 
+    def add_prefix(self, prefix: Hashable) -> 'Hop':
+        '''Returns a Hop identical to self but with the nodes replaced by
+        PrefixNode of .from_node and .to_node, with the given prefix.'''
+        return Hop(
+            PrefixedNode(prefix, self.from_node),
+            PrefixedNode(prefix, self.to_node),
+            self.weight
+        )
+
 class Hops:
     '''Just a scope for factory methods that make iterables to pass to
     EnumEdges.'''
@@ -150,17 +159,11 @@ class EnumEdges(Edges):
                 yield hop
 
     def find_hop(self, nodes, from_node, to_node):
-        print('H1', from_node, to_node, nodes.has_node(from_node), nodes.has_node(to_node))
-        print('H1.0', self.hops_from)
-        print('H1.1')
-        pr(self.hops_from[from_node])
         if not nodes.has_node(from_node) or not nodes.has_node(to_node):
             return None
-        print('H2')
         try:
             return self.hops_from[from_node][to_node]
         except KeyError:
-            print('H3')
             return None
 
     def __iter__(self):
@@ -333,29 +336,40 @@ class PrefixedNode:
     node: Node
 
 def unprefixed(x: Node) -> Node:
-    try:
+    if isinstance(x, PrefixedNode):
         return x.node
-    except AttributeError:
-        return x
+    else:
+        return None
 
-def tuples_with_prefix(prefix, *tups: Tuple[Node, Node]) \
--> Iterable[Tuple[PrefixedNode, PrefixedNode]]:
-    for tup in tups:
-        yield (PrefixedNode(prefix, tup[0]), PrefixedNode(prefix, tup[1]))
-
-@dataclass(frozen=True)
-class PrefixedNodes(Nodes):
+@dataclass
+#TODO Inherit from Graph; make .nodes and .edges into properties.
+class PrefixedGraph:
     prefix: Hashable
-    nodes: Nodes
+    basegraph: Graph
 
     def has_node(self, x):
-        if not isinstance(x, PrefixedNode):
-            return False
+        return self.basegraph.has_node(unprefixed(x))
+
+    def hops_from_node(self, x):
+        yield from (
+            hop.add_prefix(self.prefix)
+                for hop in self.basegraph.hops_from_node(unprefixed(x))
+        )
+
+    def hops_to_node(self, x):
+        yield from (
+            hop.add_prefix(self.prefix)
+                for hop in self.basegraph.hops_to_node(unprefixed(x))
+        )
+
+    def find_hop(self, from_node, to_node):
+        hop = self.basegraph.find_hop(
+            unprefixed(from_node), unprefixed(to_node)
+        )
+        if hop is not None:
+            return hop.add_prefix(self.prefix)
         else:
-            return self.nodes.has_node(unprefixed(x))
-    
-    def query(self, q):
-        return self.nodes.query(unprefixed(q))
+            return None
 
 ### Features
 
