@@ -67,9 +67,27 @@ class Nodes(ABC):
         overrides this method to return the base Nodes object.'''
         return EnumNodes(set())
 
+class Query:
+    def unprefixed(self, prefix: Hashable) -> 'Query':
+        return self
+
 @dataclass(frozen=True)
-class OfClass:
+class OfClass(Query):
     cl: Type
+
+@dataclass(frozen=True)
+class WithPrefix(Query):
+    prefix: Hashable
+    q: Query
+
+    def unprefixed(self, prefix):
+        if prefix != self.prefix:
+            raise WrongPrefix
+        else:
+            return self.q
+
+class WrongPrefix(Exception):
+    pass
 
 @dataclass
 class EnumNodes(Nodes):
@@ -363,6 +381,10 @@ class PrefixedNodes(Nodes):
         return self.base_nodes.has_node(unprefixed(x, self.prefix))
 
     def query(self, q):
+        try:
+            q = q.unprefixed(self.prefix)
+        except WrongPrefix:
+            return []
         return self.prefix_all(self.base_nodes.query(q))
 
     def prefix_all(self, nodes: Iterable[Node]) -> Iterable[PrefixedNode]:

@@ -12,7 +12,7 @@ from itertools import chain
 
 from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of, GraphPropagatorIncoming, \
-    GraphPropagatorOutgoing, PrefixedNode, PrefixedGraph
+    GraphPropagatorOutgoing, PrefixedNode, PrefixedGraph, WithPrefix
 from util import pts, pr
 
 
@@ -370,6 +370,30 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(
             g2.find_hop(PrefixedNode(1, 'a'), PrefixedNode(2, 'a')),
             Hop(PrefixedNode(1, 'a'), PrefixedNode(2, 'a'), 1.0)
+        )
+
+        self.assertCountEqual(
+            g2.query(OfClass(str)),
+            [
+                PrefixedNode(1, 'a'),
+                PrefixedNode(1, 'b'),
+                PrefixedNode(1, 'o'),
+                PrefixedNode(2, 'a'),
+                PrefixedNode(2, 'b'),
+                PrefixedNode(2, 'o')
+            ]
+        )
+        self.assertCountEqual(
+            g2.query(WithPrefix(2, OfClass(str))),
+            [
+                PrefixedNode(2, 'a'),
+                PrefixedNode(2, 'b'),
+                PrefixedNode(2, 'o')
+            ]
+        )
+        self.assertCountEqual(
+            g0.query(WithPrefix(2, OfClass(str))),
+            []
         )
 
 
