@@ -335,41 +335,75 @@ class PrefixedNode:
     prefix: Hashable
     node: Node
 
-def unprefixed(x: Node) -> Node:
+def unprefixed(x: Node, prefix: Any=None) -> Node:
     if isinstance(x, PrefixedNode):
-        return x.node
+        if prefix is not None and x.prefix != prefix:
+            return None
+        else:
+            return x.node
     else:
         return None
 
 @dataclass
-#TODO Inherit from Graph; make .nodes and .edges into properties.
-class PrefixedGraph:
+class PrefixedGraph(Graph):
     prefix: Hashable
     basegraph: Graph
 
+    # TODO Set up .nodes and .edges as properties?
+
+    def __init__(self, prefix: Hashable, basegraph: Graph):
+        self.prefix = prefix
+        self.basegraph = basegraph
+
     def has_node(self, x):
-        return self.basegraph.has_node(unprefixed(x))
+        return self.basegraph.has_node(unprefixed(x, self.prefix))
 
     def hops_from_node(self, x):
-        yield from (
+        return (
             hop.add_prefix(self.prefix)
-                for hop in self.basegraph.hops_from_node(unprefixed(x))
+                for hop in self.basegraph.hops_from_node(
+                    unprefixed(x, self.prefix)
+                )
         )
 
     def hops_to_node(self, x):
-        yield from (
+        return (
             hop.add_prefix(self.prefix)
-                for hop in self.basegraph.hops_to_node(unprefixed(x))
+                for hop in self.basegraph.hops_to_node(
+                    unprefixed(x, self.prefix)
+                )
         )
 
     def find_hop(self, from_node, to_node):
         hop = self.basegraph.find_hop(
-            unprefixed(from_node), unprefixed(to_node)
+            unprefixed(from_node, self.prefix),
+            unprefixed(to_node, self.prefix)
         )
         if hop is not None:
             return hop.add_prefix(self.prefix)
         else:
             return None
+
+    def query(self, q):
+        return self.prefix_all(self.basegraph.query(q))
+
+    def successors_of(self, x):
+        return self.prefix_all(
+            self.basegraph.successors_of(unprefixed(x, self.prefix))
+        )
+
+    def predecessors_of(self, x):
+        return self.prefix_all(
+            self.basegraph.predecessors_of(unprefixed(x, self.prefix))
+        )
+
+    def prefix_all(self, nodes: Iterable[Node]) -> Iterable[PrefixedNode]:
+        '''Returns a generator in which all of 'nodes' are wrapped in
+        a PrefixedNode containing self.prefix.'''
+        return (
+            PrefixedNode(self.prefix, node)
+                for node in nodes
+        )
 
 ### Features
 

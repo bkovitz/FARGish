@@ -229,10 +229,60 @@ class TestGraph(unittest.TestCase):
 
         self.assertFalse(g.has_node('a'))
         self.assertTrue(g.has_node(PrefixedNode(2, 'a')))
+        self.assertFalse(g.has_node(PrefixedNode(1, 'a')))
+
         self.assertIsNone(g.find_hop('a', 'b'))
         self.assertEqual(
             g.find_hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b')),
             Hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b'), 1.0)
+        )
+        self.assertEqual(
+            g.find_hop(PrefixedNode(1, 'a'), PrefixedNode(2, 'b')),
+            None
+        )
+        self.assertEqual(
+            g.find_hop(PrefixedNode(2, 'a'), PrefixedNode(1, 'b')),
+            None
+        )
+
+        self.assertCountEqual(
+            g.query(OfClass(str)),
+            [
+                PrefixedNode(2, 'a'),
+                PrefixedNode(2, 'b'),
+                PrefixedNode(2, 'o')
+            ]
+        )
+
+        self.assertEqual(g.degree_out('a'), 0)
+        self.assertEqual(g.degree_out(PrefixedNode(1, 'a')), 0)
+        self.assertEqual(g.degree_out(PrefixedNode(2, 'a')), 1)
+        self.assertEqual(g.degree_in('b'), 0)
+        self.assertEqual(g.degree_in(PrefixedNode(1, 'b')), 0)
+        self.assertEqual(g.degree_in(PrefixedNode(2, 'b')), 1)
+
+        self.assertCountEqual(g.successors_of('a'), [])
+        self.assertCountEqual(g.successors_of(PrefixedNode(1, 'a')), [])
+        self.assertCountEqual(
+            g.successors_of(PrefixedNode(2, 'a')),
+            [PrefixedNode(2, 'b')]
+        )
+        self.assertCountEqual(
+            g.predecessors_of(PrefixedNode(2, 'b')),
+            [PrefixedNode(2, 'a')]
+        )
+
+        self.assertEqual(
+            g.hop_weight(PrefixedNode(2, 'a'), PrefixedNode(2, 'b')),
+            1.0
+        )
+        self.assertEqual(
+            g.hop_weight(PrefixedNode(1, 'a'), PrefixedNode(2, 'b')),
+            0.0
+        )
+        self.assertEqual(
+            g.hop_weight(PrefixedNode(2, 'a'), PrefixedNode(1, 'b')),
+            0.0
         )
 
 
