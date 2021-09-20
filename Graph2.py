@@ -61,6 +61,12 @@ class Nodes(ABC):
     def query(self, q) -> Iterable[Node]:
         pass
 
+    def unprefixed(self, prefix: Hashable) -> 'Nodes':
+        '''Returns a version of this Nodes without a prefix. The default
+        implementation simply returns an empty EnumNodes. PrefixedNodes
+        overrides this method to return the base Nodes object.'''
+        return EnumNodes(set())
+
 @dataclass(frozen=True)
 class OfClass:
     cl: Type
@@ -245,10 +251,10 @@ class Graph:
         return self.nodes.query(q)
 
     def hops_from_node(self, x: Any) -> Iterable[Hop]:
-        return self.edges.hops_from_node(self, x)
+        return self.edges.hops_from_node(self.nodes, x)
 
     def hops_to_node(self, x: Any) -> Iterable[Hop]:
-        return self.edges.hops_to_node(self, x)
+        return self.edges.hops_to_node(self.nodes, x)
 
     # TODO UT
     def degree_out(self, x: Any) -> int:
@@ -274,6 +280,10 @@ class Graph:
             return self.find_hop(from_node, to_node).weight
         except AttributeError:
             return 0.0
+
+    def add_edges(self, edges: Edges) -> 'Graph':
+        '''Returns a new Graph, containing the edges.'''
+        return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
 
     @classmethod
     def augment(cls, *graphs: 'Graph') -> 'Graph':
@@ -325,9 +335,6 @@ class Graph:
             edges=EnumEdges(hopset)
         )
 
-    def add_edges(self, edges: Edges) -> 'Graph':
-        return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
-
 ### Prefixes
 
 @dataclass(frozen=True)
@@ -345,57 +352,15 @@ def unprefixed(x: Node, prefix: Any=None) -> Node:
         return None
 
 @dataclass
-class PrefixedGraph(Graph):
+class PrefixedNodes(Nodes):
     prefix: Hashable
-    basegraph: Graph
-
-    # TODO Set up .nodes and .edges as properties?
-
-    def __init__(self, prefix: Hashable, basegraph: Graph):
-        self.prefix = prefix
-        self.basegraph = basegraph
+    base_nodes: Nodes
 
     def has_node(self, x):
-        return self.basegraph.has_node(unprefixed(x, self.prefix))
-
-    def hops_from_node(self, x):
-        return (
-            hop.add_prefix(self.prefix)
-                for hop in self.basegraph.hops_from_node(
-                    unprefixed(x, self.prefix)
-                )
-        )
-
-    def hops_to_node(self, x):
-        return (
-            hop.add_prefix(self.prefix)
-                for hop in self.basegraph.hops_to_node(
-                    unprefixed(x, self.prefix)
-                )
-        )
-
-    def find_hop(self, from_node, to_node):
-        hop = self.basegraph.find_hop(
-            unprefixed(from_node, self.prefix),
-            unprefixed(to_node, self.prefix)
-        )
-        if hop is not None:
-            return hop.add_prefix(self.prefix)
-        else:
-            return None
+        return self.base_nodes.has_node(unprefixed(x, self.prefix))
 
     def query(self, q):
-        return self.prefix_all(self.basegraph.query(q))
-
-    def successors_of(self, x):
-        return self.prefix_all(
-            self.basegraph.successors_of(unprefixed(x, self.prefix))
-        )
-
-    def predecessors_of(self, x):
-        return self.prefix_all(
-            self.basegraph.predecessors_of(unprefixed(x, self.prefix))
-        )
+        return self.prefix_all(self.base_nodes.query(q))
 
     def prefix_all(self, nodes: Iterable[Node]) -> Iterable[PrefixedNode]:
         '''Returns a generator in which all of 'nodes' are wrapped in
@@ -404,6 +369,55 @@ class PrefixedGraph(Graph):
             PrefixedNode(self.prefix, node)
                 for node in nodes
         )
+
+    def unprefixed(self, prefix: Hashable):
+        if prefix == self.prefix:
+            return self.base_nodes
+        else:
+            return EnumNodes(set())
+
+@dataclass
+class PrefixedEdges(Edges):
+    prefix: Hashable
+    base_edges: Edges
+
+    def hops_from_node(self, nodes, x):
+        return (
+            hop.add_prefix(self.prefix)
+                for hop in self.base_edges.hops_from_node(
+                    nodes.unprefixed(self.prefix),
+                    unprefixed(x, self.prefix)
+                )
+        )
+
+    def hops_to_node(self, nodes, x):
+        return (
+            hop.add_prefix(self.prefix)
+                for hop in self.base_edges.hops_to_node(
+                    nodes.unprefixed(self.prefix),
+                    unprefixed(x, self.prefix)
+                )
+        )
+
+    def find_hop(self, nodes, from_node, to_node):
+        hop = self.base_edges.find_hop(
+            nodes.unprefixed(self.prefix),
+            unprefixed(from_node, self.prefix),
+            unprefixed(to_node, self.prefix)
+        )
+        if hop is not None:
+            return hop.add_prefix(self.prefix)
+        else:
+            return None
+
+@dataclass
+class PrefixedGraph(Graph):
+    prefix: Hashable
+
+    def __init__(self, prefix: Hashable, basegraph: Graph):
+        self.prefix = prefix
+        self.nodes = PrefixedNodes(self.prefix, basegraph.nodes)
+        self.edges = PrefixedEdges(self.prefix, basegraph.edges)
 
 ### Features
 

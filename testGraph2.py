@@ -217,20 +217,58 @@ class TestGraph(unittest.TestCase):
         self.assertAlmostEqual(out_d['o'], 0.11107952571123292)
 
     def test_prefix(self):
-        # TODO UT all of Graph's methods.
-        # NEXT Make an augmented Graph from two PrefixedGraphs, with some
-        # additional edges connecting them. That's a doubled graph!
-
         g0 = Graph(
             nodes=EnumNodes(['a', 'b', 'o']),
             edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
         )
         g = PrefixedGraph(2, g0)
 
+        # methods that go to Nodes
+
         self.assertFalse(g.has_node('a'))
         self.assertTrue(g.has_node(PrefixedNode(2, 'a')))
         self.assertFalse(g.has_node(PrefixedNode(1, 'a')))
 
+        self.assertCountEqual(
+            g.query(OfClass(str)),
+            [
+                PrefixedNode(2, 'a'),
+                PrefixedNode(2, 'b'),
+                PrefixedNode(2, 'o')
+            ]
+        )
+
+        # methods that go to Edges
+
+        # .hops_from_node() 
+        self.assertCountEqual(
+            g.hops_from_node('a'),
+            []
+        )
+        self.assertCountEqual(
+            g.hops_from_node(PrefixedNode(2, 'a')),
+            [Hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b'), 1.0)]
+        )
+        self.assertCountEqual(
+            g.hops_from_node(PrefixedNode(1, 'a')),
+            []
+        )
+
+        # .hops_to_node()
+        self.assertCountEqual(
+            g.hops_to_node('b'),
+            []
+        )
+        self.assertCountEqual(
+            g.hops_to_node(PrefixedNode(2, 'b')),
+            [Hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b'), 1.0)]
+        )
+        self.assertCountEqual(
+            g.hops_to_node(PrefixedNode(1, 'b')),
+            []
+        )
+
+        # .find_hop()
         self.assertIsNone(g.find_hop('a', 'b'))
         self.assertEqual(
             g.find_hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'b')),
@@ -245,15 +283,7 @@ class TestGraph(unittest.TestCase):
             None
         )
 
-        self.assertCountEqual(
-            g.query(OfClass(str)),
-            [
-                PrefixedNode(2, 'a'),
-                PrefixedNode(2, 'b'),
-                PrefixedNode(2, 'o')
-            ]
-        )
-
+        # .degree_out() and .degree_in()
         self.assertEqual(g.degree_out('a'), 0)
         self.assertEqual(g.degree_out(PrefixedNode(1, 'a')), 0)
         self.assertEqual(g.degree_out(PrefixedNode(2, 'a')), 1)
@@ -261,6 +291,7 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(g.degree_in(PrefixedNode(1, 'b')), 0)
         self.assertEqual(g.degree_in(PrefixedNode(2, 'b')), 1)
 
+        # .successors_of() and .predecessors_of()
         self.assertCountEqual(g.successors_of('a'), [])
         self.assertCountEqual(g.successors_of(PrefixedNode(1, 'a')), [])
         self.assertCountEqual(
@@ -272,6 +303,7 @@ class TestGraph(unittest.TestCase):
             [PrefixedNode(2, 'a')]
         )
 
+        # .hop_weight()
         self.assertEqual(
             g.hop_weight(PrefixedNode(2, 'a'), PrefixedNode(2, 'b')),
             1.0
@@ -284,6 +316,32 @@ class TestGraph(unittest.TestCase):
             g.hop_weight(PrefixedNode(2, 'a'), PrefixedNode(1, 'b')),
             0.0
         )
+
+        # .add_edges()
+
+        g2 = g.add_edges(EnumEdges(Hops.from_pairs(
+            (PrefixedNode(2, 'a'), PrefixedNode(2, 'o'))
+        )))
+        self.assertEqual(
+            g2.find_hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'o')),
+            Hop(PrefixedNode(2, 'a'), PrefixedNode(2, 'o'), 1.0)
+        )
+        self.assertEqual(
+            g2.find_hop('a', 'o'),
+            None
+        )
+
+    @unittest.skip('not yet')
+    def test_doubled_graph(self):
+        g0 = Graph(
+            nodes=EnumNodes(['a', 'b', 'o']),
+            edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
+        )
+        g = Graph.augment(
+            PrefixedGraph(1, g0),
+            PrefixedGraph(2, g0)
+        )
+        
 
 
 if __name__ == '__main__':
