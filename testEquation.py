@@ -14,7 +14,8 @@ from Equation import IncreaseOrDecrease, Increase, Decrease, NumOperands, \
     Before, After, MaxBefore, MinBefore
 
 from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
-    OfClass, MutualInhibition, Feature, features_of
+    OfClass, MutualInhibition, Feature, features_of, PrefixedGraph, \
+    WithPrefix, PrefixedNode
 from util import pts, pr
 
 
@@ -56,8 +57,36 @@ class TestEquation(unittest.TestCase):
         # TODO Mutual inhibition between numbers
 
     def test_pons_asinorum(self):
-        #TODO
-        pass
+        g0 = Graph.with_features(
+            Equation.make_table(
+                range(1, 20), range(1, 20), [plus, minus, times]
+            )
+        )
+        g1 = Graph.augment(
+            PrefixedGraph(1, g0),
+            PrefixedGraph(2, g0)
+        )
+#        print('QQ')
+#        qq = list((x1, x1.with_prefix(2))
+#            for x1 in g1.query(WithPrefix(1, OfClass(After))))
+#        print(type(qq), type(qq[0]), len(qq[0]))
+#        pts(qq)
+        g = g1.add_edges(EnumEdges(Hops.from_pairs(*(
+            (p_after, PrefixedNode(2, Before(p_after.unprefixed().x)))
+                for p_after in g1.query(WithPrefix(1, OfClass(After)))
+        ))))
+        #pts(g.query(WithPrefix(1, OfClass(After))))
+        #pts(g.query(WithPrefix(2, OfClass(Before))))
+        #pts(g.successors_of(PrefixedNode(1, After(10))))
+        #print()
+        #pts(g.successors_of(PrefixedNode(1, After(63))))
+
+        self.assertTrue(g.find_hop(
+            PrefixedNode(1, After(10)), PrefixedNode(2, Before(10))
+        ))
+        self.assertFalse(g.find_hop(
+            PrefixedNode(1, After(63)), PrefixedNode(2, Before(63))
+        ))
 
 
 #NEXT

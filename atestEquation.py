@@ -13,12 +13,14 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence, Literal
 from time import process_time
+from itertools import chain
 
 from Equation import Equation, Operator, plus, times, minus
 from Equation import IncreaseOrDecrease, Increase, Decrease, NumOperands, \
     Before, After, MaxBefore, MinBefore
 from Graph2 import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
-    OfClass, MutualInhibition, Feature, features_of, GraphPropagatorOutgoing
+    OfClass, MutualInhibition, Feature, features_of, GraphPropagatorOutgoing, \
+    PrefixedGraph, PrefixedNode, WithPrefix
 from Propagator import Propagator
 from FMTypes import epsilon
 from util import as_iter, as_dict, union, pts, pr
@@ -106,10 +108,30 @@ p = TyrrellPropagator(
     max_total=10.0,
     noise=0.0,
     positive_feedback_rate=0.0, #1.5,  # higher -> initial features matter more
-    sigmoid_p=1.5,  # higher -> sharper distinctions, more salience
+    sigmoid_p=1.2,  #1.5 higher -> sharper distinctions, more salience
     num_iterations=10,
     alpha=0.95,
-    tyrrell_alpha=0.5,
+    tyrrell_alpha=0.05,  # 0.2
+    tyrrell_beta=0.1
+)
+p1a = TyrrellPropagator(  # Makes 6+4=10 just barely win
+    max_total=10.0,
+    noise=0.0,
+    positive_feedback_rate=0.0, #1.5,  # higher -> initial features matter more
+    sigmoid_p=1.2,  #1.5 higher -> sharper distinctions, more salience
+    num_iterations=50,
+    alpha=0.95,
+    tyrrell_alpha=0.05,  # 0.2
+    tyrrell_beta=0.1
+)
+p1 = TyrrellPropagator(
+    max_total=100.0,
+    noise=0.0,
+    positive_feedback_rate=0.0, #1.5,  # higher -> initial features matter more
+    sigmoid_p=1.2,  #1.5 higher -> sharper distinctions, more salience
+    num_iterations=20,
+    alpha=0.95,
+    tyrrell_alpha=0.02,  # 0.2
     tyrrell_beta=0.1
 )
 p2 = GraphPropagatorOutgoing(
@@ -145,7 +167,12 @@ def slipnet_dquery(
     if activations_in is None:
         activations_in = {}
         for f in as_iter(features):
-            activations_in[f] = 1.0
+            if isinstance(f, NodeA):
+                a = f.a
+                f = f.node
+            else:
+                a = 1.0
+            activations_in[f] = a
     #print('DQ', type(activations_in))
     return p.propagate(g, activations_in)
 
@@ -191,10 +218,10 @@ class ATestEquation(unittest.TestCase):
         max_total=10.0,
         noise=0.0,
         positive_feedback_rate=1.5,
-        sigmoid_p=1.25,
+        sigmoid_p=1.5,
         num_iterations=10,
         alpha=0.95,
-        tyrrell_alpha=0.05,
+        tyrrell_alpha=0.2,
         tyrrell_beta=0.1
     )
 
@@ -241,7 +268,7 @@ def run(features, p=p, g=eqn_graph, k=30):
     pr(features)
     print()
     t0 = process_time()
-    out_d = slipnet_dquery(eqn_graph, p, features=features)
+    out_d = slipnet_dquery(g, p, features=features)
     t1 = process_time()
     pts(topna(out_d, k=k))
     print()
@@ -251,17 +278,64 @@ def run(features, p=p, g=eqn_graph, k=30):
     print()
     pts(topna(out_d, type=Before, k=20))
     print()
+    pts(topna(out_d, type=After, k=20))
+    print()
     pts(topna(out_d, type=Type, k=20))
     print()
-    print(out_d[NumOperands(2)])
+    #print(out_d[NumOperands(2)])
+    print(out_d[PrefixedNode(1, After(10))])
+    print(out_d[PrefixedNode(2, Before(10))])
     print(f'{t1 - t0:1.3f} sec')
 
 if __name__ == '__main__':
-    #run([Before(4), After(10), Equation])
+    #run([Before(4), After(10), Equation], p=p1)
+    #run([Before(4), Before(6), Equation, After], p=p1)
     #run([Equation.make([6, 4], plus)], p=p)
-    #run([Before(4), Before(5), Before(6), After(15), Before, Equation])
-    run([Before(4), Before(5), Before(6), After(15)])
+    #run([Before(4), Before(5), Before(6), After(15), NodeA(After, 10.0), Equation], p=p1)
+    #run([Before(4), Before(5), Before(6), After(15), After, Equation], p=p1)
+    #run([Before(4), Before(5), Before(6), After(15)])
     #run([4, 5, 6, 15])
+
+    g2 = Graph.augment(
+        PrefixedGraph(1, eqn_graph),
+        PrefixedGraph(2, eqn_graph),
+    )
+    hops = []
+    for p_after in g2.query(WithPrefix(1, OfClass(After))):
+        hops.append(Hop(
+            p_after,
+            PrefixedNode(2, Before(p_after.unprefixed().x)),
+            weight=100.0
+        ))
+        hops.append(Hop(
+            PrefixedNode(2, Before(p_after.unprefixed().x)),
+            p_after,
+            weight=0.0
+        ))
+
+    '''
+    g2 = g2.add_edges(EnumEdges(Hops.from_pairs(chain.from_iterable([
+        [(p_after, PrefixedNode(2, Before(p_after.unprefixed().x))),
+         (PrefixedNode(2, Before(p_after.unprefixed().x)), p_after)]
+            for p_after in g2.query(WithPrefix(1, OfClass(After)))
+    ]), weight=1000.0)))
+    '''
+    g2 = g2.add_edges(EnumEdges(hops))
+
+    run([
+        PrefixedNode(1, Before(4)),
+        PrefixedNode(1, Before(5)),
+        PrefixedNode(1, Before(6)),
+        PrefixedNode(1, After(15)),
+        PrefixedNode(1, Equation),
+        PrefixedNode(2, Before(4)),
+        PrefixedNode(2, Before(5)),
+        PrefixedNode(2, Before(6)),
+        PrefixedNode(2, After(15)),
+        PrefixedNode(2, Equation),
+    ], g=g2, k=None, p=p1)
+    print()
+    pts(g2.hops_from_node(PrefixedNode(1, After(10))))
 
     # NEXT
     # custom features_of:

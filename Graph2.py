@@ -363,6 +363,16 @@ class PrefixedNode:
     prefix: Hashable
     node: Node
 
+    def unprefixed(self, prefix: Any=None) -> Node:
+        return unprefixed(self, prefix)
+
+    def with_prefix(self, new_prefix) -> 'PrefixedNode':
+        return PrefixedNode(new_prefix, self.node)
+
+    def __repr__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.prefix}, {self.node})'
+
 def unprefixed(x: Node, prefix: Any=None) -> Node:
     if isinstance(x, PrefixedNode):
         if prefix is not None and x.prefix != prefix:

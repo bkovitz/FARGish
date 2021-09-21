@@ -111,10 +111,10 @@ class Equation:
 
     def features_of(self) -> Iterable[Hashable]:
         for operand in self.operands:
-            yield operand
+            #yield operand
             yield Before(operand)
         yield self.operator
-        yield self.result
+        #yield self.result
         yield After(self.result)
         if all(self.result > operand for operand in self.operands):
             yield Increase
