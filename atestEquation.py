@@ -103,7 +103,7 @@ eqn_graph = Graph.with_features(
     Equation.make_table(
         range(1, 11), range(1, 11), [plus, minus, times]
     )
-) #.add_edges(MutualInhibition((Feature, Equation, int), weight=-0.2))
+) #.add_edges(MutualInhibition((Feature, Equation, int), weight=-0.02))
 p = TyrrellPropagator(
     max_total=10.0,
     noise=0.0,
@@ -124,7 +124,10 @@ p1a = TyrrellPropagator(  # Makes 6+4=10 just barely win
     tyrrell_alpha=0.05,  # 0.2
     tyrrell_beta=0.1
 )
-p1 = TyrrellPropagator(
+
+# Somewhat passable winners in doubled-graph experiment with one-way After->
+# Before bridge with weight 100.0, but by awfully tiny margins
+p1b = TyrrellPropagator(
     max_total=100.0,
     noise=0.0,
     positive_feedback_rate=0.0, #1.5,  # higher -> initial features matter more
@@ -133,6 +136,17 @@ p1 = TyrrellPropagator(
     alpha=0.95,
     tyrrell_alpha=0.02,  # 0.2
     tyrrell_beta=0.1
+)
+
+p1 = TyrrellPropagator(
+    max_total=100.0,
+    noise=0.0,
+    positive_feedback_rate=0.1, #1.5,  # higher -> initial features matter more
+    sigmoid_p=0.99,  #1.5 higher -> sharper distinctions, more salience
+    num_iterations=20,
+    alpha=0.95,
+    tyrrell_alpha=0.02,  # 0.2
+    tyrrell_beta=0.02
 )
 p2 = GraphPropagatorOutgoing(
     max_total=10.0,
@@ -305,12 +319,12 @@ if __name__ == '__main__':
         hops.append(Hop(
             p_after,
             PrefixedNode(2, Before(p_after.unprefixed().x)),
-            weight=100.0
+            weight=10.0
         ))
         hops.append(Hop(
             PrefixedNode(2, Before(p_after.unprefixed().x)),
             p_after,
-            weight=0.0
+            weight=10.0
         ))
 
     '''
@@ -326,7 +340,8 @@ if __name__ == '__main__':
         PrefixedNode(1, Before(4)),
         PrefixedNode(1, Before(5)),
         PrefixedNode(1, Before(6)),
-        PrefixedNode(1, After(15)),
+        #PrefixedNode(1, After(15)),
+        #PrefixedNode(1, After),
         PrefixedNode(1, Equation),
         PrefixedNode(2, Before(4)),
         PrefixedNode(2, Before(5)),
@@ -338,6 +353,12 @@ if __name__ == '__main__':
     pts(g2.hops_from_node(PrefixedNode(1, After(10))))
 
     # NEXT
+    # Per-node sigmoid function
+    #
+    # Visualizations
+    #
+    # Better querying for type= argument.
+    #
     # custom features_of:
     #   UT for custom features of an int
     #
