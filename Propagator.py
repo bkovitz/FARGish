@@ -8,7 +8,7 @@ from random import gauss
 from collections import defaultdict
 import sys
 
-from Node import NodeId
+from Graph import Node
 
 
 def reverse_sigmoid(x: float, p: float=0.5):
@@ -31,9 +31,9 @@ def reverse_sigmoid(x: float, p: float=0.5):
 
 @dataclass
 class Delta:
-    nodeid: NodeId    # The node whose value is to be changed
+    nodeid: Node    # The node whose value is to be changed
     amt: float        # The amount by which it is to be changed
-    neighborid: NodeId  # The neighbor that is the source of the change
+    neighborid: Node  # The neighbor that is the source of the change
 
     def __str__(self):
         return f'{self.nodeid!s:20s} {self.amt:1.10f}   {self.neighborid}'
@@ -41,11 +41,11 @@ class Delta:
 @dataclass(frozen=True)
 class Flows:
     '''Holds a record of activation flows.'''
-    _fromto: Dict[Tuple[NodeId, NodeId], float] = \
+    _fromto: Dict[Tuple[Node, Node], float] = \
         field(default_factory=lambda: defaultdict(float))
-    _total_in: Dict[NodeId, float] = \
+    _total_in: Dict[Node, float] = \
         field(default_factory=lambda: defaultdict(float))
-    _total_out: Dict[NodeId, float] = \
+    _total_out: Dict[Node, float] = \
         field(default_factory=lambda: defaultdict(float))
 
     def clear(self):
@@ -53,7 +53,7 @@ class Flows:
         self._total_in.clear()
         self._total_out.clear()
 
-    def add_flow(self, fromnode: NodeId, tonode: NodeId, a: float):
+    def add_flow(self, fromnode: Node, tonode: Node, a: float):
         self._fromto[(fromnode, tonode)] += a
         self._total_in[tonode] += a
         self._total_out[fromnode] += a
@@ -75,7 +75,7 @@ class Flows:
                 print(f'  {str(neighbor):70s}  {a_in:= 3.5f}  {a_out:= 3.5f}')
 
     @property
-    def nodes(self) -> Iterable[NodeId]:
+    def nodes(self) -> Iterable[Node]:
         '''Returns generator of nodes, sorted by str.'''
         for node in sorted(self._total_in.keys(), key=str):
             yield node
@@ -94,13 +94,13 @@ class Propagator(ABC):
         # sigma parameter for normal dist. sampled and added
     num_iterations: int = 1
 
-#    flows: Dict[Tuple(NodeId, NodeId), float] = \
+#    flows: Dict[Tuple(Node, Node), float] = \
 #        field(default_factory=lambda: defaultdict(float))
     flows: Flows = field(default_factory=Flows)
 
-    def propagate_once(self, g, old_d: Dict[NodeId, float]):
+    def propagate_once(self, g, old_d: Dict[Node, float]):
         # decay
-        new_d: Dict[NodeId, float] = defaultdict(float,
+        new_d: Dict[Node, float] = defaultdict(float,
             #((nodeid, a * self.alpha)
             #((nodeid, max(self.min_value(g, nodeid), a * self.alpha))
             ((nodeid, self.clip_a(g, nodeid, a * self.alpha))
@@ -137,7 +137,7 @@ class Propagator(ABC):
         )
         return self.normalize(new_d)
 
-    def propagate(self, g, old_d: Dict[NodeId, float], num_iterations=None):
+    def propagate(self, g, old_d: Dict[Node, float], num_iterations=None):
         self.flows.clear()
         if num_iterations is None:
             num_iterations = self.num_iterations
@@ -147,16 +147,16 @@ class Propagator(ABC):
         return new_d
 
     @abstractmethod
-    def make_deltas(self, g, old_d: Dict[NodeId, float]) -> Iterable[Delta]:
+    def make_deltas(self, g, old_d: Dict[Node, float]) -> Iterable[Delta]:
         pass
 
 #    @abstractmethod
-#    def min_value(self, g, nodeid: NodeId) -> float:
+#    def min_value(self, g, nodeid: Node) -> float:
 #        pass
     def clip_a(self, g, nodeid, a: float) -> float:
         return a
 
-    def normalize(self, d: Dict[NodeId, float]) -> Dict[NodeId, float]:
+    def normalize(self, d: Dict[Node, float]) -> Dict[Node, float]:
         '''Returns d normalized so the sum of all the values does not
         exceed self.max_total.'''
         result = {}

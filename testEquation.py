@@ -30,7 +30,9 @@ class TestEquation(unittest.TestCase):
         e = Equation.make([3, 4], plus)
         self.assertCountEqual(
             features_of(e),
-            [plus, 3, 4, 7, Before(3), Before(4), After(7), Increase,
+            [plus,
+             #3, 4, 7,
+             Before(3), Before(4), After(7), Increase,
              MaxBefore(4), MinBefore(3), NumOperands(2), Equation
             ]
         )

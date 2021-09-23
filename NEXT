@@ -1,3 +1,11 @@
+Clean up source code
+
+    Move all port-graph code to old3/.
+
+    Set up a 'main' for running a demo.
+
+    Include a simple visualization of activations.
+
 Ac
 
     Decide: Should Ac return an Action or just do the action?
