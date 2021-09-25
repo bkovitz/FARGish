@@ -15,7 +15,7 @@ from itertools import chain, tee, filterfalse
 import functools
 
 
-empty_set = frozenset()
+empty_set: FrozenSet = frozenset()
 newline = '\n'
 backslash = '\\'
 
@@ -108,7 +108,7 @@ def loose_dict_eq(d1: Dict, d2: Dict) -> bool:
 
 # TODO Rename this to something clearer
 def tupdict(**kwargs) -> Tuple[Tuple[str, Hashable]]:
-    return tuple(
+    return tuple( # type: ignore
         (k, v) for k, v in kwargs.items()
     )
 
@@ -170,6 +170,7 @@ def is_seq_of(x: Any, clas: Type) -> bool:
             return isinstance(x[0], clas)
         except IndexError:
             return False
+    return False
     
 # TODO rm (OAOO Node.py)
 def is_nodeid(x):
@@ -225,8 +226,8 @@ def ssep(xs) -> str:
     return ' '.join(str(x) for x in as_iter(xs))
 
 def default_field_value(f: Field) -> Any:
-    if callable(f.default_factory):
-        return f.default_factory()
+    if callable(f.default_factory):  # type: ignore
+        return f.default_factory()  # type: ignore
     else:
         return f.default
 
@@ -345,12 +346,12 @@ def filter_none(f, iterable):
     return [x for x in xs if x is not None]
 
 # TODO UT
-def intersection(*sets: Iterable) -> Set:
+def intersection(*iters: Iterable) -> Set:
     '''Returns a set, which is the intersection of sets. The sets may be
     any iterable, not just 'set' objects.'''
     sets = [
         s if isinstance(s, set) else set(s)
-            for s in sets
+            for s in iters
     ]
     if sets:
         return sets[0].intersection(*sets[1:])
