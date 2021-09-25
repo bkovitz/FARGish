@@ -20,7 +20,7 @@ class Hop:
     to_node: Node
     weight: float
     
-@dataclass
+#@dataclass
 class Graph(ABC):
     '''Abstract base class for graphs.'''
 
@@ -28,7 +28,7 @@ class Graph(ABC):
     #def neighbors
 
     @abstractmethod
-    def __len__(self) -> Union[int, Literal[math.inf]]:
+    def __len__(self) -> Union[int, Literal[math.inf]]: # type: ignore
         '''The number of nodes in the graph, or math.inf.'''
         pass
 
@@ -67,10 +67,11 @@ class Graph(ABC):
     def hop_weight(self, from_node: Any, to_node: Any) -> float:
         '''Weight of edge from from_node to to_node, or 0.0 if no such edge
         exists.'''
-        try:
-            return self.find_hop(from_node, to_node).weight
-        except AttributeError:
+        hop = self.find_hop(from_node, to_node)
+        if hop is None:
             return 0.0
+        else:
+            return hop.weight
 
     @abstractmethod
     def find_hop(self, from_node: Any, to_node: Any) -> Union[Hop, None]:
@@ -96,13 +97,13 @@ class Graph(ABC):
         #TODO docstring
         return GraphSeries(graphs)
 
-@dataclass
+#@dataclass
 class NoEdges(Graph):
     '''Has methods that override those in Graph to return no edges, with
     no computation.'''
 
     def find_hop(self, from_node: Any, to_node: Any) -> Union[Hop, None]:
-        return []
+        return None
 
     def successors_of(self, x: Any)-> Iterable[Node]:
         return []
@@ -129,7 +130,9 @@ class LiteralGraph(NoEdges):
     def __len__(self):
         return len(self.literals)
 
-@dataclass
+"""
+#@dataclass  commented out due to mypy bug https://stackoverflow.com/q/69330256/1393162
+@dataclass(frozen=True)
 class WantEdges(Graph):
     #TODO docstring
     want_edges: Dict[Node, FrozenSet[Node]]
@@ -161,6 +164,7 @@ class WantEdges(Graph):
 
     def predecessors_of(self, to_node):
         raise NotImplementedError
+"""
         
 @dataclass
 class GraphSeries(Graph):

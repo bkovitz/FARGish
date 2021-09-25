@@ -11,18 +11,21 @@ from operator import itemgetter, attrgetter
 from heapq import nlargest
 import sys
 
-import networkx as nx
+import networkx as nx  # type: ignore[import]
 
 from Propagator import Propagator, Delta
 from Indenting import Indenting, indent
+from Graph import Node
 from util import is_iter, as_iter, pts, pl, pr
 
 
-NodeId = NewType('NodeId', int)
+#NodeId = NewType('NodeId', int)
 
+'''
 class Node:
     def features(self) -> Iterable[Hashable]:
         return []
+'''
 
 @dataclass(frozen=True)
 class NodeA:
@@ -120,7 +123,7 @@ class Slipnet(nx.Graph):
 
     def __init__(self, nodes: Iterable[Node] = []):
         super().__init__()
-        self.features = set()
+        self.features: Set[Node] = set()
         self.propagator = SlipnetPropagator()
         self.add_layer2_nodes(nodes)
 
@@ -162,7 +165,7 @@ class Slipnet(nx.Graph):
             to_visit = next_to_visit
         return result
 
-    def features_of1(self, x) -> Union[Iterable[Hashable], None]:
+    def features_of1(self, x) -> Iterable[Hashable]:
         if hasattr(x, 'features'):
             yield from x.features()
         else:
@@ -170,7 +173,7 @@ class Slipnet(nx.Graph):
 
     features_of = features_of1
 
-    def default_features(self, x) -> Union[Iterable[Hashable], None]:
+    def default_features(self, x) -> Iterable[Hashable]:
         '''Override this in subclasses.'''
         if False:
             yield None

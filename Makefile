@@ -1,10 +1,12 @@
 ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
 PY = python3
 BROWSER = open
+MYPY = mypy
 else
 #PY = python3.7
 PY = python3.9
 BROWSER = google-chrome
+MYPY = mypy --python-version 3.9 --show-error-codes
 endif
 
 # Type 'make' to run unit tests and then run current program in interactive
@@ -16,6 +18,11 @@ current:
 	$(PY) -i numbo6.py
 
 test: ut at
+
+# Static typecheck. Requires that 'mypy' be installed.
+mypy:
+	@echo -e \\n\\n\\n\\n\\n
+	$(MYPY) Numbo1.py --exclude '/Propagator.py$$/'
 
 # Unit tests for FARGish2. This will be obsolete once FARGModel.py and its
 # mates are done.
