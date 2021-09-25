@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt
 #import netgraph
 
 from Slipnet import Slipnet, empty_slipnet
+from FMTypes import FMPred, Value, Addr
 from Propagator import Propagator, Delta
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -44,9 +45,6 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
 
 
 # Types
-
-Value = NewType('Value', Hashable)
-Addr = NewType('Addr', Hashable)
 
 class Elem(ABC):
     '''Anything that can go in the ws without being contained by something
@@ -555,7 +553,7 @@ class FARGModel:
     def search_ws(
         self,
         #pred: Union[Type, Callable, None]=None,
-        pred: FMPred
+        pred: FMPred,
         min_a: Union[float, None]=None,
         max_n: int=1
     ) -> Iterable[Elem]:

@@ -246,6 +246,10 @@ class ElemInWS:
 # Exceptions
 
 @dataclass(frozen=True)
+class Halt(Exception):
+    pass
+
+@dataclass(frozen=True)
 class ValuesNotAvail(Exception):
     #container: Hashable  # Change this to a CellRef?
     cellref: Union['CellRef', None]
