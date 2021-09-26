@@ -32,7 +32,7 @@ def is_namedtuple(o):
     #HACK
     return hasattr(o, '_fields')
 
-def as_iter(o):
+def as_iter(o) -> Iterable:
     '''Returns o in a form that the caller can iterate over. If o is already
     an iterable (but not a string), returns o. If o is none, returns an
     empty list. If o is anything else, returns a one-element list containing
@@ -46,7 +46,7 @@ def as_iter(o):
     else:
         return [o]
 
-def as_list(o):
+def as_list(o) -> List:
     if isinstance(o, list):
         return o
     else:
@@ -429,7 +429,7 @@ class ReprEq:
 #TODO Redo with contextlib.contextmanager
 @dataclass
 class PushAttr(AbstractContextManager):
-    o: SimpleNamespace
+    o: object  #SimpleNamespace
     attr_name: str
     saved_value: Any = None
 

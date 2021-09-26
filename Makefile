@@ -22,7 +22,7 @@ test: ut at
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) Numbo1.py --exclude '/Propagator.py$$/'
+	$(MYPY) Numbo1a.py --exclude '/Propagator.py$$/'
 
 # Unit tests for FARGish2. This will be obsolete once FARGModel.py and its
 # mates are done.

@@ -23,8 +23,8 @@ from io import StringIO
 from inspect import isclass
 import inspect
 
-import networkx as nx
-import matplotlib.pyplot as plt
+import networkx as nx  # type: ignore[import]
+import matplotlib.pyplot as plt  # type: ignore[import]
 #import netgraph
 
 from FMTypes import Elem, Value, Addr
@@ -34,6 +34,15 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
     sample_without_replacement, clip, reseed, default_field_value, d_subset, \
     fields_for, filter_none
+
+
+def gstr(node) -> str:
+    '''Returns a string for node suitable for displaying in a visualization
+    of a graph.'''
+    if hasattr(node, 'gstr'):
+        return node.gstr()
+    else:
+        return str(node)
 
 
 class ActivationGraph(nx.DiGraph):

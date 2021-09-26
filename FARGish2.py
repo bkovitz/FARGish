@@ -31,8 +31,8 @@ from io import StringIO
 from inspect import isclass
 import inspect
 
-import networkx as nx
-import matplotlib.pyplot as plt
+import networkx as nx   # type: ignore[import]
+import matplotlib.pyplot as plt   # type: ignore[import]
 #import netgraph
 
 from Slipnet import Slipnet, empty_slipnet
@@ -105,6 +105,15 @@ def has_avail_value(
 ) -> Union[bool, None, 'CellRef', Elem]:
     if elem is None:
         return False
+    elif isinstance(elem, CellRef):
+        return any(elem.has_avail_value(v1) for v1 in as_iter(v))
+    elif elem == v:
+        return elem
+    else:
+        return False
+        
+        
+    '''
     try:
         #return elem.has_avail_value(v)
         return any(elem.has_avail_value(v1) for v1 in as_iter(v))
@@ -113,6 +122,7 @@ def has_avail_value(
             return elem
         else:
             return False
+    '''
 
 def dig_attr(elem: Union[Elem, None], attr: str) -> Hashable:
     '''Returns value of attr within elem. If elem contains no attr,
@@ -144,7 +154,7 @@ def as_fmpred(o: Union[Type, Tuple, Callable, None]) -> Callable:
     an object.'''
     # TODO Document the many ways this thing constructs a function.
     if isclass(o):
-        return lambda fm, x: isinstance(x, o)
+        return lambda fm, x: isinstance(x, o)  # type: ignore[arg-type] # mypy bug?
     elif isinstance(o, tuple):
         preds = tuple(as_fmpred(p) for p in o)
         return lambda fm, x: any(p(fm, x) for p in preds)
@@ -152,7 +162,7 @@ def as_fmpred(o: Union[Type, Tuple, Callable, None]) -> Callable:
         if first_arg_is_fargmodel(o):
             return o
         else:
-            return lambda fm, x: o(x)
+            return lambda fm, x: o(x)  # type: ignore[operator, misc] # mypy bug?
     elif o is None:
         return lambda fm, x: True
     else:

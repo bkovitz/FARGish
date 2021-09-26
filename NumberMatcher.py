@@ -22,6 +22,56 @@ from operator import attrgetter
 from util import as_list, as_iter, is_iter
 
 
+class NumberMatcher(ABC):
+    # TODO Let caller specify lb and ub?
+    # TODO Allow multiple targets.
+    '''
+    @classmethod
+    def OLDmake(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
+    -> Callable[[Any], float]:
+        #lb, ub = oom_bounds(target)
+        targets: List[int] = as_list(targets)
+        if not targets:
+            lb, ub = oom_bounds(0)
+        else:
+            bs = list(chain.from_iterable(oom_bounds(t) for t in targets))
+            lb = min(bs)
+            ub = max(bs)
+        return SingleNumberMatcher(
+            lb=lb, ub=ub, targets=targets, peakwidth=peakwidth
+        )
+    '''
+    @abstractmethod
+    def __call__(self, x: float, lb: float=None) -> float:
+        pass
+
+    @classmethod
+    def make(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
+    -> Callable[[Any], float]:
+        if len(targets) == 1:
+            return cls.matcher_for_one_target(targets[0], peakwidth=peakwidth)
+        else:
+            return cls.Or(*(
+                cls.make(t, peakwidth=peakwidth) for t in as_iter(targets)
+            ))
+
+    @classmethod
+    def Or(cls, *matchers) -> Callable[[Any], float]:
+        if len(matchers) == 1:
+            return matchers[0]
+        else:
+            return SumOfMatchers(matchers)
+
+    @classmethod
+    def matcher_for_one_target(cls, target, peakwidth=0.01) \
+    -> Callable[[Any], float]:
+        if is_iter(target):
+            return NumberTupleMatcher(tuple(
+                cls.make(t, peakwidth=peakwidth) for t in target  # type: ignore  #BUG
+            ))
+        else:
+            return SingleNumberMatcher(target, peakwidth=peakwidth)
+
 @dataclass
 class OLDSingleNumberMatcher:
     lb: float
@@ -62,8 +112,8 @@ class OLDSingleNumberMatcher:
 class SingleNumberMatcher:
     target: float
     peakwidth: float
-    lb: float = field(default=None)
-    ub: float = field(default=None)
+    lb: float = field(default=None)  # type: ignore[assignment]  # mypy how?
+    ub: float = field(default=None)  # type: ignore[assignment]  # mypy how?
 
     multiplier: float = field(default=1.0, init=False)
 
@@ -82,57 +132,12 @@ class SingleNumberMatcher:
         )
 
 
-class NumberMatcher:
-    # TODO Let caller specify lb and ub?
-    # TODO Allow multiple targets.
-    @classmethod
-    def OLDmake(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
-    -> Callable[[Any], float]:
-        #lb, ub = oom_bounds(target)
-        targets = as_list(targets)
-        if not targets:
-            lb, ub = oom_bounds(0)
-        else:
-            bs = list(chain.from_iterable(oom_bounds(t) for t in targets))
-            lb = min(bs)
-            ub = max(bs)
-        return SingleNumberMatcher(
-            lb=lb, ub=ub, targets=targets, peakwidth=peakwidth
-        )
-
-    @classmethod
-    def make(cls, *targets: Union[int, Sequence[int]], peakwidth=0.01) \
-    -> Callable[[Any], float]:
-        if len(targets) == 1:
-            return cls.matcher_for_one_target(targets[0], peakwidth=peakwidth)
-        else:
-            return cls.Or(*(
-                cls.make(t, peakwidth=peakwidth) for t in as_iter(targets)
-            ))
-
-    @classmethod
-    def Or(cls, *matchers) -> Callable[[Any], float]:
-        if len(matchers) == 1:
-            return matchers[0]
-        else:
-            return SumOfMatchers(matchers)
-
-    @classmethod
-    def matcher_for_one_target(cls, target, peakwidth=0.01) \
-    -> Callable[[Any], float]:
-        if is_iter(target):
-            return NumberTupleMatcher(tuple(
-                cls.make(t, peakwidth=peakwidth) for t in target
-            ))
-        else:
-            return SingleNumberMatcher(target, peakwidth=peakwidth)
-
 @dataclass
 class SumOfMatchers:
     matchers: Sequence
 
-    lb: float = field(default=None)
-    ub: float = field(default=None)
+    lb: float = field(default=None)  # type: ignore[assignment]  # mypy how?
+    ub: float = field(default=None)  # type: ignore[assignment]  # mypy how?
 
     def __post_init__(self):
         if self.lb is None or self.ub is None:
@@ -165,13 +170,13 @@ class WrongNumberTupleMatcher:
 
     def __call__(self, x: Union[int, None, Sequence[int]]) -> float:
         '''How well does x match self.targetss?'''
-        target = as_list(target)
+        target: List[int] = as_list(x)
         return max(
-            self.try_ms(ms, x)
+            self.try_ms(ms, target)  # type: ignore[arg-type]  # mypy how?
                 for ms in permutations(self.matchers)
         )
 
-    def try_ms(self, ms: Tuple[Callable], x: List[int]) -> float:
+    def try_ms(self, ms: Tuple[Callable[..., float]], x: List[int]) -> float:
         '''The result of trying ms on x, one matcher/number at a time.'''
         return reduce(
             operator.mul,
@@ -195,8 +200,8 @@ class NumberTupleMatcher:
     but it's simple and it'll do for now. 11-Aug-2021.'''
     matchers: Sequence[SingleNumberMatcher]
 
-    lb: float = field(default=None)
-    ub: float = field(default=None)
+    lb: float = field(default=None)  # type: ignore[assignment]  # mypy how?
+    ub: float = field(default=None)  # type: ignore[assignment]  # mypy how?
 
     def __post_init__(self):
         if self.lb is None or self.ub is None:

@@ -24,8 +24,8 @@ from inspect import isclass
 import inspect
 from random import choice
 
-import networkx as nx
-import matplotlib.pyplot as plt
+import networkx as nx  # type: ignore[import]
+import matplotlib.pyplot as plt  # type: ignore[import]
 #import netgraph
 
 from FMTypes import Elem, Elems, Value, Addr, FMPred
@@ -40,12 +40,13 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
 
 # Global functions
 
-def as_fmpred(o: FMPred) -> Callable[['FARGModel', ...], bool]:
+# Returns Callable[['FARGModel', ...], bool]
+def as_fmpred(o: FMPred) -> Callable[..., bool]:
     '''Returns a predicate function that takes two arguments: a FARGModel and
     an object.'''
     # TODO Document the many ways this thing constructs a function.
     if isclass(o):
-        return lambda fm, x: isinstance(x, o)
+        return lambda fm, x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
     elif isinstance(o, tuple):
         preds = tuple(as_fmpred(p) for p in o)
         return lambda fm, x: any(p(fm, x) for p in preds)
@@ -53,7 +54,7 @@ def as_fmpred(o: FMPred) -> Callable[['FARGModel', ...], bool]:
         if first_arg_is_fargmodel(o):
             return o
         else:
-            return lambda fm, x: o(x)
+            return lambda fm, x: o(x)  # type: ignore[operator, misc]  # mypy bug
     elif o is None:
         return lambda fm, x: True
     else:
@@ -99,6 +100,15 @@ def has_avail_value(
 ) -> Union[bool, None, 'CellRef', Elem]:
     if elem is None:
         return False
+    elif isinstance(elem, CellRef):
+        return any(elem.has_avail_value(v1) for v1 in as_iter(v))
+    elif elem == v:
+        return elem
+    else:
+        return False
+    ''' Version before correcting for mypy 26-Sep-2021
+    if elem is None:
+        return False
     try:
         #return elem.has_avail_value(v)
         return any(elem.has_avail_value(v1) for v1 in as_iter(v))
@@ -107,6 +117,7 @@ def has_avail_value(
             return elem
         else:
             return False
+    '''
 
 # TODO UT
 def dig_attr(elem: Union[Elem, None], attr: str) -> Hashable:
@@ -154,7 +165,7 @@ class AwaitingDelegate(AgentState):
 
     def add_delegate(self, new_delegate: 'Agents'):
         if not isinstance(self.delegate, list):
-            self.delegate = [self.delegate]
+            self.delegate = as_list(self.delegate)
         self.delegate += as_iter(new_delegate)
 
     def __str__(self):
@@ -178,7 +189,6 @@ class MustCheckIfSucceeded(AgentState):
         cl = self.__class__.__name__
         return f'{cl}({self.prev_agentstate}, {self.delegate})'
 
-@dataclass(frozen=True)
 class Agent(ABC): #(Elem):
     '''A workspace element that does things.'''
 
@@ -215,7 +225,6 @@ class Agent(ABC): #(Elem):
 
 Agents = Union[Agent, List[Agent], None]
 
-@dataclass(frozen=True)
 class Detector(ABC):
 
     @abstractmethod
@@ -267,7 +276,7 @@ class ValuesNotAvail(Exception):
 class FARGModel:
     ws: Dict[Elem, ElemInWS] = field(default_factory=dict)
     t: int = 0
-    slipnet: Slipnet = None
+    slipnet: Slipnet = None  # type: ignore[assignment]  # mypy how?
     slipnet_ctor: ClassVar[Callable[[], Slipnet]] = Slipnet
     seed: Union[int, None] = None
 
@@ -410,7 +419,8 @@ class FARGModel:
         self.activation_g.boost(node, amt=amt)
 
     def give_boost(self, from_elem: Elem, to_elem: Elems):
-        self.boost(to_elem, amt=self.a(from_elem))
+        for t in as_iter(to_elem):
+            self.boost(t, amt=self.a(from_elem))
 
     def downboost(self, node: Hashable):
         # HACK to make a node quiet down for a bit after it's done something;
@@ -513,17 +523,17 @@ class FARGModel:
 
     def is_tagging(self, tag: Elem, elem: Elem) -> bool:
         try:
-            return tag.is_tagging(elem)
+            return tag.is_tagging(elem)  # type: ignore[attr-defined]  # mypy how?
         except AttributeError:
             return elem in self.taggees_of(tag)
 
     def taggees_of(self, tag: Elem) -> Iterable[Elem]:
         try:
-            yield tag.taggees_of()
+            yield tag.taggees_of()  # type: ignore[attr-defined]  # mypy how?
         except AttributeError:
-            yield tag.taggee
+            yield tag.taggee  # type: ignore[attr-defined]  # mypy how?
         except AttributeError:
-            yield from tag.taggees
+            yield from tag.taggees  # type: ignore[attr-defined]  # mypy how?
         except AttributeError:
             return
 
@@ -536,7 +546,7 @@ class FARGModel:
     def degree(self, a: Elem) -> int:
         return len(self.neighbors(a))
 
-    def neighbors(self, e: Elem) -> List[Elem]:
+    def neighbors(self, e: Elem) -> Collection[Elem]: #List[Elem]:
         g = self.activation_g
         return set(list(g.successors(e)) + list(g.predecessors(e)))
 
@@ -587,7 +597,7 @@ class FARGModel:
                 self.activation_g.out_edges(elem, data=True)
             ):
                 self.activation_g.add_edge(new_elem, v, **d)
-            self.set_agent_state(new_elem, self.agent_state(elem))
+            self.set_agent_state(new_elem, self.agent_state(elem)) # type: ignore  #BUG
             self.remove_elem(elem)
 
     def remove_elem(self, elem):
