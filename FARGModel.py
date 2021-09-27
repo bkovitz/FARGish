@@ -180,7 +180,7 @@ class AwaitingOK(AgentState):
 @dataclass
 class MustCheckIfSucceeded(AgentState):
     prev_agentstate: AgentState
-    delegate: 'Agent'
+    delegate: Union['Agent', None]
 
     def can_go(self):
         return True
@@ -197,6 +197,10 @@ class Agent(ABC): #(Elem):
     @abstractmethod
     # TODO Maybe put desired args explicitly in go()'s signature
     def go(self, fm: 'FARGModel', contents, orientation):
+        pass
+
+    @abstractmethod
+    def __hash__(self):
         pass
 
     # TODO Default impl should check if Agent is Blocked
@@ -262,8 +266,8 @@ class Halt(Exception):
 class ValuesNotAvail(Exception):
     #container: Hashable  # Change this to a CellRef?
     cellref: Union['CellRef', None]
-    avails: Tuple[Value]
-    unavails: Tuple[Value]
+    avails: Tuple[Value, ...]
+    unavails: Tuple[Value, ...]
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -623,7 +627,7 @@ class FARGModel:
                 if self.builder_of(e) is agent
         ]
 
-    def behalf_of(self, elem: Elem) -> List[Elem]:
+    def behalf_of(self, elem: Elem) -> Sequence[Agent]:
         try:
             return self.ws[elem].behalf_of
         except KeyError:
@@ -631,7 +635,7 @@ class FARGModel:
 
     def has_antipathy_to(self, a: Hashable, b: Hashable) -> bool:
         try:
-            return a.has_antipathy_to(b)
+            return a.has_antipathy_to(b)  # type: ignore[attr-defined]  # mypy how?
         except AttributeError:
             return False
 
@@ -692,7 +696,9 @@ class FARGModel:
             return False
 
     def must_check_if_succeeded(
-        self, agent: Agent, delegate: Union[Agent, None]=None
+        self,
+        agent: Agent,
+        delegate: Union[Agent, None]=None
     ):
         prev_agentstate = self._agent_states[agent]
         self._agent_states[agent] = \
@@ -887,7 +893,7 @@ class StateDelta:
 
 @dataclass(frozen=True)
 class SeqState:  # TODO Inherit from Value?
-    avails: Union[Tuple[int], None] = None
+    avails: Union[Tuple[Value, ...], None] = None
     last_move: Union[StateDelta, None] = None
 
     # TODO Put this into a WithAvails mix-in.
@@ -895,9 +901,10 @@ class SeqState:  # TODO Inherit from Value?
     -> Tuple[Iterable[Value], Iterable[Value]]:
         '''Returns (taken_avails, remaining_avails). Might raise
         ValuesNotAvail.'''
-        remaining_avails = [] if self.avails is None else list(self.avails)
-        taken_avails = []
-        missing_avails = []
+        remaining_avails: List[Value] = \
+            [] if self.avails is None else list(self.avails)
+        taken_avails: List[Value] = []
+        missing_avails: List[Value] = []
         for v in values:
             try:
                 remaining_avails.remove(v)
@@ -942,7 +949,6 @@ class SeqState:  # TODO Inherit from Value?
         else:
             return f'{self.last_move_str()} {avails_str}'
 
-@dataclass(eq=False)
 class Canvas(ABC):
     # TODO get an iterator of all CellRefs, search for a value
 
@@ -951,19 +957,19 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
-    def __setitem__(self, addr: Addr, v: Value):
+    def __setitem__(self, addr: Addr, v: Value) -> None:
         pass
 
 @dataclass(eq=False)
 class SeqCanvas(Canvas):
-    states: List[SeqState] = field(default_factory=list)
+    states: List[Union[SeqState, None]] = field(default_factory=list)
 
     min_a: ClassVar[float] = 1.0
 
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
         #print('SEQCGET', addr, len(self.states))
-        if addr < len(self.states):
+        if isinstance(addr, int) and addr < len(self.states):
             return self.states[addr]
         else:
             return None
@@ -971,9 +977,12 @@ class SeqCanvas(Canvas):
     def __setitem__(self, addr: Addr, v: Value):
         # TODO Handle addr that doesn't work as a list index
         # TODO Accept a builder argument?
-        while len(self.states) <= addr:
-            self.states.append(None)
-        self.states[addr] = v
+        if isinstance(addr, int):
+            while len(self.states) <= addr:
+                self.states.append(None)
+            self.states[addr] = v  # type: ignore[call-overload]  # mypy bug?
+        else:
+            raise NotImplementedError(f'addr must be int; was {type(addr)}: {addr}')
 
     def last_nonblank_cellref(self) -> 'CellRef':
         # TODO Actually check for 'blank' SeqStates (which will require
@@ -982,8 +991,11 @@ class SeqCanvas(Canvas):
 
     # TODO UT
     def cellrefs_forward(self, addr: Addr) -> Iterable['CellRef']:
-        for i in range(addr, len(self.states)):
-            yield CellRef(self, i)
+        if isinstance(addr, int):
+            for i in range(addr, len(self.states)):
+                yield CellRef(self, i)
+        else:
+            raise NotImplementedError(f'addr must be int; was {type(addr)}: {addr}')
 
     def __str__(self):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
@@ -994,18 +1006,35 @@ class CellRef:
     addr: Union[Addr, None] = None
 
     def paint(self, v: Value):
-        self.canvas[self.addr] = v
+        if (  # OAOO this 'if'
+            self.canvas is not None
+            and
+            isinstance(self.addr, int)
+        ):
+            self.canvas[self.addr] = v
 
     @property
     def value(self) -> Union[Value, None]:
-        return self.canvas[self.addr]
+        if (
+            self.canvas is not None
+            and
+            isinstance(self.addr, int)
+        ):
+            return self.canvas[self.addr]
+        else:
+            return None
 
     def has_value(self) -> bool:
         return self.value is not None
 
     # TODO UT
     def cellrefs_forward(self) -> Iterable['CellRef']:
-        yield from self.canvas.cellrefs_forward(self.addr)
+        if (
+            isinstance(self.canvas, SeqCanvas)
+            and
+            isinstance(self.addr, int)
+        ):
+            yield from self.canvas.cellrefs_forward(self.addr)
 
     @property
     def avails(self) -> Sequence[Value]:
@@ -1021,16 +1050,22 @@ class CellRef:
         ValuesNotAvail.'''
         # TODO Require a determinate Collection, not just an Iterable (since
         # we might fail and need to put 'values' into an exception).
-        cell = self.canvas[self.addr]
-        if cell is None:
-            raise ValuesNotAvail(self, values)
-        return cell.take_avails(values)
+        if self.canvas is not None:
+            cell = self.canvas[self.addr]
+            if cell is None:
+                raise ValuesNotAvail(self, values)  # TODO Why doesn't mypy mark this as an error? (3rd argument is missing.)
+            return cell.take_avails(values)
+        else: 
+            raise ValuesNotAvail(self, tuple(values), ())
 
     def has_avail_value(self, v):
         return has_avail_value(self.canvas[self.addr], v)
 
-    def last_nonblank_cellref(self) -> 'CellRef':
-        return self.canvas.last_nonblank_cellref()
+    def last_nonblank_cellref(self) -> Union['CellRef', None]:
+        if isinstance(self.canvas, SeqCanvas):
+            return self.canvas.last_nonblank_cellref()
+        else:
+            return None
 
     def next_cellref(self):
         '''Returns CellRef for the next cell in the canvas.'''
@@ -1074,8 +1109,11 @@ class AvailDetector(Detector):
     
 @dataclass(frozen=True)
 class LitPainter(Agent):
-    cellref: CellRef = None
-    value: Value = None
+    cellref: CellRef # = None
+    value: Value # = None
+
+    def __hash__(self):
+        return hash((self.cellref, self.value))
 
     def on_build(self, fm, **kwargs):
         fm.build(self.cellref, builder=self)
@@ -1116,7 +1154,10 @@ class Blocked(Agent):
     taggee: Elem
     reason: Hashable
 
-    def go(self, fm: FARGModel):
+    def __hash__(self):
+        return hash((self.taggee, self.reason))
+
+    def go(self, fm, contents, orientation):
         #fm.build(GoIsDone(taggee=self))
         self.make_want_unavail(fm, self.reason)
         # TODO Alternatively, TakeFromAvails
@@ -1210,6 +1251,9 @@ class Consume(Agent):
     source: Union[CellRef, None] = None  # where to get operands
     dest: Union[CellRef, None] = None    # where to paint result
 
+    def __hash__(self):
+        return hash((self.operator, self.operands, self.source, self.dest))
+
     def on_build(self, fm: FARGModel, **kwargs):
         fm.build(self.source, builder=self)
         fm.build(self.dest, builder=self)
@@ -1258,13 +1302,14 @@ class Consume(Agent):
         return f"{cl}({', '.join(xs)})"
 
     def features(self) -> Iterable[Hashable]:
-        for operand in self.operands:
+        for operand in as_iter(self.operands):
             yield operand
             yield Before(operand)
         yield self.operator
-        result = self.operator.call(*self.operands)
-        yield result
-        yield After(result)
+        if self.operands and self.operator:
+            result = self.operator.call(*self.operands)
+            yield result
+            yield After(result)
 
 @dataclass(frozen=True)
 class Want(Agent):
@@ -1273,30 +1318,39 @@ class Want(Agent):
     #TODO Rename Want to something that suggests more narrowly what it tries
     #to build.
     target: Value = None
-    startcell: CellRef = None
-    sk: Callable = None   # success continuation
+    startcell: Union[CellRef, None] = None
+    sk: Union[Callable, None] = None   # success continuation
 
     max_a: ClassVar[float] = 4.0
+
+    def __hash__(self):
+        return hash((self.target, self.startcell, self.sk))
 
     def on_build(self, fm: FARGModel, **kwargs):
         fm.build(self.startcell, builder=self)
 
-    def go(self, fm: FARGModel, **kwargs):
+    def go(self, fm: FARGModel, **kwargs): # type: ignore[override]  # mypy bug?
         # TODO Don't build these if they're already built
-        fm.build(
-            AvailDetector(self.target, filter=CellRef, action=self.sk),
-            builder=self
-        )
-        fm.build(  # HACK Numbo-specific
-            GettingCloser.Tagger(target=self.target),
-            builder=self
-        )
+        if self.sk:
+            fm.build(
+                AvailDetector(self.target, filter=CellRef, action=self.sk),
+                builder=self
+            )
+        if isinstance(self.target, Number):
+            fm.build(  # HACK Numbo-specific
+                GettingCloser.Tagger(target=self.target),
+                builder=self
+            )
         self.consult_slipnet(fm, **kwargs)
         fm.sleep(self, num_timesteps=5)
 
     def consult_slipnet(self, fm: FARGModel, **kwargs):
+        if not self.startcell:
+            return  #HACK
         source = self.startcell.last_nonblank_cellref()
-        activations_in = {}
+        if not source:
+            return  #HACK
+        activations_in: Dict[Hashable, float] = {}
         self.update_activations_in(fm, source, activations_in)
 
         exclude = Exclude(fm.neighbors(self))
@@ -1323,7 +1377,7 @@ class Want(Agent):
 
     def update_activations_in(
         self, fm: FARGModel, cr: CellRef, activations_in: Dict[Hashable, float]
-    ) -> Dict[Hashable, float]:
+    ) -> None:
         # TODO Should add to existing activation levels, not overwrite
         for avail in cr.avails:
             activations_in[Before(avail)] = 1.0
@@ -1418,9 +1472,9 @@ class Copycat(Agent):
 #TODO UT
 @dataclass(frozen=True)
 class GettingCloser:
-    taggee: Elem = None
-    target: int = None
-    weight: float = None
+    taggee: Elem # = None
+    target: int # = None
+    weight: float # = None
 
     @dataclass(frozen=True)
     class Tagger(Detector):
@@ -1450,7 +1504,7 @@ class GettingCloser:
             start_dist = min(abs(target - b) for b in before)
         except ValueError:
             return 0.0
-        after_dist = abs(target - after)
+        after_dist = abs(target - after)  # type: ignore[operator]  # mypy bug?
         closer_by = start_dist - after_dist
         if closer_by <= 0.0:
             return 0.0
