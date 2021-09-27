@@ -42,7 +42,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testEquation.TestEquation
+	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_avail_detector
+	#$(PY) -m unittest -v testEquation.TestEquation
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 
 # Acceptance tests

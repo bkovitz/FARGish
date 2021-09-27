@@ -37,6 +37,9 @@ class Equation(Node):
     operator: Operator
     result: int
 
+    def __hash__(self):
+        return hash((self.operands, self.operator, self.result))
+
     def features(self) -> Iterable[Hashable]:
         for operand in self.operands:
             yield operand

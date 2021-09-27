@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, fields, replace, is_dataclass, InitVar
 import dataclasses
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence
+    Sequence, Literal, Protocol, runtime_checkable
 from numbers import Number, Real
 from abc import ABC, abstractmethod
 from itertools import chain
@@ -94,10 +94,31 @@ def match_wo_none(other, obj_template) -> bool:
             for k, v in dataclasses.asdict(obj_template).items()
     )
 
+class HasAvailValues(ABC):
+    '''Mix-in for cells and other things that (can) have avail values.'''
+    
+    @abstractmethod
+    def has_avail_value(self, v: Value) -> bool:
+        pass
+
+    @abstractmethod
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        '''Returns (taken_avails, remaining_avails). Might raise
+        ValuesNotAvail.'''
+        # TODO Require a determinate Collection, not just an Iterable (since
+        # we might fail and need to put 'values' into an exception).
+        pass
+
+    @property
+    def avails(self) -> Union[Sequence[Value], None]:
+        pass
+
 def has_avail_value(
     elem: Union['CellRef', Elem, None],
     v: Value
 ) -> Union[bool, None, 'CellRef', Elem]:
+    '''
     if elem is None:
         return False
     elif isinstance(elem, CellRef):
@@ -106,6 +127,14 @@ def has_avail_value(
         return elem
     else:
         return False
+    '''
+    if elem is None:
+        return False
+    elif isinstance(elem, HasAvailValues):
+        return any(elem.has_avail_value(v1) for v1 in as_iter(v))
+    else:
+        return elem == v
+
     ''' Version before correcting for mypy 26-Sep-2021
     if elem is None:
         return False
@@ -135,8 +164,11 @@ def dig_attr(elem: Union[Elem, None], attr: str) -> Hashable:
 # Element classes
 
 @dataclass
-class AgentState(ABC):
+class AgentStateDataclassMixin:
+    '''Needed only to get around mypy bug https://stackoverflow.com/a/69344698/1393162'''
     succeeded: ClassVar[bool] = False
+
+class AgentState(ABC, AgentStateDataclassMixin):
 
     @abstractmethod
     def can_go(self) -> bool:
@@ -196,7 +228,7 @@ class Agent(ABC): #(Elem):
 
     @abstractmethod
     # TODO Maybe put desired args explicitly in go()'s signature
-    def go(self, fm: 'FARGModel', contents, orientation):
+    def go(self, fm: 'FARGModel', contents=None, orientation=None):
         pass
 
     @abstractmethod
@@ -892,8 +924,8 @@ class StateDelta:
         return str(self)
 
 @dataclass(frozen=True)
-class SeqState:  # TODO Inherit from Value?
-    avails: Union[Tuple[Value, ...], None] = None
+class SeqState(HasAvailValues):
+    avails: Union[Sequence[Value], None] = None
     last_move: Union[StateDelta, None] = None
 
     # TODO Put this into a WithAvails mix-in.
@@ -1001,7 +1033,7 @@ class SeqCanvas(Canvas):
         return f"SeqCanvas({'; '.join(str(st) for st in self.states)})"
 
 @dataclass(frozen=True)
-class CellRef:
+class CellRef(HasAvailValues):
     canvas: Union[Canvas, None] = None
     addr: Union[Addr, None] = None
 
@@ -1037,12 +1069,18 @@ class CellRef:
             yield from self.canvas.cellrefs_forward(self.addr)
 
     @property
-    def avails(self) -> Sequence[Value]:
+    def avails(self) -> Union[Sequence[Value], None]:
+        if isinstance(self.value, HasAvailValues):
+            return self.value.avails
+        else:
+            return []
+        '''
         cell = self.value
         if cell is None:
             return []
         else:
             return cell.avails
+        '''
 
     def take_avails(self, values: Iterable[Value]) \
     -> Tuple[Iterable[Value], Iterable[Value]]:
@@ -1050,6 +1088,7 @@ class CellRef:
         ValuesNotAvail.'''
         # TODO Require a determinate Collection, not just an Iterable (since
         # we might fail and need to put 'values' into an exception).
+        '''
         if self.canvas is not None:
             cell = self.canvas[self.addr]
             if cell is None:
@@ -1057,6 +1096,13 @@ class CellRef:
             return cell.take_avails(values)
         else: 
             raise ValuesNotAvail(self, tuple(values), ())
+        '''
+        if self.canvas is not None:
+            cell = self.canvas[self.addr]
+            if isinstance(cell, HasAvailValues):
+                return cell.take_avails(values)
+        raise ValuesNotAvail(self, tuple(values), ())
+        
 
     def has_avail_value(self, v):
         return has_avail_value(self.canvas[self.addr], v)
@@ -1098,7 +1144,9 @@ class AvailDetector(Detector):
         # TODO Should has_avail_value be included in pred?
         found = set(fm.ws_query(self.filter))
         # TODO log found
+        #print('AVD1', found, self.target)
         for elem in found:
+            #print('AVD2', elem, has_avail_value(elem, self.target))
             if has_avail_value(elem, self.target):
                 # TODO action should be a codelet
                 self.action(fm, elem)
@@ -1110,7 +1158,7 @@ class AvailDetector(Detector):
 @dataclass(frozen=True)
 class LitPainter(Agent):
     cellref: CellRef # = None
-    value: Value # = None
+    value: Value = None
 
     def __hash__(self):
         return hash((self.cellref, self.value))
@@ -1157,7 +1205,7 @@ class Blocked(Agent):
     def __hash__(self):
         return hash((self.taggee, self.reason))
 
-    def go(self, fm, contents, orientation):
+    def go(self, fm, **kwargs):
         #fm.build(GoIsDone(taggee=self))
         self.make_want_unavail(fm, self.reason)
         # TODO Alternatively, TakeFromAvails
@@ -1209,8 +1257,9 @@ class RemoveBlocked:
         # 'what to do when unblocked' to something else. Really, this is
         # a form of slippage and should be explicitly coded that way.
         assert isinstance(taggee, Consume)
-        fm.override(taggee, source=found, dest=found.next_cellref())
-        fm.remove_elem(self.blocked)
+        if isinstance(found, CellRef):
+            fm.override(taggee, source=found, dest=found.next_cellref())
+            fm.remove_elem(self.blocked)
 
     def __str__(self):
         cl = self.__class__.__name__
@@ -1379,7 +1428,7 @@ class Want(Agent):
         self, fm: FARGModel, cr: CellRef, activations_in: Dict[Hashable, float]
     ) -> None:
         # TODO Should add to existing activation levels, not overwrite
-        for avail in cr.avails:
+        for avail in as_iter(cr.avails):
             activations_in[Before(avail)] = 1.0
         activations_in[After(self.target)] = 1.0
         # TODO (in a subclass specific to arithmetic)

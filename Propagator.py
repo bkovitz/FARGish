@@ -81,7 +81,8 @@ class Flows:
             yield node
 
 @dataclass
-class Propagator(ABC):
+class PropagatorDataclassMixin:
+    '''Needed only to get around mypy bug https://stackoverflow.com/a/69344698/1393162'''
     positive_feedback_rate: float = 1.2
         # constant for favoring already-supported/active nodes
     alpha: float = 0.98
@@ -98,6 +99,7 @@ class Propagator(ABC):
 #        field(default_factory=lambda: defaultdict(float))
     flows: Flows = field(default_factory=Flows)
 
+class Propagator(ABC, PropagatorDataclassMixin):
     def propagate_once(self, g, old_d: Dict[Node, float]):
         # decay
         new_d: Dict[Node, float] = defaultdict(float,
