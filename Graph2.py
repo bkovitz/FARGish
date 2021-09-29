@@ -258,6 +258,7 @@ class EdgesSeries(Edges):
             hop = edges.find_hop(nodes, from_node, to_node)
             if hop is not None:
                 return hop
+        return None
 
 @dataclass
 class Graph:
@@ -297,10 +298,17 @@ class Graph:
     def hop_weight(self, from_node: Node, to_node: Node) -> float:
         '''If either node does not exist, or there is no hop from from_node to
         to_node, returns 0.0.'''
+        hop = self.find_hop(from_node, to_node)
+        if hop:
+            return hop.weight
+        else:
+            return 0.0
+        '''
         try:
             return self.find_hop(from_node, to_node).weight
         except AttributeError:
             return 0.0
+        '''
 
     def add_edges(self, edges: Edges) -> 'Graph':
         '''Returns a new Graph, containing the edges.'''
@@ -335,8 +343,8 @@ class Graph:
 
     @classmethod
     def with_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
-        nodeset = set()
-        hopset = set()
+        nodeset: Set[Node] = set()
+        hopset: Set[Hop] = set()
 
         nodes_to_do = set(chain.from_iterable(base_nodess))
         nodes_done = set()
@@ -475,7 +483,7 @@ def features_of(x: Any) -> Iterable[Node]:
     if not isclass(x):
         if hasattr(x, 'features_of'):
             yield from x.features_of()
-        yield type(x)
+        yield type(x)  # type: ignore[misc]  # Type isn't Hashable??
 
 @dataclass(frozen=True)
 class FeatureWrapper(Feature):

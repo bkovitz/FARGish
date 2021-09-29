@@ -11,8 +11,10 @@ max_t = 0
 max_a = 0
 for row in reader:
     t, node, a = row
+    '''
     if not (node.startswith('Consume') or node.startswith('ImCell')):
         continue
+    '''
     max_t = max(t, max_t)
     max_a = max(a, max_a)
     d[node].append((int(t), a))

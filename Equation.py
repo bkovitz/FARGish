@@ -86,7 +86,7 @@ minus = Operator(operator.sub, '-')
 
 @dataclass(frozen=True)
 class Equation:
-    operands: Tuple[int]
+    operands: Tuple[int, ...]
     operator: Operator
     result: int
 
