@@ -8,6 +8,7 @@ from random import gauss
 from collections import defaultdict
 import sys
 
+from FMTypes import ADict
 from Graph import Node
 
 
@@ -139,7 +140,14 @@ class Propagator(ABC, PropagatorDataclassMixin):
         )
         return self.normalize(new_d)
 
-    def propagate(self, g, old_d: Dict[Node, float], num_iterations=None):
+    def propagate(
+        self,
+        g,
+        old_d: Union[ADict, None],
+        num_iterations=None
+    ) -> ADict:
+        if old_d is None:
+            old_d = {}
         self.flows.clear()
         if num_iterations is None:
             num_iterations = self.num_iterations

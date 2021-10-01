@@ -26,3 +26,9 @@ Addr = Hashable
 # argument is the FARGModel
 #FMPred = NewType('FMPred', Union[Type, Tuple, Callable, None])
 FMPred = Union[Type, Tuple, Callable, None]
+
+# An activation level
+Activation = float
+
+# A dictionary mapping things to activation levels
+ADict = Dict[Hashable, Activation]

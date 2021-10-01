@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence, Literal
+    Sequence, Literal, Protocol, runtime_checkable
 from dataclasses import dataclass, field, InitVar
 import math
 from itertools import chain
@@ -313,6 +313,10 @@ class Graph:
     def add_edges(self, edges: Edges) -> 'Graph':
         '''Returns a new Graph, containing the edges.'''
         return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
+
+    @classmethod
+    def empty(cls) -> 'Graph':
+        return cls(nodes=EnumNodes(set()), edges=EnumEdges())
 
     @classmethod
     def augment(cls, *graphs: 'Graph') -> 'Graph':
