@@ -23,9 +23,24 @@ Value = Hashable
 Addr = Hashable
 
 # Something that can be converted into a predicate function whose first
-# argument is the FARGModel
+# argument is the FARGModel and whose second argument is the object in question
 #FMPred = NewType('FMPred', Union[Type, Tuple, Callable, None])
-FMPred = Union[Type, Tuple, Callable, None]
+FMPred = Union[
+    Type,
+    Tuple,  # should be Tuple[Pred, ...]
+    Callable[['FARGModel', Any], bool],  # type: ignore[name-defined]
+    Callable[[Any], bool],
+    None
+]
+
+# Something that can be converted into a predicate function whose only argument
+# is the object in question.
+Pred = Union[
+    Type,
+    Tuple,  # should be Tuple[Pred, ...]
+    Callable[[Any], bool],
+    None
+]
 
 # An activation level
 Activation = float

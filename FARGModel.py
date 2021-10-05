@@ -28,7 +28,7 @@ import networkx as nx  # type: ignore[import]
 import matplotlib.pyplot as plt  # type: ignore[import]
 #import netgraph
 
-from FMTypes import Elem, Elems, Value, Addr, FMPred
+from FMTypes import Elem, Elems, Value, Addr, FMPred, Pred
 from Slipnet import Slipnet, empty_slipnet, Before, After
 from FMGraphs import ActivationGraph
 from NumberMatcher import NumberMatcher
@@ -39,6 +39,19 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
 
 
 # Global functions
+
+def as_pred(o: Pred) -> Callable[[Any], bool]:
+    if isclass(o):
+        return lambda x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
+    elif isinstance(o, tuple):
+        preds = tuple(as_pred(p) for p in o)
+        return lambda x: any(p(x) for p in preds)
+    elif callable(o):
+        return o
+    elif o is None:
+        return lambda x: True
+    else:
+        return lambda x: match_wo_none(x, o)
 
 # Returns Callable[['FARGModel', ...], bool]
 def as_fmpred(o: FMPred) -> Callable[..., bool]:
@@ -54,7 +67,7 @@ def as_fmpred(o: FMPred) -> Callable[..., bool]:
         if first_arg_is_fargmodel(o):
             return o
         else:
-            return lambda fm, x: o(x)  # type: ignore[operator, misc]  # mypy bug
+            return lambda fm, x: o(x)  # type: ignore[call-arg, operator, misc]  # mypy bug
     elif o is None:
         return lambda fm, x: True
     else:

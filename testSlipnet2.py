@@ -43,9 +43,9 @@ class TestSlipnet(unittest.TestCase):
     def test_topna_and_top(self):
         slipnet = Slipnet.empty()  # slipnet contents are ignored in this test
         d = {'a': 0.9, 'b': 0.2, 'c': 0.3, 'd': 0.4, 'e': 0.5, 'f': 0.6}
-        filter = lambda x: x > 'b'
+        pred = lambda x: x > 'b'
         self.assertEqual(
-            slipnet.topna(d, filter=filter, k=None),
+            slipnet.topna(d, pred=pred, k=None),
             [
                 NodeA('f', 0.6),
                 NodeA('e', 0.5),
@@ -54,22 +54,36 @@ class TestSlipnet(unittest.TestCase):
             ]
         )
         self.assertEqual(
-            slipnet.top(d, filter=filter, k=None),
+            slipnet.top(d, pred=pred, k=None),
             ['f', 'e', 'd', 'c']
         )
         self.assertEqual(
-            slipnet.top1(d, filter=filter, k=None),
+            slipnet.top1(d, pred=pred, k=None),
             'f'
         )
         self.assertEqual(
-            slipnet.topna(d, filter=filter, k=2),
+            slipnet.topna(d, pred=pred, k=2),
             [NodeA('f', 0.6), NodeA('e', 0.5)]
         )
         self.assertEqual(
-            slipnet.topna(d, filter=filter), # default k: pick only the top 1
+            slipnet.topna(d, pred=pred), # default k: pick only the top 1
             [NodeA('f', 0.6)]
         )
         self.assertEqual(
             slipnet.topna(d, k=2),
             [NodeA('a', 0.9), NodeA('f', 0.6)]
         )
+
+    def test_filter_by_type(self):
+        slipnet = Slipnet.empty()  # slipnet contents are ignored in this test
+        d = {'a': 0.2, 'b': 0.3, 1: 0.2, 2: 0.3}
+        self.assertEqual(
+            slipnet.top(d, pred=str),
+            ['b']
+        )
+        self.assertEqual(
+            slipnet.top(d, pred=int),
+            [2]
+        )
+
+        

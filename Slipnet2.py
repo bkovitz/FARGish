@@ -10,7 +10,8 @@ from collections import defaultdict
 from heapq import nlargest
 from operator import itemgetter, attrgetter
 
-from FMTypes import Activation, ADict, epsilon
+from FMTypes import Activation, ADict, epsilon, Pred
+from FARGModel import as_pred
 from Graph2 import Graph, Node, GraphPropagatorOutgoing
 from Propagator import Propagator
 from util import as_iter, union
@@ -134,26 +135,17 @@ class Slipnet:
     def topna(
         cls,
         d: Dict[Node, float],
-        type: Type=None,
-        k: Union[int, None]=1,
-        filter: Union[Callable, None]=None
+        pred: Pred=None,
+        k: Union[int, None]=1
     ) -> List[NodeA]:
         '''Returns a list of the top k nodes in d, by activation, restricted to
         nodes of 'type' and that pass 'filter'.'''
-        if filter is None:
-            filter = lambda x: True
-        if type is None:
-            nas = [
-                NodeA(node, a)
-                    for (node, a) in d.items()
-                        if filter(node)
-            ]
-        else:
-            nas = [
-                NodeA(node, a)
-                    for (node, a) in d.items()
-                        if isinstance(node, type) and filter(node)
-            ]
+        pred: Callable[[Any], bool] = as_pred(pred)
+        nas = [
+            NodeA(node, a)
+                for (node, a) in d.items()
+                    if pred(node)
+        ]
         if k is None:
             return sorted(nas, key=attrgetter('a'), reverse=True)
         else:

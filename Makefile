@@ -6,8 +6,9 @@ else
 #PY = python3.7
 PY = python3.9
 BROWSER = google-chrome
-MYPY = mypy --python-version 3.9 --show-error-codes
+MYPY = mypy --python-version 3.9
 endif
+MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 # Type 'make' to run unit tests and then run current program in interactive
 # mode.
@@ -23,7 +24,7 @@ test: ut at
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
 	#$(MYPY) Numbo1a.py
-	$(MYPY) testSlipnet2.py
+	$(MYPY) $(MYPY_FLAGS) testSlipnet2.py
 
 # Unit tests for FARGish2. This will be obsolete once FARGModel.py and its
 # mates are done.
