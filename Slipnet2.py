@@ -6,11 +6,14 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence, Literal, Protocol, runtime_checkable
 from copy import copy
+from collections import defaultdict
+from heapq import nlargest
+from operator import itemgetter, attrgetter
 
-from FMTypes import Activation, ADict
+from FMTypes import Activation, ADict, epsilon
 from Graph2 import Graph, Node, GraphPropagatorOutgoing
 from Propagator import Propagator
-from util import as_iter
+from util import as_iter, union
 
 
 @dataclass(frozen=True)
@@ -113,11 +116,11 @@ default_tyrrell_propagator = TyrrellPropagator(
 @dataclass
 class Slipnet:
     base_graph: Graph
-    propagator: Propagator #= default_tyrrell_propagator
+    propagator: Propagator = default_tyrrell_propagator
 
     def dquery(
         self,
-        features: Union[Iterable[Hashable], None]=None,
+        features: Union[Sequence[Hashable], None]=None,
         activations_in: Union[ADict, None]=None
     ) -> ADict:
         '''Performs the propagation (spreading activation) starting from
@@ -127,9 +130,50 @@ class Slipnet:
             self.make_activations_in(features, activations_in)
         )
 
+    @classmethod
+    def topna(
+        cls,
+        d: Dict[Node, float],
+        type: Type=None,
+        k: Union[int, None]=1,
+        filter: Union[Callable, None]=None
+    ) -> List[NodeA]:
+        '''Returns a list of the top k nodes in d, by activation, restricted to
+        nodes of 'type' and that pass 'filter'.'''
+        if filter is None:
+            filter = lambda x: True
+        if type is None:
+            nas = [
+                NodeA(node, a)
+                    for (node, a) in d.items()
+                        if filter(node)
+            ]
+        else:
+            nas = [
+                NodeA(node, a)
+                    for (node, a) in d.items()
+                        if isinstance(node, type) and filter(node)
+            ]
+        if k is None:
+            return sorted(nas, key=attrgetter('a'), reverse=True)
+        else:
+            return nlargest(k, nas, key=attrgetter('a'))
+
+    @classmethod
+    def top(cls, *args, **kwargs) -> List[Node]:
+        return [na.node for na in cls.topna(*args, **kwargs)]
+
+    @classmethod
+    def top1(cls, *args, **kwargs) -> Union[Node, None]:
+        try:
+            return cls.top(*args, **kwargs)[0]
+        except IndexError:
+            return None
+
+    @classmethod
     def make_activations_in(
-        self,
-        features: Union[Iterable[Hashable], None]=None,
+        cls,
+        features: Union[Sequence[Hashable], None]=None,
         activations_in: Union[ADict, None]=None
     ) -> Union[ADict, None]:
         if not features:

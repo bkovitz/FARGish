@@ -23,7 +23,7 @@ test: ut at
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
 	#$(MYPY) Numbo1a.py
-	$(MYPY) Slipnet2.py
+	$(MYPY) testSlipnet2.py
 
 # Unit tests for FARGish2. This will be obsolete once FARGModel.py and its
 # mates are done.

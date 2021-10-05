@@ -1417,7 +1417,7 @@ class Want(Agent):
             # TODO We need a way to get an Agent from the slipnet that means
             # something like "Just add what you have."
             #print('WANT got from slipnet:', [str(a) for a in agents]) #DIAG
-        print(f'WANT {agents}')
+        #print(f'WANT {agents}')
         # TODO Save the results of the pulse so we can inspect it later.
         dest = source.next_cellref()
         for agent in agents:
