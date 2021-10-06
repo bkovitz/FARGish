@@ -44,8 +44,8 @@ lut:
 
 # Convenience target for single test current being worked on
 u:
-	$(PY) -m unittest -v testSlipnet2.TestSlipnet
-	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_avail_detector
+	#$(PY) -m unittest -v testSlipnet2.TestSlipnet
+	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_make_table_consume
 	#$(PY) -m unittest -v testEquation.TestEquation
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 

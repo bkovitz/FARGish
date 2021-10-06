@@ -221,6 +221,23 @@ class TestFARGModel(unittest.TestCase):
         fm.run(lp)
         self.assertCountEqual(cr1.avails, [6, 9])
 
+    def test_make_table_consume(self):
+        table = list(Consume.make_table([10, 20], [2, 3], [plus, minus]))
+        self.maxDiff = None
+        self.assertCountEqual(
+            table,
+            [
+                Consume(plus, (10, 2)),
+                Consume(plus, (10, 3)),
+                Consume(plus, (20, 2)),
+                Consume(plus, (20, 3)),
+                Consume(minus, (10, 2)),
+                Consume(minus, (10, 3)),
+                Consume(minus, (20, 2)),
+                Consume(minus, (20, 3))
+            ]
+        )
+
     def test_values_not_avail(self):
         fm = FARGModel()
         ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))

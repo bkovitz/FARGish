@@ -1,10 +1,19 @@
 Clean up source code
 
-    Move all port-graph code to old3/.
+    Move all port-graph code to old3/.  DONE
 
-    Set up a 'main' for running a demo.
+    Numbo1a.py: Set up a 'main' for running a demo.
+
+        Update code so that Want gets a Consume by querying the slipnet.
+
+            NEXT Numbo1a: eqn_graph -> consume_graph
+
+            Consume.features_of(): copy from Equation.features_of()
 
     Include a simple visualization of activations.
+
+
+
 
 Ac
 

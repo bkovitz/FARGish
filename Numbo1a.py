@@ -15,7 +15,7 @@ from Equation import Equation, Operator, plus, times, minus
 from util import pts, pl, pr
 
 eqn_graph = Graph.with_features(
-    Equation.make_table(
+    Consume.make_table(
         range(1, 11), range(1, 11), [plus, minus, times]
     )
 ) #.add_edges(MutualInhibition((Feature, Equation, int), weight=-0.02))

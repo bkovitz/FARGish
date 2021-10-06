@@ -1289,6 +1289,8 @@ class Operator:
     def call(self, *operands) -> int:
         return self.func(*operands)
 
+    __call__ = call
+
     def consume(self, source_state: 'SeqState', operands: Collection[Value]) \
     -> 'SeqState':
         '''Should try to consume operands from the avails in source_state,
@@ -1363,7 +1365,7 @@ class Consume(Agent):
                 xs.append(f'dest={self.dest}')
         return f"{cl}({', '.join(xs)})"
 
-    def features(self) -> Iterable[Hashable]:
+    def features_of(self) -> Iterable[Hashable]:
         for operand in as_iter(self.operands):
             yield operand
             yield Before(operand)
@@ -1372,6 +1374,21 @@ class Consume(Agent):
             result = self.operator.call(*self.operands)
             yield result
             yield After(result)
+
+    @classmethod
+    def make_table(
+        cls,
+        rands1: Iterable[int],
+        rands2: Iterable[int],
+        rators: Iterable[Operator]
+    ) -> Iterable['Consume']:
+        for rand1 in rands1:
+            for rand2 in rands2:
+                for rator in rators:
+                    if rand1 >= rand2:
+                        result = rator(rand1, rand2)
+                        if result != rand1 and result != rand2:
+                            yield cls(rator, (rand1, rand2))
 
 @dataclass(frozen=True)
 class Want(Agent):
