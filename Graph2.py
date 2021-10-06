@@ -347,6 +347,9 @@ class Graph:
 
     @classmethod
     def with_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
+        '''Makes and returns a Graph containing all nodes in base_nodess,
+        as well as a node for each feature returned by features_of, and
+        a positive edge connecting each base node to its feature nodes.'''
         nodeset: Set[Node] = set()
         hopset: Set[Hop] = set()
 
@@ -475,8 +478,18 @@ def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
     for feature_node in features_of(base_node):
         new_features.add(feature_node)
         nodeset.add(feature_node)
-        hopset.add(Hop(base_node, feature_node, 1.0))
-        hopset.add(Hop(feature_node, base_node, 1.0))
+        '''
+        in_weight = 0.01 if isclass(feature_node) else 1.0
+        out_weight = 0.01 if isclass(base_node) else 1.0
+        '''
+        '''
+        in_weight = 0.01 if isclass(base_node) or isclass(feature_node) else 1.0
+        out_weight = in_weight
+        '''
+        in_weight = out_weight = 1.0
+        #print(f'ADD {base_node} {feature_node} {in_weight} {out_weight}')
+        hopset.add(Hop(base_node, feature_node, out_weight))
+        hopset.add(Hop(feature_node, base_node, in_weight))
     return new_features
 
 @dataclass(frozen=True)

@@ -37,7 +37,7 @@ class TestSlipnet(unittest.TestCase):
         slipnet = Slipnet(eqn_graph)
         d = slipnet.dquery([Before(4), Before(5)])
         a = d[Equation.make([5, 4], plus)]
-        self.assertGreater(a, 0.1)
+        self.assertGreater(a, 0.05)
         self.assertLess(a, 1.0)
 
     def test_topna_and_top(self):

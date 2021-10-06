@@ -106,8 +106,8 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
 default_tyrrell_propagator = TyrrellPropagator(
     max_total=10.0,
     noise=0.0,
-    positive_feedback_rate=1.5,
-    sigmoid_p=1.2,
+    positive_feedback_rate=0.1,
+    sigmoid_p=1.5,
     num_iterations=10,
     alpha=0.95,
     tyrrell_alpha=0.05,  # 0.2

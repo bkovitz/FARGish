@@ -1,0 +1,9 @@
+old3/
+
+This directory contains the source files for the version of FARGish in which
+the entire model was a port graph.
+
+23-Sep-2021: The Makefile is missing, and possible a few source files are
+missing. It shouldn't be too hard to get all tests to pass by copying files
+from the parent directory, though.
+
