@@ -8,22 +8,26 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 import matplotlib.pyplot as plt  # type: ignore[import]
 import numpy as np  # type: ignore[import]
 
-from FARGModel import FARGModel, SeqCanvas, SeqState, CellRef, Want
+from FARGModel import FARGModel, SeqCanvas, SeqState, CellRef, Want, Consume, \
+    Before, After
 from FMTypes import epsilon, Elem, Elems, Value, Addr, FMPred
 from Graph2 import Graph, MutualInhibition
-from Equation import Equation, Operator, plus, times, minus
+from Equation import Equation, Operator, plus, times, minus, EqnConsume
 from util import pts, pl, pr
 
 eqn_graph = Graph.with_features(
-    Consume.make_table(
-        range(1, 11), range(1, 11), [plus, minus, times]
-    )
+    EqnConsume.make(eqn)
+        for eqn in Equation.make_table(
+            range(1, 11), range(1, 11), [plus, minus, times]
+        )
 ) #.add_edges(MutualInhibition((Feature, Equation, int), weight=-0.02))
 
 class Numbo(FARGModel):
 
-    def make_slipnet(self):
-        self.slipnet = eqn_graph
+    def fill_slipnet(self):
+        #self.slipnet = eqn_graph
+        self.slipnet.base_graph = \
+            Graph.augment(self.slipnet.base_graph, eqn_graph)
 
 def r4_5_6__15(*args, **kwargs):
     global fm, ca, wa
@@ -38,3 +42,9 @@ def r4_5_6__15(*args, **kwargs):
     
 if __name__ == '__main__':
     r4_5_6__15()
+
+    '''
+    print()
+    for node in sorted(eqn_graph.nodes.nodeset, key=str):
+        print(node)
+    '''

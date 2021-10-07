@@ -10,8 +10,7 @@ from collections import defaultdict
 from heapq import nlargest
 from operator import itemgetter, attrgetter
 
-from FMTypes import Activation, ADict, epsilon, Pred
-from FARGModel import as_pred
+from FMTypes import Activation, ADict, epsilon, Pred, as_pred
 from Graph2 import Graph, Node, GraphPropagatorOutgoing
 from Propagator import Propagator
 from util import as_iter, union

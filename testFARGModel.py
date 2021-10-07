@@ -6,7 +6,7 @@ import inspect
 from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence
+    Sequence, cast
 import operator
 from operator import itemgetter, attrgetter
 
@@ -18,7 +18,8 @@ from FARGModel import FARGModel, Canvas, SeqCanvas, SeqState, StateDelta, \
     RemoveBlocked, has_avail_value
 # next line: Numbo-specific
 from FARGModel import GettingCloser
-from Slipnet import Slipnet, IntFeatures, Before, After
+#from Slipnet import Slipnet, IntFeatures, Before, After
+from Slipnet2 import Slipnet
 from FMTypes import Value, Addr
 
 
@@ -43,6 +44,7 @@ minus = ArithOperator(operator.sub, '-')
 class TestFoundIt(Exception):
     pass
 
+"""
 class TestWant(Agent):
 
     def go(self, fm: FARGModel, **kwargs):
@@ -59,18 +61,15 @@ class TestWant(Agent):
         '''
         #self.consult_slipnet(fm)
         fm.sleep(self)
+"""
 
-
-class SlipnetWithInt(IntFeatures, Slipnet):
-    pass
 
 class TestFM(FARGModel):
-    slipnet_ctor = SlipnetWithInt
 
     # TODO Pass this as a function, possibly one among many, to
     # FARGModel.__init__. Then get rid of TestFM; there should be no need to
     # inherit from FARGModel.
-    def fill_slipnet(self):
+    def fill_slipnet(self) -> None:
         self.slipnet.add_layer2_nodes(
             Consume(operator, (a, b))
                 for a in range(1, 21)
@@ -78,6 +77,7 @@ class TestFM(FARGModel):
                 for operator in [plus, times, minus]
                     if a >= b
         )
+"""
         self.mut_inh(Before)
         self.mut_inh(After)
         self.mut_inh(int)
@@ -94,6 +94,7 @@ class TestFM(FARGModel):
             for n2 in nodes2:
                 if n1 != n2:
                     self.slipnet.add_edge(n1, n2, weight=-0.2)
+"""
 
 class TestFARGModel(unittest.TestCase):
 
@@ -519,7 +520,7 @@ class TestFARGModel(unittest.TestCase):
 if __name__ == '__main__':
     fm = TestFM(seed=1)
     ca = fm.build(SeqCanvas([SeqState((4, 5, 6), None)]))
-    cr0 = CellRef(ca, 0)
+    cr0 = CellRef(ca, 0)  # type: ignore[arg-type]
     wa = fm.build(
         Want(target=15, startcell=cr0, sk=RaiseException(TestFoundIt)),
         min_a = 4.0

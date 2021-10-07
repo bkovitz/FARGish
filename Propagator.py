@@ -102,6 +102,7 @@ class PropagatorDataclassMixin:
 
 class Propagator(ABC, PropagatorDataclassMixin):
     def propagate_once(self, g, old_d: Dict[Node, float]):
+        #print('PONCE', len(old_d))
         # decay
         new_d: Dict[Node, float] = defaultdict(float,
             #((nodeid, a * self.alpha)

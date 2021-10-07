@@ -9,7 +9,8 @@ import operator
 from operator import itemgetter, attrgetter
 from collections import Counter
 
-from Graph2 import Node, Feature, FeatureWrapper
+from Graph2 import Node, Feature, FeatureWrapper, Before, After
+from FARGModel import Operator, Consume
 
 
 # Features
@@ -30,20 +31,6 @@ class NumOperands(Feature):
 
     def features_of(self):
         yield self.num
-
-@dataclass(frozen=True)
-class Before(Feature):
-    x: Node
-
-    def features_of(self):
-        yield self.x
-
-@dataclass(frozen=True)
-class After(Feature):
-    x: Node
-
-    def features_of(self):
-        yield self.x
 
 @dataclass(frozen=True)
 class MinBefore(Feature):
@@ -68,17 +55,6 @@ class Doubled(Feature):
 
 
 # Operators and Equation
-
-@dataclass(frozen=True)
-class Operator:
-    func: Callable
-    name: str
-
-    def __call__(self, *operands: int) -> int:
-        return self.func(*operands)
-
-    def __str__(self):
-        return self.name
 
 plus = Operator(operator.add, '+')
 times = Operator(operator.mul, 'x')
@@ -137,3 +113,22 @@ class Equation:
 
     def __repr__(self):
         return f'Equation({str(self)})'
+
+@dataclass(frozen=True)
+class EqnConsume(Consume):
+    '''A Consume agent that converts an Equation's lhs to its rhs.'''
+    eqn: Union[Equation, None] = None  # TODO Really, eqn is a required arg
+
+    @classmethod
+    def make(cls, eqn: Equation) -> 'EqnConsume':
+        return EqnConsume(
+            operator=eqn.operator,
+            operands=eqn.operands,
+            eqn=eqn
+        )
+
+    def features_of(self) -> Iterable[Node]:
+        if self.eqn is None:
+            raise NotImplementedError(f'{self} lacks an eqn.')
+        else:
+            yield from self.eqn.features_of()

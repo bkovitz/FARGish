@@ -28,9 +28,11 @@ import networkx as nx  # type: ignore[import]
 import matplotlib.pyplot as plt  # type: ignore[import]
 #import netgraph
 
-from FMTypes import Elem, Elems, Value, Addr, FMPred, Pred
-from Slipnet import Slipnet, empty_slipnet, Before, After
+from FMTypes import Elem, Elems, Value, Addr, FMPred, Pred, match_wo_none
+#from Slipnet import Slipnet, empty_slipnet, Before, After
+from Slipnet2 import Slipnet
 from FMGraphs import ActivationGraph
+from Graph2 import Before, After
 from NumberMatcher import NumberMatcher
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -39,19 +41,6 @@ from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
 
 
 # Global functions
-
-def as_pred(o: Pred) -> Callable[[Any], bool]:
-    if isclass(o):
-        return lambda x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
-    elif isinstance(o, tuple):
-        preds = tuple(as_pred(p) for p in o)
-        return lambda x: any(p(x) for p in preds)
-    elif callable(o):
-        return o
-    elif o is None:
-        return lambda x: True
-    else:
-        return lambda x: match_wo_none(x, o)
 
 # Returns Callable[['FARGModel', ...], bool]
 def as_fmpred(o: FMPred) -> Callable[..., bool]:
@@ -91,20 +80,6 @@ def as_mpred(o) -> Callable[[Hashable], float]:
         return NumberMatcher.make(o)
     raise NotImplementedError(
         f"Can't convert {type(o)} into match predicate: {o}"
-    )
-
-def match_wo_none(other, obj_template) -> bool:
-    '''Does obj_template == other if we ignore any fields in obj_template
-    with a value of None? If other is an object of a subclass of obj_template's
-    class, that also counts as a match.'''
-    if not isinstance(other, obj_template.__class__):
-        return False
-    if not is_dataclass(obj_template) or not is_dataclass(other):
-        return obj_template == other
-    other_d = dataclasses.asdict(other)
-    return all(
-        v is None or v == other_d.get(k, None)
-            for k, v in dataclasses.asdict(obj_template).items()
     )
 
 class HasAvailValues(ABC):
@@ -241,7 +216,8 @@ class Agent(ABC): #(Elem):
 
     @abstractmethod
     # TODO Maybe put desired args explicitly in go()'s signature
-    def go(self, fm: 'FARGModel', contents=None, orientation=None):
+    #def go(self, fm: 'FARGModel', contents=None, orientation=None):
+    def go(self, fm: 'FARGModel', **kwargs):
         pass
 
     @abstractmethod
@@ -326,7 +302,6 @@ class FARGModel:
     ws: Dict[Elem, ElemInWS] = field(default_factory=dict)
     t: int = 0
     slipnet: Slipnet = None  # type: ignore[assignment]  # mypy how?
-    slipnet_ctor: ClassVar[Callable[[], Slipnet]] = Slipnet
     seed: Union[int, None] = None
 
     activation_g: ActivationGraph = field(
@@ -351,7 +326,7 @@ class FARGModel:
     def __post_init__(self):
         self.seed = reseed(self.seed)
         if self.slipnet is None:
-            self.slipnet = self.slipnet_ctor()
+            self.slipnet = Slipnet.empty()
         self.fill_slipnet()
 
     def fill_slipnet(self):
@@ -437,15 +412,17 @@ class FARGModel:
     ) -> List[Hashable]:
         if self.force_slipnet_result is not None:
             return as_list(self.force_slipnet_result)
-        q = self.slipnet.query(
-            activations_in=activations_in, type=type, k=k, filter=filter
-        )
+        sd = self.slipnet.dquery(activations_in=activations_in)
+        nas = self.slipnet.topna(sd, pred=type, k=k)
         #print('PULSE')
-        #pts(q)
+        #pr(activations_in)
+        #hs = list(self.slipnet.base_graph.hops_from_node(Before(4)))
+        #pr(len(hs))
+        #pr(sd)
         return list(sample_without_replacement(
-            [nas.node for nas in q],
+            [na.node for na in nas],
             k=num_get,
-            weights=[nas.a for nas in q]
+            weights=[na.a for na in nas]
         ))
 
     # Activation
@@ -1011,6 +988,9 @@ class SeqCanvas(Canvas):
 
     min_a: ClassVar[float] = 1.0
 
+    def __hash__(self):
+        return id(self)
+
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
         #print('SEQCGET', addr, len(self.states))
@@ -1311,7 +1291,7 @@ class Operator:
 @dataclass(frozen=True)
 class Consume(Agent):
     operator: Union[Operator, None] = None
-    operands: Union[Tuple[Value], None] = None
+    operands: Union[Tuple[Value, ...], None] = None
     source: Union[CellRef, None] = None  # where to get operands
     dest: Union[CellRef, None] = None    # where to paint result
 

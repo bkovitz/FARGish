@@ -48,6 +48,12 @@ class Hops:
         for from_node, to_node in pairs:
             yield Hop(from_node, to_node, weight)
     
+class Query:
+    '''A query specification to pass to Nodes.query().'''
+
+    def unprefixed(self, prefix: Hashable) -> 'Query':
+        return self
+
 class Nodes(ABC):
     @abstractmethod
     def has_node(self, x) -> bool:
@@ -66,10 +72,6 @@ class Nodes(ABC):
         implementation simply returns an empty EnumNodes. PrefixedNodes
         overrides this method to return the base Nodes object.'''
         return EnumNodes(set())
-
-class Query:
-    def unprefixed(self, prefix: Hashable) -> 'Query':
-        return self
 
 @dataclass(frozen=True)
 class OfClass(Query):
@@ -502,9 +504,24 @@ def features_of(x: Any) -> Iterable[Node]:
             yield from x.features_of()
         yield type(x)  # type: ignore[misc]  # Type isn't Hashable??
 
+# TODO rm?
 @dataclass(frozen=True)
 class FeatureWrapper(Feature):
     feature: Union[Hashable, None] = None
+
+@dataclass(frozen=True)
+class Before(Feature):
+    x: Node
+
+    def features_of(self):
+        yield self.x
+
+@dataclass(frozen=True)
+class After(Feature):
+    x: Node
+
+    def features_of(self):
+        yield self.x
 
 ### Propagator classes that work with Graph
 
@@ -542,7 +559,7 @@ class GraphPropagatorOutgoing(Propagator):
     def deltas_from(self, g, old_d, node):
         node_a = old_d.get(node, 0.0)
         if abs(node_a) >= epsilon:
+            #print('DFF', node, type(node), node_a, list(g.hops_from_node(node)))
             for hop in g.hops_from_node(node):
-                neighbor_a = old_d.get(hop.to_node, 0.0)
                 if abs(hop.weight) >= epsilon:
                     yield Delta(hop.to_node, hop.weight * node_a, node)

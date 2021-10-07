@@ -4,14 +4,20 @@ Clean up source code
 
     Numbo1a.py: Set up a 'main' for running a demo.
 
-        Update code so that Want gets a Consume by querying the slipnet.
+        Update code so that Want gets a Consume by querying the slipnet.  DONE
 
-            NEXT Numbo1a: eqn_graph -> consume_graph
+            Numbo1a: eqn_graph -> consume_graph  DONE
 
-            Consume.features_of(): copy from Equation.features_of()
+            Consume.features_of(): copy from Equation.features_of()  DONE
+
+        NEXT Get the UTs passing again
 
     Include a simple visualization of activations.
 
+
+THEN
+
+    Make 4+4=8 do the right thing when there's only 4, 5, 6.
 
 
 
