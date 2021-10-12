@@ -27,6 +27,8 @@ Clean up source code
 
 THEN
 
+    Recover from a dead end.
+
     Make 4+4=8 do the right thing when there's only 4, 5, 6.
 
 
