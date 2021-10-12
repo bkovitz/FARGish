@@ -10,7 +10,17 @@ Clean up source code
 
             Consume.features_of(): copy from Equation.features_of()  DONE
 
-        NEXT Get the UTs passing again
+        Make Agents be aggregates of Codelets.
+
+            NEXT In spike4.py, add .replace_refs() to Codelet.
+
+            Convert spike4.py to unit-tested code.
+
+            Make all the codelets, including QuerySlipnetAndBuildDelegate.
+
+        Get the UTs passing again
+
+            Make FARGModel use Slipnet2.
 
     Include a simple visualization of activations.
 
