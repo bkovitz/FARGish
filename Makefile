@@ -37,15 +37,16 @@ full_ut:
 	$(PY) -m unittest -v
 
 ut:
-	$(PY) -m unittest -v testFARGModel testSlipnet testNumberMatcher testGraph2 testEquation test_sa testSlipnet2
+	$(PY) -m unittest -v testFARGModel testSlipnet testNumberMatcher testGraph2 testEquation test_sa testSlipnet2 test_util
 
 lut:
 	$(PY) -m unittest -v `cat LIVETEST`
 
 # Convenience target for single test current being worked on
 u:
+	$(PY) -m unittest -v test_util
 	#$(PY) -m unittest -v testSlipnet2.TestSlipnet
-	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_make_table_consume
+	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_make_table_consume
 	#$(PY) -m unittest -v testEquation.TestEquation
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 

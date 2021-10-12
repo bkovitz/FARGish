@@ -24,6 +24,24 @@ class Codelet(ABC, CodeletDataclassMixin):
         to execute next, in the same timestep.'''
         pass
 
+    def replace_refs(self, fm, sources: Sequence) -> Codelet:
+        d: Dict[str, Any] = {}
+        for attrname in self.__dataclass_fields__:  # type: ignore[attr-defined]
+            try:
+                attr = getattr(self, attrname)
+            except AttributeError:
+                continue
+            if isinstance(attr, Ref):
+                d[attrname] = fm.look_up_by_name(attr.name, sources)
+            elif hasattr(attr, 'replace_refs'):
+                new_attr = attr.replace_refs(fm, sources)  # TODO (car self sources)?
+                if new_attr is not attr:
+                    d[attrname] = new_attr
+        if d:
+            return replace(self, **d)
+        else:
+            return self
+
 Codelets = Union[None, Codelet, Sequence[Codelet]]
 
 @dataclass(frozen=True)
@@ -47,7 +65,7 @@ class Agent(ABC):
 
     def replace_refs(self, fm, sources: Sequence) -> Agent:
         d: Dict[str, Any] = {}
-        for attrname in self.__dataclass_fields__:
+        for attrname in self.__dataclass_fields__:  # type: ignore[attr-defined]
             try:
                 attr = getattr(self, attrname)
             except AttributeError:
@@ -178,5 +196,10 @@ if __name__ == '__main__':
     print(a)
     #print(fm.replace_refs(a, behalf_of=wa))
     #rs(a)
-    b = a.replace_refs(fm, [wa])
-    print(b)
+    a2 = a.replace_refs(fm, [wa])
+    print(a2)
+    print()
+    b2 = b.replace_refs(fm, [wa])
+    print(b2)
+
+

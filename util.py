@@ -5,11 +5,11 @@ import collections
 import random
 import sys
 from inspect import isclass
+from dataclasses import dataclass, Field, fields, is_dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence
 from contextlib import AbstractContextManager
-from dataclasses import dataclass, Field, fields, is_dataclass
 from types import SimpleNamespace
 from itertools import chain, tee, filterfalse
 import functools
@@ -126,6 +126,15 @@ def as_dict(x: Union[Dict, None, Collection[Tuple[str, Hashable]]]) -> Dict:
         )
     else:
         return dict(x)
+
+def asdict_with_classvars(x) -> Dict[str, Any]:
+    '''Does not recurse (see dataclasses._asdict_inner() for how to do that
+    right), and fails if x lacks a class variable declared in x's class
+    definition.'''
+    return dict(
+        (name, getattr(x, name))
+            for name in x.__dataclass_fields__
+    )
 
 def as_name(x):
     try:
