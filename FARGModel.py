@@ -1095,7 +1095,6 @@ class CellRef(HasAvailValues):
             if isinstance(cell, HasAvailValues):
                 return cell.take_avails(values)
         raise ValuesNotAvail(self, tuple(values), ())
-        
 
     def has_avail_value(self, v):
         return has_avail_value(self.canvas[self.addr], v)

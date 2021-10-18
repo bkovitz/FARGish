@@ -25,7 +25,7 @@ test: ut at
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) Graph.py testGraph.py #$(FARGISH_SRC) test*.py #atest*.py
+	$(MYPY) $(MYPY_FLAGS) Graph.py testGraph.py testCanvas.py #$(FARGISH_SRC) test*.py #atest*.py
 
 # Run all unit tests.
 ut:
@@ -33,7 +33,7 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testGraph
+	$(PY) -m unittest -v testCanvas
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 
 # Acceptance tests
@@ -46,12 +46,10 @@ a:
 
 # line counts
 lc: clean
-	@echo -n 'LIVE: '
-	@wc -l `cat LIVE` | tail -1 | awk '{print $$1}'
-	@echo -n 'LIVETEST: '
-	@wc -l `cat LIVETEST` | tail -1 | awk '{print $$1}'
-	@echo -n '*.py: '
-	@wc -l *.py | tail -1 | awk '{print $$1}'
+	@echo 'LIVE: '
+	@wc -l `ls -1 *.py | grep -v '^test'`
+	@echo -e '\nTEST: '
+	@wc -l test*.py
 
 # test coverage
 # 'make ct bc' to generate coverage data and see it in a browser

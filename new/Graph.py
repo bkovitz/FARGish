@@ -626,6 +626,8 @@ def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
 class Feature:
     pass
 
+Features = Union[None, Feature, Sequence[Feature]]
+
 def features_of(x: Any) -> Iterable[Node]:
     if not isclass(x):
         if hasattr(x, 'features_of'):
