@@ -25,7 +25,7 @@ test: ut at
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) Graph.py testGraph.py testCanvas.py #$(FARGISH_SRC) test*.py #atest*.py
+	$(MYPY) $(MYPY_FLAGS) Graph.py testGraph.py testCanvas.py testWorkspace.py #$(FARGISH_SRC) test*.py #atest*.py
 
 # Run all unit tests.
 ut:
@@ -33,7 +33,7 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testCanvas
+	$(PY) -m unittest -v testWorkspace
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 
 # Acceptance tests

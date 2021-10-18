@@ -4,8 +4,6 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from dataclasses import dataclass, field
-
 from Canvas import CellRef, Step, StepDelta, ValuesNotAvail, StepCanvas
 from util import as_iter
 

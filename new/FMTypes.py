@@ -38,6 +38,13 @@ FMPred = Union[
     Callable[[Any], bool],
     None
 ]
+WSPred = Union[
+    Type,
+    Tuple,  # should be Tuple[Pred, ...]
+    Callable[['Workspace', Any], bool],  # type: ignore[name-defined]
+    Callable[[Any], bool],
+    None
+]
 
 # Something that can be converted into a predicate function whose only argument
 # is the object in question.
