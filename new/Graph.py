@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence, Literal, Protocol, Optional, runtime_checkable
+    Sequence, Literal, Protocol, Optional, TypeVar, runtime_checkable
 from dataclasses import dataclass, field, InitVar
 import math
 from itertools import chain
@@ -330,6 +330,8 @@ class Graph:
     nodes: Nodes
     edges: Edges
 
+    Q = TypeVar('Q', bound='Graph')
+
     def has_node(self, x: Any) -> bool:
         return self.nodes.has_node(x)
 
@@ -400,7 +402,7 @@ class Graph:
         return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
 
     @classmethod
-    def empty(cls) -> 'Graph':
+    def empty(cls: Type[Q]) -> Q:
         return cls(nodes=EnumNodes(set()), edges=EnumEdges())
 
     @classmethod

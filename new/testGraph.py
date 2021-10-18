@@ -416,10 +416,17 @@ class TestGraph(unittest.TestCase):
             []
         )
 
-    def test_with_activations(self):
+    def test_with_activations(self) -> None:
         @dataclass
         class GA(WithActivations, Graph):
-            propagator: Propagator = GraphPropagatorOutgoing
+            propagator: Propagator = field(
+                default_factory=lambda: GraphPropagatorOutgoing(
+                    positive_feedback_rate=0.2,
+                    alpha=0.9,
+                    max_total=1.0,
+                    noise=0.0
+                )
+            )
 
         g = GA.empty()
 
@@ -449,8 +456,9 @@ class TestGraph(unittest.TestCase):
         # We don't set the activation of 'o'; it defaults to 0.0
 
         g.propagate()
-        for node in ['a', 'b', 'o']:
-            print(g.a(node))
+        self.assertAlmostEqual(g.a('a'), 0.569072143062159)
+        self.assertAlmostEqual(g.a('b'), 0.319848331226608)
+        self.assertAlmostEqual(g.a('o'), 0.11107952571123292)
 
 
 """
