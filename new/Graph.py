@@ -473,7 +473,7 @@ class WithActivations(Graph):
     def propagate(self) -> None:
         self.activations = self.propagator.propagate(self, self.activations)
         
-    def pr_flows(self):
+    def pr_flows(self) -> None:
         pr(self.propagator.flows)
 
 ### Prefixes

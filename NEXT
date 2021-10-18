@@ -14,7 +14,9 @@ Clean up source code
 
             In spike4.py, add .replace_refs() to Codelet.  DONE
 
-            NEXT Convert spike4.py to unit-tested code.
+            Convert spike4.py to unit-tested code.
+
+                NEXT UT WithActivations
 
             Run a timestep in spike4.py.
 

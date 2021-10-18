@@ -12,7 +12,9 @@ from itertools import chain
 
 from Graph import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of, GraphPropagatorIncoming, \
-    GraphPropagatorOutgoing, PrefixedNode, PrefixedGraph, WithPrefix
+    GraphPropagatorOutgoing, PrefixedNode, PrefixedGraph, WithPrefix, \
+    WithActivations
+from Propagator import Propagator
 from util import pts, pr
 
 
@@ -413,6 +415,42 @@ class TestGraph(unittest.TestCase):
             g0.query(WithPrefix(2, OfClass(str))),
             []
         )
+
+    def test_with_activations(self):
+        @dataclass
+        class GA(WithActivations, Graph):
+            propagator: Propagator = GraphPropagatorOutgoing
+
+        g = GA.empty()
+
+        # a non-existent node
+        self.assertEqual(g.a('a'), 0.0)
+        g.boost('a')
+        self.assertEqual(g.a('a'), 0.0)
+        g.set_a('a', 2.0)
+        self.assertEqual(g.a('a'), 0.0)
+
+        # the same, with a node that exists
+        g.add_node('a')
+        self.assertEqual(g.a('a'), 0.0)
+        g.boost('a')
+        self.assertEqual(g.a('a'), 0.5)
+        g.set_a('a', 2.0)
+        self.assertEqual(g.a('a'), 2.0)
+
+        # NEXT set up some edges and propagate
+
+        g.add_node('b')
+        g.add_node('o')
+        g.add_hop(Hop('a', 'b'))
+        g.add_hop(Hop('b', 'o'))
+        g.set_a('a', 1.0)
+        g.set_a('b', 0.5)
+        # We don't set the activation of 'o'; it defaults to 0.0
+
+        g.propagate()
+        for node in ['a', 'b', 'o']:
+            print(g.a(node))
 
 
 """
