@@ -1,9 +1,10 @@
 # Graph.py
 
 from abc import ABC, abstractmethod
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence, Literal, Protocol, Optional, TypeVar, runtime_checkable
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
+    Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+    runtime_checkable
 from dataclasses import dataclass, field, InitVar
 import math
 from itertools import chain
@@ -63,8 +64,15 @@ class Nodes(ABC):
     def add_node(self, node: Node) -> None:
         raise CantAddNode
 
-    def remove_node(self, node: Node):
+    def remove_node(self, node: Node) -> None:
         raise CantRemoveNode
+
+    @abstractmethod
+    def __iter__(self) -> Iterator[Node]:
+        '''Iterates through all the nodes.'''
+        # TODO Note that we might raise an exception; some Nodes objects
+        # might not support iterating through all nodes.
+        pass
 
     #TODO
     # all_nodes()
@@ -163,6 +171,9 @@ class NodesSeries(Nodes):
     def unprefixed(self, prefix):
         return NodesSeries([nodes.unprefixed(prefix) for nodes in self.nodess])
 
+    def __iter__(self) -> Iterator[Node]:
+        yield from chain.from_iterable(self.nodess)
+
 class Edges(ABC):
     @abstractmethod
     def hops_from_node(self, nodes: Nodes, x: Any) -> Iterable[Hop]:
@@ -258,7 +269,7 @@ class EnumEdges(Edges):
         for from_neighbor in from_neighbors:
             del self.hops_from[from_neighbor][node]
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[Hop]:
         for d in self.hops_from.values():
             for hop in d.values():
                 yield hop
@@ -335,7 +346,7 @@ class Graph:
     def has_node(self, x: Any) -> bool:
         return self.nodes.has_node(x)
 
-    def add_node(self, node: Node):
+    def add_node(self, node: Node) -> None:  # TODO return the node
         '''Adds node to this Graph. Not all Nodes objects allow nodes to be
         added. May raise CantAddNode.'''
         self.nodes.add_node(node)
@@ -446,12 +457,15 @@ class WithActivations(Graph):
         init=False
     )
     propagator: Propagator
+    default_a: float = 0.0  # Default activation for a node that is in
+                            # the graph but has not been explicitly given
+                            # an activation.
 
     def a(self, node: Node) -> Activation:
         '''Returns the activation of node. A non-existent node has 0.0
         activation.'''
         if self.has_node(node):
-            return self.activations.get(node, 0.0)
+            return self.activations.get(node, self.default_a)
         else:
             return 0.0
 
@@ -473,8 +487,14 @@ class WithActivations(Graph):
     # TODO Override .remove_node()?
 
     def propagate(self) -> None:
-        self.activations = self.propagator.propagate(self, self.activations)
+        self.activations = \
+            self.propagator.propagate(self, self.activations_in())
         
+    def activations_in(self) -> ADict:
+        return dict(
+            (node, self.a(node)) for node in self.nodes
+        )
+
     def pr_flows(self) -> None:
         pr(self.propagator.flows)
 
@@ -526,6 +546,9 @@ class PrefixedNodes(Nodes):
             PrefixedNode(self.prefix, node)
                 for node in nodes
         )
+
+    def __iter__(self) -> Iterator[Node]:
+        yield from self.prefix_all(self.base_nodes)
 
     def unprefixed(self, prefix: Hashable):
         if prefix == self.prefix:
@@ -647,7 +670,6 @@ class GraphPropagatorIncoming(Propagator):
             if abs(hop.weight) >= epsilon:
                 neighbor_a = old_d.get(hop.from_node, 0.0)
                 if abs(neighbor_a) >= epsilon:
-
                     yield Delta(node, hop.weight * neighbor_a, hop.from_node)
 
 @dataclass

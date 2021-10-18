@@ -416,11 +416,18 @@ class TestGraph(unittest.TestCase):
             []
         )
 
+    def test_nodes_iter(self) -> None:
+        g = Graph(
+            nodes=EnumNodes(['a', 'b', 'o']),
+            edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
+        )
+        self.assertCountEqual(g.nodes, ['a', 'b', 'o'])
+        
     def test_with_activations(self) -> None:
         @dataclass
         class GA(WithActivations, Graph):
             propagator: Propagator = field(
-                default_factory=lambda: GraphPropagatorOutgoing(
+                default_factory=lambda: GraphPropagatorIncoming(
                     positive_feedback_rate=0.2,
                     alpha=0.9,
                     max_total=1.0,

@@ -31,8 +31,7 @@ import matplotlib.pyplot as plt  # type: ignore[import]
 from FMTypes import Elem, Elems, Value, Addr, FMPred, Pred, match_wo_none
 #from Slipnet import Slipnet, empty_slipnet, Before, After
 from Slipnet import Slipnet
-from FMGraphs import ActivationGraph
-from Graph import Before, After
+from Graph import Before, After, WithActivations, GraphPropagatorOutgoing
 from NumberMatcher import NumberMatcher
 from util import is_iter, as_iter, as_list, pts, pl, pr, csep, ssep, \
     as_hashable, backslash, singleton, first, tupdict, as_dict, short, \
@@ -296,6 +295,10 @@ class ValuesNotAvail(Exception):
         
 
 # Generic FARG model
+
+@dataclass
+class ActivationGraph(WithActivations, Graph):
+    propagator: Propagator = lambda: GraphPropagatorOutgoing()
 
 @dataclass
 class FARGModel:
