@@ -7,7 +7,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable
 
 from FMTypes import Node, WSPred, match_wo_none
-from Agent import Agent
+from Agents import Agent
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from inspect import isclass, signature

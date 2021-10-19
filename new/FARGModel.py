@@ -1,6 +1,6 @@
 # FARGModel.py
 
-
+from dataclasses import dataclass
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \

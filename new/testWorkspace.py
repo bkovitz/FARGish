@@ -13,7 +13,7 @@ from collections import Counter
 
 from Workspace import Workspace
 from FMTypes import match_wo_none
-from Agent import Agent
+from Agents import Agent
 from util import first, pr
 
 

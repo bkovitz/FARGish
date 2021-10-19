@@ -10,7 +10,7 @@ from operator import itemgetter, attrgetter
 from collections import Counter
 
 from Graph import Node, Feature, FeatureWrapper, Before, After
-from FARGModel import Operator, Consume
+from Agents import Operator, Consume
 
 
 # Features
