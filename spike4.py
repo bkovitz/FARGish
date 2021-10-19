@@ -98,6 +98,7 @@ class FARGModel:
 
     def codelet_args(self, codelet: Codelet, agent: Optional[Agent]=None) \
     -> Dict[str, Any]:
+        codelet = self.replace_refs(codelet, as_list(agent))
         return dict(
             (param_name, self.value_for_codelet_arg(codelet, param_name, agent))
                 for param_name in inspect.signature(codelet.go).parameters

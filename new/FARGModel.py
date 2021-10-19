@@ -14,7 +14,7 @@ from FMTypes import Node, WSPred, match_wo_none
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
-from util import as_iter, first, force_setattr, clip, HasRngSeed, \
+from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement
 
 
@@ -53,11 +53,10 @@ class CanReplaceRefs:
         else:
             return self
 
+### Agent and ancillary classes and objects ###
 
 @dataclass(frozen=True)
 class Agent(CanReplaceRefs):
-    pass
-    """
     born: Codelets = None
     wake: Codelets = None
     snag: Codelets = None
@@ -65,7 +64,18 @@ class Agent(CanReplaceRefs):
     delegate_failed: Codelets = None
     succeeded: Codelets = None
     failed: Codelets = None
-    """
+
+@dataclass(frozen=True)
+class AgentState:
+    name: str
+
+Born = AgentState('born')
+Wake = AgentState('wake')
+Snag = AgentState('snag')
+delegate_succeeded = AgentState('delegate_succeeded')
+delegate_failed = AgentState('delegate_failed')
+succeeded = AgentState('succeeded')
+failed = AgentState('failed')
 
 ### Codelet and ancillary classes ###
 
@@ -76,12 +86,17 @@ class CodeletDataclassMixin:
 class Codelet(ABC, CodeletDataclassMixin, CanReplaceRefs):
 
     @abstractmethod
-    def go(self, fm: FARGModel, **kwargs) -> 'Codelets':
+    def run(self, fm: FARGModel, **kwargs) -> 'Codelets':
         '''Should do the codelet's action, and return any follow-up codelets
         to execute next, in the same timestep.'''
         pass
 
 Codelets = Union[None, Codelet, Sequence[Codelet]]
+
+class NullCodelet(Codelet):
+
+    def run(self) -> Codelets:  # type: ignore[override]
+        return None
 
 ### Workspace and ancillary classes ###
 
@@ -280,12 +295,31 @@ def first_arg_is_ws(o: Callable) -> bool:
 class FARGModel(Workspace):
     '''A generic FARG model.'''
 
-    # NEXT UT
+    def replace_refs(
+        self,
+        codelet: Union[None, Codelet],  # TODO Allow Codelets. Agent, too?
+        agent: Optional[Agent]=None
+    ) -> Codelet:
+        if codelet is None:
+            return NullCodelet()
+        return codelet.replace_refs(self, as_list(agent))
+
+    # TODO Make agent_state optional; if None, call agent's current state.
+    def run_agent(self, agent: Agent, agent_state: AgentState) -> None:
+        agent = agent.replace_refs(self, [])
+        codelet: Codelet
+        for codelet in as_iter(getattr(agent, agent_state.name)):
+            codelet.run(**self.codelet_args(codelet, agent))
+
     def codelet_args(self, codelet: Codelet, agent: Optional[Agent]=None) \
     -> Dict[str, Any]:
+        '''Returns a dict containing the arguments to pass to codelet's
+        .run() method. codelet must not contain any Refs. Pass a codelet
+        through .replace_refs() before calling .codelet_args().'''
+        codelet = codelet.replace_refs(self, as_list(agent))
         return dict(
             (param_name, self.value_for_codelet_arg(codelet, param_name, agent))
-                for param_name in inspect.signature(codelet.go).parameters
+                for param_name in inspect.signature(codelet.run).parameters
         )
 
     def value_for_codelet_arg(
@@ -316,3 +350,6 @@ class FARGModel(Workspace):
             except AttributeError:
                 continue
         return None
+
+    def __str__(self):
+        return self.__class__.__name__
