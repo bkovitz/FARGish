@@ -1,9 +1,10 @@
 # FMTypes.py -- Fundamental 'typing' Type definitions for FARGModel and
 # related classes and constants
 
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence, Literal, Protocol, runtime_checkable
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
+    Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+    runtime_checkable
 from inspect import isclass
 from dataclasses import is_dataclass
 import dataclasses

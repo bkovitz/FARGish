@@ -85,5 +85,3 @@ class TestSlipnet(unittest.TestCase):
             slipnet.top(d, pred=int),
             [2]
         )
-
-        

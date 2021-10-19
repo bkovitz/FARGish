@@ -11,7 +11,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable
 from collections import Counter
 
-from Workspace import Workspace
+from FARGModel import Workspace
 from FMTypes import match_wo_none
 from Agents import Agent
 from util import first, pr

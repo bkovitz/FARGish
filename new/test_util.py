@@ -47,7 +47,7 @@ class TestUtil(unittest.TestCase):
                 return randrange(self.x)
 
         # deterministic run
-        arrays: List[Tuple[int]] = []
+        arrays: List[Tuple[int, ...]] = []
         for _ in range(3):
             blah = Blah(x=22, seed=1)
                 # UGLY: x must be named if you reverse arg order

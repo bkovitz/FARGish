@@ -16,7 +16,9 @@ Clean up source code
 
             Convert spike4.py to unit-tested code.
 
-                NEXT UT WithActivations
+                UT WithActivations  DONE
+
+                NEXT UT .replace_refs()
 
             Run a timestep in spike4.py.
 
