@@ -246,7 +246,7 @@ class Workspace(HasRngSeed):
         # paint on the cell.
         # TODO Raise exception if the Canvas doesn't exist.
         if agent and self.a(agent) < self.paint_threshold:
-            raise NeedMoreSupportToPaint(agent)
+            raise NeedMoreSupportToPaint(agent=agent)
         cellref.paint(value)
 
     # Activation / support
@@ -419,9 +419,19 @@ class FARGModel(Workspace):
         '''codelet must have its Refs already filled in. Runs codelet.
         If codelet returns follow-up codelets, we fill in their refs and
         run those, too, as well as any follow-ups that they return, and
-        so on. If any of them fails, we don't catch the exception.'''
+        so on. If any of them fails, we run its failure continuation if it
+        has one, and re-raise the exception.'''
         kwargs = self.codelet_args(codelet, sources)
-        more_codelets = codelet.run(**kwargs)
+        try:
+            more_codelets = codelet.run(**kwargs)
+        except Fizzle as fiz:
+            fiz = replace(fiz, codelet=codelet)
+            #print('FIZ', fiz, type(fiz))
+            if fiz.fk:
+                fk = fiz.fk.replace_refs(self, sources)
+                #print('FK', fk)
+                self._run_codelet_and_follow_ups(fk, sources)
+            raise fiz
         for c in as_iter(more_codelets):
             c = c.replace_refs(self, sources)
             self._run_codelet_and_follow_ups(c, sources)
@@ -492,9 +502,18 @@ class FARGModel(Workspace):
 
 ### Exceptions ###
 
+@dataclass(frozen=True)
 class Fizzle(Exception):
-    pass
+    codelet: Optional[Codelet] = None
 
+    @property
+    def fk(self) -> Optional[Codelet]:
+        '''Returns the codelet's failure continuation, if it has one.'''
+        if self.codelet and hasattr(self.codelet, 'fk'):
+            return self.codelet.fk  # type: ignore[attr-defined]
+        else:
+            return None
+        
 @dataclass(frozen=True)
 class NeedMoreSupportToPaint(Fizzle):
-    agent: Agent
+    agent: Optional[Agent] = None

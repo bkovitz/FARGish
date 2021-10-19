@@ -8,8 +8,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable
 
 from FMTypes import Value
-from FARGModel import FARGModel, Codelet, Codelets, R, Agent, Nodes, \
-    AgentState, Wake
+from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
+    AgentState, Wake, Snag, Succeeded
 from Canvas import StepCanvas, Step, CellRef
 from util import as_iter
 
@@ -49,9 +49,12 @@ class Paint(Codelet):
     cellref: R[CellRef] = None
     value: R[Value] = None
     behalf_of: R[Agent] = None
+    sk: R[Codelet] = NewState(Ref('behalf_of'), Succeeded)
+    fk: R[Codelet] = NewState(Ref('behalf_of'), Snag)
 
     def run(  # type: ignore[override]
-        self, fm, cellref: CellRef, value: Value, behalf_of: Optional[Agent]
+        self, fm, cellref: CellRef, value: Value, behalf_of: Optional[Agent],
+        sk: Optional[Codelet]
     ) -> Codelets:
         fm.paint(cellref, value, behalf_of)
-        return None
+        return sk

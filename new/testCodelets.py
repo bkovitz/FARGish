@@ -6,7 +6,7 @@ import inspect
 
 from dataclasses import dataclass, field, replace
 
-from FARGModel import FARGModel, Agent, Born, Wake, Codelets, \
+from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint
 from Codelets import BuildCompanion, Paint
 from Canvas import Step, StepCanvas, StepDelta, CellRef
@@ -63,12 +63,15 @@ class TestCodelets(unittest.TestCase):
         ag = fm.build(DummyAgent(), init_a=0.2)
 
         # ag's activation is below the threshold: fail
+        codelet = Paint(cr1, self.step1, ag)
         with self.assertRaises(NeedMoreSupportToPaint) as cm:
-            fm.run_codelet(Paint(cr1, self.step1, ag))
-        self.assertEqual(cm.exception, NeedMoreSupportToPaint(ag))
+            fm.run_codelet(codelet)
+        self.assertEqual(cm.exception.agent, ag)
         self.assertIsNone(ca[1])
+        self.assertEqual(fm.agent_state(ag), Snag)
 
         # with sufficient activation, succeed
         fm.set_a(ag, 1.0)
         fm.run_codelet(Paint(cr1, self.step1, ag))
         self.assertEqual(ca[1], self.step1)
+        self.assertEqual(fm.agent_state(ag), Succeeded)
