@@ -8,10 +8,17 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from Canvas import CellRef
 from FMTypes import Value
-from FARGModel import Agent, Codelets, Ref
-from Codelets import Consume
+from FARGModel import Agent, Codelets, Ref, CellRef
+from Codelets import Consume, Paint
 from Canvas import Operator
 
+
+@dataclass(frozen=True)
+class LitPainter(Agent):
+    value: Optional[Value] = None
+    dest: Optional[CellRef] = None
+
+    wake: Codelets = Paint()
 
 @dataclass(frozen=True)
 class Consumer(Agent):

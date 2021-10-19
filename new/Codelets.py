@@ -46,17 +46,17 @@ class NewState(Codelet):
 @dataclass(frozen=True)
 class Paint(Codelet):
     '''Paints a value in a Canvas cell.'''
-    cellref: R[CellRef] = None
-    value: R[Value] = None
-    behalf_of: R[Agent] = None
+    dest: R[CellRef] = Ref('dest')
+    value: R[Value] = Ref('value')
+    behalf_of: R[Agent] = None  # TODO rm?
     sk: R[Codelets] = NewState(Ref('behalf_of'), Succeeded)
     fk: R[Codelets] = NewState(Ref('behalf_of'), Snag)
 
     def run(  # type: ignore[override]
-        self, fm, cellref: CellRef, value: Value, behalf_of: Optional[Agent],
+        self, fm, dest: CellRef, value: Value, behalf_of: Optional[Agent],
         sk: Optional[Codelet]
     ) -> CodeletResults:
-        fm.paint(cellref, value, behalf_of)
+        fm.paint(dest, value, behalf_of)
         return sk
 
 """
@@ -92,6 +92,20 @@ class Consume(Codelet):
     ) -> CodeletResults:
         return dict([(result_in, operator.consume(source, operands))])
 
+@dataclass(frozen=True)
+class BuildLitPainter(Codelet):
+    value: R[Value] = Ref('value')
+    dest: R[CellRef] = Ref('dest')
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        value: Value,
+        dest: CellRef
+    ) -> CodeletResults:
+        fm.build(Agents.LitPainter(value=value, dest=dest))
+        return None
+
 """
 @dataclass(frozen=True)
 class QuerySlipnetForDelegate(Codelet):
@@ -109,3 +123,5 @@ class QuerySlipnetForDelegate(Codelet):
     ) -> CodeletResults:
         
 """
+
+import Agents

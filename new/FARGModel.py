@@ -481,11 +481,14 @@ class FARGModel(Workspace):
         return codelet.replace_refs(self, sources)
 
     # TODO Make agent_state optional; if None, call agent's current state.
-    def run_agent(self, agent: Agent, agent_state: AgentState) -> None:
+    def run_agent(self, agent: Agent, agent_state: Optional[AgentState]=None) \
+    -> None:
         '''Fills in agent's Refs and runs agent. Has no effect if agent is not
         a node in the workspace.'''
         if not self.has_node(agent):
             return
+        if agent_state is None:
+            agent_state = self.agent_state(agent)
         agent = agent.replace_refs(self, None)
         self.run_codelet(getattr(agent, agent_state.name))
         """

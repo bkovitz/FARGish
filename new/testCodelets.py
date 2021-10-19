@@ -8,7 +8,8 @@ from dataclasses import dataclass, field, replace
 
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint
-from Codelets import BuildCompanion, Paint, Consume
+from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter
+from Agents import LitPainter
 from Canvas import Step, StepCanvas, StepDelta, CellRef
 from Equation import plus
 from util import pr
@@ -91,6 +92,18 @@ class TestCodelets(unittest.TestCase):
         )
         sources = fm.run_codelet(codelet)
         self.assertEqual(fm.look_up_by_name('result', sources), self.step1)
+
+    def test_buildlitpainter(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr1 = fm.build(CellRef(ca, 1))
+
+        codelet = BuildLitPainter(dest=cr1, value=self.step1)
+        fm.run_codelet(codelet)
+        lp: LitPainter = fm.the(LitPainter) # type: ignore[assignment]
+        self.assertIsNotNone(lp)
+        fm.run_agent(lp)
+        self.assertEqual(ca[1], self.step1)
 
     """
     def test_query_slipnet_for_delegate(self) -> None:
