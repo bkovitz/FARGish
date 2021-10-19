@@ -138,4 +138,3 @@ if __name__ == '__main__':
     wa = fm.build(
         Want(target=15, startcell=cr0, sk=RaiseException(TestFoundIt))
     )
-

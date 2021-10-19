@@ -31,6 +31,8 @@ class TestWorkspace(unittest.TestCase):
     def test_workspace_basics(self) -> None:
         ws = Workspace()
 
+        self.assertIsInstance(ws.seed, int)
+
         # build a node
         one = ws.build(1)
         self.assertEqual(one, 1)
@@ -99,14 +101,16 @@ class TestWorkspace(unittest.TestCase):
         self.assertEqual(ws.the(Obj('xyz')), o3)
 
     def test_ws_query(self) -> None:
-        ws = Workspace()
+        ws = Workspace(seed=1)
+        self.assertEqual(ws.seed, 1)
+
         o1 = ws.build(Obj('abc', 1), init_a=10.0)
         o2 = ws.build(Obj('abc', 2))
         o3 = ws.build(Obj('xyz', 3))
         i1 = ws.build(1)
         i2 = ws.build(2)
         results = Counter([
-            first(ws.ws_query(Obj))
+            ws.ws_query1(Obj)
                 for _ in range(100)
         ])
         self.assertGreater(results[o1], results[o2])

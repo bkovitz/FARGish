@@ -5,10 +5,11 @@ import collections
 import random
 import sys
 from inspect import isclass
-from dataclasses import dataclass, Field, fields, is_dataclass
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence
+from dataclasses import dataclass, Field, fields, is_dataclass, InitVar, field
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
+    Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+    runtime_checkable
 from contextlib import AbstractContextManager
 from types import SimpleNamespace
 from itertools import chain, tee, filterfalse
@@ -195,6 +196,18 @@ def reseed(seed=None):
         seed = random.randrange(sys.maxsize)
     random.seed(seed)
     return seed
+
+@dataclass
+class HasRngSeed:
+    '''A mix-in to give a class a random-number seed. The seed is taken from
+    from __init__'s args if available, or initialized randomly if not.
+
+    A flaw due to dataclass inheritance: every class that mixes in HasRngSeed
+    must have default values for all of its fields.'''
+    seed: int = None  # type: ignore[assignment]
+
+    def __post_init__(self):
+        self.seed = reseed(self.seed)
 
 def nice_object_repr(self):
     '''Stick  __repr__ = nice_object_repr  inside a class definition and

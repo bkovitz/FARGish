@@ -11,7 +11,8 @@ from Agent import Agent
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from inspect import isclass, signature
-from util import as_iter, first, force_setattr, clip, sample_without_replacement
+from util import as_iter, first, force_setattr, clip, HasRngSeed, \
+    sample_without_replacement
 
 
 @dataclass
@@ -42,7 +43,7 @@ class NodeInWS:
         return f'{self.elem}  builder={self.builder} tob={self.tob}'
 
 @dataclass
-class Workspace:
+class Workspace(HasRngSeed):
     '''The Workspace is strictly a container of nodes and the activation
     graph that holds and connects their activations. All notions of Agents
     and Codelets are left to the FARGModel class.'''
@@ -156,6 +157,13 @@ class Workspace:
             nodes, weights=activations, k=k
         )
 
+    def ws_query1(self, pred: WSPred, min_a: Union[float, None]=None) \
+    -> Union[Node, None]:
+        '''Like .ws_query() except returns only the first choice, or None
+        if there are no matches. Conveniently, the result is not inside
+        a generator.'''
+        return first(self.ws_query(pred=pred, min_a=min_a, k=1))
+
     def the(self, pred: WSPred, es=None) -> Union[Node, None]:
         '''Returns the first element from .nodes(), or None if there isn't
         one.'''
@@ -195,4 +203,3 @@ def first_arg_is_ws(o: Callable) -> bool:
         return issubclass(p0.annotation, Workspace)
     except TypeError:
         return False
-
