@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FARGModel import FARGModel, Agent, Born, Codelet, Ref, R
+from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R
 from Canvas import StepCanvas, Step
 from util import pr, pts, is_iter, first
 
@@ -36,27 +36,39 @@ ag = DummyAgent(
 
 class TestFARGModel(unittest.TestCase):
 
-    def test_basics(self):
+    def test_fargmodel_basics(self) -> None:
         fm = FARGModel()
+        self.assertEqual(fm.t, 0)
         # Did it initialize a random-number seed?
         self.assertIsInstance(fm.seed, int)
+
         # Build something
         ca = fm.build(StepCanvas([Step([4, 5, 6])]))
         # Is it there?
         self.assertTrue(fm.the(StepCanvas))
 
-        self.assertEqual(fm.t, 0)
+        # Build an Agent
+        self.assertEqual(fm.agent_state(ag), Defunct) # not built yet
+        agent = fm.build(ag)
+        self.assertEqual(fm.agent_state(agent), Born)
+
+        # Build and link to builder
+        one = fm.build(1, builder=agent)
+        self.assertEqual(fm.ae_weight(agent, one), 1.0)
+        self.assertEqual(fm.builder_of(one), agent)
+        self.assertCountEqual(fm.behalf_of(one), [agent])
+        self.assertCountEqual(fm.built_by(agent), [one])
 
     def test_codelet_replace_refs(self) -> None:
         fm = FARGModel()
         co0 = DummyCodelet(late_bound=Ref('agstr'))
         ag = DummyAgent(agstr='FROM AGENT', born=DummyCodelet())
-        co1 = co0.replace_refs(fm, [ag])
+        co1 = co0.replace_refs(fm, ag)
         self.assertEqual(co1, DummyCodelet(late_bound='FROM AGENT'))
 
     def test_agent_replace_refs(self) -> None:
         fm = FARGModel()
-        ag1 = ag.replace_refs(fm, [])
+        ag1 = ag.replace_refs(fm, None)
         self.assertEqual(
             ag1,
             DummyAgent(

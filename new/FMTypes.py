@@ -15,8 +15,8 @@ epsilon = 0.00001
 
 # An element of the workspace or a node in the slipnet
 #Elem = NewType('Elem', Hashable)
-Elem = Hashable
-Elems = Union[Elem, Iterable[Elem], None]
+Elem = Hashable  # TODO rm
+Elems = Union[Elem, Iterable[Elem], None]  # TODO rm
 
 Node = Elem
 Nodes = Elems

@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 import inspect
 
 from FMTypes import Elem, Elems, Value, Addr, Pred
-from util import as_iter, pr, pts
+from util import as_iter, as_list, pr, pts
 
 
 @dataclass(frozen=True)
@@ -191,6 +191,7 @@ if __name__ == '__main__':
     fm = FARGModel()
     wa: Want = fm.build(Want(target=15))  # type: ignore[assignment]
     b = wa.born
+    print('WAB', wa, b)
     d = fm.codelet_args(wa.born, wa)
     #pr(d)
     a = d['companion_info']

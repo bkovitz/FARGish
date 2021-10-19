@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 import inspect
 from inspect import isclass, signature
 
-from FMTypes import Node, WSPred, match_wo_none
+from FMTypes import Node, Nodes, WSPred, match_wo_none
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
@@ -32,13 +32,16 @@ W = TypeVar('W', bound='Workspace')
 # in its place, e.g.  my_string: R[str] = None
 R = Union[T, Ref, None]
 
+Sources = Any  # A Sequence of sources for looking up the values of Refs,
+               # or just a single source.
+
 class CanReplaceRefs:
     '''A mix-in for dataclasses whose fields may be Ref objects.'''
 
-    def replace_refs(self: T, fm: FARGModel, sources: Sequence) -> T:
+    def replace_refs(self: T, fm: FARGModel, sources: Sources) -> T:
         d: Dict[str, Any] = {}
-        sources1: Sequence = [self] + [s for s in sources]
-            # (cons self sources)
+        #sources1: Sequence = [self] + [s for s in sources]
+        sources1 = fm.prepend_source(self, sources)
         for attrname in self.__dataclass_fields__:  # type: ignore[attr-defined]
             try:
                 attr = getattr(self, attrname)
@@ -54,6 +57,10 @@ class CanReplaceRefs:
             return replace(self, **d)
         else:
             return self
+
+@dataclass(frozen=True)
+class BehalfOf:
+    behalf_of: Agent
 
 ### Agent and ancillary classes and objects ###
 
@@ -74,10 +81,11 @@ class AgentState:
 Born = AgentState('born')
 Wake = AgentState('wake')
 Snag = AgentState('snag')
-delegate_succeeded = AgentState('delegate_succeeded')
-delegate_failed = AgentState('delegate_failed')
-succeeded = AgentState('succeeded')
-failed = AgentState('failed')
+Delegate_succeeded = AgentState('delegate_succeeded')
+Delegate_failed = AgentState('delegate_failed')
+Succeeded = AgentState('succeeded')
+Failed = AgentState('failed')
+Defunct = AgentState('defunct')
 
 ### Codelet and ancillary classes ###
 
@@ -119,7 +127,7 @@ class NodeInWS:
         # .behalf_of is all the Agents that want this Node to exist, including
         # but not limited to its builder.
     tob: int   # time of birth (when Node was added to the ws)
-    # activation: float = 1.0
+    state: AgentState  # applicable only when node is an Agent
     # overrides for contents?
     # overrides for orientation?
 
@@ -179,7 +187,9 @@ class Workspace(HasRngSeed):
         min_a = kwargs.pop('min_a', None) # only has effect on true build
         max_a = kwargs.pop('max_a', None) # only has effect on true build
 
-        self.wsd[obj] = niws = NodeInWS(obj, builder=builder, tob=self.t)
+        self.wsd[obj] = niws = NodeInWS(
+            obj, builder=builder, tob=self.t, state=self.initial_state(obj)
+        )
 
         # Set up activation stuff
         if init_a is None:
@@ -209,10 +219,28 @@ class Workspace(HasRngSeed):
         # Put an .on-build() in this class and call it? FARGModel
         # can override it.
 
+    def initial_state(self, obj: Node) -> AgentState:
+        if isinstance(obj, Agent):
+            if obj.born:
+                return Born
+            else:
+                return Wake
+        else:
+            return Born
+
+    def set_state(self, node: Node, state: AgentState) -> None:
+        '''Sets the state of node. No effect if node does not exist.'''
+        niws = self.get_niws(node)
+        if niws:
+            niws.state = state
+
     # Activation / support
 
     def a(self, node: Node) -> float:
         return self.activation_g.a(node)
+
+    def ae_weight(self, from_node: Node, to_node: Node) -> float:
+        return self.activation_g.hop_weight(from_node, to_node)
 
     def add_mutual_support(
         self, a: Node, b: Node, weight: Optional[float]=None
@@ -266,6 +294,15 @@ class Workspace(HasRngSeed):
     def has_node(self, node: Node) -> bool:
         return node in self.wsd
 
+    def agent_state(self, agent: Agent) -> AgentState:
+        '''Returns the current state of 'agent', or Defunct if 'agent'
+        does not exist.'''
+        niws = self.get_niws(agent)
+        if niws:
+            return niws.state
+        else:
+            return Defunct
+
     # Node info
 
     def builder_of(self, node: Node) -> Union[Agent, None]:
@@ -274,6 +311,19 @@ class Workspace(HasRngSeed):
             return niws.builder
         else:
             return None
+
+    def behalf_of(self, node: Node) -> Sequence[Agent]:
+        try:
+            return self.wsd[node].behalf_of
+        except KeyError:
+            return []
+
+    def built_by(self, agent: Agent) -> Collection[Node]:
+        # TODO Optimize: this checks all Elems in the ws
+        return [
+            e for e in self.nodes()
+                if self.builder_of(e) is agent
+        ]
 
 def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
     '''Returns a predicate function that takes two arguments: a Workspace
@@ -310,47 +360,98 @@ class FARGModel(Workspace):
     def replace_refs(
         self,
         codelet: Union[None, Codelet],  # TODO Allow Codelets. Agent, too?
-        agent: Optional[Agent]=None
+        sources: Sources
     ) -> Codelet:
         if codelet is None:
             return NullCodelet()
-        return codelet.replace_refs(self, as_list(agent))
+        return codelet.replace_refs(self, sources)
 
     # TODO Make agent_state optional; if None, call agent's current state.
     def run_agent(self, agent: Agent, agent_state: AgentState) -> None:
-        '''Runs agent. Has no effect if agent is not a node in the workspace.'''
+        '''Fills in agent's Refs and runs agent. Has no effect if agent is not
+        a node in the workspace.'''
         if not self.has_node(agent):
             return
-        agent = agent.replace_refs(self, [])
+        agent = agent.replace_refs(self, None)
+        sources = self.mk_sources(agent)
+        """
         codelet: Codelet
         for codelet in as_iter(getattr(agent, agent_state.name)):
             codelet.run(**self.codelet_args(codelet, agent))
+        """
+        # WANT Run each codelet, followed by all of the codelets that it
+        # generates, and so on, until one of them fails.
+        codelet: Codelet
+        for codelet in as_iter(getattr(agent, agent_state.name)):
+            self._run_codelet_and_follow_ups(codelet, sources)
+            sources = self.prepend_source(codelet, sources)
 
-    def codelet_args(self, codelet: Codelet, agent: Optional[Agent]=None) \
+    def run_codelet(self, codelet: Codelets, agent: Optional[Agent]=None) \
+    -> None:
+        '''Fills in codelet's Refs and runs codelet. Normally you should
+        call .run_agent(), not .run_codelet(). .run_codelet() is mainly
+        for unit testing.'''
+        sources = self.mk_sources(agent)
+        for c in as_iter(codelet):
+            c = c.replace_refs(self, sources)
+            self._run_codelet_and_follow_ups(c, sources)
+            sources = self.prepend_source(c, sources)
+
+    def _run_codelet_and_follow_ups(
+        self, codelet: Codelet, sources: Sources
+    ) -> None:
+        '''codelet must have its Refs already filled in. Runs codelet.
+        If codelet returns follow-up codelets, we fill in their refs and
+        run those, too, as well as any follow-ups that they return, and
+        so on. If any of them fails, we don't catch the exception.'''
+        kwargs = self.codelet_args(codelet, sources)
+        more_codelets = codelet.run(**kwargs)
+        for c in as_iter(more_codelets):
+            c = c.replace_refs(self, sources)
+            self._run_codelet_and_follow_ups(c, sources)
+            sources = self.prepend_source(c, sources)
+
+    def codelet_args(self, codelet: Codelet, sources: Sources) \
     -> Dict[str, Any]:
         '''Returns a dict containing the arguments to pass to codelet's
         .run() method. codelet must not contain any Refs. Pass a codelet
         through .replace_refs() before calling .codelet_args().'''
-        codelet = codelet.replace_refs(self, as_list(agent))
+        codelet = codelet.replace_refs(self, self.mk_sources(sources))
         return dict(
-            (param_name, self.value_for_codelet_arg(codelet, param_name, agent))
+            #(param_name, self.value_for_codelet_arg(codelet, param_name, agent))
+            (param_name,
+             self.value_for_codelet_arg(codelet, param_name, sources))
                 for param_name in inspect.signature(codelet.run).parameters
         )
 
+    def mk_sources(self, agent: Optional[Agent]=None) -> Sequence:
+        if agent:
+            return [agent, BehalfOf(agent)]
+        else:
+            return []
+
+    def prepend_source(self, car: Any, sources: Sources) -> Sources:
+        return as_list(car) + [s for s in as_iter(sources)]
+
+    # TODO rm?
     def value_for_codelet_arg(
         self,
         codelet: Codelet,
         param_name: str,
-        agent: Optional[Agent]=None
+        sources: Sources
     ) -> Any:
         if param_name == 'fm':
             return self
+        sources = self.prepend_source(codelet, sources)
+        return self.look_up_by_name(param_name, sources)
+        """
         if param_name == 'behalf_of':
             return agent  # TODO What if agent is None?
         try:
             return getattr(codelet, param_name)
         except AttributeError:
             return None
+        """
 
     def look_up_by_name(
         self,
@@ -359,12 +460,16 @@ class FARGModel(Workspace):
     ) -> Any:
         if name == 'fm':
             return self
-        for source in sources:
+        for source in as_iter(sources):
             try:
-                return getattr(source, name)
+                result = getattr(source, name)
             except AttributeError:
                 continue
+            if result is not None:
+                return result
         return None
 
     def __str__(self):
         return self.__class__.__name__
+
+    __repr__ = __str__
