@@ -20,7 +20,8 @@ from util import as_iter, first, force_setattr, clip, HasRngSeed, \
 
 @dataclass(frozen=True)
 class Ref:
-    '''A reference to a member of an enclosing Agent, Codelet, or FARGModel.'''
+    '''A reference by name to a member of an enclosing Agent, Codelet, or
+    FARGModel.'''
     name: str
 
 T = TypeVar('T')
@@ -29,8 +30,32 @@ T = TypeVar('T')
 # in its place, e.g.  my_string: R[str] = None
 R = Union[T, Ref, None]
 
+class CanReplaceRefs:
+    '''A mix-in for dataclasses whose fields may be Ref objects.'''
+
+    def replace_refs(self: T, fm: FARGModel, sources: Sequence) -> T:
+        d: Dict[str, Any] = {}
+        sources1: Sequence = [self] + [s for s in sources]
+            # (cons self sources)
+        for attrname in self.__dataclass_fields__:  # type: ignore[attr-defined]
+            try:
+                attr = getattr(self, attrname)
+            except AttributeError:
+                continue
+            if isinstance(attr, Ref):
+                d[attrname] = fm.look_up_by_name(attr.name, sources)
+            elif isinstance(attr, CanReplaceRefs):
+                new_attr = attr.replace_refs(fm, sources1)
+                if new_attr is not attr:
+                    d[attrname] = new_attr
+        if d:
+            return replace(self, **d)
+        else:
+            return self
+
+
 @dataclass(frozen=True)
-class Agent:
+class Agent(CanReplaceRefs):
     pass
     """
     born: Codelets = None
@@ -42,59 +67,19 @@ class Agent:
     failed: Codelets = None
     """
 
-    def replace_refs(self, fm: FARGModel, sources: Sequence) -> Agent:
-        d: Dict[str, Any] = {}
-        sources1: Sequence = [self] + [s for s in sources]
-            # (cons self sources)
-        for attrname in self.__dataclass_fields__:  # type: ignore[attr-defined]
-            try:
-                attr = getattr(self, attrname)
-            except AttributeError:
-                continue
-            if isinstance(attr, Ref):
-                d[attrname] = fm.look_up_by_name(attr.name, sources)
-            elif hasattr(attr, 'replace_refs'):
-                new_attr = attr.replace_refs(fm, sources1)
-                if new_attr is not attr:
-                    d[attrname] = new_attr
-        if d:
-            return replace(self, **d)
-        else:
-            return self
-
 ### Codelet and ancillary classes ###
 
 @dataclass(frozen=True)
 class CodeletDataclassMixin:
     name: ClassVar[str]
 
-class Codelet(ABC, CodeletDataclassMixin):
+class Codelet(ABC, CodeletDataclassMixin, CanReplaceRefs):
 
     @abstractmethod
-    def go(self, fm: 'FARGModel', **kwargs) -> 'Codelets':
+    def go(self, fm: FARGModel, **kwargs) -> 'Codelets':
         '''Should do the codelet's action, and return any follow-up codelets
         to execute next, in the same timestep.'''
         pass
-
-    def replace_refs(self, fm: FARGModel, sources: Sequence) -> Codelet:
-        d: Dict[str, Any] = {}
-        sources1: Sequence = [self] + [s for s in sources]
-            # (cons self sources)
-        for attrname in self.__dataclass_fields__:  # type: ignore[attr-defined]
-            try:
-                attr = getattr(self, attrname)
-            except AttributeError:
-                continue
-            if isinstance(attr, Ref):
-                d[attrname] = fm.look_up_by_name(attr.name, sources)
-            elif hasattr(attr, 'replace_refs'):
-                new_attr = attr.replace_refs(fm, sources1)
-                if new_attr is not attr:
-                    d[attrname] = new_attr
-        if d:
-            return replace(self, **d)
-        else:
-            return self
 
 Codelets = Union[None, Codelet, Sequence[Codelet]]
 
@@ -331,4 +316,3 @@ class FARGModel(Workspace):
             except AttributeError:
                 continue
         return None
-    
