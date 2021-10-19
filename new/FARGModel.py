@@ -10,23 +10,26 @@ from abc import ABC, abstractmethod
 import inspect
 from inspect import isclass, signature
 
-from FMTypes import Node, Nodes, WSPred, match_wo_none
+from FMTypes import Node, Nodes, Value, WSPred, match_wo_none
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
+from Canvas import CellRef
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement
 
+
+T = TypeVar('T')
+N = TypeVar('N', bound=Node)
+W = TypeVar('W', bound='Workspace')
+
+### Classes for named references inside Codelets and Agents ###
 
 @dataclass(frozen=True)
 class Ref:
     '''A reference by name to a member of an enclosing Agent, Codelet, or
     FARGModel.'''
     name: str
-
-T = TypeVar('T')
-N = TypeVar('N', bound=Node)
-W = TypeVar('W', bound='Workspace')
 
 # Wrap the type of any field of an Agent of Codelet in R[] to allow a Ref
 # in its place, e.g.  my_string: R[str] = None
@@ -149,6 +152,8 @@ class Workspace(HasRngSeed):
     t: int = 0  # TODO inherit this from something that knows about time
     mutual_support_weight: float = 1.0
     mutual_antipathy_weight: float = -0.2
+    paint_threshold: float = 1.0
+        # a Painter must have at least this much activation
 
     #def build(self, *args, **kwargs) -> Node:
     def build(
@@ -234,13 +239,31 @@ class Workspace(HasRngSeed):
         if niws:
             niws.state = state
 
+    def paint(
+        self, cellref: CellRef, value: Value, agent: Optional[Agent]=None
+    ) -> None:
+        # TODO Raise exception if agent lacks sufficient activation to
+        # paint on the cell.
+        # TODO Raise exception if the Canvas doesn't exist.
+        if agent and self.a(agent) < self.paint_threshold:
+            raise NeedMoreSupportToPaint(agent)
+        cellref.paint(value)
+
     # Activation / support
 
     def a(self, node: Node) -> float:
+        '''Returns the activation of node, or 0.0 if node does not exist.'''
         return self.activation_g.a(node)
 
     def ae_weight(self, from_node: Node, to_node: Node) -> float:
+        '''Returns the edge weight from from_node to to_node, or 0.0 if
+        the edge does not exist.'''
         return self.activation_g.hop_weight(from_node, to_node)
+
+    def set_a(self, node: Node, a: float) -> None:
+        '''Sets the activation of node.'''
+        # TODO clip for min_a and max_a
+        self.activation_g.set_a(node, a)
 
     def add_mutual_support(
         self, a: Node, b: Node, weight: Optional[float]=None
@@ -374,13 +397,6 @@ class FARGModel(Workspace):
             return
         agent = agent.replace_refs(self, None)
         sources = self.mk_sources(agent)
-        """
-        codelet: Codelet
-        for codelet in as_iter(getattr(agent, agent_state.name)):
-            codelet.run(**self.codelet_args(codelet, agent))
-        """
-        # WANT Run each codelet, followed by all of the codelets that it
-        # generates, and so on, until one of them fails.
         codelet: Codelet
         for codelet in as_iter(getattr(agent, agent_state.name)):
             self._run_codelet_and_follow_ups(codelet, sources)
@@ -473,3 +489,12 @@ class FARGModel(Workspace):
         return self.__class__.__name__
 
     __repr__ = __str__
+
+### Exceptions ###
+
+class Fizzle(Exception):
+    pass
+
+@dataclass(frozen=True)
+class NeedMoreSupportToPaint(Fizzle):
+    agent: Agent

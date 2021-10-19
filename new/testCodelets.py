@@ -6,8 +6,10 @@ import inspect
 
 from dataclasses import dataclass, field, replace
 
-from FARGModel import FARGModel, Agent, Born, Wake, Codelets
-from Codelets import BuildCompanion
+from FARGModel import FARGModel, Agent, Born, Wake, Codelets, \
+    NeedMoreSupportToPaint
+from Codelets import BuildCompanion, Paint
+from Canvas import Step, StepCanvas, StepDelta, CellRef
 from util import pr
 
 
@@ -23,6 +25,12 @@ class DummyCompanion(Agent):
 
 class TestCodelets(unittest.TestCase):
 
+    step0 = Step([4, 5, 6])
+    step1 = Step([6], StepDelta([4, 5], [9], '+'))
+
+    def pons_start_canvas(self) -> StepCanvas:
+        return StepCanvas([self.step0])
+
     def test_build_companion(self) -> None:
         fm = FARGModel()
 
@@ -36,4 +44,31 @@ class TestCodelets(unittest.TestCase):
         companion = fm.the(DummyCompanion)
         self.assertEqual(fm.ae_weight(dag, companion), 1.0)
         self.assertEqual(fm.builder_of(companion), dag)
+
+        # Verify that NewState updated dag's state
         self.assertEqual(fm.agent_state(dag), Wake)
+
+    def test_paint_codelet(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr1 = fm.build(CellRef(ca, 1))
+
+        fm.run_codelet(Paint(cr1, self.step1))
+        self.assertEqual(ca[1], self.step1)
+
+    def test_paint_codelet_fail(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr1 = fm.build(CellRef(ca, 1))
+        ag = fm.build(DummyAgent(), init_a=0.2)
+
+        # ag's activation is below the threshold: fail
+        with self.assertRaises(NeedMoreSupportToPaint) as cm:
+            fm.run_codelet(Paint(cr1, self.step1, ag))
+        self.assertEqual(cm.exception, NeedMoreSupportToPaint(ag))
+        self.assertIsNone(ca[1])
+
+        # with sufficient activation, succeed
+        fm.set_a(ag, 1.0)
+        fm.run_codelet(Paint(cr1, self.step1, ag))
+        self.assertEqual(ca[1], self.step1)

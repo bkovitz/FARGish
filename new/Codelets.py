@@ -7,13 +7,17 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
+from FMTypes import Value
 from FARGModel import FARGModel, Codelet, Codelets, R, Agent, Nodes, \
     AgentState, Wake
+from Canvas import StepCanvas, Step, CellRef
 from util import as_iter
 
 
 @dataclass(frozen=True)
 class BuildCompanion(Codelet):
+    '''Builds one or more nodes that serve as companions for the acting
+    node.'''
     behalf_of: R[Agent] = None
     companion: R[Nodes] = None
 
@@ -29,6 +33,7 @@ class BuildCompanion(Codelet):
 
 @dataclass(frozen=True)
 class NewState(Codelet):
+    '''Sets an Agent to a new AgentState.'''
     agent: R[Agent] = None
     state: R[AgentState] = None
 
@@ -36,4 +41,17 @@ class NewState(Codelet):
         self, fm, agent: Agent, state: AgentState
     ) -> Codelets:
         fm.set_state(agent, state)
+        return None
+
+@dataclass(frozen=True)
+class Paint(Codelet):
+    '''Paints a value in a Canvas cell.'''
+    cellref: R[CellRef] = None
+    value: R[Value] = None
+    behalf_of: R[Agent] = None
+
+    def run(  # type: ignore[override]
+        self, fm, cellref: CellRef, value: Value, behalf_of: Optional[Agent]
+    ) -> Codelets:
+        fm.paint(cellref, value, behalf_of)
         return None
