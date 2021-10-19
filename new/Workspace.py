@@ -11,7 +11,7 @@ from Agent import Agent
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from inspect import isclass, signature
-from util import as_iter, first, force_setattr, clip
+from util import as_iter, first, force_setattr, clip, sample_without_replacement
 
 
 @dataclass
@@ -134,18 +134,41 @@ class Workspace:
         None.'''
         return self.wsd.get(obj, None)
         
-    def nodes(self, pred=None, es=None) -> Iterable[Node]:
+    def nodes(self, pred: WSPred=None, es=None) -> Iterable[Node]:
         '''Returns a generator for *all* matches of pred. Unlike .ws_query(),
         .nodes() does not make a weighted choice.'''
+        # TODO Explain es. (It's a subset to search.)
         wspred = as_wspred(pred)
         if es is None:
             es = self.wsd.keys()
         return (e for e in as_iter(es) if wspred(self, e))
 
-    def the(self, pred, es=None) -> Union[Node, None]:
+    def ws_query(self, pred: WSPred, min_a: Union[float, None]=None, k: int=1) \
+    -> Iterable[Node]:
+        '''Returns generator of up to k nodes that match pred,
+        chosen randomly, weighted by activation.'''
+        nodes = self.nodes(pred)
+        if min_a is not None:
+            nodes = (e for e in nodes if self.a(e) >= min_a)
+        nodes = list(nodes)
+        activations = [self.a(e) for e in nodes]
+        yield from sample_without_replacement(
+            nodes, weights=activations, k=k
+        )
+
+    def the(self, pred: WSPred, es=None) -> Union[Node, None]:
         '''Returns the first element from .nodes(), or None if there isn't
         one.'''
         return first(self.nodes(pred=pred, es=es))
+
+    # Node info
+
+    def builder_of(self, node: Node) -> Union[Agent, None]:
+        niws = self.get_niws(node)
+        if niws:
+            return niws.builder
+        else:
+            return None
 
 def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
     '''Returns a predicate function that takes two arguments: a Workspace

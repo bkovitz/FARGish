@@ -43,6 +43,7 @@ WSPred = Union[
     Tuple,  # should be Tuple[Pred, ...]
     Callable[['Workspace', Any], bool],  # type: ignore[name-defined]
     Callable[[Any], bool],
+    Node,
     None
 ]
 
