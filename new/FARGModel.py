@@ -25,6 +25,8 @@ class Ref:
     name: str
 
 T = TypeVar('T')
+N = TypeVar('N', bound=Node)
+W = TypeVar('W', bound='Workspace')
 
 # Wrap the type of any field of an Agent of Codelet in R[] to allow a Ref
 # in its place, e.g.  my_string: R[str] = None
@@ -140,15 +142,22 @@ class Workspace(HasRngSeed):
     mutual_support_weight: float = 1.0
     mutual_antipathy_weight: float = -0.2
 
-    def build(self, *args, **kwargs) -> Node:
+    #def build(self, *args, **kwargs) -> Node:
+    def build(
+        self: W,
+        obj: N,
+        **kwargs
+    ) -> N:
         '''The arguments specify an Node to build in the workspace. If such
         an Node already exists, we don't build anything. Returns the built
         or found Node.'''
+        """
         if not args:
             raise NotImplementedError('still need to provide object to .build')
         if isclass(args[0]):
             raise NotImplementedError(".build can't yet construct the object for you")
         obj = args[0]
+        """
         if obj is None:  # attempting to build None builds nothing
             return None
 
@@ -157,7 +166,7 @@ class Workspace(HasRngSeed):
         if niws is None:  # if the Node is not there, really build it
             niws = self._really_build(obj, builder, **kwargs)
         else:
-            obj = niws.node
+            obj = niws.node  # type: ignore[assignment]
         if builder:
             niws.add_behalf_of(builder)
             self.add_mutual_support(builder, obj)
@@ -254,6 +263,9 @@ class Workspace(HasRngSeed):
         one.'''
         return first(self.nodes(pred=pred, es=es))
 
+    def has_node(self, node: Node) -> bool:
+        return node in self.wsd
+
     # Node info
 
     def builder_of(self, node: Node) -> Union[Agent, None]:
@@ -306,6 +318,9 @@ class FARGModel(Workspace):
 
     # TODO Make agent_state optional; if None, call agent's current state.
     def run_agent(self, agent: Agent, agent_state: AgentState) -> None:
+        '''Runs agent. Has no effect if agent is not a node in the workspace.'''
+        if not self.has_node(agent):
+            return
         agent = agent.replace_refs(self, [])
         codelet: Codelet
         for codelet in as_iter(getattr(agent, agent_state.name)):

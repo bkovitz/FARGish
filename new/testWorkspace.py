@@ -40,10 +40,12 @@ class TestWorkspace(unittest.TestCase):
         self.assertEqual(ws.the(int), 1)
         self.assertEqual(ws.the(1), 1)
         self.assertEqual(ws.a(1), 1.0)
+        self.assertTrue(ws.has_node(1))
 
         # non-existent node
         self.assertEqual(ws.the(2), None)
         self.assertEqual(ws.a(2), 0.0)
+        self.assertFalse(ws.has_node(2))
 
     def test_optional_attrs(self) -> None:
         ws = Workspace()

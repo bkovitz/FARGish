@@ -77,5 +77,8 @@ class TestFARGModel(unittest.TestCase):
     def test_run_agent(self) -> None:
         fm = FARGModel()
         DummyCodelet.depository = ''
-        fm.run_agent(ag, Born)
+        fm.run_agent(ag, Born)  # ag does not exist yet
+        self.assertEqual(DummyCodelet.depository, '')
+        agent = fm.build(ag)
+        fm.run_agent(agent, Born)
         self.assertEqual(DummyCodelet.depository, 'FROM AGENT')
