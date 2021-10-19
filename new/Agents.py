@@ -8,26 +8,27 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from Canvas import CellRef
 from FMTypes import Value
-from FARGModel import Agent
+from FARGModel import Agent, Codelets, Ref
+from Codelets import Consume
+from Canvas import Operator
 
 
 @dataclass(frozen=True)
-class Operator:
-    '''Computes the result when Consume consumes operands.'''
-    func: Callable
-    name: str
-    
-    def __call__(self, *operands) -> int:  # HACK Numbo-specific return type
-        return self.func(*operands)
-
-    def __str__(self):
-        return self.name
-
-@dataclass(frozen=True)
-class Consume(Agent):
+class Consumer(Agent):
     operator: Union[Operator, None] = None
     operands: Union[Tuple[Value, ...], None] = None
     source: Union[CellRef, None] = None  # where to get operands
     dest: Union[CellRef, None] = None    # where to paint result
 
+    wake: Codelets = (
+        Consume(
+            operator=Ref('operator'),
+            operands=Ref('operands'),
+            source=Ref('source'),
+            result_in='result'
+        ),
+        #TakeOperands(operands=Ref('operands'), cellref=Ref('source')),
+        #ComputeResult(),
 
+        #BuildLitPainter(value=Ref('result'), cellref=Ref('dest'), 
+    )

@@ -9,8 +9,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from FMTypes import Value
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
-    AgentState, Wake, Snag, Succeeded
-from Canvas import StepCanvas, Step, CellRef
+    AgentState, Wake, Snag, Succeeded, CodeletResults
+from Canvas import StepCanvas, Step, CellRef, Operator
 from util import as_iter
 
 
@@ -23,7 +23,7 @@ class BuildCompanion(Codelet):
 
     def run(  # type: ignore[override]
         self, fm, behalf_of: Optional[Agent], companion=Optional[Nodes]
-    ) -> Codelets:
+    ) -> CodeletResults:
         for c in as_iter(self.companion):
             fm.build(c, builder=behalf_of)
         if behalf_of:
@@ -39,7 +39,7 @@ class NewState(Codelet):
 
     def run(  # type: ignore[override]
         self, fm, agent: Agent, state: AgentState
-    ) -> Codelets:
+    ) -> CodeletResults:
         fm.set_state(agent, state)
         return None
 
@@ -49,12 +49,63 @@ class Paint(Codelet):
     cellref: R[CellRef] = None
     value: R[Value] = None
     behalf_of: R[Agent] = None
-    sk: R[Codelet] = NewState(Ref('behalf_of'), Succeeded)
-    fk: R[Codelet] = NewState(Ref('behalf_of'), Snag)
+    sk: R[Codelets] = NewState(Ref('behalf_of'), Succeeded)
+    fk: R[Codelets] = NewState(Ref('behalf_of'), Snag)
 
     def run(  # type: ignore[override]
         self, fm, cellref: CellRef, value: Value, behalf_of: Optional[Agent],
         sk: Optional[Codelet]
-    ) -> Codelets:
+    ) -> CodeletResults:
         fm.paint(cellref, value, behalf_of)
         return sk
+
+"""
+@dataclass(frozen=True)
+class TakeOperands(Codelet):
+    operands: R[Tuple[Value, ...]] = Ref('operands')
+    cellref: R[CellRef] = Ref('source')
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        operands: Tuple[Value, ...],
+        cellref: CellRef,
+    ) -> CodeletResults:
+        taken, remaining = cellref.take_avails(operands)
+        return DefineRefs(taken=taken, remaining=remaining)
+"""
+
+@dataclass(frozen=True)
+class Consume(Codelet):
+    operator: R[Operator] = Ref('operator')
+    operands: R[Tuple[Value, ...]] = Ref('operands')
+    source: R[CellRef] = Ref('source')
+    result_in: R[str] = 'result'
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        operator: Operator,
+        operands: Tuple[Value, ...],
+        source: CellRef,
+        result_in: str
+    ) -> CodeletResults:
+        return dict([(result_in, operator.consume(source, operands))])
+
+"""
+@dataclass(frozen=True)
+class QuerySlipnetForDelegate(Codelet):
+    features: R[RelevantFeatures] = None
+    slipnode_type: R[SlipnodeType] = None
+    sk: R[Codelets] = Sleep(Ref('behalf_of'))
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        behalf_of: Optional[Agent],
+        features: RelevantFeatures,
+        slipnode_type: SlipnodeType,
+        sk: Optional[Codelets]
+    ) -> CodeletResults:
+        
+"""

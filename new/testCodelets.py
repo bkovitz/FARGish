@@ -8,8 +8,9 @@ from dataclasses import dataclass, field, replace
 
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint
-from Codelets import BuildCompanion, Paint
+from Codelets import BuildCompanion, Paint, Consume
 from Canvas import Step, StepCanvas, StepDelta, CellRef
+from Equation import plus
 from util import pr
 
 
@@ -24,9 +25,10 @@ class DummyCompanion(Agent):
     pass
 
 class TestCodelets(unittest.TestCase):
+    maxDiff = None
 
-    step0 = Step([4, 5, 6])
-    step1 = Step([6], StepDelta([4, 5], [9], '+'))
+    step0 = Step((4, 5, 6))
+    step1 = Step((6, 9), StepDelta((4, 5), 9, plus))
 
     def pons_start_canvas(self) -> StepCanvas:
         return StepCanvas([self.step0])
@@ -65,7 +67,7 @@ class TestCodelets(unittest.TestCase):
         # ag's activation is below the threshold: fail
         codelet = Paint(cr1, self.step1, ag)
         with self.assertRaises(NeedMoreSupportToPaint) as cm:
-            fm.run_codelet(codelet)
+            fm.run_codelet(codelet, ag)
         self.assertEqual(cm.exception.agent, ag)
         self.assertIsNone(ca[1])
         self.assertEqual(fm.agent_state(ag), Snag)
@@ -75,3 +77,22 @@ class TestCodelets(unittest.TestCase):
         fm.run_codelet(Paint(cr1, self.step1, ag))
         self.assertEqual(ca[1], self.step1)
         self.assertEqual(fm.agent_state(ag), Succeeded)
+
+    def test_consume(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+        cr1 = fm.build(CellRef(ca, 1))
+        
+        codelet = Consume(
+            operator=plus,
+            operands=(4, 5),
+            source=cr0
+        )
+        sources = fm.run_codelet(codelet)
+        self.assertEqual(fm.look_up_by_name('result', sources), self.step1)
+
+    """
+    def test_query_slipnet_for_delegate(self) -> None:
+        fm = FARGModel(slipnet=Slipnet(eqn_graph made into Consumes))
+    """

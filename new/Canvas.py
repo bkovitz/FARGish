@@ -8,105 +8,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 from abc import ABC, abstractmethod
 
 from FMTypes import Value, Addr
+from FARGModel import Canvas, CellRef, ValuesNotAvail, HasAvailValues
 
-
-@dataclass(frozen=True)
-class ValuesNotAvail(Exception):
-    #container: Hashable  # Change this to a CellRef?
-    cellref: Union['CellRef', None]
-    avails: Tuple[Value, ...]
-        # These values were avail; indices match indices in seeker's request
-    unavails: Tuple[Value, ...]
-        # These values were unavail; indices match indices in seeker's request
-
-    def __str__(self):
-        cl = self.__class__.__name__
-        return f'{cl}({self.cellref}, avails={self.avails}, unavails={self.unavails})'
-        
-class HasAvailValues(ABC):
-    '''Mix-in for cells and other things that (can) have avail values.'''
-    
-    def has_avail_value(self, v: Value) -> bool:
-        return (v in self.avails) if self.avails else False
-
-    @abstractmethod
-    def take_avails(self, values: Iterable[Value]) \
-    -> Tuple[Iterable[Value], Iterable[Value]]:
-        '''Returns (taken_avails, remaining_avails). Might raise
-        ValuesNotAvail.'''
-        # TODO Require a determinate Collection, not just an Iterable (since
-        # we might fail and need to put 'values' into an exception).
-        pass
-
-    @property
-    @abstractmethod
-    def avails(self) -> Union[Sequence[Value], None]:
-        pass
-
-
-class Canvas(ABC):
-    '''Something on which items can be painted.'''
-
-    # TODO get an iterator of all CellRefs, search for a value
-
-    @abstractmethod
-    def __getitem__(self, addr: Addr) -> Value:
-        pass
-
-    @abstractmethod
-    def __setitem__(self, addr: Addr, v: Value) -> None:
-        pass
-
-@dataclass(frozen=True)
-class CellRef(HasAvailValues):
-    '''A reference to a cell in a Canvas.'''
-    canvas: Union[Canvas, None] = None
-    addr: Union[Addr, None] = None
-
-    # TODO .next_cellref(), .last_nonblank_cellref(), cellrefs_forward()
-
-    @property
-    def value(self) -> Value:
-        if (
-            self.canvas is not None
-            and
-            self.addr is not None
-        ):
-            return self.canvas[self.addr]
-        else:
-            return None
-
-    def has_a_value(self) -> bool:
-        return self.value is not None
-
-    def paint(self, v: Value) -> None:
-        if (  # OAOO this if?  (might be hard with mypy)
-            self.canvas is not None
-            and
-            self.addr is not None
-        ):
-            self.canvas[self.addr] = v
-
-    @property
-    def avails(self) -> Union[Sequence[Value], None]:
-        if isinstance(self.value, HasAvailValues):
-            return self.value.avails
-        else:
-            return None
-
-    def take_avails(self, values: Iterable[Value]) \
-    -> Tuple[Iterable[Value], Iterable[Value]]:
-        v = self.value
-        if isinstance(v, HasAvailValues):
-            try:
-                return v.take_avails(values)
-            except ValuesNotAvail as vna:
-                raise replace(vna, cellref=self)
-        else:
-            raise ValuesNotAvail(self, tuple(values), ())
-
-    def __str__(self):
-        return f'canvas[{self.addr}]'
 
 @dataclass(frozen=True)
 class StepDelta:
@@ -146,9 +49,8 @@ class Step(HasAvailValues):
                 missing_avails.append(None)
         if any(t is None for t in taken_avails):
             raise ValuesNotAvail(
-                None,
-                tuple(taken_avails),
-                tuple(missing_avails)
+                avails=tuple(taken_avails),
+                unavails=tuple(missing_avails)
             )
         return (taken_avails, remaining_avails)
 
@@ -187,3 +89,22 @@ class StepCanvas(Canvas):
     def __str__(self):
         cl = self.__class__.__name__
         return f"{cl}({'; '.join(str(st) for st in self.steps)})"
+
+@dataclass(frozen=True)
+class Operator:
+    '''Computes the result when Consume consumes operands.'''
+    func: Callable
+    name: str
+    
+    def __call__(self, *operands) -> int:  # HACK Numbo-specific return type
+        return self.func(*operands)
+
+    def __str__(self):
+        return self.name
+
+    def consume(self, source: CellRef, operands: Sequence[Value]) -> Step:
+        taken_avails, remaining_avails = source.take_avails(operands)
+        result = self(*taken_avails)
+        new_avails = tuple(remaining_avails) + (result,)
+        delta = StepDelta(tuple(taken_avails), result, self)
+        return Step(new_avails, delta)

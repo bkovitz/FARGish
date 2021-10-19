@@ -10,10 +10,9 @@ from abc import ABC, abstractmethod
 import inspect
 from inspect import isclass, signature
 
-from FMTypes import Node, Nodes, Value, WSPred, match_wo_none
+from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
-from Canvas import CellRef
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement
@@ -99,17 +98,108 @@ class CodeletDataclassMixin:
 class Codelet(ABC, CodeletDataclassMixin, CanReplaceRefs):
 
     @abstractmethod
-    def run(self, fm: FARGModel, **kwargs) -> 'Codelets':
+    def run(self, fm: FARGModel, **kwargs) -> CodeletResults:
         '''Should do the codelet's action, and return any follow-up codelets
         to execute next, in the same timestep.'''
         pass
 
 Codelets = Union[None, Codelet, Sequence[Codelet]]
+CodeletResult = Union[None, Codelet, Dict[str, Any]]
+CodeletResults = Union[CodeletResult, Sequence[CodeletResult]]
 
 class NullCodelet(Codelet):
 
     def run(self) -> Codelets:  # type: ignore[override]
         return None
+
+### Canvas, CellRef, things with the notion of avail values ###
+
+class HasAvailValues(ABC):
+    '''Mix-in for cells and other things that (can) have avail values.'''
+    
+    def has_avail_value(self, v: Value) -> bool:
+        return (v in self.avails) if self.avails else False
+
+    @abstractmethod
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        '''Returns (taken_avails, remaining_avails). Might raise
+        ValuesNotAvail.'''
+        # TODO Require a determinate Collection, not just an Iterable (since
+        # we might fail and need to put 'values' into an exception).
+        pass
+
+    @property
+    @abstractmethod
+    def avails(self) -> Union[Sequence[Value], None]:
+        pass
+
+
+class Canvas(ABC):
+    '''Something on which items can be painted.'''
+
+    # TODO get an iterator of all CellRefs, search for a value
+
+    @abstractmethod
+    def __getitem__(self, addr: Addr) -> Value:
+        pass
+
+    @abstractmethod
+    def __setitem__(self, addr: Addr, v: Value) -> None:
+        pass
+
+@dataclass(frozen=True)
+class CellRef(HasAvailValues):
+    '''A reference to a cell in a Canvas.'''
+    canvas: Union[Canvas, None] = None
+    addr: Union[Addr, None] = None
+
+    # TODO .next_cellref(), .last_nonblank_cellref(), cellrefs_forward()
+
+    @property
+    def value(self) -> Value:
+        if (
+            self.canvas is not None
+            and
+            self.addr is not None
+        ):
+            return self.canvas[self.addr]
+        else:
+            return None
+
+    def has_a_value(self) -> bool:
+        return self.value is not None
+
+    def paint(self, v: Value) -> None:
+        if (  # OAOO this if?  (might be hard with mypy)
+            self.canvas is not None
+            and
+            self.addr is not None
+        ):
+            self.canvas[self.addr] = v
+
+    @property
+    def avails(self) -> Union[Sequence[Value], None]:
+        if isinstance(self.value, HasAvailValues):
+            return self.value.avails
+        else:
+            return None
+
+    def take_avails(self, values: Iterable[Value]) \
+    -> Tuple[Iterable[Value], Iterable[Value]]:
+        v = self.value
+        if isinstance(v, HasAvailValues):
+            try:
+                return v.take_avails(values)
+            except ValuesNotAvail as vna:
+                raise replace(vna, cellref=self)
+        else:
+            raise ValuesNotAvail(
+                cellref=self, avails=tuple(values), unavails=()
+            )
+
+    def __str__(self):
+        return f'canvas[{self.addr}]'
 
 ### Workspace and ancillary classes ###
 
@@ -379,6 +469,7 @@ def first_arg_is_ws(o: Callable) -> bool:
 @dataclass
 class FARGModel(Workspace):
     '''A generic FARG model.'''
+    slipnet: Slipnet = field(default_factory=lambda: Slipnet.empty())
 
     def replace_refs(
         self,
@@ -396,23 +487,25 @@ class FARGModel(Workspace):
         if not self.has_node(agent):
             return
         agent = agent.replace_refs(self, None)
+        self.run_codelet(getattr(agent, agent_state.name))
+        """
         sources = self.mk_sources(agent)
         codelet: Codelet
         for codelet in as_iter(getattr(agent, agent_state.name)):
             self._run_codelet_and_follow_ups(codelet, sources)
             sources = self.prepend_source(codelet, sources)
+        """
 
     def run_codelet(self, codelet: Codelets, agent: Optional[Agent]=None) \
-    -> None:
-        '''Fills in codelet's Refs and runs codelet. Normally you should
-        call .run_agent(), not .run_codelet(). .run_codelet() is mainly
-        for unit testing.'''
+    -> Sources:
+        '''Fills in codelet's Refs and runs codelet.'''
         sources = self.mk_sources(agent)
         for c in as_iter(codelet):
-            c = c.replace_refs(self, sources)
-            self._run_codelet_and_follow_ups(c, sources)
-            sources = self.prepend_source(c, sources)
+            #c = c.replace_refs(self, sources)
+            sources = self.run_codelet_and_follow_ups(c, sources)
+        return sources
 
+    """
     def _run_codelet_and_follow_ups(
         self, codelet: Codelet, sources: Sources
     ) -> None:
@@ -426,16 +519,47 @@ class FARGModel(Workspace):
             more_codelets = codelet.run(**kwargs)
         except Fizzle as fiz:
             fiz = replace(fiz, codelet=codelet)
-            #print('FIZ', fiz, type(fiz))
             if fiz.fk:
                 fk = fiz.fk.replace_refs(self, sources)
-                #print('FK', fk)
                 self._run_codelet_and_follow_ups(fk, sources)
             raise fiz
         for c in as_iter(more_codelets):
             c = c.replace_refs(self, sources)
             self._run_codelet_and_follow_ups(c, sources)
             sources = self.prepend_source(c, sources)
+    """
+
+    def run_codelet_and_follow_ups(
+        self, codelet: Codelet, sources: Sources
+    ) -> Sources:
+        '''Runs codelet, its follow-ups (including dictionaries), its
+        sk if the codelet succeeds, and its fk if it fails.'''
+        #print('SOU', sources)
+        try:
+            codelet_results = self.run_one_codelet(codelet, sources)
+        except Fizzle as fiz:
+            fiz = replace(fiz, codelet=codelet)
+            if fiz.fk:
+                #print('FIZ', fiz.fk, sources)
+                fk = fiz.fk.replace_refs(self, sources)
+                self.run_codelet_and_follow_ups(fk, sources)
+            raise fiz
+        for codelet_result in as_iter(codelet_results):
+            sources = self.prepend_source(codelet_result, sources)
+            if isinstance(codelet_result, Codelet):
+                sources = self.run_codelet_and_follow_ups(
+                    codelet_result, sources
+                )
+        return sources
+            
+    def run_one_codelet(
+        self, codelet: Codelet, sources: Sources
+    ) -> CodeletResults:
+        '''This should be the only place in the entire program that
+        calls codelet.run().'''
+        codelet = codelet.replace_refs(self, sources)
+        kwargs = self.codelet_args(codelet, sources)
+        return codelet.run(**kwargs)
 
     def codelet_args(self, codelet: Codelet, sources: Sources) \
     -> Dict[str, Any]:
@@ -459,7 +583,6 @@ class FARGModel(Workspace):
     def prepend_source(self, car: Any, sources: Sources) -> Sources:
         return as_list(car) + [s for s in as_iter(sources)]
 
-    # TODO rm?
     def value_for_codelet_arg(
         self,
         codelet: Codelet,
@@ -487,10 +610,16 @@ class FARGModel(Workspace):
         if name == 'fm':
             return self
         for source in as_iter(sources):
-            try:
-                result = getattr(source, name)
-            except AttributeError:
-                continue
+            if isinstance(source, dict):
+                try:
+                    result = source[name]
+                except AttributeError:
+                    continue
+            else:
+                try:
+                    result = getattr(source, name)
+                except AttributeError:
+                    continue
             if result is not None:
                 return result
         return None
@@ -517,3 +646,16 @@ class Fizzle(Exception):
 @dataclass(frozen=True)
 class NeedMoreSupportToPaint(Fizzle):
     agent: Optional[Agent] = None
+
+@dataclass(frozen=True)
+class ValuesNotAvail(Fizzle):
+    #container: Hashable  # Change this to a CellRef?
+    cellref: Union['CellRef', None] = None
+    avails: Tuple[Value, ...] = ()
+        # These values were avail; indices match indices in seeker's request
+    unavails: Tuple[Value, ...] = ()
+        # These values were unavail; indices match indices in seeker's request
+
+    def __str__(self):
+        cl = self.__class__.__name__
+        return f'{cl}({self.cellref}, avails={self.avails}, unavails={self.unavails})'

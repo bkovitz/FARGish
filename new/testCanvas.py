@@ -26,7 +26,7 @@ class TestStepsCanvas(unittest.TestCase):
             taken, remaining = step.take_avails([4, 7])
         self.assertEqual(
             cm.exception,
-            ValuesNotAvail(None, (4, None), (None, 7))
+            ValuesNotAvail(avails=(4, None), unavails=(None, 7))
         )
 
     def test_stepcanvas_basics(self) -> None:
@@ -61,7 +61,7 @@ class TestStepsCanvas(unittest.TestCase):
             taken, remaining = cr0.take_avails([4, 7])
         self.assertEqual(
             cm.exception,
-            ValuesNotAvail(cr0, (4, None), (None, 7))
+            ValuesNotAvail(cellref=cr0, avails=(4, None), unavails=(None, 7))
         )
 
         #StepCanvas[1]
@@ -72,7 +72,7 @@ class TestStepsCanvas(unittest.TestCase):
             taken, remaining = cr1.take_avails([4, 7])
         self.assertEqual(
             cm.exception,
-            ValuesNotAvail(cr1, (4, 7), ())
+            ValuesNotAvail(cellref=cr1, avails=(4, 7), unavails=())
         )
 
         # paint

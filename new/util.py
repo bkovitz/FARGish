@@ -27,6 +27,8 @@ def is_iter(o):
         not isinstance(o, str)
         and
         not is_namedtuple(o)
+        and
+        not isinstance(o, dict)
     )
 
 def is_namedtuple(o):
