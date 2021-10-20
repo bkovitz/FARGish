@@ -57,7 +57,7 @@ class Paint(Codelet):
     ) -> CodeletResults:
         #print('PAINT', fm.a(behalf_of), behalf_of)
         fm.paint(dest, value, behalf_of)
-        return sk
+        return None
 
 """
 @dataclass(frozen=True)

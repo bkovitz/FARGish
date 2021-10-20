@@ -515,7 +515,6 @@ class FARGModel(Workspace):
     ) -> Sources:
         '''Runs codelet, its follow-ups (including dictionaries), its
         sk if the codelet succeeds, and its fk if it fails.'''
-        # NEXT implement auto-calling sk
         try:
             codelet_results = self.run_one_codelet(codelet, sources)
         except Fizzle as fiz:
@@ -527,6 +526,10 @@ class FARGModel(Workspace):
                 self.run_codelet_and_follow_ups(fk, sources)
             raise fiz
         #print('RAFC', codelet, '--', codelet_results)
+        if hasattr(codelet, 'sk'):
+            codelet_results = as_list(codelet_results)
+            codelet_results.insert(0, codelet.sk)  # type: ignore[attr-defined]
+        codelet_result: CodeletResult
         for codelet_result in as_iter(codelet_results):
             sources = self.prepend_source(codelet_result, sources)
             if isinstance(codelet_result, Codelet):

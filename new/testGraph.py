@@ -452,8 +452,6 @@ class TestGraph(unittest.TestCase):
         g.set_a('a', 2.0)
         self.assertEqual(g.a('a'), 2.0)
 
-        # NEXT set up some edges and propagate
-
         g.add_node('b')
         g.add_node('o')
         g.add_hop(Hop('a', 'b'))
