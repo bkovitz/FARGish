@@ -70,6 +70,11 @@ class BehalfOf:
 
 @dataclass(frozen=True)
 class Agent(CanReplaceRefs):
+    '''An Agent has no Python code. It holds only fields containing zero
+    or mode codelets for each AgentState, and, optionally, fields for
+    parameters to the Agent. Due to the rules of dataclass inheritance,
+    you must specify those optional parameters by explicit keyword
+    arguments when constructing an instance of an Agent subclass.'''
     born: Codelets = None
     wake: Codelets = None
     snag: Codelets = None
@@ -483,10 +488,12 @@ class FARGModel(Workspace):
         return codelet.replace_refs(self, sources)
 
     # TODO Make agent_state optional; if None, call agent's current state.
-    def run_agent(self, agent: Agent, agent_state: Optional[AgentState]=None) \
+    def run_agent(self, agent: Node, agent_state: Optional[AgentState]=None) \
     -> None:
         '''Fills in agent's Refs and runs agent. Has no effect if agent is not
         a node in the workspace.'''
+        if not isinstance(agent, Agent):
+            raise AttributeError(f'run_agent: {agent} is not an Agent.')
         if not self.has_node(agent):
             return
         if agent_state is None:
@@ -545,6 +552,7 @@ class FARGModel(Workspace):
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.codelet_args(codelet, sources)
+        #print('CODELET', codelet.__class__.__name__, kwargs)
         return codelet.run(**kwargs)
 
     def codelet_args(self, codelet: Codelet, sources: Sources) \
@@ -600,7 +608,7 @@ class FARGModel(Workspace):
             if isinstance(source, dict):
                 try:
                     result = source[name]
-                except AttributeError:
+                except KeyError:
                     continue
             else:
                 try:

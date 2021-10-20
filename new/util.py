@@ -36,10 +36,10 @@ def is_namedtuple(o):
     return hasattr(o, '_fields')
 
 def as_iter(o) -> Iterable:
-    '''Returns o in a form that the caller can iterate over. If o is already
-    an iterable (but not a string), returns o. If o is none, returns an
-    empty list. If o is anything else, returns a one-element list containing
-    o.'''
+    '''Returns o in a form that the caller can iterate over. If o is already an
+    iterable (but not a string, dictionary, or namedtuple), returns o. If o is
+    none, returns an empty list. If o is anything else, returns a one-element
+    list containing o.'''
     if isinstance(o, str):
         return [o]
     elif is_iter(o):

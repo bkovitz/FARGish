@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 from Canvas import CellRef
 from FMTypes import Value
 from FARGModel import Agent, Codelets, Ref, CellRef
-from Codelets import Consume, Paint
+from Codelets import Consume, Paint, BuildLitPainter
 from Canvas import Operator
 
 
@@ -34,8 +34,9 @@ class Consumer(Agent):
             source=Ref('source'),
             result_in='result'
         ),
+
+        BuildLitPainter(value=Ref('result'))
+    )
+    # Another possible approach, breaking down Consume into smaller codelets:
         #TakeOperands(operands=Ref('operands'), cellref=Ref('source')),
         #ComputeResult(),
-
-        #BuildLitPainter(value=Ref('result'), cellref=Ref('dest'), 
-    )

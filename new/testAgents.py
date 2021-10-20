@@ -6,8 +6,8 @@ import inspect
 
 from dataclasses import dataclass, field, replace
 
-from Agents import LitPainter
-from FARGModel import FARGModel, CellRef
+from Agents import LitPainter, Consumer
+from FARGModel import FARGModel, CellRef, Succeeded
 from Canvas import Step, StepDelta, StepCanvas
 from Equation import plus
 
@@ -28,4 +28,21 @@ class TestAgents(unittest.TestCase):
         lp = fm.build(LitPainter(dest=cr1, value=self.step1))
         fm.run_agent(lp)
         self.assertEqual(ca[1], self.step1)
-        # TODO test that lp is Succeeded
+        self.assertEqual(fm.agent_state(lp), Succeeded)
+
+    def test_consumer(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+
+        ag = fm.build(Consumer(
+            operator=plus,
+            operands=(4, 5),
+            source=cr0,
+            dest=cr1)
+        )
+        fm.run_agent(ag)
+        fm.run_agent(fm.the(LitPainter))
+        
+        self.assertEqual(ca[1], self.step1)
