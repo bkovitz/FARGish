@@ -527,6 +527,27 @@ def singleton(cls):
 
 # Debugging
 
+def trace(func):
+    '''Function decorator: prints the name and arguments of the function each
+    time it is called, and prints its return value when it returns.
+    Caution: 'trace' will read generators all the way to their end.'''
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        argstring = ''
+        if args:
+            argstring += ', '.join(repr(a) for a in args)
+        if kwargs:
+            if argstring:
+                argstring += ', '
+            argstring += ', '.join(
+                f'{name}={value}' for name, value in kwargs.items()
+            )
+        print(f'{func.__name__}({argstring})')
+        result = func(*args, **kwargs)
+        print(f'-> {result}')
+        return result
+    return wrapper
+
 def pts(ls: Iterable, n=None):
     '''Prints ls as a table of strings. For debugging.'''
     for i, x in enumerate(as_iter(ls)):

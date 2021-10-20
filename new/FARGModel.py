@@ -15,7 +15,7 @@ from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
-    sample_without_replacement
+    sample_without_replacement, trace
 
 
 T = TypeVar('T')
@@ -51,10 +51,12 @@ class CanReplaceRefs:
                 continue
             if isinstance(attr, Ref):
                 d[attrname] = fm.look_up_by_name(attr.name, sources)
+            '''
             elif isinstance(attr, CanReplaceRefs):
                 new_attr = attr.replace_refs(fm, sources1)
                 if new_attr is not attr:
                     d[attrname] = new_attr
+            '''
         if d:
             return replace(self, **d)
         else:
@@ -490,7 +492,7 @@ class FARGModel(Workspace):
         if agent_state is None:
             agent_state = self.agent_state(agent)
         agent = agent.replace_refs(self, None)
-        self.run_codelet(getattr(agent, agent_state.name))
+        self.run_codelet(getattr(agent, agent_state.name), agent)
         """
         sources = self.mk_sources(agent)
         codelet: Codelet
@@ -508,45 +510,23 @@ class FARGModel(Workspace):
             sources = self.run_codelet_and_follow_ups(c, sources)
         return sources
 
-    """
-    def _run_codelet_and_follow_ups(
-        self, codelet: Codelet, sources: Sources
-    ) -> None:
-        '''codelet must have its Refs already filled in. Runs codelet.
-        If codelet returns follow-up codelets, we fill in their refs and
-        run those, too, as well as any follow-ups that they return, and
-        so on. If any of them fails, we run its failure continuation if it
-        has one, and re-raise the exception.'''
-        kwargs = self.codelet_args(codelet, sources)
-        try:
-            more_codelets = codelet.run(**kwargs)
-        except Fizzle as fiz:
-            fiz = replace(fiz, codelet=codelet)
-            if fiz.fk:
-                fk = fiz.fk.replace_refs(self, sources)
-                self._run_codelet_and_follow_ups(fk, sources)
-            raise fiz
-        for c in as_iter(more_codelets):
-            c = c.replace_refs(self, sources)
-            self._run_codelet_and_follow_ups(c, sources)
-            sources = self.prepend_source(c, sources)
-    """
-
     def run_codelet_and_follow_ups(
         self, codelet: Codelet, sources: Sources
     ) -> Sources:
         '''Runs codelet, its follow-ups (including dictionaries), its
         sk if the codelet succeeds, and its fk if it fails.'''
-        #print('SOU', sources)
+        # NEXT implement auto-calling sk
         try:
             codelet_results = self.run_one_codelet(codelet, sources)
         except Fizzle as fiz:
             fiz = replace(fiz, codelet=codelet)
+            #print('FIZZLE', repr(fiz))
             if fiz.fk:
                 #print('FIZ', fiz.fk, sources)
                 fk = fiz.fk.replace_refs(self, sources)
                 self.run_codelet_and_follow_ups(fk, sources)
             raise fiz
+        #print('RAFC', codelet, '--', codelet_results)
         for codelet_result in as_iter(codelet_results):
             sources = self.prepend_source(codelet_result, sources)
             if isinstance(codelet_result, Codelet):
@@ -594,6 +574,7 @@ class FARGModel(Workspace):
     ) -> Any:
         if param_name == 'fm':
             return self
+        # TODO rm this next line?
         sources = self.prepend_source(codelet, sources)
         return self.look_up_by_name(param_name, sources)
         """

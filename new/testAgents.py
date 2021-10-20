@@ -28,3 +28,4 @@ class TestAgents(unittest.TestCase):
         lp = fm.build(LitPainter(dest=cr1, value=self.step1))
         fm.run_agent(lp)
         self.assertEqual(ca[1], self.step1)
+        # TODO test that lp is Succeeded

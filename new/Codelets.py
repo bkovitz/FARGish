@@ -11,7 +11,7 @@ from FMTypes import Value
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults
 from Canvas import StepCanvas, Step, CellRef, Operator
-from util import as_iter
+from util import as_iter, trace
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,6 @@ class Paint(Codelet):
     '''Paints a value in a Canvas cell.'''
     dest: R[CellRef] = Ref('dest')
     value: R[Value] = Ref('value')
-    behalf_of: R[Agent] = None  # TODO rm?
     sk: R[Codelets] = NewState(Ref('behalf_of'), Succeeded)
     fk: R[Codelets] = NewState(Ref('behalf_of'), Snag)
 
@@ -56,6 +55,7 @@ class Paint(Codelet):
         self, fm, dest: CellRef, value: Value, behalf_of: Optional[Agent],
         sk: Optional[Codelet]
     ) -> CodeletResults:
+        #print('PAINT', fm.a(behalf_of), behalf_of)
         fm.paint(dest, value, behalf_of)
         return sk
 

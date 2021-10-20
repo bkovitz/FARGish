@@ -73,7 +73,7 @@ class TestFARGModel(unittest.TestCase):
             ag1,
             DummyAgent(
                 agstr='FROM AGENT',
-                born=DummyCodelet(late_bound='FROM AGENT')
+                born=DummyCodelet(late_bound=Ref('agstr'))
             )
         )
 

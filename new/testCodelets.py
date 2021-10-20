@@ -66,7 +66,7 @@ class TestCodelets(unittest.TestCase):
         ag = fm.build(DummyAgent(), init_a=0.2)
 
         # ag's activation is below the threshold: fail
-        codelet = Paint(cr1, self.step1, ag)
+        codelet = Paint(cr1, self.step1)
         with self.assertRaises(NeedMoreSupportToPaint) as cm:
             fm.run_codelet(codelet, ag)
         self.assertEqual(cm.exception.agent, ag)
@@ -75,7 +75,7 @@ class TestCodelets(unittest.TestCase):
 
         # with sufficient activation, succeed
         fm.set_a(ag, 1.0)
-        fm.run_codelet(Paint(cr1, self.step1, ag))
+        fm.run_codelet(Paint(cr1, self.step1), agent=ag)
         self.assertEqual(ca[1], self.step1)
         self.assertEqual(fm.agent_state(ag), Succeeded)
 
@@ -104,6 +104,7 @@ class TestCodelets(unittest.TestCase):
         self.assertIsNotNone(lp)
         fm.run_agent(lp)
         self.assertEqual(ca[1], self.step1)
+        self.assertEqual(fm.agent_state(lp), Succeeded)
 
     """
     def test_query_slipnet_for_delegate(self) -> None:
