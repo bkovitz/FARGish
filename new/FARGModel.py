@@ -119,6 +119,14 @@ class NullCodelet(Codelet):
     def run(self) -> Codelets:  # type: ignore[override]
         return None
 
+class QArg(ABC):
+    '''An object that generates input nodes for a slipnet query, possibly
+    after examining something in the workspace.'''
+
+    @abstractmethod
+    def get_items(self, fm: FARGModel, **kwargs) -> Nodes:
+        pass
+
 ### Canvas, CellRef, things with the notion of avail values ###
 
 class HasAvailValues(ABC):
@@ -560,6 +568,7 @@ class FARGModel(Workspace):
         '''Returns a dict containing the arguments to pass to codelet's
         .run() method. codelet must not contain any Refs. Pass a codelet
         through .replace_refs() before calling .codelet_args().'''
+        # TODO rm next line?
         codelet = codelet.replace_refs(self, self.mk_sources(sources))
         return dict(
             #(param_name, self.value_for_codelet_arg(codelet, param_name, agent))
@@ -577,6 +586,7 @@ class FARGModel(Workspace):
     def prepend_source(self, car: Any, sources: Sources) -> Sources:
         return as_list(car) + [s for s in as_iter(sources)]
 
+    # TODO rm? Just call .look_up_by_name?
     def value_for_codelet_arg(
         self,
         codelet: Codelet,
@@ -585,7 +595,6 @@ class FARGModel(Workspace):
     ) -> Any:
         if param_name == 'fm':
             return self
-        # TODO rm this next line?
         sources = self.prepend_source(codelet, sources)
         return self.look_up_by_name(param_name, sources)
         """
@@ -600,7 +609,7 @@ class FARGModel(Workspace):
     def look_up_by_name(
         self,
         name: str,
-        sources: Sequence
+        sources: Sequence  # TODO Sources
     ) -> Any:
         if name == 'fm':
             return self
@@ -618,6 +627,15 @@ class FARGModel(Workspace):
             if result is not None:
                 return result
         return None
+
+    def qarg_items(self, qarg: QArg, sources: Sources) -> Nodes:
+        sources = self.prepend_source(qarg, sources)
+        kwargs = dict(
+            (param_name,
+             self.look_up_by_name(param_name, sources))
+                for param_name in inspect.signature(qarg.get_items).parameters
+        )
+        return qarg.get_items(**kwargs)
 
     def __str__(self):
         return self.__class__.__name__

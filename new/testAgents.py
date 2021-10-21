@@ -4,8 +4,6 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from dataclasses import dataclass, field, replace
-
 from Agents import LitPainter, Consumer
 from FARGModel import FARGModel, CellRef, Succeeded
 from Canvas import Step, StepDelta, StepCanvas

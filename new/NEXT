@@ -1,0 +1,46 @@
+Solve pons asinorum
+
+    Want
+
+        QuerySlipnetForDelegate
+
+            QueryInputs   (QArgs?)
+
+                BeforeFromAvails  DONE
+
+                AfterFrom
+
+            SlipnodeType
+
+        adjust support
+
+    Detector(15)
+
+        LookForAvail
+
+        RaiseException
+
+        Call Detectors from FARGModel
+
+
+    Slipnet of Consumers
+
+    do_timestep()
+
+    maybe
+
+        Merge slipnet results (to get _ + _ = _)
+
+
+
+Other things
+
+    Match type of codelet_args; throw a Snag if can't match.
+
+    Query slipnet to resolve snags.
+
+    Overriding/varying Agent arguments.
+
+Small things
+
+    Give the() a generic return type.
