@@ -4,12 +4,12 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from QArgs import BeforeFromAvails
+from QArgs import QBeforeFromAvails, QAfter
 from Agents import LitPainter, Consumer
 from FARGModel import FARGModel, CellRef
 from Canvas import Step, StepDelta, StepCanvas
 from Equation import plus
-from Graph import Before
+from Graph import Before, After
 from util import pr, as_iter
 
 
@@ -26,12 +26,22 @@ class TestQArgs(unittest.TestCase):
         ca = fm.build(self.pons_start_canvas())
         cr0 = CellRef(ca, 0)
 
-        qarg = BeforeFromAvails(source=cr0)
+        qarg = QBeforeFromAvails(source=cr0)
         self.assertCountEqual(
             as_iter(fm.qarg_items(qarg, [])),
             [
                 Before(4),
                 Before(5),
                 Before(6)
+            ]
+        )
+
+    def test_qafter(self) -> None:
+        fm = FARGModel()
+        qarg = QAfter(features=15)
+        self.assertCountEqual(
+            as_iter(fm.qarg_items(qarg, {'features': 15})),
+            [
+                After(15)
             ]
         )

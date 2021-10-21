@@ -15,10 +15,19 @@ from util import trace, as_iter
 
 
 @dataclass(frozen=True)
-class BeforeFromAvails(QArg):
+class QBeforeFromAvails(QArg):
     source: R[CellRef] = Ref('source')
     
     def get_items(  # type: ignore[override]
-        self, fm: FARGModel, source: CellRef
+        self, source: CellRef
     ) -> Nodes:
         return [Before(a) for a in as_iter(source.avails)]
+
+@dataclass(frozen=True)
+class QAfter(QArg):
+    features: R[Nodes] = Ref('features')
+
+    def get_items(  # type: ignore[override]
+        self, features: Nodes
+    ) -> Nodes:
+        return [After(a) for a in as_iter(features)]

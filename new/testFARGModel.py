@@ -79,7 +79,8 @@ class TestFARGModel(unittest.TestCase):
 
     def test_codelet_args(self) -> None:
         fm = FARGModel()
-        codelet: Codelet = fm.replace_refs(ag.born, ag) # type: ignore[arg-type]
+        #codelet: Codelet = fm.replace_refs(ag.born, ag) # type: ignore[arg-type]
+        codelet: Codelet = ag.born  # type: ignore[assignment]
         self.assertEqual(
             fm.codelet_args(codelet, ag),
             dict(fm=fm, late_bound='FROM AGENT')

@@ -486,6 +486,8 @@ class FARGModel(Workspace):
     '''A generic FARG model.'''
     slipnet: Slipnet = field(default_factory=lambda: Slipnet.empty())
 
+    #TODO rm
+    """
     def replace_refs(
         self,
         codelet: Union[None, Codelet],  # TODO Allow Codelets. Agent, too?
@@ -494,8 +496,8 @@ class FARGModel(Workspace):
         if codelet is None:
             return NullCodelet()
         return codelet.replace_refs(self, sources)
+    """
 
-    # TODO Make agent_state optional; if None, call agent's current state.
     def run_agent(self, agent: Node, agent_state: Optional[AgentState]=None) \
     -> None:
         '''Fills in agent's Refs and runs agent. Has no effect if agent is not
@@ -568,7 +570,6 @@ class FARGModel(Workspace):
         '''Returns a dict containing the arguments to pass to codelet's
         .run() method. codelet must not contain any Refs. Pass a codelet
         through .replace_refs() before calling .codelet_args().'''
-        # TODO rm next line?
         codelet = codelet.replace_refs(self, self.mk_sources(sources))
         return dict(
             #(param_name, self.value_for_codelet_arg(codelet, param_name, agent))
@@ -609,7 +610,7 @@ class FARGModel(Workspace):
     def look_up_by_name(
         self,
         name: str,
-        sources: Sequence  # TODO Sources
+        sources: Sources
     ) -> Any:
         if name == 'fm':
             return self

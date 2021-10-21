@@ -35,7 +35,7 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testFARGModel
-	$(PY) -m unittest -v testQArgs.TestQArgs.test_before_from_avails
+	$(PY) -m unittest -v testQArgs.TestQArgs
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 
 # Acceptance tests
