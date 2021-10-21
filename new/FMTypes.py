@@ -52,7 +52,7 @@ WSPred = Union[
 # is the object in question.
 Pred = Union[
     Type,
-    Tuple,  # should be Tuple[Pred, ...]
+    Tuple,  # TODO should be Tuple[Pred, ...]
     Callable[[Any], bool],
     None
 ]

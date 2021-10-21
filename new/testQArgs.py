@@ -4,11 +4,11 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from QArgs import QBeforeFromAvails, QAfter
+from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Agents import LitPainter, Consumer
 from FARGModel import FARGModel, CellRef
 from Canvas import Step, StepDelta, StepCanvas
-from Equation import plus
+from Equation import Equation, plus
 from Graph import Before, After
 from util import pr, as_iter
 
@@ -28,7 +28,7 @@ class TestQArgs(unittest.TestCase):
 
         qarg = QBeforeFromAvails(source=cr0)
         self.assertCountEqual(
-            as_iter(fm.qarg_items(qarg, [])),
+            as_iter(qarg.get_items(fm, [])),
             [
                 Before(4),
                 Before(5),
@@ -38,10 +38,61 @@ class TestQArgs(unittest.TestCase):
 
     def test_qafter(self) -> None:
         fm = FARGModel()
-        qarg = QAfter(features=15)
+        qarg = QAfter()
         self.assertCountEqual(
-            as_iter(fm.qarg_items(qarg, {'features': 15})),
+            as_iter(qarg.get_items(fm, {'features': 15})),
             [
                 After(15)
             ]
         )
+
+    def test_slipnet_kwargs1(self) -> None:
+        fm = FARGModel()
+        qargs = (
+            Before(4),
+            After(11),
+            SearchFor(Equation)
+        )
+        self.assertEqual(
+            fm.mk_slipnet_args(qargs, []),
+            dict(
+                activations_in=dict((
+                    (Before(4), 1.0),
+                    (After(11), 1.0)
+                )),
+                pred=(Equation,),
+                k=20,
+                num_get=1
+            )
+        )
+
+    def test_slipnet_kwargs2(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+
+        qargs = (
+            QBeforeFromAvails(),
+            QAfter(),
+            SearchFor()
+        )
+        sources = dict(
+            source=cr0,
+            features=15,
+            type=Equation
+        )
+        self.assertEqual(
+            fm.mk_slipnet_args(qargs, sources),
+            dict(
+                activations_in=dict((
+                    (Before(4), 1.0),
+                    (Before(5), 1.0),
+                    (Before(6), 1.0),
+                    (After(15), 1.0)
+                )),
+                pred=(Equation,),
+                k=20,
+                num_get=1
+            )
+        )
+        # TODO again, with QInputs

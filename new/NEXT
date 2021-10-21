@@ -4,13 +4,13 @@ Solve pons asinorum
 
         QuerySlipnetForDelegate
 
-            QueryInputs   (QArgs?)
+            QInput  DONE
 
                 BeforeFromAvails  DONE
 
-                AfterFrom
+                AfterFrom  DONE
 
-            SlipnodeType
+            QPred, SearchFor  DONE
 
         adjust support
 

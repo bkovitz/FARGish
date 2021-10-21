@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field, replace
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
-    Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 from abc import ABC, abstractmethod
 import inspect
 from inspect import isclass, signature
 
-from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none
+from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
@@ -119,13 +119,62 @@ class NullCodelet(Codelet):
     def run(self) -> Codelets:  # type: ignore[override]
         return None
 
-class QArg(ABC):
+class QArg:  # TODO rename -> QArg
+    '''An argument for a slipnet query, to be passed through
+    FARGModel.mk_slipnet_args() on its way to being passed to
+    FARGModel.pulse_slipnet().'''
+
+    def get_activations_in(self, fm: FARGModel, sources: Sources) \
+    -> Dict[Node, float]:
+        '''Returns a dictionary of Nodes and their activations to include
+        in the initial pulse that starts spreading activation. The default
+        implementation returns an empty dict.'''
+        return {}
+
+    def get_pred(self, fm: FARGModel, sources: Sources) -> Pred:
+        '''Returns a Pred to add (disjunctively) to any other predicates
+        restricting what nodes can be returned from a slipnet query. The
+        default implementation returns None, i.e. no restriction.'''
+        return None
+    
+    def get_k(self) -> Union[int, None]:
+        '''Value to change k to, or None if no change. The default
+        implementation returns None.'''
+        return None
+
+    def get_num_get(self) -> Union[int, None]:
+        '''Value to change num_get to, or None if no change. The default
+        implementation returns None.'''
+        return None
+
+class QInput(ABC, QArg):  # TODO rename -> QInput
     '''An object that generates input nodes for a slipnet query, possibly
     after examining something in the workspace.'''
 
     @abstractmethod
-    def get_items(self, fm: FARGModel, **kwargs) -> Nodes:
+    def items(self, **kwargs) -> Nodes:
         pass
+
+    def get_items(self, fm: FARGModel, sources: Sources) -> Nodes:
+        return self.items(**fm.mk_func_args(self.items, sources))
+        
+    def get_activations_in(self, fm: FARGModel, sources: Sources) \
+    -> Dict[Node, float]:
+        return dict(
+            (item, 1.0) for item in as_iter(self.get_items(fm, sources))
+        )
+
+class QPred(QArg):
+    '''An object specifying a predicate for a slipnet query.'''
+
+    @abstractmethod
+    def pred(self, **kwargs) -> Pred:
+        pass
+
+    def get_pred(self, fm: FARGModel, sources: Sources) -> Pred:
+        return self.pred(**fm.mk_func_args(self.pred, sources))
+
+QArgs = Union[None, Node, QArg, Iterable[Union[Node, QArg]]]
 
 ### Canvas, CellRef, things with the notion of avail values ###
 
@@ -625,11 +674,16 @@ class FARGModel(Workspace):
                     result = getattr(source, name)
                 except AttributeError:
                     continue
+            if isinstance(result, Ref):
+                name = result.name
+                continue
             if result is not None:
                 return result
         return None
 
-    def qarg_items(self, qarg: QArg, sources: Sources) -> Nodes:
+    # TODO rm; replaced by QInput.get_items()
+    """
+    def qinput_items(self, qarg: QInput, sources: Sources) -> Nodes:
         sources = self.prepend_source(qarg, sources)
         kwargs = dict(
             (param_name,
@@ -637,6 +691,46 @@ class FARGModel(Workspace):
                 for param_name in inspect.signature(qarg.get_items).parameters
         )
         return qarg.get_items(**kwargs)
+    """
+
+    def mk_func_args(self, func: Callable, sources: Sources) -> Dict[str, Any]:
+        try:
+            obj = func.__self__  # type: ignore[attr-defined]
+        except AttributeError:
+            pass
+        else:
+            sources = self.prepend_source(obj, sources)
+        return dict(
+            (param_name,
+             self.look_up_by_name(param_name, sources))
+                for param_name in inspect.signature(func).parameters
+        )
+
+    def mk_slipnet_args(self, qargs: QArgs, sources: Sources) -> Dict[str, Any]:
+        activations_in = {}
+        pred = []
+        k = 20
+        num_get = 1
+        for qarg in as_iter(qargs):
+            if isinstance(qarg, QArg):
+                activations_in.update(qarg.get_activations_in(self, sources))
+                p = qarg.get_pred(self, sources)
+                if p is not None:
+                    pred.append(p)
+                qk = qarg.get_k()
+                if qk is not None:
+                    k = qk
+                qnum_get = qarg.get_num_get()
+                if qnum_get is not None:
+                    num_get = qnum_get
+            else:
+                activations_in[qarg] = 1.0
+        return dict(
+            activations_in=activations_in,
+            pred=tuple(pred),
+            k=k,
+            num_get=num_get
+        )
 
     def __str__(self):
         return self.__class__.__name__
