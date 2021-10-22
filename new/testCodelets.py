@@ -10,7 +10,7 @@ from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs
 from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter, \
     QuerySlipnetForDelegate
-from Agents import LitPainter
+from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
 from Equation import plus, minus, times
 from Slipnet import Slipnet
@@ -111,7 +111,7 @@ class TestCodelets(unittest.TestCase):
         self.assertEqual(fm.agent_state(lp), Succeeded)
 
     def test_query_slipnet_for_delegate(self) -> None:
-        graph = Graph.with_features(Consume.make_table(
+        graph = Graph.with_features(Consumer.make_table(
             range(1, 20), range(1, 20), [plus, minus, times]
         ))
         fm = FARGModel(slipnet=Slipnet(graph))
@@ -119,9 +119,9 @@ class TestCodelets(unittest.TestCase):
         cr0 = fm.build(CellRef(ca, 0))
 
         codelet = QuerySlipnetForDelegate(
-            qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(Consume))
+            qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(Consumer))
         )
 
         fm.run_codelet_and_follow_ups(codelet, {'source': cr0})
-        consume = fm.the(Consume)
-        self.assertIsNotNone(consume)
+        delegate = fm.the(Consumer)
+        self.assertIsNotNone(delegate)
