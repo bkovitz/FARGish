@@ -174,7 +174,7 @@ class QPred(QArg):
     def get_pred(self, fm: FARGModel, sources: Sources) -> Pred:
         return self.pred(**fm.mk_func_args(self.pred, sources))
 
-QArgs = Union[None, Node, QArg, Iterable[Union[Node, QArg]]]
+QArgs = Union[None, Node, QArg, Sequence[Union[Node, QArg]]]
 
 ### Canvas, CellRef, things with the notion of avail values ###
 
@@ -663,6 +663,8 @@ class FARGModel(Workspace):
     ) -> Any:
         if name == 'fm':
             return self
+        if name == 'sources':
+            return sources
         for source in as_iter(sources):
             if isinstance(source, dict):
                 try:
@@ -742,9 +744,10 @@ class FARGModel(Workspace):
         k: int=20,      # max number of most active slipnodes to choose among
         num_get: int=1  # max number of slipnodes to return
     ) -> List[Node]:
-        sd = self.slipnet.dquery(activations_in=activations_in)
-        nas = self.slipnet.topna(sd, pred=pred, k=k)
         #print('PULSE')
+        sd = self.slipnet.dquery(activations_in=activations_in)
+        #pts(sd)
+        nas = self.slipnet.topna(sd, pred=pred, k=k)
         #pts(nas)
         return list(sample_without_replacement(
             [na.node for na in nas],

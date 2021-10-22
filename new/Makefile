@@ -35,7 +35,7 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testFARGModel
-	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_pulse_slipnet
+	$(PY) -m unittest -v testCodelets.TestCodelets.test_query_slipnet_for_delegate
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 
 # Acceptance tests

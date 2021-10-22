@@ -98,7 +98,6 @@ class TestSlipnet(unittest.TestCase):
         fm = FARGModel(seed=1, slipnet=Slipnet(eqn_graph))
         activations_in = {
             Before(4): 1.0,
-            #Before(7): 1.0
             After(9): 1.0
         }
         nodes = fm.pulse_slipnet(

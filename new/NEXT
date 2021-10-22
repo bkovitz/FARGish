@@ -14,7 +14,7 @@ Solve pons asinorum
 
             Make the QuerySlipnetForDelegate codelet
 
-                pulse_slipnet
+                pulse_slipnet  DONE
 
                 build the delegate if successful
 

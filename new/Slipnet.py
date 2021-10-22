@@ -118,6 +118,10 @@ class Slipnet:
     base_graph: Graph
     propagator: Propagator = default_tyrrell_propagator
 
+    @property
+    def nodes(self):
+        return self.base_graph.nodes
+
     def dquery(
         self,
         features: Union[Sequence[Hashable], None]=None,

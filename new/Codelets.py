@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, InitVar, asdict, replace
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
-    Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FMTypes import Value
+from FMTypes import Value, Node
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
-    AgentState, Wake, Snag, Succeeded, CodeletResults
+    AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources
 from Canvas import StepCanvas, Step, CellRef, Operator
-from util import as_iter, trace
+from Graph import Before, After
+from util import as_iter, trace, pr, pts
 
 
 @dataclass(frozen=True)
@@ -92,6 +93,31 @@ class Consume(Codelet):
     ) -> CodeletResults:
         return dict([(result_in, operator.consume(source, operands))])
 
+    def features_of(self) -> Iterable[Node]:
+        # NEXT Dereference
+        for operand in as_iter(self.operands):
+            yield Before(operand)
+        if self.operator:
+            yield self.operator
+        if self.operands and self.operator:
+            result = self.operator(*self.operands)
+            yield After(result)
+
+    @classmethod
+    def make_table(
+        cls,
+        rands1: Iterable[int],
+        rands2: Iterable[int],
+        rators: Iterable[Operator]
+    ) -> Iterable['Consume']:
+        for rand1 in rands1:
+            for rand2 in rands2:
+                for rator in rators:
+                    if rand1 >= rand2:
+                        result = rator(rand1, rand2)
+                        if result != rand1 and result != rand2:
+                            yield cls(rator, (rand1, rand2))
+
 @dataclass(frozen=True)
 class BuildLitPainter(Codelet):
     value: R[Value] = Ref('value')
@@ -106,22 +132,28 @@ class BuildLitPainter(Codelet):
         fm.build(Agents.LitPainter(value=value, dest=dest))
         return None
 
-"""
+# TODO rename -> QuerySlipnetAndBuild?
 @dataclass(frozen=True)
 class QuerySlipnetForDelegate(Codelet):
-    features: R[RelevantFeatures] = None
-    slipnode_type: R[SlipnodeType] = None
-    sk: R[Codelets] = Sleep(Ref('behalf_of'))
+    qargs: R[QArgs] = Ref('qargs')
+    #result_type: R[Type[Node]] = Ref('result_type')
+    #sk: R[Codelets] = Sleep(Ref('behalf_of'))  TODO
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
         behalf_of: Optional[Agent],
-        features: RelevantFeatures,
-        slipnode_type: SlipnodeType,
-        sk: Optional[Codelets]
+        qargs: QArgs,  # TODO Require at least one QArg?
+        sources: Sources
+        #sk: Optional[Codelets]
     ) -> CodeletResults:
-        
-"""
+        #return None # TODO STUB
+
+        kwargs = fm.mk_slipnet_args(qargs, sources)
+        slipnet_results = fm.pulse_slipnet(**kwargs)
+        # TODO if no results, then fk
+        for node in slipnet_results:
+            fm.build(node, builder=behalf_of)
+        return None
 
 import Agents

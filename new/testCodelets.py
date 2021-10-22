@@ -7,11 +7,15 @@ import inspect
 from dataclasses import dataclass, field, replace
 
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
-    NeedMoreSupportToPaint
-from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter
+    NeedMoreSupportToPaint, QArgs
+from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter, \
+    QuerySlipnetForDelegate
 from Agents import LitPainter
 from Canvas import Step, StepCanvas, StepDelta, CellRef
-from Equation import plus
+from Equation import plus, minus, times
+from Slipnet import Slipnet
+from Graph import Graph
+from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from util import pr
 
 
@@ -106,7 +110,18 @@ class TestCodelets(unittest.TestCase):
         self.assertEqual(ca[1], self.step1)
         self.assertEqual(fm.agent_state(lp), Succeeded)
 
-    """
     def test_query_slipnet_for_delegate(self) -> None:
-        fm = FARGModel(slipnet=Slipnet(eqn_graph made into Consumes))
-    """
+        graph = Graph.with_features(Consume.make_table(
+            range(1, 20), range(1, 20), [plus, minus, times]
+        ))
+        fm = FARGModel(slipnet=Slipnet(graph))
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+
+        codelet = QuerySlipnetForDelegate(
+            qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(Consume))
+        )
+
+        fm.run_codelet_and_follow_ups(codelet, {'source': cr0})
+        consume = fm.the(Consume)
+        self.assertIsNotNone(consume)
