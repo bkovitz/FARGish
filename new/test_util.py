@@ -62,3 +62,11 @@ class TestUtil(unittest.TestCase):
             arrays.append(tuple((blah.random_number() for _ in range(10))))
         counter = Counter(arrays)
         self.assertEqual(len(counter), 3) # nondeterministic
+
+    def test_hasrngseed_none(self) -> None:
+        class Blah(HasRngSeed):
+            pass
+
+        blah = Blah()
+        self.assertTrue(isinstance(blah.seed, int))
+

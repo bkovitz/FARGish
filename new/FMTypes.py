@@ -6,8 +6,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 from inspect import isclass
-from dataclasses import is_dataclass
+from dataclasses import dataclass, is_dataclass
 import dataclasses
+
+from util import trace, pr
 
 
 # Values with absolute value < epsilon are treated as zero
@@ -57,18 +59,33 @@ Pred = Union[
     None
 ]
 
+#@trace
 def as_pred(o: Pred) -> Callable[[Any], bool]:
     if isclass(o):
-        return lambda x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
+        #return lambda x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
+        return IsInstance(o)  # type: ignore[arg-type]  # mypy bug?
     elif isinstance(o, tuple):
         preds = tuple(as_pred(p) for p in o)
         return lambda x: any(p(x) for p in preds)
     elif callable(o):
         return o
     elif o is None:
-        return lambda x: True
+        return AlwaysTrue()
     else:
         return lambda x: match_wo_none(x, o)
+
+@dataclass(frozen=True)
+class IsInstance:
+    cl: Type
+
+    def __call__(self, x: Any) -> bool:
+        return isinstance(x, self.cl)
+
+@dataclass(frozen=True)
+class AlwaysTrue:
+
+    def __call__(self, x: Any) -> bool:
+        return True
 
 def match_wo_none(other, obj_template) -> bool:
     '''Does obj_template == other if we ignore any fields in obj_template

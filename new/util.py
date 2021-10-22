@@ -206,7 +206,7 @@ class HasRngSeed:
 
     A flaw due to dataclass inheritance: every class that mixes in HasRngSeed
     must have default values for all of its fields.'''
-    seed: int = None  # type: ignore[assignment]
+    seed: Union[int, None] = None  # must become int after .__post_init__
 
     def __post_init__(self):
         self.seed = reseed(self.seed)

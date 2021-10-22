@@ -15,7 +15,7 @@ from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
-    sample_without_replacement, trace
+    sample_without_replacement, trace, pr, pts
 
 
 T = TypeVar('T')
@@ -694,6 +694,9 @@ class FARGModel(Workspace):
     """
 
     def mk_func_args(self, func: Callable, sources: Sources) -> Dict[str, Any]:
+        '''Returns a dictionary that provides a value for every parameter
+        of func, filled in from sources. If func is a method on an object,
+        the sources checked include that object (searched first).'''
         try:
             obj = func.__self__  # type: ignore[attr-defined]
         except AttributeError:
@@ -731,6 +734,23 @@ class FARGModel(Workspace):
             k=k,
             num_get=num_get
         )
+
+    def pulse_slipnet(
+        self,
+        activations_in: Dict[Node, float],
+        pred: Pred=None,
+        k: int=20,      # max number of most active slipnodes to choose among
+        num_get: int=1  # max number of slipnodes to return
+    ) -> List[Node]:
+        sd = self.slipnet.dquery(activations_in=activations_in)
+        nas = self.slipnet.topna(sd, pred=pred, k=k)
+        #print('PULSE')
+        #pts(nas)
+        return list(sample_without_replacement(
+            [na.node for na in nas],
+            k=num_get,
+            weights=[na.a for na in nas]
+        ))
 
     def __str__(self):
         return self.__class__.__name__

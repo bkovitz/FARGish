@@ -13,7 +13,7 @@ from operator import itemgetter, attrgetter
 from FMTypes import Activation, ADict, epsilon, Pred, as_pred
 from Graph import Graph, Node, GraphPropagatorOutgoing
 from Propagator import Propagator
-from util import as_iter, union
+from util import as_iter, union, pr
 
 
 @dataclass(frozen=True)
@@ -145,6 +145,7 @@ class Slipnet:
                 for (node, a) in d.items()
                     if pred(node)
         ]
+        #print('TOPNA', k, pred, nas)
         if k is None:
             return sorted(nas, key=attrgetter('a'), reverse=True)
         else:

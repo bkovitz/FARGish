@@ -5,8 +5,10 @@ from pprint import pprint as pp
 import inspect
 
 from Slipnet import Slipnet, NodeA
+from FMTypes import as_pred
 from Equation import Equation, Before, plus, minus, times
-from Graph import Graph
+from Graph import Graph, Before, After
+from FARGModel import FARGModel
 from util import is_iter, as_iter, pts, pr
 
 eqn_graph = Graph.with_features(
@@ -85,3 +87,24 @@ class TestSlipnet(unittest.TestCase):
             slipnet.top(d, pred=int),
             [2]
         )
+
+    def test_as_pred_type(self):
+        pred = as_pred(Equation)
+        self.assertFalse(pred(After))
+        self.assertTrue(pred(Equation.make([5, 4], plus)))
+        self.assertFalse(pred(Equation))
+
+    def test_pulse_slipnet(self) -> None:
+        fm = FARGModel(seed=1, slipnet=Slipnet(eqn_graph))
+        activations_in = {
+            Before(4): 1.0,
+            #Before(7): 1.0
+            After(9): 1.0
+        }
+        nodes = fm.pulse_slipnet(
+            activations_in=activations_in, # type: ignore[arg-type]
+            pred=Equation,
+            num_get=20
+        )
+        self.assertTrue(all(isinstance(node, Equation) for node in nodes))
+        self.assertTrue(Equation.make([5, 4], plus) in nodes)

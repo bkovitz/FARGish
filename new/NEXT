@@ -12,6 +12,12 @@ Solve pons asinorum
 
             QPred, SearchFor  DONE
 
+            Make the QuerySlipnetForDelegate codelet
+
+                pulse_slipnet
+
+                build the delegate if successful
+
         adjust support
 
     Detector(15)
