@@ -5,9 +5,10 @@ from pprint import pprint as pp
 import inspect
 
 from dataclasses import dataclass, field, replace
+from time import process_time
 
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
-    NeedMoreSupportToPaint, QArgs
+    NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet
 from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter, \
     QuerySlipnetForDelegate
 from Agents import LitPainter, Consumer
@@ -118,10 +119,25 @@ class TestCodelets(unittest.TestCase):
         ca = fm.build(self.pons_start_canvas())
         cr0 = fm.build(CellRef(ca, 0))
 
+        # succeed
+
         codelet = QuerySlipnetForDelegate(
             qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(Consumer))
         )
 
+        #t0 = process_time()
         fm.run_codelet_and_follow_ups(codelet, {'source': cr0})
+        #print('RUN1', process_time() - t0)
         delegate = fm.the(Consumer)
         self.assertIsNotNone(delegate)
+
+        # fail
+
+        codelet = QuerySlipnetForDelegate(
+            qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(None))
+        )
+
+        #t0 = process_time()
+        with self.assertRaises(NoResultFromSlipnet):
+            fm.run_codelet_and_follow_ups(codelet, {'source': cr0})
+        #print('RUN2', process_time() - t0)

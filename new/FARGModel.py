@@ -781,7 +781,7 @@ class NeedMoreSupportToPaint(Fizzle):
 @dataclass(frozen=True)
 class ValuesNotAvail(Fizzle):
     #container: Hashable  # Change this to a CellRef?
-    cellref: Union['CellRef', None] = None
+    cellref: Union[CellRef, None] = None
     avails: Tuple[Value, ...] = ()
         # These values were avail; indices match indices in seeker's request
     unavails: Tuple[Value, ...] = ()
@@ -790,3 +790,7 @@ class ValuesNotAvail(Fizzle):
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({self.cellref}, avails={self.avails}, unavails={self.unavails})'
+
+@dataclass(frozen=True)
+class NoResultFromSlipnet(Fizzle):
+    qargs: QArgs = None

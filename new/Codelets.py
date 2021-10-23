@@ -9,7 +9,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 
 from FMTypes import Value, Node
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
-    AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources
+    AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
+    NoResultFromSlipnet
 from Canvas import StepCanvas, Step, CellRef, Operator
 from util import as_iter, trace, pr, pts
 
@@ -121,7 +122,8 @@ class QuerySlipnetForDelegate(Codelet):
     ) -> CodeletResults:
         kwargs = fm.mk_slipnet_args(qargs, sources)
         slipnet_results = fm.pulse_slipnet(**kwargs)
-        # TODO if no results, then fk
+        if not slipnet_results:
+            raise NoResultFromSlipnet(qargs=qargs)
         for node in slipnet_results:
             fm.build(node, builder=behalf_of)
         return None
