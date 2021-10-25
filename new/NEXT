@@ -16,7 +16,9 @@ Solve pons asinorum
 
                 pulse_slipnet  DONE
 
-                build the delegate if successful
+                build the delegate if successful  DONE
+
+        NEXT Get the timestepper started, with Want, on a numble of 4,5;9.
 
         adjust support
 
@@ -29,7 +31,7 @@ Solve pons asinorum
         Call Detectors from FARGModel
 
 
-    Slipnet of Consumers
+    Slipnet of Consumers  DONE
 
     do_timestep()
 

@@ -36,7 +36,6 @@ class Consumer(Agent):
             source=Ref('source'),
             result_in='result'
         ),
-
         BuildLitPainter(value=Ref('result'))
     )
     # Another possible approach, breaking down Consume into smaller codelets:
@@ -67,3 +66,8 @@ class Consumer(Agent):
                         if result != rand1 and result != rand2:
                             yield cls(operator=rator, operands=(rand1, rand2))
 
+"""
+@dataclass(frozen=True)
+class Want(Agent):
+    startcell
+"""

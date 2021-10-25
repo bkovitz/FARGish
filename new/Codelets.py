@@ -128,4 +128,18 @@ class QuerySlipnetForDelegate(Codelet):
             fm.build(node, builder=behalf_of)
         return None
 
+@dataclass(frozen=True)
+class Sleep(Codelet):
+    agent: R[Agent] = Ref('agent')
+    sleep_duration: int = 3
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        agent: Agent,
+        sleep_duration: int
+    ) -> CodeletResults:
+        fm.sleep(agent, sleep_duration)
+        return None
+
 import Agents

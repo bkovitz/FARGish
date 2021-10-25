@@ -1,7 +1,7 @@
 # FARGModel.py
 
 from __future__ import annotations
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, replace, InitVar
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
@@ -535,17 +535,8 @@ class FARGModel(Workspace):
     '''A generic FARG model.'''
     slipnet: Slipnet = field(default_factory=lambda: Slipnet.empty())
 
-    #TODO rm
-    """
-    def replace_refs(
-        self,
-        codelet: Union[None, Codelet],  # TODO Allow Codelets. Agent, too?
-        sources: Sources
-    ) -> Codelet:
-        if codelet is None:
-            return NullCodelet()
-        return codelet.replace_refs(self, sources)
-    """
+    sleepers: Dict[Agent, int] = field(default_factory=dict, init=False)
+        # Agent: timestep at which to wake up
 
     def run_agent(self, agent: Node, agent_state: Optional[AgentState]=None) \
     -> None:
@@ -754,6 +745,18 @@ class FARGModel(Workspace):
             k=num_get,
             weights=[na.a for na in nas]
         ))
+
+    def is_sleeping(self, node: Node) -> bool:
+        return node in self.sleepers
+
+    def sleep(self, agent: Agent, sleep_duration: int) -> None:
+        if not self.has_node(agent):
+            return
+        old_wake_t = self.sleepers.get(agent, self.t)
+        self.sleepers[agent] = max(
+            old_wake_t + sleep_duration,
+            self.t + sleep_duration
+        )
 
     def __str__(self):
         return self.__class__.__name__

@@ -13,7 +13,7 @@ from util import trace, pr
 
 
 # Values with absolute value < epsilon are treated as zero
-epsilon = 0.00001
+epsilon = 0.001 # 0.00001
 
 # An element of the workspace or a node in the slipnet
 #Elem = NewType('Elem', Hashable)

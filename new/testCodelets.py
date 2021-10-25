@@ -10,7 +10,7 @@ from time import process_time
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet
 from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter, \
-    QuerySlipnetForDelegate
+    QuerySlipnetForDelegate, Sleep
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
 from Equation import plus, minus, times
@@ -141,3 +141,16 @@ class TestCodelets(unittest.TestCase):
         with self.assertRaises(NoResultFromSlipnet):
             fm.run_codelet_and_follow_ups(codelet, {'source': cr0})
         #print('RUN2', process_time() - t0)
+
+    def test_sleep_codelet(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+        cr1 = fm.build(CellRef(ca, 1))
+        
+        lp = fm.build(LitPainter(dest=cr1, value=self.step1))
+        self.assertFalse(fm.is_sleeping(lp))
+        fm.run_codelet(Sleep(agent=lp, sleep_duration=10))
+        self.assertTrue(fm.is_sleeping(lp))
+
+        # TODO Wait 10 timesteps and test again
