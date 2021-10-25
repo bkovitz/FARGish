@@ -8,7 +8,8 @@ from dataclasses import dataclass, field, replace
 from time import process_time
 
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
-    NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet
+    NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet, MissingArgument, \
+    CellRef
 from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter, \
     QuerySlipnetForDelegate, Sleep
 from Agents import LitPainter, Consumer
@@ -134,7 +135,7 @@ class TestCodelets(unittest.TestCase):
         # fail
 
         codelet = QuerySlipnetForDelegate(
-            qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(None))
+            qargs=(QBeforeFromAvails(), QAfter(15), SearchFor(DummyAgent))
         )
 
         #t0 = process_time()
@@ -154,3 +155,38 @@ class TestCodelets(unittest.TestCase):
         self.assertTrue(fm.is_sleeping(lp))
 
         # TODO Wait 10 timesteps and test again
+
+    def test_codelet_missing_argument(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+
+        codelet = Consume(
+            operator=plus,
+            operands=(4, 5)
+            # Missing 'source' and 'dest'
+        )
+
+        with self.assertRaises(MissingArgument) as cm:
+            fm.run_codelet(codelet)  # No agent
+        exc = cm.exception
+        #self.assertEqual(exc.func, codelet.run)
+        self.assertEqual(exc.param_name, 'source')
+        self.assertEqual(exc.value, None)
+        self.assertEqual(exc.type_needed, CellRef)
+        self.assertEqual(exc.codelet, codelet)
+        
+
+if __name__ == '__main__':
+    from inspect import signature
+    tc = TestCodelets()
+    fm = FARGModel()
+    ca = fm.build(tc.pons_start_canvas())
+    cr0 = fm.build(CellRef(ca, 0))
+    codelet = Consume(
+        operator=plus,
+        operands=(4, 5)
+        # Missing 'source' and 'dest'
+    )
+    sig = inspect.signature(codelet.run)
+    ps = sig.parameters

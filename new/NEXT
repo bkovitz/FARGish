@@ -12,13 +12,15 @@ Solve pons asinorum
 
             QPred, SearchFor  DONE
 
-            Make the QuerySlipnetForDelegate codelet
+            Make the QuerySlipnetForDelegate codelet  DONE
 
                 pulse_slipnet  DONE
 
                 build the delegate if successful  DONE
 
-        NEXT Get the timestepper started, with Want, on a numble of 4,5;9.
+        NEXT Match type of codelet_args; throw a Snag if can't match.
+
+        Get the timestepper started, with Want, on a numble of 4,5;9.
 
         adjust support
 
@@ -42,8 +44,6 @@ Solve pons asinorum
 
 
 Other things
-
-    Match type of codelet_args; throw a Snag if can't match.
 
     Query slipnet to resolve snags.
 

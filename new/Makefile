@@ -35,7 +35,9 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testFARGModel
-	$(PY) -m unittest -v testCodelets.TestCodelets.test_sleep_codelet
+	#$(PY) -m unittest -v testAgents.TestAgents.test_want
+	$(PY) -m unittest -v testCodelets.TestCodelets.test_paint_codelet
+	#$(PY) -m unittest -v test_util.TestIsTypeInstance
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
 
 # Acceptance tests

@@ -8,8 +8,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from Canvas import CellRef
 from FMTypes import Value, Node
-from FARGModel import Agent, Codelets, Ref, CellRef
-from Codelets import Consume, Paint, BuildLitPainter
+from FARGModel import Agent, Codelets, R, Ref, CellRef
+from Codelets import Consume, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
+    Sleep
+from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Canvas import Operator
 from Graph import Before, After
 from util import trace, as_iter, pr, pts
@@ -24,6 +26,8 @@ class LitPainter(Agent):
 
 @dataclass(frozen=True)
 class Consumer(Agent):
+    Q = TypeVar('Q', bound='Consumer')
+
     operator: Union[Operator, None] = None
     operands: Union[Tuple[Value, ...], None] = None
     source: Union[CellRef, None] = None  # where to get operands
@@ -52,6 +56,14 @@ class Consumer(Agent):
             yield After(result)
 
     @classmethod
+    def make(
+        cls: Type[Q],
+        operator: Union[Operator, None],
+        operands: Union[Tuple[Value, ...], None]
+    ) -> Q:
+        return cls(operator=operator, operands=operands)
+        
+    @classmethod
     def make_table(
         cls,
         rands1: Iterable[int],
@@ -66,8 +78,19 @@ class Consumer(Agent):
                         if result != rand1 and result != rand2:
                             yield cls(operator=rator, operands=(rand1, rand2))
 
-"""
 @dataclass(frozen=True)
 class Want(Agent):
-    startcell
-"""
+    startcell: R[CellRef] = Ref('startcell')
+    target: R[Value] = Ref('target')
+
+    # TODO born: build a Detector
+    wake: Codelets = (
+        QuerySlipnetForDelegate(
+            qargs=(
+                QBeforeFromAvails(Ref('startcell')),
+                QAfter(Ref('target')),
+                SearchFor(Agent)
+            )
+        ),
+        Sleep(agent=Ref('behalf_of'))
+    )

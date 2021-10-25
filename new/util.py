@@ -9,16 +9,85 @@ from dataclasses import dataclass, Field, fields, is_dataclass, InitVar, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
-    runtime_checkable
+    runtime_checkable, get_origin, get_args
+import typing
 from contextlib import AbstractContextManager
 from types import SimpleNamespace
 from itertools import chain, tee, filterfalse
 import functools
 
 
+# Useful global constants
+
 empty_set: FrozenSet = frozenset()
 newline = '\n'
 backslash = '\\'
+
+# Run-time type-checking
+
+def is_type_instance(o, typ) -> bool:
+    '''Returns true iff 'o' is an instance of the type annotation 'typ'.
+    'typ' should be the result of calling typing.get_type_hints(), so it
+    will be a class object if the annotation in question designates a
+    class.
+
+    Can match 'o' against any class type, but only supports a tiny subset of
+    generic types: Union and Dict. As of 25-Oct-2021, this is all that is
+    needed for FARGish.'''
+    try:
+        return isinstance(o, typ)
+    except TypeError:
+        if typ is None:
+            return o is None
+        if typ is Any:
+            return True
+        # if we got here, then typ must be a generic type
+        origin = get_origin(typ)
+        args = get_args(typ)
+        if origin == Union:
+            return any(is_type_instance(o, arg) for arg in args)
+        #print('ORG', origin)
+        if safe_issubclass(origin, type):
+            if not isclass(o):
+                return False
+            elif not args:  # Type without parameter matches all class objects
+                return True
+            else:
+                return safe_issubclass(o, args[0])
+        elif safe_issubclass(origin, tuple):
+            if not isinstance(o, tuple):
+                return False
+            elif len(args) == 2 and args[1] == ...:  # if Tuple[T, ...]
+                elem_type = args[0]
+                return all(is_type_instance(elem, elem_type) for elem in o)
+            elif len(o) != len(args):
+                return False
+            else:
+                return all(is_type_instance(elem, arg)
+                           for elem, arg in zip(o, args))
+        elif safe_issubclass(origin, dict):
+            if not isinstance(o, dict):
+                return False
+            elif o:
+                k, v = first(o.items())
+                ktyp, vtyp = args
+                return is_type_instance(k, ktyp) and is_type_instance(v, vtyp)
+            else:  # if the dictionary is empty, just say it's a match
+                return True
+        else:
+            raise NotImplementedError(
+                f"is_type_instance: Can't check {o} against {typ}."
+            )
+
+def safe_issubclass(o: Any, typ: Union[Type, Tuple[Type, ...]]) -> bool:
+    '''Like issubclass but if o is not a class object, returns False instead
+    of raising TypeError.'''
+    try:
+        return issubclass(o, typ)
+    except TypeError:
+        return False
+
+# Conveniences for iteration and similar things
 
 def is_iter(o):
     return (

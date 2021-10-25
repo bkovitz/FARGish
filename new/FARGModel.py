@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, replace, InitVar
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
-    runtime_checkable
+    runtime_checkable, get_type_hints
 from abc import ABC, abstractmethod
 import inspect
 from inspect import isclass, signature
@@ -15,7 +15,7 @@ from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
-    sample_without_replacement, trace, pr, pts
+    sample_without_replacement, trace, pr, pts, is_type_instance
 
 
 T = TypeVar('T')
@@ -86,6 +86,9 @@ class Agent(CanReplaceRefs):
 @dataclass(frozen=True)
 class AgentState:
     name: str
+
+    def __str__(self):
+        return self.name
 
 Born = AgentState('born')
 Wake = AgentState('wake')
@@ -292,7 +295,10 @@ class NodeInWS:
         self.behalf_of += as_iter(agents)
 
     def __str__(self):
-        return f'{self.elem}  builder={self.builder} tob={self.tob}'
+        result = f'{self.node}  builder={self.builder} tob={self.tob}'
+        if isinstance(self.node, Agent):
+            result += f' state={self.state}'
+        return result
 
 @dataclass
 class Workspace(HasRngSeed):
@@ -443,6 +449,9 @@ class Workspace(HasRngSeed):
             es = self.wsd.keys()
         return (e for e in as_iter(es) if wspred(self, e))
 
+    def neighbors(self, node: Node) -> Set[Node]:
+        return self.activation_g.neighbors(node)
+
     def ws_query(self, pred: WSPred, min_a: Union[float, None]=None, k: int=1) \
     -> Iterable[Node]:
         '''Returns generator of up to k nodes that match pred,
@@ -563,7 +572,6 @@ class FARGModel(Workspace):
         '''Fills in codelet's Refs and runs codelet.'''
         sources = self.mk_sources(agent)
         for c in as_iter(codelet):
-            #c = c.replace_refs(self, sources)
             sources = self.run_codelet_and_follow_ups(c, sources)
         return sources
 
@@ -601,15 +609,18 @@ class FARGModel(Workspace):
         '''This should be the only place in the entire program that
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
-        kwargs = self.codelet_args(codelet, sources)
+        #kwargs = self.codelet_args(codelet, sources)
+        kwargs = self.mk_func_args(codelet.run, sources)
         #print('CODELET', codelet.__class__.__name__, kwargs)
         return codelet.run(**kwargs)
 
+    # TODO rm?
     def codelet_args(self, codelet: Codelet, sources: Sources) \
     -> Dict[str, Any]:
         '''Returns a dict containing the arguments to pass to codelet's
         .run() method. codelet must not contain any Refs. Pass a codelet
         through .replace_refs() before calling .codelet_args().'''
+        # TODO rm this next line? OAOO?
         codelet = codelet.replace_refs(self, self.mk_sources(sources))
         return dict(
             #(param_name, self.value_for_codelet_arg(codelet, param_name, agent))
@@ -696,11 +707,32 @@ class FARGModel(Workspace):
             pass
         else:
             sources = self.prepend_source(obj, sources)
+        d: Dict[str, Any] = {}
+        type_hints = get_type_hints(func)
+        #for param_name, annotation in get_type_hints(func).items():
+        for param_name in inspect.signature(func).parameters:
+            if param_name == 'return':
+                continue  # disregard return type
+            value = self.look_up_by_name(param_name, sources)
+            annotation = type_hints.get(param_name, Any)
+            if not is_type_instance(value, annotation):
+                # TODO Somehow raise multiple exceptions if more than one
+                # argument is missing.
+                raise MissingArgument(
+                    func=func,
+                    param_name=param_name,
+                    value=value,
+                    type_needed=annotation
+                )
+            d[param_name] = value
+        return d
+        """
         return dict(
             (param_name,
              self.look_up_by_name(param_name, sources))
                 for param_name in inspect.signature(func).parameters
         )
+        """
 
     def mk_slipnet_args(self, qargs: QArgs, sources: Sources) -> Dict[str, Any]:
         activations_in = {}
@@ -763,11 +795,66 @@ class FARGModel(Workspace):
 
     __repr__ = __str__
 
+    def l1str(self, niws: Union[NodeInWS, Node], indent=None) -> str:
+        '''The one-line string for a workspace node, showing its activation.'''
+        if indent is None:
+            indent = '  '
+        if not isinstance(niws, NodeInWS):
+            niws = self.get_niws(niws)  # TODO if the node does not exist
+        result = f'{indent}{self.a(niws.node): 7.3f}  {niws}'
+        return result
+
+    def e1str(self, node1: Node, node2: Node, indent=None) -> str:
+        '''The one-line string for the edge from node1 to node2. Does not
+        show node1. Indented one level further than 'indent'.'''
+        if indent is None:
+            indent = '  '
+        outgoing_weight = self.ae_weight(node1, node2)
+        incoming_weight = self.ae_weight(node1, node2)
+        if outgoing_weight != 0.0:
+            if incoming_weight != 0.0:
+                arrow = f'{outgoing_weight: 6.3f} <--> {incoming_weight: 6.3f}'
+            else:
+                arrow = f'{outgoing_weight: 6.3f}  -->       '
+        else:
+            arrow = f'       <--  {incoming_weight: 6.3f}'
+        return f'{indent}  {arrow} {node2}  a={self.a(node2):2.3f}'
+
+    def pr(
+        self,
+        indent=None,
+        tofile=None,
+        edges=False,
+        extra=False,  # extra stuff like t, sum_a, and seed
+        seed=False,   # show seed?
+    ) -> None:
+        '''Prints a subset of the workpace.'''
+        if extra:
+            print(f't={self.t}', file=tofile)
+        count = 0
+        for s, node in sorted(
+            (self.l1str(node, indent), node)
+                for node in self.nodes()
+        ):
+            count += 1
+            print(s, file=tofile)
+            if edges:
+                for e in sorted(
+                    self.e1str(node, neighbor)
+                        for neighbor in self.neighbors(node)
+                ):
+                    print(' ', e, file=tofile)
+        if seed:
+            print(f'seed={self.seed}')
+
 ### Exceptions ###
 
 @dataclass(frozen=True)
 class Fizzle(Exception):
     codelet: Optional[Codelet] = None
+
+    def __str__(self):
+        return repr(self)
 
     @property
     def fk(self) -> Optional[Codelet]:
@@ -797,3 +884,10 @@ class ValuesNotAvail(Fizzle):
 @dataclass(frozen=True)
 class NoResultFromSlipnet(Fizzle):
     qargs: QArgs = None
+
+@dataclass(frozen=True)
+class MissingArgument(Fizzle):
+    func: Optional[Callable] = None
+    param_name: Optional[str] = None
+    value: Any = None
+    type_needed: Any = None  # type annotation

@@ -4,10 +4,14 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Agents import LitPainter, Consumer
+from Agents import LitPainter, Consumer, Want
 from FARGModel import FARGModel, CellRef, Succeeded
 from Canvas import Step, StepDelta, StepCanvas
 from Equation import plus
+from Graph import Graph
+from Slipnet import Slipnet
+
+from util import pr, pts, trace
 
 
 class TestAgents(unittest.TestCase):
@@ -44,3 +48,20 @@ class TestAgents(unittest.TestCase):
         fm.run_agent(fm.the(LitPainter))
         
         self.assertEqual(ca[1], self.step1)
+
+    @unittest.skip('NEXT: QuerySlipnetForDelegate should try to fill in the Nones in the Consumer.')
+    def test_want(self) -> None:
+        slipnet = Slipnet(Graph.with_features([
+            Consumer.make(plus, (5, 4))
+        ]))
+        fm = FARGModel(slipnet=slipnet)
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        wa = fm.build(Want(startcell=cr0, target=9))
+
+        fm.run_agent(wa)
+        co = fm.the(Consumer)
+        self.assertEqual(fm.builder_of(co), wa)
+        pr(fm)
+        fm.run_agent(co)

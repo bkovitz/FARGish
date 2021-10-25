@@ -39,9 +39,10 @@ class NewState(Codelet):
     state: R[AgentState] = None
 
     def run(  # type: ignore[override]
-        self, fm, agent: Agent, state: AgentState
+        self, fm, agent: Optional[Agent], state: AgentState
     ) -> CodeletResults:
-        fm.set_state(agent, state)
+        if agent:
+            fm.set_state(agent, state)
         return None
 
 @dataclass(frozen=True)
@@ -125,6 +126,7 @@ class QuerySlipnetForDelegate(Codelet):
         if not slipnet_results:
             raise NoResultFromSlipnet(qargs=qargs)
         for node in slipnet_results:
+            # NEXT Alter the node with special args, like 'source'
             fm.build(node, builder=behalf_of)
         return None
 

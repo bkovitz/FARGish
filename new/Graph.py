@@ -14,7 +14,7 @@ from inspect import isclass
 from Propagator import Propagator, Delta
 from FMTypes import epsilon, Activation, ADict
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
-    clip, pr, pts
+    clip, union, pr, pts, trace
 
 
 Node = Hashable
@@ -368,6 +368,13 @@ class Graph:
 
     def hops_to_node(self, x: Any) -> Iterable[Hop]:
         return self.edges.hops_to_node(self.nodes, x)
+
+    # TODO UT
+    def neighbors(self, node: Node) -> Set[Node]:
+        return union(
+            [hop.to_node for hop in self.hops_from_node(node)],
+            [hop.from_node for hop in self.hops_to_node(node)]
+        )
 
     # TODO UT
     def degree_out(self, x: Any) -> int:
