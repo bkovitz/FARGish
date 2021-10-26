@@ -47,8 +47,8 @@ class TestAgents(unittest.TestCase):
             operator=plus,
             operands=(4, 5),
             source=cr0,
-            dest=cr1)
-        )
+            #dest=cr1
+        ))
         fm.run_agent(ag)
         fm.run_agent(fm.the(LitPainter))
         
@@ -57,7 +57,7 @@ class TestAgents(unittest.TestCase):
     #@unittest.skip('NEXT: QuerySlipnetForDelegate should try to fill in the Nones in the Consumer.')
     def test_want(self) -> None:
         slipnet = Slipnet(Graph.with_features([
-            Consumer.make(plus, (5, 4))
+            Consumer.make(plus, (4, 5))
         ]))
         fm = FARGModel(slipnet=slipnet)
         ca = fm.build(self.pons_start_canvas())
@@ -72,11 +72,12 @@ class TestAgents(unittest.TestCase):
             # source came from wa.startcell because wa.startcell is declared
             # to be of type CellRef, and Consume.source needs a CellRef
         fm.run_agent(co)
+        lp = fm.the(LitPainter)
+        fm.run_agent(lp)
         #pr(fm)
+        self.assertEqual(ca[1], self.step1)
 
 
 if __name__ == '__main__':
     from inspect import signature
     ag = Consumer()
-
-    

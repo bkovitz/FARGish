@@ -83,6 +83,15 @@ class StepCanvas(Canvas):
         else:
             raise NotImplementedError(f'addr must be int; was {type(addr)}: {addr}')
 
+    def next_addr(self, addr: Addr) -> Addr:
+        if isinstance(addr, int):
+            return addr + 1
+        else:
+            cl = self.__class__.__name__
+            raise NotImplementedError(
+                f"{cl} can't take next_addr of a non-int ({addr}, {type(addr)}."
+            )
+
     def __len__(self):
         return len(self.steps)
 

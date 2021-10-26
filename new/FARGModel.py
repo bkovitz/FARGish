@@ -221,6 +221,17 @@ class Canvas(ABC):
     def __setitem__(self, addr: Addr, v: Value) -> None:
         pass
 
+    @abstractmethod
+    def next_addr(self, addr: Addr) -> Addr:
+        '''The exact meaning of 'next' must vary depending on the type of
+        Canvas. TODO Add another argument to indicate direction, as needed in a
+        2-dimensional Canvas or to go forward or backward in a 1-dimensional
+        Canvas.'''
+        pass
+
+    def next_cellref(self, cellref: CellRef) -> CellRef:
+        return replace(cellref, addr=self.next_addr(cellref.addr))
+
 @dataclass(frozen=True)
 class CellRef(HasAvailValues):
     '''A reference to a cell in a Canvas.'''
@@ -270,6 +281,12 @@ class CellRef(HasAvailValues):
             raise ValuesNotAvail(
                 cellref=self, avails=tuple(values), unavails=()
             )
+
+    def next_cellref(self) -> CellRef:
+        if isinstance(self.canvas, Canvas):
+            return self.canvas.next_cellref(self)
+        else:
+            return self
 
     def __str__(self):
         return f'canvas[{self.addr}]'
@@ -724,19 +741,25 @@ class FARGModel(Workspace):
         values from 'sources', going first by name and then by type. Returns
         the a new Node object, with None values filled in, or the original
         'node' if we could not fill in any fields. If 'node' is neither an
-        Agent nor a dataclass instance, then we return the original 'node'.'''
+        Agent nor a dataclass instance, then we return the original 'node'.
+
+        We need this function, or perhaps something much more sophisticated,
+        so that when an Agent queries the slipnet for a delegate, the
+        delegate comes back missing the arguments that tell where the delegate
+        should operate. For example, when Want gets a Consume, the Consume's
+        'source' comes back None. It should get set to Want.start_cell. This
+        function fills in Consume.source. It would probably be better, though,
+        if some general notion of orientation or lodestar guided the search,
+        maybe even consulting the slipnet for how to fill in the missing
+        fields.'''
         # IDEA Instead of passing behalf_of, pass a 'lodestar'.
-        #print('FILL0', node, sources)
         if not isinstance(node, Agent):
             return node
         elif is_dataclass_instance(node):
             d: Dict[str, Hashable] = {}
             for fieldname, typ in self.fillable_fields(node):
-                #print('FILL0.5', field)
-                #print('FILL0.6', repr(field.type))
                 if getattr(node, fieldname) is None: # if need to fill
                     v = self.look_up_by_name(fieldname, sources)
-                    # TODO rm the None from Unions
                     if v is None or not is_type_instance(v, typ):
                         v = self.look_up_by_type(typ, sources)
                     if v is not None:

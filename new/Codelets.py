@@ -92,7 +92,10 @@ class Consume(Codelet):
         source: CellRef,
         result_in: str
     ) -> CodeletResults:
-        return dict([(result_in, operator.consume(source, operands))])
+        return dict([
+            (result_in, operator.consume(source, operands)),
+            ('dest', source.next_cellref())
+        ])
 
 @dataclass(frozen=True)
 class BuildLitPainter(Codelet):

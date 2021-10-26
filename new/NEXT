@@ -20,13 +20,14 @@ Solve pons asinorum
 
         Match type of codelet_args; throw a Snag if can't match.  DONE
 
-        NEXT try_to_fill_nones()
+        try_to_fill_nones()
 
-        next_cellref()
+        next_cellref() DONE
         
             Consume should have no dest field; .run() should figure out its dest
+            DONE
 
-        Get the timestepper started, with Want, on a numble of 4,5;9.
+        NEXT Get the timestepper started, with Want, on a numble of 4,5;9.
 
         adjust support
 
