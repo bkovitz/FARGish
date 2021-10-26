@@ -12,21 +12,26 @@ from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
     NoResultFromSlipnet
 from Canvas import StepCanvas, Step, CellRef, Operator
-from util import as_iter, trace, pr, pts
+from util import as_iter, trace, pr, pts, short
 
 
 @dataclass(frozen=True)
-class BuildCompanion(Codelet):
+class Build(Codelet):
     '''Builds one or more nodes that serve as companions for the acting
     node.'''
+    to_build: R[Nodes] = None
     behalf_of: R[Agent] = None
-    companion: R[Nodes] = None
 
     def run(  # type: ignore[override]
-        self, fm, behalf_of: Optional[Agent], companion=Optional[Nodes]
+        self,
+        fm: FARGModel,
+        behalf_of: Optional[Agent],
+        to_build: Nodes,
+        sources: Sources
     ) -> CodeletResults:
-        for c in as_iter(self.companion):
-            fm.build(c, builder=behalf_of)
+        for node in as_iter(to_build):
+            node = fm.replace_refs(node, sources)
+            fm.build(node, builder=behalf_of)
         if behalf_of:
             return NewState(behalf_of, Wake)
         else:
@@ -43,6 +48,7 @@ class NewState(Codelet):
     ) -> CodeletResults:
         if agent:
             fm.set_state(agent, state)
+        #print('NEWST', short(agent), fm.agent_state(agent))
         return None
 
 @dataclass(frozen=True)
@@ -128,10 +134,19 @@ class QuerySlipnetForDelegate(Codelet):
         slipnet_results = fm.pulse_slipnet(**kwargs)
         if not slipnet_results:
             raise NoResultFromSlipnet(qargs=qargs)
+        return [
+            Build(
+                to_build=fm.try_to_fill_nones(node, sources, behalf_of),
+                behalf_of=behalf_of
+            )
+                for node in slipnet_results
+        ]
+        """
         for node in slipnet_results:
             node = fm.try_to_fill_nones(node, sources, behalf_of)
             fm.build(node, builder=behalf_of)
         return None
+        """
 
 @dataclass(frozen=True)
 class Sleep(Codelet):
@@ -146,5 +161,16 @@ class Sleep(Codelet):
     ) -> CodeletResults:
         fm.sleep(agent, sleep_duration)
         return None
+
+@dataclass(frozen=True)
+class RaiseException(Codelet):
+    exctype: R[Type[Exception]] = Ref('exctype')
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        exctype: Type[Exception]
+    ) -> CodeletResults:
+        raise exctype
 
 import Agents

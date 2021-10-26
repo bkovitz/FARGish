@@ -10,7 +10,7 @@ from time import process_time
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet, MissingArgument, \
     CellRef
-from Codelets import BuildCompanion, Paint, Consume, BuildLitPainter, \
+from Codelets import Build, Paint, Consume, BuildLitPainter, \
     QuerySlipnetForDelegate, Sleep
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
@@ -23,7 +23,7 @@ from util import pr
 
 @dataclass(frozen=True)
 class DummyAgent(Agent):
-    born: Codelets = BuildCompanion()
+    born: Codelets = Build()
 
 ddd = DummyAgent()
 
@@ -40,13 +40,13 @@ class TestCodelets(unittest.TestCase):
     def pons_start_canvas(self) -> StepCanvas:
         return StepCanvas([self.step0])
 
-    def test_build_companion(self) -> None:
+    def test_build_codelet(self) -> None:
         fm = FARGModel()
 
         dag = fm.build(DummyAgent())
         self.assertEqual(fm.agent_state(dag), Born)
 
-        bc = BuildCompanion(companion=DummyCompanion())
+        bc = Build(to_build=DummyCompanion())
         fm.run_codelet(bc, agent=dag)
 
         self.assertTrue(fm.has_node(DummyCompanion()))

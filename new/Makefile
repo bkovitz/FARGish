@@ -11,7 +11,7 @@ endif
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 FARGISH_SRC = Graph.py Propagator.py util.py Slipnet.py Canvas.py FARGModel.py \
-	Equation.py Agents.py Codelets.py QArgs.py
+	Equation.py Agents.py Codelets.py QArgs.py Detectors.py
 
 # Type 'make' to run unit tests and then run current program in interactive
 # mode.

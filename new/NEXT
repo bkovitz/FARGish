@@ -27,15 +27,18 @@ Solve pons asinorum
             Consume should have no dest field; .run() should figure out its dest
             DONE
 
-        NEXT Get the timestepper started, with Want, on a numble of 4,5;9.
+        Get the timestepper started, with Want, on a numble of 4,5;9.  DONE
 
-            QuerySlipnetForDelegate: return a Build codelet on success
+        Notify agent when its delegate succeeds.
+
+        QuerySlipnetForDelegate: return a Build codelet on success  DONE
+
+        test_timestepper(): Verify that the Detector detects that the model
+        succeeded.
 
         adjust support
 
-    Detector(15)
-
-        LookForAvail
+    NEXT Detector(15)
 
         RaiseException
 
@@ -60,6 +63,10 @@ Other things
 
 Small things
 
+    Decent logging.
+
+        With auto-indent.
+
     Give the() a generic return type.
 
-    short() to print short strings
+    short() to print short strings  DONE

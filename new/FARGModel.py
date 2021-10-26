@@ -89,6 +89,9 @@ class Agent(CanReplaceRefs):
         'succeeded', 'failed'
     ))
 
+    def short(self) -> str:
+        return self.__class__.__name__
+
 @dataclass(frozen=True)
 class AgentState:
     name: str
@@ -104,6 +107,17 @@ Delegate_failed = AgentState('delegate_failed')
 Succeeded = AgentState('succeeded')
 Failed = AgentState('failed')
 Defunct = AgentState('defunct')
+Sleeping = AgentState('sleeping')
+
+### Detectors ###
+
+class Detector(ABC, CanReplaceRefs):
+
+    @abstractmethod
+    def look(self, fm: FARGModel, **kwargs) -> Codelets:
+        '''Try to detect whatever the Detector is looking for, and return
+        codelets in response to whatever is found (or not).'''
+        pass
 
 ### Codelet and ancillary classes ###
 
@@ -360,6 +374,7 @@ class Workspace(HasRngSeed):
             raise NotImplementedError(".build can't yet construct the object for you")
         obj = args[0]
         """
+        #print('BBBB', obj.__class__.__name__)
         if obj is None:  # attempting to build None builds nothing
             return None
 
@@ -425,6 +440,9 @@ class Workspace(HasRngSeed):
     def set_state(self, node: Node, state: AgentState) -> None:
         '''Sets the state of node. No effect if node does not exist.'''
         niws = self.get_niws(node)
+        #print('SET_STATE', short(node), state, short(niws))
+        # TODO Log or throw exception if node does not exist; it could be
+        # a bug.
         if niws:
             niws.state = state
 
@@ -509,15 +527,6 @@ class Workspace(HasRngSeed):
     def has_node(self, node: Node) -> bool:
         return node in self.wsd
 
-    def agent_state(self, agent: Agent) -> AgentState:
-        '''Returns the current state of 'agent', or Defunct if 'agent'
-        does not exist.'''
-        niws = self.get_niws(agent)
-        if niws:
-            return niws.state
-        else:
-            return Defunct
-
     # Node info
 
     def builder_of(self, node: Node) -> Union[Agent, None]:
@@ -576,18 +585,26 @@ class FARGModel(Workspace):
     sleepers: Dict[Agent, int] = field(default_factory=dict, init=False)
         # Agent: timestep at which to wake up
 
-    def run_agent(self, agent: Node, agent_state: Optional[AgentState]=None) \
-    -> None:
+    def run_agent(
+        self,
+        agent: Node,
+        agent_state: Optional[AgentState]=None,
+        num: int=1
+    ) -> None:
         '''Fills in agent's Refs and runs agent. Has no effect if agent is not
         a node in the workspace.'''
+        # TODO Reconsider: does it actually make sense to fill in an Agent's
+        # Refs?
         if not isinstance(agent, Agent):
             raise AttributeError(f'run_agent: {agent} is not an Agent.')
         if not self.has_node(agent):
             return
         if agent_state is None:
             agent_state = self.agent_state(agent)
-        agent = agent.replace_refs(self, None)
-        self.run_codelet(getattr(agent, agent_state.name), agent)
+        #agent = agent.replace_refs(self, None)
+        for i in range(num):
+            self.run_codelet(getattr(agent, agent_state.name), agent)
+            agent_state = self.agent_state(agent)
         """
         sources = self.mk_sources(agent)
         codelet: Codelet
@@ -596,6 +613,27 @@ class FARGModel(Workspace):
             sources = self.prepend_source(codelet, sources)
         """
 
+    def run_detector(
+        self,
+        detector: Node
+    ) -> Sources:
+        if not isinstance(detector, Detector):
+            raise AttributeError(f'run_detector: {detector} is not a Detector')
+        if not self.has_node(detector):
+            return
+        #print('DETECTOR', detector)
+        sources = [detector]
+        kwargs = self.mk_func_args(detector.look, sources)
+        codelets = detector.look(**kwargs)
+        for codelet in as_iter(codelets):
+            sources = self.run_codelet_and_follow_ups(codelet, sources)
+        return sources
+
+    def run_detectors(self):
+        # TODO Choose Detectors by activation level
+        for detector in self.nodes(Detector):
+            self.run_detector(detector)
+        
     def run_codelet(self, codelet: Codelets, agent: Optional[Agent]=None) \
     -> Sources:
         '''Fills in codelet's Refs and runs codelet.'''
@@ -639,7 +677,7 @@ class FARGModel(Workspace):
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
-        #print('CODELET', codelet.__class__.__name__, dict_str(kwargs))
+        #print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
         return codelet.run(**kwargs)
 
     def mk_sources(self, agent: Optional[Agent]=None) -> Sequence:
@@ -650,6 +688,12 @@ class FARGModel(Workspace):
 
     def prepend_source(self, car: Any, sources: Sources) -> Sources:
         return as_list(car) + [s for s in as_iter(sources)]
+
+    def replace_refs(self, o: N, sources: Sources) -> N:
+        if isinstance(o, CanReplaceRefs):
+            return o.replace_refs(self, sources)  # type: ignore[return-value]
+        else:
+            return o
 
     # TODO rm? Just call .look_up_by_name?
     def value_for_codelet_arg(
@@ -872,6 +916,18 @@ class FARGModel(Workspace):
             self.t + sleep_duration
         )
 
+    def agent_state(self, agent: Optional[Agent]) -> AgentState:
+        '''Returns the current state of 'agent', or Defunct if 'agent'
+        does not exist.'''
+        niws = self.get_niws(agent)
+        if niws:
+            if self.is_sleeping(agent):
+                return Sleeping
+            else:
+                return niws.state
+        else:
+            return Defunct
+
     def do_timestep(
         self,
         ag: Optional[Agent]=None,
@@ -883,12 +939,12 @@ class FARGModel(Workspace):
         while self.t < until:
             self.t += 1
             #self.remove_sleepers()
-            #self.run_detectors()
+            self.run_detectors()
             if ag is None:
                 agent = self.choose_agent_by_activation()
             else:
                 agent = ag
-            #print(f'\nAGENT {agent}  t={self.t}')
+            #print(f'\nAGENT {agent.__class__.__name__}  {self.agent_state(agent)}  t={self.t}')
             #pr(self)
             if agent:
                 self.run_agent(agent)
@@ -984,6 +1040,14 @@ class Fizzle(Exception):
             return self.codelet.fk  # type: ignore[attr-defined]
         else:
             return None
+
+class HaltFARGModel(Exception):
+    pass
+
+@dataclass(frozen=True)
+class SolvedPuzzle(HaltFARGModel):
+    pass  # TODO Store some info about who found the solution and what the
+          # solution was.
         
 @dataclass(frozen=True)
 class NeedMoreSupportToPaint(Fizzle):

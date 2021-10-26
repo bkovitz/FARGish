@@ -8,9 +8,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from Canvas import CellRef
 from FMTypes import Value, Node
-from FARGModel import Agent, Codelets, R, Ref, CellRef
+from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake
 from Codelets import Consume, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep
+    Sleep, Build, NewState
+from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Canvas import Operator
 from Graph import Before, After
@@ -41,7 +42,8 @@ class Consumer(Agent):
             source=Ref('source'),
             result_in='result'
         ),
-        BuildLitPainter(value=Ref('result'))
+        BuildLitPainter(value=Ref('result')),
+        Sleep(agent=Ref('behalf_of'))
     )
     # Another possible approach, breaking down Consume into smaller codelets:
         #TakeOperands(operands=Ref('operands'), cellref=Ref('source')),
@@ -83,8 +85,12 @@ class Consumer(Agent):
 class Want(Agent):
     startcell: R[CellRef] = Ref('startcell')
     target: R[Value] = Ref('target')
+    on_success: R[Codelets] = Ref('on_success')
 
-    # TODO born: build a Detector
+    born: Codelets = (
+        Build(AvailDetector()),
+        NewState(agent=Ref('behalf_of'), state=Wake)
+    )
     wake: Codelets = (
         QuerySlipnetForDelegate(
             qargs=(

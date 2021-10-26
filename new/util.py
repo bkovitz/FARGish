@@ -310,10 +310,10 @@ def repr_str(name, items):
                            ', '.join('%s=%s' % (k, nrepr(v))
                                        for k, v in items))
 
-def dict_str(d: Dict) -> str:
+def dict_str(d: Dict, xform: Callable=repr) -> str:
     '''Returns a string containing all the keys and values of d in the
     format key=repr(value) key=repr(value) etc.'''
-    return ' '.join(f'{k}={repr(v)}' for k, v in d.items())
+    return ' '.join(f'{k}={xform(v)}' for k, v in d.items())
 
 def nrepr(o):
     '''Helper for nice_object_repr().'''
