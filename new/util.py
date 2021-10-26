@@ -230,7 +230,7 @@ def as_name(x):
 def is_dataclass_instance(x):
     return is_dataclass(x) and not isinstance(x, type)
 
-def short(x):
+def short(x) -> str:
     '''Returns a short string representation of x. If x has a .short() method
     define, we call it and return its result. Otherwise we return str(x).'''
     try:
@@ -309,6 +309,11 @@ def repr_str(name, items):
         return '%s(%s)' % (name,
                            ', '.join('%s=%s' % (k, nrepr(v))
                                        for k, v in items))
+
+def dict_str(d: Dict) -> str:
+    '''Returns a string containing all the keys and values of d in the
+    format key=repr(value) key=repr(value) etc.'''
+    return ' '.join(f'{k}={repr(v)}' for k, v in d.items())
 
 def nrepr(o):
     '''Helper for nice_object_repr().'''

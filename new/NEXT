@@ -20,7 +20,7 @@ Solve pons asinorum
 
         Match type of codelet_args; throw a Snag if can't match.  DONE
 
-        try_to_fill_nones()
+        try_to_fill_nones()  DONE
 
         next_cellref() DONE
         
@@ -28,6 +28,8 @@ Solve pons asinorum
             DONE
 
         NEXT Get the timestepper started, with Want, on a numble of 4,5;9.
+
+            QuerySlipnetForDelegate: return a Build codelet on success
 
         adjust support
 

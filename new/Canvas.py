@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 
 from FMTypes import Value, Addr
 from FARGModel import Canvas, CellRef, ValuesNotAvail, HasAvailValues
+from util import short, is_iter, as_iter, trace, pr, pts
 
 
 @dataclass(frozen=True)
@@ -21,6 +22,13 @@ class StepDelta:
     def seq_str(self):
         '''How to display this inside SeqState.__str__.'''
         return str(self)
+
+    def short(self) -> str:
+        if is_iter(self.before):
+            operand = f' {short(self.how)} '
+            return operand.join(str(b) for b in self.before)
+        else:
+            return short(self.how) + short(self.before)
 
 @dataclass(frozen=True)
 class Step(HasAvailValues):
@@ -53,6 +61,17 @@ class Step(HasAvailValues):
                 unavails=tuple(missing_avails)
             )
         return (taken_avails, remaining_avails)
+
+    def short(self) -> str:
+        delta = short(self.last_delta) if self.last_delta else ''
+        avs = ' '.join(str(a) for a in as_iter(self.avails))
+        ls: List = []
+        if delta:
+            ls.append(delta)
+        if avs:
+            ls.append(avs)
+        inside = '; '.join(ls)
+        return f'[{inside}]'
 
 @dataclass(eq=False)
 class StepCanvas(Canvas):
@@ -98,6 +117,15 @@ class StepCanvas(Canvas):
     def __str__(self):
         cl = self.__class__.__name__
         return f"{cl}({'; '.join(str(st) for st in self.steps)})"
+
+    def short(self):
+        ss: List[str] = []
+        for step in self.steps:
+            if step is None:
+                ss.append('[]')
+            else:
+                ss.append(short(step))
+        return ''.join(ss)
 
 @dataclass(frozen=True)
 class Operator:

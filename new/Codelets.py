@@ -129,7 +129,6 @@ class QuerySlipnetForDelegate(Codelet):
         if not slipnet_results:
             raise NoResultFromSlipnet(qargs=qargs)
         for node in slipnet_results:
-            # NEXT Alter the node with special args, like 'source'
             node = fm.try_to_fill_nones(node, sources, behalf_of)
             fm.build(node, builder=behalf_of)
         return None

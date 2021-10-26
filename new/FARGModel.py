@@ -16,7 +16,7 @@ from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
-    is_dataclass_instance, make_nonoptional
+    is_dataclass_instance, make_nonoptional, dict_str, short
 
 
 T = TypeVar('T')
@@ -319,6 +319,12 @@ class NodeInWS:
 
     def __str__(self):
         result = f'{self.node}  builder={self.builder} tob={self.tob}'
+        if isinstance(self.node, Agent):
+            result += f' state={self.state}'
+        return result
+
+    def short(self) -> str:
+        result = f'{short(self.node)}  builder={self.builder} tob={self.tob}'
         if isinstance(self.node, Agent):
             result += f' state={self.state}'
         return result
@@ -632,25 +638,9 @@ class FARGModel(Workspace):
         '''This should be the only place in the entire program that
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
-        #kwargs = self.codelet_args(codelet, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
-        #print('CODELET', codelet.__class__.__name__, kwargs)
+        #print('CODELET', codelet.__class__.__name__, dict_str(kwargs))
         return codelet.run(**kwargs)
-
-    # TODO rm?
-    def codelet_args(self, codelet: Codelet, sources: Sources) \
-    -> Dict[str, Any]:
-        '''Returns a dict containing the arguments to pass to codelet's
-        .run() method. codelet must not contain any Refs. Pass a codelet
-        through .replace_refs() before calling .codelet_args().'''
-        # TODO rm this next line? OAOO?
-        codelet = codelet.replace_refs(self, self.mk_sources(sources))
-        return dict(
-            #(param_name, self.value_for_codelet_arg(codelet, param_name, agent))
-            (param_name,
-             self.value_for_codelet_arg(codelet, param_name, sources))
-                for param_name in inspect.signature(codelet.run).parameters
-        )
 
     def mk_sources(self, agent: Optional[Agent]=None) -> Sequence:
         if agent:
@@ -882,6 +872,44 @@ class FARGModel(Workspace):
             self.t + sleep_duration
         )
 
+    def do_timestep(
+        self,
+        ag: Optional[Agent]=None,
+        num: int=1,  # ignored if caller passes 'until'
+        until: Optional[int]=None
+    ) -> None:
+        if until is None:
+            until = self.t + num
+        while self.t < until:
+            self.t += 1
+            #self.remove_sleepers()
+            #self.run_detectors()
+            if ag is None:
+                agent = self.choose_agent_by_activation()
+            else:
+                agent = ag
+            #print(f'\nAGENT {agent}  t={self.t}')
+            #pr(self)
+            if agent:
+                self.run_agent(agent)
+            self.activation_g.propagate()
+            #self.log_activations()
+
+    def choose_agent_by_activation(self) -> Optional[Agent]:
+        # TODO Include "not sleeping" in the predicate
+        agents = [
+            ag for ag in self.nodes(Agent) if not self.is_sleeping(ag)
+        ]
+        activations = [self.a(ag) for ag in agents]
+
+        #print(f'CHOO t={self.t}')
+        #pts(agents)
+        #pts(activations)
+
+        return first(sample_without_replacement(agents, weights=activations))
+
+    # Display
+
     def __str__(self):
         return self.__class__.__name__
 
@@ -893,7 +921,8 @@ class FARGModel(Workspace):
             indent = '  '
         if not isinstance(niws, NodeInWS):
             niws = self.get_niws(niws)  # TODO if the node does not exist
-        result = f'{indent}{self.a(niws.node): 7.3f}  {niws}'
+        slee = '  sleeping' if self.is_sleeping(niws.node) else ''
+        result = f'{indent}{self.a(niws.node): 7.3f}  {short(niws)}{slee}'
         return result
 
     def e1str(self, node1: Node, node2: Node, indent=None) -> str:

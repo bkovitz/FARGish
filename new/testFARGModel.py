@@ -82,7 +82,7 @@ class TestFARGModel(unittest.TestCase):
         #codelet: Codelet = fm.replace_refs(ag.born, ag) # type: ignore[arg-type]
         codelet: Codelet = ag.born  # type: ignore[assignment]
         self.assertEqual(
-            fm.codelet_args(codelet, ag),
+            fm.mk_func_args(codelet.run, ag),
             dict(fm=fm, late_bound='FROM AGENT')
                 # This dict holds the arguments to ag.born's .run() method
         )

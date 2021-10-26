@@ -54,7 +54,6 @@ class TestAgents(unittest.TestCase):
         
         self.assertEqual(ca[1], self.step1)
 
-    #@unittest.skip('NEXT: QuerySlipnetForDelegate should try to fill in the Nones in the Consumer.')
     def test_want(self) -> None:
         slipnet = Slipnet(Graph.with_features([
             Consumer.make(plus, (4, 5))
@@ -76,6 +75,20 @@ class TestAgents(unittest.TestCase):
         fm.run_agent(lp)
         #pr(fm)
         self.assertEqual(ca[1], self.step1)
+
+    def test_timestepper(self) -> None:
+        slipnet = Slipnet(Graph.with_features([
+            Consumer.make(plus, (4, 5))
+        ]))
+        for seed in range(1, 5):
+            fm = FARGModel(slipnet=slipnet, seed=seed, paint_threshold=0.0)
+            ca = fm.build(self.pons_start_canvas())
+            cr0 = CellRef(ca, 0)
+            wa = fm.build(Want(startcell=cr0, target=9))
+
+            fm.do_timestep(num=5)
+            #pr(fm, extra=True)
+            self.assertEqual(ca[1], self.step1, f'seed={seed}')
 
 
 if __name__ == '__main__':
