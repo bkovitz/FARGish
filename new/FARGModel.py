@@ -1,7 +1,7 @@
 # FARGModel.py
 
 from __future__ import annotations
-from dataclasses import dataclass, field, replace, InitVar
+from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
@@ -15,7 +15,8 @@ from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
-    sample_without_replacement, trace, pr, pts, is_type_instance
+    sample_without_replacement, trace, pr, pts, is_type_instance, \
+    is_dataclass_instance, make_nonoptional
 
 
 T = TypeVar('T')
@@ -82,6 +83,11 @@ class Agent(CanReplaceRefs):
     delegate_failed: Codelets = None
     succeeded: Codelets = None
     failed: Codelets = None
+
+    all_state_names: ClassVar[FrozenSet[str]] = frozenset((
+        'born', 'wake', 'snag', 'delegate_succeeded', 'delegate_failed',
+        'succeeded', 'failed'
+    ))
 
 @dataclass(frozen=True)
 class AgentState:
@@ -684,6 +690,69 @@ class FARGModel(Workspace):
             if result is not None:
                 return result
         return None
+
+    def look_up_by_type(
+        self,
+        typ: Type,
+        sources: Sources
+    ) -> Any:
+        # TODO It would be nice if we returned some record of where we
+        # found the value, if we find one.
+        for v in self.typeable_sources_iterator(sources):
+            if (
+                v is not None
+                and
+                not isinstance(v, Ref)
+                and
+                is_type_instance(v, typ)
+            ):
+                return v
+        return None
+
+    def typeable_sources_iterator(self, sources: Sources) -> Iterable[Any]:
+        for source in as_iter(sources):
+            if isinstance(source, dict):
+                yield from source.values()
+            elif is_dataclass_instance(source):
+                for fieldname in source.__dataclass_fields__:
+                    yield getattr(source, fieldname, None)
+
+    def try_to_fill_nones(
+        self, node: Node, sources: Sources, behalf_of: Optional[Agent]=None
+    ) -> Node:
+        '''HACK? Tries to fill in fields of an Agent 'node' that are None with
+        values from 'sources', going first by name and then by type. Returns
+        the a new Node object, with None values filled in, or the original
+        'node' if we could not fill in any fields. If 'node' is neither an
+        Agent nor a dataclass instance, then we return the original 'node'.'''
+        # IDEA Instead of passing behalf_of, pass a 'lodestar'.
+        #print('FILL0', node, sources)
+        if not isinstance(node, Agent):
+            return node
+        elif is_dataclass_instance(node):
+            d: Dict[str, Hashable] = {}
+            for fieldname, typ in self.fillable_fields(node):
+                #print('FILL0.5', field)
+                #print('FILL0.6', repr(field.type))
+                if getattr(node, fieldname) is None: # if need to fill
+                    v = self.look_up_by_name(fieldname, sources)
+                    # TODO rm the None from Unions
+                    if v is None or not is_type_instance(v, typ):
+                        v = self.look_up_by_type(typ, sources)
+                    if v is not None:
+                        d[fieldname] = v
+            if d:
+                return replace(node, **d)
+            else:
+                return node
+        else:
+            return node
+
+    def fillable_fields(self, node) -> Iterable[Tuple[str, Type]]:
+        if is_dataclass_instance(node):
+            for name, typ in get_type_hints(node.__class__).items():
+                if name not in Agent.all_state_names:
+                    yield name, make_nonoptional(typ)
 
     # TODO rm; replaced by QInput.get_items()
     """

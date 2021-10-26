@@ -31,6 +31,7 @@ class Consumer(Agent):
     operator: Union[Operator, None] = None
     operands: Union[Tuple[Value, ...], None] = None
     source: Union[CellRef, None] = None  # where to get operands
+    # TODO rm dest?
     dest: Union[CellRef, None] = None    # where to paint result
 
     wake: Codelets = (

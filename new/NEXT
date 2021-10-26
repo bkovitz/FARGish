@@ -18,7 +18,13 @@ Solve pons asinorum
 
                 build the delegate if successful  DONE
 
-        NEXT Match type of codelet_args; throw a Snag if can't match.
+        Match type of codelet_args; throw a Snag if can't match.  DONE
+
+        NEXT try_to_fill_nones()
+
+        next_cellref()
+        
+            Consume should have no dest field; .run() should figure out its dest
 
         Get the timestepper started, with Want, on a numble of 4,5;9.
 
@@ -52,3 +58,5 @@ Other things
 Small things
 
     Give the() a generic return type.
+
+    short() to print short strings

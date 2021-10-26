@@ -4,6 +4,11 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+    runtime_checkable, get_type_hints, get_origin, get_args
+
 from Agents import LitPainter, Consumer, Want
 from FARGModel import FARGModel, CellRef, Succeeded
 from Canvas import Step, StepDelta, StepCanvas
@@ -49,7 +54,7 @@ class TestAgents(unittest.TestCase):
         
         self.assertEqual(ca[1], self.step1)
 
-    @unittest.skip('NEXT: QuerySlipnetForDelegate should try to fill in the Nones in the Consumer.')
+    #@unittest.skip('NEXT: QuerySlipnetForDelegate should try to fill in the Nones in the Consumer.')
     def test_want(self) -> None:
         slipnet = Slipnet(Graph.with_features([
             Consumer.make(plus, (5, 4))
@@ -61,7 +66,17 @@ class TestAgents(unittest.TestCase):
         wa = fm.build(Want(startcell=cr0, target=9))
 
         fm.run_agent(wa)
-        co = fm.the(Consumer)
+        co: Consumer = fm.the(Consumer)  # type: ignore[assignment]
         self.assertEqual(fm.builder_of(co), wa)
-        pr(fm)
+        self.assertEqual(co.source, cr0)
+            # source came from wa.startcell because wa.startcell is declared
+            # to be of type CellRef, and Consume.source needs a CellRef
         fm.run_agent(co)
+        #pr(fm)
+
+
+if __name__ == '__main__':
+    from inspect import signature
+    ag = Consumer()
+
+    

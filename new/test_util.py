@@ -15,7 +15,7 @@ from random import randrange
 from collections import Counter
 
 from util import PushAttr, asdict_with_classvars, HasRngSeed, pr, \
-    is_type_instance
+    is_type_instance, make_nonoptional
 
 
 class TestUtil(unittest.TestCase):
@@ -85,6 +85,7 @@ class TestIsTypeInstance(unittest.TestCase):
         int: int,
         none: None,
         opt: Optional[Blah],
+        uni: Union[Blah, None],
         dict: Dict[str, int],
         seq: Sequence[int],
         tup: Tuple[str, int],
@@ -117,6 +118,12 @@ class TestIsTypeInstance(unittest.TestCase):
 
     def test_optional(self) -> None:
         typ = self.hints['opt']
+        self.assertTrue(is_type_instance(None, typ))
+        self.assertTrue(is_type_instance(self.Blah(), typ))
+        self.assertFalse(is_type_instance(2, typ))
+
+    def test_union(self) -> None:
+        typ = self.hints['uni']
         self.assertTrue(is_type_instance(None, typ))
         self.assertTrue(is_type_instance(self.Blah(), typ))
         self.assertFalse(is_type_instance(2, typ))
@@ -187,3 +194,14 @@ class TestIsTypeInstance(unittest.TestCase):
         self.assertTrue(is_type_instance('nope', typ))
         self.assertTrue(is_type_instance(self.Blah, typ))
         self.assertTrue(is_type_instance(int, typ))
+
+    def test_make_nonoptional(self) -> None:
+        self.assertEqual(make_nonoptional(Union[int, None]), int)
+        self.assertEqual(make_nonoptional(int), int)
+        self.assertEqual(make_nonoptional(None), None)
+        self.assertEqual(make_nonoptional(Union), Union)
+        self.assertEqual(make_nonoptional(Union[int]), Union[int])
+        self.assertEqual(make_nonoptional(
+            Union[int, None, str]),
+            Union[int, str]
+        )

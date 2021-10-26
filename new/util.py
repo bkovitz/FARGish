@@ -46,7 +46,7 @@ def is_type_instance(o, typ) -> bool:
         args = get_args(typ)
         if origin == Union:
             return any(is_type_instance(o, arg) for arg in args)
-        #print('ORG', origin)
+        #print('ORG', typ, origin, args)
         if safe_issubclass(origin, type):
             if not isclass(o):
                 return False
@@ -78,6 +78,19 @@ def is_type_instance(o, typ) -> bool:
             raise NotImplementedError(
                 f"is_type_instance: Can't check {o} against {typ}."
             )
+
+def make_nonoptional(typ: Any) -> Any:
+    '''If 'typ' is a Union containing None, returns the Union without the
+    None. Otherwise returns 'typ'.'''
+    if get_origin(typ) == Union:
+        args = get_args(typ)
+        new_args = tuple(arg for arg in args if arg is not type(None))
+        if args != new_args:
+            return Union[new_args]
+        else:
+            return typ
+    else:
+        return typ
 
 def safe_issubclass(o: Any, typ: Union[Type, Tuple[Type, ...]]) -> bool:
     '''Like issubclass but if o is not a class object, returns False instead
