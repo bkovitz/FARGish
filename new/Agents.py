@@ -9,13 +9,14 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 from Canvas import CellRef
 from FMTypes import Value, Node
 from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake
-from Codelets import Consume, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
+from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState
+from Consume import Consume
 from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Canvas import Operator
 from Graph import Before, After
-from util import trace, as_iter, pr, pts
+from util import trace, as_iter, pr, pts, short
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,11 @@ class Consumer(Agent):
         if self.operands and self.operator:
             result = self.operator(*self.operands)
             yield After(result)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        s = short(self.operator).join(str(o) for o in as_iter(self.operands))
+        return f'{cl}({s})'
 
     @classmethod
     def make(

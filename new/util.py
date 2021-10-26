@@ -230,13 +230,18 @@ def as_name(x):
 def is_dataclass_instance(x):
     return is_dataclass(x) and not isinstance(x, type)
 
-def short(x) -> str:
-    '''Returns a short string representation of x. If x has a .short() method
-    define, we call it and return its result. Otherwise we return str(x).'''
-    try:
-        return x.short()
-    except AttributeError:
-        return str(x)
+def short(o) -> str:
+    '''Returns a short string representation of o. If o has a .short() method
+    define, we call it and return its result. Otherwise we return str(o).'''
+    if isinstance(o, list):
+        return f"[{', '.join(short(x) for x in o)}]"
+    elif isinstance(o, tuple):
+        return f"({', '.join(short(x) for x in o)})"
+    else:
+        try:
+            return o.short()
+        except AttributeError:
+            return str(o)
 
 def vcat(a, b):
     '''Concatenate value(s). Combines a and b into either a list or a

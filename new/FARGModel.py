@@ -7,12 +7,13 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints
 from abc import ABC, abstractmethod
+from collections import defaultdict
 import inspect
 from inspect import isclass, signature
 
-from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred
+from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, ADict
 from Propagator import Propagator
-from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing
+from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
@@ -30,6 +31,9 @@ class Ref:
     '''A reference by name to a member of an enclosing Agent, Codelet, or
     FARGModel.'''
     name: str
+
+    def short(self) -> str:
+        return self.name
 
 # Wrap the type of any field of an Agent of Codelet in R[] to allow a Ref
 # in its place, e.g.  my_string: R[str] = None
@@ -67,48 +71,6 @@ class CanReplaceRefs:
 class BehalfOf:
     behalf_of: Agent
 
-### Agent and ancillary classes and objects ###
-
-@dataclass(frozen=True)
-class Agent(CanReplaceRefs):
-    '''An Agent has no Python code. It holds only fields containing zero
-    or mode codelets for each AgentState, and, optionally, fields for
-    parameters to the Agent. Due to the rules of dataclass inheritance,
-    you must specify those optional parameters by explicit keyword
-    arguments when constructing an instance of an Agent subclass.'''
-    born: Codelets = None
-    wake: Codelets = None
-    snag: Codelets = None
-    delegate_succeeded: Codelets = None
-    delegate_failed: Codelets = None
-    succeeded: Codelets = None
-    failed: Codelets = None
-
-    all_state_names: ClassVar[FrozenSet[str]] = frozenset((
-        'born', 'wake', 'snag', 'delegate_succeeded', 'delegate_failed',
-        'succeeded', 'failed'
-    ))
-
-    def short(self) -> str:
-        return self.__class__.__name__
-
-@dataclass(frozen=True)
-class AgentState:
-    name: str
-
-    def __str__(self):
-        return self.name
-
-Born = AgentState('born')
-Wake = AgentState('wake')
-Snag = AgentState('snag')
-Delegate_succeeded = AgentState('delegate_succeeded')
-Delegate_failed = AgentState('delegate_failed')
-Succeeded = AgentState('succeeded')
-Failed = AgentState('failed')
-Defunct = AgentState('defunct')
-Sleeping = AgentState('sleeping')
-
 ### Detectors ###
 
 class Detector(ABC, CanReplaceRefs):
@@ -133,6 +95,9 @@ class Codelet(ABC, CodeletDataclassMixin, CanReplaceRefs):
         to execute next, in the same timestep.'''
         pass
 
+    def short(self) -> str:
+        return self.__class__.__name__
+
 Codelets = Union[None, Codelet, Sequence[Codelet]]
 CodeletResult = Union[None, Codelet, Dict[str, Any]]
 CodeletResults = Union[CodeletResult, Sequence[CodeletResult]]
@@ -142,7 +107,7 @@ class NullCodelet(Codelet):
     def run(self) -> Codelets:  # type: ignore[override]
         return None
 
-class QArg:  # TODO rename -> QArg
+class QArg:
     '''An argument for a slipnet query, to be passed through
     FARGModel.mk_slipnet_args() on its way to being passed to
     FARGModel.pulse_slipnet().'''
@@ -198,6 +163,108 @@ class QPred(QArg):
         return self.pred(**fm.mk_func_args(self.pred, sources))
 
 QArgs = Union[None, Node, QArg, Sequence[Union[Node, QArg]]]
+
+@dataclass(frozen=True)
+class SnaggedAgent(Feature):
+    agent: Agent
+
+@dataclass(frozen=True)
+class Unsnag(Feature):
+    tag: Node
+
+@dataclass(frozen=True)
+class QueryForSnagFixer(Codelet):
+    
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        behalf_of: Optional[Agent],
+        sources: Optional[Sources]
+    ) -> CodeletResults:
+        if not behalf_of:
+            return None
+        """
+        features: List[Node] = [SnaggedAgent(behalf_of)]
+        features += [
+            Unsnag(tag) if isinstance(tag, Fizzle) else tag
+                for tag in fm.tags_of(behalf_of)
+        ]
+        """
+        # TODO It would be better to call fm.mk_slipnet_args()
+        activations_in: ADict = {}
+        activations_in[SnaggedAgent(behalf_of)] = 1.0
+        for tag in fm.tags_of(behalf_of):
+            if isinstance(tag, Fizzle):
+                activations_in[Unsnag(tag)] = 1.0
+            else:
+                activations_in[tag] = 1.0
+        kwargs = dict(
+            activations_in=activations_in,
+            pred=Agent,  # TODO UnsnaggingAgent?
+            k=4,
+            num_get=1
+        )
+        slipnet_results = fm.pulse_slipnet(**kwargs) # type: ignore[arg-type]
+        """ # TODO
+        if not slipnet_results:
+            raise NoResultFromSlipnet(activations_in.keys())
+        """
+        result: List[Codelet] = []
+        if slipnet_results:
+            result += [
+                CodeletsModule.Build(
+                    to_build = fm.try_to_fill_nones(node, sources, behalf_of),
+                    behalf_of=behalf_of
+                )
+                    for node in slipnet_results
+            ]
+        else:
+            print('QueryForSnagFixer: no slipnet_results!')
+        result.append(CodeletsModule.Sleep(agent=behalf_of))
+        return result
+        # TODO Also Sleep the Agent
+
+### Agent and ancillary classes and objects ###
+
+@dataclass(frozen=True)
+class Agent(CanReplaceRefs):
+    '''An Agent has no Python code. It holds only fields containing zero
+    or more codelets for each AgentState, and, optionally, fields for
+    parameters to the Agent. Due to the rules of dataclass inheritance,
+    you must specify those optional parameters by explicit keyword
+    arguments when constructing an instance of an Agent subclass.'''
+    born: Codelets = None
+    wake: Codelets = None
+    snag: Codelets = QueryForSnagFixer()
+    delegate_succeeded: Codelets = None
+    delegate_failed: Codelets = None
+    succeeded: Codelets = None
+    failed: Codelets = None
+
+    all_state_names: ClassVar[FrozenSet[str]] = frozenset((
+        'born', 'wake', 'snag', 'delegate_succeeded', 'delegate_failed',
+        'succeeded', 'failed'
+    ))
+
+    def short(self) -> str:
+        return self.__class__.__name__
+
+@dataclass(frozen=True)
+class AgentState:
+    name: str
+
+    def __str__(self):
+        return self.name
+
+Born = AgentState('born')
+Wake = AgentState('wake')
+Snag = AgentState('snag')
+Delegate_succeeded = AgentState('delegate_succeeded')
+Delegate_failed = AgentState('delegate_failed')
+Succeeded = AgentState('succeeded')
+Failed = AgentState('failed')
+Defunct = AgentState('defunct')
+Sleeping = AgentState('sleeping')
 
 ### Canvas, CellRef, things with the notion of avail values ###
 
@@ -349,6 +416,10 @@ class Workspace(HasRngSeed):
     graph that holds and connects their activations. All notions of Agents
     and Codelets are left to the FARGModel class.'''
     wsd: Dict[Node, NodeInWS] = field(default_factory=dict)
+    _tags_of: Dict[Node, Set[Node]] = field(
+        default_factory=lambda: defaultdict(set),
+        init=False
+    )
     activation_g: ActivationGraph = field(
         default_factory=ActivationGraph.empty
     )
@@ -427,6 +498,18 @@ class Workspace(HasRngSeed):
         # TODO Something needs to call an Agent's 'build' codelets
         # Put an .on-build() in this class and call it? FARGModel
         # can override it.
+
+    # TODO UT
+    def add_tag(self, taggee: Node, tag: Node) -> Node:
+        # TODO Make the tag's builder the agent in the tag?
+        tag = self.build(tag)
+        self._tags_of[taggee].add(tag)
+        return tag
+
+    # TODO UT
+    def tags_of(self, taggee: Node) -> Iterable[Node]:
+        for tag in as_iter(self._tags_of.get(taggee, None)):
+            yield tag
 
     def initial_state(self, obj: Node) -> AgentState:
         if isinstance(obj, Agent):
@@ -603,7 +686,11 @@ class FARGModel(Workspace):
             agent_state = self.agent_state(agent)
         #agent = agent.replace_refs(self, None)
         for i in range(num):
-            self.run_codelet(getattr(agent, agent_state.name), agent)
+            try:
+                self.run_codelet(getattr(agent, agent_state.name), agent)
+            except Fizzle as fiz:
+                self.add_tag(agent, fiz)
+                self.set_state(agent, Snag)
             agent_state = self.agent_state(agent)
         """
         sources = self.mk_sources(agent)
@@ -650,8 +737,12 @@ class FARGModel(Workspace):
         try:
             codelet_results = self.run_one_codelet(codelet, sources)
         except Fizzle as fiz:
-            fiz = replace(fiz, codelet=codelet)
-            #print('FIZZLE', repr(fiz))
+            fiz = replace(
+                fiz,
+                codelet=codelet,
+                agent=self.look_up_by_name('behalf_of', sources)
+            )
+            print('FIZZLE', str(fiz))
             if fiz.fk:
                 #print('FIZ', fiz.fk, sources)
                 fk = fiz.fk.replace_refs(self, sources)
@@ -677,7 +768,7 @@ class FARGModel(Workspace):
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
-        #print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
+        print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
         return codelet.run(**kwargs)
 
     def mk_sources(self, agent: Optional[Agent]=None) -> Sequence:
@@ -916,6 +1007,12 @@ class FARGModel(Workspace):
             self.t + sleep_duration
         )
 
+    def wake_sleepers(self) -> None:
+        for agent, wake_t in list(self.sleepers.items()):
+            if wake_t >= self.t:
+                del self.sleepers[agent]
+                self.set_state(agent, Wake)
+
     def agent_state(self, agent: Optional[Agent]) -> AgentState:
         '''Returns the current state of 'agent', or Defunct if 'agent'
         does not exist.'''
@@ -938,13 +1035,13 @@ class FARGModel(Workspace):
             until = self.t + num
         while self.t < until:
             self.t += 1
-            #self.remove_sleepers()
+            self.wake_sleepers()
             self.run_detectors()
             if ag is None:
                 agent = self.choose_agent_by_activation()
             else:
                 agent = ag
-            #print(f'\nAGENT {agent.__class__.__name__}  {self.agent_state(agent)}  t={self.t}')
+            print(f'\nAGENT {agent.__class__.__name__}  {self.agent_state(agent)}  t={self.t}')
             #pr(self)
             if agent:
                 self.run_agent(agent)
@@ -1026,8 +1123,12 @@ class FARGModel(Workspace):
 
 ### Exceptions ###
 
+class FARGException(Exception):
+    pass
+
 @dataclass(frozen=True)
-class Fizzle(Exception):
+class Fizzle(FARGException):
+    agent: Optional[Agent] = None
     codelet: Optional[Codelet] = None
 
     def __str__(self):
@@ -1041,7 +1142,7 @@ class Fizzle(Exception):
         else:
             return None
 
-class HaltFARGModel(Exception):
+class HaltFARGModel(FARGException):
     pass
 
 @dataclass(frozen=True)
@@ -1064,7 +1165,7 @@ class ValuesNotAvail(Fizzle):
 
     def __str__(self):
         cl = self.__class__.__name__
-        return f'{cl}({self.cellref}, avails={self.avails}, unavails={self.unavails})'
+        return f'{cl}({short(self.agent)}, {short(self.codelet)}, {self.cellref}, avails={self.avails}, unavails={self.unavails})'
 
 @dataclass(frozen=True)
 class NoResultFromSlipnet(Fizzle):
@@ -1076,3 +1177,5 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     value: Any = None
     type_needed: Any = None  # type annotation
+
+import Codelets as CodeletsModule

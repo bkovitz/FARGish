@@ -10,8 +10,9 @@ from time import process_time
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet, MissingArgument, \
     CellRef
-from Codelets import Build, Paint, Consume, BuildLitPainter, \
-    QuerySlipnetForDelegate, Sleep
+from Codelets import Build, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
+    Sleep
+from Consume import Consume
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
 from Equation import plus, minus, times

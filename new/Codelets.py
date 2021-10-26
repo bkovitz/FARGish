@@ -10,8 +10,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from FMTypes import Value, Node
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
-    NoResultFromSlipnet
-from Canvas import StepCanvas, Step, CellRef, Operator
+    NoResultFromSlipnet, CellRef
 from util import as_iter, trace, pr, pts, short
 
 
@@ -36,6 +35,10 @@ class Build(Codelet):
             return NewState(behalf_of, Wake)
         else:
             return None
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.to_build)})'
 
 @dataclass(frozen=True)
 class NewState(Codelet):
@@ -82,26 +85,6 @@ class TakeOperands(Codelet):
         taken, remaining = cellref.take_avails(operands)
         return DefineRefs(taken=taken, remaining=remaining)
 """
-
-@dataclass(frozen=True)
-class Consume(Codelet):
-    operator: R[Operator] = Ref('operator')
-    operands: R[Tuple[Value, ...]] = Ref('operands')
-    source: R[CellRef] = Ref('source')
-    result_in: R[str] = 'result'
-
-    def run(  # type: ignore[override]
-        self,
-        fm: FARGModel,
-        operator: Operator,
-        operands: Tuple[Value, ...],
-        source: CellRef,
-        result_in: str
-    ) -> CodeletResults:
-        return dict([
-            (result_in, operator.consume(source, operands)),
-            ('dest', source.next_cellref())
-        ])
 
 @dataclass(frozen=True)
 class BuildLitPainter(Codelet):

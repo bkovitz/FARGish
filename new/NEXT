@@ -38,18 +38,25 @@ Solve pons asinorum
 
         adjust support
 
-    NEXT Detector(15)
+    Detector(15)  DONE
 
-        RaiseException
+        RaiseException  DONE
 
-        Call Detectors from FARGModel
-
+        Call Detectors from FARGModel  DONE
 
     Slipnet of Consumers  DONE
 
-    do_timestep()
+    do_timestep()  DONE
+
+    CanRun predicate to select Agents
+
+    atest for pons asinorum
+
+        Snag Tag for Consumer with ValuesNotAvail
 
     maybe
+
+        blur Consumers with almost-same slipnet activation together?
 
         Merge slipnet results (to get _ + _ = _)
 

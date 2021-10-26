@@ -19,7 +19,7 @@ from Equation import plus
 from Graph import Graph
 from Slipnet import Slipnet
 
-from util import pr, pts, trace
+from util import pr, pts, trace, short
 
 
 class TestAgents(unittest.TestCase):
@@ -119,10 +119,14 @@ class TestAgents(unittest.TestCase):
                 on_success=RaiseException(SolvedPuzzle)
             ))
 
-            with self.assertRaises(SolvedPuzzle):
+            with self.assertRaises(
+                SolvedPuzzle, msg=f'SolvedPuzzle not raised; seed={seed}'
+            ):
                 fm.do_timestep(num=6)
-            #print()
-            #pr(fm, extra=True)
+                print()
+                print('WA', short(wa))
+                print()
+                pr(fm, extra=True)
             self.assertEqual(ca[1], self.step1, f'seed={seed}')
 
 
