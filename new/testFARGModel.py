@@ -9,7 +9,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R
+from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R, \
+    first_arg_is_ws, Workspace, as_wspred
 from Canvas import StepCanvas, Step
 from util import pr, pts, is_iter, first
 
@@ -95,3 +96,12 @@ class TestFARGModel(unittest.TestCase):
         agent = fm.build(ag)
         fm.run_agent(agent, Born)
         self.assertEqual(DummyCodelet.depository, 'FROM AGENT')
+
+    def test_first_arg_is_ws(self) -> None:
+        self.assertTrue(first_arg_is_ws(Agent.CanRun))
+        self.assertFalse(first_arg_is_ws(lambda ws, x: x))
+        def f(ws: Workspace, x: int) -> int:
+            return x
+        self.assertTrue(first_arg_is_ws(f))
+
+        self.assertEqual(as_wspred(Agent.CanRun), Agent.CanRun)

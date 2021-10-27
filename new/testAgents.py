@@ -106,8 +106,8 @@ class TestAgents(unittest.TestCase):
             fm.run_detector(det)
 
     def test_timestep1(self) -> None:
-        '''Verifies that Want does something on its first two timesteps,
-        and then sleeps, and then another Agent gets called upon.'''
+        # Verifies that Want does something on its first two timesteps,
+        # and then sleeps, and then another Agent gets called upon.
         slipnet = Slipnet(Graph.with_features([
             Consumer.make(plus, (4, 5))
         ]))
@@ -126,6 +126,7 @@ class TestAgents(unittest.TestCase):
 
             fm.do_timestep()  # the Want should build a Detector
             self.assertEqual(fm.t, 1)
+            #pr(fm.codelets_just_run)
             self.assertEqual(fm.agent_state(wa), Wake)
 
             fm.do_timestep()  # the Want should build a Consumer

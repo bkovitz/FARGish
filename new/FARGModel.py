@@ -261,6 +261,21 @@ class Agent(CanReplaceRefs):
         'succeeded', 'failed'
     ))
 
+    def get_codelets(self, agent_state: AgentState) -> Codelets:
+        return getattr(self, agent_state.name, None)
+
+    @classmethod
+    def CanRun(cls, fm: FARGModel, node: Node) -> bool:
+        '''Is 'node' an Agent that can run right now? An Agent can run if it's
+        not sleeping and it has codelets defined for its current state.'''
+        if isinstance(node, Agent):
+            if fm.is_sleeping(node):
+                return False
+            else:
+                return bool(node.get_codelets(fm.agent_state(node)))
+        else:
+            return False
+
     def short(self) -> str:
         return self.__class__.__name__
 
@@ -667,9 +682,9 @@ def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
         return lambda ws, x: match_wo_none(x, o)
 
 def first_arg_is_ws(o: Callable) -> bool:
-    p0 = first(signature(o).parameters.values())
+    arg1type = first(get_type_hints(o).values())
     try:
-        return issubclass(p0.annotation, Workspace)
+        return issubclass(arg1type, Workspace)
     except TypeError:
         return False
 
@@ -708,7 +723,8 @@ class FARGModel(Workspace):
         #agent = agent.replace_refs(self, None)
         for i in range(num):
             try:
-                self.run_codelet(getattr(agent, agent_state.name), agent)
+                #self.run_codelet(getattr(agent, agent_state.name), agent)
+                self.run_codelet(agent.get_codelets(agent_state), agent)
             except Fizzle as fiz:
                 self.add_tag(agent, fiz)
                 self.set_state(agent, Snag)
@@ -1082,9 +1098,12 @@ class FARGModel(Workspace):
 
     def choose_agent_by_activation(self) -> Optional[Agent]:
         # TODO Include "not sleeping" in the predicate
+        """
         agents: List[Agent] = [
             ag for ag in self.nodes(Agent) if not self.is_sleeping(ag)   # type: ignore[misc]
         ]
+        """
+        agents: List[Agent] = list(self.nodes(Agent.CanRun))  # type: ignore[arg-type]
         #print('AGENTS', short(agents))
         activations = [self.a(ag) for ag in agents]
 
