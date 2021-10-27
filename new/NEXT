@@ -48,7 +48,11 @@ Solve pons asinorum
 
     do_timestep()  DONE
 
-    CanRun predicate to select Agents
+    NEXT CanRun predicate to select Agents
+
+    UT to call do_timestep() on Want, one step at a time. Verify that it sleeps
+    at the right time, and verify that it is not called upon when it's
+    sleeping.  DONE
 
     atest for pons asinorum
 

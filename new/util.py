@@ -270,6 +270,13 @@ def is_seq_of(x: Any, clas: Type) -> bool:
         except IndexError:
             return False
     return False
+
+def class_of(x: Any) -> bool:
+    '''Returns x's class, or, if x is a class object, returns x.'''
+    if isclass(x):
+        return x
+    else:
+        return x.__class__
     
 # TODO rm (OAOO Node.py)
 def is_nodeid(x):

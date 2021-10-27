@@ -17,7 +17,7 @@ from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
-    is_dataclass_instance, make_nonoptional, dict_str, short
+    is_dataclass_instance, make_nonoptional, dict_str, short, class_of
 
 
 T = TypeVar('T')
@@ -101,6 +101,21 @@ class Codelet(ABC, CodeletDataclassMixin, CanReplaceRefs):
 Codelets = Union[None, Codelet, Sequence[Codelet]]
 CodeletResult = Union[None, Codelet, Dict[str, Any]]
 CodeletResults = Union[CodeletResult, Sequence[CodeletResult]]
+
+@dataclass(frozen=True)
+class CodeletRun:
+    '''A record of one instance of a specific codelet running.'''
+    codelet: Union[Codelet, Type[Codelet]]
+    kwargs: Dict[str, Any]  # the arguments that were passed to codelet.run
+    t: int                  # the timestep
+    agent: Optional[Agent]  # the agent that ran the codelet
+
+    def __str__(self) -> str:
+        return f'{short(self.codelet)} {dict_str(self.kwargs, short)} t={self.t} {short(self.agent)}'
+
+    def clis(self, c: Union[Codelet, Type[Codelet]]) -> bool:
+        '''Is .codelet the same class as c?'''
+        return class_of(c) == class_of(self.codelet)
 
 class NullCodelet(Codelet):
 
@@ -667,6 +682,11 @@ class FARGModel(Workspace):
 
     sleepers: Dict[Agent, int] = field(default_factory=dict, init=False)
         # Agent: timestep at which to wake up
+    codelets_just_run: List[CodeletRun] = field(
+        default_factory=list, init=False
+    )   # the codelets that were run in the current timestep
+    agents_just_run: List[Agent] = field(default_factory=list, init=False)
+        # the agents that were run in the current timestep
 
     def run_agent(
         self,
@@ -684,6 +704,7 @@ class FARGModel(Workspace):
             return
         if agent_state is None:
             agent_state = self.agent_state(agent)
+        self.agents_just_run.append(agent)
         #agent = agent.replace_refs(self, None)
         for i in range(num):
             try:
@@ -742,7 +763,7 @@ class FARGModel(Workspace):
                 codelet=codelet,
                 agent=self.look_up_by_name('behalf_of', sources)
             )
-            print('FIZZLE', str(fiz))
+            #print('FIZZLE', str(fiz))
             if fiz.fk:
                 #print('FIZ', fiz.fk, sources)
                 fk = fiz.fk.replace_refs(self, sources)
@@ -768,8 +789,16 @@ class FARGModel(Workspace):
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
-        print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
+        #print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
+        self.codelets_just_run.append(CodeletRun(
+            codelet, kwargs, self.t, self.look_up_by_name('behalf_of', sources)
+        ))
         return codelet.run(**kwargs)
+
+    def agent_just_ran(self, agent: Agent) -> bool:
+        '''Did agent just run, i.e. in the current timestep? Mostly useful for
+        unit testing and debugging.'''
+        return agent in self.agents_just_run
 
     def mk_sources(self, agent: Optional[Agent]=None) -> Sequence:
         if agent:
@@ -1009,8 +1038,9 @@ class FARGModel(Workspace):
 
     def wake_sleepers(self) -> None:
         for agent, wake_t in list(self.sleepers.items()):
-            if wake_t >= self.t:
+            if self.t >= wake_t:
                 del self.sleepers[agent]
+                #print('WAKING', short(agent), wake_t, self.t)
                 self.set_state(agent, Wake)
 
     def agent_state(self, agent: Optional[Agent]) -> AgentState:
@@ -1035,13 +1065,15 @@ class FARGModel(Workspace):
             until = self.t + num
         while self.t < until:
             self.t += 1
+            self.codelets_just_run.clear()
+            self.agents_just_run.clear()
             self.wake_sleepers()
             self.run_detectors()
             if ag is None:
                 agent = self.choose_agent_by_activation()
             else:
                 agent = ag
-            print(f'\nAGENT {agent.__class__.__name__}  {self.agent_state(agent)}  t={self.t}')
+            #print(f'\nAGENT {agent.__class__.__name__}  {self.agent_state(agent)}  t={self.t}')
             #pr(self)
             if agent:
                 self.run_agent(agent)
@@ -1050,9 +1082,10 @@ class FARGModel(Workspace):
 
     def choose_agent_by_activation(self) -> Optional[Agent]:
         # TODO Include "not sleeping" in the predicate
-        agents = [
-            ag for ag in self.nodes(Agent) if not self.is_sleeping(ag)
+        agents: List[Agent] = [
+            ag for ag in self.nodes(Agent) if not self.is_sleeping(ag)   # type: ignore[misc]
         ]
+        #print('AGENTS', short(agents))
         activations = [self.a(ag) for ag in agents]
 
         #print(f'CHOO t={self.t}')
