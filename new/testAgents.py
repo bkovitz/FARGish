@@ -11,7 +11,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 
 from Agents import LitPainter, Consumer, Want
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
-    Succeeded, SolvedPuzzle
+    Succeeded, SolvedPuzzle, Agent
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
@@ -134,6 +134,7 @@ class TestAgents(unittest.TestCase):
             self.assertEqual(fm.agent_state(wa), Sleeping)
             co: Any = fm.the(Consumer)
             self.assertIsInstance(co, Consumer)
+            self.assertCountEqual(fm.nodes(Agent.CanRun), [co])
 
             fm.do_timestep()  # the Consumer should build a LitPainter
             self.assertEqual(fm.t, 3)

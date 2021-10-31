@@ -8,13 +8,14 @@ from inspect import isclass
 from dataclasses import dataclass, Field, fields, is_dataclass, InitVar, field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
-    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
     runtime_checkable, get_origin, get_args
 import typing
 from contextlib import AbstractContextManager
 from types import SimpleNamespace
 from itertools import chain, tee, filterfalse
 import functools
+import csv
 
 
 # Useful global constants
@@ -237,6 +238,8 @@ def short(o) -> str:
         return f"[{', '.join(short(x) for x in o)}]"
     elif isinstance(o, tuple):
         return f"({', '.join(short(x) for x in o)})"
+    elif isclass(o):
+        return o.__name__
     else:
         try:
             return o.short()
@@ -281,6 +284,18 @@ def class_of(x: Any) -> bool:
 # TODO rm (OAOO Node.py)
 def is_nodeid(x):
     return isinstance(x, int)
+
+def write_dict_to_csv(
+    self,
+    d: Dict,
+    mode: str,
+    prefix: Optional[Sequence]=None,
+    filename: str='a.csv'
+) -> None:
+    with open(filename, mode=mode, newline='') as csvfile:
+        writer = csv.writer(csvfile, quoting=csv.QUOTE_NONNUMERIC)
+        for key, value in d.items():
+            writer.writerow(as_list(prefix) + [short(key), value])
 
 def reseed(seed=None):
     '''With seed=None: reseeds Python's random-number generator with a new,
@@ -647,28 +662,28 @@ def trace(func):
         return result
     return wrapper
 
-def pts(ls: Iterable, n=None):
+def pts(ls: Iterable, n=None, key=str):
     '''Prints ls as a table of strings. For debugging.'''
     for i, x in enumerate(as_iter(ls)):
         if n is not None and i >= n:
             break
         if is_iter(x):
-            print(', '.join(str(y) for y in x))
+            print(', '.join(key(y) for y in x))
         else:
-            print(str(x))
+            print(key(x))
 
-def pl(x: Any):
+def pl(x: Any, key=str):
     '''Prints x as a list, one line at a time.'''
     for a in as_iter(x):
-        print(a)
+        print(key(a))
 
-def pr(x: Any, *args, **kwargs):
+def pr(x: Any, *args, key=short, **kwargs):
     '''Prints x as a list, one line at a time, alphabetized.'''
     if hasattr(x, 'pr'):
         x.pr(*args, **kwargs)
     elif isinstance(x, dict):
-        pts(sorted(x.items(), key=str))
+        pts(sorted(x.items(), key=key), key=key)
     else:
-        pts(sorted(as_iter(x), key=str))
+        pts(sorted(as_iter(x), key=key), key=key)
 #        for s in sorted(str(a) for a in as_iter(x)):
 #            print(s)

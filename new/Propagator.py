@@ -2,13 +2,16 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, replace, field
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
+    runtime_checkable
 from random import gauss
 from collections import defaultdict
 import sys
 
 from FMTypes import ADict, Node
+from Log import ALogger
 
 
 def reverse_sigmoid(x: float, p: float=0.5):
@@ -149,16 +152,23 @@ class Propagator(ABC, PropagatorDataclassMixin):
         self,
         g,
         old_d: Union[ADict, None],
-        num_iterations=None
+        num_iterations=None,
+        alogger: Optional[ALogger]=None
     ) -> ADict:
         if old_d is None:
             old_d = {}
         self.flows.clear()
+        if alogger:
+            alogger.write(old_d)
         if num_iterations is None:
             num_iterations = self.num_iterations
         new_d = old_d
         for i in range(num_iterations):
             new_d = self.propagate_once(g, new_d)
+            if alogger:
+                alogger.bump_subt()
+                alogger.write(new_d)
+                #print('PROP', len(new_d), alogger.filename)
         return new_d
 
     @abstractmethod

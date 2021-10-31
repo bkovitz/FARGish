@@ -15,6 +15,7 @@ from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, ADict
 from Propagator import Propagator
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
+from Log import ALogger
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of
@@ -219,7 +220,9 @@ class QueryForSnagFixer(Codelet):
             k=4,
             num_get=1
         )
-        slipnet_results = fm.pulse_slipnet(**kwargs) # type: ignore[arg-type]
+        #alogger = ALogger(t=fm.t, filename=short(behalf_of)) #, mode='w')
+        alogger = None
+        slipnet_results = fm.pulse_slipnet(alogger=alogger, **kwargs) # type: ignore[arg-type]
         """ # TODO
         if not slipnet_results:
             raise NoResultFromSlipnet(activations_in.keys())
@@ -1027,10 +1030,11 @@ class FARGModel(Workspace):
         activations_in: Dict[Node, float],
         pred: Pred=None,
         k: int=20,      # max number of most active slipnodes to choose among
-        num_get: int=1  # max number of slipnodes to return
+        num_get: int=1, # max number of slipnodes to return
+        alogger: Optional[ALogger]=None
     ) -> List[Node]:
         #print('PULSE')
-        sd = self.slipnet.dquery(activations_in=activations_in)
+        sd = self.slipnet.dquery(activations_in=activations_in, alogger=alogger)
         #pts(sd)
         nas = self.slipnet.topna(sd, pred=pred, k=k)
         #pts(nas)

@@ -41,10 +41,10 @@ def run(bricks: Sequence[int], target: int, seed: int=1) -> None:
         on_success=RaiseException(SolvedPuzzle)
     ))
 
-    try:
-        fm.do_timestep(num=20)
-    except Exception as exc:
-        print(exc)
+#    try:
+    fm.do_timestep(num=20)
+#    except Exception as exc:
+#        print(exc)
     pr(fm, extra=True)
 
 

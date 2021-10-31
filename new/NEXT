@@ -48,7 +48,7 @@ Solve pons asinorum
 
     do_timestep()  DONE
 
-    NEXT CanRun predicate to select Agents
+    CanRun predicate to select Agents  DONE
 
     UT to call do_timestep() on Want, one step at a time. Verify that it sleeps
     at the right time, and verify that it is not called upon when it's
@@ -56,7 +56,19 @@ Solve pons asinorum
 
     atest for pons asinorum
 
-        Snag Tag for Consumer with ValuesNotAvail
+        Snag Tag for Consumer with ValuesNotAvail  DONE
+
+        NEXT Log spreading activation in slipnet
+
+            In Propagator, save activations dict in form that can be plotted.
+
+        Plot spreading activation in slipnet
+
+        log agents
+
+        log codelets
+
+        MakeVariant: get operands from avails
 
     maybe
 

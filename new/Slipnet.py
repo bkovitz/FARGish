@@ -2,9 +2,10 @@
 #               by additional nodes and edges from the workspace
 
 from dataclasses import dataclass, field, InitVar
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence, Literal, Protocol, runtime_checkable
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
+    runtime_checkable
 from copy import copy
 from collections import defaultdict
 from heapq import nlargest
@@ -13,6 +14,7 @@ from operator import itemgetter, attrgetter
 from FMTypes import Activation, ADict, epsilon, Pred, as_pred
 from Graph import Graph, Node, GraphPropagatorOutgoing
 from Propagator import Propagator
+from Log import ALogger
 from util import as_iter, union, pr
 
 
@@ -125,13 +127,15 @@ class Slipnet:
     def dquery(
         self,
         features: Union[Sequence[Hashable], None]=None,
-        activations_in: Union[ADict, None]=None
+        activations_in: Union[ADict, None]=None,
+        alogger: Optional[ALogger]=None
     ) -> ADict:
         '''Performs the propagation (spreading activation) starting from
         activations_in, and returns the resulting dictionary of activations.'''
         return self.propagator.propagate(
             self.base_graph,
-            self.make_activations_in(features, activations_in)
+            self.make_activations_in(features, activations_in),
+            alogger=alogger
         )
 
     @classmethod
