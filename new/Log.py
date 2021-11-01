@@ -12,6 +12,7 @@ from FMTypes import ADict
 from util import short
 
 
+""" TODO rm
 @dataclass
 class ALogger:
     '''An activation logger.'''
@@ -36,3 +37,4 @@ class ALogger:
 
     def bump_subt(self) -> None:
         self.subt += 1
+"""

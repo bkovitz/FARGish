@@ -12,10 +12,9 @@ import inspect
 from inspect import isclass, signature
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, ADict
-from Propagator import Propagator
+from Propagator import Propagator, ActivationLogs, ActivationLog
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
-from Log import ALogger
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of
@@ -221,8 +220,8 @@ class QueryForSnagFixer(Codelet):
             num_get=1
         )
         #alogger = ALogger(t=fm.t, filename=short(behalf_of)) #, mode='w')
-        alogger = None
-        slipnet_results = fm.pulse_slipnet(alogger=alogger, **kwargs) # type: ignore[arg-type]
+        alog = fm.start_alog((behalf_of, self))
+        slipnet_results = fm.pulse_slipnet(alog=alog, **kwargs) # type: ignore[arg-type]
         """ # TODO
         if not slipnet_results:
             raise NoResultFromSlipnet(activations_in.keys())
@@ -705,6 +704,7 @@ class FARGModel(Workspace):
     )   # the codelets that were run in the current timestep
     agents_just_run: List[Agent] = field(default_factory=list, init=False)
         # the agents that were run in the current timestep
+    alogs: ActivationLogs = field(default_factory=ActivationLogs)
 
     def run_agent(
         self,
@@ -1025,16 +1025,19 @@ class FARGModel(Workspace):
             num_get=num_get
         )
 
+    def start_alog(self, label: Hashable) -> ActivationLog:
+        return self.alogs.start_alog(self.t, label)
+
     def pulse_slipnet(
         self,
         activations_in: Dict[Node, float],
         pred: Pred=None,
         k: int=20,      # max number of most active slipnodes to choose among
         num_get: int=1, # max number of slipnodes to return
-        alogger: Optional[ALogger]=None
+        alog: Optional[ActivationLog]=None
     ) -> List[Node]:
         #print('PULSE')
-        sd = self.slipnet.dquery(activations_in=activations_in, alogger=alogger)
+        sd = self.slipnet.dquery(activations_in=activations_in, alog=alog)
         #pts(sd)
         nas = self.slipnet.topna(sd, pred=pred, k=k)
         #pts(nas)

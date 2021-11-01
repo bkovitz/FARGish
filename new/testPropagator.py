@@ -7,8 +7,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Callable
 from itertools import chain
 
-from Propagator import Propagator, Delta
+from FMTypes import ADict
+from Propagator import Propagator, Delta, ActivationLog
 from Graph import Graph, Node, EnumNodes, EnumEdges, Hops
+from util import pr, pts
 
 
 class MyPropagator(Propagator):
@@ -42,3 +44,10 @@ class TestPropagator(unittest.TestCase):
         self.assertAlmostEqual(d['A'], 0.569072143062159)
         self.assertAlmostEqual(d['B'], 0.319848331226608)
         self.assertAlmostEqual(d['O'], 0.11107952571123292)
+
+    def test_activation_log(self) -> None:
+        activations_in: ADict = dict(A=1.0, B=0.5, O=0.0)
+        alog = ActivationLog(activations_in)
+        # Just a smoke test for now
+        # pr(alog)
+        # TODO alog.num_nodes() should == 3

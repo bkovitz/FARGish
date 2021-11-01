@@ -11,7 +11,6 @@ from FMTypes import Value, Node
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
     NoResultFromSlipnet, CellRef
-from Log import ALogger
 from util import as_iter, trace, pr, pts, short
 
 
@@ -115,8 +114,10 @@ class QuerySlipnetForDelegate(Codelet):
         sources: Sources
     ) -> CodeletResults:
         kwargs = fm.mk_slipnet_args(qargs, sources)
-        alogger = ALogger(t=fm.t, filename=short(behalf_of) + '.csv') #, mode='w')
-        slipnet_results = fm.pulse_slipnet(alogger=alogger, **kwargs)
+        slipnet_results = fm.pulse_slipnet(
+            alog=fm.start_alog((behalf_of, self)),
+            **kwargs
+        )
         if not slipnet_results:
             raise NoResultFromSlipnet(qargs=qargs)
         return [

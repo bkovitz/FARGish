@@ -1,7 +1,8 @@
 # Propagator.py
 
+from __future__ import annotations
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, replace, field
+from dataclasses import dataclass, replace, field, InitVar
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
@@ -10,8 +11,10 @@ from random import gauss
 from collections import defaultdict
 import sys
 
+import matplotlib.pyplot as plt  # type: ignore[import]
+
 from FMTypes import ADict, Node
-from Log import ALogger
+from util import trace, short, pl, first, pr, pts
 
 
 def reverse_sigmoid(x: float, p: float=0.5):
@@ -27,7 +30,6 @@ def reverse_sigmoid(x: float, p: float=0.5):
 
     When p = 1.0, the function is equivalent to y=x.
     '''
-
     if x < 0:
         x = -x
     return x ** p / (x ** p + (1 - x) ** p)
@@ -153,22 +155,25 @@ class Propagator(ABC, PropagatorDataclassMixin):
         g,
         old_d: Union[ADict, None],
         num_iterations=None,
-        alogger: Optional[ALogger]=None
+        alog: Optional[ActivationLog]=None
+        #alogger: Optional[ALogger]=None  # TODO rm alogger
     ) -> ADict:
+        '''Propagates activation, starting with the nodes and activations in
+        old_d, num_iterations times. Returns new activation dictionary.
+        Side-effect: self.alog holds a log of all the activations in this call
+        to .propagate(), at each iteration.'''
         if old_d is None:
             old_d = {}
         self.flows.clear()
-        if alogger:
-            alogger.write(old_d)
+        if alog:
+            alog.add_dict(old_d)
         if num_iterations is None:
             num_iterations = self.num_iterations
         new_d = old_d
         for i in range(num_iterations):
             new_d = self.propagate_once(g, new_d)
-            if alogger:
-                alogger.bump_subt()
-                alogger.write(new_d)
-                #print('PROP', len(new_d), alogger.filename)
+            if alog:
+                alog.add_dict(new_d)
         return new_d
 
     @abstractmethod
@@ -196,3 +201,124 @@ class Propagator(ABC, PropagatorDataclassMixin):
         for node in result:
             result[node] *= scale_up
         return result
+
+@dataclass
+class ActivationLogs:
+    '''A collection of ActivationLog objects, indexed by arbitrary labels.
+    An ActivationLogs object can make an ALogger object to pass down the
+    stack, ultimately to Propagator.propagate() so it knows where to record
+    node activations during one sequence of spreading activation.'''
+    logs: Dict[Hashable, ActivationLog] = field(default_factory=dict)
+        # key is ActivationLog.label
+
+    # TODO UT
+    def start_alog(self, t: int, label: Hashable) -> ActivationLog:
+        alog = ActivationLog(t=t, label=label)
+        self.logs[label] = alog
+        return alog
+
+    def pr(self) -> None:
+        for alog in self.logs.values():
+            print(f'{alog.t:3} {short(alog.label):40} {alog.num_nodes()}')
+
+@dataclass
+class ActivationLog:
+    '''A record of a series of activations from the beginning to the end of
+    one call to Propagator.propagate().'''
+    tsd: Dict[Node, NodeTimeseries] = field(
+        init=False, default_factory=dict
+    )
+    adict0: InitVar[Optional[ADict]] = None
+    subt: Optional[int] = None  # Current timestep within spreading activation
+    label: Hashable = None
+    t: Optional[int] = None  # Current timestep at the top level of the model
+
+    def __post_init__(self, adict0: Optional[ADict]=None):
+        '''adict0 is activations_in at timestep 0.'''
+        if adict0:
+            self.add_dict(adict0, subt=self.subt)
+
+    def add_item(self, node: Node, subt: int, a: float) -> None:
+        try:
+            ts = self.tsd[node]
+        except KeyError:
+            ts = NodeTimeseries(node)
+            self.tsd[node] = ts
+        ts.add(subt, a)
+
+    def add_dict(self, d: ADict, subt: Optional[int]=None) -> None:
+        if subt is None:
+            if self.subt is None:
+                self.subt = 0
+            else:
+                self.subt += 1
+        else:
+            self.subt = subt
+        for node, a in d.items():
+            self.add_item(node, self.subt, a)
+        
+    def num_nodes(self) -> int:
+        '''Returns maximum number of nodes at any timestep.'''
+        return max(len(ts) for ts in self.tsd.values())
+
+    def pr(self, *args, **kwargs) -> None:
+        for ts in self.tsd.values():
+            pr(ts)
+
+    def plot(self) -> None:
+        plt.ion()
+        plt.clf()
+        plt.xlabel('subt')
+        plt.ylabel('a')
+        for ts in self.tsd.values():
+            ts.plot()
+        max_subt = max((ts.max_subt() for ts in self.tsd.values()), default=0)
+        max_a = max((ts.max_a() for ts in self.tsd.values()), default=0.0)
+        plt.axis([0, max_subt, 0, max_a])
+        plt.legend()
+        
+
+@dataclass
+class NodeTimeseries:
+    '''A record of a single Node's activations during one run of
+    Propagator.propagate().'''
+    node: Node
+    aa: Dict[int, float] = field(default_factory=dict)   # timeseries
+
+    def min_subt(self) -> int:
+        '''First timestep.'''
+        return min(self.aa.keys(), default=0)
+
+    def max_subt(self) -> int:
+        '''Last timestep.'''
+        return max(self.aa.keys(), default=0)
+
+    def min_a(self) -> float:
+        '''Minimum activation.'''
+        return min(self.aa.values(), default=0.0)
+
+    def max_a(self) -> float:
+        '''Maximum activation.'''
+        return max(self.aa.values(), default=0.0)
+
+    def first_a(self) -> float:
+        '''First activation.'''
+        return first(self.aa.values())
+
+    def last_a(self) -> float:
+        '''Last activation.'''
+        return list(self.aa.values())[-1]
+
+    def add(self, subt: int, a: float) -> None:
+        self.aa[subt] = a
+
+    def plot(self) -> None:
+        plt.plot(self.aa.keys(), self.aa.values(), label=short(self.node))
+
+    def __len__(self) -> int:
+        return len(self.aa)
+
+    def short(self) -> str:
+        return f'{self.node:30} {self.min_subt()}..{self.max_subt()}  {self.min_a():6.3f} ..{self.max_a():6.3f}  {self.first_a():6.3f} ..{self.last_a():6.3f}'
+
+

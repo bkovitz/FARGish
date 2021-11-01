@@ -13,8 +13,7 @@ from operator import itemgetter, attrgetter
 
 from FMTypes import Activation, ADict, epsilon, Pred, as_pred
 from Graph import Graph, Node, GraphPropagatorOutgoing
-from Propagator import Propagator
-from Log import ALogger
+from Propagator import Propagator, ActivationLog
 from util import as_iter, union, pr
 
 
@@ -128,14 +127,14 @@ class Slipnet:
         self,
         features: Union[Sequence[Hashable], None]=None,
         activations_in: Union[ADict, None]=None,
-        alogger: Optional[ALogger]=None
+        alog: Optional[ActivationLog]=None
     ) -> ADict:
         '''Performs the propagation (spreading activation) starting from
         activations_in, and returns the resulting dictionary of activations.'''
         return self.propagator.propagate(
             self.base_graph,
             self.make_activations_in(features, activations_in),
-            alogger=alogger
+            alog=alog
         )
 
     @classmethod

@@ -52,3 +52,9 @@ class TestPons(unittest.TestCase):
 
     def test_pons(self) -> None:
         run(bricks=[4, 5, 6], target=15)
+
+if __name__ == '__main__':
+    run(bricks=[4, 5, 6], target=15)
+    als = fm.alogs
+    pr(als)
+    

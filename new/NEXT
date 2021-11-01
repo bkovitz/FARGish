@@ -58,9 +58,11 @@ Solve pons asinorum
 
         Snag Tag for Consumer with ValuesNotAvail  DONE
 
-        NEXT Log spreading activation in slipnet
+        Log spreading activation in slipnet
 
-            In Propagator, save activations dict in form that can be plotted.
+            In Propagator, save activations dict in form that can be plotted. DONE?
+            NEXT Pass ActivationLog as an argument all the way down through the
+            stack.
 
         Plot spreading activation in slipnet
 
