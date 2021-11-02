@@ -74,12 +74,14 @@ Solve pons asinorum
 
             add __len__ to Slipnet and Graph  DONE
             
-            in atestPons
+            in atestPons DONE
 
-            NEXT Add .num_iterations parameter to FARGModel; propagate it to
-            Slipnet Propagator.
+            Add .num_iterations parameter to FARGModel; propagate it to
+            Slipnet Propagator.  DONE
 
-        log agents
+            Add pred parameter to .plot(). DONE
+
+        NEXT log agents
 
         log codelets
 
@@ -96,6 +98,8 @@ Solve pons asinorum
 Other things
 
     Query slipnet to resolve snags.
+
+        Make some codelets to resolve snags.
 
     Overriding/varying Agent arguments.
 

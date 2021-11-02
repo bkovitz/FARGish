@@ -14,7 +14,7 @@ import sys
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
-from FMTypes import ADict, Node
+from FMTypes import ADict, Node, Pred, as_pred
 from util import trace, short, pl, first, pr, pts
 
 
@@ -294,22 +294,28 @@ class ActivationLog:
         for ts in self.tsd.values():
             pr(ts)
 
-    def plot(self, n: Optional[int]=None) -> None:
+    def plot(self, pred: Pred=None, *, n: Optional[int]=None) -> None:
         plt.ion()
         plt.clf()
         plt.gcf().set_size_inches(8, 8)
         plt.xlabel('subt')
         plt.ylabel('a')
-        tss: Iterable[NodeTimeseries] = self.tsd.values()
+        #tss: Iterable[NodeTimeseries] = self.tsd.values()
+        tss = self.tss(pred)
         if n:
             tss = nlargest(n, tss, lambda ts: ts.max_a())
         for ts in tss:
             ts.plot()
-        max_subt = max((ts.max_subt() for ts in self.tsd.values()), default=0)
-        max_a = max((ts.max_a() for ts in self.tsd.values()), default=0.0)
+        max_subt = max((ts.max_subt() for ts in tss), default=0)
+        max_a = max((ts.max_a() for ts in tss), default=0.0)
         plt.axis([0, max_subt, 0, max_a])
         plt.legend()
         plt.suptitle(str(self))
+
+    def tss(self, pred: Pred=None) -> List[NodeTimeseries]:
+        '''pred selects Nodes.'''
+        pred: Callable[[Any], bool] = as_pred(pred)
+        return [ts for ts in self.tsd.values() if pred(ts.node)]
 
 @dataclass
 class NodeTimeseries:

@@ -12,7 +12,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef
-from Graph import Graph
+from Graph import Graph, Before, After
 from Slipnet import Slipnet
 from Agents import Want, Consumer
 from Codelets import RaiseException
