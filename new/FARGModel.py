@@ -183,9 +183,17 @@ QArgs = Union[None, Node, QArg, Sequence[Union[Node, QArg]]]
 class SnaggedAgent(Feature):
     agent: Agent
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.agent)})'
+
 @dataclass(frozen=True)
 class Unsnag(Feature):
     tag: Node
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.tag)})'
 
 @dataclass(frozen=True)
 class QueryForSnagFixer(Codelet):

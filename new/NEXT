@@ -66,12 +66,18 @@ Solve pons asinorum
             Pass ActivationLog as an argument all the way down through the
             stack. DONE
 
+            Include timestep in ActivationLogs dict key. DONE
+
+            Fix .num_nodes()  DONE
 
         Plot spreading activation in slipnet
 
             add __len__ to Slipnet and Graph  DONE
             
-            NEXT in atestPons
+            in atestPons
+
+            NEXT Add .num_iterations parameter to FARGModel; propagate it to
+            Slipnet Propagator.
 
         log agents
 
@@ -102,3 +108,8 @@ Small things
     Give the() a generic return type.
 
     short() to print short strings  DONE
+
+Exciting things
+
+    Record the current context with a desired codelet, and get that codelet
+    to be triggered when the same context recurs.

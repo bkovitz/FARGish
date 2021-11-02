@@ -203,24 +203,26 @@ class Propagator(ABC, PropagatorDataclassMixin):
             result[node] *= scale_up
         return result
 
+ALogsKey = Tuple[Optional[int], Hashable]  # (timestep, label)
+    # key to look up an ActivationLog in ActivationLogs.
+
 @dataclass
 class ActivationLogs:
     '''A collection of ActivationLog objects, indexed by arbitrary labels.
     An ActivationLogs object can make an ALogger object to pass down the
     stack, ultimately to Propagator.propagate() so it knows where to record
     node activations during one sequence of spreading activation.'''
-    logs: Dict[Hashable, ActivationLog] = field(default_factory=dict)
-        # key is ActivationLog.label
+    logs: Dict[ALogsKey, ActivationLog] = field(default_factory=dict)
 
     # TODO UT
     def start_alog(self, t: int, label: Hashable) -> ActivationLog:
         alog = ActivationLog(t=t, label=label)
-        self.logs[label] = alog
+        self.logs[(t, label)] = alog
         return alog
 
     def pr(self) -> None:
         for alog in self.logs.values():
-            print(f'{alog.t:3} {short(alog.label):40} {alog.num_nodes()}')
+            print(f'{alog.t:3} {short(alog.label):40} {alog.num_pulsed_nodes()}, {alog.num_nodes()}')
 
 @dataclass
 class ActivationLog:
@@ -269,9 +271,24 @@ class ActivationLog:
         for node, a in d.items():
             self.add_item(node, self.subt, a)
         
+    # TODO UT
     def num_nodes(self) -> int:
         '''Returns maximum number of nodes at any timestep.'''
-        return max(len(ts) for ts in self.tsd.values())
+        return len(self.tsd)
+
+    # TODO UT
+    def num_pulsed_nodes(self) -> int:
+        '''Returns the number of nodes with non-zero activation at subt=0.'''
+        return sum(
+            1 for ts in self.tsd.values() if ts.is_pulsed_node()
+        )
+
+    def pulsed_nodes(self) -> Iterable[Node]:
+        '''Returns an iterable containing all the nodes with non-zero
+        activation at subt=0.'''
+        for ts in self.tsd.values():
+            if ts.is_pulsed_node():
+                yield ts.node
 
     def pr(self, *args, **kwargs) -> None:
         for ts in self.tsd.values():
@@ -329,6 +346,9 @@ class NodeTimeseries:
 
     def plot(self) -> None:
         plt.plot(self.aa.keys(), self.aa.values(), label=short(self.node))
+
+    def is_pulsed_node(self) -> bool:
+        return 0 in self.aa and self.aa[0] > 0.0
 
     def __len__(self) -> int:
         return len(self.aa)
