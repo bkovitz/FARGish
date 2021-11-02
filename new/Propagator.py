@@ -9,6 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 from random import gauss
 from collections import defaultdict
+from heapq import nlargest
 import sys
 
 import matplotlib.pyplot as plt  # type: ignore[import]
@@ -233,6 +234,17 @@ class ActivationLog:
     label: Hashable = None
     t: Optional[int] = None  # Current timestep at the top level of the model
 
+    def __str__(self) -> str:
+        ls: List[str] = []
+        if self.t is not None:
+            ls.append(f't={self.t}')
+        if self.label is not None:
+            ls.append(short(self.label))
+        else:
+            cl = self.__class__.__name__
+            ls.append(f'{cl}/{self.num_nodes()}')
+        return ' '.join(ls)
+
     def __post_init__(self, adict0: Optional[ADict]=None):
         '''adict0 is activations_in at timestep 0.'''
         if adict0:
@@ -265,18 +277,21 @@ class ActivationLog:
         for ts in self.tsd.values():
             pr(ts)
 
-    def plot(self) -> None:
+    def plot(self, n: Optional[int]=None) -> None:
         plt.ion()
         plt.clf()
         plt.xlabel('subt')
         plt.ylabel('a')
-        for ts in self.tsd.values():
+        tss: Iterable[NodeTimeseries] = self.tsd.values()
+        if n:
+            tss = nlargest(n, tss, lambda ts: ts.max_a())
+        for ts in tss:
             ts.plot()
         max_subt = max((ts.max_subt() for ts in self.tsd.values()), default=0)
         max_a = max((ts.max_a() for ts in self.tsd.values()), default=0.0)
         plt.axis([0, max_subt, 0, max_a])
         plt.legend()
-        
+        plt.suptitle(str(self))
 
 @dataclass
 class NodeTimeseries:

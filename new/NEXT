@@ -60,11 +60,18 @@ Solve pons asinorum
 
         Log spreading activation in slipnet
 
-            In Propagator, save activations dict in form that can be plotted. DONE?
-            NEXT Pass ActivationLog as an argument all the way down through the
-            stack.
+            In Propagator, save activations dict in form that can be plotted.
+            DONE
+
+            Pass ActivationLog as an argument all the way down through the
+            stack. DONE
+
 
         Plot spreading activation in slipnet
+
+            add __len__ to Slipnet and Graph  DONE
+            
+            NEXT in atestPons
 
         log agents
 

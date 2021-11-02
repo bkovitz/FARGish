@@ -57,4 +57,6 @@ if __name__ == '__main__':
     run(bricks=[4, 5, 6], target=15)
     als = fm.alogs
     pr(als)
+    ls = list(als.logs.values())
+    ls[0].plot(n=20)
     

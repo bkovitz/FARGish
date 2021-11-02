@@ -74,6 +74,10 @@ class Nodes(ABC):
         # might not support iterating through all nodes.
         pass
 
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
     #TODO
     # all_nodes()
     # nodes(query)
@@ -174,6 +178,9 @@ class NodesSeries(Nodes):
     def __iter__(self) -> Iterator[Node]:
         yield from chain.from_iterable(self.nodess)
 
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+
 class Edges(ABC):
     @abstractmethod
     def hops_from_node(self, nodes: Nodes, x: Any) -> Iterable[Hop]:
@@ -186,6 +193,10 @@ class Edges(ABC):
     @abstractmethod
     def find_hop(self, nodes: Nodes, from_node: Any, to_node: Any) \
     -> Union[Hop, None]:
+        pass
+
+    @abstractmethod
+    def __len__(self) -> int:
         pass
 
     def add_hop(self, hop: Hop):
@@ -269,10 +280,13 @@ class EnumEdges(Edges):
         for from_neighbor in from_neighbors:
             del self.hops_from[from_neighbor][node]
 
-    def __iter__(self) -> Iterable[Hop]:
+    def __iter__(self) -> Iterator[Hop]:
         for d in self.hops_from.values():
             for hop in d.values():
                 yield hop
+
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
 
 @dataclass
 class MutualInhibition(Edges):
@@ -314,6 +328,9 @@ class MutualInhibition(Edges):
         ):
             return Hop(from_node, to_node, self.weight)
 
+    def __len__(self) -> int:
+        raise NotImplementedError
+
 @dataclass
 class EdgesSeries(Edges):
     edgess: Sequence[Edges]
@@ -335,6 +352,9 @@ class EdgesSeries(Edges):
             if hop is not None:
                 return hop
         return None
+
+    def __len__(self) -> int:
+        raise NotImplementedError
 
 @dataclass
 class Graph:
@@ -418,6 +438,15 @@ class Graph:
         # edges as an EdgesSeries.
         '''Returns a new Graph, containing the edges.'''
         return Graph(nodes=self.nodes, edges=EdgesSeries([edges, self.edges]))
+
+    def num_nodes(self) -> int:
+        return len(self.nodes)
+
+    def num_edges(self) -> int:
+        return len(self.edges)
+
+    def __len__(self) -> int:
+        return self.num_nodes()
 
     @classmethod
     def empty(cls: Type[Q]) -> Q:
@@ -563,6 +592,9 @@ class PrefixedNodes(Nodes):
         else:
             return EnumNodes(set())
 
+    def __len__(self) -> int:
+        return len(self.base_nodes)
+
 @dataclass
 class PrefixedEdges(Edges):
     prefix: Hashable
@@ -596,6 +628,9 @@ class PrefixedEdges(Edges):
             return hop.add_prefix(self.prefix)
         else:
             return None
+
+    def __len__(self) -> int:
+        return len(self.base_edges)
 
 @dataclass
 class PrefixedGraph(Graph):

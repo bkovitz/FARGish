@@ -137,6 +137,9 @@ class Slipnet:
             alog=alog
         )
 
+    def __len__(self) -> int:
+        return len(self.base_graph)
+
     @classmethod
     def topna(
         cls,
