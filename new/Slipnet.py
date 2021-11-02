@@ -123,6 +123,10 @@ class Slipnet:
     def nodes(self):
         return self.base_graph.nodes
 
+    def set_params(self, num_iterations: Optional[int]=None) -> None:
+        if num_iterations is not None:
+            self.propagator.num_iterations = num_iterations
+
     def dquery(
         self,
         features: Union[Sequence[Hashable], None]=None,

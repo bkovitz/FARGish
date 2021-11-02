@@ -714,6 +714,13 @@ class FARGModel(Workspace):
         # the agents that were run in the current timestep
     alogs: ActivationLogs = field(default_factory=ActivationLogs)
 
+    num_slipnet_iterations: InitVar[Optional[int]] = None
+
+    def __post_init__(self, num_slipnet_iterations: Optional[int]=None):
+        if num_slipnet_iterations is not None:
+            self.slipnet.set_params(num_iterations=num_slipnet_iterations)
+        super().__post_init__()
+
     def run_agent(
         self,
         agent: Node,

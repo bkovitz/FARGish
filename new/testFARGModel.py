@@ -105,3 +105,9 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(first_arg_is_ws(f))
 
         self.assertEqual(as_wspred(Agent.CanRun), Agent.CanRun)
+
+    def test_set_num_iterations(self) -> None:
+        fm = FARGModel()
+        self.assertEqual(fm.slipnet.propagator.num_iterations, 10)
+        fm = FARGModel(num_slipnet_iterations=20)
+        self.assertEqual(fm.slipnet.propagator.num_iterations, 20)

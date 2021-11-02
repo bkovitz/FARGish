@@ -20,6 +20,8 @@ from Canvas import StepCanvas, Step
 from Equation import plus, minus, times
 from util import pr, pts
 
+import matplotlib.pyplot as plt  # type: ignore[import]
+
 
 eqn_graph = Graph.with_features(
     Consumer.make_table(
@@ -27,9 +29,18 @@ eqn_graph = Graph.with_features(
     )
 ) #.add_edges(MutualInhibition((Feature, Operator, Equation, int), weight=-5.0))
 
-def run(bricks: Sequence[int], target: int, seed: int=1) -> None:
+def run(
+    bricks: Sequence[int],
+    target: int,
+    seed: int=1,
+    num_slipnet_iterations: Optional[int]=None
+) -> None:
     global fm, ca, cr0, cr1, cr2, cr3, wa
-    fm = FARGModel(slipnet=Slipnet(eqn_graph), seed=1)
+    fm = FARGModel(
+        slipnet=Slipnet(eqn_graph),
+        seed=seed,
+        num_slipnet_iterations=num_slipnet_iterations
+    )
     ca = fm.build(StepCanvas([Step(tuple(bricks))]))
     cr0 = CellRef(ca, 0)
     cr1 = CellRef(ca, 1)
@@ -54,11 +65,11 @@ class TestPons(unittest.TestCase):
         run(bricks=[4, 5, 6], target=15)
 
 if __name__ == '__main__':
-    run(bricks=[4, 5, 6], target=15)
+    run(bricks=[4, 5, 6], target=15, num_slipnet_iterations=20)
     als = fm.alogs
     pr(als)
     print()
     ls = list(als.logs.values())
     pr(ls[0].pulsed_nodes())
-    #ls[0].plot(n=20)
+    ls[0].plot(n=20)
     

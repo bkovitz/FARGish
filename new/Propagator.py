@@ -297,6 +297,7 @@ class ActivationLog:
     def plot(self, n: Optional[int]=None) -> None:
         plt.ion()
         plt.clf()
+        plt.gcf().set_size_inches(8, 8)
         plt.xlabel('subt')
         plt.ylabel('a')
         tss: Iterable[NodeTimeseries] = self.tsd.values()
