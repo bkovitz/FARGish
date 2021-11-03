@@ -12,7 +12,7 @@ from io import StringIO
 
 from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R, \
     first_arg_is_ws, Workspace, as_wspred, Nonexistent, log_to, lenable, \
-    logging_is_enabled
+    ldisable, ldisable_all, logging_is_enabled
 from Canvas import StepCanvas, Step
 from util import pr, pts, is_iter, first
 
@@ -32,8 +32,17 @@ class DummyAgent(Agent):
     agstr: str = 'default'
         # string in Agent; will be copied to DummyAgent.late_bound
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.agstr})'
+
 ag = DummyAgent(
     agstr='FROM AGENT',
+    born=DummyCodelet(late_bound=Ref('agstr'))
+)
+
+ag2 = DummyAgent(
+    agstr='ag2',
     born=DummyCodelet(late_bound=Ref('agstr'))
 )
 
@@ -114,20 +123,65 @@ class TestFARGModel(unittest.TestCase):
         fm = FARGModel(num_slipnet_iterations=20)
         self.assertEqual(fm.slipnet.propagator.num_iterations, 20)
 
-    def test_log_agent(self) -> None:
-        fm = FARGModel()
-        sio = StringIO()
-        log_to(sio)
+    def test_logging(self) -> None:
+        def run() -> List[str]:
+            fm = FARGModel()
+            sio = StringIO()
+            log_to(sio)
+
+            #self.assertTrue(logging_is_enabled(Agent))
+            #print(type(ag))
+
+            agent1 = fm.build(ag)
+            agent2 = fm.build(ag2)
+            fm.run_agent(agent1)
+            fm.run_agent(agent2)
+            sio.seek(0)
+            return [line.rstrip() for line in sio.readlines()]
+            print(sio.readlines())
+            return sio.getvalue()
+
+        # Logging disabled
+        self.assertFalse(logging_is_enabled(ag))
+        got = run()
+        self.assertEqual(got, [])
+
+        # Logging enabled for all agents
         lenable(Agent)
-
-        #self.assertTrue(logging_is_enabled(Agent))
-        #print(type(ag))
         self.assertTrue(logging_is_enabled(ag))
+        got = run()
+        self.assertEqual(got, [
+            'AGENT DummyAgent(FROM AGENT)  state=born t=0',
+            'AGENT DummyAgent(ag2)  state=born t=0',
+        ])
 
-        agent = fm.build(ag)
-        fm.run_agent(agent)
-        self.assertEqual(
-            sio.getvalue(),
-            """AGENT DummyAgent  state=born t=0
-"""
-        )
+        # Logging disabled again
+        ldisable(Agent)
+        self.assertFalse(logging_is_enabled(ag))
+        got = run()
+        self.assertEqual(got, [])
+
+        # Logging enabled for just ag2
+        lenable(ag2)
+        self.assertFalse(logging_is_enabled(ag))
+        self.assertTrue(logging_is_enabled(ag2))
+        got = run()
+        self.assertEqual(got, [
+            'AGENT DummyAgent(ag2)  state=born t=0',
+        ])
+
+        # Logging disabled again, via ldisable_all()
+        ldisable_all()
+        self.assertFalse(logging_is_enabled(ag))
+        got = run()
+        self.assertEqual(got, [])
+
+        # Logging enabled for codelets
+        lenable(Codelet)
+        got = run()
+        self.assertEqual(got, [
+            "    CODELET DummyCodelet late_bound='FROM AGENT'",
+            "    CODELET DummyCodelet late_bound='ag2'"
+        ])
+
+        ldisable_all()

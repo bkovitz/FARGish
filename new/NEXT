@@ -83,10 +83,10 @@ Solve pons asinorum
 
         log agents
 
-        NEXT UT for logging disabled
+            UT for logging disabled  DONE
 
-        NEXT UT for logging a specific agent
-        
+            UT for logging a specific agent  DONE
+            
         NEXT indent for QueryForSnagFixer: no slipnet results!
 
         log codelets
@@ -118,6 +118,9 @@ Small things
     Give the() a generic return type.
 
     short() to print short strings  DONE
+
+    Classes with nice __str__ functions for predicates returned by as_pred()
+    and ws_pred().
 
 Exciting things
 

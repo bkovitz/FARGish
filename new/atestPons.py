@@ -37,12 +37,12 @@ def run(
     num_slipnet_iterations: Optional[int]=None
 ) -> None:
     global fm, ca, cr0, cr1, cr2, cr3, wa
+    lenable(Agent, Codelet)
     fm = FARGModel(
         slipnet=Slipnet(eqn_graph),
         seed=seed,
         num_slipnet_iterations=num_slipnet_iterations
     )
-    lenable(Agent)
     ca = fm.build(StepCanvas([Step(tuple(bricks))]))
     cr0 = CellRef(ca, 0)
     cr1 = CellRef(ca, 1)

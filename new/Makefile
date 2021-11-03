@@ -34,16 +34,12 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_log_agent
+	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
 	#$(PY) -m unittest -v testAgents.TestAgents.test_timestep1
 	#$(PY) -m unittest -v testPropagator.TestPropagator.test_activation_log
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_query_slipnet_for_delegate
 	#$(PY) -m unittest -v test_util.TestIsTypeInstance
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
-
-mut: mypy ut
-
-mu: mypy u
 
 # Acceptance tests
 at:
@@ -52,6 +48,11 @@ at:
 # Convenience target for single acceptance test current being worked on
 a:
 	$(PY) -m unittest -v atestEquation
+
+mut: mypy ut
+mu: mypy u
+mat: mypy at
+ma: mypy a
 
 # line counts
 lc: clean

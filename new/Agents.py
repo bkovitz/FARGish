@@ -61,7 +61,7 @@ class Consumer(Agent):
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        s = short(self.operator).join(str(o) for o in as_iter(self.operands))
+        s = short(self.operator).join(short(o) for o in as_iter(self.operands))
         return f'{cl}({s})'
 
     @classmethod

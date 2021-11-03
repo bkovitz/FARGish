@@ -21,7 +21,7 @@ from Slipnet import Slipnet
 from Indenting import Indenting, indent
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
-    is_dataclass_instance, make_nonoptional, dict_str, short, class_of
+    is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit
 
 
 T = TypeVar('T')
@@ -75,16 +75,22 @@ class CanReplaceRefs:
 class BehalfOf:
     behalf_of: Agent
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.behalf_of)})'
+
 ### Logging ###
 
 logfile = Indenting(sys.stdout)
 enabled_for_logging: Set[Callable[[Any], bool]] = set()
+# TODO Set this up so enabled_for_logging won't get cleared if FARGModel.py
+# gets imported after you call lenable().
 
 class Loggable(ABC):
     '''Mix-in for classes that know how to print their own log entries.'''
 
     @abstractmethod
-    def log(self, fm: FARGModel, f: Indenting) -> None:
+    def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
         '''Called by the 'logging()' context manager to indicate that self
         should make a log entry. Must print to 'f'.'''
         pass
@@ -95,11 +101,11 @@ def log_to(f: IO) -> None:
     logfile = Indenting(f)
 
 @contextmanager
-def logging(fm: FARGModel, arg: Any):
+def logging(fm: FARGModel, arg: Any, **kwargs):
     try:
         if logging_is_enabled(arg):
             if isinstance(arg, Loggable):
-                arg.log(fm, logfile)
+                arg.log(fm, logfile, **kwargs)
             else:
                 raise NotImplementedError(arg)
         with indent(logfile):
@@ -107,13 +113,19 @@ def logging(fm: FARGModel, arg: Any):
     finally:
         pass
 
-def lenable(arg: Pred) -> None:
-    '''Enable logging for arg.'''
-    enabled_for_logging.add(as_pred(arg))
+def lenable(*args: Pred) -> None:
+    '''Enable logging for args.'''
+    for arg in args:
+        enabled_for_logging.add(as_pred(arg))
 
-def ldisable(arg: Pred) -> None:
-    '''Disable logging for arg.'''
-    enabled_for_logging.discard(as_pred(arg))
+def ldisable(*args: Pred) -> None:
+    '''Disable logging for args.'''
+    for arg in args:
+        enabled_for_logging.discard(as_pred(arg))
+
+def ldisable_all() -> None:
+    '''Disable all logging.'''
+    enabled_for_logging.clear()
 
 def logging_is_enabled(arg: Any) -> bool:
     '''Is logging enabled for arg?'''
@@ -144,13 +156,21 @@ class Detector(ABC, CanReplaceRefs):
 class CodeletDataclassMixin:
     name: ClassVar[str]
 
-class Codelet(ABC, CodeletDataclassMixin, CanReplaceRefs):
+class Codelet(CodeletDataclassMixin, CanReplaceRefs, Loggable, ABC):
 
     @abstractmethod
     def run(self, fm: FARGModel, **kwargs) -> CodeletResults:
         '''Should do the codelet's action, and return any follow-up codelets
         to execute next, in the same timestep.'''
         pass
+
+    def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
+        cl = self.__class__.__name__
+        kw = omit(kwargs.get('kwargs', {}), ['fm'])
+        print(
+            f'CODELET {cl} {dict_str(kw, short)}',
+            file=f
+        )
 
     def short(self) -> str:
         return self.__class__.__name__
@@ -343,7 +363,7 @@ class Agent(CanReplaceRefs, Loggable):
         else:
             return False
 
-    def log(self, fm: FARGModel, f: Indenting) -> None:
+    def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
         print(
             f'AGENT {short(self)}  state={fm.agent_state(self)} t={fm.t}',
             file=f
@@ -892,7 +912,8 @@ class FARGModel(Workspace):
         self.codelets_just_run.append(CodeletRun(
             codelet, kwargs, self.t, self.look_up_by_name('behalf_of', sources)
         ))
-        return codelet.run(**kwargs)
+        with logging(self, codelet, kwargs=kwargs):
+            return codelet.run(**kwargs)
 
     def agent_just_ran(self, agent: Agent) -> bool:
         '''Did agent just run, i.e. in the current timestep? Mostly useful for

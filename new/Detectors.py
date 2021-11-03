@@ -8,6 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 
 from FARGModel import FARGModel, Detector, R, Ref, Value, CellRef, Codelets
+from util import trace, short, pr, pts
 
 
 @dataclass(frozen=True)
@@ -32,3 +33,6 @@ class AvailDetector(Detector):
                     break
         return None
             
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.target)}, {short(self.startcell)}, {short(self.on_success)})'

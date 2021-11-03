@@ -56,6 +56,7 @@ Pred = Union[
     Type,
     Tuple,  # TODO should be Tuple[Pred, ...]
     Callable[[Any], bool],
+    Node,
     None
 ]
 
