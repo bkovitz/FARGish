@@ -11,7 +11,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef
+from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
+    lenable, ldisable, Agent, Codelet
 from Graph import Graph, Before, After
 from Slipnet import Slipnet
 from Agents import Want, Consumer
@@ -41,6 +42,7 @@ def run(
         seed=seed,
         num_slipnet_iterations=num_slipnet_iterations
     )
+    lenable(Agent)
     ca = fm.build(StepCanvas([Step(tuple(bricks))]))
     cr0 = CellRef(ca, 0)
     cr1 = CellRef(ca, 1)

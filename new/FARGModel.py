@@ -4,17 +4,21 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
-    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
     runtime_checkable, get_type_hints
 from abc import ABC, abstractmethod
 from collections import defaultdict
 import inspect
 from inspect import isclass, signature
+from contextlib import contextmanager
+import sys
 
-from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, ADict
+from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
+    as_pred, ADict
 from Propagator import Propagator, ActivationLogs, ActivationLog
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
+from Indenting import Indenting, indent
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, trace, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of
@@ -70,6 +74,59 @@ class CanReplaceRefs:
 @dataclass(frozen=True)
 class BehalfOf:
     behalf_of: Agent
+
+### Logging ###
+
+logfile = Indenting(sys.stdout)
+enabled_for_logging: Set[Callable[[Any], bool]] = set()
+
+class Loggable(ABC):
+    '''Mix-in for classes that know how to print their own log entries.'''
+
+    @abstractmethod
+    def log(self, fm: FARGModel, f: Indenting) -> None:
+        '''Called by the 'logging()' context manager to indicate that self
+        should make a log entry. Must print to 'f'.'''
+        pass
+
+def log_to(f: IO) -> None:
+    '''Set logfile to f. Wraps f with Indenting.'''
+    global logfile
+    logfile = Indenting(f)
+
+@contextmanager
+def logging(fm: FARGModel, arg: Any):
+    try:
+        if logging_is_enabled(arg):
+            if isinstance(arg, Loggable):
+                arg.log(fm, logfile)
+            else:
+                raise NotImplementedError(arg)
+        with indent(logfile):
+            yield logfile
+    finally:
+        pass
+
+def lenable(arg: Pred) -> None:
+    '''Enable logging for arg.'''
+    enabled_for_logging.add(as_pred(arg))
+
+def ldisable(arg: Pred) -> None:
+    '''Disable logging for arg.'''
+    enabled_for_logging.discard(as_pred(arg))
+
+def logging_is_enabled(arg: Any) -> bool:
+    '''Is logging enabled for arg?'''
+    return any(pred(arg) for pred in enabled_for_logging)
+    """
+    pred = as_pred(arg)
+    print('PRED', pred, enabled_for_logging)
+    return (
+        any(pred(a) for a in enabled_for_logging)
+        or
+        arg in enabled_for_logging
+    )
+    """
 
 ### Detectors ###
 
@@ -252,7 +309,7 @@ class QueryForSnagFixer(Codelet):
 ### Agent and ancillary classes and objects ###
 
 @dataclass(frozen=True)
-class Agent(CanReplaceRefs):
+class Agent(CanReplaceRefs, Loggable):
     '''An Agent has no Python code. It holds only fields containing zero
     or more codelets for each AgentState, and, optionally, fields for
     parameters to the Agent. Due to the rules of dataclass inheritance,
@@ -286,6 +343,12 @@ class Agent(CanReplaceRefs):
         else:
             return False
 
+    def log(self, fm: FARGModel, f: Indenting) -> None:
+        print(
+            f'AGENT {short(self)}  state={fm.agent_state(self)} t={fm.t}',
+            file=f
+        )
+
     def short(self) -> str:
         return self.__class__.__name__
 
@@ -305,6 +368,7 @@ Succeeded = AgentState('succeeded')
 Failed = AgentState('failed')
 Defunct = AgentState('defunct')
 Sleeping = AgentState('sleeping')
+Nonexistent = AgentState('nonexistent')
 
 ### Canvas, CellRef, things with the notion of avail values ###
 
@@ -740,13 +804,14 @@ class FARGModel(Workspace):
         self.agents_just_run.append(agent)
         #agent = agent.replace_refs(self, None)
         for i in range(num):
-            try:
-                #self.run_codelet(getattr(agent, agent_state.name), agent)
-                self.run_codelet(agent.get_codelets(agent_state), agent)
-            except Fizzle as fiz:
-                self.add_tag(agent, fiz)
-                self.set_state(agent, Snag)
-            agent_state = self.agent_state(agent)
+            with logging(self, agent):
+                try:
+                    #self.run_codelet(getattr(agent, agent_state.name), agent)
+                    self.run_codelet(agent.get_codelets(agent_state), agent)
+                except Fizzle as fiz:
+                    self.add_tag(agent, fiz)
+                    self.set_state(agent, Snag)
+                agent_state = self.agent_state(agent)
         """
         sources = self.mk_sources(agent)
         codelet: Codelet
@@ -1091,7 +1156,7 @@ class FARGModel(Workspace):
             else:
                 return niws.state
         else:
-            return Defunct
+            return Nonexistent
 
     def do_timestep(
         self,
@@ -1251,5 +1316,7 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     value: Any = None
     type_needed: Any = None  # type annotation
+
+### At end of file to avoid circular imports ###
 
 import Codelets as CodeletsModule

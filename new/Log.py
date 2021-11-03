@@ -7,34 +7,37 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
     runtime_checkable
 import csv
+import sys
+from contextlib import contextmanager
 
 from FMTypes import ADict
+from Indenting import Indenting, indent
 from util import short
 
 
-""" TODO rm
-@dataclass
-class ALogger:
-    '''An activation logger.'''
-    t: int
-    filename: str = 'a.csv'
-    subt: int = 0
-    f: InitVar[IO] = None
-    mode: InitVar[Optional[str]] = None
-    writer: InitVar[Any] = None  # csv.writer
+logfile = Indenting(sys.stdout)
 
-    def __post_init__(self, f, mode, writer): #, mode):
-        #if not mode:
-            #mode = 'w' if self.t == 0 else 'a'
-        mode = 'w'
-        self.f = open(self.filename, mode=mode, newline='')
-        self.writer = csv.writer(self.f, quoting=csv.QUOTE_NONNUMERIC)
-        print('t,subt,node,a', file=self.f)
+class Loggable(ABC):
+    '''Mix-in for classes that know how to print their own log entries.'''
 
-    def write(self, d: ADict) -> None:
-        for node, a in d.items():
-            self.writer.writerow([self.t, self.subt, short(node), a])  # type: ignore[attr-defined]
+    @abstractmethod
+    def log(self, fm: FARGModel, f: Indenting) -> None:
+        '''Called by the 'logging()' context manager to indicate that self
+        should make a log entry. Must print to 'f'.'''
+        pass
 
-    def bump_subt(self) -> None:
-        self.subt += 1
-"""
+@contextmanager
+def logging(fm: FARGModel, arg: Any):
+    try:
+        if logging_is_enabled(arg):
+            with indent(logfile):
+                if isinstance(arg, Loggable):
+                    arg.log(fm, logfile)
+                else:
+                    raise NotImplementedError(arg)
+        yield logfile
+    finally:
+        pass
+
+def logging_is_enabled(arg: Any) -> bool:
+    return True

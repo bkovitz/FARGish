@@ -4,13 +4,15 @@ import unittest
 from pprint import pprint as pp
 import inspect
 from dataclasses import dataclass
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
-    Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
-    Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
     runtime_checkable
+from io import StringIO
 
 from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R, \
-    first_arg_is_ws, Workspace, as_wspred
+    first_arg_is_ws, Workspace, as_wspred, Nonexistent, log_to, lenable, \
+    logging_is_enabled
 from Canvas import StepCanvas, Step
 from util import pr, pts, is_iter, first
 
@@ -49,7 +51,7 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(fm.the(StepCanvas))
 
         # Build an Agent
-        self.assertEqual(fm.agent_state(ag), Defunct) # not built yet
+        self.assertEqual(fm.agent_state(ag), Nonexistent)
         agent = fm.build(ag)
         self.assertEqual(fm.agent_state(agent), Born)
 
@@ -111,3 +113,21 @@ class TestFARGModel(unittest.TestCase):
         self.assertEqual(fm.slipnet.propagator.num_iterations, 10)
         fm = FARGModel(num_slipnet_iterations=20)
         self.assertEqual(fm.slipnet.propagator.num_iterations, 20)
+
+    def test_log_agent(self) -> None:
+        fm = FARGModel()
+        sio = StringIO()
+        log_to(sio)
+        lenable(Agent)
+
+        #self.assertTrue(logging_is_enabled(Agent))
+        #print(type(ag))
+        self.assertTrue(logging_is_enabled(ag))
+
+        agent = fm.build(ag)
+        fm.run_agent(agent)
+        self.assertEqual(
+            sio.getvalue(),
+            """AGENT DummyAgent  state=born t=0
+"""
+        )

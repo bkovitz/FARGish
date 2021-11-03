@@ -11,7 +11,7 @@ endif
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 FARGISH_SRC = Graph.py Propagator.py util.py Slipnet.py Canvas.py FARGModel.py \
-	Equation.py Agents.py Codelets.py QArgs.py Detectors.py Log.py
+	Equation.py Agents.py Codelets.py QArgs.py Detectors.py Indenting.py
 
 # Type 'make' to run unit tests and then run current program in interactive
 # mode.
@@ -34,12 +34,16 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	#$(PY) -m unittest -v testFARGModel
+	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_log_agent
 	#$(PY) -m unittest -v testAgents.TestAgents.test_timestep1
-	$(PY) -m unittest -v testPropagator.TestPropagator.test_activation_log
+	#$(PY) -m unittest -v testPropagator.TestPropagator.test_activation_log
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_query_slipnet_for_delegate
 	#$(PY) -m unittest -v test_util.TestIsTypeInstance
 	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
+
+mut: mypy ut
+
+mu: mypy u
 
 # Acceptance tests
 at:
@@ -52,9 +56,9 @@ a:
 # line counts
 lc: clean
 	@echo 'LIVE: '
-	@wc -l `ls -1 *.py | grep -v '^test'`
+	@wc -l `ls -1 *.py | grep -v '^a?test'`
 	@echo -e '\nTEST: '
-	@wc -l test*.py
+	@wc -l test*.py atest*.py
 
 # test coverage
 # 'make ct bc' to generate coverage data and see it in a browser

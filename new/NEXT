@@ -81,7 +81,13 @@ Solve pons asinorum
 
             Add pred parameter to .plot(). DONE
 
-        NEXT log agents
+        log agents
+
+        NEXT UT for logging disabled
+
+        NEXT UT for logging a specific agent
+        
+        NEXT indent for QueryForSnagFixer: no slipnet results!
 
         log codelets
 
