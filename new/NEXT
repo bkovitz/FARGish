@@ -87,9 +87,17 @@ Solve pons asinorum
 
             UT for logging a specific agent  DONE
             
-        NEXT indent for QueryForSnagFixer: no slipnet results!
+        log codelets  DONE
 
-        log codelets
+        NEXT log fizzles
+
+            indent for QueryForSnagFixer: no slipnet results!
+
+        special logging predicate: pr() the FARGModel, with t=
+
+        A Fizzle node's builder should be the agent whose codelet fizzled.
+
+            ValuesNotAvail's __eq__ should disregard the agent and codelet?
 
         MakeVariant: get operands from avails
 
@@ -118,6 +126,18 @@ Small things
     Give the() a generic return type.
 
     short() to print short strings  DONE
+
+    Make a standard short() for dataclasses that prints shorts of all the
+    fields.
+
+        But for Agents, it should omit the AgentState fields.
+
+    When logging a Codelet, don't print behalf_of if that Agent is being
+    logged. This will make logs more readable.
+
+    Maybe: Dereference refs in Codelet .run() args before calling .run()
+    This would make the log more informative. See the mess currently
+    showing for QuerySlipnetForDelegate.
 
     Classes with nice __str__ functions for predicates returned by as_pred()
     and ws_pred().

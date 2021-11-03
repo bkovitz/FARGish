@@ -240,6 +240,8 @@ def short(o) -> str:
         return f"({', '.join(short(x) for x in o)})"
     elif isclass(o):
         return o.__name__
+    elif isinstance(o, str):
+        return repr(o)
     else:
         try:
             return o.short()

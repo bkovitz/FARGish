@@ -166,7 +166,7 @@ class Codelet(CodeletDataclassMixin, CanReplaceRefs, Loggable, ABC):
 
     def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
         cl = self.__class__.__name__
-        kw = omit(kwargs.get('kwargs', {}), ['fm'])
+        kw = omit(kwargs.get('kwargs', {}), ['fm', 'behalf_of', 'sources'])
         print(
             f'CODELET {cl} {dict_str(kw, short)}',
             file=f
@@ -529,7 +529,7 @@ class NodeInWS:
         return result
 
     def short(self) -> str:
-        result = f'{short(self.node)}  builder={self.builder} tob={self.tob}'
+        result = f'{short(self.node)}  builder={short(self.builder)} tob={self.tob}'
         if isinstance(self.node, Agent):
             result += f' state={self.state}'
         return result
@@ -909,11 +909,16 @@ class FARGModel(Workspace):
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
         #print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
+        behalf_of = self.look_up_by_name('behalf_of', sources)
         self.codelets_just_run.append(CodeletRun(
-            codelet, kwargs, self.t, self.look_up_by_name('behalf_of', sources)
+            codelet, kwargs, self.t, behalf_of
         ))
         with logging(self, codelet, kwargs=kwargs):
-            return codelet.run(**kwargs)
+            try:
+                return codelet.run(**kwargs)
+            except Fizzle as fiz:
+                with logging(self, fiz, behalf_of=behalf_of):
+                    raise
 
     def agent_just_ran(self, agent: Agent) -> bool:
         '''Did agent just run, i.e. in the current timestep? Mostly useful for
@@ -1252,7 +1257,7 @@ class FARGModel(Workspace):
                 arrow = f'{outgoing_weight: 6.3f}  -->       '
         else:
             arrow = f'       <--  {incoming_weight: 6.3f}'
-        return f'{indent}  {arrow} {node2}  a={self.a(node2):2.3f}'
+        return f'{indent}  {arrow} {short(node2)}  a={self.a(node2):2.3f}'
 
     def pr(
         self,
@@ -1287,12 +1292,20 @@ class FARGException(Exception):
     pass
 
 @dataclass(frozen=True)
-class Fizzle(FARGException):
+class Fizzle(FARGException, Loggable):
     agent: Optional[Agent] = None
     codelet: Optional[Codelet] = None
 
     def __str__(self):
         return repr(self)
+
+    def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
+        cl = self.__class__.__name__
+        print(f'FIZZLE {short(self)}  {dict_str(kwargs, short)}', file=f)
+        
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return cl
 
     @property
     def fk(self) -> Optional[Codelet]:
@@ -1312,7 +1325,8 @@ class SolvedPuzzle(HaltFARGModel):
         
 @dataclass(frozen=True)
 class NeedMoreSupportToPaint(Fizzle):
-    agent: Optional[Agent] = None
+    pass
+    #agent: Optional[Agent] = None
 
 @dataclass(frozen=True)
 class ValuesNotAvail(Fizzle):
@@ -1326,6 +1340,10 @@ class ValuesNotAvail(Fizzle):
     def __str__(self):
         cl = self.__class__.__name__
         return f'{cl}({short(self.agent)}, {short(self.codelet)}, {self.cellref}, avails={self.avails}, unavails={self.unavails})'
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.cellref)}, {short(self.avails)}, {short(self.unavails)})'
 
 @dataclass(frozen=True)
 class NoResultFromSlipnet(Fizzle):

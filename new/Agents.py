@@ -26,6 +26,10 @@ class LitPainter(Agent):
 
     wake: Codelets = Paint()
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.value)}, {short(self.dest)})'
+
 @dataclass(frozen=True)
 class Consumer(Agent):
     Q = TypeVar('Q', bound='Consumer')
@@ -107,3 +111,7 @@ class Want(Agent):
         ),
         Sleep(agent=Ref('behalf_of'))
     )
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.target)}, {short(self.startcell)})'

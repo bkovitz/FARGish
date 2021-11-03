@@ -12,7 +12,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
-    lenable, ldisable, Agent, Codelet
+    lenable, ldisable, Agent, Codelet, Fizzle
 from Graph import Graph, Before, After
 from Slipnet import Slipnet
 from Agents import Want, Consumer
@@ -37,7 +37,7 @@ def run(
     num_slipnet_iterations: Optional[int]=None
 ) -> None:
     global fm, ca, cr0, cr1, cr2, cr3, wa
-    lenable(Agent, Codelet)
+    lenable(Agent, Codelet, Fizzle)
     fm = FARGModel(
         slipnet=Slipnet(eqn_graph),
         seed=seed,
