@@ -81,7 +81,7 @@ Solve pons asinorum
 
             Add pred parameter to .plot(). DONE
 
-        log agents
+        log agents  DONE
 
             UT for logging disabled  DONE
 
@@ -89,15 +89,17 @@ Solve pons asinorum
             
         log codelets  DONE
 
-        NEXT log fizzles
+        log fizzles  DONE
 
             indent for QueryForSnagFixer: no slipnet results!
 
         special logging predicate: pr() the FARGModel, with t=
 
-        A Fizzle node's builder should be the agent whose codelet fizzled.
+        A Fizzle node's builder should be the agent whose codelet fizzled. DONE
 
             ValuesNotAvail's __eq__ should disregard the agent and codelet?
+
+        NEXT LitPainter's builder should be the Consumer that built it.
 
         MakeVariant: get operands from avails
 

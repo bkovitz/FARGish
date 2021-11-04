@@ -11,7 +11,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 
 from Agents import LitPainter, Consumer, Want
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
-    Succeeded, SolvedPuzzle, Agent
+    Succeeded, SolvedPuzzle, Agent, Fizzle
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
@@ -173,6 +173,22 @@ class TestAgents(unittest.TestCase):
                 pr(fm, extra=True)
             self.assertEqual(ca[1], self.step1, f'seed={seed}')
 
+    def test_snag_tag(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        
+        ag = fm.build(Consumer(
+            operator=plus,
+            operands=(3, 5),  # 3 is not avail, so this Consumer must fail
+            source=cr0,
+            #dest=cr1
+        ))
+        fm.run_agent(ag)
+        snag_tag = fm.the(Fizzle)
+        self.assertIsNotNone(snag_tag)
+        self.assertEqual(fm.builder_of(snag_tag), ag)
 
 if __name__ == '__main__':
     from inspect import signature

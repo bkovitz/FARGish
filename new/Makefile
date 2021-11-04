@@ -10,8 +10,12 @@ MYPY = mypy --python-version 3.9
 endif
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-FARGISH_SRC = Graph.py Propagator.py util.py Slipnet.py Canvas.py FARGModel.py \
-	Equation.py Agents.py Codelets.py QArgs.py Detectors.py Indenting.py
+FARGISH_SRC = Agents.py Canvas.py Codelets.py Consume.py Detectors.py \
+	Equation.py FARGModel.py FMTypes.py Graph.py Indenting.py \
+	Propagator.py QArgs.py Slipnet.py util.py Workspace.py
+# Plot.py 
+# Log.py 
+# Numbo1.py 
 
 # Type 'make' to run unit tests and then run current program in interactive
 # mode.
@@ -34,8 +38,8 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	#$(PY) -m unittest -v testAgents.TestAgents.test_timestep1
+	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
+	$(PY) -m unittest -v testAgents.TestAgents.test_snag_tag
 	#$(PY) -m unittest -v testPropagator.TestPropagator.test_activation_log
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_query_slipnet_for_delegate
 	#$(PY) -m unittest -v test_util.TestIsTypeInstance
@@ -57,9 +61,10 @@ ma: mypy a
 # line counts
 lc: clean
 	@echo 'LIVE: '
-	@wc -l `ls -1 *.py | grep -v '^a?test'`
+	@wc -l $(FARGISH_SRC)
 	@echo -e '\nTEST: '
 	@wc -l test*.py atest*.py
+#@wc -l `ls -1 *.py | grep -Ev '^a?test'`
 
 # test coverage
 # 'make ct bc' to generate coverage data and see it in a browser

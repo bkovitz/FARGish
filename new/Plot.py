@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 from heapq import nlargest
 
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import Node
 from Propagator import NodeTimeseries

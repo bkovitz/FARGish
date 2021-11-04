@@ -624,9 +624,10 @@ class Workspace(HasRngSeed):
         # can override it.
 
     # TODO UT
-    def add_tag(self, taggee: Node, tag: Node) -> Node:
+    def add_tag(self, taggee: Node, tag: Node, builder: Optional[Node]=None) \
+    -> Node:
         # TODO Make the tag's builder the agent in the tag?
-        tag = self.build(tag)
+        tag = self.build(tag, builder=builder)
         self._tags_of[taggee].add(tag)
         return tag
 
@@ -829,7 +830,7 @@ class FARGModel(Workspace):
                     #self.run_codelet(getattr(agent, agent_state.name), agent)
                     self.run_codelet(agent.get_codelets(agent_state), agent)
                 except Fizzle as fiz:
-                    self.add_tag(agent, fiz)
+                    self.add_tag(agent, fiz, builder=agent)
                     self.set_state(agent, Snag)
                 agent_state = self.agent_state(agent)
         """
