@@ -321,7 +321,8 @@ class QueryForSnagFixer(Codelet):
                     for node in slipnet_results
             ]
         else:
-            print('QueryForSnagFixer: no slipnet_results!')
+            #print('QueryForSnagFixer: no slipnet_results!')
+            print('FAILURE QueryForSnagFixer: no slipnet_results!', file=logfile)
         result.append(CodeletsModule.Sleep(agent=behalf_of))
         return result
         # TODO Also Sleep the Agent

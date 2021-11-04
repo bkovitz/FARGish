@@ -91,7 +91,7 @@ Solve pons asinorum
 
         log fizzles  DONE
 
-            indent for QueryForSnagFixer: no slipnet results!
+            indent for QueryForSnagFixer: no slipnet results!  DONE
 
         special logging predicate: pr() the FARGModel, with t=
 
@@ -101,7 +101,7 @@ Solve pons asinorum
 
         LitPainter's builder should be the Consumer that built it.  DONE
 
-        MakeVariant: get operands from avails
+        NEXT MakeVariant: get operands from avails
 
     maybe
 
