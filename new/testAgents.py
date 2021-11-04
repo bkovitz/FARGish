@@ -142,6 +142,7 @@ class TestAgents(unittest.TestCase):
             self.assertEqual(fm.agent_state(co), Sleeping)
             lp: Any = fm.the(LitPainter)
             self.assertIsInstance(lp, LitPainter)
+            self.assertEqual(fm.builder_of(lp), co)
 
             fm.do_timestep()  # the LitPainter should Paint
             self.assertEqual(fm.t, 4)

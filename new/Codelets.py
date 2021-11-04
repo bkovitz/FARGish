@@ -95,9 +95,10 @@ class BuildLitPainter(Codelet):
         self,
         fm: FARGModel,
         value: Value,
-        dest: CellRef
+        dest: CellRef,
+        behalf_of: Optional[Agent]
     ) -> CodeletResults:
-        fm.build(Agents.LitPainter(value=value, dest=dest))
+        fm.build(Agents.LitPainter(value=value, dest=dest), builder=behalf_of)
         return None
 
 # TODO rename -> QuerySlipnetAndBuild?

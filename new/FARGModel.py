@@ -1270,6 +1270,7 @@ class FARGModel(Workspace):
     ) -> None:
         '''Prints a subset of the workpace.'''
         if extra:
+            print()
             print(f't={self.t}', file=tofile)
         count = 0
         for s, node in sorted(

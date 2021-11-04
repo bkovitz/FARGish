@@ -99,7 +99,7 @@ Solve pons asinorum
 
             ValuesNotAvail's __eq__ should disregard the agent and codelet?
 
-        NEXT LitPainter's builder should be the Consumer that built it.
+        LitPainter's builder should be the Consumer that built it.  DONE
 
         MakeVariant: get operands from avails
 
