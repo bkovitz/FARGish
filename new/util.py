@@ -643,6 +643,7 @@ def singleton(cls):
 
 # Debugging
 
+# TODO Indent
 def trace(func):
     '''Function decorator: prints the name and arguments of the function each
     time it is called, and prints its return value when it returns.

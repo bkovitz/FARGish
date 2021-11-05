@@ -6,9 +6,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
+import dataclasses
+from abc import ABC, abstractmethod
 from inspect import isclass
 from dataclasses import dataclass, is_dataclass
-import dataclasses
 
 from util import trace, pr, filter_none
 
@@ -64,6 +65,15 @@ Pred = Union[
 # A predicate function (as opposed to something that can be turned into a
 # predicate function, i.e. a Pred).
 CallablePred = Callable[[Any], bool]
+
+class HasBindWs(ABC):
+    '''Mix-in to indicate that a class has a .bind_ws() method.'''
+
+    def bind_ws(self, ws: 'Workspace') -> Pred:  # type: ignore[name-defined]
+        '''Should return a Pred that does not take a Workspace as its first
+        argument. If self needs a Workspace, the returned Pred should call
+        self with 'ws' as the first argument.'''
+        pass
 
 #@trace
 def as_pred(o: Pred) -> CallablePred:
@@ -147,6 +157,7 @@ class OrPreds:
     def __call__(self, x: Any) -> bool:
         return any(p(x) for p in self.preds)
 
+    # TODO rm
     @classmethod
     def make(cls, *preds: Pred) -> CallablePred:
         return OrPreds(tuple(as_pred(p) for p in preds))
@@ -179,7 +190,7 @@ class AndFirst:
     pass
 
 @dataclass(frozen=True)
-class Exclude(AndFirst):
+class Exclude(HasBindWs, AndFirst):
     obj_template: Hashable
 
     def __call__(self, obj: Any) -> bool:

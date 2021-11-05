@@ -14,7 +14,8 @@ from contextlib import contextmanager
 import sys
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
-    as_pred, ADict, AndFirst, CallablePred
+    as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
+    combine_preds, AlwaysTrue, HasBindWs
 from Propagator import Propagator, ActivationLogs, ActivationLog
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
@@ -761,6 +762,10 @@ class Workspace(HasRngSeed):
                 if self.builder_of(e) is agent
         ]
 
+### Workspace predicates ###
+
+CallableWSPred = Callable[[Workspace, Any], bool]
+
 def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
     '''Returns a predicate function that takes two arguments: a Workspace
     and an object.'''
@@ -768,8 +773,9 @@ def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
     if isclass(o):
         return lambda ws, x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
     elif isinstance(o, tuple):
-        preds = tuple(as_wspred(p) for p in o)
-        return lambda ws, x: any(p(ws, x) for p in preds)
+        #preds = tuple(as_wspred(p) for p in o)
+        #return lambda ws, x: any(p(ws, x) for p in preds)
+        return combine_wspreds(*o)
     elif callable(o):
         if first_arg_is_ws(o):
             return o  # type: ignore[return-value]
@@ -780,12 +786,120 @@ def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
     else:
         return lambda ws, x: match_wo_none(x, o)
 
+# TODO Make this into a method of Workspace.
+def bind_ws(ws: Workspace, o: WSPred) -> Pred:
+    '''Like as_wspred(), but returns a Pred that passes 'ws' as the
+    first argument to 'pred' if 'pred' takes a Workspace as its first
+    argument.'''
+    if isinstance(o, HasBindWs):
+        return o.bind_ws(ws)
+    elif isclass(o):
+        return IsInstance(o)  # type: ignore[arg-type]  # mypy bug?
+    elif isinstance(o, tuple):
+        return combine_preds(*(bind_ws(ws, p) for p in o))
+    elif callable(o):
+        if first_arg_is_ws(o):
+            return lambda x: o(ws, x)  # type: ignore[operator, call-arg, misc]
+        else:
+            return o
+    elif o is None:
+        return AlwaysTrue()
+    else:
+        return MatchWoNone(o)
+
+@dataclass(frozen=True)
+class WSIsInstance:
+    cl: Type
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        return isinstance(x, self.cl)
+    
+@dataclass(frozen=True)
+class WSWrapper:
+    ws: Workspace
+    wspred: CallableWSPred
+
+    def __call__(self, x: Any) -> bool:
+        return self.wspred(self.ws, x)  # type: ignore  # mypy bugs?
+
+def combine_wspreds(*preds: WSPred) -> CallableWSPred:
+    preds: List[WSPred] = [
+        p for p in preds
+            if p is not None and not isinstance(p, WSAlwaysTrue)
+            # TODO WSAlwaysTrue?
+    ]
+    if not preds:
+        return WSAlwaysTrue()
+    elif len(preds) == 1:
+        return as_wspred(preds[0])
+    else:
+        preds_to_or: List[WSPred] = []
+        preds_to_and_first: List[WSPred] = []
+        for p in preds:
+            if isinstance(p, AndFirst):
+                preds_to_and_first.append(p)
+            else:
+                preds_to_or.append(p)
+        if not preds_to_or:
+            return WSAndPreds(*preds_to_and_first)
+        elif not preds_to_and_first:
+            return WSOrPreds(*preds_to_or)
+        else:
+            return WSAndPreds(*preds_to_and_first, WSOrPreds(*preds_to_or))
+
 def first_arg_is_ws(o: Callable) -> bool:
-    arg1type = first(get_type_hints(o).values())
+    try:
+        arg1type = first(get_type_hints(o, globalns=globals()).values())
+    except TypeError:
+        arg1type = first(get_type_hints(o.__call__).values()) # type: ignore[operator]  # mypy bug?
     try:
         return issubclass(arg1type, Workspace)
     except TypeError:
         return False
+
+@dataclass(frozen=True)
+class WSAlwaysTrue:
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        return True
+
+@dataclass(frozen=True)
+class WSAndPreds:
+    preds: Tuple[CallableWSPred, ...]
+
+    def __init__(self, *preds: WSPred):
+        object.__setattr__(self, 'preds', tuple(as_wspred(p) for p in preds))
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        return all(p(ws, x) for p in self.preds)
+
+@dataclass(frozen=True)
+class WSOrPreds:
+    preds: Tuple[CallableWSPred, ...]
+
+    def __init__(self, *preds: WSPred):
+        object.__setattr__(self, 'preds', tuple(as_wspred(p) for p in preds))
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        return any(p(ws, x) for p in self.preds)
+
+@dataclass(frozen=True)
+class ExcludeExisting(AndFirst, HasBindWs):
+    '''WSPred to exclude existing nodes.'''
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        return not ws.has_node(x)
+
+    def bind_ws(self, ws: Workspace) -> Pred:
+        return ExcludeExistingWS(ws)
+
+@dataclass(frozen=True)
+class ExcludeExistingWS(AndFirst):
+    '''Pred to exclude nodes that exist in a specified Workspace.'''
+    ws: Workspace
+
+    def __call__(self, x: Any) -> bool:
+        return not self.ws.has_node(x)
 
 ### The generic FARGModel ###
 
@@ -1142,7 +1256,7 @@ class FARGModel(Workspace):
     def pulse_slipnet(
         self,
         activations_in: Dict[Node, float],
-        pred: Pred=None,
+        pred: WSPred=None,
         k: int=20,      # max number of most active slipnodes to choose among
         num_get: int=1, # max number of slipnodes to return
         alog: Optional[ActivationLog]=None
@@ -1150,6 +1264,7 @@ class FARGModel(Workspace):
         #print('PULSE')
         sd = self.slipnet.dquery(activations_in=activations_in, alog=alog)
         #pts(sd)
+        pred: Pred = bind_ws(self, pred)
         nas = self.slipnet.topna(sd, pred=pred, k=k)
         #pts(nas)
         return list(sample_without_replacement(
@@ -1367,27 +1482,6 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     value: Any = None
     type_needed: Any = None  # type annotation
-
-### WSPreds, i.e. Workspace Predicates ###
-
-@dataclass(frozen=True)
-class ExcludeExisting(AndFirst):
-    '''WSPred to exclude existing nodes.'''
-
-    def __call__(self, ws: Workspace, x: Any) -> bool:
-        #print('EE', x, ws.has_node(x))
-        return not ws.has_node(x)
-
-    def bind_ws(self, ws: Workspace) -> Pred:
-        return ExcludeExistingWS(ws)
-
-@dataclass(frozen=True)
-class ExcludeExistingWS(AndFirst):
-    '''Pred to exclude nodes that exist in a specified Workspace.'''
-    ws: Workspace
-
-    def __call__(self, x: Any) -> bool:
-        return not self.ws.has_node(x)
 
 ### At end of file to avoid circular imports ###
 

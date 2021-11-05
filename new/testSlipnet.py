@@ -160,3 +160,27 @@ class TestSlipnet(unittest.TestCase):
         self.assertIn(eqn2, returned_slipnodes)
         self.assertNotIn(Before(5), returned_slipnodes)
         self.assertIn(5, returned_slipnodes)
+
+        # Now we call fm.pulse_slipnet()
+
+        returned_slipnodes = fm.pulse_slipnet(
+            activations_in=activations_in,
+            pred=(Equation, int),
+            k=200,
+            num_get=200
+        )
+        self.assertIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertNotIn(Before(5), returned_slipnodes)
+        self.assertIn(5, returned_slipnodes)
+
+        returned_slipnodes = fm.pulse_slipnet(
+            activations_in=activations_in,
+            pred=(Equation, int, ExcludeExisting()),
+            k=200,
+            num_get=200
+        )
+        self.assertNotIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertNotIn(Before(5), returned_slipnodes)
+        self.assertIn(5, returned_slipnodes)
