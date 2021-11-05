@@ -5,10 +5,10 @@ from pprint import pprint as pp
 import inspect
 
 from Slipnet import Slipnet, NodeA
-from FMTypes import as_pred, ADict, Exclude
+from FMTypes import as_pred, ADict, Exclude, CallablePred
 from Equation import Equation, Before, plus, minus, times
 from Graph import Graph, Before, After
-from FARGModel import FARGModel
+from FARGModel import FARGModel, ExcludeExisting
 from util import is_iter, as_iter, pts, pr
 
 eqn_graph = Graph.with_features(
@@ -111,8 +111,10 @@ class TestSlipnet(unittest.TestCase):
     def test_exclude_existing_nodes_from_slipnet_results(self) -> None:
         fm = FARGModel(seed=1, slipnet=Slipnet(eqn_graph))
         eqn1 = fm.build(Equation.make([5, 4], plus))
-        eqn2 = fm.build(Equation.make([6, 4], plus))
-        eqn3 = fm.build(Equation.make([4, 4], plus))
+        eqn2 = Equation.make([6, 4], plus)
+        eqn3 = Equation.make([4, 4], plus)
+        # eqn1 is a node in the workspace; eqn2 and eqn3 are not.
+
         activations_in: ADict = {
             Before(4): 1.0,
             After(9): 1.0
@@ -124,27 +126,37 @@ class TestSlipnet(unittest.TestCase):
         self.assertIn(Before(5), Slipnet.top(d=d, k=None))
 
         excl1 = Exclude(eqn1)
-        self.assertNotIn(eqn1, Slipnet.top(d=d, pred=excl1, k=None))
-        self.assertIn(eqn2, Slipnet.top(d=d, pred=excl1, k=None))
-        self.assertIn(Before(5), Slipnet.top(d=d, pred=excl1, k=None))
-        self.assertIn(5, Slipnet.top(d=d, pred=excl1, k=None))
+        returned_slipnodes = Slipnet.top(d=d, pred=excl1, k=None)
+        self.assertNotIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertIn(Before(5), returned_slipnodes)
+        self.assertIn(5, returned_slipnodes)
 
         pred2 = Equation
-        self.assertIn(eqn1, Slipnet.top(d=d, pred=pred2, k=None))
-        self.assertIn(eqn2, Slipnet.top(d=d, pred=pred2, k=None))
-        self.assertNotIn(Before(5), Slipnet.top(d=d, pred=pred2, k=None))
-        self.assertNotIn(5, Slipnet.top(d=d, pred=pred2, k=None))
+        returned_slipnodes = Slipnet.top(d=d, pred=pred2, k=None)
+        self.assertIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertNotIn(Before(5), returned_slipnodes)
+        self.assertNotIn(5, returned_slipnodes)
 
         pred3 = (Equation, int)
-        self.assertIn(eqn1, Slipnet.top(d=d, pred=pred3, k=None))
-        self.assertIn(eqn2, Slipnet.top(d=d, pred=pred3, k=None))
-        self.assertNotIn(Before(5), Slipnet.top(d=d, pred=pred3, k=None))
-        self.assertIn(5, Slipnet.top(d=d, pred=pred3, k=None))
+        returned_slipnodes = Slipnet.top(d=d, pred=pred3, k=None)
+        self.assertIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertNotIn(Before(5), returned_slipnodes)
+        self.assertIn(5, returned_slipnodes)
 
         pred4 = (Equation, int, Exclude(eqn1))
-        self.assertNotIn(eqn1, Slipnet.top(d=d, pred=pred4, k=None))
-        self.assertIn(eqn2, Slipnet.top(d=d, pred=pred4, k=None))
-        self.assertNotIn(Before(5), Slipnet.top(d=d, pred=pred4, k=None))
-        self.assertIn(5, Slipnet.top(d=d, pred=pred4, k=None))
+        returned_slipnodes = Slipnet.top(d=d, pred=pred4, k=None)
+        self.assertNotIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertNotIn(Before(5), returned_slipnodes)
+        self.assertIn(5, returned_slipnodes)
 
-        # TODO ExcludeExisting
+        ee: CallablePred = ExcludeExisting().bind_ws(fm) # type: ignore[assignment]
+        pred5 = (Equation, int, ee)
+        returned_slipnodes = Slipnet.top(d=d, pred=pred5, k=None)
+        self.assertNotIn(eqn1, returned_slipnodes)
+        self.assertIn(eqn2, returned_slipnodes)
+        self.assertNotIn(Before(5), returned_slipnodes)
+        self.assertIn(5, returned_slipnodes)

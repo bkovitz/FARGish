@@ -185,3 +185,17 @@ Exciting things
 
     Record the current context with a desired codelet, and get that codelet
     to be triggered when the same context recurs.
+
+
+StackOverflow questions
+
+    How to annotate "Any Hashable except None".
+
+    Why doesn't this work?
+
+        @dataclass(frozen=True)
+        class Not:
+            pred: CallablePred
+
+            def __call__(self: Not, x: Any) -> bool:
+                return not self.pred(x)  # type: ignore[operator]  # mypy bug?

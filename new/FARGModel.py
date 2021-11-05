@@ -14,7 +14,7 @@ from contextlib import contextmanager
 import sys
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
-    as_pred, ADict
+    as_pred, ADict, AndFirst, CallablePred
 from Propagator import Propagator, ActivationLogs, ActivationLog
 from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
 from Slipnet import Slipnet
@@ -733,8 +733,11 @@ class Workspace(HasRngSeed):
         one.'''
         return first(self.nodes(pred=pred, es=es))
 
-    def has_node(self, node: Node) -> bool:
-        return node in self.wsd
+    def has_node(self, node: Node) -> Optional[Node]:
+        return first(
+            n for n in self.wsd
+                if match_wo_none(n, node)
+        )
 
     # Node info
 
@@ -1364,6 +1367,27 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     value: Any = None
     type_needed: Any = None  # type annotation
+
+### WSPreds, i.e. Workspace Predicates ###
+
+@dataclass(frozen=True)
+class ExcludeExisting(AndFirst):
+    '''WSPred to exclude existing nodes.'''
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        #print('EE', x, ws.has_node(x))
+        return not ws.has_node(x)
+
+    def bind_ws(self, ws: Workspace) -> Pred:
+        return ExcludeExistingWS(ws)
+
+@dataclass(frozen=True)
+class ExcludeExistingWS(AndFirst):
+    '''Pred to exclude nodes that exist in a specified Workspace.'''
+    ws: Workspace
+
+    def __call__(self, x: Any) -> bool:
+        return not self.ws.has_node(x)
 
 ### At end of file to avoid circular imports ###
 
