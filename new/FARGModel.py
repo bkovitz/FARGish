@@ -254,7 +254,7 @@ class QPred(QArg):
     def get_pred(self, fm: FARGModel, sources: Sources) -> Pred:
         return self.pred(**fm.mk_func_args(self.pred, sources))
 
-QArgs = Union[None, Node, QArg, Sequence[Union[Node, QArg]]]
+QArgs = Union[None, Node, QArg, Tuple[Union[Node, QArg], ...]]
 
 @dataclass(frozen=True)
 class SnaggedAgent(Feature):
@@ -275,6 +275,8 @@ class Unsnag(Feature):
 @dataclass(frozen=True)
 class QueryForSnagFixer(Codelet):
     
+    default_slipnet_kwargs: ClassVar[Dict[str, Any]] = dict(k=4)
+
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
@@ -282,13 +284,15 @@ class QueryForSnagFixer(Codelet):
         sources: Optional[Sources]
     ) -> CodeletResults:
         if not behalf_of:
-            return None
-        """
-        features: List[Node] = [SnaggedAgent(behalf_of)]
-        features += [
-            Unsnag(tag) if isinstance(tag, Fizzle) else tag
-                for tag in fm.tags_of(behalf_of)
-        ]
+            return None  # TODO Fizzle?
+        qargs: QArgs = (
+            (SnaggedAgent(behalf_of), QArgsModule.SearchFor(Agent))
+            +
+            tuple(
+                Unsnag(tag) if isinstance(tag, Fizzle) else tag
+                    for tag in fm.tags_of(behalf_of)
+            )
+        )
         """
         # TODO It would be better to call fm.mk_slipnet_args()
         activations_in: ADict = {}
@@ -304,7 +308,13 @@ class QueryForSnagFixer(Codelet):
             k=4,
             num_get=1
         )
-        #alogger = ALogger(t=fm.t, filename=short(behalf_of)) #, mode='w')
+        """
+        kwargs = (
+            fm.mk_slipnet_args(qargs, sources)
+            |
+            self.default_slipnet_kwargs
+        )
+
         alog = fm.start_alog((behalf_of, self))
         slipnet_results = fm.pulse_slipnet(alog=alog, **kwargs) # type: ignore[arg-type]
         """ # TODO
@@ -321,8 +331,9 @@ class QueryForSnagFixer(Codelet):
                     for node in slipnet_results
             ]
         else:
-            #print('QueryForSnagFixer: no slipnet_results!')
-            print('FAILURE QueryForSnagFixer: no slipnet_results!', file=logfile)
+            raise NoResultFromSlipnet(qargs=qargs)
+            #print('FAILURE QueryForSnagFixer: no slipnet_results!', file=logfile)
+            #fm.set_state(behalf_of, Failed)
         result.append(CodeletsModule.Sleep(agent=behalf_of))
         return result
         # TODO Also Sleep the Agent
@@ -637,6 +648,11 @@ class Workspace(HasRngSeed):
         for tag in as_iter(self._tags_of.get(taggee, None)):
             yield tag
 
+    # TODO UT
+    def has_tag(self, node: Node, pred: Pred) -> Optional[Node]:
+        pred = as_pred(pred)
+        return first(tag for tag in self.tags_of(node) if pred(tag))
+
     def initial_state(self, obj: Node) -> AgentState:
         if isinstance(obj, Agent):
             if obj.born:
@@ -831,8 +847,9 @@ class FARGModel(Workspace):
                     #self.run_codelet(getattr(agent, agent_state.name), agent)
                     self.run_codelet(agent.get_codelets(agent_state), agent)
                 except Fizzle as fiz:
+                    print('RUN', short(fiz))
                     self.add_tag(agent, fiz, builder=agent)
-                    self.set_state(agent, Snag)
+                    self.set_state(agent, fiz.next_agent_state)
                 agent_state = self.agent_state(agent)
         """
         sources = self.mk_sources(agent)
@@ -1298,6 +1315,7 @@ class FARGException(Exception):
 class Fizzle(FARGException, Loggable):
     agent: Optional[Agent] = None
     codelet: Optional[Codelet] = None
+    next_agent_state: ClassVar[AgentState] = Snag
 
     def __str__(self):
         return repr(self)
@@ -1351,6 +1369,11 @@ class ValuesNotAvail(Fizzle):
 @dataclass(frozen=True)
 class NoResultFromSlipnet(Fizzle):
     qargs: QArgs = None
+    next_agent_state: ClassVar[AgentState] = Failed
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.qargs)})'
 
 @dataclass(frozen=True)
 class MissingArgument(Fizzle):
@@ -1362,3 +1385,4 @@ class MissingArgument(Fizzle):
 ### At end of file to avoid circular imports ###
 
 import Codelets as CodeletsModule
+import QArgs as QArgsModule

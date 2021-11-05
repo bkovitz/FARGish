@@ -11,7 +11,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 
 from Agents import LitPainter, Consumer, Want
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
-    Succeeded, SolvedPuzzle, Agent, Fizzle
+    Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
+    NoResultFromSlipnet
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
@@ -174,7 +175,7 @@ class TestAgents(unittest.TestCase):
                 pr(fm, extra=True)
             self.assertEqual(ca[1], self.step1, f'seed={seed}')
 
-    def test_snag_tag(self) -> None:
+    def test_snag_tag_and_no_result_from_slipnet(self) -> None:
         fm = FARGModel()
         ca = fm.build(self.pons_start_canvas())
         cr0 = CellRef(ca, 0)
@@ -190,6 +191,25 @@ class TestAgents(unittest.TestCase):
         snag_tag = fm.the(Fizzle)
         self.assertIsNotNone(snag_tag)
         self.assertEqual(fm.builder_of(snag_tag), ag)
+        self.assertEqual(fm.agent_state(ag), Snag)
+
+    def test_fail_after_no_result_from_slipnet(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+        
+        ag = fm.build(Consumer(
+            operator=plus,
+            operands=(3, 5),  # 3 is not avail, so this Consumer must fail
+            source=cr0,
+        ))
+        fm.add_tag(ag, ValuesNotAvail())
+        self.assertTrue(fm.has_tag(ag, ValuesNotAvail))
+        fm.set_state(ag, Snag)
+
+        fm.run_agent(ag)
+        self.assertTrue(fm.has_tag(ag, NoResultFromSlipnet))
+        self.assertEqual(fm.agent_state(ag), Failed)
 
 if __name__ == '__main__':
     from inspect import signature

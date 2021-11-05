@@ -39,7 +39,7 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	$(PY) -m unittest -v testAgents.TestAgents.test_snag_tag
+	$(PY) -m unittest -v testAgents.TestAgents.test_fail_after_no_result_from_slipnet
 	#$(PY) -m unittest -v testPropagator.TestPropagator.test_activation_log
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_query_slipnet_for_delegate
 	#$(PY) -m unittest -v test_util.TestIsTypeInstance

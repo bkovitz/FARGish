@@ -101,6 +101,8 @@ Solve pons asinorum
 
         LitPainter's builder should be the Consumer that built it.  DONE
 
+        QueryForSnagFixer raise NoResultFromSlipnet  DONE
+
         NEXT MakeVariant: get operands from avails
 
     maybe
@@ -119,11 +121,21 @@ Other things
 
     Overriding/varying Agent arguments.
 
+Seeing what's happening
+
+    Decent logging.  DONE
+
+        With auto-indent.  DONE
+
+    tla= "Time last acted" in FARGModel.pr for Agents
+
+    Easy way to see timeseries of Slipnet queries.
+
+    Easy way to see timeseries of Workspace spreading activation.
+
+    Easy way to see the graph in the Workspace.
+
 Small things
-
-    Decent logging.
-
-        With auto-indent.
 
     Give the() a generic return type.
 
