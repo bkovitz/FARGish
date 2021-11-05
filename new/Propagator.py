@@ -294,6 +294,15 @@ class ActivationLog:
         for ts in self.tsd.values():
             pr(ts)
 
+    def prlast(self, pred: Pred, n: Optional[int]=None) -> None:
+        key = lambda ts: ts.last_a()
+        if n is None:
+            tss = sorted(self.tss(pred), key=key)
+        else:
+            tss = nlargest(n, self.tss(pred), key=key)
+        for ts in tss:
+            print(f'{short(ts.node):40s} {ts.last_a():1.3}')
+
     def plot(self, pred: Pred=None, *, n: Optional[int]=None) -> None:
         plt.ion()
         plt.clf()

@@ -67,11 +67,20 @@ class TestPons(unittest.TestCase):
         run(bricks=[4, 5, 6], target=15)
 
 if __name__ == '__main__':
-    run(bricks=[4, 5, 6], target=15, num_slipnet_iterations=20)
+    bricks = [4, 5, 6]
+    target = 15
+    #bricks = [40, 50, 60]
+    #target = 150
+    run(bricks=bricks, target=target, num_slipnet_iterations=20)
     als = fm.alogs
+    print()
     pr(als)
     print()
     ls = list(als.logs.values())
+    print('PULSED:')
     pr(ls[0].pulsed_nodes())
-    ls[0].plot(n=20)
+    pred = (Consumer, int)
+    n=20
+    ls[0].plot(pred, n=n)
+    ls[0].prlast(pred, n=n)
     

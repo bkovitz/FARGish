@@ -293,22 +293,6 @@ class QueryForSnagFixer(Codelet):
                     for tag in fm.tags_of(behalf_of)
             )
         )
-        """
-        # TODO It would be better to call fm.mk_slipnet_args()
-        activations_in: ADict = {}
-        activations_in[SnaggedAgent(behalf_of)] = 1.0
-        for tag in fm.tags_of(behalf_of):
-            if isinstance(tag, Fizzle):
-                activations_in[Unsnag(tag)] = 1.0
-            else:
-                activations_in[tag] = 1.0
-        kwargs = dict(
-            activations_in=activations_in,
-            pred=Agent,  # TODO UnsnaggingAgent?
-            k=4,
-            num_get=1
-        )
-        """
         kwargs = (
             fm.mk_slipnet_args(qargs, sources)
             |
@@ -847,7 +831,6 @@ class FARGModel(Workspace):
                     #self.run_codelet(getattr(agent, agent_state.name), agent)
                     self.run_codelet(agent.get_codelets(agent_state), agent)
                 except Fizzle as fiz:
-                    print('RUN', short(fiz))
                     self.add_tag(agent, fiz, builder=agent)
                     self.set_state(agent, fiz.next_agent_state)
                 agent_state = self.agent_state(agent)

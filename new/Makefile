@@ -22,8 +22,9 @@ FARGISH_SRC = Agents.py Canvas.py Codelets.py Consume.py Detectors.py \
 ut_and_go: ut current
 
 # Convenience target for "do whatever I'm currently working on".
-current:
-	$(PY) -i spike4.py
+current: mypy
+	$(PY) -i atestPons.py
+c: current
 
 test: ut at
 

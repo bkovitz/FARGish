@@ -103,7 +103,26 @@ Solve pons asinorum
 
         QueryForSnagFixer raise NoResultFromSlipnet  DONE
 
-        NEXT MakeVariant: get operands from avails
+    CURRENT MakeVariant: get operands from avails
+
+        NEXT Exclude already-existing Consumers from slipnet search.
+
+        augmented slipnet query?
+
+            Allow SearchFor to include a list of arbitrary nodes. Get them from
+            the real avails.
+
+    Respond to NeedMoreSupportToPaint
+
+        Sleep the agent.
+
+        Put behalf_of into DelegateSnagged state.
+
+    Respond to ValuesNotAvail
+
+        VariantMaker Agent?
+
+        Put VariantMaker agent into slipnet?
 
     maybe
 
@@ -111,6 +130,12 @@ Solve pons asinorum
 
         Merge slipnet results (to get _ + _ = _)
 
+
+Solve 40 50 60; 150.
+
+        Get 40, 50 to return Consumer(4+5).
+
+        Get 40, 50, 60 to return Consumer(4+5), etc.
 
 
 Other things

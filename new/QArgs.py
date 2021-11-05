@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from FMTypes import Node, Nodes, Pred
 from FARGModel import FARGModel, QArg, QInput, QPred, CellRef, Ref, R
 from Graph import Before, After
-from util import trace, as_iter
+from util import trace, as_iter, short
 
 
 @dataclass(frozen=True)
@@ -40,3 +40,7 @@ class SearchFor(QPred):
         self, type: Type[Node]
     ) -> Pred:
         return type
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.type)})'
