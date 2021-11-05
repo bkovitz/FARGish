@@ -643,13 +643,15 @@ def singleton(cls):
 
 # Debugging
 
-# TODO Indent
+trace_indent_level: int = 0
+
 def trace(func):
     '''Function decorator: prints the name and arguments of the function each
     time it is called, and prints its return value when it returns.
     Caution: 'trace' will read generators all the way to their end.'''
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+        global trace_indent_level
         argstring = ''
         if args:
             argstring += ', '.join(repr(a) for a in args)
@@ -659,9 +661,12 @@ def trace(func):
             argstring += ', '.join(
                 f'{name}={value}' for name, value in kwargs.items()
             )
-        print(f'{func.__name__}({argstring})')
+        pre = ' ' * trace_indent_level
+        print(f'{pre}{func.__name__}({argstring})')
+        trace_indent_level += 2
         result = func(*args, **kwargs)
-        print(f'-> {result}')
+        trace_indent_level -= 2
+        print(f'{pre}-> {result}')
         return result
     return wrapper
 

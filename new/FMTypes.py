@@ -75,15 +75,10 @@ class HasBindWs(ABC):
         self with 'ws' as the first argument.'''
         pass
 
-#@trace
 def as_pred(o: Pred) -> CallablePred:
     if isclass(o):
-        #return lambda x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
         return IsInstance(o)  # type: ignore[arg-type]  # mypy bug?
     elif isinstance(o, tuple):
-        #preds = tuple(as_pred(p) for p in o)
-        #return lambda x: any(p(x) for p in preds)
-        #return OrPreds(*o)
         return combine_preds(*o)
     elif callable(o):
         return o

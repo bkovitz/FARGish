@@ -771,16 +771,14 @@ def as_wspred(o: WSPred) -> Callable[[Workspace, Any], bool]:
     and an object.'''
     # TODO Document the many ways this thing constructs a function.
     if isclass(o):
-        return lambda ws, x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
+        return WSIsInstance(o)  # type: ignore[arg-type]  # mypy bug?
     elif isinstance(o, tuple):
-        #preds = tuple(as_wspred(p) for p in o)
-        #return lambda ws, x: any(p(ws, x) for p in preds)
         return combine_wspreds(*o)
     elif callable(o):
         if first_arg_is_ws(o):
             return o  # type: ignore[return-value]
         else:
-            return lambda ws, x: o(x)  # type: ignore[call-arg, operator, misc]  # mypy bug
+            return IgnoreWSArg(o)
     elif o is None:
         return lambda ws, x: True
     else:
@@ -793,34 +791,41 @@ def bind_ws(ws: Workspace, o: WSPred) -> Pred:
     argument.'''
     if isinstance(o, HasBindWs):
         return o.bind_ws(ws)
-    elif isclass(o):
-        return IsInstance(o)  # type: ignore[arg-type]  # mypy bug?
-    elif isinstance(o, tuple):
-        return combine_preds(*(bind_ws(ws, p) for p in o))
-    elif callable(o):
+    elif callable(o) and not isclass(o):
         if first_arg_is_ws(o):
-            return lambda x: o(ws, x)  # type: ignore[operator, call-arg, misc]
+            return WithBoundWS(ws, o)  # type: ignore[arg-type]
         else:
             return o
-    elif o is None:
-        return AlwaysTrue()
+    elif isinstance(o, tuple):
+        return combine_preds(*(bind_ws(ws, p) for p in o))
     else:
-        return MatchWoNone(o)
+        return as_pred(o)
 
 @dataclass(frozen=True)
-class WSIsInstance:
+class WSIsInstance(HasBindWs):
     cl: Type
 
     def __call__(self, ws: Workspace, x: Any) -> bool:
         return isinstance(x, self.cl)
+
+    # TODO UT
+    def bind_ws(self, ws: Workspace) -> Pred:
+        return IsInstance(self.cl)
     
 @dataclass(frozen=True)
-class WSWrapper:
+class WithBoundWS:
     ws: Workspace
     wspred: CallableWSPred
 
     def __call__(self, x: Any) -> bool:
         return self.wspred(self.ws, x)  # type: ignore  # mypy bugs?
+
+@dataclass(frozen=True)
+class IgnoreWSArg:
+    pred: Pred
+
+    def __call__(self, ws: Workspace, x: Any) -> bool:
+        return self.pred(x)  # type: ignore[call-arg, operator, misc]  # mypy bug
 
 def combine_wspreds(*preds: WSPred) -> CallableWSPred:
     preds: List[WSPred] = [
