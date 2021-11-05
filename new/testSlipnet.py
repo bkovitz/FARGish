@@ -5,7 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from Slipnet import Slipnet, NodeA
-from FMTypes import as_pred
+from FMTypes import as_pred, ADict, Exclude
 from Equation import Equation, Before, plus, minus, times
 from Graph import Graph, Before, After
 from FARGModel import FARGModel
@@ -19,13 +19,13 @@ eqn_graph = Graph.with_features(
 
 class TestSlipnet(unittest.TestCase):
 
-    def test_make_activations_in(self):
+    def test_make_activations_in(self) -> None:
         slipnet = Slipnet.empty()  # slipnet contents are ignored in this test
         self.assertEqual(
             slipnet.make_activations_in(['a']),
             {'a': 1.0}
         )
-        a_in = dict(a=1.5, b=0.5, c=1.2)
+        a_in: ADict = dict(a=1.5, b=0.5, c=1.2)
         self.assertEqual(
             slipnet.make_activations_in(
                 features=['a', 'b', 'd'],
@@ -35,16 +35,16 @@ class TestSlipnet(unittest.TestCase):
         )
         self.assertEqual(a_in, dict(a=1.5, b=0.5, c=1.2))
 
-    def test_dquery(self):
+    def test_dquery(self) -> None:
         slipnet = Slipnet(eqn_graph)
         d = slipnet.dquery([Before(4), Before(5)])
         a = d[Equation.make([5, 4], plus)]
         self.assertGreater(a, 0.05)
         self.assertLess(a, 1.0)
 
-    def test_topna_and_top(self):
+    def test_topna_and_top(self) -> None:
         slipnet = Slipnet.empty()  # slipnet contents are ignored in this test
-        d = {'a': 0.9, 'b': 0.2, 'c': 0.3, 'd': 0.4, 'e': 0.5, 'f': 0.6}
+        d: ADict = {'a': 0.9, 'b': 0.2, 'c': 0.3, 'd': 0.4, 'e': 0.5, 'f': 0.6}
         pred = lambda x: x > 'b'
         self.assertEqual(
             slipnet.topna(d, pred=pred, k=None),
@@ -76,7 +76,7 @@ class TestSlipnet(unittest.TestCase):
             [NodeA('a', 0.9), NodeA('f', 0.6)]
         )
 
-    def test_filter_by_type(self):
+    def test_filter_by_type(self) -> None:
         slipnet = Slipnet.empty()  # slipnet contents are ignored in this test
         d = {'a': 0.2, 'b': 0.3, 1: 0.2, 2: 0.3}
         self.assertEqual(
@@ -88,7 +88,7 @@ class TestSlipnet(unittest.TestCase):
             [2]
         )
 
-    def test_as_pred_type(self):
+    def test_as_pred_type(self) -> None:
         pred = as_pred(Equation)
         self.assertFalse(pred(After))
         self.assertTrue(pred(Equation.make([5, 4], plus)))
@@ -107,3 +107,44 @@ class TestSlipnet(unittest.TestCase):
         )
         self.assertTrue(all(isinstance(node, Equation) for node in nodes))
         self.assertTrue(Equation.make([5, 4], plus) in nodes)
+
+    def test_exclude_existing_nodes_from_slipnet_results(self) -> None:
+        fm = FARGModel(seed=1, slipnet=Slipnet(eqn_graph))
+        eqn1 = fm.build(Equation.make([5, 4], plus))
+        eqn2 = fm.build(Equation.make([6, 4], plus))
+        eqn3 = fm.build(Equation.make([4, 4], plus))
+        activations_in: ADict = {
+            Before(4): 1.0,
+            After(9): 1.0
+        }
+        d = fm.slipnet.dquery(activations_in=activations_in)
+        self.assertIn(eqn1, Slipnet.top(d=d, k=None))
+        self.assertIn(eqn2, Slipnet.top(d=d, k=None))
+        self.assertIn(eqn3, Slipnet.top(d=d, k=None))
+        self.assertIn(Before(5), Slipnet.top(d=d, k=None))
+
+        excl1 = Exclude(eqn1)
+        self.assertNotIn(eqn1, Slipnet.top(d=d, pred=excl1, k=None))
+        self.assertIn(eqn2, Slipnet.top(d=d, pred=excl1, k=None))
+        self.assertIn(Before(5), Slipnet.top(d=d, pred=excl1, k=None))
+        self.assertIn(5, Slipnet.top(d=d, pred=excl1, k=None))
+
+        pred2 = Equation
+        self.assertIn(eqn1, Slipnet.top(d=d, pred=pred2, k=None))
+        self.assertIn(eqn2, Slipnet.top(d=d, pred=pred2, k=None))
+        self.assertNotIn(Before(5), Slipnet.top(d=d, pred=pred2, k=None))
+        self.assertNotIn(5, Slipnet.top(d=d, pred=pred2, k=None))
+
+        pred3 = (Equation, int)
+        self.assertIn(eqn1, Slipnet.top(d=d, pred=pred3, k=None))
+        self.assertIn(eqn2, Slipnet.top(d=d, pred=pred3, k=None))
+        self.assertNotIn(Before(5), Slipnet.top(d=d, pred=pred3, k=None))
+        self.assertIn(5, Slipnet.top(d=d, pred=pred3, k=None))
+
+        pred4 = (Equation, int, Exclude(eqn1))
+        self.assertNotIn(eqn1, Slipnet.top(d=d, pred=pred4, k=None))
+        self.assertIn(eqn2, Slipnet.top(d=d, pred=pred4, k=None))
+        self.assertNotIn(Before(5), Slipnet.top(d=d, pred=pred4, k=None))
+        self.assertIn(5, Slipnet.top(d=d, pred=pred4, k=None))
+
+        # TODO ExcludeExisting

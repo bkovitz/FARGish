@@ -1,6 +1,7 @@
 # FMTypes.py -- Fundamental 'typing' Type definitions for FARGModel and
 # related classes and constants
 
+from __future__ import annotations
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
@@ -9,7 +10,7 @@ from inspect import isclass
 from dataclasses import dataclass, is_dataclass
 import dataclasses
 
-from util import trace, pr
+from util import trace, pr, filter_none
 
 
 # Values with absolute value < epsilon are treated as zero
@@ -60,20 +61,50 @@ Pred = Union[
     None
 ]
 
+# A predicate function (as opposed to something that can be turned into a
+# predicate function, i.e. a Pred).
+CallablePred = Callable[[Any], bool]
+
 #@trace
-def as_pred(o: Pred) -> Callable[[Any], bool]:
+def as_pred(o: Pred) -> CallablePred:
     if isclass(o):
         #return lambda x: isinstance(x, o)  # type: ignore[arg-type]  # mypy bug?
         return IsInstance(o)  # type: ignore[arg-type]  # mypy bug?
     elif isinstance(o, tuple):
-        preds = tuple(as_pred(p) for p in o)
-        return lambda x: any(p(x) for p in preds)
+        #preds = tuple(as_pred(p) for p in o)
+        #return lambda x: any(p(x) for p in preds)
+        #return OrPreds(*o)
+        return combine_preds(*o)
     elif callable(o):
         return o
     elif o is None:
         return AlwaysTrue()
     else:
-        return lambda x: match_wo_none(x, o)
+        return MatchWoNone(o)
+
+def combine_preds(*preds: Pred) -> CallablePred:
+    preds: List[Pred] = [
+        p for p in preds
+            if p is not None and not isinstance(p, AlwaysTrue)
+    ]
+    if not preds:
+        return AlwaysTrue()
+    elif len(preds) == 1:
+        return as_pred(preds[0])
+    else:
+        preds_to_or: List[Pred] = []
+        preds_to_and_first: List[Pred] = []
+        for p in preds:
+            if isinstance(p, AndFirst):
+                preds_to_and_first.append(p)
+            else:
+                preds_to_or.append(p)
+        if not preds_to_or:
+            return AndPreds(*preds_to_and_first)
+        elif not preds_to_and_first:
+            return OrPreds(*preds_to_or)
+        else:
+            return AndPreds(*preds_to_and_first, OrPreds(*preds_to_or))
 
 @dataclass(frozen=True)
 class IsInstance:
@@ -88,6 +119,38 @@ class AlwaysTrue:
     def __call__(self, x: Any) -> bool:
         return True
 
+# TODO UT
+@dataclass(frozen=True)
+class Not:
+    pred: CallablePred
+
+    def __call__(self: Not, x: Any) -> bool:
+        return not self.pred(x)  # type: ignore[operator]  # mypy bug?
+
+@dataclass(frozen=True)
+class AndPreds:
+    preds: Tuple[CallablePred, ...]
+
+    def __init__(self, *preds: Pred):
+        object.__setattr__(self, 'preds', tuple(as_pred(p) for p in preds))
+
+    def __call__(self, x: Any) -> bool:
+        return all(p(x) for p in self.preds)
+
+@dataclass(frozen=True)
+class OrPreds:
+    preds: Tuple[CallablePred, ...]
+
+    def __init__(self, *preds: Pred):
+        object.__setattr__(self, 'preds', tuple(as_pred(p) for p in preds))
+
+    def __call__(self, x: Any) -> bool:
+        return any(p(x) for p in self.preds)
+
+    @classmethod
+    def make(cls, *preds: Pred) -> CallablePred:
+        return OrPreds(tuple(as_pred(p) for p in preds))
+
 def match_wo_none(other, obj_template) -> bool:
     '''Does obj_template == other if we ignore any fields in obj_template
     with a value of None? If other is an object of a subclass of obj_template's
@@ -101,6 +164,26 @@ def match_wo_none(other, obj_template) -> bool:
         v is None or v == other_d.get(k, None)
             for k, v in dataclasses.asdict(obj_template).items()
     )
+
+@dataclass(frozen=True)
+class MatchWoNone:
+    obj_template: Hashable
+
+    def __call__(self, obj: Any) -> bool:
+        return match_wo_none(obj, self.obj_template)
+
+class AndFirst:
+    '''Mix-in to indicate a CallablePred that, if it returns false, should
+    cause the whole collection of Preds that it contains to return false,
+    without calling other Preds in the collection.'''
+    pass
+
+@dataclass(frozen=True)
+class Exclude(AndFirst):
+    obj_template: Hashable
+
+    def __call__(self, obj: Any) -> bool:
+        return not match_wo_none(obj, self.obj_template)
 
 # An activation level
 Activation = float

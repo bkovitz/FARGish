@@ -39,12 +39,8 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	$(PY) -m unittest -v testAgents.TestAgents.test_fail_after_no_result_from_slipnet
-	#$(PY) -m unittest -v testPropagator.TestPropagator.test_activation_log
-	#$(PY) -m unittest -v testCodelets.TestCodelets.test_query_slipnet_for_delegate
-	#$(PY) -m unittest -v test_util.TestIsTypeInstance
-	#$(PY) -m unittest -v testGraph2.TestGraph.test_doubled_graph
+	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_exclude_existing_nodes_from_slipnet_results
+	#$(PY) -m unittest -v testAgents.TestAgents.test_want
 
 # Acceptance tests
 at:
