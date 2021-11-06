@@ -17,7 +17,7 @@ import sys
 import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import ADict, Node, Pred, as_pred, epsilon
-from util import trace, short, pl, first, pr, pts
+from util import trace, short, pl, first, pr, pts, as_list
 
 def sigmoid(x: float, p: float=0.5):
     '''Returns reverse sigmoid of x, where p is the exponent.
@@ -164,12 +164,30 @@ class Propagator(ABC, PropagatorDataclassMixin):
         )
         """
 
+        """
         initial_d = self.initial_new_d(g, old_d)
         deltas = self.sentas_to_deltas(
             self.adjust_senta(s, old_d) for s in self.make_sentas(g, old_d)
         )
         new_d = self.apply_deltas(g, old_d, initial_d, deltas)
         return self.normalize(new_d)
+        """
+
+
+        return self.normalize(
+            self.apply_deltas(
+                g,
+                old_d,
+                self.initial_new_d(g, old_d),
+                self.adjust_deltas(
+                    g,
+                    self.sentas_to_deltas(
+                        self.adjust_senta(s, old_d)
+                            for s in self.make_sentas(g, old_d)
+                    )
+                )
+            )
+        )
 
     def initial_new_d(self, g: Graph, old_d: ADict) -> ADict:
         '''Returns an ADict containing the activation levels of each node,
@@ -191,6 +209,12 @@ class Propagator(ABC, PropagatorDataclassMixin):
             new_d[delta.node] += delta.amt
         return new_d
         # TODO clip
+
+    def adjust_deltas(self, g: Graph, deltas: Iterable[Delta]) \
+    -> Iterable[Delta]:
+        '''Last adjustment of Deltas before applying them to the nodes'
+        activations. Default implementation: no adjustment.'''
+        return deltas
 
     def sentas_to_deltas(self, sentas: Iterable[SentA]) \
     -> Iterable[Delta]:
@@ -297,6 +321,16 @@ class Propagator(ABC, PropagatorDataclassMixin):
             for hop in g.hops_from_node(node):
                 if abs(hop.weight) >= epsilon:
                     yield SentA(hop.to_node, hop.weight * node_a, node)
+
+class WithSigmoidOnDeltas(Propagator):
+    
+    def adjust_deltas(self, g: Graph, deltas: Iterable[Delta]) \
+    -> Iterable[Delta]:
+        deltas = as_list(deltas)
+        max_delta = max((delta.amt for delta in deltas), default=0)
+        min_delta = min((delta.amt for delta in deltas), default=0)
+
+        return deltas  # TODO
 
 ALogsKey = Tuple[Optional[int], Hashable]  # (timestep, label)
     # key to look up an ActivationLog in ActivationLogs.

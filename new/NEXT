@@ -121,7 +121,10 @@ Solve pons asinorum
 
                 Move sentas_to() and sentas_from() to Propagator.  DONE
 
-            NEXT Refactor TyrrellPropagator.propagate_once().
+            Refactor TyrrellPropagator.propagate_once(). DONE
+
+            NEXT Figure out how to tune a sigmoid to the actual range of
+            deltas.
 
             See the Deltas in the first pons search.
 
