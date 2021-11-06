@@ -123,6 +123,12 @@ class Slipnet:
     def nodes(self):
         return self.base_graph.nodes
 
+    def has_node(self, x: Any) -> bool:
+        return self.base_graph.has_node(x)
+
+    def neighbors(self, node: Node) -> Set[Node]:
+        return self.base_graph.neighbors(node)
+
     def set_params(self, num_iterations: Optional[int]=None) -> None:
         if num_iterations is not None:
             self.propagator.num_iterations = num_iterations

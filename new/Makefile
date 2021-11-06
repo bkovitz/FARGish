@@ -24,7 +24,7 @@ ut_and_go: ut current
 # Convenience target for "do whatever I'm currently working on".
 current: mypy
 	$(PY) -i atestPons.py
-c: current
+i: current  # "interactive" version of what I'm currently working on
 
 test: ut at
 

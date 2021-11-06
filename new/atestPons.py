@@ -19,7 +19,7 @@ from Agents import Want, Consumer
 from Codelets import RaiseException
 from Canvas import StepCanvas, Step
 from Equation import plus, minus, times
-from util import pr, pts
+from util import pr, pts, short, trace
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
@@ -81,6 +81,5 @@ if __name__ == '__main__':
     pr(ls[0].pulsed_nodes())
     pred = (Consumer, int)
     n=20
-    ls[0].plot(pred, n=n)
-    ls[0].prlast(pred, n=n)
-    
+    print()
+    ls[0].plot(pred, n=n, pr=True)

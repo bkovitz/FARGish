@@ -169,7 +169,7 @@ class Codelet(CodeletDataclassMixin, CanReplaceRefs, Loggable, ABC):
         cl = self.__class__.__name__
         kw = omit(kwargs.get('kwargs', {}), ['fm', 'behalf_of', 'sources'])
         print(
-            f'CODELET {cl} {dict_str(kw, short)}',
+            f'CODELET {cl:25s}  {dict_str(kw, short)}',
             file=f
         )
 
@@ -362,7 +362,7 @@ class Agent(CanReplaceRefs, Loggable):
 
     def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
         print(
-            f'AGENT {short(self)}  state={fm.agent_state(self)} t={fm.t}',
+            f'AGENT {short(self):25s}  state={fm.agent_state(self)} t={fm.t}',
             file=f
         )
 

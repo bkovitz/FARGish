@@ -105,7 +105,19 @@ Solve pons asinorum
 
     CURRENT MakeVariant: get operands from avails
 
-        NEXT Exclude already-existing Consumers from slipnet search.
+        Exclude already-existing Consumers from slipnet search.  DONE
+
+        See why numbers other than 4, 5, 6, 15 aren't being activated in
+        atestPons. Find out why Before(19) gets activated but 19 doesn't.
+        DONE: the amount of activation is incredibly tiny, less than epsilon.
+
+        NEXT Try plotting the pons search but with only a handful of
+        Consumer nodes in the slipnet.
+
+        See the Deltas in the first pons search.
+
+        Put the full feature set into atestPons.eqn_graph. Specifically,
+        add more features to Consumer.features_of().
 
         augmented slipnet query?
 
@@ -146,6 +158,8 @@ Other things
 
     Overriding/varying Agent arguments.
 
+    Output slipnet as a dot graph?
+
 Seeing what's happening
 
     Decent logging.  DONE
@@ -165,6 +179,8 @@ Small things
     Give the() a generic return type.
 
     short() to print short strings  DONE
+
+    Construct Consumer(6x5) from the string 'Consumer(6x5)'.
 
     Make a standard short() for dataclasses that prints shorts of all the
     fields.

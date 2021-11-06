@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from Canvas import CellRef
 from FMTypes import Value, Node
-from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake
+from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake, ExcludeExisting
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState
 from Consume import Consume
@@ -106,7 +106,8 @@ class Want(Agent):
             qargs=(
                 QBeforeFromAvails(Ref('startcell')),
                 QAfter(Ref('target')),
-                SearchFor(Agent)
+                SearchFor(Agent),
+                ExcludeExisting()
             )
         ),
         Sleep(agent=Ref('behalf_of'))

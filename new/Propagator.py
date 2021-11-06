@@ -301,9 +301,10 @@ class ActivationLog:
         else:
             tss = nlargest(n, self.tss(pred), key=key)
         for ts in tss:
-            print(f'{short(ts.node):40s} {ts.last_a():1.3}')
+            print(f'{short(ts.node):40s} {ts.last_a():1.5f}')
 
-    def plot(self, pred: Pred=None, *, n: Optional[int]=None) -> None:
+    def plot(self, pred: Pred=None, *, n: Optional[int]=None, pr: bool=False) \
+    -> None:
         plt.ion()
         plt.clf()
         plt.gcf().set_size_inches(8, 8)
@@ -320,6 +321,8 @@ class ActivationLog:
         plt.axis([0, max_subt, 0, max_a])
         plt.legend()
         plt.suptitle(str(self))
+        if pr:
+            self.prlast(pred=pred, n=n)
 
     def tss(self, pred: Pred=None) -> List[NodeTimeseries]:
         '''pred selects Nodes.'''
