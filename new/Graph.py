@@ -102,7 +102,7 @@ class WithPrefix(Query):
     prefix: Hashable
     q: Query
 
-    def unprefixed(self, prefix):
+    def unprefixed(self, prefix: Hashable) -> Query:
         if prefix != self.prefix:
             raise WrongPrefix
         else:
@@ -125,6 +125,8 @@ class CantRemoveHop(Exception):
 
 @dataclass
 class EnumNodes(Nodes):
+    Q = TypeVar('Q', bound='EnumNodes')
+
     nodeset: Set[Node]
     nodeclasses: Dict[Type, Set[Node]]
 
@@ -161,6 +163,10 @@ class EnumNodes(Nodes):
 
     def __len__(self) -> int:
         return len(self.nodeset)
+
+    @classmethod
+    def empty(cls: Type[Q]) -> Q:
+        return cls(set())
 
 @dataclass
 class NodesSeries(Nodes):
@@ -591,7 +597,7 @@ class PrefixedNodes(Nodes):
         if prefix == self.prefix:
             return self.base_nodes
         else:
-            return EnumNodes(set())
+            return EnumNodes.empty()
 
     def __len__(self) -> int:
         return len(self.base_nodes)
@@ -601,7 +607,7 @@ class PrefixedEdges(Edges):
     prefix: Hashable
     base_edges: Edges
 
-    def hops_from_node(self, nodes, x):
+    def hops_from_node(self, nodes: Nodes, x: Any) -> Iterable[Hop]:
         return (
             hop.add_prefix(self.prefix)
                 for hop in self.base_edges.hops_from_node(
@@ -610,7 +616,7 @@ class PrefixedEdges(Edges):
                 )
         )
 
-    def hops_to_node(self, nodes, x):
+    def hops_to_node(self, nodes: Nodes, x: Any) -> Iterable[Hop]:
         return (
             hop.add_prefix(self.prefix)
                 for hop in self.base_edges.hops_to_node(
@@ -619,7 +625,8 @@ class PrefixedEdges(Edges):
                 )
         )
 
-    def find_hop(self, nodes, from_node, to_node):
+    def find_hop(self, nodes: Nodes, from_node: Any, to_node: Any) \
+    -> Union[Hop, None]:
         hop = self.base_edges.find_hop(
             nodes.unprefixed(self.prefix),
             unprefixed(from_node, self.prefix),

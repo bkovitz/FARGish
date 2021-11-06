@@ -27,6 +27,7 @@ current: mypy
 i: current  # "interactive" version of what I'm currently working on
 
 test: ut at
+mtest: mypy test
 
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
