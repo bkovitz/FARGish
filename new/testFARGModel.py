@@ -151,8 +151,8 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(logging_is_enabled(ag))
         got = run()
         self.assertEqual(got, [
-            'AGENT DummyAgent(FROM AGENT)  state=born t=0',
-            'AGENT DummyAgent(ag2)  state=born t=0',
+            'AGENT DummyAgent(FROM AGENT)     state=born t=0',
+            'AGENT DummyAgent(ag2)            state=born t=0'
         ])
 
         # Logging disabled again
@@ -167,7 +167,7 @@ class TestFARGModel(unittest.TestCase):
         self.assertTrue(logging_is_enabled(ag2))
         got = run()
         self.assertEqual(got, [
-            'AGENT DummyAgent(ag2)  state=born t=0',
+            'AGENT DummyAgent(ag2)            state=born t=0',
         ])
 
         # Logging disabled again, via ldisable_all()
@@ -180,8 +180,8 @@ class TestFARGModel(unittest.TestCase):
         lenable(Codelet)
         got = run()
         self.assertEqual(got, [
-            "    CODELET DummyCodelet late_bound='FROM AGENT'",
-            "    CODELET DummyCodelet late_bound='ag2'"
+            "    CODELET DummyCodelet               late_bound='FROM AGENT'",
+            "    CODELET DummyCodelet               late_bound='ag2'"
         ])
 
         ldisable_all()
