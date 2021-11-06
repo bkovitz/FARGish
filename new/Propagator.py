@@ -10,15 +10,16 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from random import gauss
 from collections import defaultdict
 from heapq import nlargest
+from itertools import chain
+from copy import copy
 import sys
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
-from FMTypes import ADict, Node, Pred, as_pred
+from FMTypes import ADict, Node, Pred, as_pred, epsilon
 from util import trace, short, pl, first, pr, pts
 
-
-def reverse_sigmoid(x: float, p: float=0.5):
+def sigmoid(x: float, p: float=0.5):
     '''Returns reverse sigmoid of x, where p is the exponent.
     If x is negative, returns reverse sigmoid of -x.
 
@@ -35,7 +36,7 @@ def reverse_sigmoid(x: float, p: float=0.5):
         x = -x
     return x ** p / (x ** p + (1 - x) ** p)
 
-@dataclass
+@dataclass(frozen=True)
 class SentA:
     '''Activation sent from one node to another.'''
     #TODO nodeid -> node, neighborid -> neighbor
@@ -46,8 +47,15 @@ class SentA:
     a: float
     from_node: Node
 
-    def __str__(self):
-        return f'{self.nodeid!s:20s} {self.amt:1.10f}   {self.neighborid}'
+    def __str__(self) -> str:
+        return f'{self.to_node!s:20s} {self.a:1.10f}   {self.from_node}'
+
+@dataclass
+class Delta:
+    '''A change to a node's activation (without regard to where it came
+    from).'''
+    node: Node   # The node affected
+    amt: float   # The amount of the change
 
 @dataclass(frozen=True)
 class Flows:
@@ -99,7 +107,7 @@ class PropagatorDataclassMixin:
     alpha: float = 0.98
         # continuity constant; decay rate
     sigmoid_p: float = 0.5
-        # exponent for reverse_sigmoid
+        # exponent for sigmoid function
     max_total: float = 10.0
         # total support/activation allowed at end of timestep
     noise: float = 0.05
@@ -115,10 +123,11 @@ class Propagator(ABC, PropagatorDataclassMixin):
     
     Abstract class: concrete class must define .make_sentas().'''
 
-    def propagate_once(self, g, old_d: Dict[Node, float]) -> ADict:
+    def propagate_once(self, g: Graph, old_d: Dict[Node, float]) -> ADict:
+        """
         #print('PONCE', len(old_d))
         # decay
-        new_d: Dict[Node, float] = defaultdict(float,
+        new_d: ADict = defaultdict(float,
             #((nodeid, a * self.alpha)
             #((nodeid, max(self.min_value(g, nodeid), a * self.alpha))
             ((nodeid, self.clip_a(g, nodeid, a * self.alpha))
@@ -153,11 +162,68 @@ class Propagator(ABC, PropagatorDataclassMixin):
                 for nodeid, s in new_d.items()
             )
         )
+        """
+
+        initial_d = self.initial_new_d(g, old_d)
+        deltas = self.sentas_to_deltas(
+            self.adjust_senta(s, old_d) for s in self.make_sentas(g, old_d)
+        )
+        new_d = self.apply_deltas(g, old_d, initial_d, deltas)
         return self.normalize(new_d)
+
+    def initial_new_d(self, g: Graph, old_d: ADict) -> ADict:
+        '''Returns an ADict containing the activation levels of each node,
+        after decay and clipping.'''
+        return defaultdict(float,
+            ((node, self.clip_a(g, node, a * self.alpha))
+                for node, a in old_d.items()
+            )
+        )
+
+    def apply_deltas(
+        self, g: Graph, old_d: ADict, initial_d: ADict, deltas: Iterable[Delta]
+    ) -> ADict:
+        '''Returns a new ADict, resulting from applying 'deltas' to 'initial_d',
+        possibly considering the activations from the previous timestep, in
+        'old_d'.'''
+        new_d: ADict = defaultdict(float, initial_d)
+        for delta in deltas:
+            new_d[delta.node] += delta.amt
+        return new_d
+        # TODO clip
+
+    def sentas_to_deltas(self, sentas: Iterable[SentA]) \
+    -> Iterable[Delta]:
+        '''Coalesces the SentA's into Deltas, one Delta for each node whose
+        activation is to change. Override this to change how the coalescing
+        works. The default implementation simply adds up the .a values in
+        the sentas and then multiplies by (1.0 - self.alpha).'''
+        d: Dict[Node, Delta] = {}
+        for senta in sentas:
+            try:
+                delta = d[senta.to_node]
+            except KeyError:
+                delta = Delta(senta.to_node, 0.0)
+                d[senta.to_node] = delta
+            delta.amt += senta.a
+        multiplier = 1.0 - self.alpha
+        for delta in d.values():
+            delta.amt *= multiplier
+            if abs(delta.amt) >= epsilon:
+                yield delta
+            
+    def adjust_senta(self, senta: SentA, old_d: ADict) -> SentA:
+        '''Applies noise and positive feedback to 'senta'. Returns a new
+        SentA object if there is any change.'''
+        new_a = (
+            senta.a * (1.0 + self.positive_feedback_rate
+                             * old_d.get(senta.to_node, 0.0))
+        ) + gauss(0.0, self.noise)
+        return replace(senta, a=new_a)
 
     def propagate(
         self,
-        g,
+        g: Graph,
         old_d: Union[ADict, None],
         num_iterations=None,
         alog: Optional[ActivationLog]=None
@@ -182,13 +248,14 @@ class Propagator(ABC, PropagatorDataclassMixin):
         return new_d
 
     @abstractmethod
-    def make_sentas(self, g, old_d: Dict[Node, float]) -> Iterable[SentA]:
+    def make_sentas(self, g: Graph, old_d: Dict[Node, float]) \
+    -> Iterable[SentA]:
         pass
 
 #    @abstractmethod
 #    def min_value(self, g, nodeid: Node) -> float:
 #        pass
-    def clip_a(self, g, nodeid, a: float) -> float:
+    def clip_a(self, g: Graph, node: Node, a: float) -> float:
         return a
 
     def normalize(self, d: Dict[Node, float]) -> Dict[Node, float]:
@@ -201,11 +268,35 @@ class Propagator(ABC, PropagatorDataclassMixin):
             return d
         scale_down = 1.0 / max(d.values())
         for node, value in d.items():
-            result[node] = reverse_sigmoid(scale_down * value, p=self.sigmoid_p)
+            result[node] = sigmoid(scale_down * value, p=self.sigmoid_p)
         scale_up = self.max_total / sum(result.values())
         for node in result:
             result[node] *= scale_up
         return result
+
+    def sentas_to(self, g: Graph, old_d: ADict, node: Node) -> Iterable[SentA]:
+        '''Makes a SentA for each incoming edge of 'node'.
+        Each SentA goes to 'node' to a neighbor, with weight = the edge
+        weight times the neighbor's activation in 'old_d' (or 0.0 if the
+        neighbor is not in 'old_d'.'''
+        for hop in g.hops_to_node(node):
+            if abs(hop.weight) >= epsilon:
+                neighbor_a = old_d.get(hop.from_node, 0.0)
+                if abs(neighbor_a) >= epsilon:
+                    yield SentA(node, hop.weight * neighbor_a, hop.from_node)
+
+    def sentas_from(self, g: Graph, old_d: ADict, node: Node) \
+    -> Iterable[SentA]:
+        '''Makes a SentA for each outgoing edge of 'node'.
+        Each SentA goes from 'node' to a neighbor, with weight = the edge
+        weight times 'node's activation in 'old_d' (or 0.0 if 'node' is not
+        in 'old_d').'''
+        node_a = old_d.get(node, 0.0)
+        if abs(node_a) >= epsilon:
+            #print('DFF', node, type(node), node_a, list(g.hops_from_node(node)))
+            for hop in g.hops_from_node(node):
+                if abs(hop.weight) >= epsilon:
+                    yield SentA(hop.to_node, hop.weight * node_a, node)
 
 ALogsKey = Tuple[Optional[int], Hashable]  # (timestep, label)
     # key to look up an ActivationLog in ActivationLogs.
@@ -379,4 +470,31 @@ class NodeTimeseries:
     def short(self) -> str:
         return f'{self.node:30} {self.min_subt()}..{self.max_subt()}  {self.min_a():6.3f} ..{self.max_a():6.3f}  {self.first_a():6.3f} ..{self.last_a():6.3f}'
 
+### Some concrete Propagator classes ###
 
+@dataclass
+class PropagatorIncoming(Propagator):
+    '''A Propagator that follows hops that lead to nodes whose keys are in the
+    activations dictionary. Each timestep, g.hops_to_node() supplies all the
+    edges. Because of this, only nodes explicitly included in old_d can
+    *ever* receive any activation when .propagate() is called.'''
+
+    def make_sentas(self, g: Graph, old_d: ADict) -> Iterable[SentA]:
+        return chain.from_iterable(
+            self.sentas_to(g, old_d, node) for node in old_d
+        )
+
+@dataclass
+class PropagatorOutgoing(Propagator):
+    '''A Propagator that follows hops that lead to nodes whose keys are in the
+    activations dictionary. Each timestep, g.hops_to_node() supplies all the
+    edges. Because of this, only nodes explicitly included in old_d can
+    *ever* receive any activation when .propagate() is called.'''
+
+    def make_sentas(self, g: Graph, old_d) -> Iterable[SentA]:
+        return chain.from_iterable(
+            self.sentas_from(g, old_d, node) for node in old_d
+        )
+
+import Graph as GraphModule
+Graph = GraphModule.Graph

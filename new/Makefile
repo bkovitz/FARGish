@@ -40,7 +40,7 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_exclude_existing_nodes_from_slipnet_results
+	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_tyrrell_propagator
 	#$(PY) -m unittest -v testAgents.TestAgents.test_want
 
 # Acceptance tests

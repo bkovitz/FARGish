@@ -16,8 +16,9 @@ import sys
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
     combine_preds, AlwaysTrue, HasBindWs
-from Propagator import Propagator, ActivationLogs, ActivationLog
-from Graph import Graph, Hop, WithActivations, GraphPropagatorOutgoing, Feature
+from Propagator import Propagator, ActivationLogs, ActivationLog, \
+    PropagatorOutgoing
+from Graph import Graph, Hop, WithActivations, Feature
 from Slipnet import Slipnet
 from Indenting import Indenting, indent
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
@@ -498,7 +499,7 @@ class CellRef(HasAvailValues):
 @dataclass
 class ActivationGraph(WithActivations, Graph):
     propagator: Propagator = field(
-        default_factory=lambda: GraphPropagatorOutgoing()
+        default_factory=lambda: PropagatorOutgoing()
     )
 
 @dataclass

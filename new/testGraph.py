@@ -11,10 +11,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from itertools import chain
 
 from Graph import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
-    OfClass, MutualInhibition, Feature, features_of, GraphPropagatorIncoming, \
-    GraphPropagatorOutgoing, PrefixedNode, PrefixedGraph, WithPrefix, \
+    OfClass, MutualInhibition, Feature, features_of, \
+    PrefixedNode, PrefixedGraph, WithPrefix, \
     WithActivations
-from Propagator import Propagator
+from Propagator import Propagator, PropagatorIncoming, PropagatorOutgoing
 from util import pts, pr
 
 
@@ -206,7 +206,7 @@ class TestGraph(unittest.TestCase):
             nodes=EnumNodes(['a', 'b', 'o']),
             edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
         )
-        p = GraphPropagatorIncoming(
+        p = PropagatorIncoming(
             positive_feedback_rate=0.2,
             alpha=0.9,
             max_total=1.0,
@@ -223,7 +223,7 @@ class TestGraph(unittest.TestCase):
             nodes=EnumNodes(['a', 'b', 'o']),
             edges=EnumEdges(Hops.from_pairs(('a', 'b'), ('b', 'o')))
         )
-        p = GraphPropagatorOutgoing(
+        p = PropagatorOutgoing(
             positive_feedback_rate=0.2,
             alpha=0.9,
             max_total=1.0,
@@ -427,7 +427,7 @@ class TestGraph(unittest.TestCase):
         @dataclass
         class GA(WithActivations, Graph):
             propagator: Propagator = field(
-                default_factory=lambda: GraphPropagatorIncoming(
+                default_factory=lambda: PropagatorIncoming(
                     positive_feedback_rate=0.2,
                     alpha=0.9,
                     max_total=1.0,

@@ -12,8 +12,9 @@ from heapq import nlargest
 from operator import itemgetter, attrgetter
 
 from FMTypes import Activation, ADict, epsilon, Pred, as_pred
-from Graph import Graph, Node, GraphPropagatorOutgoing
-from Propagator import Propagator, ActivationLog
+from Graph import Graph, Node
+from Propagator import Propagator, ActivationLog, PropagatorOutgoing, \
+    Delta, SentA
 from util import as_iter, union, pr
 
 
@@ -31,7 +32,7 @@ class NodeA:
         return f'{nodestr:20s} {self.a:2.5f}'
 
 @dataclass
-class TyrrellPropagator(GraphPropagatorOutgoing):
+class TyrrellPropagator(PropagatorOutgoing):
     # The formulas that adjust incoming weights come from p. 206 of Toby
     # Tyrrell's doctoral dissertation.
     tyrrell_alpha: float = 0.05
@@ -39,15 +40,8 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
     tyrrell_beta: float = 0.05
         # constant for reducing influence of edge multiplicity: negative inputs
 
-    def propagate_once(self, g, old_d) -> ADict:
-        # Decay.
-        new_d: Dict[Node, float] = defaultdict(float,
-            ((node, self.clip_a(g, node, a * self.alpha))
-                for node, a in old_d.items()
-            )
-        )
-        # TODO Remove nodes with a < epsilon
-
+    def sentas_to_deltas(self, sentas: Iterable[SentA]) \
+    -> Iterable[Delta]:
         # Find max incoming activation and sum of incoming activations for
         # each node.
         maxin_d: Dict[Node, float] = defaultdict(float) # positive influences
@@ -55,53 +49,32 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
         minin_d: Dict[Node, float] = defaultdict(float) # negative influences
         negsumin_d: Dict[Node, float] = defaultdict(float)
 
-        for senta in self.make_sentas(g, old_d):
-            amt = (
-                senta.a
-                * (1.0 + self.positive_feedback_rate
-                         * old_d.get(senta.to_node, 0.0))
-                * (1.0 - self.alpha)
-            )
-            '''
-            if senta.to_node == Before(7) and senta.amt < 0.0:
-                print()
-                print('DE', senta, '   ', amt)
-                print()
-            '''
-            if amt >= epsilon:
-                maxin_d[senta.to_node] = max(maxin_d[senta.to_node], amt)
-                possumin_d[senta.to_node] += amt
-            elif amt <= -epsilon:
-                minin_d[senta.to_node] = min(minin_d[senta.to_node], amt)
-                negsumin_d[senta.to_node] += amt
+        for senta in sentas:
+            if senta.a >= 0:
+                maxin_d[senta.to_node] = max(maxin_d[senta.to_node], senta.a)
+                possumin_d[senta.to_node] += senta.a
+            elif senta.a < 0:
+                minin_d[senta.to_node] = min(minin_d[senta.to_node], senta.a)
+                negsumin_d[senta.to_node] += senta.a
 
-        # Apply the Tyrrell averages of the sentas
-
+        # Make Deltas from the Tyrrell averages of the SentA's
+        multiplier = 1.0 - self.alpha
         for node in union(maxin_d.keys(), minin_d.keys()):
-            #print('PR', node, maxin_d.get(node, 0.0), possumin_d.get(node, 0.0), minin_d.get(node, 0.0), negsumin_d.get(node, 0.0))
-            '''
-            print('PR1', node, minin_d.get(node, 0.0), negsumin_d.get(node, 0.0), (
-                (minin_d.get(node, 0.0)
-                  + self.tyrrell_beta * negsumin_d.get(node, 0.0))
-                /
-                (1 + self.tyrrell_beta)
-            ))
-            '''
-            new_a = new_d[node] + (
-                (maxin_d.get(node, 0.0)
-                  + self.tyrrell_alpha * possumin_d.get(node, 0.0))
-                /
-                (1 + self.tyrrell_alpha)
-            ) + (
-                (minin_d.get(node, 0.0)
-                  + self.tyrrell_beta * negsumin_d.get(node, 0.0))
-                /
-                (1 + self.tyrrell_beta)
+            amt = multiplier * (
+                (
+                    (maxin_d.get(node, 0.0)
+                      + self.tyrrell_alpha * possumin_d.get(node, 0.0))
+                    /
+                    (1 + self.tyrrell_alpha)
+                ) + (
+                    (minin_d.get(node, 0.0)
+                      + self.tyrrell_beta * negsumin_d.get(node, 0.0))
+                    /
+                    (1 + self.tyrrell_beta)
+                )
             )
-            new_d[node] = self.clip_a(g, node, new_a)
-            # TODO Record this in self.flows?
-
-        return self.normalize(new_d)
+            if abs(amt) >= epsilon:
+                yield Delta(node, amt)
 
 default_tyrrell_propagator = TyrrellPropagator(
     max_total=10.0,

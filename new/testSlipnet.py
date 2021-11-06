@@ -4,11 +4,11 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Slipnet import Slipnet, NodeA
+from FARGModel import FARGModel, ExcludeExisting
+from Graph import Graph, Before, After, EnumNodes, EnumEdges, Hops
+from Slipnet import Slipnet, NodeA, TyrrellPropagator
 from FMTypes import as_pred, ADict, Exclude, CallablePred
 from Equation import Equation, Before, plus, minus, times
-from Graph import Graph, Before, After
-from FARGModel import FARGModel, ExcludeExisting
 from util import is_iter, as_iter, pts, pr
 
 eqn_graph = Graph.with_features(
@@ -184,3 +184,28 @@ class TestSlipnet(unittest.TestCase):
         self.assertIn(eqn2, returned_slipnodes)
         self.assertNotIn(Before(5), returned_slipnodes)
         self.assertIn(5, returned_slipnodes)
+
+    def test_tyrrell_propagator(self) -> None:
+        g = Graph(
+            nodes=EnumNodes(['A', 'B', 'C', 'D', 'O']),
+            edges=EnumEdges(Hops.from_pairs(
+                ('A', 'O'), ('B', 'O'), ('C', 'O'), ('D', 'O'),
+                ('O', 'A'),
+                ('A', 'B'), ('B', 'C'), ('C', 'D')
+            ))
+        )
+        p = TyrrellPropagator(
+            positive_feedback_rate=0.2,
+            alpha=0.9,
+            max_total=10.0,
+            noise=0.0
+        )
+        activations_in: ADict = dict(A=1.0, B=0.5, C=1.0)
+
+        d = p.propagate(g, activations_in)
+        #pr(d)
+        self.assertAlmostEqual(d['A'], 0.90)
+        self.assertAlmostEqual(d['B'], 0.56)
+        self.assertAlmostEqual(d['C'], 0.96)
+        self.assertAlmostEqual(d['D'], 0.10)
+        self.assertAlmostEqual(d['O'], 0.10714285714285711)

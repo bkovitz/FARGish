@@ -116,7 +116,14 @@ Solve pons asinorum
 
         Run a sigmoid function on the incoming (final) deltas.
 
-            NEXT See the Deltas in the first pons search.
+            Refactor Propagator so that SentA's get combined into
+            Deltas.  DONE
+
+                Move sentas_to() and sentas_from() to Propagator.  DONE
+
+            NEXT Refactor TyrrellPropagator.propagate_once().
+
+            See the Deltas in the first pons search.
 
         Put the full feature set into atestPons.eqn_graph. Specifically,
         add more features to Consumer.features_of().
