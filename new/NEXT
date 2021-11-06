@@ -111,10 +111,12 @@ Solve pons asinorum
         atestPons. Find out why Before(19) gets activated but 19 doesn't.
         DONE: the amount of activation is incredibly tiny, less than epsilon.
 
-        NEXT Try plotting the pons search but with only a handful of
+        Try plotting the pons search but with only a handful of
         Consumer nodes in the slipnet.
 
-        See the Deltas in the first pons search.
+        Run a sigmoid function on the incoming (final) deltas.
+
+            NEXT See the Deltas in the first pons search.
 
         Put the full feature set into atestPons.eqn_graph. Specifically,
         add more features to Consumer.features_of().

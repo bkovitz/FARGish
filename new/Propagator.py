@@ -36,11 +36,15 @@ def reverse_sigmoid(x: float, p: float=0.5):
     return x ** p / (x ** p + (1 - x) ** p)
 
 @dataclass
-class Delta:
+class SentA:
+    '''Activation sent from one node to another.'''
     #TODO nodeid -> node, neighborid -> neighbor
-    nodeid: Node    # The node whose value is to be changed
-    amt: float        # The amount by which it is to be changed
-    neighborid: Node  # The neighbor that is the source of the change
+    #nodeid: Node    # The node whose value is to be changed
+    #amt: float        # The amount by which it is to be changed
+    #neighborid: Node  # The neighbor that is the source of the change
+    to_node: Node
+    a: float
+    from_node: Node
 
     def __str__(self):
         return f'{self.nodeid!s:20s} {self.amt:1.10f}   {self.neighborid}'
@@ -109,9 +113,9 @@ class PropagatorDataclassMixin:
 class Propagator(ABC, PropagatorDataclassMixin):
     '''Generic spreading-activation propagator class.
     
-    Abstract class: concrete class must define .make_deltas().'''
+    Abstract class: concrete class must define .make_sentas().'''
 
-    def propagate_once(self, g, old_d: Dict[Node, float]):
+    def propagate_once(self, g, old_d: Dict[Node, float]) -> ADict:
         #print('PONCE', len(old_d))
         # decay
         new_d: Dict[Node, float] = defaultdict(float,
@@ -121,27 +125,27 @@ class Propagator(ABC, PropagatorDataclassMixin):
                 for nodeid, a in old_d.items()
             )
         )
-        # apply all the deltas
-        for delta in self.make_deltas(g, old_d):
-            #print('DELT0', delta)
-            actual_delta = (
+        # apply all the sentas
+        for senta in self.make_sentas(g, old_d):
+            #print('DELT0', senta)
+            actual_senta = (
                 (
-                    delta.amt
+                    senta.a
                     * (1.0 + self.positive_feedback_rate
-                             * old_d.get(delta.nodeid, 0.0))
+                             * old_d.get(senta.to_node, 0.0))
                     * (1.0 - self.alpha)
                     #+
                 )
                 + gauss(0.0, self.noise)
             )
-            #print(f'{delta.nodeid!s:20s} {delta.amt!s:20s}  {actual_delta!s:20s}   {delta.neighborid}') #DEBUG
-            #print('PONCE', delta.nodeid, old_d[delta.nodeid], new_d[delta.nodeid], delta.amt, actual_delta)
-            #print('DELTA', replace(delta, amt=actual_delta))
-            new_d[delta.nodeid] += actual_delta
-            #self.flows[(delta.neighborid, delta.nodeid)] += actual_delta
-            self.flows.add_flow(delta.neighborid, delta.nodeid, actual_delta)
-            if delta.neighborid not in new_d:
-                new_d[delta.neighborid] = 0.0
+            #print(f'{senta.nodeid!s:20s} {senta.amt!s:20s}  {actual_senta!s:20s}   {senta.neighborid}') #DEBUG
+            #print('PONCE', senta.nodeid, old_d[senta.nodeid], new_d[senta.nodeid], senta.amt, actual_senta)
+            #print('DELTA', replace(senta, amt=actual_senta))
+            new_d[senta.to_node] += actual_senta
+            #self.flows[(senta.neighborid, senta.nodeid)] += actual_senta
+            self.flows.add_flow(senta.from_node, senta.to_node, actual_senta)
+            if senta.from_node not in new_d:
+                new_d[senta.from_node] = 0.0
         # clip to min_value
         new_d = defaultdict(float,
             #((nodeid, max(self.min_value(g, nodeid), s))
@@ -178,7 +182,7 @@ class Propagator(ABC, PropagatorDataclassMixin):
         return new_d
 
     @abstractmethod
-    def make_deltas(self, g, old_d: Dict[Node, float]) -> Iterable[Delta]:
+    def make_sentas(self, g, old_d: Dict[Node, float]) -> Iterable[SentA]:
         pass
 
 #    @abstractmethod

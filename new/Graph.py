@@ -1,5 +1,6 @@
 # Graph.py
 
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     Iterator, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
@@ -11,7 +12,7 @@ from itertools import chain
 from collections import defaultdict
 from inspect import isclass
 
-from Propagator import Propagator, Delta
+from Propagator import Propagator, SentA
 from FMTypes import epsilon, Activation, ADict
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
     clip, union, pr, pts, trace
@@ -26,7 +27,7 @@ class Hop:
     to_node: Node
     weight: float = 1.0
 
-    def add_prefix(self, prefix: Hashable) -> 'Hop':
+    def add_prefix(self, prefix: Hashable) -> Hop:
         '''Returns a Hop identical to self but with the nodes replaced by
         PrefixNode of .from_node and .to_node, with the given prefix.'''
         return Hop(
@@ -53,12 +54,12 @@ class Hops:
 class Query:
     '''A query specification to pass to Nodes.query().'''
 
-    def unprefixed(self, prefix: Hashable) -> 'Query':
+    def unprefixed(self, prefix: Hashable) -> Query:
         return self
 
 class Nodes(ABC):
     @abstractmethod
-    def has_node(self, x) -> bool:
+    def has_node(self, x: Any) -> bool:
         pass
 
     def add_node(self, node: Node) -> None:
@@ -86,7 +87,7 @@ class Nodes(ABC):
     def query(self, q) -> Iterable[Node]:
         pass
 
-    def unprefixed(self, prefix: Hashable) -> 'Nodes':
+    def unprefixed(self, prefix: Hashable) -> Nodes:
         '''Returns a version of this Nodes without a prefix. The default
         implementation simply returns an empty EnumNodes. PrefixedNodes
         overrides this method to return the base Nodes object.'''
@@ -133,16 +134,16 @@ class EnumNodes(Nodes):
         for node in self.nodeset:
             self.nodeclasses[node.__class__].add(node)
 
-    def add_node(self, node: Node):
+    def add_node(self, node: Node) -> None:
         self.nodeset.add(node)
 
-    def remove_node(self, node: Node):
+    def remove_node(self, node: Node) -> None:
         self.nodeset.discard(node)
 
-    def has_node(self, x):
+    def has_node(self, x) -> bool:
         return x in self.nodeset
 
-    def query(self, q):
+    def query(self, q) -> Iterable[Node]:
         if isinstance(q, OfClass):
             try:
                 yield from self.nodeclasses[q.cl]
@@ -155,20 +156,20 @@ class EnumNodes(Nodes):
             if q in self.nodeset:
                 yield q
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Node]:
         return iter(self.nodeset)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.nodeset)
 
 @dataclass
 class NodesSeries(Nodes):
     nodess: Sequence[Nodes]
 
-    def has_node(self, x):
+    def has_node(self, x) -> bool:
         return any(nodes.has_node(x) for nodes in self.nodess)
 
-    def query(self, q):
+    def query(self, q) -> Iterable[Node]:
         for nodes in self.nodess:
             yield from nodes.query(q)
 
@@ -199,13 +200,13 @@ class Edges(ABC):
     def __len__(self) -> int:
         pass
 
-    def add_hop(self, hop: Hop):
+    def add_hop(self, hop: Hop) -> None:
         raise CantAddHop
 
-    def remove_hop(self, hop: Hop):
+    def remove_hop(self, hop: Hop) -> None:
         raise CantRemoveHop
 
-    def remove_node(self, node: Node):
+    def remove_node(self, node: Node) -> None:
         raise CantRemoveNode
 
 @dataclass
@@ -544,7 +545,7 @@ class PrefixedNode:
     def unprefixed(self, prefix: Any=None) -> Node:
         return unprefixed(self, prefix)
 
-    def with_prefix(self, new_prefix) -> 'PrefixedNode':
+    def with_prefix(self, new_prefix) -> PrefixedNode:
         return PrefixedNode(new_prefix, self.node)
 
     def __repr__(self):
@@ -565,7 +566,7 @@ class PrefixedNodes(Nodes):
     prefix: Hashable
     base_nodes: Nodes
 
-    def has_node(self, x):
+    def has_node(self, x) -> bool:
         return self.base_nodes.has_node(unprefixed(x, self.prefix))
 
     def query(self, q):
@@ -685,14 +686,14 @@ class FeatureWrapper(Feature):
 class Before(Feature):
     x: Node
 
-    def features_of(self):
+    def features_of(self) -> Iterable[Node]:
         yield self.x
 
 @dataclass(frozen=True)
 class After(Feature):
     x: Node
 
-    def features_of(self):
+    def features_of(self) -> Iterable[Node]:
         yield self.x
 
 ### Propagator classes that work with Graph
@@ -704,17 +705,17 @@ class GraphPropagatorIncoming(Propagator):
     edges. Because of this, only nodes explicitly included in old_d can
     *ever* receive any activation when .propagate() is called.'''
 
-    def make_deltas(self, g: Graph, old_d):
+    def make_sentas(self, g: Graph, old_d) -> Iterable[SentA]:
         return chain.from_iterable(
-            self.deltas_to(g, old_d, node) for node in old_d
+            self.sentas_to(g, old_d, node) for node in old_d
         )
 
-    def deltas_to(self, g, old_d, node):
+    def sentas_to(self, g, old_d, node) -> Iterable[SentA]:
         for hop in g.hops_to_node(node):
             if abs(hop.weight) >= epsilon:
                 neighbor_a = old_d.get(hop.from_node, 0.0)
                 if abs(neighbor_a) >= epsilon:
-                    yield Delta(node, hop.weight * neighbor_a, hop.from_node)
+                    yield SentA(node, hop.weight * neighbor_a, hop.from_node)
 
 @dataclass
 class GraphPropagatorOutgoing(Propagator):
@@ -723,15 +724,15 @@ class GraphPropagatorOutgoing(Propagator):
     edges. Because of this, only nodes explicitly included in old_d can
     *ever* receive any activation when .propagate() is called.'''
 
-    def make_deltas(self, g: Graph, old_d):
+    def make_sentas(self, g: Graph, old_d) -> Iterable[SentA]:
         return chain.from_iterable(
-            self.deltas_from(g, old_d, node) for node in old_d
+            self.sentas_from(g, old_d, node) for node in old_d
         )
 
-    def deltas_from(self, g, old_d, node):
+    def sentas_from(self, g, old_d, node) -> Iterable[SentA]:
         node_a = old_d.get(node, 0.0)
         if abs(node_a) >= epsilon:
             #print('DFF', node, type(node), node_a, list(g.hops_from_node(node)))
             for hop in g.hops_from_node(node):
                 if abs(hop.weight) >= epsilon:
-                    yield Delta(hop.to_node, hop.weight * node_a, node)
+                    yield SentA(hop.to_node, hop.weight * node_a, node)

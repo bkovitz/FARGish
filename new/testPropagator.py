@@ -8,19 +8,19 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
 from itertools import chain
 
 from FMTypes import ADict
-from Propagator import Propagator, Delta, ActivationLog
+from Propagator import Propagator, SentA, ActivationLog
 from Graph import Graph, Node, EnumNodes, EnumEdges, Hops
 from util import pr, pts
 
 
 class MyPropagator(Propagator):
 
-    def make_deltas(self, g: Graph, old_d: Dict[Node, float]) \
-    -> Iterable[Delta]:
+    def make_sentas(self, g: Graph, old_d: Dict[Node, float]) \
+    -> Iterable[SentA]:
         for node in old_d:
             for hop in g.hops_to_node(node):
                 neighbor_a = old_d.get(hop.from_node, 0.0)
-                yield Delta(node, hop.weight * neighbor_a, hop.from_node)
+                yield SentA(node, hop.weight * neighbor_a, hop.from_node)
 
 class TestPropagator(unittest.TestCase):
 

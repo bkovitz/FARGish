@@ -39,7 +39,7 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
     tyrrell_beta: float = 0.05
         # constant for reducing influence of edge multiplicity: negative inputs
 
-    def propagate_once(self, g, old_d):
+    def propagate_once(self, g, old_d) -> ADict:
         # Decay.
         new_d: Dict[Node, float] = defaultdict(float,
             ((node, self.clip_a(g, node, a * self.alpha))
@@ -55,27 +55,27 @@ class TyrrellPropagator(GraphPropagatorOutgoing):
         minin_d: Dict[Node, float] = defaultdict(float) # negative influences
         negsumin_d: Dict[Node, float] = defaultdict(float)
 
-        for delta in self.make_deltas(g, old_d):
+        for senta in self.make_sentas(g, old_d):
             amt = (
-                delta.amt
+                senta.a
                 * (1.0 + self.positive_feedback_rate
-                         * old_d.get(delta.nodeid, 0.0))
+                         * old_d.get(senta.to_node, 0.0))
                 * (1.0 - self.alpha)
             )
             '''
-            if delta.nodeid == Before(7) and delta.amt < 0.0:
+            if senta.to_node == Before(7) and senta.amt < 0.0:
                 print()
-                print('DE', delta, '   ', amt)
+                print('DE', senta, '   ', amt)
                 print()
             '''
             if amt >= epsilon:
-                maxin_d[delta.nodeid] = max(maxin_d[delta.nodeid], amt)
-                possumin_d[delta.nodeid] += amt
+                maxin_d[senta.to_node] = max(maxin_d[senta.to_node], amt)
+                possumin_d[senta.to_node] += amt
             elif amt <= -epsilon:
-                minin_d[delta.nodeid] = min(minin_d[delta.nodeid], amt)
-                negsumin_d[delta.nodeid] += amt
+                minin_d[senta.to_node] = min(minin_d[senta.to_node], amt)
+                negsumin_d[senta.to_node] += amt
 
-        # Apply the Tyrrell averages of the deltas
+        # Apply the Tyrrell averages of the sentas
 
         for node in union(maxin_d.keys(), minin_d.keys()):
             #print('PR', node, maxin_d.get(node, 0.0), possumin_d.get(node, 0.0), minin_d.get(node, 0.0), negsumin_d.get(node, 0.0))
