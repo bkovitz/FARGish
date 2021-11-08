@@ -226,7 +226,7 @@ Exciting things
 
 StackOverflow questions
 
-    How to annotate "Any Hashable except None".
+    How to annotate "Any Hashable except None". ALREADY ANSWERED: Can't be done.
 
     Why doesn't this work?
 
@@ -236,3 +236,6 @@ StackOverflow questions
 
             def __call__(self: Not, x: Any) -> bool:
                 return not self.pred(x)  # type: ignore[operator]  # mypy bug?
+
+    Is there an easy way to construct a single object from a class plus mix-ins,
+    without declaring a new class for it?

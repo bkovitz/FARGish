@@ -14,8 +14,11 @@ from Graph import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of, \
     PrefixedNode, PrefixedGraph, WithPrefix, \
     WithActivations
-from Propagator import Propagator, PropagatorIncoming, PropagatorOutgoing
+from Propagator import Propagator, PropagatorIncoming, PropagatorOutgoing, \
+    LogAdjustedDeltas
+from Log import lenable, ldisable_all, logging_is_enabled, log_to
 from util import pts, pr
+import sys
 
 
 class AlphabetNodes:
@@ -460,10 +463,13 @@ class TestGraph(unittest.TestCase):
         g.set_a('b', 0.5)
         # We don't set the activation of 'o'; it defaults to 0.0
 
+        #lenable(LogAdjustedDeltas)
+        #log_to(sys.stdout)
         g.propagate()
         self.assertAlmostEqual(g.a('a'), 0.569072143062159)
         self.assertAlmostEqual(g.a('b'), 0.319848331226608)
         self.assertAlmostEqual(g.a('o'), 0.11107952571123292)
+        #ldisable_all()
 
 
 """

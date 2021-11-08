@@ -19,6 +19,8 @@ from statistics import mean, harmonic_mean, geometric_mean, median, quantiles
 import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import ADict, Node, Pred, as_pred, epsilon
+from Indenting import Indenting
+from Log import logging, Loggable, logging_is_enabled, logfile
 from util import trace, short, pl, first, pr, pts, as_list, newline
 
 
@@ -211,6 +213,7 @@ class Propagator(ABC, PropagatorDataclassMixin):
         '''Returns a new ADict, resulting from applying 'deltas' to 'initial_d',
         possibly considering the activations from the previous timestep, in
         'old_d'.'''
+        """
         new_d: ADict = defaultdict(float, initial_d)
         amts: List[float] = []
         #for delta in deltas:
@@ -220,8 +223,21 @@ class Propagator(ABC, PropagatorDataclassMixin):
             amts.append(delta.amt)  # LOGGING
         if amts:  # LOGGING
             print(f' mean={mean(amts):1.8f}  hmean={harmonic_mean(amts):1.8f}  gmean={geometric_mean(amts):1.8f}  median={median(amts):1.8f}')
+        print('APDOLD', new_d)
         return new_d
         # TODO clip
+        """
+
+        new_d: ADict = dict(initial_d)
+        deltas: List[Delta] = as_list(deltas)
+        with logging(LogAdjustedDeltas, deltas):
+            for delta in deltas:
+                new_d[delta.node] = self.clip_a(
+                    g,
+                    delta.node,
+                    initial_d.get(delta.node, 0.0) + delta.amt
+                )
+        return new_d
 
     def adjust_deltas(self, g: Graph, deltas: Iterable[Delta]) \
     -> Iterable[Delta]:
@@ -264,7 +280,6 @@ class Propagator(ABC, PropagatorDataclassMixin):
         old_d: Union[ADict, None],
         num_iterations=None,
         alog: Optional[ActivationLog]=None
-        #alogger: Optional[ALogger]=None  # TODO rm alogger
     ) -> ADict:
         '''Propagates activation, starting with the nodes and activations in
         old_d, num_iterations times. Returns new activation dictionary.
@@ -279,7 +294,8 @@ class Propagator(ABC, PropagatorDataclassMixin):
             num_iterations = self.num_iterations
         new_d = old_d
         for subt in range(1, num_iterations + 1):
-            print(f'{newline}subt={subt}')  #LOGGING
+            if logging_is_enabled(LogAdjustedDeltas):
+                print(f'{newline}subt={subt}', file=logfile())
             new_d = self.propagate_once(g, new_d)
             if alog:
                 alog.add_dict(new_d)
@@ -543,6 +559,24 @@ class PropagatorOutgoing(Propagator):
         return chain.from_iterable(
             self.sentas_from(g, old_d, node) for node in old_d
         )
+
+class LogDeltasClass(Loggable):
+
+    def log(self, f: Indenting, deltas=Sequence[Delta], **kwargs) -> None:
+        if not deltas:
+            print('No Deltas.', file=f)
+        else:
+            amts: List[float] = []
+            for delta in sorted(deltas, key=attrgetter('amt')):
+                print(short(delta), file=f)
+                amts.append(delta.amt)
+            print(
+                f'mean={mean(amts):1.8f}  hmean={harmonic_mean(amts):1.8f}  gmean={geometric_mean(amts):1.8f}  median={median(amts):1.8f}',
+                file=f
+            )
+
+LogAdjustedDeltas = LogDeltasClass()
+    
 
 import Graph as GraphModule
 Graph = GraphModule.Graph

@@ -77,6 +77,7 @@ class TyrrellPropagator(PropagatorOutgoing):
             if abs(amt) >= epsilon:
                 yield Delta(node, amt)
 
+    """
     # TODO Move this to a mix-in
     def adjust_deltas(self, g: Graph, deltas: Iterable[Delta]) \
     -> Iterable[Delta]:
@@ -90,6 +91,7 @@ class TyrrellPropagator(PropagatorOutgoing):
             new_amt = adj(delta.amt)
             if abs(new_amt) >= epsilon:
                 yield replace(delta, amt=new_amt)
+    """
 
 default_tyrrell_propagator = TyrrellPropagator(
     max_total=10.0,

@@ -12,7 +12,6 @@ from itertools import chain
 from collections import defaultdict
 from inspect import isclass
 
-from Propagator import Propagator, SentA
 from FMTypes import epsilon, Activation, ADict
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
     clip, union, pr, pts, trace
@@ -499,7 +498,7 @@ class WithActivations(Graph):
         default_factory=lambda: defaultdict(Activation),
         init=False
     )
-    propagator: Propagator
+    propagator: PropagatorModule.Propagator
     default_a: float = 0.0  # Default activation for a node that is in
                             # the graph but has not been explicitly given
                             # an activation.
@@ -702,3 +701,6 @@ class After(Feature):
 
     def features_of(self) -> Iterable[Node]:
         yield self.x
+
+
+import Propagator as PropagatorModule

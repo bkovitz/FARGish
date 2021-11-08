@@ -17,6 +17,10 @@ class Indenting(AbstractContextManager):
         self.level = 0
         self.wrote_any = False
 
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.file})'
+
     def __getattr__(self, name):
         if name == 'write':
             return self.write_with_indent

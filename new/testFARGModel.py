@@ -11,8 +11,9 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from io import StringIO
 
 from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R, \
-    first_arg_is_ws, Workspace, as_wspred, Nonexistent, log_to, lenable, \
-    ldisable, ldisable_all, logging_is_enabled
+    first_arg_is_ws, Workspace, as_wspred, Nonexistent
+from Log import log_to, lenable, ldisable, ldisable_all, logging_is_enabled, \
+    logfile
 from Canvas import StepCanvas, Step
 from util import pr, pts, is_iter, first
 

@@ -12,7 +12,9 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
-    lenable, ldisable, Agent, Codelet, Fizzle
+    Agent, Codelet, Fizzle
+from Log import lenable, ldisable
+from Propagator import LogAdjustedDeltas
 from Graph import Graph, Before, After
 from Slipnet import Slipnet
 from Agents import Want, Consumer
@@ -71,6 +73,7 @@ if __name__ == '__main__':
     target = 15
     #bricks = [40, 50, 60]
     #target = 150
+    lenable(LogAdjustedDeltas)
     run(bricks=bricks, target=target, num_slipnet_iterations=20)
     als = fm.alogs
     print()

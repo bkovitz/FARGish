@@ -34,13 +34,20 @@ mypy:
 	@echo -e \\n\\n\\n\\n\\n
 	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py #atest*.py
 
+# For type-checking just one file (specified here).
+m:
+	$(MYPY) $(MYPY_FLAGS) Log.py
+
+
 # Run all unit tests.
 ut:
 	$(PY) -m unittest -v
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_tyrrell_propagator
+	#$(PY) -m unittest -v testSlipnet.TestSlipnet.test_tyrrell_propagator
+	$(PY) -m unittest -v testGraph.TestGraph.test_with_activations
+	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
 	#$(PY) -m unittest -v testAgents.TestAgents.test_want
 
 # Acceptance tests
