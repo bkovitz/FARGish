@@ -53,7 +53,7 @@ class SentA:
     from_node: Node
 
     def __str__(self) -> str:
-        return f'{self.to_node!s:20s} {self.a:1.10f}   {self.from_node}'
+        return f'{short(self.to_node)!s:20s} {self.a:1.10f}   {short(self.from_node)}'
 
 @dataclass
 class Delta:

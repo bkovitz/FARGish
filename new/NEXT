@@ -128,12 +128,17 @@ Solve pons asinorum
 
             See the Deltas in the first pons search.  DONE
 
-            NEXT Make it easy to enable/disable logging of Deltas.
+            Make it easy to enable/disable logging of Deltas.  DONE
 
             See what happens with the new adjust_deltas() when we query
-            just Before(4), After(9).
+            just Before(4), After(9).  DONE
 
-            Try a reverse sigmoid for the node activations.
+            NEXT Make it easy to see what happens with a specific query in
+            Numbo.
+
+            Try a reverse sigmoid for the node activations.  DONE  bad results
+
+            Restore nondeterminism.
 
             Don't pass ExcludeExisting as a feature node to pulse_slipnet().
 

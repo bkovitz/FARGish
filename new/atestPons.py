@@ -69,6 +69,7 @@ class TestPons(unittest.TestCase):
         run(bricks=[4, 5, 6], target=15)
 
 if __name__ == '__main__':
+    """
     bricks = [4, 5, 6]
     target = 15
     #bricks = [40, 50, 60]
@@ -86,3 +87,28 @@ if __name__ == '__main__':
     n=20
     print()
     ls[0].plot(pred, n=n, pr=True)
+    """
+
+
+
+    # Experiment: Pulse just Before(4), After(9).  Consumer(5+4) and
+    # Consumer(13-4) should win big, and the nodes Before(5), Before(13),
+    # 5, and 3 should light up.
+    fm = FARGModel(seed=1, slipnet=Slipnet(eqn_graph))
+    activations_in = {
+        Before(4): 1.0,
+        After(9): 1.0
+    }
+    lenable(LogAdjustedDeltas)
+    nodes = fm.pulse_slipnet(
+        activations_in=activations_in, # type: ignore[arg-type]
+        pred=Consumer,
+        k=5,
+        num_get=3,
+        alog=fm.start_alog((None, None))
+    )
+    ls = list(fm.alogs.logs.values())
+    print('\nPlotted, final activations:')
+    ls[0].plot(n=15, pr=True)
+    print('\nNodes chosen:')
+    pts(nodes, key=short)

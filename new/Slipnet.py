@@ -13,10 +13,10 @@ from operator import itemgetter, attrgetter
 from math import copysign
 
 from FMTypes import Activation, ADict, epsilon, Pred, as_pred
-from Graph import Graph, Node
+from Graph import Graph, Node, Before
 from Propagator import Propagator, ActivationLog, PropagatorOutgoing, \
     Delta, SentA
-from util import as_iter, as_list, union, pr
+from util import as_iter, as_list, union, pr, short
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,7 @@ class NodeA:
         try:
             nodestr = self.node.__name__
         except AttributeError:
-            nodestr = str(self.node)
+            nodestr = short(self.node)
         return f'{nodestr:20s} {self.a:2.5f}'
 
 @dataclass
@@ -51,6 +51,7 @@ class TyrrellPropagator(PropagatorOutgoing):
         negsumin_d: Dict[Node, float] = defaultdict(float)
 
         for senta in sentas:
+            #print('SENTA', senta)
             if senta.a >= 0:
                 maxin_d[senta.to_node] = max(maxin_d[senta.to_node], senta.a)
                 possumin_d[senta.to_node] += senta.a
@@ -86,21 +87,27 @@ class TyrrellPropagator(PropagatorOutgoing):
         def adj(amt: float) -> float:
             # max delta becomes 0.1; highest deltas get space between them;
             # lowest deltas get pushed to zero.
-            return copysign(((amt / mx) ** 30) * 0.1, amt)
+            return copysign(((amt / mx) ** 2) * 0.1, amt)   # 2  0.1
         for delta in deltas:
             new_amt = adj(delta.amt)
             if abs(new_amt) >= epsilon:
                 yield replace(delta, amt=new_amt)
+
+    def clip_a(self, g: Graph, node: Node, a: float) -> float:
+        if a > 2.0:
+            return 2.0
+        else:
+            return a
     """
 
 default_tyrrell_propagator = TyrrellPropagator(
-    max_total=10.0,
+    max_total=10.0,  # 10.0
     noise=0.0,
-    positive_feedback_rate=0.1,
-    sigmoid_p=1.5,
-    num_iterations=10,
-    alpha=0.95,
-    tyrrell_alpha=0.05,  # 0.2
+    positive_feedback_rate=0.1,   #0.1,
+    sigmoid_p=1.5,  #1.5,
+    num_iterations=10,  # 10
+    alpha=0.95,  # 0.95
+    tyrrell_alpha=0.05,   #0.05,  # 0.2
     tyrrell_beta=0.1
 )
 

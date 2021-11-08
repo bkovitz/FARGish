@@ -1238,7 +1238,6 @@ class FARGModel(Workspace):
         #pts(sd)
         pred: Pred = bind_ws(self, pred)
         nas = self.slipnet.topna(sd, pred=pred, k=k)
-        #pts(nas)
         return list(sample_without_replacement(
             [na.node for na in nas],
             k=num_get,

@@ -9,6 +9,8 @@ from Graph import Graph, Before, After, EnumNodes, EnumEdges, Hops
 from Slipnet import Slipnet, NodeA, TyrrellPropagator
 from FMTypes import as_pred, ADict, Exclude, CallablePred
 from Equation import Equation, Before, plus, minus, times
+from Propagator import LogAdjustedDeltas
+from Log import lenable, ldisable
 from util import is_iter, as_iter, pts, pr
 
 eqn_graph = Graph.with_features(

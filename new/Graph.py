@@ -14,7 +14,7 @@ from inspect import isclass
 
 from FMTypes import epsilon, Activation, ADict
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
-    clip, union, pr, pts, trace
+    clip, union, pr, pts, trace, short
 
 
 Node = Hashable
@@ -34,6 +34,10 @@ class Hop:
             PrefixedNode(prefix, self.to_node),
             self.weight
         )
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.from_node)} -> {short(self.to_node)} {self.weight:1.1f})'
 
 class Hops:
     '''Just a scope for factory methods that make iterables to pass to
