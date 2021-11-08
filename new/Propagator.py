@@ -13,11 +13,14 @@ from heapq import nlargest
 from itertools import chain
 from copy import copy
 import sys
+from operator import attrgetter
+from statistics import mean, harmonic_mean, geometric_mean, median, quantiles
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import ADict, Node, Pred, as_pred, epsilon
-from util import trace, short, pl, first, pr, pts, as_list
+from util import trace, short, pl, first, pr, pts, as_list, newline
+
 
 def sigmoid(x: float, p: float=0.5):
     '''Returns reverse sigmoid of x, where p is the exponent.
@@ -56,6 +59,10 @@ class Delta:
     from).'''
     node: Node   # The node affected
     amt: float   # The amount of the change
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl} {short(self.node):40s} {self.amt:1.8f}'
 
 @dataclass(frozen=True)
 class Flows:
@@ -205,8 +212,14 @@ class Propagator(ABC, PropagatorDataclassMixin):
         possibly considering the activations from the previous timestep, in
         'old_d'.'''
         new_d: ADict = defaultdict(float, initial_d)
-        for delta in deltas:
+        amts: List[float] = []
+        #for delta in deltas:
+        for delta in sorted(deltas, key=attrgetter('amt')):
             new_d[delta.node] += delta.amt
+            print(short(delta))  # LOGGING
+            amts.append(delta.amt)  # LOGGING
+        if amts:  # LOGGING
+            print(f' mean={mean(amts):1.8f}  hmean={harmonic_mean(amts):1.8f}  gmean={geometric_mean(amts):1.8f}  median={median(amts):1.8f}')
         return new_d
         # TODO clip
 
@@ -265,7 +278,8 @@ class Propagator(ABC, PropagatorDataclassMixin):
         if num_iterations is None:
             num_iterations = self.num_iterations
         new_d = old_d
-        for i in range(num_iterations):
+        for subt in range(1, num_iterations + 1):
+            print(f'{newline}subt={subt}')  #LOGGING
             new_d = self.propagate_once(g, new_d)
             if alog:
                 alog.add_dict(new_d)

@@ -1,7 +1,7 @@
 # Slipnet.py -- Spreading activation on long-term memory, possibly augmented
 #               by additional nodes and edges from the workspace
 
-from dataclasses import dataclass, field, InitVar
+from dataclasses import dataclass, field, InitVar, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
@@ -10,12 +10,13 @@ from copy import copy
 from collections import defaultdict
 from heapq import nlargest
 from operator import itemgetter, attrgetter
+from math import copysign
 
 from FMTypes import Activation, ADict, epsilon, Pred, as_pred
 from Graph import Graph, Node
 from Propagator import Propagator, ActivationLog, PropagatorOutgoing, \
     Delta, SentA
-from util import as_iter, union, pr
+from util import as_iter, as_list, union, pr
 
 
 @dataclass(frozen=True)
@@ -75,6 +76,20 @@ class TyrrellPropagator(PropagatorOutgoing):
             )
             if abs(amt) >= epsilon:
                 yield Delta(node, amt)
+
+    # TODO Move this to a mix-in
+    def adjust_deltas(self, g: Graph, deltas: Iterable[Delta]) \
+    -> Iterable[Delta]:
+        deltas: List[Delta] = as_list(deltas)
+        mx = max((delta.amt for delta in deltas), default=0.0)
+        def adj(amt: float) -> float:
+            # max delta becomes 0.1; highest deltas get space between them;
+            # lowest deltas get pushed to zero.
+            return copysign(((amt / mx) ** 30) * 0.1, amt)
+        for delta in deltas:
+            new_amt = adj(delta.amt)
+            if abs(new_amt) >= epsilon:
+                yield replace(delta, amt=new_amt)
 
 default_tyrrell_propagator = TyrrellPropagator(
     max_total=10.0,

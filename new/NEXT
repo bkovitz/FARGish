@@ -123,10 +123,19 @@ Solve pons asinorum
 
             Refactor TyrrellPropagator.propagate_once(). DONE
 
-            NEXT Figure out how to tune a sigmoid to the actual range of
-            deltas.
+            Figure out how to tune a sigmoid to the actual range of
+            deltas. DONE?
 
-            See the Deltas in the first pons search.
+            See the Deltas in the first pons search.  DONE
+
+            NEXT Make it easy to enable/disable logging of Deltas.
+
+            See what happens with the new adjust_deltas() when we query
+            just Before(4), After(9).
+
+            Try a reverse sigmoid for the node activations.
+
+            Don't pass ExcludeExisting as a feature node to pulse_slipnet().
 
         Put the full feature set into atestPons.eqn_graph. Specifically,
         add more features to Consumer.features_of().
