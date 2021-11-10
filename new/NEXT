@@ -192,6 +192,11 @@ Seeing what's happening
 
         With auto-indent.  DONE
 
+    Animate spreading activation with one keystroke per step, showing a
+    specified set of nodes of interest, making the nodes and edges larger to
+    show activations and SentA's. Maybe show Deltas with a little triangle next
+    to the nodes.
+
     tla= "Time last acted" in FARGModel.pr for Agents
 
     Easy way to see timeseries of Slipnet queries.
