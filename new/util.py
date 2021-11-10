@@ -645,6 +645,7 @@ def singleton(cls):
 
 # Debugging
 
+"""
 trace_indent_level: int = 0
 
 def trace(func):
@@ -671,6 +672,7 @@ def trace(func):
         print(f'{pre}-> {result}')
         return result
     return wrapper
+"""
 
 def pts(ls: Iterable, n=None, key=str):
     '''Prints ls as a table of strings. For debugging.'''

@@ -11,7 +11,8 @@ from abc import ABC, abstractmethod
 from FMTypes import Node, Nodes, Pred
 from FARGModel import FARGModel, QArg, QInput, QPred, CellRef, Ref, R
 from Graph import Before, After
-from util import trace, as_iter, short
+from Log import trace
+from util import as_iter, short
 
 
 @dataclass(frozen=True)

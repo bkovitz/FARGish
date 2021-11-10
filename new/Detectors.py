@@ -8,7 +8,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 
 from FARGModel import FARGModel, Detector, R, Ref, Value, CellRef, Codelets
-from util import trace, short, pr, pts
+from Log import trace
+from util import short, pr, pts
 
 
 @dataclass(frozen=True)

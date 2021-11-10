@@ -19,8 +19,8 @@ from Detectors import AvailDetector
 from Equation import plus
 from Graph import Graph
 from Slipnet import Slipnet
-
-from util import pr, pts, trace, short
+from Log import trace
+from util import pr, pts, short
 
 
 class TestAgents(unittest.TestCase):

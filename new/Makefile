@@ -45,9 +45,9 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_pulse_slipnet
+	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
 	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	#$(PY) -m unittest -v testAgents.TestAgents.test_want
+	$(PY) -m unittest -v testAgents.TestAgents.test_timestep1
 
 # Acceptance tests
 at:

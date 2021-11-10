@@ -11,7 +11,9 @@ from FMTypes import Value, Node
 from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
     NoResultFromSlipnet, CellRef
-from util import as_iter, trace, pr, pts, short
+from Log import trace
+from util import as_iter, as_list, pr, pts, short, \
+    sample_without_replacement
 
 
 @dataclass(frozen=True)
@@ -159,5 +161,71 @@ class RaiseException(Codelet):
         exctype: Type[Exception]
     ) -> CodeletResults:
         raise exctype
+
+@dataclass(frozen=True)
+class MakeVariantFromAvails(Codelet):
+    agent: R[Agent] = Ref('agent')
+    cellref: R[CellRef] = Ref('source')
+    avails: R[Tuple[Value, ...]] = Ref('avails')
+        # These values were avail; indices match indices in seeker's request
+    unavails: R[Tuple[Value, ...]] = Ref('unavails')
+        # These values were unavail; indices match indices in seeker's request
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        cellref: CellRef,
+        agent: Agent,  # the Agent to make a variant of
+        avails: Tuple[Value, ...],
+        unavails: Tuple[Value, ...],
+        behalf_of: Optional[Agent]=None
+    ) -> CodeletResults:
+        true_avails = list(as_iter(cellref.avails))
+        new_operands: List[Value] = []
+
+        #print('MK0', true_avails, new_operands)
+        for a, u in zip(avails, unavails):  # TODO zip_longest?
+            if a is not None:
+                if a in true_avails:
+                    new_operands.append(a)
+                    true_avails.remove(a)
+                else:
+                    pass # TODO What if a isn't avail?
+            else:
+                ua: Sequence[Value] = choose_most_similar(true_avails, u)
+                if ua:
+                    new_operands += ua
+                    for v in ua:
+                        true_avails.remove(v)
+                else:
+                    pass  # TODO raise an exception?
+            #print('MK', a, u, true_avails, new_operands)
+        # TODO Don't make a new agent that's already there
+        if not isinstance(agent, Agents.Consumer):
+            return None  # TODO raise exception?
+        else:
+            return Build(
+                # TODO Standardize order of operands when commutative?
+                to_build=replace(agent, operands=tuple(new_operands)),
+                behalf_of=behalf_of
+            )
+
+def choose_most_similar(avails: Sequence[Value], target: Value) \
+-> Sequence[Value]:
+    d: Dict[Value, float] = dict(
+        (a, similarity_to(target, a)) for a in avails
+    )
+    return list(sample_without_replacement(d.keys(), weights=d.values()))
+
+def similarity_to(target: Value, v: Value) -> float:
+    '''Returns a measure of how similar v is to target. 1.0 is maximum
+    similarity; 0.0 is no similarity. Extremely crude as of 10-Nov-2021.'''
+    # TODO If we're comparing integers, consider the range. The caller needs
+    # to provide the range--or rather, a Similarity object.''
+    if isinstance(target, int) and isinstance(v, int):
+        return 10 / (10 + (target - v) ** 2)
+    else:
+        # TODO
+        return 0.1
 
 import Agents

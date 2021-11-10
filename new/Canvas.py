@@ -9,7 +9,8 @@ from abc import ABC, abstractmethod
 
 from FMTypes import Value, Addr
 from FARGModel import Canvas, CellRef, ValuesNotAvail, HasAvailValues
-from util import short, is_iter, as_iter, trace, pr, pts
+from Log import trace
+from util import short, is_iter, as_iter, pr, pts
 
 
 @dataclass(frozen=True)

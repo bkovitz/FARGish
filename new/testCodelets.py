@@ -7,11 +7,12 @@ import inspect
 from dataclasses import dataclass, field, replace
 from time import process_time
 
+from FMTypes import Exclude, match_wo_none
 from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet, MissingArgument, \
     CellRef
 from Codelets import Build, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep
+    Sleep, MakeVariantFromAvails
 from Consume import Consume
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
@@ -19,7 +20,7 @@ from Equation import plus, minus, times
 from Slipnet import Slipnet
 from Graph import Graph
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
-from util import pr
+from util import pr, pts, first
 
 
 @dataclass(frozen=True)
@@ -176,6 +177,30 @@ class TestCodelets(unittest.TestCase):
         self.assertEqual(exc.value, None)
         self.assertEqual(exc.type_needed, CellRef)
         self.assertEqual(exc.codelet, codelet)
+        
+    def test_make_variant_from_avails(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+        ag = fm.build(Consumer(
+            operator=plus,
+            operands=(4, 4),
+            source=cr0
+        ))
+        
+        codelet = MakeVariantFromAvails(
+            cellref=cr0,
+            agent=ag,
+            avails=(4, None),
+            unavails=(None, 4)
+        )
+        fm.run_codelet(codelet)
+        new_consumer = first(fm.nodes((Consumer, Exclude(ag))))
+        self.assertTrue(
+            match_wo_none(new_consumer, Consumer.make(plus, (4, 5)))
+            or
+            match_wo_none(new_consumer, Consumer.make(plus, (4, 6)))
+        )
         
 
 if __name__ == '__main__':

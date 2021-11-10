@@ -16,7 +16,8 @@ from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Canvas import Operator
 from Graph import Before, After
-from util import trace, as_iter, pr, pts, short
+from Log import trace
+from util import as_iter, pr, pts, short
 
 
 @dataclass(frozen=True)
@@ -75,7 +76,7 @@ class Consumer(Agent):
         operands: Union[Tuple[Value, ...], None]
     ) -> Q:
         return cls(operator=operator, operands=operands)
-        
+
     @classmethod
     def make_table(
         cls,

@@ -10,10 +10,11 @@ from abc import ABC, abstractmethod
 import csv
 import sys
 from contextlib import contextmanager
+import functools
 
 from FMTypes import ADict, Pred, as_pred
 from Indenting import Indenting, indent
-from util import short, pr, pts
+from util import short, dict_str, pr, pts
 
 
 _logfile = Indenting(sys.stdout)
@@ -30,6 +31,10 @@ class Loggable(ABC):
         should make a log entry. Must print to 'f'.'''
         pass
 
+def lo(*args, **kwargs) -> None:
+    '''Prints args to log file, at current indentation level.'''
+    print(*args, dict_str(kwargs), file=logfile())
+
 def log_to(f: IO) -> None:
     '''Set logfile to f. Wraps f with Indenting.'''
     global _logfile
@@ -40,10 +45,13 @@ def logfile() -> Indenting:
     return _logfile
 
 @contextmanager
-def logging(lo: Loggable, *args, **kwargs):
+def logging(lg: Union[Loggable, None], *args, **kwargs):
+    # TODO Document how to use this in a 'with' statement.
     try:
-        if logging_is_enabled(lo):
-            lo.log(_logfile, *args, **kwargs)
+        if lg is None:
+            lo(*args, **kwargs)
+        elif logging_is_enabled(lg):
+            lg.log(_logfile, *args, **kwargs)
         with indent(_logfile):
             yield _logfile
     finally:
@@ -75,3 +83,24 @@ def logging_is_enabled(arg: Any) -> bool:
         arg in enabled_for_logging
     )
     """
+
+def trace(func):
+    '''Function decorator: prints the name and arguments of the function each
+    time it is called, and prints its return value when it returns.
+    Caution: 'trace' will read generators all the way to their end.'''
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> None:
+        argstring = ''
+        if args:
+            argstring += ', '.join(repr(a) for a in args)
+        if kwargs:
+            if argstring:
+                argstring += ', '
+            argstring += ', '.join(
+                f'{name}={value}' for name, value in kwargs.items()
+            )
+        with logging(None, f'{func.__name__}({argstring})'):
+            result = func(*args, **kwargs)
+        lo(f'-> {result}')
+        return result
+    return wrapper

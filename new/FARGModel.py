@@ -12,6 +12,7 @@ import inspect
 from inspect import isclass, signature
 from contextlib import contextmanager
 import sys
+from types import MethodType, FunctionType
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
@@ -21,9 +22,9 @@ from Propagator import Propagator, ActivationLogs, ActivationLog, \
 from Graph import Graph, Hop, WithActivations, Feature
 from Slipnet import Slipnet
 from Indenting import Indenting, indent
-from Log import logging, Loggable, logging_is_enabled, logfile
+from Log import lo, trace, logging, Loggable, logging_is_enabled, logfile
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
-    sample_without_replacement, trace, pr, pts, is_type_instance, \
+    sample_without_replacement, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit
 
 
@@ -820,10 +821,14 @@ def combine_wspreds(*preds: WSPred) -> CallableWSPred:
             return WSAndPreds(*preds_to_and_first, WSOrPreds(*preds_to_or))
 
 def first_arg_is_ws(o: Callable) -> bool:
-    try:
-        arg1type = first(get_type_hints(o, globalns=globals()).values())
-    except TypeError:
+    #lo('FARG', hasattr(o, '__call__'), type(o))
+    if isinstance(o, MethodType) or isinstance(o, FunctionType):
+        arg1type = first(get_type_hints(o).values())
+    elif hasattr(o, '__call__'):
         arg1type = first(get_type_hints(o.__call__).values()) # type: ignore[operator]  # mypy bug?
+        #lo('ARG1TYPE', arg1type, get_type_hints(o.__call__)) # type: ignore
+    else:
+        arg1type = first(get_type_hints(o, globalns=globals()).values())
     try:
         return issubclass(arg1type, Workspace)
     except TypeError:

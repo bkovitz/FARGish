@@ -20,8 +20,8 @@ import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import ADict, Node, Pred, as_pred, epsilon
 from Indenting import Indenting
-from Log import logging, Loggable, logging_is_enabled, logfile
-from util import trace, short, pl, first, pr, pts, as_list, newline
+from Log import trace, logging, Loggable, logging_is_enabled, logfile
+from util import short, pl, first, pr, pts, as_list, newline
 
 
 def sigmoid(x: float, p: float=0.5):

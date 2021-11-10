@@ -207,6 +207,13 @@ Seeing what's happening
 
 Small things
 
+    Make a lo() function to log a string at the current indent level.
+
+        lo(Any, ...) to always print?  lo(Something, ...) to print only if
+        logging Something is enabled?
+
+    Make trace follow the same Indent as logging.
+
     Give the() a generic return type.
 
     short() to print short strings  DONE

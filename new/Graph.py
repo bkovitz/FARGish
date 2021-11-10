@@ -13,8 +13,9 @@ from collections import defaultdict
 from inspect import isclass
 
 from FMTypes import epsilon, Activation, ADict
+from Log import trace
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
-    clip, union, pr, pts, trace, short
+    clip, union, pr, pts, short
 
 
 Node = Hashable

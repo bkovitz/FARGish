@@ -11,9 +11,11 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
+import matplotlib.pyplot as plt  # type: ignore[import]
+
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
     Agent, Codelet, Fizzle
-from Log import lenable, ldisable
+from Log import lenable, ldisable, trace, lo
 from Propagator import LogAdjustedDeltas
 from Graph import Graph, Before, After
 from Slipnet import Slipnet
@@ -21,9 +23,7 @@ from Agents import Want, Consumer
 from Codelets import RaiseException
 from Canvas import StepCanvas, Step
 from Equation import plus, minus, times
-from util import pr, pts, short, trace
-
-import matplotlib.pyplot as plt  # type: ignore[import]
+from util import pr, pts, short
 
 
 eqn_graph = Graph.with_features(
