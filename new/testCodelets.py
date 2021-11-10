@@ -201,7 +201,7 @@ class TestCodelets(unittest.TestCase):
             or
             match_wo_none(new_consumer, Consumer.make(plus, (4, 6)))
         )
-        
+
 
 if __name__ == '__main__':
     from inspect import signature

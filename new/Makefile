@@ -47,7 +47,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
 	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	$(PY) -m unittest -v testAgents.TestAgents.test_timestep1
+	$(PY) -m unittest -v testAgents.TestAgents.test_variant_maker
 
 # Acceptance tests
 at:

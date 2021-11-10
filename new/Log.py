@@ -33,7 +33,11 @@ class Loggable(ABC):
 
 def lo(*args, **kwargs) -> None:
     '''Prints args to log file, at current indentation level.'''
-    print(*args, dict_str(kwargs), file=logfile())
+    print(
+        *(short(a) for a in args),
+        dict_str(kwargs, xform=short),
+        file=logfile()
+    )
 
 def log_to(f: IO) -> None:
     '''Set logfile to f. Wraps f with Indenting.'''

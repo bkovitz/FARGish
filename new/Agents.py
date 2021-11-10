@@ -10,7 +10,7 @@ from Canvas import CellRef
 from FMTypes import Value, Node
 from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake, ExcludeExisting
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep, Build, NewState
+    Sleep, Build, NewState, MakeVariantFromAvails
 from Consume import Consume
 from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
@@ -117,3 +117,16 @@ class Want(Agent):
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({short(self.target)}, {short(self.startcell)})'
+
+@dataclass(frozen=True)
+class VariantMaker(Agent):
+    agent: R[Agent] = Ref('agent')  # The agent to make a variant of
+    cellref: R[CellRef] = Ref('source')
+    avails: R[Tuple[Value, ...]] = Ref('avails')
+        # These values were avail; indices match indices in seeker's request
+    unavails: R[Tuple[Value, ...]] = Ref('unavails')
+        # These values were unavail; indices match indices in seeker's request
+
+    wake: Codelets = MakeVariantFromAvails(
+        Ref('agent'), Ref('source'), Ref('avails'), Ref('unavails')
+    )

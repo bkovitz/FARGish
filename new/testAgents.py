@@ -9,18 +9,19 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints, get_origin, get_args
 
-from Agents import LitPainter, Consumer, Want
+from Agents import LitPainter, Consumer, Want, VariantMaker
+from FMTypes import match_wo_none, Exclude
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
-    NoResultFromSlipnet
+    NoResultFromSlipnet, Agent, Codelet
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
 from Equation import plus
 from Graph import Graph
 from Slipnet import Slipnet
-from Log import trace
-from util import pr, pts, short
+from Log import trace, lo, lenable, ldisable_all
+from util import pr, pts, short, first
 
 
 class TestAgents(unittest.TestCase):
@@ -210,6 +211,36 @@ class TestAgents(unittest.TestCase):
         fm.run_agent(ag)
         self.assertTrue(fm.has_tag(ag, NoResultFromSlipnet))
         self.assertEqual(fm.agent_state(ag), Failed)
+
+    def test_variant_maker(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+        ag1 = fm.build(Consumer(
+            operator=plus,
+            operands=(4, 4),
+            source=cr0
+        ))
+        ag2 = fm.build(VariantMaker(
+            agent=ag1,
+            cellref=cr0,
+            avails=(4, None),
+            unavails=(None, 4)
+        ))
+
+        # The VariantMaker should make a new Consumer, one whose operands
+        # include 4 and another real avail, i.e. 5 or 6.
+        #lenable(Agent, Codelet, Fizzle)
+        #pr(fm)
+        fm.run_agent(ag2)
+        new_consumer = first(fm.nodes((Consumer, Exclude(ag1))))
+        #ldisable_all()
+        self.assertTrue(
+            match_wo_none(new_consumer, Consumer.make(plus, (4, 5)))
+            or
+            match_wo_none(new_consumer, Consumer.make(plus, (4, 6)))
+        )
+
 
 if __name__ == '__main__':
     from inspect import signature

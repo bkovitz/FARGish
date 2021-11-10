@@ -923,6 +923,7 @@ class FARGModel(Workspace):
             with fmlogging(self, agent):
                 try:
                     #self.run_codelet(getattr(agent, agent_state.name), agent)
+                    #lo('CDS', agent.get_codelets(agent_state))
                     self.run_codelet(agent.get_codelets(agent_state), agent)
                 except Fizzle as fiz:
                     self.add_tag(agent, fiz, builder=agent)
@@ -971,6 +972,7 @@ class FARGModel(Workspace):
         '''Runs codelet, its follow-ups (including dictionaries), its
         sk if the codelet succeeds, and its fk if it fails.'''
         try:
+            #lo('RCF', codelet, sources)
             codelet_results = self.run_one_codelet(codelet, sources)
         except Fizzle as fiz:
             fiz = replace(
@@ -1004,7 +1006,7 @@ class FARGModel(Workspace):
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
-        #print('CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
+        #lo('1CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
         behalf_of = self.look_up_by_name('behalf_of', sources)
         self.codelets_just_run.append(CodeletRun(
             codelet, kwargs, self.t, behalf_of

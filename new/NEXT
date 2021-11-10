@@ -212,6 +212,8 @@ Small things
         lo(Any, ...) to always print?  lo(Something, ...) to print only if
         logging Something is enabled?
 
+    with logging_of(...) to turn logging of certain things on within the block.
+
     Make trace follow the same Indent as logging.
 
     Give the() a generic return type.
