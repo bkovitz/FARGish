@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints, get_origin, get_args
 
-from Agents import LitPainter, Consumer, Want, VariantMaker
+from Agents import LitPainter, Consumer, Want, VariantMakerFromAvails
 from FMTypes import match_wo_none, Exclude
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
@@ -221,15 +221,15 @@ class TestAgents(unittest.TestCase):
             operands=(4, 4),
             source=cr0
         ))
-        ag2 = fm.build(VariantMaker(
+        ag2 = fm.build(VariantMakerFromAvails(
             agent=ag1,
             cellref=cr0,
             avails=(4, None),
             unavails=(None, 4)
         ))
 
-        # The VariantMaker should make a new Consumer, one whose operands
-        # include 4 and another real avail, i.e. 5 or 6.
+        # The VariantMakerFromAvails should make a new Consumer, one whose
+        # operands include 4 and another real avail, i.e. 5 or 6.
         #lenable(Agent, Codelet, Fizzle)
         #pr(fm)
         fm.run_agent(ag2)

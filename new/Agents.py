@@ -119,7 +119,7 @@ class Want(Agent):
         return f'{cl}({short(self.target)}, {short(self.startcell)})'
 
 @dataclass(frozen=True)
-class VariantMaker(Agent):
+class VariantMakerFromAvails(Agent):
     agent: R[Agent] = Ref('agent')  # The agent to make a variant of
     cellref: R[CellRef] = Ref('source')
     avails: R[Tuple[Value, ...]] = Ref('avails')

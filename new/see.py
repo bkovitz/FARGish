@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
     Agent, Codelet, Fizzle
-from Log import lenable, ldisable
+from Log import lenable, ldisable, trace
 from Propagator import LogAdjustedDeltas
 from Graph import Graph, Before, After
 from Slipnet import Slipnet
@@ -19,7 +19,7 @@ from Agents import Want, Consumer
 from Codelets import RaiseException
 from Canvas import StepCanvas, Step
 from Equation import plus, minus, times
-from util import as_iter, as_list, dict_str, pr, pts, short, trace
+from util import as_iter, as_list, dict_str, pr, pts, short
 
 
 eqn_graph = Graph.with_features(

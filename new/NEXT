@@ -112,7 +112,7 @@ Solve pons asinorum
         DONE: the amount of activation is incredibly tiny, less than epsilon.
 
         Try plotting the pons search but with only a handful of
-        Consumer nodes in the slipnet.
+        Consumer nodes in the slipnet.  DONE
 
         Run a sigmoid function on the incoming (final) deltas.
 
@@ -133,14 +133,20 @@ Solve pons asinorum
             See what happens with the new adjust_deltas() when we query
             just Before(4), After(9).  DONE
 
-            NEXT Make it easy to see what happens with a specific query in
-            Numbo.
+            Make it easy to see what happens with a specific query in
+            Numbo.  DONE
 
             Try a reverse sigmoid for the node activations.  DONE  bad results
 
             Restore nondeterminism.
 
             Don't pass ExcludeExisting as a feature node to pulse_slipnet().
+
+        MakeVariantFromAvails  DONE
+
+        VariantMaker  DONE
+
+        NEXT Make a VariantMaker in response to ValuesNotAvail.
 
         Put the full feature set into atestPons.eqn_graph. Specifically,
         add more features to Consumer.features_of().

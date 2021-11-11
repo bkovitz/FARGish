@@ -9,49 +9,12 @@ import operator
 from operator import itemgetter, attrgetter
 from collections import Counter
 
-from Graph import Node, Feature, FeatureWrapper, Before, After
+from Graph import Node
+from Features import Feature, FeatureWrapper, Before, After, \
+    IncreaseOrDecrease, Increase, Decrease, NumOperands, MinBefore, MaxBefore, \
+    Doubled
+
 from Agents import Operator, Consume
-
-
-# Features
-
-@dataclass(frozen=True)
-class IncreaseOrDecrease(Feature):
-    name: str
-
-    def __str__(self):
-        return self.name
-
-Increase = IncreaseOrDecrease('Increase')
-Decrease = IncreaseOrDecrease('Decrease')
-
-@dataclass(frozen=True)
-class NumOperands(Feature):
-    num: int
-
-    def features_of(self):
-        yield self.num
-
-@dataclass(frozen=True)
-class MinBefore(Feature):
-    x: Node
-
-    def features_of(self):
-        yield self.x
-
-@dataclass(frozen=True)
-class MaxBefore(Feature):
-    x: Node
-
-    def features_of(self):
-        yield self.x
-
-@dataclass(frozen=True)
-class Doubled(Feature):
-    x: Node
-
-    def features_of(self):
-        yield self.x
 
 
 # Operators and Equation

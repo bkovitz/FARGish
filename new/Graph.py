@@ -14,6 +14,7 @@ from inspect import isclass
 
 from FMTypes import epsilon, Activation, ADict
 from Log import trace
+from Features import Feature, features_of, Before, After
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
     clip, union, pr, pts, short
 
@@ -675,37 +676,5 @@ def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
         hopset.add(Hop(base_node, feature_node, out_weight))
         hopset.add(Hop(feature_node, base_node, in_weight))
     return new_features
-
-@dataclass(frozen=True)
-class Feature:
-    pass
-
-Features = Union[None, Feature, Sequence[Feature]]
-
-def features_of(x: Any) -> Iterable[Node]:
-    if not isclass(x):
-        if hasattr(x, 'features_of'):
-            yield from x.features_of()
-        yield type(x)  # type: ignore[misc]  # Type isn't Hashable??
-
-# TODO rm?
-@dataclass(frozen=True)
-class FeatureWrapper(Feature):
-    feature: Union[Hashable, None] = None
-
-@dataclass(frozen=True)
-class Before(Feature):
-    x: Node
-
-    def features_of(self) -> Iterable[Node]:
-        yield self.x
-
-@dataclass(frozen=True)
-class After(Feature):
-    x: Node
-
-    def features_of(self) -> Iterable[Node]:
-        yield self.x
-
 
 import Propagator as PropagatorModule
