@@ -8,7 +8,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 
 from Canvas import CellRef
 from FMTypes import Value, Node
-from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake, ExcludeExisting
+from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake, ExcludeExisting, \
+    Desnag, ValuesNotAvail
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState, MakeVariantFromAvails
 from Consume import Consume
@@ -130,3 +131,7 @@ class VariantMakerFromAvails(Agent):
     wake: Codelets = MakeVariantFromAvails(
         Ref('agent'), Ref('source'), Ref('avails'), Ref('unavails')
     )
+
+    def features_of(self) -> Iterable[Node]:
+        yield Desnag(ValuesNotAvail)
+        # TODO agent, cellref, avails, unavails

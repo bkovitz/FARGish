@@ -12,7 +12,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 FARGISH_SRC = Agents.py Canvas.py Codelets.py Consume.py Detectors.py \
 	Equation.py FARGModel.py FMTypes.py Graph.py Indenting.py \
-	Propagator.py QArgs.py Slipnet.py util.py Workspace.py
+	Propagator.py QArgs.py Slipnet.py util.py Workspace.py see.py
 # Plot.py 
 # Log.py 
 # Numbo1.py 
@@ -25,6 +25,8 @@ ut_and_go: ut current
 current: mypy
 	$(PY) -i atestPons.py
 i: current  # "interactive" version of what I'm currently working on
+see: mypy
+	$(PY) -i see.py
 
 test: ut at
 mtest: mypy test

@@ -9,16 +9,18 @@ import inspect
 
 import matplotlib.pyplot as plt  # type: ignore[import]
 
+from FMTypes import *
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
     Agent, Codelet, Fizzle
-from Log import lenable, ldisable, trace
-from Propagator import LogAdjustedDeltas
-from Graph import Graph, Before, After
-from Slipnet import Slipnet
-from Agents import Want, Consumer
-from Codelets import RaiseException
-from Canvas import StepCanvas, Step
-from Equation import plus, minus, times
+from Log import *
+from Propagator import *
+from Graph import *
+from Slipnet import *
+from Agents import *
+from Codelets import *
+from Canvas import *
+from Equation import *
+from Features import *
 from util import as_iter, as_list, dict_str, pr, pts, short
 
 
@@ -28,16 +30,31 @@ eqn_graph = Graph.with_features(
     )
 ) #.add_edges(MutualInhibition((Feature, Operator, Equation, int), weight=-5.0))
 
-def see_query(seed: int=1) -> None:
-    fm = FARGModel(seed=seed, slipnet=Slipnet(eqn_graph))
-    activations_in = {
-        Before(4): 1.0,
-        After(9): 1.0
-    }
+desnag_graph = Graph.with_features(
+    [VariantMakerFromAvails()]
+)
+
+fm: FARGModel
+ls: Any
+nodes: Iterable[Node]
+activations_in: ADict
+
+def see_query(
+    q: Iterable[Node]=(Before(4), After(9)),
+    pred: WSPred=Consumer,
+    seed: int=1,
+    sngraphs: Union[Graph, Iterable[Graph]]=eqn_graph
+) -> None:
+    global fm, ls, nodes, activations_in
+    fm = FARGModel(
+        seed=seed,
+        slipnet=Slipnet(Graph.augment(*as_iter(sngraphs)))
+    )
+    activations_in = dict((node, 1.0) for node in q)
     lenable(LogAdjustedDeltas)
     nodes = fm.pulse_slipnet(
         activations_in=activations_in, # type: ignore[arg-type]
-        pred=Consumer,
+        pred=pred,
         k=5,
         num_get=3,
         alog=fm.start_alog((None, None))
@@ -50,4 +67,6 @@ def see_query(seed: int=1) -> None:
     
 
 if __name__ == '__main__':
-    see_query()
+    see_query(q=[Desnag], pred=Agent, sngraphs=[eqn_graph, desnag_graph])
+    #g = Graph.with_features([VariantMakerFromAvails()])
+    #pr(g)

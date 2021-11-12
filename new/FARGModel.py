@@ -1461,6 +1461,12 @@ class MissingArgument(Fizzle):
     value: Any = None
     type_needed: Any = None  # type annotation
 
+### Features
+
+@dataclass(frozen=True)
+class Desnag(Feature):
+    x: Union[Fizzle, Type[Fizzle]]
+
 ### At end of file to avoid circular imports ###
 
 import Codelets as CodeletsModule
