@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from itertools import chain, tee, filterfalse
 import functools
 import csv
+import sys
 
 
 # Useful global constants
@@ -242,8 +243,8 @@ def short(o) -> str:
         return f"{{{', '.join(short(x) for x in o)}}}"
     elif isclass(o):
         return o.__name__
-    elif isinstance(o, str):
-        return repr(o)
+#    elif isinstance(o, str):
+#        return repr(o)
     else:
         try:
             return o.short()
@@ -674,28 +675,32 @@ def trace(func):
     return wrapper
 """
 
-def pts(ls: Iterable, n=None, key=str):
+def pts(ls: Iterable, n=None, key=str, file=sys.stdout):
     '''Prints ls as a table of strings. For debugging.'''
     for i, x in enumerate(as_iter(ls)):
         if n is not None and i >= n:
             break
         if is_iter(x):
-            print(', '.join(key(y) for y in x))
+            print(', '.join(key(y) for y in x), file=file)
         else:
-            print(key(x))
+            print(key(x), file=file)
 
 def pl(x: Any, key=str):
     '''Prints x as a list, one line at a time.'''
     for a in as_iter(x):
         print(key(a))
 
-def pr(x: Any, *args, key=short, **kwargs):
+def pr(x: Any, *args, key=short, file=sys.stdout, **kwargs):
     '''Prints x as a list, one line at a time, alphabetized.'''
     if hasattr(x, 'pr'):
-        x.pr(*args, **kwargs)
+        x.pr(*args, key=key, file=file, **kwargs)
     elif isinstance(x, dict):
-        pts(sorted(x.items(), key=key), key=key)
+        #pts(sorted(x.items(), key=key), key=key, file=file)
+        for k, v in sorted(x.items(), key=str):
+            if isinstance(v, float):
+                v = f'{v:1.5f}'
+            print(f'{short(k)}: {short(v)}', file=file)
     else:
-        pts(sorted(as_iter(x), key=key), key=key)
+        pts(sorted(as_iter(x), key=key), key=key, file=file)
 #        for s in sorted(str(a) for a in as_iter(x)):
-#            print(s)
+#            print(s, file=file)

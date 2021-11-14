@@ -181,8 +181,8 @@ class TestFARGModel(unittest.TestCase):
         lenable(Codelet)
         got = run()
         self.assertEqual(got, [
-            "    CODELET DummyCodelet               late_bound='FROM AGENT'",
-            "    CODELET DummyCodelet               late_bound='ag2'"
+            "    CODELET DummyCodelet               late_bound=FROM AGENT",
+            "    CODELET DummyCodelet               late_bound=ag2"
         ])
 
         ldisable_all()

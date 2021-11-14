@@ -10,10 +10,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable, get_type_hints, get_origin, get_args
 
 from Agents import LitPainter, Consumer, Want, VariantMakerFromAvails
-from FMTypes import match_wo_none, Exclude
+from FMTypes import match_wo_none, Exclude, as_pred
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
-    NoResultFromSlipnet, Agent, Codelet
+    NoResultFromSlipnet, Agent, Codelet, LogPulse, QueryForSnagFixer
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
@@ -21,6 +21,7 @@ from Equation import plus
 from Graph import Graph
 from Slipnet import Slipnet
 from Log import trace, lo, lenable, ldisable_all
+from Propagator import LogAdjustedDeltas
 from util import pr, pts, short, first
 
 
@@ -240,6 +241,44 @@ class TestAgents(unittest.TestCase):
             or
             match_wo_none(new_consumer, Consumer.make(plus, (4, 6)))
         )
+
+    def test_query_finds_variant_maker(self) -> None:
+        desnag_graph = Graph.with_features(
+            [VariantMakerFromAvails()]
+        )
+        #lenable(Codelet, Fizzle, LogPulse, LogAdjustedDeltas)
+        fm = FARGModel(slipnet=Slipnet(desnag_graph))
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+        ag1 = fm.build(Consumer(
+            operator=plus,
+            operands=(4, 4),
+            source=cr0
+        ))
+        fm.run_agent(ag1, num=2)
+        assert fm.has_tag(ag1, ValuesNotAvail)
+        assert fm.was_just_run(QueryForSnagFixer)
+        """
+        print()
+        pr(fm)
+        print()
+        print('SLIPNET:')
+        bg = fm.slipnet.base_graph
+        pr(bg.nodes)
+        print()
+        pr(bg.edges)
+        print()
+        al = first(fm.alogs.logs.values())
+        al.plot()
+        print()
+        """
+        vm = fm.the(VariantMakerFromAvails)
+        #print(vm)
+
+        # TODO
+        #print(match_wo_none(vm, VariantMakerFromAvails()))
+        #self.assertTrue(fm.has_node(VariantMakerFromAvails()))
+        #input('key...')
 
 
 if __name__ == '__main__':

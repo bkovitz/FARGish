@@ -22,7 +22,8 @@ from Propagator import Propagator, ActivationLogs, ActivationLog, \
 from Graph import Graph, Hop, WithActivations, Feature
 from Slipnet import Slipnet
 from Indenting import Indenting, indent
-from Log import lo, trace, logging, Loggable, logging_is_enabled, logfile
+from Log import lo, trace, logging, Loggable, logging_is_enabled, logfile, \
+    LogKwargs
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit
@@ -108,6 +109,10 @@ def fmlogging(fm: FARGModel, arg: Any, **kwargs):
             yield logfile()
     finally:
         pass
+
+class LogPulse(LogKwargs):
+    name = 'PULSE'
+log_pulse = LogPulse()
 
 ### Detectors ###
 
@@ -227,6 +232,8 @@ QArgs = Union[None, Node, QArg, Tuple[Union[Node, QArg], ...]]
 
 @dataclass(frozen=True)
 class SnaggedAgent(Feature):
+    '''A Feature labeling an Agent as being snagged 'before' the the action
+    tagged with this Feature.'''
     agent: Agent
 
     def short(self) -> str:
@@ -234,6 +241,7 @@ class SnaggedAgent(Feature):
         return f'{cl}({short(self.agent)})'
 
 @dataclass(frozen=True)
+# TODO rm? Desnag
 class Unsnag(Feature):
     tag: Node
 
@@ -258,7 +266,7 @@ class QueryForSnagFixer(Codelet):
             (SnaggedAgent(behalf_of), QArgsModule.SearchFor(Agent))
             +
             tuple(
-                Unsnag(tag) if isinstance(tag, Fizzle) else tag
+                Desnag(tag) if isinstance(tag, Fizzle) else tag
                     for tag in fm.tags_of(behalf_of)
             )
         )
@@ -268,6 +276,9 @@ class QueryForSnagFixer(Codelet):
             self.default_slipnet_kwargs
         )
 
+        #print('QARGS', short(qargs))
+        #print()
+        #pr(kwargs, key=short)
         alog = fm.start_alog((behalf_of, self))
         slipnet_results = fm.pulse_slipnet(alog=alog, **kwargs) # type: ignore[arg-type]
         """ # TODO
@@ -335,7 +346,8 @@ class Agent(CanReplaceRefs, FMLoggable):
         )
 
     def short(self) -> str:
-        return self.__class__.__name__
+        cl = self.__class__.__name__
+        return f'{cl}()'
 
 @dataclass(frozen=True)
 class AgentState:
@@ -901,6 +913,11 @@ class FARGModel(Workspace):
             self.slipnet.set_params(num_iterations=num_slipnet_iterations)
         super().__post_init__()
 
+    # TODO Move this somewhere below
+    def was_just_run(self, pred: Pred) -> bool:
+        pred = as_pred(pred)
+        return any(pred(cr.codelet) for cr in self.codelets_just_run)
+
     def run_agent(
         self,
         agent: Node,
@@ -1116,7 +1133,7 @@ class FARGModel(Workspace):
     ) -> Node:
         '''HACK? Tries to fill in fields of an Agent 'node' that are None with
         values from 'sources', going first by name and then by type. Returns
-        the a new Node object, with None values filled in, or the original
+        a new Node object, with None values filled in, or the original
         'node' if we could not fill in any fields. If 'node' is neither an
         Agent nor a dataclass instance, then we return the original 'node'.
 
@@ -1240,16 +1257,31 @@ class FARGModel(Workspace):
         num_get: int=1, # max number of slipnodes to return
         alog: Optional[ActivationLog]=None
     ) -> List[Node]:
-        #print('PULSE')
-        sd = self.slipnet.dquery(activations_in=activations_in, alog=alog)
-        #pts(sd)
+        temp_slipnet = self.slipnet.augment(
+            Graph.with_features(activations_in.keys())
+        )
+        with logging(
+            log_pulse,
+            activations_in=activations_in,
+            pred=pred,
+            k=k,
+            num_get=num_get
+        ):
+            sd = temp_slipnet.dquery(activations_in=activations_in, alog=alog)
         pred: Pred = bind_ws(self, pred)
-        nas = self.slipnet.topna(sd, pred=pred, k=k)
-        return list(sample_without_replacement(
+        nas = temp_slipnet.topna(sd, pred=pred, k=k)
+        """
+        cpred = as_pred(pred)  #DEBUG
+        for node in sd:  #DEBUG
+            lo(node, cpred(node)) #DEBUG
+        """
+        result = list(sample_without_replacement(
             [na.node for na in nas],
             k=num_get,
             weights=[na.a for na in nas]
         ))
+        with logging(log_pulse, sd=sd, nas=nas, result=str(result)):
+            return result
 
     def is_sleeping(self, node: Node) -> bool:
         return node in self.sleepers
@@ -1360,28 +1392,29 @@ class FARGModel(Workspace):
     def pr(
         self,
         indent=None,
-        tofile=None,
+        file=None,
         edges=False,
         extra=False,  # extra stuff like t, sum_a, and seed
         seed=False,   # show seed?
+        key=None  # ignored
     ) -> None:
         '''Prints a subset of the workpace.'''
         if extra:
             print()
-            print(f't={self.t}', file=tofile)
+            print(f't={self.t}', file=file)
         count = 0
         for s, node in sorted(
             (self.l1str(node, indent), node)
                 for node in self.nodes()
         ):
             count += 1
-            print(s, file=tofile)
+            print(s, file=file)
             if edges:
                 for e in sorted(
                     self.e1str(node, neighbor)
                         for neighbor in self.neighbors(node)
                 ):
-                    print(' ', e, file=tofile)
+                    print(' ', e, file=file)
         if seed:
             print(f'seed={self.seed}')
 
@@ -1466,6 +1499,10 @@ class MissingArgument(Fizzle):
 @dataclass(frozen=True)
 class Desnag(Feature):
     x: Union[Fizzle, Type[Fizzle]]
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.x)})'
 
 ### At end of file to avoid circular imports ###
 

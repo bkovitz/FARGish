@@ -1,6 +1,7 @@
 # Slipnet.py -- Spreading activation on long-term memory, possibly augmented
 #               by additional nodes and edges from the workspace
 
+from __future__ import annotations
 from dataclasses import dataclass, field, InitVar, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
@@ -129,6 +130,9 @@ class Slipnet:
     def set_params(self, num_iterations: Optional[int]=None) -> None:
         if num_iterations is not None:
             self.propagator.num_iterations = num_iterations
+
+    def augment(self, *graphs: Graph) -> Slipnet:
+        return replace(self, base_graph=Graph.augment(self.base_graph, *graphs))
 
     def dquery(
         self,

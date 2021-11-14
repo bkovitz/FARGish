@@ -31,6 +31,20 @@ class Loggable(ABC):
         should make a log entry. Must print to 'f'.'''
         pass
 
+class LogKwargs(Loggable):
+    name: str = 'LogKwargs'  # override
+
+    def log(self, f: Indenting, **kwargs) -> None:
+        print(self.name, file=f)
+        with indent(f):
+            for k, v in kwargs.items():
+                if isinstance(v, dict):
+                    print(f'{short(k)}=', file=f)
+                    with indent(f):
+                        pr(v, key=short, file=f)
+                else:
+                    print(f'{short(k)}={short(v)}', file=f)
+
 def lo(*args, **kwargs) -> None:
     '''Prints args to log file, at current indentation level.'''
     print(

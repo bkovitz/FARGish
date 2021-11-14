@@ -19,7 +19,7 @@ from statistics import mean, harmonic_mean, geometric_mean, median, quantiles
 import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import ADict, Node, Pred, as_pred, epsilon
-from Indenting import Indenting
+from Indenting import Indenting, indent
 from Log import trace, logging, Loggable, logging_is_enabled, logfile
 from util import short, pl, first, pr, pts, as_list, newline
 
@@ -560,22 +560,26 @@ class PropagatorOutgoing(Propagator):
             self.sentas_from(g, old_d, node) for node in old_d
         )
 
+@dataclass(frozen=True)
 class LogDeltasClass(Loggable):
+    name: str
 
     def log(self, f: Indenting, deltas=Sequence[Delta], **kwargs) -> None:
-        if not deltas:
-            print('No Deltas.', file=f)
-        else:
-            amts: List[float] = []
-            for delta in sorted(deltas, key=attrgetter('amt')):
-                print(short(delta), file=f)
-                amts.append(delta.amt)
-            print(
-                f'mean={mean(amts):1.8f}  hmean={harmonic_mean(amts):1.8f}  gmean={geometric_mean(amts):1.8f}  median={median(amts):1.8f}',
-                file=f
-            )
+        print(self.name, file=f)
+        with indent(f):
+            if not deltas:
+                print('No Deltas.', file=f)
+            else:
+                amts: List[float] = []
+                for delta in sorted(deltas, key=attrgetter('amt')):
+                    print(short(delta), file=f)
+                    amts.append(delta.amt)
+                print(
+                    f'mean={mean(amts):1.8f}  hmean={harmonic_mean(amts):1.8f}  gmean={geometric_mean(amts):1.8f}  median={median(amts):1.8f}',
+                    file=f
+                )
 
-LogAdjustedDeltas = LogDeltasClass()
+LogAdjustedDeltas = LogDeltasClass('ADJUSTED DELTAS')
     
 
 import Graph as GraphModule

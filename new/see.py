@@ -67,6 +67,6 @@ def see_query(
     
 
 if __name__ == '__main__':
-    see_query(q=[Desnag], pred=Agent, sngraphs=[eqn_graph, desnag_graph])
+    see_query(q=[Desnag], pred=Agent, sngraphs=[desnag_graph])
     #g = Graph.with_features([VariantMakerFromAvails()])
     #pr(g)
