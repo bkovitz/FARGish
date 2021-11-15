@@ -13,7 +13,7 @@ from Agents import LitPainter, Consumer, Want, VariantMakerFromAvails
 from FMTypes import match_wo_none, Exclude, as_pred
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
-    NoResultFromSlipnet, Agent, Codelet, LogPulse, QueryForSnagFixer
+    NoResultFromSlipnet, Agent, Codelet, LogPulse, QueryForSnagFixer, Built
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
@@ -24,6 +24,10 @@ from Log import trace, lo, lenable, ldisable_all
 from Propagator import LogAdjustedDeltas
 from util import pr, pts, short, first
 
+
+desnag_graph = Graph.with_features(
+    [VariantMakerFromAvails()]
+)
 
 class TestAgents(unittest.TestCase):
 
@@ -242,11 +246,8 @@ class TestAgents(unittest.TestCase):
             match_wo_none(new_consumer, Consumer.make(plus, (4, 6)))
         )
 
-    def test_query_finds_variant_maker(self) -> None:
-        desnag_graph = Graph.with_features(
-            [VariantMakerFromAvails()]
-        )
-        #lenable(Codelet, Fizzle, LogPulse, LogAdjustedDeltas)
+    def test_snag_leads_to_variant_maker(self) -> None:
+        #lenable(Codelet, Fizzle, LogPulse, Built)
         fm = FARGModel(slipnet=Slipnet(desnag_graph))
         ca = fm.build(self.pons_start_canvas())
         cr0 = fm.build(CellRef(ca, 0))
@@ -256,6 +257,12 @@ class TestAgents(unittest.TestCase):
             source=cr0
         ))
         fm.run_agent(ag1, num=2)
+        #pr(fm)
+        vm = fm.the(VariantMakerFromAvails)
+        #print('\nGOT')
+        #print(vm)
+        #print('\nVMFA:')
+        #print(VariantMakerFromAvails())
         assert fm.has_tag(ag1, ValuesNotAvail)
         assert fm.was_just_run(QueryForSnagFixer)
         """
@@ -277,8 +284,30 @@ class TestAgents(unittest.TestCase):
 
         # TODO
         #print(match_wo_none(vm, VariantMakerFromAvails()))
+        self.assertTrue(fm.the(VariantMakerFromAvails))
         #self.assertTrue(fm.has_node(VariantMakerFromAvails()))
+        # TODO Check the VariantMakerFromAvails' arguments.
         #input('key...')
+
+    """
+    def test_source_nodes_seq(self) -> None:
+        fm = FARGModel(slipnet=Slipnet(desnag_graph))
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+        ag1 = fm.build(Consumer(
+            operator=plus,
+            operands=(4, 4),
+            source=cr0
+        ))
+        fm.run_agent(ag1, num=2)
+        pr(fm)
+        print()
+        pr(fm.activation_g.nodes)
+        print()
+        pr(fm.activation_g.edges)
+        print()
+        pr(list(fm.source_nodes_seq(ag1)))
+    """
 
 
 if __name__ == '__main__':

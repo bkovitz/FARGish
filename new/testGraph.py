@@ -12,7 +12,7 @@ from itertools import chain
 
 from Graph import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
     OfClass, MutualInhibition, Feature, features_of, \
-    PrefixedNode, PrefixedGraph, WithPrefix, \
+    PrefixedNode, PrefixedGraph, WithPrefix, NodeD, \
     WithActivations
 from Propagator import Propagator, PropagatorIncoming, PropagatorOutgoing, \
     LogAdjustedDeltas
@@ -470,6 +470,27 @@ class TestGraph(unittest.TestCase):
         self.assertAlmostEqual(g.a('b'), 0.319848331226608)
         self.assertAlmostEqual(g.a('o'), 0.11107952571123292)
         #ldisable_all()
+
+    def test_concentric_walk(self) -> None:
+        g = Graph.from_hops(Hops.from_pairs_symmetric(
+            ('O', 'A'), ('O', 'B'),     # A, B: distance 1 from O
+            ('A', 'B'),                 # don't get confused by this
+            ('A', 'AA'), ('A', 'AB'),   # AA, AB: distance 2
+            ('B', 'BA'), ('B', 'BB'),   # BA, BB: distance 2
+            ('A', 'BB'),                # don't get confused by this
+            ('BB', 'BBA')               # BBA: distance 3
+        ))
+
+        conc = list(g.concentric_walk('O'))
+        #pts(conc)
+        self.assertEqual(conc[0], NodeD('O', 0))
+        self.assertCountEqual(conc[1:3], {NodeD('A', 1), NodeD('B', 1)})
+        self.assertCountEqual(
+            conc[3:7],
+            {NodeD('AA', 2), NodeD('AB', 2), NodeD('BA', 2), NodeD('BB', 2)}
+        )
+        self.assertEqual(conc[-1], NodeD('BBA', 3))
+
 
 
 """

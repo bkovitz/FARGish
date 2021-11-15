@@ -298,6 +298,7 @@ class QueryForSnagFixer(Codelet):
             raise NoResultFromSlipnet(qargs=qargs)
             #print('FAILURE QueryForSnagFixer: no slipnet_results!', file=logfile)
             #fm.set_state(behalf_of, Failed)
+        #lo('QSNAG', str(result[0]))
         result.append(CodeletsModule.Sleep(agent=behalf_of))
         return result
         # TODO Also Sleep the Agent
@@ -482,8 +483,9 @@ class ActivationGraph(WithActivations, Graph):
     )
 
 @dataclass
-class NodeInWS:
-    '''A Node in the Workspace and information about it.'''
+class NodeInWS(Loggable):
+    '''A Node in the Workspace and information about it. As a Loggable object,
+    logs a node just built.'''
     node: Node
     builder: Union[Agent, None]
         # .builder should not be used by Agents; it's strictly for debugging
@@ -510,6 +512,15 @@ class NodeInWS:
         if isinstance(self.node, Agent):
             result += f' state={self.state}'
         return result
+
+    def log(self, f: Indenting, **kwargs) -> None:
+        st = f'  {self.state}' if isinstance(self.node, Agent) else ''
+        print(
+            f'BUILT {self.node}{st}  builder={short(self.builder)}',
+            file=f
+        )
+Built = NodeInWS  # Convenient alias for logging
+
 
 @dataclass
 class Workspace(HasRngSeed):
@@ -547,6 +558,7 @@ class Workspace(HasRngSeed):
         obj = args[0]
         """
         #print('BBBB', obj.__class__.__name__)
+        #lo('BBBBB', str(obj))
         if obj is None:  # attempting to build None builds nothing
             return None
 
@@ -588,7 +600,8 @@ class Workspace(HasRngSeed):
         self.activation_g.add_node(obj)
         self.activation_g.set_a(obj, init_a)
 
-        return niws
+        with logging(niws):
+            return niws
 
         # create antipathy between obj and its enemies
         """ TODO
@@ -681,6 +694,7 @@ class Workspace(HasRngSeed):
         '''Returns a generator for *all* matches of pred. Unlike .ws_query(),
         .nodes() does not make a weighted choice.'''
         # TODO Explain es. (It's a subset to search.)
+        # TODO Rename 'es' to 'within'.
         wspred = as_wspred(pred)
         if es is None:
             es = self.wsd.keys()
@@ -741,6 +755,14 @@ class Workspace(HasRngSeed):
             e for e in self.nodes()
                 if self.builder_of(e) is agent
         ]
+
+    # Walking the ActivationGraph
+
+    # TODO rm? Replace with a new Graph method, .concentric_walk(), which
+    # returns both nodes and their distance from 'node'?
+    def source_nodes_seq(self, node: Node) -> Iterable[Node]:
+        yield node
+        yield from self.activation_g.neighbors(node)
 
 ### Workspace predicates ###
 

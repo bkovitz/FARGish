@@ -49,7 +49,8 @@ ut:
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
 	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	$(PY) -m unittest -v testAgents.TestAgents.test_query_finds_variant_maker
+	#$(PY) -m unittest -v testAgents.TestAgents.test_source_nodes_seq
+	$(PY) -m unittest -v testGraph.TestGraph.test_concentric_walk
 
 # Acceptance tests
 at:

@@ -22,6 +22,13 @@ from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
 Node = Hashable
 
 @dataclass(frozen=True)
+class NodeD:
+    '''A Node together with its distance, in number of hops, from some other
+    Node (not specified in this object).'''
+    node: Node
+    dist: int    # dist == 0 means that 'node' is the reference node
+
+@dataclass(frozen=True)
 class Hop:
     '''A directed edge.'''
     from_node: Node
@@ -55,6 +62,18 @@ class Hops:
     def from_pairs(cls, *pairs: Tuple[Node, Node], weight=1.0) -> Iterable[Hop]:
         for from_node, to_node in pairs:
             yield Hop(from_node, to_node, weight)
+
+    @classmethod
+    def from_pairs_symmetric(
+        cls,
+        *pairs: Tuple[Node, Node],
+        weight: float=1.0
+    ) -> Iterable[Hop]:
+        '''Returns a generator where each pair (a, b) is turned into two Hops,
+        a -> b and b -> a.'''
+        for from_node, to_node in pairs:
+            yield Hop(from_node, to_node, weight)
+            yield Hop(to_node, from_node, weight)
     
 class Query:
     '''A query specification to pass to Nodes.query().'''
@@ -457,6 +476,24 @@ class Graph:
     def num_edges(self) -> int:
         return len(self.edges)
 
+    def concentric_walk(self, start_node: Node) -> Iterable[NodeD]:
+        if self.has_node(start_node):
+            yield NodeD(start_node, 0)
+            dist = 1
+            seen = {start_node}
+            prev_nodes = {start_node}
+            while True:
+                new_nodes = union(*(
+                    self.neighbors(node) for node in prev_nodes
+                )) - seen
+                if not new_nodes:
+                    break
+                for node in new_nodes:
+                    yield NodeD(node, dist)
+                seen |= new_nodes
+                prev_nodes = new_nodes
+                dist += 1
+
     def __len__(self) -> int:
         return self.num_nodes()
 
@@ -465,14 +502,14 @@ class Graph:
         return cls(nodes=EnumNodes(set()), edges=EnumEdges())
 
     @classmethod
-    def augment(cls, *graphs: 'Graph') -> 'Graph':
-        return Graph(
+    def augment(cls: Type[Q], *graphs: Graph) -> Q:
+        return cls(
             nodes=NodesSeries([g.nodes for g in graphs]),
             edges=EdgesSeries([g.edges for g in graphs])
         )
 
     @classmethod
-    def with_features(cls, *base_nodess: Iterable[Node]) -> 'Graph':
+    def with_features(cls: Type[Q], *base_nodess: Iterable[Node]) -> Q:
         '''Makes and returns a Graph containing all nodes in base_nodess,
         as well as a node for each feature returned by features_of, and
         a positive edge connecting each base node to its feature nodes.'''
@@ -492,10 +529,20 @@ class Graph:
             )
             nodes_to_do |= new_features
 
-        return Graph(
+        return cls(
             nodes=EnumNodes(nodeset),
             edges=EnumEdges(hopset)
         )
+
+    @classmethod
+    def from_hops(cls: Type[Q], *hopss: Iterable[Hop]) -> Q:
+        result = cls.empty()
+        for hops in hopss:
+            for hop in hops:
+                result.add_node(hop.from_node)
+                result.add_node(hop.to_node)
+                result.add_hop(hop)
+        return result
 
 @dataclass
 class WithActivations(Graph):
