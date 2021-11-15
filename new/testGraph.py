@@ -490,8 +490,14 @@ class TestGraph(unittest.TestCase):
             {NodeD('AA', 2), NodeD('AB', 2), NodeD('BA', 2), NodeD('BB', 2)}
         )
         self.assertEqual(conc[-1], NodeD('BBA', 3))
+        self.assertEqual(len(conc), len(g))
 
-
+        conc = list(g.concentric_walk('O', limit=1))
+        self.assertCountEqual(
+            conc,
+            {NodeD('O', 0), NodeD('A', 1), NodeD('B', 1)}
+        )
+             
 
 """
 if __name__ == '__main__':

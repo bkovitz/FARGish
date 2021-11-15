@@ -476,8 +476,13 @@ class Graph:
     def num_edges(self) -> int:
         return len(self.edges)
 
-    def concentric_walk(self, start_node: Node) -> Iterable[NodeD]:
-        if self.has_node(start_node):
+    def concentric_walk(self, start_node: Node, limit: Optional[int] = None) \
+    -> Iterable[NodeD]:
+        '''Returns a generator of NodeDs, starting at start_node, moving
+        out progressively further hops until reaching limit (inclusive).
+        If no limit is specified, the walk will include all nodes that have
+        any path from start_node.'''
+        if self.has_node(start_node) and (limit is None or limit > 0):
             yield NodeD(start_node, 0)
             dist = 1
             seen = {start_node}
@@ -493,6 +498,8 @@ class Graph:
                 seen |= new_nodes
                 prev_nodes = new_nodes
                 dist += 1
+                if limit and dist > limit:
+                    break
 
     def __len__(self) -> int:
         return self.num_nodes()
