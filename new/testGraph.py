@@ -17,7 +17,7 @@ from Graph import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
 from Propagator import Propagator, PropagatorIncoming, PropagatorOutgoing, \
     LogAdjustedDeltas
 from Log import lenable, ldisable_all, logging_is_enabled, log_to
-from util import pts, pr
+from util import pts, pr, empty_set
 import sys
 
 
@@ -471,7 +471,7 @@ class TestGraph(unittest.TestCase):
         self.assertAlmostEqual(g.a('o'), 0.11107952571123292)
         #ldisable_all()
 
-    def test_concentric_walk(self) -> None:
+    def test_concentric_walk_NodeD(self) -> None:
         g = Graph.from_hops(Hops.from_pairs_symmetric(
             ('O', 'A'), ('O', 'B'),     # A, B: distance 1 from O
             ('A', 'B'),                 # don't get confused by this
@@ -481,7 +481,7 @@ class TestGraph(unittest.TestCase):
             ('BB', 'BBA')               # BBA: distance 3
         ))
 
-        conc = list(g.concentric_walk('O'))
+        conc = list(g.concentric_walk_NodeD('O'))
         #pts(conc)
         self.assertEqual(conc[0], NodeD('O', 0))
         self.assertCountEqual(conc[1:3], {NodeD('A', 1), NodeD('B', 1)})
@@ -492,12 +492,30 @@ class TestGraph(unittest.TestCase):
         self.assertEqual(conc[-1], NodeD('BBA', 3))
         self.assertEqual(len(conc), len(g))
 
-        conc = list(g.concentric_walk('O', limit=1))
+        conc = list(g.concentric_walk_NodeD('O', dlimit=1))
         self.assertCountEqual(
             conc,
             {NodeD('O', 0), NodeD('A', 1), NodeD('B', 1)}
         )
-             
+
+    def test_concentric_walk(self) -> None:
+        g = Graph.from_hops(Hops.from_pairs_symmetric(
+            ('O', 'A'), ('O', 'B'),     # A, B: distance 1 from O
+            ('A', 'B'),                 # don't get confused by this
+            ('A', 'AA'), ('A', 'AB'),   # AA, AB: distance 2
+            ('B', 'BA'), ('B', 'BB'),   # BA, BB: distance 2
+            ('A', 'BB'),                # don't get confused by this
+            ('BB', 'BBA')               # BBA: distance 3
+        ))
+
+        self.assertCountEqual(g.concentric_walk('O', -1), empty_set)
+        self.assertCountEqual(g.concentric_walk('O', 0), {'O'})
+        self.assertCountEqual(g.concentric_walk('O', 1), {'O', 'A', 'B'})
+        self.assertCountEqual(
+            g.concentric_walk('O', 2),
+            {'O', 'A', 'B', 'AA', 'AB', 'BA', 'BB'}
+        )
+        self.assertCountEqual(g.concentric_walk('BBA', 1), {'BBA', 'BB'})
 
 """
 if __name__ == '__main__':

@@ -476,13 +476,40 @@ class Graph:
     def num_edges(self) -> int:
         return len(self.edges)
 
-    def concentric_walk(self, start_node: Node, limit: Optional[int] = None) \
-    -> Iterable[NodeD]:
+    def concentric_walk(
+        self,
+        start_node: Node,
+        dlimit: int
+    ) -> Iterable[Node]:
+        '''Returns a generator of Nodes, starting at start_node, moving out
+        progressively further hops until reaching dlimit (inclusive).'''
+        if dlimit >= 0 and self.has_node(start_node):
+            yield start_node
+            dist = 1
+            seen = {start_node}
+            prev_nodes = {start_node}
+            while dist <= dlimit:
+                new_nodes = union(*(
+                    self.neighbors(node) for node in prev_nodes
+                )) - seen
+                if not new_nodes:
+                    break
+                yield from new_nodes
+                # TODO OPTIMIZE Don't make new sets if this is last iteration
+                seen |= new_nodes
+                prev_nodes = new_nodes
+                dist += 1
+
+    def concentric_walk_NodeD(
+        self,
+        start_node: Node,
+        dlimit: Optional[int] = None
+    ) -> Iterable[NodeD]:
         '''Returns a generator of NodeDs, starting at start_node, moving
-        out progressively further hops until reaching limit (inclusive).
-        If no limit is specified, the walk will include all nodes that have
+        out progressively further hops until reaching dlimit (inclusive).
+        If no dlimit is specified, the walk will include all nodes that have
         any path from start_node.'''
-        if self.has_node(start_node) and (limit is None or limit > 0):
+        if self.has_node(start_node) and (dlimit is None or dlimit > 0):
             yield NodeD(start_node, 0)
             dist = 1
             seen = {start_node}
@@ -498,7 +525,7 @@ class Graph:
                 seen |= new_nodes
                 prev_nodes = new_nodes
                 dist += 1
-                if limit and dist > limit:
+                if dlimit and dist > dlimit:
                     break
 
     def __len__(self) -> int:
