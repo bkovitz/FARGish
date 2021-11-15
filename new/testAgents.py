@@ -4,6 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
+from dataclasses import fields
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
@@ -257,15 +258,23 @@ class TestAgents(unittest.TestCase):
             source=cr0
         ))
         fm.run_agent(ag1, num=2)
-        #pr(fm)
-        vm = fm.the(VariantMakerFromAvails)
+        """
+        pr(fm)
+        vm: Any = fm.the(VariantMakerFromAvails)
+        print()
+        print(vm)
+        print()
+
+        print(type(vm.cellref))
+        print()
+        pts(vm.need_args())
         #print('\nGOT')
         #print(vm)
         #print('\nVMFA:')
         #print(VariantMakerFromAvails())
         assert fm.has_tag(ag1, ValuesNotAvail)
         assert fm.was_just_run(QueryForSnagFixer)
-        """
+
         print()
         pr(fm)
         print()
@@ -285,6 +294,15 @@ class TestAgents(unittest.TestCase):
         # TODO
         #print(match_wo_none(vm, VariantMakerFromAvails()))
         self.assertTrue(fm.the(VariantMakerFromAvails))
+        self.assertEqual(
+            fm.the(VariantMakerFromAvails),
+            VariantMakerFromAvails(
+                agent=ag1,
+                cellref=cr0,
+                avails=(4, None),
+                unavails=(None, 4)
+            )
+        )
         #self.assertTrue(fm.has_node(VariantMakerFromAvails()))
         # TODO Check the VariantMakerFromAvails' arguments.
         #input('key...')

@@ -199,7 +199,7 @@ def tupdict(**kwargs) -> Tuple[Tuple[str, Hashable]]:
         (k, v) for k, v in kwargs.items()
     )
 
-def as_dict(x: Union[Dict, None, Collection[Tuple[str, Hashable]]]) -> Dict:
+def as_dict(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) -> Dict:
     # TODO Update type annotation to show that x can be a dataclass.
     if isinstance(x, dict):
         return x

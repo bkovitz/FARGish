@@ -8,8 +8,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable
 from abc import ABC, abstractmethod
 
-from FMTypes import Node, Nodes, Pred
-from FARGModel import FARGModel, QArg, QInput, QPred, CellRef, Ref, R
+from FMTypes import Node, Nodes, Pred, R
+from FARGModel import FARGModel, QArg, QInput, QPred, CellRef, Ref
 from Graph import Before, After
 from Log import trace
 from util import as_iter, short

@@ -7,13 +7,12 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FMTypes import Value, Node
-from FARGModel import FARGModel, Codelet, Codelets, Ref, R, Agent, Nodes, \
+from FMTypes import Value, Node, Ref, R
+from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
     NoResultFromSlipnet, CellRef
 from Log import trace
-from util import as_iter, as_list, pr, pts, short, \
-    sample_without_replacement
+from util import as_iter, as_list, pr, pts, short, sample_without_replacement
 
 
 @dataclass(frozen=True)

@@ -7,8 +7,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable
 
 from Canvas import CellRef
-from FMTypes import Value, Node
-from FARGModel import Agent, Codelets, R, Ref, CellRef, Wake, ExcludeExisting, \
+from FMTypes import Value, Node, R, Ref
+from FARGModel import Agent, Codelets, CellRef, Wake, ExcludeExisting, \
     Desnag, ValuesNotAvail
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState, MakeVariantFromAvails

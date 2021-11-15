@@ -14,6 +14,8 @@ from dataclasses import dataclass, is_dataclass
 from util import pr, filter_none, dict_str, short
 
 
+T = TypeVar('T')
+
 # Values with absolute value < epsilon are treated as zero
 epsilon = 0.001 # 0.00001
 
@@ -196,3 +198,25 @@ Activation = float
 
 # A dictionary mapping things to activation levels
 ADict = Dict[Hashable, Activation]
+
+
+@dataclass(frozen=True)
+class Ref:
+    '''A reference by name to a member of an enclosing Agent, Codelet, or
+    FARGModel.'''
+    name: str
+
+    def short(self) -> str:
+        return self.name
+
+# Wrap the type of any field of an Agent of Codelet in R[] to allow a Ref
+# in its place, e.g.  my_string: R[str] = None
+R = Union[T, Ref, None]
+
+class HasArgs(ABC):
+    '''Mix-in class for objects that have some notion of arguments that need
+    to be filled in.'''
+    
+    @abstractmethod
+    def need_args(self) -> Set[Ref]:
+        pass

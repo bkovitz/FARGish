@@ -16,7 +16,7 @@ from types import MethodType, FunctionType
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
-    combine_preds, AlwaysTrue, HasBindWs
+    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, T
 from Propagator import Propagator, ActivationLogs, ActivationLog, \
     PropagatorOutgoing
 from Graph import Graph, Hop, WithActivations, Feature
@@ -26,27 +26,14 @@ from Log import lo, trace, logging, Loggable, logging_is_enabled, logfile, \
     LogKwargs
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, pr, pts, is_type_instance, \
-    is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit
+    is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit, \
+    as_dict
 
 
-T = TypeVar('T')
 N = TypeVar('N', bound=Node)
 W = TypeVar('W', bound='Workspace')
 
 ### Classes for named references inside Codelets and Agents ###
-
-@dataclass(frozen=True)
-class Ref:
-    '''A reference by name to a member of an enclosing Agent, Codelet, or
-    FARGModel.'''
-    name: str
-
-    def short(self) -> str:
-        return self.name
-
-# Wrap the type of any field of an Agent of Codelet in R[] to allow a Ref
-# in its place, e.g.  my_string: R[str] = None
-R = Union[T, Ref, None]
 
 Sources = Any  # A Sequence of sources for looking up the values of Refs,
                # or just a single source.
@@ -289,7 +276,8 @@ class QueryForSnagFixer(Codelet):
         if slipnet_results:
             result += [
                 CodeletsModule.Build(
-                    to_build = fm.try_to_fill_nones(node, sources, behalf_of),
+                    #to_build = fm.try_to_fill_nones(node, sources, behalf_of),
+                    to_build = fm.try_to_fill_refs(node, situation=behalf_of),
                     behalf_of=behalf_of
                 )
                     for node in slipnet_results
@@ -306,7 +294,7 @@ class QueryForSnagFixer(Codelet):
 ### Agent and ancillary classes and objects ###
 
 @dataclass(frozen=True)
-class Agent(CanReplaceRefs, FMLoggable):
+class Agent(CanReplaceRefs, FMLoggable, HasArgs):
     '''An Agent has no Python code. It holds only fields containing zero
     or more codelets for each AgentState, and, optionally, fields for
     parameters to the Agent. Due to the rules of dataclass inheritance,
@@ -340,6 +328,19 @@ class Agent(CanReplaceRefs, FMLoggable):
         else:
             return False
 
+    def need_args(self) -> Set[Ref]:
+        result: Set[Ref] = set()
+        for name, v in as_dict(self).items():
+            if name in self.all_state_names:
+                continue
+            if v is None:
+                result.add(Ref(name))
+            elif isinstance(v, Ref):
+                result.add(v)
+            else:
+                continue
+        return result
+        
     def log(self, fm: FARGModel, f: Indenting, **kwargs) -> None:
         print(
             f'AGENT {short(self):25s}  state={fm.agent_state(self)} t={fm.t}',
@@ -349,6 +350,17 @@ class Agent(CanReplaceRefs, FMLoggable):
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}()'
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        kvs = ', '.join(
+            f'{name}={short(v)}'
+                for name, v in self.argsdict().items()
+        )
+        return f'{cl}({kvs})'
+
+    def argsdict(self) -> Dict[str, Any]:
+        return omit(as_dict(self), self.all_state_names)
 
 @dataclass(frozen=True)
 class AgentState:
@@ -757,12 +769,6 @@ class Workspace(HasRngSeed):
         ]
 
     # Walking the ActivationGraph
-
-    # TODO rm? Replace with a new Graph method, .concentric_walk(), which
-    # returns both nodes and their distance from 'node'?
-    def source_nodes_seq(self, node: Node) -> Iterable[Node]:
-        yield node
-        yield from self.activation_g.neighbors(node)
 
 ### Workspace predicates ###
 
@@ -1192,6 +1198,41 @@ class FARGModel(Workspace):
             for name, typ in get_type_hints(node.__class__).items():
                 if name not in Agent.all_state_names:
                     yield name, make_nonoptional(typ)
+
+    def args_for(self, node: HasArgs, situation: Node) -> Dict[str, Any]:
+        # Get needed arg names from node.
+        # Look at concentric neighbors of situation for nodes that have
+        # values.
+        # Extract those values and put them into the result dict.
+        result: Dict[str, Any] = {}
+        for ref in node.need_args():
+            v = self.find_value_in_situation(ref.name, situation)
+            if v is not None:
+                result[ref.name] = v
+        return result
+
+    def find_value_in_situation(self, name: str, situation: Node) -> Value:
+        for node in self.activation_g.concentric_walk(situation, 3):
+            if hasattr(node, name):
+                return getattr(node, name)
+        return None
+
+    def try_to_fill_refs(self, node: Node, situation: Node) -> Node:
+        '''Returns a node with 'node's Refs and Nones filled in, to the extent
+        possible, from values in 'situation', i.e. within 2 hops in 
+        activation_g.'''
+        if not isinstance(node, HasArgs):
+            return node
+        else:
+            d = self.args_for(node, situation)
+            #lo(f'TRY {dict_str(d)}')
+            return self.replace_refs(node, d)
+            """
+            if d:
+                return replace(node, **d)
+            else:
+                return node
+            """
 
     # TODO rm; replaced by QInput.get_items()
     """

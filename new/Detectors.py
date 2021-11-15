@@ -7,7 +7,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FARGModel import FARGModel, Detector, R, Ref, Value, CellRef, Codelets
+from FMTypes import R, Ref
+from FARGModel import FARGModel, Detector, Value, CellRef, Codelets
 from Log import trace
 from util import short, pr, pts
 

@@ -7,8 +7,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FMTypes import Value
-from FARGModel import FARGModel, Codelet, Ref, R, CellRef, \
+from FMTypes import Value, Ref, R
+from FARGModel import FARGModel, Codelet, CellRef, \
     CodeletResults
 from Canvas import Operator
 

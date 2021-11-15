@@ -10,7 +10,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 from io import StringIO
 
-from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, Ref, R, \
+from FMTypes import Ref, R
+from FARGModel import FARGModel, Agent, Born, Defunct, Codelet, \
     first_arg_is_ws, Workspace, as_wspred, Nonexistent
 from Log import log_to, lenable, ldisable, ldisable_all, logging_is_enabled, \
     logfile
