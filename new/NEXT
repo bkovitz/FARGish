@@ -146,11 +146,13 @@ Solve pons asinorum
 
         VariantMaker  DONE
 
-        Make a VariantMaker in response to ValuesNotAvail.
+        Make a VariantMaker in response to ValuesNotAvail.  DONE
 
             dlimit arg for .neighbors()  DONE
 
-            NEXT args_for VariantMakerFromAvails
+            args_for VariantMakerFromAvails  DONE
+
+        NEXT See Consume(4+4) turn into Consume(4+5) and run.
 
         Put the full feature set into atestPons.eqn_graph. Specifically,
         add more features to Consumer.features_of().

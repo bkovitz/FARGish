@@ -287,9 +287,8 @@ class QueryForSnagFixer(Codelet):
             #print('FAILURE QueryForSnagFixer: no slipnet_results!', file=logfile)
             #fm.set_state(behalf_of, Failed)
         #lo('QSNAG', str(result[0]))
-        result.append(CodeletsModule.Sleep(agent=behalf_of))
+        result.append(CodeletsModule.Sleep(agent=behalf_of, sleep_duration=10))
         return result
-        # TODO Also Sleep the Agent
 
 ### Agent and ancillary classes and objects ###
 

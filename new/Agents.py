@@ -128,9 +128,13 @@ class VariantMakerFromAvails(Agent):
     unavails: R[Tuple[Value, ...]] = Ref('unavails')
         # These values were unavail; indices match indices in seeker's request
 
-    wake: Codelets = MakeVariantFromAvails(
-        Ref('agent'), Ref('source'), Ref('avails'), Ref('unavails')
+    wake: Codelets = (
+        MakeVariantFromAvails(
+            Ref('agent'), Ref('source'), Ref('avails'), Ref('unavails')
+        ),
+        Sleep(agent=Ref('behalf_of'))
     )
+        
 
     def features_of(self) -> Iterable[Node]:
         yield Desnag(ValuesNotAvail)

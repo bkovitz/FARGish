@@ -31,6 +31,7 @@ desnag_graph = Graph.with_features(
 )
 
 class TestAgents(unittest.TestCase):
+    maxDiff = None
 
     step0 = Step((4, 5, 6))
     step1 = Step((6, 9), StepDelta((4, 5), 9, plus))
@@ -249,50 +250,18 @@ class TestAgents(unittest.TestCase):
 
     def test_snag_leads_to_variant_maker(self) -> None:
         #lenable(Codelet, Fizzle, LogPulse, Built)
-        fm = FARGModel(slipnet=Slipnet(desnag_graph))
+        fm = FARGModel(seed=1, slipnet=Slipnet(desnag_graph))
         ca = fm.build(self.pons_start_canvas())
         cr0 = fm.build(CellRef(ca, 0))
+        cr1 = fm.build(CellRef(ca, 1))
         ag1 = fm.build(Consumer(
             operator=plus,
             operands=(4, 4),
             source=cr0
         ))
         fm.run_agent(ag1, num=2)
-        """
-        pr(fm)
-        vm: Any = fm.the(VariantMakerFromAvails)
-        print()
-        print(vm)
-        print()
-
-        print(type(vm.cellref))
-        print()
-        pts(vm.need_args())
-        #print('\nGOT')
-        #print(vm)
-        #print('\nVMFA:')
-        #print(VariantMakerFromAvails())
-        assert fm.has_tag(ag1, ValuesNotAvail)
-        assert fm.was_just_run(QueryForSnagFixer)
-
-        print()
-        pr(fm)
-        print()
-        print('SLIPNET:')
-        bg = fm.slipnet.base_graph
-        pr(bg.nodes)
-        print()
-        pr(bg.edges)
-        print()
-        al = first(fm.alogs.logs.values())
-        al.plot()
-        print()
-        """
         vm = fm.the(VariantMakerFromAvails)
-        #print(vm)
 
-        # TODO
-        #print(match_wo_none(vm, VariantMakerFromAvails()))
         self.assertTrue(fm.the(VariantMakerFromAvails))
         self.assertEqual(
             fm.the(VariantMakerFromAvails),
@@ -303,29 +272,18 @@ class TestAgents(unittest.TestCase):
                 unavails=(None, 4)
             )
         )
-        #self.assertTrue(fm.has_node(VariantMakerFromAvails()))
-        # TODO Check the VariantMakerFromAvails' arguments.
-        #input('key...')
 
-    """
-    def test_source_nodes_seq(self) -> None:
-        fm = FARGModel(slipnet=Slipnet(desnag_graph))
-        ca = fm.build(self.pons_start_canvas())
-        cr0 = fm.build(CellRef(ca, 0))
-        ag1 = fm.build(Consumer(
-            operator=plus,
-            operands=(4, 4),
-            source=cr0
-        ))
-        fm.run_agent(ag1, num=2)
-        pr(fm)
-        print()
-        pr(fm.activation_g.nodes)
-        print()
-        pr(fm.activation_g.edges)
-        print()
-        pr(list(fm.source_nodes_seq(ag1)))
-    """
+
+        #lenable(Agent, Codelet, Fizzle, LogPulse, Built)
+        fm.do_timestep(num=3)
+        #pr(fm)
+        #print()
+        #print(short(cr1.value))
+        self.assertTrue(
+            short(cr1.value) == '[4 + 5; 6 9]'
+            or
+            short(cr1.value) == '[4 + 6; 5 10]'
+        )
 
 
 if __name__ == '__main__':
