@@ -113,10 +113,7 @@ class TestSlipnet(unittest.TestCase):
         )
         alog = fm.start_alog('Unit Test')
         got = fm.pulse_slipnet(alog=alog, **kwargs)
-        #pr(got)
-        #alog.plot()
-        #alog.prlast(None, n=10)
-        #input('key...')
+        #alog.see()
         self.assertCountEqual(got, [Equation.make([4, 1], plus)])
 
     def test_pulse_slipnet(self) -> None:

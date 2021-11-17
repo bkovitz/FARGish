@@ -462,8 +462,14 @@ class ActivationLog:
         for ts in tss:
             print(f'{short(ts.node):40s} {ts.last_a():1.5f}')
 
-    def plot(self, pred: Pred=None, *, n: Optional[int]=None, pr: bool=False) \
-    -> None:
+    def plot(
+        self,
+        pred: Pred=None,
+        *,
+        n: Optional[int]=None,
+        pr: bool=False,
+        wait=False
+    ) -> None:
         plt.ion()
         plt.clf()
         plt.gcf().set_size_inches(8, 8)
@@ -482,6 +488,20 @@ class ActivationLog:
         plt.suptitle(str(self))
         if pr:
             self.prlast(pred=pred, n=n)
+        if wait:
+            input('Press a key...')
+
+    def see(
+        self,
+        pred: Pred=None,
+        *,
+        n: Optional[int]=10,
+        pr: bool=True,
+        wait=True
+    ) -> None:
+        '''Like .plot(), but with different defaults, especially good for
+        debugging inside a unit test.'''
+        self.plot(pred=pred, n=n, pr=pr, wait=wait)
 
     def tss(self, pred: Pred=None) -> List[NodeTimeseries]:
         '''pred selects Nodes.'''
