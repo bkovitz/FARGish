@@ -17,7 +17,7 @@ from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Canvas import Operator
 from Graph import Before, After
-from Log import trace
+from Log import trace, lo
 from util import as_iter, pr, pts, short
 
 

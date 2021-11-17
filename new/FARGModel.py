@@ -13,6 +13,7 @@ from inspect import isclass, signature
 from contextlib import contextmanager
 import sys
 from types import MethodType, FunctionType
+from random import randrange
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
@@ -128,10 +129,7 @@ class Codelet(CodeletDataclassMixin, CanReplaceRefs, Loggable, ABC):
     def log(self, f: Indenting, **kwargs) -> None:
         cl = self.__class__.__name__
         kw = omit(kwargs.get('kwargs', {}), ['fm', 'behalf_of', 'sources'])
-        print(
-            f'CODELET {cl:25s}  {dict_str(kw, short)}',
-            file=f
-        )
+        lo(f'CODELET {cl:25s}  {dict_str(kw, short)}')
 
     def short(self) -> str:
         return self.__class__.__name__

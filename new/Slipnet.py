@@ -17,6 +17,7 @@ from FMTypes import Activation, ADict, epsilon, Pred, as_pred
 from Graph import Graph, Node, Before
 from Propagator import Propagator, ActivationLog, PropagatorOutgoing, \
     Delta, SentA
+from Log import lo
 from util import as_iter, as_list, union, pr, short
 
 
@@ -52,7 +53,6 @@ class TyrrellPropagator(PropagatorOutgoing):
         negsumin_d: Dict[Node, float] = defaultdict(float)
 
         for senta in sentas:
-            #print('SENTA', senta)
             if senta.a >= 0:
                 maxin_d[senta.to_node] = max(maxin_d[senta.to_node], senta.a)
                 possumin_d[senta.to_node] += senta.a

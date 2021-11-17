@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FMTypes import ADict, Node, Pred, as_pred, epsilon
 from Indenting import Indenting, indent
-from Log import trace, logging, Loggable, logging_is_enabled, logfile
+from Log import trace, logging, Loggable, logging_is_enabled, logfile, lo
 from util import short, pl, first, pr, pts, as_list, newline
 
 

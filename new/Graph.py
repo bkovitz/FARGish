@@ -15,6 +15,7 @@ from inspect import isclass
 from FMTypes import epsilon, Activation, ADict
 from Log import trace
 from Features import Feature, features_of, Before, After
+from Log import lo
 from util import as_iter, as_set, empty_set, first_non_none, unique_everseen, \
     clip, union, pr, pts, short
 
@@ -753,7 +754,8 @@ def add_features(base_node: Node, nodeset: Set[Node], hopset: Set[Hop]):
         out_weight = in_weight
         '''
         in_weight = out_weight = 1.0
-        #print(f'ADD {base_node} {feature_node} {in_weight} {out_weight}')
+        #lo('BNODE', short(base_node), hash(base_node))
+        #lo('FNODE', short(feature_node), hash(feature_node))
         hopset.add(Hop(base_node, feature_node, out_weight))
         hopset.add(Hop(feature_node, base_node, in_weight))
     return new_features

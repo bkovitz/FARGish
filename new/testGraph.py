@@ -9,15 +9,18 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
     NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
     Sequence, Literal
 from itertools import chain
+import operator
 
 from Graph import Graph, Node, Hop, Hops, Nodes, Edges, EnumNodes, EnumEdges, \
-    OfClass, MutualInhibition, Feature, features_of, \
+    OfClass, MutualInhibition, Feature, features_of, Before, After, \
     PrefixedNode, PrefixedGraph, WithPrefix, NodeD, \
     WithActivations
+from Agents import Consumer
+from Equation import plus, minus, times, Equation
 from Propagator import Propagator, PropagatorIncoming, PropagatorOutgoing, \
     LogAdjustedDeltas
 from Log import lenable, ldisable_all, logging_is_enabled, log_to
-from util import pts, pr, empty_set
+from util import pts, pr, empty_set, short
 import sys
 
 
@@ -516,6 +519,39 @@ class TestGraph(unittest.TestCase):
             {'O', 'A', 'B', 'AA', 'AB', 'BA', 'BB'}
         )
         self.assertCountEqual(g.concentric_walk('BBA', 1), {'BBA', 'BB'})
+
+    """
+    def test_determinism(self) -> None:
+        g = Graph.from_hops(Hops.from_pairs_symmetric(
+            ('O', 'A'), ('O', 'B'), ('O', 'C'), ('O', 'D'),
+            ('O', 'E'), ('O', 'F')
+        ))
+        pts(g.hops_from_node('O'), key=short)
+        print()
+
+        eqn_graph = Graph.with_features(
+            Consumer.make_table(
+                range(1, 3), range(1, 3), [plus]
+            )
+        ) #.add_edges(MutualInhibition((Feature, Operator, Equation, int), weight=-5.0))
+        pts(eqn_graph.hops_from_node(Consumer.make(plus, (2, 1))), key=short)
+        import os
+        print(os.environ['PYTHONHASHSEED'])
+        print(hash(plus))
+        print(hash(operator.add))
+        print(str(plus))
+        print(str(operator.add))
+        print(str(self.test_determinism))
+        print()
+        print(hash(Before), hash(Equation))
+
+        # Lessons learned:
+        # 1. Objects whose hash values come from their memory addresses
+        #    break determinism.
+        # 2. Functions' hash values come from their memory addresses.
+        # 3. Class objects' hash values come from their memory addresses.
+    """
+
 
 """
 if __name__ == '__main__':

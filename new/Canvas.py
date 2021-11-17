@@ -81,9 +81,15 @@ class StepCanvas(Canvas):
     workspace to be identical, so equality comparison is only an id()
     comparison.'''
     steps: List[Union[Step, None]] = field(default_factory=list)
+
+    instance_count: ClassVar[int] = 0
     
+    def __post_init__(self) -> None:
+        self.__class__.instance_count += 1
+
     def __hash__(self):
-        return id(self)
+        '''This is necessary to maintain determinism.'''
+        return hash(self.instance_count)
 
     def __getitem__(self, addr: Addr) -> Value:
         # TODO Handle addr that can't be found or is not an index
@@ -139,6 +145,13 @@ class Operator:
 
     def __str__(self):
         return self.name
+
+    def __hash__(self):
+        '''It's necessary to omit self.func from __hash__ in order to maintain
+        determinism. The default hash code of a function is its address in
+        memory, which is non-deterministic. If necessary, one could include
+        str(self.func).'''
+        return hash(str(self))
 
     def consume(self, source: CellRef, operands: Sequence[Value]) -> Step:
         taken_avails, remaining_avails = source.take_avails(operands)

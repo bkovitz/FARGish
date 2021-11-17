@@ -646,44 +646,18 @@ def singleton(cls):
 
 # Debugging
 
-"""
-trace_indent_level: int = 0
-
-def trace(func):
-    '''Function decorator: prints the name and arguments of the function each
-    time it is called, and prints its return value when it returns.
-    Caution: 'trace' will read generators all the way to their end.'''
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        global trace_indent_level
-        argstring = ''
-        if args:
-            argstring += ', '.join(repr(a) for a in args)
-        if kwargs:
-            if argstring:
-                argstring += ', '
-            argstring += ', '.join(
-                f'{name}={value}' for name, value in kwargs.items()
-            )
-        pre = ' ' * trace_indent_level
-        print(f'{pre}{func.__name__}({argstring})')
-        trace_indent_level += 2
-        result = func(*args, **kwargs)
-        trace_indent_level -= 2
-        print(f'{pre}-> {result}')
-        return result
-    return wrapper
-"""
-
 def pts(ls: Iterable, n=None, key=str, file=sys.stdout):
     '''Prints ls as a table of strings. For debugging.'''
-    for i, x in enumerate(as_iter(ls)):
-        if n is not None and i >= n:
-            break
-        if is_iter(x):
-            print(', '.join(key(y) for y in x), file=file)
-        else:
-            print(key(x), file=file)
+    if isinstance(ls, dict):
+        pts((k, v) for k, v in ls.items())
+    else:
+        for i, x in enumerate(as_iter(ls)):
+            if n is not None and i >= n:
+                break
+            if is_iter(x):
+                print(', '.join(key(y) for y in x), file=file)
+            else:
+                print(key(x), file=file)
 
 def pl(x: Any, key=str):
     '''Prints x as a list, one line at a time.'''

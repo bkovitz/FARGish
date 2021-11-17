@@ -4,7 +4,7 @@ BROWSER = open
 MYPY = mypy
 else
 #PY = python3.7
-PY = python3.9
+PY = PYTHONHASHSEED=0 python3.9
 BROWSER = google-chrome
 MYPY = mypy --python-version 3.9
 endif
@@ -49,7 +49,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
 	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	$(PY) -m unittest -v testSlipnet.TestSlipnet.test_mk_slipnet_args_exclude_existing
+	$(PY) -m unittest -v testGraph.TestGraph.test_determinism
 
 # Acceptance tests
 at:

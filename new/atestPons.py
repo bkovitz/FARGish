@@ -99,7 +99,7 @@ if __name__ == '__main__':
         Before(4): 1.0,
         After(9): 1.0
     }
-    lenable(LogAdjustedDeltas)
+    #lenable(LogAdjustedDeltas)
     nodes = fm.pulse_slipnet(
         activations_in=activations_in, # type: ignore[arg-type]
         pred=Consumer,
