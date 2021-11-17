@@ -363,19 +363,29 @@ class Agent(CanReplaceRefs, FMLoggable, HasArgs):
 class AgentState:
     name: str
 
+    # State to transition to if no codelets are defined for this state, or
+    # None to stay in this state.
+    if_quiescent: Optional[AgentState]
+
     def __str__(self):
         return self.name
 
-Born = AgentState('born')
-Wake = AgentState('wake')
-Snag = AgentState('snag')
-Delegate_succeeded = AgentState('delegate_succeeded')
-Delegate_failed = AgentState('delegate_failed')
-Succeeded = AgentState('succeeded')
-Failed = AgentState('failed')
-Defunct = AgentState('defunct')
-Sleeping = AgentState('sleeping')
-Nonexistent = AgentState('nonexistent')
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, AgentState):
+            return self.name == other.name
+        else:
+            return False
+
+Sleeping = AgentState('sleeping', None)
+Wake = AgentState('wake', Sleeping)
+Born = AgentState('born', Wake)
+Snag = AgentState('snag', Wake)
+Delegate_succeeded = AgentState('delegate_succeeded', Wake)
+Delegate_failed = AgentState('delegate_failed', Wake)
+Succeeded = AgentState('succeeded', None)
+Failed = AgentState('failed', None)
+Defunct = AgentState('defunct', None)
+Nonexistent = AgentState('nonexistent', None)
 
 ### Canvas, CellRef, things with the notion of avail values ###
 
@@ -648,15 +658,6 @@ class Workspace(HasRngSeed):
                 return Wake
         else:
             return Born
-
-    def set_state(self, node: Node, state: AgentState) -> None:
-        '''Sets the state of node. No effect if node does not exist.'''
-        niws = self.get_niws(node)
-        #print('SET_STATE', short(node), state, short(niws))
-        # TODO Log or throw exception if node does not exist; it could be
-        # a bug.
-        if niws:
-            niws.state = state
 
     def paint(
         self, cellref: CellRef, value: Value, agent: Optional[Agent]=None
@@ -1355,6 +1356,7 @@ class FARGModel(Workspace):
         return node in self.sleepers
 
     def sleep(self, agent: Agent, sleep_duration: int) -> None:
+        #lo('SLEEP', short(agent), sleep_duration)
         if not self.has_node(agent):
             return
         old_wake_t = self.sleepers.get(agent, self.t)
@@ -1369,6 +1371,31 @@ class FARGModel(Workspace):
                 del self.sleepers[agent]
                 #print('WAKING', short(agent), wake_t, self.t)
                 self.set_state(agent, Wake)
+
+    def wake_sleeper(self, agent: Agent) -> None:
+        try:
+            del self.sleepers[agent]
+        except KeyError:
+            pass
+
+    def set_state(self, nodes: Nodes, state: AgentState) -> None:
+        '''Sets the state of nodes to state. No effect if a node does not
+        exist.'''
+        for node in as_iter(nodes):
+            if isinstance(node, Agent):
+                niws = self.get_niws(node)
+                # TODO Log or throw exception if node does not exist; it could
+                # be a bug.
+                if niws:
+                    if node.get_codelets(state):
+                        niws.state = state
+                        self.wake_sleeper(node)
+                    else: # Agent has no codelets for 'state'
+                        next_state = state.if_quiescent
+                        if next_state:
+                            self.set_state(node, next_state)
+                        else:
+                            niws.state = state
 
     def agent_state(self, agent: Optional[Agent]) -> AgentState:
         '''Returns the current state of 'agent', or Defunct if 'agent'

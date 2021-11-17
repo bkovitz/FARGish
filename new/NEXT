@@ -164,7 +164,7 @@ Solve pons asinorum
 
     Generate Consumer for canvas[1]
 
-        LitPainter notifies Consumer of success.
+        NEXT LitPainter notifies Consumer of success.
 
         Consumer notifies Want of success.
 

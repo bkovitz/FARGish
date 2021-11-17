@@ -11,7 +11,7 @@ from FMTypes import Value, Node, R, Ref
 from FARGModel import Agent, Codelets, CellRef, Wake, ExcludeExisting, \
     Desnag, ValuesNotAvail
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep, Build, NewState, MakeVariantFromAvails
+    Sleep, Build, NewState, MakeVariantFromAvails, ISucceeded
 from Consume import Consume
 from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
@@ -26,7 +26,7 @@ class LitPainter(Agent):
     value: Optional[Value] = None
     dest: Optional[CellRef] = None
 
-    wake: Codelets = Paint()
+    wake: Codelets = (Paint(), ISucceeded())
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -55,6 +55,7 @@ class Consumer(Agent):
     # Another possible approach, breaking down Consume into smaller codelets:
         #TakeOperands(operands=Ref('operands'), cellref=Ref('source')),
         #ComputeResult(),
+    delegate_succeeded: Codelets = ISucceeded()
 
     def features_of(self) -> Iterable[Node]:
         for operand in as_iter(self.operands):

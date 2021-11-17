@@ -10,8 +10,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from FMTypes import Value, Node, Ref, R
 from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
-    NoResultFromSlipnet, CellRef
-from Log import trace
+    NoResultFromSlipnet, CellRef, Delegate_succeeded
+from Log import trace, lo
 from util import as_iter, as_list, pr, pts, short, sample_without_replacement
 
 
@@ -160,6 +160,20 @@ class RaiseException(Codelet):
         exctype: Type[Exception]
     ) -> CodeletResults:
         raise exctype
+
+@dataclass(frozen=True)
+class ISucceeded(Codelet):
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        behalf_of: Optional[Agent]
+    ) -> CodeletResults:
+        if behalf_of:
+            fm.set_state(fm.behalf_of(behalf_of), Delegate_succeeded)
+            return NewState(behalf_of, Succeeded)
+        else:
+            return None
 
 @dataclass(frozen=True)
 class MakeVariantFromAvails(Codelet):

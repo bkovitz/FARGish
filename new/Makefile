@@ -48,8 +48,7 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
-	#$(PY) -m unittest -v testFARGModel.TestFARGModel.test_logging
-	$(PY) -m unittest -v testGraph.TestGraph.test_determinism
+	$(PY) -m unittest -v testAgents.TestAgents.test_consumer
 
 # Acceptance tests
 at:

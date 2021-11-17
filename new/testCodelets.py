@@ -12,7 +12,7 @@ from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet, MissingArgument, \
     CellRef
 from Codelets import Build, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep, MakeVariantFromAvails
+    Sleep, MakeVariantFromAvails, RaiseException
 from Consume import Consume
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
@@ -23,9 +23,13 @@ from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from util import pr, pts, first
 
 
+class TestException(Exception):
+    pass
+
 @dataclass(frozen=True)
 class DummyAgent(Agent):
     born: Codelets = Build()
+    wake: Codelets = RaiseException(TestException)
 
 ddd = DummyAgent()
 

@@ -14,7 +14,8 @@ from Agents import LitPainter, Consumer, Want, VariantMakerFromAvails
 from FMTypes import match_wo_none, Exclude, as_pred
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
-    NoResultFromSlipnet, Agent, Codelet, LogPulse, QueryForSnagFixer, Built
+    NoResultFromSlipnet, Agent, Codelet, LogPulse, QueryForSnagFixer, Built, \
+    Delegate_succeeded
 from Codelets import RaiseException, Paint
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
@@ -62,9 +63,13 @@ class TestAgents(unittest.TestCase):
             #dest=cr1
         ))
         fm.run_agent(ag)
-        fm.run_agent(fm.the(LitPainter))
+        lp: Any = fm.the(LitPainter)
+        fm.run_agent(lp)
         
+        #pr(fm)
         self.assertEqual(ca[1], self.step1)
+        self.assertEqual(fm.agent_state(lp), Succeeded)
+        self.assertEqual(fm.agent_state(ag), Delegate_succeeded)
 
     def test_want(self) -> None:
         slipnet = Slipnet(Graph.with_features([
