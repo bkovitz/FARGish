@@ -453,7 +453,7 @@ class ActivationLog:
         for ts in self.tsd.values():
             pr(ts)
 
-    def prlast(self, pred: Pred, n: Optional[int]=None) -> None:
+    def prlast(self, pred: Pred=None, n: Optional[int]=None) -> None:
         key = lambda ts: ts.last_a()
         if n is None:
             tss = sorted(self.tss(pred), key=key)

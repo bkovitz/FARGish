@@ -900,7 +900,7 @@ class WSOrPreds:
         return any(p(ws, x) for p in self.preds)
 
 @dataclass(frozen=True)
-class ExcludeExisting(AndFirst, HasBindWs):
+class ExcludeExisting(AndFirst, HasBindWs, QArg):
     '''WSPred to exclude existing nodes.'''
 
     def __call__(self, ws: Workspace, x: Any) -> bool:
@@ -908,6 +908,9 @@ class ExcludeExisting(AndFirst, HasBindWs):
 
     def bind_ws(self, ws: Workspace) -> Pred:
         return ExcludeExistingWS(ws)
+
+    def get_pred(self, fm: FARGModel, sources: Sources) -> Pred:
+        return self
 
 @dataclass(frozen=True)
 class ExcludeExistingWS(AndFirst):
@@ -944,6 +947,11 @@ class FARGModel(Workspace):
     def was_just_run(self, pred: Pred) -> bool:
         pred = as_pred(pred)
         return any(pred(cr.codelet) for cr in self.codelets_just_run)
+
+    # TODO Move this somewhere below
+    def plot_last_alog(self) -> None:
+        # TODO LoD
+        list(self.alogs.logs.values())[-1].plot()
 
     def run_agent(
         self,

@@ -9,7 +9,8 @@ from Graph import Graph, Before, After, EnumNodes, EnumEdges, Hops
 from Slipnet import Slipnet, NodeA, TyrrellPropagator
 from FMTypes import as_pred, ADict, Exclude, CallablePred
 from Equation import Equation, Before, plus, minus, times
-from Propagator import LogAdjustedDeltas
+from Propagator import LogAdjustedDeltas, ActivationLog
+from QArgs import SearchFor
 from Log import lenable, ldisable
 from util import is_iter, as_iter, pts, pr
 
@@ -95,6 +96,28 @@ class TestSlipnet(unittest.TestCase):
         self.assertFalse(pred(After))
         self.assertTrue(pred(Equation.make([5, 4], plus)))
         self.assertFalse(pred(Equation))
+
+    def test_mk_slipnet_args_exclude_existing(self) -> None:
+        fm = FARGModel(slipnet=Slipnet(eqn_graph))
+        kwargs = fm.mk_slipnet_args(
+            (
+                Equation.make([4, 1], plus),
+                ExcludeExisting(),
+                SearchFor(Equation)
+            ),
+            None
+        )
+        self.assertCountEqual(
+            kwargs['pred'],
+            (ExcludeExisting(), Equation)
+        )
+        alog = fm.start_alog('Unit Test')
+        got = fm.pulse_slipnet(alog=alog, **kwargs)
+        #pr(got)
+        #alog.plot()
+        #alog.prlast(None, n=10)
+        #input('key...')
+        self.assertCountEqual(got, [Equation.make([4, 1], plus)])
 
     def test_pulse_slipnet(self) -> None:
         fm = FARGModel(seed=1, slipnet=Slipnet(eqn_graph))

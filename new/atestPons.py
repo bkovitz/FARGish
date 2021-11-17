@@ -57,7 +57,7 @@ def run(
     ))
 
 #    try:
-    fm.do_timestep(num=20)
+    fm.do_timestep(num=40)  # 20
 #    except Exception as exc:
 #        print(exc)
     pr(fm, extra=True)

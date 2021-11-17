@@ -103,7 +103,7 @@ Solve pons asinorum
 
         QueryForSnagFixer raise NoResultFromSlipnet  DONE
 
-    CURRENT MakeVariant: get operands from avails
+    CURRENT MakeVariant: get operands from avails  DONE
 
         Exclude already-existing Consumers from slipnet search.  DONE
 
@@ -138,9 +138,9 @@ Solve pons asinorum
 
             Try a reverse sigmoid for the node activations.  DONE  bad results
 
-            Restore nondeterminism.
+        Restore nondeterminism.
 
-            Don't pass ExcludeExisting as a feature node to pulse_slipnet().
+        Don't pass ExcludeExisting as a feature node to pulse_slipnet().  DONE
 
         MakeVariantFromAvails  DONE
 
@@ -152,7 +152,7 @@ Solve pons asinorum
 
             args_for VariantMakerFromAvails  DONE
 
-        NEXT See Consume(4+4) turn into Consume(4+5) and run.
+        See Consume(4+4) turn into Consume(4+5) and run.  DONE
 
         Put the full feature set into atestPons.eqn_graph. Specifically,
         add more features to Consumer.features_of().
@@ -161,6 +161,22 @@ Solve pons asinorum
 
             Allow SearchFor to include a list of arbitrary nodes. Get them from
             the real avails.
+
+    Generate Consumer for canvas[1]
+
+        LitPainter notifies Consumer of success.
+
+        Consumer notifies Want of success.
+
+    Recover from dead end
+
+        Detect and tag dead end
+
+        Tag the hopeless Consumers
+
+        Erase the canvas
+
+        Support or build alternatives
 
     Respond to NeedMoreSupportToPaint
 
@@ -203,6 +219,11 @@ Seeing what's happening
     Decent logging.  DONE
 
         With auto-indent.  DONE
+
+    NEXT ActivationLog.see(): plot, pr, and input('key...').
+
+    Logging for 'NOFIZZLE': when an Agent runs its Codelets and there is
+    no Fizzle. (Not the same as 'succeeded'.)
 
     Animate spreading activation with one keystroke per step, showing a
     specified set of nodes of interest, making the nodes and edges larger to
