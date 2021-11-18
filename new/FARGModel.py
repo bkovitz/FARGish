@@ -52,13 +52,21 @@ class CanReplaceRefs:
             except AttributeError:
                 continue
             if isinstance(attr, Ref):
-                d[attrname] = fm.look_up_by_name(attr.name, sources)
-            '''
-            elif isinstance(attr, CanReplaceRefs):
-                new_attr = attr.replace_refs(fm, sources1)
-                if new_attr is not attr:
-                    d[attrname] = new_attr
-            '''
+                v = fm.look_up_by_name(attr.name, sources)
+                #if v is not None:
+                d[attrname] = v
+#            elif isinstance(attr, CanReplaceRefs):
+#                new_attr = attr.replace_refs(fm, sources1)
+#                if new_attr is not attr:
+#                    d[attrname] = new_attr
+            # NEW
+#            elif isinstance(attr, tuple):
+#                d[attrname] = tuple(
+#                    x.replace_refs(fm, sources)
+#                        if isinstance(x, CanReplaceRefs) else x
+#                            for x in attr
+#                )
+#                lo('DATTR', self, attrname, str(attr), str(d[attrname]))
         if d:
             return replace(self, **d)
         else:
@@ -431,8 +439,48 @@ class Canvas(ABC):
         Canvas.'''
         pass
 
+    @abstractmethod
+    def first_addr(self) -> Addr:
+        pass
+
+    @abstractmethod
+    def addrs(self, starting_at: Optional[Addr]=None) -> Iterable[Addr]:
+        pass
+
+    def cellrefs(
+        self,
+        starting_at: Optional[CellRef]=None
+    ) -> Iterable[CellRef]:
+        addrs: Iterable[Addr]
+        if starting_at is not None:
+            addrs = self.addrs(starting_at.addr)
+        else:
+            addrs = self.addrs()
+        return (CellRef(self, addr) for addr in addrs)
+
+    def has_a_value(self, addr: Addr) -> bool:
+        return self[addr] is not None
+
     def next_cellref(self, cellref: CellRef) -> CellRef:
         return replace(cellref, addr=self.next_addr(cellref.addr))
+
+    def last_painted_addr(self, starting_at: Optional[Addr]=None) -> Addr:
+        last_addr: Addr
+        if starting_at is None:
+            last_addr = self.first_addr()
+        else:
+            last_addr = starting_at
+        for addr in self.addrs(starting_at=starting_at):
+            if not self.has_a_value(addr):
+                break
+            last_addr = addr
+        return last_addr
+
+    def last_painted_cellref(
+        self,
+        starting_at: Optional[CellRef]=None
+    ) -> CellRef:
+        return CellRef(self, self.last_painted_addr(starting_at=starting_at))
 
 @dataclass(frozen=True)
 class CellRef(HasAvailValues):
@@ -489,6 +537,12 @@ class CellRef(HasAvailValues):
             return self.canvas.next_cellref(self)
         else:
             return self
+
+    def last_painted_cellref(self) -> CellRef:
+        if isinstance(self.canvas, Canvas):
+            return self.canvas.last_painted_cellref(self)
+        else:
+            return self  #???
 
     def __str__(self):
         return f'canvas[{self.addr}]'
@@ -1280,6 +1334,7 @@ class FARGModel(Workspace):
                     type_needed=annotation
                 )
             d[param_name] = value
+        #lo('MKFUNCARGS', func, short(d))
         return d
         """
         return dict(

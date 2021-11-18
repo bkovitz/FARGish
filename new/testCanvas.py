@@ -87,3 +87,25 @@ class TestStepsCanvas(unittest.TestCase):
         self.assertEqual(ca.next_addr(0), 1)
         self.assertEqual(ca.next_cellref(cr0), cr1)
         self.assertEqual(cr0.next_cellref(), cr1)
+
+    def test_last_painted_cellref(self) -> None:
+        ca = StepCanvas([Step([4, 5, 6])])
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        cr2 = CellRef(ca, 2)
+
+        self.assertEqual(ca.last_painted_addr(), 0)
+        self.assertEqual(ca.last_painted_cellref(), cr0)
+        self.assertEqual(list(ca.cellrefs()), [cr0])
+        self.assertEqual(cr0.last_painted_cellref(), cr0)
+        self.assertEqual(cr1.last_painted_cellref(), cr0)
+        self.assertEqual(cr2.last_painted_cellref(), cr0)
+
+        cr1.paint(Step([6, 9], StepDelta([4, 5], [9], '+')))
+
+        self.assertEqual(ca.last_painted_addr(), 1)
+        self.assertEqual(ca.last_painted_cellref(), cr1)
+        self.assertEqual(list(ca.cellrefs()), [cr0, cr1])
+        self.assertEqual(cr0.last_painted_cellref(), cr1)
+        self.assertEqual(cr1.last_painted_cellref(), cr1)
+        self.assertEqual(cr2.last_painted_cellref(), cr1)

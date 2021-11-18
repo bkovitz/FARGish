@@ -11,7 +11,8 @@ from FMTypes import Value, Node, R, Ref
 from FARGModel import Agent, Codelets, CellRef, Wake, ExcludeExisting, \
     Desnag, ValuesNotAvail
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep, Build, NewState, MakeVariantFromAvails, ISucceeded
+    Sleep, Build, NewState, MakeVariantFromAvails, ISucceeded, \
+    RaiseException, FindLastPaintedCell
 from Consume import Consume
 from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
@@ -105,6 +106,7 @@ class Want(Agent):
         NewState(agent=Ref('behalf_of'), state=Wake)
     )
     wake: Codelets = (
+        FindLastPaintedCell(),
         QuerySlipnetForDelegate(
             qargs=(
                 QBeforeFromAvails(Ref('startcell')),
@@ -115,6 +117,7 @@ class Want(Agent):
         ),
         Sleep(agent=Ref('behalf_of'))
     )
+    #delegate_succeeded: Codelets = RaiseException(KeyError)
 
     def short(self) -> str:
         cl = self.__class__.__name__

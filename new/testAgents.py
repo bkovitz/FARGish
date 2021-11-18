@@ -116,6 +116,9 @@ class TestAgents(unittest.TestCase):
         #pr(fm)
         self.assertEqual(ca[1], self.step1)
 
+        # TODO UT co is Delegate_succeeded
+        fm.run_agent(co)
+        #pr(fm)
         with self.assertRaises(SolvedPuzzle):
             fm.run_detector(det)
 
@@ -126,6 +129,7 @@ class TestAgents(unittest.TestCase):
             Consumer.make(plus, (4, 5))
         ]))
         for seed in range(1, 2):
+            #lenable(Codelet)
             fm = FARGModel(slipnet=slipnet, seed=seed, paint_threshold=0.0)
             ca = fm.build(self.pons_start_canvas())
             cr0 = CellRef(ca, 0)
@@ -153,7 +157,11 @@ class TestAgents(unittest.TestCase):
             fm.do_timestep()  # the Consumer should build a LitPainter
             self.assertEqual(fm.t, 3)
             self.assertTrue(fm.agent_just_ran(co))
-            self.assertEqual(fm.agent_state(co), Sleeping)
+            self.assertEqual(
+                fm.agent_state(co),
+                Sleeping,
+                f'{short(co)} is {fm.agent_state(co)}, not Sleeping'
+            )
             lp: Any = fm.the(LitPainter)
             self.assertIsInstance(lp, LitPainter)
             self.assertEqual(fm.builder_of(lp), co)

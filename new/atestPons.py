@@ -14,7 +14,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 import matplotlib.pyplot as plt  # type: ignore[import]
 
 from FARGModel import FARGModel, FARGException, SolvedPuzzle, CellRef, \
-    Agent, Codelet, Fizzle
+    Agent, Codelet, Fizzle, log_pulse
 from Log import lenable, ldisable, trace, lo
 from Propagator import LogAdjustedDeltas
 from Graph import Graph, Before, After
@@ -36,14 +36,16 @@ def run(
     bricks: Sequence[int],
     target: int,
     seed: int=1,
-    num_slipnet_iterations: Optional[int]=None
+    num_slipnet_iterations: Optional[int]=None,
+    paint_threshold: float=0.1
 ) -> None:
     global fm, ca, cr0, cr1, cr2, cr3, wa
-    lenable(Agent, Codelet, Fizzle)
+    lenable(Agent, Codelet, Fizzle, log_pulse)
     fm = FARGModel(
         slipnet=Slipnet(eqn_graph),
         seed=seed,
-        num_slipnet_iterations=num_slipnet_iterations
+        num_slipnet_iterations=num_slipnet_iterations,
+        paint_threshold=paint_threshold
     )
     ca = fm.build(StepCanvas([Step(tuple(bricks))]))
     cr0 = CellRef(ca, 0)

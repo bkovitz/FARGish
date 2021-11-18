@@ -15,6 +15,7 @@ from Log import trace
 from util import as_iter, short
 
 
+# NEXT CanReplaceRefs
 @dataclass(frozen=True)
 class QBeforeFromAvails(QInput):
     source: R[CellRef] = Ref('source')

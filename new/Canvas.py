@@ -118,6 +118,15 @@ class StepCanvas(Canvas):
                 f"{cl} can't take next_addr of a non-int ({addr}, {type(addr)}."
             )
 
+    def first_addr(self) -> Addr:
+        return 0
+
+    def addrs(self, starting_at: Optional[Addr]=None) -> Iterable[Addr]:
+        if self.steps is None:
+            return
+        else:
+            return range(len(self.steps))
+
     def __len__(self):
         return len(self.steps)
 

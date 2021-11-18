@@ -175,6 +175,26 @@ class ISucceeded(Codelet):
         else:
             return None
 
+# TODO UT
+@dataclass(frozen=True)
+class FindLastPaintedCell(Codelet):
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        behalf_of: Optional[Agent],
+        startcell: CellRef  # start searching from here
+    ) -> CodeletResults:
+        last_cell = startcell
+        while startcell:
+            next_cell = startcell.next_cellref()
+            if next_cell == last_cell or not next_cell.has_a_value():
+                break
+            else:
+                last_cell = startcell
+                startcell = next_cell
+        return {'startcell': last_cell}
+
 @dataclass(frozen=True)
 class MakeVariantFromAvails(Codelet):
     agent: R[Agent] = Ref('agent')

@@ -48,7 +48,7 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
-	$(PY) -m unittest -v testAgents.TestAgents.test_consumer
+	$(PY) -m unittest -v testAgents.TestAgents.test_timestep1
 
 # Acceptance tests
 at:
