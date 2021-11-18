@@ -139,6 +139,9 @@ class VariantMakerFromAvails(Agent):
         Sleep(agent=Ref('behalf_of'))
     )
         
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.agent)}, {short(self.cellref)}, {short(self.avails)}, {short(self.unavails)}'
 
     def features_of(self) -> Iterable[Node]:
         yield Desnag(ValuesNotAvail)

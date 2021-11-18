@@ -217,23 +217,15 @@ class MakeVariantFromAvails(Codelet):
         true_avails = list(as_iter(cellref.avails))
         new_operands: List[Value] = []
 
-        #print('MK0', true_avails, new_operands)
         for a, u in zip(avails, unavails):  # TODO zip_longest?
             if a is not None:
                 if a in true_avails:
                     new_operands.append(a)
                     true_avails.remove(a)
                 else:
-                    pass # TODO What if a isn't avail?
-            else:
-                ua: Sequence[Value] = choose_most_similar(true_avails, u)
-                if ua:
-                    new_operands += ua
-                    for v in ua:
-                        true_avails.remove(v)
-                else:
-                    pass  # TODO raise an exception?
-            #print('MK', a, u, true_avails, new_operands)
+                    self.fill_unavail_from_avails(a, new_operands, true_avails)
+            if u is not None:
+                self.fill_unavail_from_avails(u, new_operands, true_avails)
         # TODO Don't make a new agent that's already there
         if not isinstance(agent, Agents.Consumer):
             return None  # TODO raise exception?
@@ -243,6 +235,24 @@ class MakeVariantFromAvails(Codelet):
                 to_build=replace(agent, operands=tuple(new_operands)),
                 behalf_of=behalf_of
             )
+
+    @classmethod
+    def fill_unavail_from_avails(
+        cls,
+        u: Value,
+        new_operands: List[Value],
+        true_avails: List[Value]
+    ) -> None:
+        '''Chooses one or more replacements for 'u' from 'true_avails',
+        removes them from 'true_avails', and appends them to 'new_operands'.'''
+        ua: Sequence[Value] = choose_most_similar(true_avails, u)
+        if ua:
+            new_operands += ua
+            for v in ua:
+                true_avails.remove(v)
+        else:
+            pass  # TODO raise an exception?
+        
 
 def choose_most_similar(avails: Sequence[Value], target: Value) \
 -> Sequence[Value]:

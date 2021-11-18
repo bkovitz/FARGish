@@ -34,7 +34,7 @@ mtest: mypy test
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py #atest*.py
+	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
 m:
@@ -48,7 +48,7 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
-	$(PY) -m unittest -v testAgents.TestAgents.test_want
+	$(PY) -m unittest -v testCanvas.TestStepsCanvas.test_vna
 
 # Acceptance tests
 at:

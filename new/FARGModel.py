@@ -568,20 +568,27 @@ class NodeInWS(Loggable):
         # but not limited to its builder.
     tob: int   # time of birth (when Node was added to the ws)
     state: AgentState  # applicable only when node is an Agent
+    id: int = field(init=False)   # unique id (among all nodes ever in the workspace)
     # overrides for contents?
     # overrides for orientation?
+
+    lastid: ClassVar[int] = 0
+
+    def __post_init__(self) -> None:
+        self.__class__.lastid += 1
+        self.id = self.__class__.lastid
 
     def add_behalf_of(self, agents):
         self.behalf_of += as_iter(agents)
 
     def __str__(self):
-        result = f'{self.node}  builder={self.builder} tob={self.tob}'
+        result = f'{self.id:4d} {self.node}  builder={self.builder} tob={self.tob}'
         if isinstance(self.node, Agent):
             result += f' state={self.state}'
         return result
 
     def short(self) -> str:
-        result = f'{short(self.node)}  builder={short(self.builder)} tob={self.tob}'
+        result = f'{self.id:4d} {short(self.node)}  builder={short(self.builder)} tob={self.tob}'
         if isinstance(self.node, Agent):
             result += f' state={self.state}'
         return result
@@ -813,7 +820,7 @@ class Workspace(HasRngSeed):
         except KeyError:
             return []
 
-    def built_by(self, agent: Agent) -> Collection[Node]:
+    def built_by(self, agent: Agent) -> Sequence[Node]:
         # TODO Optimize: this checks all Elems in the ws
         return [
             e for e in self.nodes()
@@ -1092,6 +1099,11 @@ class FARGModel(Workspace):
                 self.run_codelet_and_follow_ups(fk, sources)
             raise fiz
         #print('RAFC', codelet, '--', codelet_results)
+        except FARGException:
+            raise
+        except:
+            pr(self)
+            raise
         if hasattr(codelet, 'sk'):
             codelet_results = as_list(codelet_results)
             codelet_results.insert(0, codelet.sk)  # type: ignore[attr-defined]

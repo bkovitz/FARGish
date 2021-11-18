@@ -11,6 +11,7 @@ from FMTypes import Value, Ref, R
 from FARGModel import FARGModel, Codelet, CellRef, \
     CodeletResults
 from Canvas import Operator
+from Log import lo
 
 
 @dataclass(frozen=True)
@@ -32,4 +33,3 @@ class Consume(Codelet):
             (result_in, operator.consume(source, operands)),
             ('dest', source.next_cellref())
         ])
-

@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 
 from FMTypes import Value, Addr
 from FARGModel import Canvas, CellRef, ValuesNotAvail, HasAvailValues
-from Log import trace
+from Log import trace, lo
 from util import short, is_iter, as_iter, pr, pts
 
 

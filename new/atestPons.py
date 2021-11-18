@@ -19,7 +19,7 @@ from Log import lenable, ldisable, trace, lo
 from Propagator import LogAdjustedDeltas
 from Graph import Graph, Before, After
 from Slipnet import Slipnet
-from Agents import Want, Consumer
+from Agents import Want, Consumer, VariantMakerFromAvails
 from Codelets import RaiseException
 from Canvas import StepCanvas, Step
 from Equation import plus, minus, times
@@ -32,6 +32,17 @@ eqn_graph = Graph.with_features(
     )
 ) #.add_edges(MutualInhibition((Feature, Operator, Equation, int), weight=-5.0))
 
+desnaggers_graph = Graph.with_features(
+    [VariantMakerFromAvails()]
+)
+
+ca: StepCanvas
+cr0: CellRef
+cr1: CellRef
+cr2: CellRef
+cr3: CellRef
+wa: Want
+
 def run(
     bricks: Sequence[int],
     target: int,
@@ -42,7 +53,7 @@ def run(
     global fm, ca, cr0, cr1, cr2, cr3, wa
     lenable(Agent, Codelet, Fizzle)  #, log_pulse)
     fm = FARGModel(
-        slipnet=Slipnet(eqn_graph),
+        slipnet=Slipnet(Graph.augment(eqn_graph, desnaggers_graph)),
         seed=seed,
         num_slipnet_iterations=num_slipnet_iterations,
         paint_threshold=paint_threshold

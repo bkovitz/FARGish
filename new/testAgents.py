@@ -66,7 +66,6 @@ class TestAgents(unittest.TestCase):
         lp: Any = fm.the(LitPainter)
         fm.run_agent(lp)
         
-        #pr(fm)
         self.assertEqual(ca[1], self.step1)
         self.assertEqual(fm.agent_state(lp), Succeeded)
         self.assertEqual(fm.agent_state(ag), Delegate_succeeded)
@@ -101,8 +100,6 @@ class TestAgents(unittest.TestCase):
         fm.run_agent(wa)  # second action: build Consumer
         self.assertEqual(fm.agent_state(wa), Sleeping)
 
-        #pr(fm)
-
         co: Any = fm.the(Consumer)
         self.assertIsInstance(co, Consumer)
         self.assertEqual(fm.builder_of(co), wa)
@@ -115,12 +112,10 @@ class TestAgents(unittest.TestCase):
         lp: Any = fm.the(LitPainter)
         fm.run_agent(lp)
         self.assertEqual(fm.agent_state(lp), Succeeded)
-        #pr(fm)
         self.assertEqual(ca[1], self.step1)
 
         # TODO UT co is Delegate_succeeded
         fm.run_agent(co)
-        #pr(fm)
         with self.assertRaises(SolvedPuzzle):
             fm.run_detector(det)
 
@@ -192,10 +187,10 @@ class TestAgents(unittest.TestCase):
                 SolvedPuzzle, msg=f'SolvedPuzzle not raised; seed={seed}'
             ):
                 fm.do_timestep(num=6)
-                print()
-                print('WA', short(wa))
-                print()
-                pr(fm, extra=True)
+                #print()
+                #print('WA', short(wa))
+                #print()
+                #pr(fm, extra=True)
             self.assertEqual(ca[1], self.step1, f'seed={seed}')
 
     def test_snag_tag_and_no_result_from_slipnet(self) -> None:

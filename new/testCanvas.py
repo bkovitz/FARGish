@@ -4,8 +4,20 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Canvas import CellRef, Step, StepDelta, ValuesNotAvail, StepCanvas
-from util import as_iter
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
+    runtime_checkable
+
+from FARGModel import FARGModel, CellRef, Codelet
+from Canvas import Step, StepDelta, ValuesNotAvail, StepCanvas
+from Consume import Consume
+from Equation import plus
+from Agents import Consumer, VariantMakerFromAvails, LitPainter
+from Graph import Graph
+from Slipnet import Slipnet
+from Log import trace, lo, lenable, ldisable_all
+from util import as_iter, as_list, pr, pts
 
 
 class TestStepsCanvas(unittest.TestCase):
@@ -109,3 +121,39 @@ class TestStepsCanvas(unittest.TestCase):
         self.assertEqual(cr0.last_painted_cellref(), cr1)
         self.assertEqual(cr1.last_painted_cellref(), cr1)
         self.assertEqual(cr2.last_painted_cellref(), cr1)
+
+    def test_vma(self) -> None:
+        # Regression test for a bug: When a canvas cell was painted over
+        # after a VariantMakerFromAvails was created using it as a source,
+        # the VariantMakerFromAvails would produce an invalid Consumer
+        # (missing an operand).
+        fm = FARGModel(slipnet=Slipnet(
+            Graph.with_features([VariantMakerFromAvails()])
+        ))
+        ca = fm.build(StepCanvas([Step([4, 5, 6])]))
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        cr1.paint(Step([5, 2], StepDelta([6, 4], [2], '-')))
+
+        # Consumer(12+5) will snag: 5 is avail but 12 is unavail
+        co1 = fm.build(Consumer(
+            operator=plus,
+            operands=(12, 5),
+            source=cr1
+        ))
+        fm.run_agent(co1, num=2)
+        vma: Any = fm.the(VariantMakerFromAvails)
+        assert vma, 'Consumer did not produce a VariantMakerFromAvails'
+
+        # Some other agent paints over cr1, removing the avail 5
+        cr1.paint(Step([4, 11], StepDelta([6, 5], [11], '+')))
+
+        fm.run_agent(vma)
+        co2: Any = fm.built_by(vma)[0]
+        assert isinstance(co2, Consumer)
+
+        self.assertEqual(len(as_list(co2.operands)), 2)
+        fm.run_agent(co2)  # Check for crash
+
+        lp: Any = fm.built_by(co2)[0]
+        self.assertIsInstance(lp, LitPainter)
