@@ -162,11 +162,14 @@ Solve pons asinorum
             Allow SearchFor to include a list of arbitrary nodes. Get them from
             the real avails.
 
-    Generate Consumer for canvas[1]
+    Generate Consumer for canvas[1]  DONE
 
-        NEXT LitPainter notifies Consumer of success.
+        LitPainter notifies Consumer of success.  DONE
 
-        Consumer notifies Want of success.
+        Consumer notifies Want of success.  DONE
+
+    NEXT Put VariantMakerFromAvails into atestPons slipnet, so we stop getting
+    NoResultFromSlipnet.
 
     Recover from dead end
 

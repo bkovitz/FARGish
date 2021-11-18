@@ -40,7 +40,7 @@ def run(
     paint_threshold: float=0.1
 ) -> None:
     global fm, ca, cr0, cr1, cr2, cr3, wa
-    lenable(Agent, Codelet, Fizzle, log_pulse)
+    lenable(Agent, Codelet, Fizzle)  #, log_pulse)
     fm = FARGModel(
         slipnet=Slipnet(eqn_graph),
         seed=seed,

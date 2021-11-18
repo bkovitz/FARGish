@@ -16,7 +16,7 @@ from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
     NoResultFromSlipnet, Agent, Codelet, LogPulse, QueryForSnagFixer, Built, \
     Delegate_succeeded
-from Codelets import RaiseException, Paint
+from Codelets import RaiseException, Paint, FindLastPaintedCell
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector
 from Equation import plus
@@ -72,8 +72,10 @@ class TestAgents(unittest.TestCase):
         self.assertEqual(fm.agent_state(ag), Delegate_succeeded)
 
     def test_want(self) -> None:
+        #lenable(Want, FindLastPaintedCell)
         slipnet = Slipnet(Graph.with_features([
-            Consumer.make(plus, (4, 5))
+            Consumer.make(plus, (4, 5)),
+            #Consumer.make(plus, (6, 9))
         ]))
         fm = FARGModel(slipnet=slipnet)
         ca = fm.build(self.pons_start_canvas())

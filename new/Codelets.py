@@ -11,7 +11,8 @@ from FMTypes import Value, Node, Ref, R
 from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
     NoResultFromSlipnet, CellRef, Delegate_succeeded
-from Log import trace, lo
+from Indenting import Indenting
+from Log import trace, lo, logging
 from util import as_iter, as_list, pr, pts, short, sample_without_replacement
 
 
@@ -178,6 +179,9 @@ class ISucceeded(Codelet):
 # TODO UT
 @dataclass(frozen=True)
 class FindLastPaintedCell(Codelet):
+    '''Sets 'startcell' to the last painted cellref of whatever startcell
+    pointed to on entry.'''
+    # TODO Allow 'startcell' to be overridden with a target Ref? (indirection)
 
     def run(  # type: ignore[override]
         self,
@@ -185,15 +189,12 @@ class FindLastPaintedCell(Codelet):
         behalf_of: Optional[Agent],
         startcell: CellRef  # start searching from here
     ) -> CodeletResults:
-        last_cell = startcell
-        while startcell:
-            next_cell = startcell.next_cellref()
-            if next_cell == last_cell or not next_cell.has_a_value():
-                break
-            else:
-                last_cell = startcell
-                startcell = next_cell
-        return {'startcell': last_cell}
+        result = startcell.last_painted_cellref()
+        with logging(self, cellref=result):
+            return {'startcell': result}
+
+    def log(self, f: Indenting, **kwargs) -> None:
+        lo(self.__class__, kwargs.get('cellref', None))
 
 @dataclass(frozen=True)
 class MakeVariantFromAvails(Codelet):
