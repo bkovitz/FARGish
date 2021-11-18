@@ -154,6 +154,7 @@ class Sleep(Codelet):
 @dataclass(frozen=True)
 class RaiseException(Codelet):
     exctype: R[Type[Exception]] = Ref('exctype')
+    # TODO Allow arguments?
 
     def run(  # type: ignore[override]
         self,

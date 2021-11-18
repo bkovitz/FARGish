@@ -139,6 +139,12 @@ def as_list(o) -> List:
     else:
         return list(as_iter(o))
 
+def as_tuple(o) -> Tuple:
+    if isinstance(o, tuple):
+        return o
+    else:
+        return tuple(as_iter(o))
+
 def as_set(o) -> Set:
     '''Converts o to a set if it isn't a set already.'''
     if isinstance(o, set):

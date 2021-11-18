@@ -115,7 +115,7 @@ log_pulse = LogPulse()
 class Detector(ABC, CanReplaceRefs):
 
     @abstractmethod
-    def look(self, fm: FARGModel, **kwargs) -> Codelets:
+    def look(self, fm: FARGModel, **kwargs) -> CodeletResults:
         '''Try to detect whatever the Detector is looking for, and return
         codelets in response to whatever is found (or not).'''
         pass
@@ -1060,9 +1060,13 @@ class FARGModel(Workspace):
         #print('DETECTOR', detector)
         sources = [detector]
         kwargs = self.mk_func_args(detector.look, sources)
-        codelets = detector.look(**kwargs)
+        codelets: CodeletResults = detector.look(**kwargs)
+        # TODO rename 'codelets', 'codelet'
         for codelet in as_iter(codelets):
-            sources = self.run_codelet_and_follow_ups(codelet, sources)
+            if isinstance(codelet, dict):
+                sources = self.prepend_source(codelet, sources)
+            else:
+                sources = self.run_codelet_and_follow_ups(codelet, sources)
         return sources
 
     def run_detectors(self):
@@ -1115,6 +1119,8 @@ class FARGModel(Workspace):
                     codelet_result, sources
                 )
         return sources
+
+        # NEXT run_codelet_result()
             
     def run_one_codelet(
         self, codelet: Codelet, sources: Sources
