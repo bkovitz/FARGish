@@ -20,8 +20,7 @@ from Log import lenable, ldisable_all
 
 @dataclass(frozen=True)
 class UTDeadEndFound(FARGException):
-    #cellref: CellRef
-    pass
+    dead_end: CellRef
 
 class TestDetectors(unittest.TestCase):
 
@@ -44,10 +43,13 @@ class TestDetectors(unittest.TestCase):
             startcell=cr0,
             on_success=RaiseException(UTDeadEndFound)
         ))
-        fm.run_detector(det)
+        fm.run_detector(det)  # no exception
         cr1.paint(self.step1)
-        fm.run_detector(det)
+        fm.run_detector(det)  # no exception
+        cr2.paint(self.step2good)
+        fm.run_detector(det)  # no exception
         cr2.paint(self.step2bad)
         #lenable(Codelet)
-        with self.assertRaises(UTDeadEndFound):
+        with self.assertRaises(UTDeadEndFound) as cm:
             fm.run_detector(det)
+        self.assertEqual(cm.exception, UTDeadEndFound(cr2))

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, fields, InitVar, asdict, replace
 from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
-    runtime_checkable
+    runtime_checkable, get_type_hints
 
 from FMTypes import Value, Node, Ref, R
 from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
@@ -154,14 +154,14 @@ class Sleep(Codelet):
 @dataclass(frozen=True)
 class RaiseException(Codelet):
     exctype: R[Type[Exception]] = Ref('exctype')
-    # TODO Allow arguments?
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        exctype: Type[Exception]
+        exctype: Type[Exception],
+        sources: Sources
     ) -> CodeletResults:
-        raise exctype
+        raise exctype(**fm.mk_func_args(exctype, sources))  # type: ignore[call-arg]
 
 @dataclass(frozen=True)
 class ISucceeded(Codelet):
