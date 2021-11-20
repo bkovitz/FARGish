@@ -12,7 +12,7 @@ from FARGModel import Agent, Codelets, CellRef, Wake, ExcludeExisting, \
     Desnag, ValuesNotAvail
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState, MakeVariantFromAvails, ISucceeded, \
-    RaiseException, FindLastPaintedCell
+    RaiseException, FindLastPaintedCell, AddTag
 from Consume import Consume
 from Detectors import AvailDetector
 from QArgs import QBeforeFromAvails, QAfter, SearchFor

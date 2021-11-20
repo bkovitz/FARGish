@@ -12,7 +12,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 FARGISH_SRC = Agents.py Canvas.py Codelets.py Consume.py Detectors.py \
 	Equation.py FARGModel.py FMTypes.py Graph.py Indenting.py \
-	Propagator.py QArgs.py Slipnet.py util.py Workspace.py see.py
+	Propagator.py QArgs.py Slipnet.py Tags.py util.py Workspace.py see.py
 # Plot.py 
 # Log.py 
 # Numbo1.py 
@@ -47,8 +47,8 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	#$(PY) -m unittest -v testCodelets.TestCodelets.test_make_variant_from_avails
-	$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
+	$(PY) -m unittest -v testCodelets.TestCodelets.test_add_tag
+	#$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
 
 # Acceptance tests
 at:

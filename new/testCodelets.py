@@ -12,7 +12,7 @@ from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
     NeedMoreSupportToPaint, QArgs, NoResultFromSlipnet, MissingArgument, \
     CellRef
 from Codelets import Build, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
-    Sleep, MakeVariantFromAvails, RaiseException
+    Sleep, MakeVariantFromAvails, RaiseException, AddTag
 from Consume import Consume
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
@@ -35,6 +35,10 @@ ddd = DummyAgent()
 
 @dataclass(frozen=True)
 class DummyCompanion(Agent):
+    pass
+
+class UTTag:
+    '''An arbitrary tag to put on nodes in the workspace.'''
     pass
 
 class TestCodelets(unittest.TestCase):
@@ -206,6 +210,16 @@ class TestCodelets(unittest.TestCase):
             match_wo_none(new_consumer, Consumer.make(plus, (4, 6)))
         )
 
+    def test_add_tag(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = fm.build(CellRef(ca, 0))
+
+        self.assertFalse(fm.has_tag(cr0, UTTag))
+        #fm.add_tag(cr0, UTTag())
+        fm.run_codelet(AddTag(tag=UTTag, taggee=cr0))
+        self.assertTrue(fm.has_tag(cr0, UTTag))
+        
 
 if __name__ == '__main__':
     from inspect import signature

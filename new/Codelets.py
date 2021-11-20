@@ -6,6 +6,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints
+from inspect import isclass
 
 from FMTypes import Value, Node, Ref, R
 from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
@@ -149,6 +150,28 @@ class Sleep(Codelet):
         sleep_duration: int
     ) -> CodeletResults:
         fm.sleep(agent, sleep_duration)
+        return None
+
+@dataclass(frozen=True)
+class AddTag(Codelet):
+    taggee: R[Node] = Ref('taggee')
+    tag: R[Node] = Ref('tag')
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        taggee: Node,
+        tag: Node,
+        behalf_of: Optional[Agent]
+    ) -> CodeletResults:
+        if fm.has_node(taggee):
+            if isclass(tag):
+                # TODO Supply arguments to tag ctor
+                tag = tag()  # type: ignore[operator]
+            tag = fm.build(tag)
+            fm.add_tag(taggee, tag)
+        else:
+            pass  # TODO taggee does not exist, so Fizzle
         return None
 
 @dataclass(frozen=True)

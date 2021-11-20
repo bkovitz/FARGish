@@ -168,12 +168,14 @@ Solve pons asinorum
 
         Consumer notifies Want of success.  DONE
 
-    NEXT Put VariantMakerFromAvails into atestPons slipnet, so we stop getting
-    NoResultFromSlipnet.
+    Put VariantMakerFromAvails into atestPons slipnet, so we stop getting
+    NoResultFromSlipnet.  DONE
 
     Recover from dead end
 
-        Detect and tag dead end
+        Detect dead end.  DONE
+
+        NEXT Tag dead end.
 
         Tag the hopeless Consumers
 
