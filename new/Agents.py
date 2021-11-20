@@ -14,7 +14,8 @@ from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState, MakeVariantFromAvails, ISucceeded, \
     RaiseException, FindLastPaintedCell, AddTag
 from Consume import Consume
-from Detectors import AvailDetector
+from Detectors import AvailDetector, DeadEndDetector
+from Tags import DeadEnd
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
 from Canvas import Operator
 from Graph import Before, After
@@ -103,6 +104,12 @@ class Want(Agent):
 
     born: Codelets = (
         Build(AvailDetector()),
+        Build(DeadEndDetector(
+            on_success=AddTag(
+                tag=DeadEnd(),  # TODO for_goal = this Want
+                taggee=Ref('dead_end')
+            )
+        )),
         NewState(agent=Ref('behalf_of'), state=Wake)
     )
     wake: Codelets = (
@@ -141,7 +148,7 @@ class VariantMakerFromAvails(Agent):
         
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.agent)}, {short(self.cellref)}, {short(self.avails)}, {short(self.unavails)}'
+        return f'{cl}({short(self.agent)}, {short(self.cellref)}, {short(self.avails)}, {short(self.unavails)})'
 
     def features_of(self) -> Iterable[Node]:
         yield Desnag(ValuesNotAvail)

@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 from abc import ABC, abstractmethod
 
 from FMTypes import Value, Addr
-from FARGModel import Canvas, CellRef, ValuesNotAvail, HasAvailValues
+from FARGModel import Canvas, CellRef, ValuesNotAvail, HasAvailValues, Fizzle
 from Log import trace, lo
 from util import short, is_iter, as_iter, pr, pts
 
@@ -144,13 +144,25 @@ class StepCanvas(Canvas):
         return ''.join(ss)
 
 @dataclass(frozen=True)
+class NotEnoughOperands(Fizzle):
+    actual_num_operands: Optional[int] = None
+    min_num_operands: Optional[int] = None
+
+@dataclass(frozen=True)
 class Operator:
     '''Computes the result when Consume consumes operands.'''
     func: Callable
     name: str
+    min_num_operands: int = 2
     
     def __call__(self, *operands) -> int:  # HACK Numbo-specific return type
-        return self.func(*operands)
+        if len(operands) < self.min_num_operands:
+            raise NotEnoughOperands(
+                actual_num_operands=len(operands),
+                min_num_operands=self.min_num_operands
+            )
+        else:
+            return self.func(*operands)
 
     def __str__(self):
         return self.name

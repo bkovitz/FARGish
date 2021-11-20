@@ -16,10 +16,12 @@ from Codelets import Build, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
 from Consume import Consume
 from Agents import LitPainter, Consumer
 from Canvas import Step, StepCanvas, StepDelta, CellRef
+from Features import Feature
 from Equation import plus, minus, times
 from Slipnet import Slipnet
 from Graph import Graph
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
+from Log import lo, lenable, ldisable_all
 from util import pr, pts, first
 
 
@@ -37,7 +39,8 @@ ddd = DummyAgent()
 class DummyCompanion(Agent):
     pass
 
-class UTTag:
+@dataclass(frozen=True)
+class UTTag(Feature):
     '''An arbitrary tag to put on nodes in the workspace.'''
     pass
 
@@ -65,7 +68,7 @@ class TestCodelets(unittest.TestCase):
         self.assertEqual(fm.builder_of(companion), dag)
 
         # Verify that NewState updated dag's state
-        self.assertEqual(fm.agent_state(dag), Wake)
+        #self.assertEqual(fm.agent_state(dag), Wake)
 
     def test_paint_codelet(self) -> None:
         fm = FARGModel()
@@ -219,6 +222,8 @@ class TestCodelets(unittest.TestCase):
         #fm.add_tag(cr0, UTTag())
         fm.run_codelet(AddTag(tag=UTTag, taggee=cr0))
         self.assertTrue(fm.has_tag(cr0, UTTag))
+        self.assertTrue(match_wo_none(UTTag(), UTTag()))
+        self.assertTrue(fm.has_node(UTTag()))
         
 
 if __name__ == '__main__':

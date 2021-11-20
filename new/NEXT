@@ -176,6 +176,9 @@ Solve pons asinorum
         Detect dead end.  DONE
 
         NEXT Tag dead end.
+            
+            Make DeadEndDetector only run AddTag if the tag isn't already
+            there. Or better yet, just don't look at recently tagged nodes.
 
         Tag the hopeless Consumers
 
@@ -226,6 +229,13 @@ Seeing what's happening
         With auto-indent.  DONE
 
     ActivationLog.see(): plot, pr, and input('key...').  DONE
+
+    Some nice way to show Detectors in the log, so that when Detectors don't
+    see anything, nothing is shown, but when a Detector fires and runs codelets,
+    you can see both the codelets and the Detector responsible.
+
+    Some nice way to periodically see just the main canvas or the whole
+    workspace in the log, e.g. once every 10 timesteps.
 
     util.lpts():  Like pts() but goes to logfile.
 

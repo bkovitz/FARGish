@@ -28,7 +28,7 @@ from Log import lo, trace, logging, Loggable, logging_is_enabled, logfile, \
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit, \
-    as_dict
+    as_dict, fields_for
 
 
 N = TypeVar('N', bound=Node)
@@ -119,6 +119,10 @@ class Detector(ABC, CanReplaceRefs):
         '''Try to detect whatever the Detector is looking for, and return
         codelets in response to whatever is found (or not).'''
         pass
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({dict_str(as_dict(self), xform=short)})'
 
 ### Codelet and ancillary classes ###
 
@@ -644,6 +648,7 @@ class Workspace(HasRngSeed):
 
         builder: Optional[Agent] = kwargs.pop('builder', None)
         niws = self.get_niws(obj)
+        #lo('NIWS', obj, niws)
         if niws is None:  # if the Node is not there, really build it
             niws = self._really_build(obj, builder, **kwargs)
         else:
@@ -768,7 +773,10 @@ class Workspace(HasRngSeed):
         # TODO Rename 'es' to 'within'.
         wspred = as_wspred(pred)
         if es is None:
-            es = self.wsd.keys()
+            es = list(self.wsd.keys())  # INEFFICIENT to create list but
+                                        # seems needed because .wsd can change
+                                        # while caller reads from the generator
+                                        # we are about to return.
         return (e for e in as_iter(es) if wspred(self, e))
 
     def neighbors(self, node: Node) -> Set[Node]:
@@ -800,6 +808,12 @@ class Workspace(HasRngSeed):
         return first(self.nodes(pred=pred, es=es))
 
     def has_node(self, node: Node) -> Optional[Node]:
+#        for n in self.wsd:
+#            lo('HNO', n, node, match_wo_none(n, node))
+#        lo('HNO2', [
+#            n for n in self.wsd
+#                if match_wo_none(n, node)
+#        ])
         return first(
             n for n in self.wsd
                 if match_wo_none(n, node)
@@ -1059,14 +1073,17 @@ class FARGModel(Workspace):
             return
         #print('DETECTOR', detector)
         sources = [detector]
-        kwargs = self.mk_func_args(detector.look, sources)
-        codelets: CodeletResults = detector.look(**kwargs)
-        # TODO rename 'codelets', 'codelet'
-        for codelet in as_iter(codelets):
-            if isinstance(codelet, dict):
-                sources = self.prepend_source(codelet, sources)
-            else:
-                sources = self.run_codelet_and_follow_ups(codelet, sources)
+        try:
+            kwargs = self.mk_func_args(detector.look, sources)
+            codelets: CodeletResults = detector.look(**kwargs)
+            # TODO rename 'codelets', 'codelet'
+            for codelet in as_iter(codelets):
+                if isinstance(codelet, dict):
+                    sources = self.prepend_source(codelet, sources)
+                else:
+                    sources = self.run_codelet_and_follow_ups(codelet, sources)
+        except Fizzle:
+            pass  # If anything fizzles, quit with no error
         return sources
 
     def run_detectors(self):
@@ -1105,7 +1122,11 @@ class FARGModel(Workspace):
         #print('RAFC', codelet, '--', codelet_results)
         except FARGException:
             raise
-        except:
+        except Exception as exc:
+            print()
+            print(exc)
+            print(codelet)
+            print()
             pr(self)
             raise
         if hasattr(codelet, 'sk'):
@@ -1564,6 +1585,7 @@ class FARGModel(Workspace):
         edges=False,
         extra=False,  # extra stuff like t, sum_a, and seed
         seed=False,   # show seed?
+        show_tags=True,
         key=None  # ignored
     ) -> None:
         '''Prints a subset of the workpace.'''
@@ -1577,6 +1599,10 @@ class FARGModel(Workspace):
         ):
             count += 1
             print(s, file=file)
+            if show_tags:
+                tags = list(self.tags_of(node))
+                if tags:
+                    print(' ' * 17, ', '.join(short(t) for t in tags))
             if edges:
                 for e in sorted(
                     self.e1str(node, neighbor)

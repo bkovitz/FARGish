@@ -11,7 +11,7 @@ from inspect import isclass
 from FMTypes import Value, Node, Ref, R
 from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
-    NoResultFromSlipnet, CellRef, Delegate_succeeded
+    NoResultFromSlipnet, CellRef, Delegate_succeeded, Fizzle
 from Indenting import Indenting
 from Log import trace, lo, logging
 from util import as_iter, as_list, pr, pts, short, sample_without_replacement
@@ -34,10 +34,13 @@ class Build(Codelet):
         for node in as_iter(to_build):
             node = fm.replace_refs(node, sources)
             fm.build(node, builder=behalf_of)
+        '''
         if behalf_of:
             return NewState(behalf_of, Wake)
         else:
             return None
+        '''
+        return None
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -153,6 +156,10 @@ class Sleep(Codelet):
         return None
 
 @dataclass(frozen=True)
+class TaggeeDoesNotExist(Fizzle):
+    taggee: Node = None
+
+@dataclass(frozen=True)
 class AddTag(Codelet):
     taggee: R[Node] = Ref('taggee')
     tag: R[Node] = Ref('tag')
@@ -162,16 +169,24 @@ class AddTag(Codelet):
         fm: FARGModel,
         taggee: Node,
         tag: Node,
-        behalf_of: Optional[Agent]
+        behalf_of: Optional[Agent],
+        sources: Sources
     ) -> CodeletResults:
+        if not fm.has_node(taggee):
+            if isinstance(taggee, CellRef):  # HACKish and needs UT
+                fm.run_codelet_and_follow_ups(
+                    Build(to_build=taggee),
+                    sources
+                )
         if fm.has_node(taggee):
             if isclass(tag):
                 # TODO Supply arguments to tag ctor
                 tag = tag()  # type: ignore[operator]
-            tag = fm.build(tag)
+            tag = fm.build(tag)  # TODO Run Build? Need to get built node.
             fm.add_tag(taggee, tag)
         else:
-            pass  # TODO taggee does not exist, so Fizzle
+            raise TaggeeDoesNotExist(taggee=taggee)
+
         return None
 
 @dataclass(frozen=True)
