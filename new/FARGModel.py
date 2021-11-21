@@ -73,12 +73,12 @@ class CanReplaceRefs:
             return self
 
 @dataclass(frozen=True)
-class BehalfOf:
-    behalf_of: Agent
+class RunningAgent:
+    running_agent: Agent
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.behalf_of)})'
+        return f'{cl}({short(self.running_agent)})'
 
 ### Logging ###
 
@@ -172,7 +172,7 @@ class Codelet(CodeletDataclassMixin, CanReplaceRefs, Loggable, ABC):
 
     def log(self, f: Indenting, **kwargs) -> None:
         cl = self.__class__.__name__
-        kw = omit(kwargs.get('kwargs', {}), ['fm', 'behalf_of', 'sources'])
+        kw = omit(kwargs.get('kwargs', {}), ['fm', 'running_agent', 'sources'])
         lo(f'CODELET {cl:25s}  {dict_str(kw, short)}')
 
     def short(self) -> str:
@@ -286,17 +286,17 @@ class QueryForSnagFixer(Codelet):
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        behalf_of: Optional[Agent],
+        running_agent: Optional[Agent],
         sources: Optional[Sources]
     ) -> CodeletResults:
-        if not behalf_of:
+        if not running_agent:
             return None  # TODO Fizzle?
         qargs: QArgs = (
-            (SnaggedAgent(behalf_of), QArgsModule.SearchFor(Agent))
+            (SnaggedAgent(running_agent), QArgsModule.SearchFor(Agent))
             +
             tuple(
                 Desnag(tag) if isinstance(tag, Fizzle) else tag
-                    for tag in fm.tags_of(behalf_of)
+                    for tag in fm.tags_of(running_agent)
             )
         )
         kwargs = (
@@ -308,7 +308,7 @@ class QueryForSnagFixer(Codelet):
         #print('QARGS', short(qargs))
         #print()
         #pr(kwargs, key=short)
-        alog = fm.start_alog((behalf_of, self))
+        alog = fm.start_alog((running_agent, self))
         slipnet_results = fm.pulse_slipnet(alog=alog, **kwargs) # type: ignore[arg-type]
         """ # TODO
         if not slipnet_results:
@@ -318,18 +318,21 @@ class QueryForSnagFixer(Codelet):
         if slipnet_results:
             result += [
                 CodeletsModule.Build(
-                    #to_build = fm.try_to_fill_nones(node, sources, behalf_of),
-                    to_build = fm.try_to_fill_refs(node, situation=behalf_of),
-                    behalf_of=behalf_of
+                    #to_build = fm.try_to_fill_nones(node, sources, running_agent),
+                    to_build = fm.try_to_fill_refs(node, situation=running_agent),
+                    builder=running_agent
                 )
                     for node in slipnet_results
             ]
         else:
             raise NoResultFromSlipnet(qargs=qargs)
             #print('FAILURE QueryForSnagFixer: no slipnet_results!', file=logfile)
-            #fm.set_state(behalf_of, Failed)
+            #fm.set_state(running_agent, Failed)
         #lo('QSNAG', str(result[0]))
-        result.append(CodeletsModule.Sleep(agent=behalf_of, sleep_duration=10))
+        result.append(CodeletsModule.Sleep(
+            agent=running_agent,
+            sleep_duration=10
+        ))
         return result
 
 ### Agent and ancillary classes and objects ###
@@ -615,6 +618,7 @@ class NodeInWS(Loggable):
         self.id = self.__class__.lastid
 
     def add_behalf_of(self, agents):
+        # TODO Shouldn't .behalf_of be a Set?
         self.behalf_of += as_iter(agents)
 
     def __str__(self):
@@ -1143,7 +1147,7 @@ class FARGModel(Workspace):
             fiz = replace(
                 fiz,
                 codelet=codelet,
-                agent=self.look_up_by_name('behalf_of', sources)
+                agent=self.look_up_by_name('running_agent', sources)
             )
             #print('FIZZLE', str(fiz))
             if fiz.fk:
@@ -1183,15 +1187,15 @@ class FARGModel(Workspace):
         codelet = codelet.replace_refs(self, sources)
         kwargs = self.mk_func_args(codelet.run, sources)
         #lo('1CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
-        behalf_of = self.look_up_by_name('behalf_of', sources)
+        running_agent = self.look_up_by_name('running_agent', sources)
         self.codelets_just_run.append(CodeletRun(
-            codelet, kwargs, self.t, behalf_of
+            codelet, kwargs, self.t, running_agent
         ))
         with logging(codelet, kwargs=kwargs):
             try:
                 return codelet.run(**kwargs)
             except Fizzle as fiz:
-                with logging(fiz, behalf_of=behalf_of):
+                with logging(fiz, running_agent=running_agent):
                     raise
 
     def agent_just_ran(self, agent: Agent) -> bool:
@@ -1201,7 +1205,7 @@ class FARGModel(Workspace):
 
     def mk_sources(self, agent: Optional[Agent]=None) -> Sequence:
         if agent:
-            return [agent, BehalfOf(agent)]
+            return [agent, RunningAgent(agent)]
         else:
             return []
 
@@ -1226,7 +1230,7 @@ class FARGModel(Workspace):
         sources = self.prepend_source(codelet, sources)
         return self.look_up_by_name(param_name, sources)
         """
-        if param_name == 'behalf_of':
+        if param_name == 'running_agent':
             return agent  # TODO What if agent is None?
         try:
             return getattr(codelet, param_name)
@@ -1288,7 +1292,7 @@ class FARGModel(Workspace):
                     yield getattr(source, fieldname, None)
 
     def try_to_fill_nones(
-        self, node: Node, sources: Sources, behalf_of: Optional[Agent]=None
+        self, node: Node, sources: Sources, running_agent: Optional[Agent]=None
     ) -> Node:
         '''HACK? Tries to fill in fields of an Agent 'node' that are None with
         values from 'sources', going first by name and then by type. Returns
@@ -1305,7 +1309,8 @@ class FARGModel(Workspace):
         if some general notion of orientation or lodestar guided the search,
         maybe even consulting the slipnet for how to fill in the missing
         fields.'''
-        # IDEA Instead of passing behalf_of, pass a 'lodestar'.
+        # IDEA Instead of passing running_agent, pass a 'lodestar'.
+        # TODO rm running_agent, since it's never referenced within the function?
         if not isinstance(node, Agent):
             return node
         elif is_dataclass_instance(node):

@@ -68,7 +68,11 @@ class TestAgents(unittest.TestCase):
         
         self.assertEqual(ca[1], self.step1)
         self.assertEqual(fm.agent_state(lp), Succeeded)
-        self.assertEqual(fm.agent_state(ag), Delegate_succeeded)
+        self.assertEqual(
+            fm.agent_state(ag),
+            Delegate_succeeded,
+            f"Consumer's state is {fm.agent_state(ag)}, not Delegate_succeeded."
+        )
 
     def test_want(self) -> None:
         #lenable(Want, FindLastPaintedCell)

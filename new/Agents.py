@@ -52,7 +52,7 @@ class Consumer(Agent):
             result_in='result'
         ),
         BuildLitPainter(value=Ref('result')),
-        Sleep(agent=Ref('behalf_of'))
+        Sleep(agent=Ref('running_agent'))
     )
     # Another possible approach, breaking down Consume into smaller codelets:
         #TakeOperands(operands=Ref('operands'), cellref=Ref('source')),
@@ -110,7 +110,7 @@ class Want(Agent):
                 taggee=Ref('dead_end')
             )
         )),
-        NewState(agent=Ref('behalf_of'), state=Wake)
+        NewState(agent=Ref('running_agent'), state=Wake)
     )
     wake: Codelets = (
         FindLastPaintedCell(),
@@ -122,7 +122,7 @@ class Want(Agent):
                 ExcludeExisting()
             )
         ),
-        Sleep(agent=Ref('behalf_of'))
+        Sleep(agent=Ref('running_agent'))
     )
     #delegate_succeeded: Codelets = RaiseException(KeyError)
 
@@ -143,7 +143,7 @@ class VariantMakerFromAvails(Agent):
         MakeVariantFromAvails(
             Ref('agent'), Ref('source'), Ref('avails'), Ref('unavails')
         ),
-        Sleep(agent=Ref('behalf_of'))
+        Sleep(agent=Ref('running_agent'))
     )
         
     def short(self) -> str:

@@ -175,10 +175,17 @@ Solve pons asinorum
 
         Detect dead end.  DONE
 
-        NEXT Tag dead end.
+        Tag dead end.
             
             Make DeadEndDetector only run AddTag if the tag isn't already
             there. Or better yet, just don't look at recently tagged nodes.
+            DONE
+
+        Include for_goal in the DeadEnd tag.
+
+            NEXT Rename behalf_of to running_agent.
+
+            Make Want deposit behalf_of into the DeadEndDetector.
 
         Tag the hopeless Consumers
 

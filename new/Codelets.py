@@ -22,21 +22,21 @@ class Build(Codelet):
     '''Builds one or more nodes that serve as companions for the acting
     node.'''
     to_build: R[Nodes] = None
-    behalf_of: R[Agent] = None
+    builder: R[Agent] = Ref('running_agent')
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        behalf_of: Optional[Agent],
+        builder: Optional[Agent],
         to_build: Nodes,
         sources: Sources
     ) -> CodeletResults:
         for node in as_iter(to_build):
             node = fm.replace_refs(node, sources)
-            fm.build(node, builder=behalf_of)
+            fm.build(node, builder=builder)
         '''
-        if behalf_of:
-            return NewState(behalf_of, Wake)
+        if builder:
+            return NewState(builder, Wake)
         else:
             return None
         '''
@@ -65,15 +65,15 @@ class Paint(Codelet):
     '''Paints a value in a Canvas cell.'''
     dest: R[CellRef] = Ref('dest')
     value: R[Value] = Ref('value')
-    sk: R[Codelets] = NewState(Ref('behalf_of'), Succeeded)
-    fk: R[Codelets] = NewState(Ref('behalf_of'), Snag)
+    sk: R[Codelets] = NewState(Ref('running_agent'), Succeeded)
+    fk: R[Codelets] = NewState(Ref('running_agent'), Snag)
 
     def run(  # type: ignore[override]
-        self, fm, dest: CellRef, value: Value, behalf_of: Optional[Agent],
+        self, fm, dest: CellRef, value: Value, running_agent: Optional[Agent],
         sk: Optional[Codelet]
     ) -> CodeletResults:
-        #print('PAINT', fm.a(behalf_of), behalf_of)
-        fm.paint(dest, value, behalf_of)
+        #print('PAINT', fm.a(running_agent), running_agent)
+        fm.paint(dest, value, running_agent)
         return None
 
 """
@@ -102,42 +102,45 @@ class BuildLitPainter(Codelet):
         fm: FARGModel,
         value: Value,
         dest: CellRef,
-        behalf_of: Optional[Agent]
+        running_agent: Optional[Agent]
     ) -> CodeletResults:
-        fm.build(Agents.LitPainter(value=value, dest=dest), builder=behalf_of)
+        fm.build(
+            Agents.LitPainter(value=value, dest=dest),
+            builder=running_agent
+        )
         return None
 
 # TODO rename -> QuerySlipnetAndBuild?
 @dataclass(frozen=True)
 class QuerySlipnetForDelegate(Codelet):
     qargs: R[QArgs] = Ref('qargs')
-    #sk: R[Codelets] = Sleep(Ref('behalf_of'))  TODO
+    #sk: R[Codelets] = Sleep(Ref('running_agent'))  TODO
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        behalf_of: Optional[Agent],
+        running_agent: Optional[Agent],
         qargs: QArgs,  # TODO Require at least one QArg?
         sources: Sources
     ) -> CodeletResults:
         kwargs = fm.mk_slipnet_args(qargs, sources)
         slipnet_results = fm.pulse_slipnet(
-            alog=fm.start_alog((behalf_of, self)),
+            alog=fm.start_alog((running_agent, self)),
             **kwargs
         )
         if not slipnet_results:
             raise NoResultFromSlipnet(qargs=qargs)
         return [
             Build(
-                to_build=fm.try_to_fill_nones(node, sources, behalf_of),
-                behalf_of=behalf_of
+                to_build=fm.try_to_fill_nones(node, sources, running_agent),
+                builder=running_agent
             )
                 for node in slipnet_results
         ]
         """
         for node in slipnet_results:
-            node = fm.try_to_fill_nones(node, sources, behalf_of)
-            fm.build(node, builder=behalf_of)
+            node = fm.try_to_fill_nones(node, sources, running_agent)
+            fm.build(node, builder=running_agent)
         return None
         """
 
@@ -169,7 +172,6 @@ class AddTag(Codelet):
         fm: FARGModel,
         taggee: Node,
         tag: Node,
-        behalf_of: Optional[Agent],
         sources: Sources
     ) -> CodeletResults:
         if not fm.has_node(taggee):
@@ -207,11 +209,11 @@ class ISucceeded(Codelet):
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        behalf_of: Optional[Agent]
+        running_agent: Optional[Agent]
     ) -> CodeletResults:
-        if behalf_of:
-            fm.set_state(fm.behalf_of(behalf_of), Delegate_succeeded)
-            return NewState(behalf_of, Succeeded)
+        if running_agent:
+            fm.set_state(fm.behalf_of(running_agent), Delegate_succeeded)
+            return NewState(running_agent, Succeeded)
         else:
             return None
 
@@ -225,7 +227,6 @@ class FindLastPaintedCell(Codelet):
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        behalf_of: Optional[Agent],
         startcell: CellRef  # start searching from here
     ) -> CodeletResults:
         result = startcell.last_painted_cellref()
@@ -251,7 +252,7 @@ class MakeVariantFromAvails(Codelet):
         agent: Agent,  # the Agent to make a variant of
         avails: Tuple[Value, ...],
         unavails: Tuple[Value, ...],
-        behalf_of: Optional[Agent]=None
+        running_agent: Optional[Agent]=None
     ) -> CodeletResults:
         true_avails = list(as_iter(cellref.avails))
         new_operands: List[Value] = []
@@ -272,7 +273,7 @@ class MakeVariantFromAvails(Codelet):
             return Build(
                 # TODO Standardize order of operands when commutative?
                 to_build=replace(agent, operands=tuple(new_operands)),
-                behalf_of=behalf_of
+                builder=running_agent
             )
 
     @classmethod
