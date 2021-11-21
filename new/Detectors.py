@@ -53,9 +53,12 @@ class DeadEndDetector(Detector):
         on_success: Codelets
     ) -> Codelets:
         lastcell = startcell.last_painted_cellref()
-        avails = as_tuple(lastcell.avails)
-        if len(avails) == 1 and avails[0] != target:
-            return ({'dead_end': lastcell},) + as_tuple(on_success)
+        if not self.was_recently_seen(lastcell):
+            avails = as_tuple(lastcell.avails)
+            if len(avails) == 1 and avails[0] != target:
+                self.add_recently_seen(lastcell)
+                return ({'dead_end': lastcell},) + as_tuple(on_success)
+            else:
+                return None
         else:
             return None
-

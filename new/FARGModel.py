@@ -112,7 +112,39 @@ log_pulse = LogPulse()
 
 ### Detectors ###
 
-class Detector(ABC, CanReplaceRefs):
+@dataclass(frozen=True)
+class DetectorDataclassMixin:
+    recently_seen: Set[Node] = field(default_factory=set, compare=False)
+
+    id: int = field(init=False)  # unique id
+    lastid: ClassVar[int] = 0
+
+    def __post_init__(self) -> None:
+        self.__class__.lastid += 1
+        force_setattr(self, 'id', self.__class__.lastid)
+
+    # TODO Track the timestep when a node was seen, so the Detector can
+    # forget seeing it after a while.
+    def add_recently_seen(self, node: Node) -> None:
+        self.recently_seen.add(node)
+
+    def was_recently_seen(self, node: Node) -> bool:
+        return node in self.recently_seen
+
+    """
+    def __hash__(self) -> int:
+        lo('HASH')
+        return hash((self.__class__.__name__, self.id))
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, DetectorDataclassMixin)
+            and
+            self.id == other.id
+        )
+    """
+
+class Detector(ABC, CanReplaceRefs, DetectorDataclassMixin):
 
     @abstractmethod
     def look(self, fm: FARGModel, **kwargs) -> CodeletResults:
