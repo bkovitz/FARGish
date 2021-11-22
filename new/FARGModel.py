@@ -1095,6 +1095,7 @@ class FARGModel(Workspace):
         a node in the workspace.'''
         # TODO Reconsider: does it actually make sense to fill in an Agent's
         # Refs?
+        #lo('RA', agent, agent_state, self.has_node(agent))
         if not isinstance(agent, Agent):
             raise AttributeError(f'run_agent: {agent} is not an Agent.')
         if not self.has_node(agent):

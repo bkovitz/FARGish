@@ -191,11 +191,11 @@ Solve pons asinorum
 
         Refactor AddTag to call Build to build tag.  DONE
 
-        NEXT The builder for DeadEnd should be DeadEndDetector.
+        The builder for DeadEnd should be DeadEndDetector. DONE
 
         Tag the hopeless Consumers
 
-            New Agent: DeadEndExtender.
+            NEXT New Agent: DeadEndExtender.
 
             DeadEndDetector starts DeadEndExtender.
 
@@ -309,6 +309,10 @@ Exciting things
     Record the current context with a desired codelet, and get that codelet
     to be triggered when the same context recurs.
 
+Nice things
+
+    Write step-by-step instructions for how to make a new Agent, a new
+    Codelet, and a new Detector.
 
 StackOverflow questions
 
@@ -325,5 +329,7 @@ StackOverflow questions
 
     Is there an easy way to construct a single object from a class plus mix-ins,
     without declaring a new class for it?
+
+        Maybe via the 'type' function!
 
     Need deterministic hash code for class objects.

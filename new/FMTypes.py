@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from inspect import isclass
 from dataclasses import dataclass, is_dataclass
 
-from util import pr, filter_none, dict_str, short
+from util import pr, filter_none, dict_str, short, as_dict
 
 
 T = TypeVar('T')
@@ -167,11 +167,47 @@ def match_wo_none(other, obj_template) -> bool:
         return False
     if not is_dataclass(obj_template) or not is_dataclass(other):
         return obj_template == other
-    other_d = dataclasses.asdict(other)
-    return all(
-        v is None or v == other_d.get(k, None) or k == 'id'
-            for k, v in dataclasses.asdict(obj_template).items()
+    #other_d = dataclasses.asdict(other)
+    other_d = as_dict(other)
+    #pr(other_d) #DEBUG
+    #print('MWO', other == obj_template, id(other), id(obj_template), short(other), short(obj_template))
+    #print()
+    #pr(dataclasses.asdict(obj_template), key=short)
+    #print()
+#    for k, v in as_dict(obj_template).items():
+#        otherv = other_d.get(k, None)
+#        print(k, v, otherv, v == otherv)
+#    print()
+    #see(other, obj_template)
+    result = all(
+        (v is None or v == other_d.get(k, None) or k == 'id')
+            #for k, v in dataclasses.asdict(obj_template).items()
+            for k, v in as_dict(obj_template).items()
     )
+    '''
+    result = True
+    for k, v in as_dict(obj_template).items():
+        if not (v is None or v == other_d.get(k, None) or k == 'id'):
+            print('FFF', v, other_d.get(k, None), k)
+            result = False
+            break
+    '''
+    #print('RESULT:', result)
+    return result
+
+"""
+def see(other, obj_template):
+    print()
+    other_d = as_dict(other)
+    for k, v in as_dict(obj_template).items():
+        otherv = other_d.get(k, None)
+        print(k, v, otherv, 'True' if v == otherv else 'FALSE!!!')
+#        if isinstance(v, dict):
+#            see(v, otherv)
+#        elif isinstance(v, tuple):
+#            for x1, x2 in zip(v, otherv):
+#                see(x1, x2)
+"""
 
 @dataclass(frozen=True)
 class MatchWoNone:

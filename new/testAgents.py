@@ -19,10 +19,11 @@ from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
 from Codelets import RaiseException, Paint, FindLastPaintedCell
 from Canvas import Step, StepDelta, StepCanvas
 from Detectors import AvailDetector, DeadEndDetector
-from Equation import plus
+from Equation import plus, minus, times
 from Graph import Graph
 from Slipnet import Slipnet
 from Log import trace, lo, lenable, ldisable_all
+from Tags import DeadEnd
 from Propagator import LogAdjustedDeltas
 from util import pr, pts, short, first
 
@@ -36,6 +37,12 @@ class TestAgents(unittest.TestCase):
 
     step0 = Step((4, 5, 6))
     step1 = Step((6, 9), StepDelta((4, 5), 9, plus))
+
+    #step0     = Step((4, 5, 6))
+    #step1     = Step((6, 9), StepDelta((4, 5), 9, plus))
+    step2bad  = Step((3,), StepDelta((9, 6), 3, minus))
+    #step2good = Step((15,), StepDelta((9, 6), 3, plus))
+
 
     def pons_start_canvas(self) -> StepCanvas:
         return StepCanvas([self.step0])
@@ -149,7 +156,6 @@ class TestAgents(unittest.TestCase):
             Consumer.make(plus, (4, 5))
         ]))
         for seed in range(1, 3):
-            #lenable(Codelet)
             fm = FARGModel(slipnet=slipnet, seed=seed, paint_threshold=0.0)
             ca = fm.build(self.pons_start_canvas())
             cr0 = CellRef(ca, 0)
@@ -162,6 +168,9 @@ class TestAgents(unittest.TestCase):
             self.assertEqual(fm.agent_state(wa), Born)
             self.assertEqual(fm.t, 0)
 
+            #lenable(Agent, Codelet)
+            #pr(fm)
+            #pr(wa.born)
             fm.do_timestep()  # the Want should build a Detector
             self.assertEqual(fm.t, 1)
             #pr(fm.codelets_just_run)
@@ -318,6 +327,23 @@ class TestAgents(unittest.TestCase):
             short(cr1.value) == '[4 + 6; 5 10]'
         )
 
+    def test_dead_end_extender(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        cr2 = CellRef(ca, 2)
+        wa = fm.build(Want(startcell=cr0, target=15))
+        fm.run_agent(wa)
+        det = fm.the(DeadEndDetector)
+        assert det is not None
+        fm.paint(cr1, self.step1)
+        fm.paint(cr2, self.step2bad)
+        fm.run_detector(det)
+        dead_end: Any = fm.the(DeadEnd)
+        self.assertIsNotNone(dead_end)
+        self.assertEqual(dead_end.for_goal, wa)
+        self.assertEqual(fm.builder_of(dead_end), det)
 
 if __name__ == '__main__':
     from inspect import signature

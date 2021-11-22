@@ -48,8 +48,8 @@ ut:
 # Convenience target for single acceptance test current being worked on
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_build_codelet
-	$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
-	#$(PY) -m unittest -v testAgents.TestAgents.test_want
+	#$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
+	$(PY) -m unittest -v testAgents.TestAgents.test_dead_end_extender testAgents.TestAgents.test_timestep1 
 
 # Acceptance tests
 at:
