@@ -10,14 +10,15 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints, get_origin, get_args
 
-from FARGModel import FARGModel, Detector, FARGException, CellRef, Codelet
+from FARGModel import FARGModel, Detector, FARGException, CellRef, Codelet, \
+    Fizzle
 from Detectors import AvailDetector, DeadEndDetector
 from Agents import Want
 from Codelets import RaiseException
 from Consume import Consume
 from Canvas import Step, StepDelta, StepCanvas
 from Equation import plus, minus, times
-from Log import lenable, ldisable_all
+from Log import lo, lenable, ldisable_all
 from Tags import DeadEnd
 from util import pr, pts
 
@@ -53,7 +54,6 @@ class TestDetectors(unittest.TestCase):
         cr2.paint(self.step2good)
         fm.run_detector(det)  # no exception
         cr2.paint(self.step2bad)
-        #lenable(Codelet)
         with self.assertRaises(UTDeadEndFound) as cm:
             fm.run_detector(det)
         self.assertEqual(cm.exception, UTDeadEndFound(cr2))
@@ -66,9 +66,12 @@ class TestDetectors(unittest.TestCase):
         cr2 = CellRef(ca, 2)
         wa = fm.build(Want(startcell=cr0, target=15))
         fm.run_agent(wa)
+        det = fm.the(DeadEndDetector)
+        assert det is not None
         fm.paint(cr1, self.step1)
         fm.paint(cr2, self.step2bad)
-        fm.run_detector(fm.the(DeadEndDetector))
+        fm.run_detector(det)
         dead_end: Any = fm.the(DeadEnd)
         self.assertIsNotNone(dead_end)
         self.assertEqual(dead_end.for_goal, wa)
+        self.assertEqual(fm.builder_of(dead_end), det)

@@ -91,7 +91,7 @@ def replace_refs_in_dataclass_instance(
 
 @dataclass(frozen=True)
 class RunningAgent:
-    running_agent: Agent
+    running_agent: Actor
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -161,7 +161,12 @@ class DetectorDataclassMixin:
         )
     """
 
-class Detector(ABC, CanReplaceRefs, DetectorDataclassMixin):
+class Actor:
+    '''Generic marker class for Agents and Detectors: nodes that are capable
+    of running codelets and building nodes.'''
+    pass
+
+class Detector(ABC, Actor, CanReplaceRefs, DetectorDataclassMixin):
 
     @abstractmethod
     def look(self, fm: FARGModel, **kwargs) -> CodeletResults:
@@ -280,7 +285,7 @@ QArgs = Union[None, Node, QArg, Tuple[Union[Node, QArg], ...]]
 class SnaggedAgent(Feature):
     '''A Feature labeling an Agent as being snagged 'before' the the action
     tagged with this Feature.'''
-    agent: Agent
+    agent: Actor
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -303,7 +308,7 @@ class QueryForSnagFixer(Codelet):
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        running_agent: Optional[Agent],
+        running_agent: Optional[Actor],
         sources: Optional[Sources]
     ) -> CodeletResults:
         if not running_agent:
@@ -355,7 +360,7 @@ class QueryForSnagFixer(Codelet):
 ### Agent and ancillary classes and objects ###
 
 @dataclass(frozen=True)
-class Agent(CanReplaceRefs, FMLoggable, HasArgs):
+class Agent(Actor, CanReplaceRefs, FMLoggable, HasArgs):
     '''An Agent has no Python code. It holds only fields containing zero
     or more codelets for each AgentState, and, optionally, fields for
     parameters to the Agent. Due to the rules of dataclass inheritance,
@@ -616,10 +621,10 @@ class NodeInWS(Loggable):
     '''A Node in the Workspace and information about it. As a Loggable object,
     logs a node just built.'''
     node: Node
-    builder: Union[Agent, None]
+    builder: Union[Node, None]
         # .builder should not be used by Agents; it's strictly for debugging
         # and reporting on model behavor.
-    behalf_of: List[Agent] = field(init=False, default_factory=list)
+    behalf_of: List[Node] = field(init=False, default_factory=list)
         # .behalf_of is all the Agents that want this Node to exist, including
         # but not limited to its builder.
     tob: int   # time of birth (when Node was added to the ws)
@@ -874,20 +879,20 @@ class Workspace(HasRngSeed):
 
     # Node info
 
-    def builder_of(self, node: Node) -> Union[Agent, None]:
+    def builder_of(self, node: Node) -> Union[Node, None]:
         niws = self.get_niws(node)
         if niws:
             return niws.builder
         else:
             return None
 
-    def behalf_of(self, node: Node) -> Sequence[Agent]:
+    def behalf_of(self, node: Node) -> Sequence[Node]:
         try:
             return self.wsd[node].behalf_of
         except KeyError:
             return []
 
-    def built_by(self, agent: Agent) -> Sequence[Node]:
+    def built_by(self, agent: Node) -> Sequence[Node]:
         # TODO Optimize: this checks all Elems in the ws
         return [
             e for e in self.nodes()
@@ -1124,8 +1129,8 @@ class FARGModel(Workspace):
             raise AttributeError(f'run_detector: {detector} is not a Detector')
         if not self.has_node(detector):
             return
-        #print('DETECTOR', detector)
-        sources = [detector]
+        #lo('DETECTOR', detector)
+        sources = [detector, RunningAgent(detector)]
         try:
             kwargs = self.mk_func_args(detector.look, sources)
             codelets: CodeletResults = detector.look(**kwargs)
@@ -1135,7 +1140,7 @@ class FARGModel(Workspace):
                     sources = self.prepend_source(codelet, sources)
                 else:
                     sources = self.run_codelet_and_follow_ups(codelet, sources)
-        except Fizzle:
+        except Fizzle as fiz:
             pass  # If anything fizzles, quit with no error
         return sources
 
@@ -1743,6 +1748,11 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     value: Any = None
     type_needed: Any = None  # type annotation
+
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.func)}, {repr(self.param_name)}, {short(self.value)}, {short(self.type_needed)}'
 
 ### Features
 

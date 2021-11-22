@@ -7,9 +7,10 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable
 
-from FMTypes import R, Ref
-from FARGModel import FARGModel, Detector, Value, CellRef, Codelets, Agent
-from Log import trace
+from FMTypes import R, Ref, Node
+from FARGModel import FARGModel, Detector, Value, CellRef, Codelets, Agent, \
+    Actor
+from Log import trace, lo
 from util import short, pr, pts, as_tuple
 
 
@@ -44,7 +45,7 @@ class DeadEndDetector(Detector):
     target: R[Value] = Ref('target')
     startcell: R[CellRef] = Ref('startcell')
     on_success: R[Codelets] = Ref('on_success')
-    behalf_of: R[Agent] = Ref('running_agent')
+    behalf_of: R[Actor] = Ref('running_agent')
 
     def look(  # type: ignore[override]
         self,
@@ -52,7 +53,7 @@ class DeadEndDetector(Detector):
         target: Value,
         startcell: CellRef,
         on_success: Codelets,
-        behalf_of: Optional[Agent]
+        behalf_of: Optional[Node]
     ) -> Codelets:
         lastcell = startcell.last_painted_cellref()
         if not self.was_recently_seen(lastcell):

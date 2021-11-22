@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from inspect import isclass
 
 from FMTypes import Value, Node, Ref, R
-from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
+from FARGModel import FARGModel, Codelet, Codelets, Actor, Agent, Nodes, \
     AgentState, Wake, Snag, Succeeded, CodeletResults, QArg, QArgs, Sources, \
     NoResultFromSlipnet, CellRef, Delegate_succeeded, Fizzle
 from Indenting import Indenting
@@ -23,12 +23,12 @@ class Build(Codelet):
     '''Builds one or more nodes that serve as companions for the acting
     node.'''
     to_build: R[Nodes] = None
-    builder: R[Agent] = Ref('running_agent')
+    builder: R[Actor] = Ref('running_agent')
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        builder: Optional[Agent],
+        builder: Optional[Actor],
         to_build: Nodes,
         sources: Sources
     ) -> CodeletResults:
@@ -149,7 +149,7 @@ class QuerySlipnetForDelegate(Codelet):
 
 @dataclass(frozen=True)
 class Sleep(Codelet):
-    agent: R[Agent] = Ref('agent')
+    agent: R[Actor] = Ref('agent')
     sleep_duration: int = 3
 
     def run(  # type: ignore[override]
