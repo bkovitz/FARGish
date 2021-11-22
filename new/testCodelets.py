@@ -60,12 +60,14 @@ class TestCodelets(unittest.TestCase):
         self.assertEqual(fm.agent_state(dag), Born)
 
         bc = Build(to_build=DummyCompanion())
-        fm.run_codelet(bc, agent=dag)
+        sources = fm.run_codelet(bc, agent=dag)
 
         self.assertTrue(fm.has_node(DummyCompanion()))
         companion = fm.the(DummyCompanion)
         self.assertEqual(fm.ae_weight(dag, companion), 1.0)
         self.assertEqual(fm.builder_of(companion), dag)
+
+        self.assertIn(companion, fm.look_up_by_name('built', sources))
 
         # Verify that NewState updated dag's state
         #self.assertEqual(fm.agent_state(dag), Wake)

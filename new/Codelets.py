@@ -14,7 +14,8 @@ from FARGModel import FARGModel, Codelet, Codelets, Agent, Nodes, \
     NoResultFromSlipnet, CellRef, Delegate_succeeded, Fizzle
 from Indenting import Indenting
 from Log import trace, lo, logging
-from util import as_iter, as_list, pr, pts, short, sample_without_replacement
+from util import as_iter, as_list, pr, pts, short, sample_without_replacement, \
+    first
 
 
 @dataclass(frozen=True)
@@ -31,16 +32,18 @@ class Build(Codelet):
         to_build: Nodes,
         sources: Sources
     ) -> CodeletResults:
+        built: List[Node] = []
         for node in as_iter(to_build):
             node = fm.replace_refs(node, sources)
-            fm.build(node, builder=builder)
+            node = fm.build(node, builder=builder)
+            built.append(node)
         '''
         if builder:
             return NewState(builder, Wake)
         else:
             return None
         '''
-        return None
+        return {'built': set(built)}
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -174,10 +177,9 @@ class AddTag(Codelet):
         tag: Node,
         sources: Sources
     ) -> CodeletResults:
-        tag = fm.replace_refs(tag, sources)
         if not fm.has_node(taggee):
             if isinstance(taggee, CellRef):  # HACKish and needs UT
-                fm.run_codelet_and_follow_ups(
+                sources = fm.run_codelet_and_follow_ups(
                     Build(to_build=taggee),
                     sources
                 )
@@ -185,7 +187,12 @@ class AddTag(Codelet):
             if isclass(tag):
                 # TODO Supply arguments to tag ctor
                 tag = tag()  # type: ignore[operator]
-            tag = fm.build(tag)  # TODO Run Build? Need to get built node.
+            sources = fm.run_codelet_and_follow_ups(
+                Build(to_build=tag),
+                sources
+            )
+            tag = first(fm.look_up_by_name('built', sources))
+            # TODO What if tag is None now?
             fm.add_tag(taggee, tag)
         else:
             raise TaggeeDoesNotExist(taggee=taggee)

@@ -181,15 +181,23 @@ Solve pons asinorum
             there. Or better yet, just don't look at recently tagged nodes.
             DONE
 
-        Include for_goal in the DeadEnd tag.
+        Include for_goal in the DeadEnd tag.  DONE
 
             Rename behalf_of to running_agent. DONE
 
             Make Want deposit behalf_of into the DeadEndDetector. DONE
 
-            NEXT Make the DeadEndDetector link the DeadEnd to the Want.
+            Make the DeadEndDetector link the DeadEnd to the Want. DONE
+
+        Refactor AddTag to call Build to build tag.  DONE
+
+        NEXT The builder for DeadEnd should be DeadEndDetector.
 
         Tag the hopeless Consumers
+
+            New Agent: DeadEndExtender.
+
+            DeadEndDetector starts DeadEndExtender.
 
         Erase the canvas
 

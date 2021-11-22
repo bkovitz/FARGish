@@ -684,8 +684,8 @@ class Workspace(HasRngSeed):
         obj: N,
         **kwargs
     ) -> N:
-        '''The arguments specify an Node to build in the workspace. If such
-        an Node already exists, we don't build anything. Returns the built
+        '''The arguments specify a Node to build in the workspace. If such
+        a Node already exists, we don't build anything. Returns the built
         or found Node.'''
         """
         if not args:
