@@ -72,6 +72,23 @@ class CanReplaceRefs:
         else:
             return self
 
+def replace_refs_in_dataclass_instance(
+    o: T, fm: FARGModel, sources: Sources
+) -> T:
+        d: Dict[str, Any] = {}
+        for attrname in o.__dataclass_fields__:  # type: ignore[attr-defined]
+            try:
+                attr = getattr(o, attrname)
+            except AttributeError:
+                continue
+            if isinstance(attr, Ref):
+                v = fm.look_up_by_name(attr.name, sources)
+                d[attrname] = v
+        if d:
+            return replace(o, **d)
+        else:
+            return o
+
 @dataclass(frozen=True)
 class RunningAgent:
     running_agent: Agent
@@ -1215,6 +1232,8 @@ class FARGModel(Workspace):
     def replace_refs(self, o: N, sources: Sources) -> N:
         if isinstance(o, CanReplaceRefs):
             return o.replace_refs(self, sources)  # type: ignore[return-value]
+        elif is_dataclass_instance(o):
+            return replace_refs_in_dataclass_instance(o, self, sources)
         else:
             return o
 

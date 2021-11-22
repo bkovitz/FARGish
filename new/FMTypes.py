@@ -169,7 +169,7 @@ def match_wo_none(other, obj_template) -> bool:
         return obj_template == other
     other_d = dataclasses.asdict(other)
     return all(
-        v is None or v == other_d.get(k, None)
+        v is None or v == other_d.get(k, None) or k == 'id'
             for k, v in dataclasses.asdict(obj_template).items()
     )
 

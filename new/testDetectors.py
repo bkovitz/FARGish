@@ -12,10 +12,14 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 
 from FARGModel import FARGModel, Detector, FARGException, CellRef, Codelet
 from Detectors import AvailDetector, DeadEndDetector
+from Agents import Want
 from Codelets import RaiseException
+from Consume import Consume
 from Canvas import Step, StepDelta, StepCanvas
-from Equation import plus, minus
+from Equation import plus, minus, times
 from Log import lenable, ldisable_all
+from Tags import DeadEnd
+from util import pr, pts
 
 
 @dataclass(frozen=True)
@@ -53,3 +57,18 @@ class TestDetectors(unittest.TestCase):
         with self.assertRaises(UTDeadEndFound) as cm:
             fm.run_detector(det)
         self.assertEqual(cm.exception, UTDeadEndFound(cr2))
+
+    def test_dead_end_detector_links_to_want(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(self.pons_start_canvas())
+        cr0 = CellRef(ca, 0)
+        cr1 = CellRef(ca, 1)
+        cr2 = CellRef(ca, 2)
+        wa = fm.build(Want(startcell=cr0, target=15))
+        fm.run_agent(wa)
+        fm.paint(cr1, self.step1)
+        fm.paint(cr2, self.step2bad)
+        fm.run_detector(fm.the(DeadEndDetector))
+        dead_end: Any = fm.the(DeadEnd)
+        self.assertIsNotNone(dead_end)
+        self.assertEqual(dead_end.for_goal, wa)

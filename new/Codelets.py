@@ -174,6 +174,7 @@ class AddTag(Codelet):
         tag: Node,
         sources: Sources
     ) -> CodeletResults:
+        tag = fm.replace_refs(tag, sources)
         if not fm.has_node(taggee):
             if isinstance(taggee, CellRef):  # HACKish and needs UT
                 fm.run_codelet_and_follow_ups(

@@ -9,8 +9,14 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 
 from FMTypes import Node, Ref, R
 from Features import Feature
+from util import short, as_dict, dict_str
 
 
 @dataclass(frozen=True)
 class DeadEnd:
     for_goal: R[Node] = Ref('for_goal')
+
+    # TODO Inherit from something that has this.
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({dict_str(as_dict(self), xform=short)})'

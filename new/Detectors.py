@@ -8,7 +8,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     runtime_checkable
 
 from FMTypes import R, Ref
-from FARGModel import FARGModel, Detector, Value, CellRef, Codelets
+from FARGModel import FARGModel, Detector, Value, CellRef, Codelets, Agent
 from Log import trace
 from util import short, pr, pts, as_tuple
 
@@ -44,20 +44,24 @@ class DeadEndDetector(Detector):
     target: R[Value] = Ref('target')
     startcell: R[CellRef] = Ref('startcell')
     on_success: R[Codelets] = Ref('on_success')
+    behalf_of: R[Agent] = Ref('running_agent')
 
     def look(  # type: ignore[override]
         self,
         fm: FARGModel,
         target: Value,
         startcell: CellRef,
-        on_success: Codelets
+        on_success: Codelets,
+        behalf_of: Optional[Agent]
     ) -> Codelets:
         lastcell = startcell.last_painted_cellref()
         if not self.was_recently_seen(lastcell):
             avails = as_tuple(lastcell.avails)
             if len(avails) == 1 and avails[0] != target:
                 self.add_recently_seen(lastcell)
-                return ({'dead_end': lastcell},) + as_tuple(on_success)
+                return (
+                    {'dead_end': lastcell, 'for_goal': behalf_of},
+                ) + as_tuple(on_success)
             else:
                 return None
         else:

@@ -18,7 +18,7 @@ from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Delegate_succeeded
 from Codelets import RaiseException, Paint, FindLastPaintedCell
 from Canvas import Step, StepDelta, StepCanvas
-from Detectors import AvailDetector
+from Detectors import AvailDetector, DeadEndDetector
 from Equation import plus
 from Graph import Graph
 from Slipnet import Slipnet
@@ -94,11 +94,30 @@ class TestAgents(unittest.TestCase):
         self.assertEqual(fm.agent_state(wa), Born)
         fm.run_agent(wa)  # first action: build AvailDetector
 
-        det: Any = fm.the(AvailDetector)
-        self.assertIsInstance(det, AvailDetector)
-        self.assertEqual(det.target, 9)
-        self.assertEqual(det.startcell, cr0)
-        self.assertEqual(det.on_success, RaiseException(SolvedPuzzle))
+        det1: Any = fm.the(AvailDetector)
+        self.assertIsInstance(det1, AvailDetector)
+        self.assertEqual(det1.target, 9)
+        self.assertEqual(det1.startcell, cr0)
+        self.assertEqual(det1.on_success, RaiseException(SolvedPuzzle))
+
+        det2: Any = fm.the(DeadEndDetector)
+        #lo(det2)
+        self.assertEqual(det2.target, 9)
+        self.assertEqual(det2.startcell, cr0)
+        self.assertEqual(det2.behalf_of, wa)
+
+        '''
+        # TODO Make match_wo_none skip attrs that are excluded from comparison
+        # in __eq__.
+        self.assertTrue(match_wo_none(
+            det2,
+            DeadEndDetector(
+                target=9,
+                startcell=cr0,
+                behalf_of=wa
+            )
+        ))
+        '''
 
         self.assertEqual(fm.agent_state(wa), Wake)
         fm.run_agent(wa)  # second action: build Consumer
@@ -121,7 +140,7 @@ class TestAgents(unittest.TestCase):
         # TODO UT co is Delegate_succeeded
         fm.run_agent(co)
         with self.assertRaises(SolvedPuzzle):
-            fm.run_detector(det)
+            fm.run_detector(det1)
 
     def test_timestep1(self) -> None:
         # Verifies that Want does something on its first two timesteps,
@@ -129,7 +148,7 @@ class TestAgents(unittest.TestCase):
         slipnet = Slipnet(Graph.with_features([
             Consumer.make(plus, (4, 5))
         ]))
-        for seed in range(1, 2):
+        for seed in range(1, 3):
             #lenable(Codelet)
             fm = FARGModel(slipnet=slipnet, seed=seed, paint_threshold=0.0)
             ca = fm.build(self.pons_start_canvas())

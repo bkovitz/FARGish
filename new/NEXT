@@ -183,9 +183,11 @@ Solve pons asinorum
 
         Include for_goal in the DeadEnd tag.
 
-            NEXT Rename behalf_of to running_agent.
+            Rename behalf_of to running_agent. DONE
 
-            Make Want deposit behalf_of into the DeadEndDetector.
+            Make Want deposit behalf_of into the DeadEndDetector. DONE
+
+            NEXT Make the DeadEndDetector link the DeadEnd to the Want.
 
         Tag the hopeless Consumers
 
