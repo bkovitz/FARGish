@@ -5,7 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from QArgs import QBeforeFromAvails, QAfter, SearchFor
-from Agents import LitPainter, Consumer
+from Agents import Consumer
 from FARGModel import FARGModel, CellRef
 from Canvas import Step, StepDelta, StepCanvas
 from Equation import Equation, plus

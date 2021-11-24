@@ -49,7 +49,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_build_codelet
 	#$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
-	$(PY) -m unittest -v testAgents.TestAgents.test_dead_end_extender testAgents.TestAgents.test_timestep1 
+	$(PY) -m unittest -v testCanvas.TestStepsCanvas.test_vma
 
 # Acceptance tests
 at:

@@ -10,7 +10,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints, get_origin, get_args
 
-from Agents import LitPainter, Consumer, Want, VariantMakerFromAvails
+from Agents import Consumer, Want, VariantMakerFromAvails, LitPainter
 from FMTypes import match_wo_none, Exclude, as_pred
 from FARGModel import FARGModel, Detector, CellRef, Born, Wake, Sleeping, \
     Succeeded, SolvedPuzzle, Agent, Fizzle, Snag, Failed, ValuesNotAvail, \
@@ -336,13 +336,43 @@ class TestAgents(unittest.TestCase):
         wa = fm.build(Want(startcell=cr0, target=15))
         fm.run_agent(wa)
         det = fm.the(DeadEndDetector)
-        assert det is not None
+
+        # Let's Consume and LitPainter our way to a dead end
+        co1 = fm.build(Consumer(
+            operator=times,
+            operands=(6, 5),
+            source=cr0
+        ))
+        fm.run_agent(co1)
+        lp1 = fm.the(LitPainter, es=fm.built_by(co1))
+        fm.run_agent(lp1)
+
+        co2 = fm.build(Consumer(
+            operator=times,
+            operands=(4, 30),
+            source=cr1
+        ))
+        fm.run_agent(co2)
+        lp2 = fm.the(LitPainter, es=fm.built_by(co2))
+        fm.run_agent(lp2)
+        """
         fm.paint(cr1, self.step1)
         fm.paint(cr2, self.step2bad)
         fm.run_detector(det)
         dead_end: Any = fm.the(DeadEnd)
+        assert dead_end is not None
         self.assertIsNotNone(dead_end)
         self.assertEqual(dead_end.for_goal, wa)
+        self.assertEqual(fm.builder_of(dead_end), det)
+        """
+        fm.run_detector(det)
+        dead_end: Any = fm.has_tag(cr2, DeadEnd)
+        assert dead_end
+        fm.add_tag(lp2, dead_end)
+        self.assertCountEqual(
+            fm.taggees_of(dead_end),
+            [co2, lp2, cr2]
+        )
         self.assertEqual(fm.builder_of(dead_end), det)
 
 if __name__ == '__main__':

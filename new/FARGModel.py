@@ -17,18 +17,18 @@ from random import randrange
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
-    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, T
+    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, T, Exclude
 from Propagator import Propagator, ActivationLogs, ActivationLog, \
     PropagatorOutgoing
 from Graph import Graph, Hop, WithActivations, Feature
 from Slipnet import Slipnet
 from Indenting import Indenting, indent
 from Log import lo, trace, logging, Loggable, logging_is_enabled, logfile, \
-    LogKwargs
+    LogKwargs, enabled_for_logging
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit, \
-    as_dict, fields_for
+    as_dict, fields_for, transitive_closure
 
 
 N = TypeVar('N', bound=Node)
@@ -166,6 +166,13 @@ class Actor:
     of running codelets and building nodes.'''
     pass
 
+@dataclass(frozen=True)
+class Painter(Actor):
+    '''An Actor class that can paint to canvas cells. We need this to trace
+    who painted what.'''
+    value: Optional[Value] = None
+    dest: Optional[CellRef] = None
+
 class Detector(ABC, Actor, CanReplaceRefs, DetectorDataclassMixin):
 
     @abstractmethod
@@ -177,6 +184,14 @@ class Detector(ABC, Actor, CanReplaceRefs, DetectorDataclassMixin):
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({dict_str(as_dict(self), xform=short)})'
+
+class Tag:
+    '''Mix-in for nodes that can serve as tags of other nodes. The .also_tag()
+    method makes a tag applied to one node automatically tag other nodes
+    related to it.'''
+
+    def also_tag(self, fm: FARGModel, taggee: Node) -> Iterable[Node]:
+        return ()
 
 ### Codelet and ancillary classes ###
 
@@ -341,7 +356,11 @@ class QueryForSnagFixer(Codelet):
             result += [
                 CodeletsModule.Build(
                     #to_build = fm.try_to_fill_nones(node, sources, running_agent),
-                    to_build = fm.try_to_fill_refs(node, situation=running_agent),
+                    to_build = fm.try_to_fill_refs(
+                        node,
+                        situation=running_agent,
+                        sources=sources
+                    ),
                     builder=running_agent
                 )
                     for node in slipnet_results
@@ -677,6 +696,10 @@ class Workspace(HasRngSeed):
     activation_g: ActivationGraph = field(
         default_factory=ActivationGraph.empty
     )
+    _painted_by: Dict[Tuple[CellRef, Value], Set[Actor]] = field(
+        default_factory=lambda: defaultdict(set),
+        init=False
+    )
     t: int = 0  # TODO inherit this from something that knows about time
     mutual_support_weight: float = 1.0
     mutual_antipathy_weight: float = -0.2
@@ -726,6 +749,7 @@ class Workspace(HasRngSeed):
         self.wsd[obj] = niws = NodeInWS(
             obj, builder=builder, tob=self.t, state=self.initial_state(obj)
         )
+        #lo('RLLY', obj, builder)
 
         # Set up activation stuff
         if init_a is None:
@@ -756,23 +780,15 @@ class Workspace(HasRngSeed):
         # Put an .on-build() in this class and call it? FARGModel
         # can override it.
 
+    """
     # TODO UT
-    def add_tag(self, taggee: Node, tag: Node, builder: Optional[Node]=None) \
+    def _add_tag(self, taggee: Node, tag: Node, builder: Optional[Node]=None) \
     -> Node:
         # TODO Make the tag's builder the agent in the tag?
         tag = self.build(tag, builder=builder)
         self._tags_of[taggee].add(tag)
         return tag
-
-    # TODO UT
-    def tags_of(self, taggee: Node) -> Iterable[Node]:
-        for tag in as_iter(self._tags_of.get(taggee, None)):
-            yield tag
-
-    # TODO UT
-    def has_tag(self, node: Node, pred: Pred) -> Optional[Node]:
-        pred = as_pred(pred)
-        return first(tag for tag in self.tags_of(node) if pred(tag))
+    """
 
     def initial_state(self, obj: Node) -> AgentState:
         if isinstance(obj, Agent):
@@ -784,14 +800,23 @@ class Workspace(HasRngSeed):
             return Born
 
     def paint(
-        self, cellref: CellRef, value: Value, agent: Optional[Agent]=None
+        self, cellref: CellRef, value: Value, painter: Optional[Actor]=None
     ) -> None:
         # TODO Raise exception if agent lacks sufficient activation to
         # paint on the cell.
         # TODO Raise exception if the Canvas doesn't exist.
-        if agent and self.a(agent) < self.paint_threshold:
-            raise NeedMoreSupportToPaint(agent=agent)
+        if painter and self.a(painter) < self.paint_threshold:
+            raise NeedMoreSupportToPaint(actor=painter)
         cellref.paint(value)
+        if painter:
+            self._painted_by[(cellref, cellref.value)].add(painter)
+
+    def painters_of(self, cellref: CellRef, value: Optional[Value]) \
+    -> Set[Actor]:
+        if value is not None:
+            return self._painted_by[(cellref, value)]
+        else:
+            raise NotImplementedError('when value is None, need to return all painters that painted to cellref')
 
     # Activation / support
 
@@ -1095,13 +1120,13 @@ class FARGModel(Workspace):
         a node in the workspace.'''
         # TODO Reconsider: does it actually make sense to fill in an Agent's
         # Refs?
-        #lo('RA', agent, agent_state, self.has_node(agent))
         if not isinstance(agent, Agent):
             raise AttributeError(f'run_agent: {agent} is not an Agent.')
         if not self.has_node(agent):
             return
         if agent_state is None:
             agent_state = self.agent_state(agent)
+        #lo('RA', agent, agent_state, self.has_node(agent))
         self.agents_just_run.append(agent)
         #agent = agent.replace_refs(self, None)
         for i in range(num):
@@ -1111,6 +1136,7 @@ class FARGModel(Workspace):
                     #lo('CDS', agent.get_codelets(agent_state))
                     self.run_codelet(agent.get_codelets(agent_state), agent)
                 except Fizzle as fiz:
+                    #lo('RAFIZ', short(agent), short(fiz))
                     self.add_tag(agent, fiz, builder=agent)
                     self.set_state(agent, fiz.next_agent_state)
                 agent_state = self.agent_state(agent)
@@ -1170,12 +1196,12 @@ class FARGModel(Workspace):
             fiz = replace(
                 fiz,
                 codelet=codelet,
-                agent=self.look_up_by_name('running_agent', sources)
+                actor=self.look_up_by_name('running_agent', sources)
             )
-            #print('FIZZLE', str(fiz))
+            #lo('FIZ0', str(fiz))
             if fiz.fk:
-                #print('FIZ', fiz.fk, sources)
                 fk = fiz.fk.replace_refs(self, sources)
+                #lo('FIZ', fiz.fk, sources)
                 self.run_codelet_and_follow_ups(fk, sources)
             raise fiz
         #print('RAFC', codelet, '--', codelet_results)
@@ -1208,18 +1234,18 @@ class FARGModel(Workspace):
         '''This should be the only place in the entire program that
         calls codelet.run().'''
         codelet = codelet.replace_refs(self, sources)
-        kwargs = self.mk_func_args(codelet.run, sources)
-        #lo('1CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
         running_agent = self.look_up_by_name('running_agent', sources)
-        self.codelets_just_run.append(CodeletRun(
-            codelet, kwargs, self.t, running_agent
-        ))
-        with logging(codelet, kwargs=kwargs):
-            try:
+        try:
+            kwargs = self.mk_func_args(codelet.run, sources)
+            #lo('1CODELET', codelet.__class__.__name__, dict_str(kwargs, short))
+            self.codelets_just_run.append(CodeletRun(
+                codelet, kwargs, self.t, running_agent
+            ))
+            with logging(codelet, kwargs=kwargs):
                 return codelet.run(**kwargs)
-            except Fizzle as fiz:
-                with logging(fiz, running_agent=running_agent):
-                    raise
+        except Fizzle as fiz:
+            with logging(fiz, running_agent=running_agent):
+                raise
 
     def agent_just_ran(self, agent: Agent) -> bool:
         '''Did agent just run, i.e. in the current timestep? Mostly useful for
@@ -1360,7 +1386,8 @@ class FARGModel(Workspace):
                 if name not in Agent.all_state_names:
                     yield name, make_nonoptional(typ)
 
-    def args_for(self, node: HasArgs, situation: Node) -> Dict[str, Any]:
+    def args_for(self, node: HasArgs, situation: Node, sources: Sources) \
+    -> Dict[str, Any]:
         # Get needed arg names from node.
         # Look at concentric neighbors of situation for nodes that have
         # values.
@@ -1368,6 +1395,10 @@ class FARGModel(Workspace):
         result: Dict[str, Any] = {}
         for ref in node.need_args():
             v = self.find_value_in_situation(ref.name, situation)
+            if v is None:
+                v = self.look_up_by_name(ref.name, sources)
+            if v is None and ref.name == 'agent': # HACK
+                v = self.look_up_by_name('running_agent', sources)
             if v is not None:
                 result[ref.name] = v
         return result
@@ -1378,15 +1409,20 @@ class FARGModel(Workspace):
                 return getattr(node, name)
         return None
 
-    def try_to_fill_refs(self, node: Node, situation: Node) -> Node:
+    def try_to_fill_refs(
+        self,
+        node: Node,
+        situation: Node,
+        sources: Sources
+    ) -> Node:
         '''Returns a node with 'node's Refs and Nones filled in, to the extent
         possible, from values in 'situation', i.e. within 2 hops in 
         activation_g.'''
         if not isinstance(node, HasArgs):
             return node
         else:
-            d = self.args_for(node, situation)
-            #lo(f'TRY {dict_str(d)}')
+            d = self.args_for(node, situation, sources)
+            #lo('T2FR', dict_str(d))
             return self.replace_refs(node, d)
             """
             if d:
@@ -1425,6 +1461,7 @@ class FARGModel(Workspace):
                 continue  # disregard return type
             value = self.look_up_by_name(param_name, sources)
             annotation = type_hints.get(param_name, Any)
+            #lo('MKFARGS', repr(param_name), value, annotation, sources)
             if not is_type_instance(value, annotation):
                 # TODO Somehow raise multiple exceptions if more than one
                 # argument is missing.
@@ -1607,6 +1644,42 @@ class FARGModel(Workspace):
 
         return first(sample_without_replacement(agents, weights=activations))
 
+    # Tagging
+
+    def add_tag(self, taggee: Node, tag: Node, builder: Optional[Node]=None) \
+    -> Node:
+        #lo('ADD_TAG', short(taggee), short(tag), short(builder))
+        tag = self.build(tag, builder=builder)
+        if not self.has_node(taggee):
+            taggee = self.build(taggee, builder=builder)
+        if isinstance(tag, Tag):
+            def more_taggees(x: Node) -> Iterable[Node]:
+                return tag.also_tag(self, x) # type: ignore[attr-defined]  # mypy bug?
+            all_taggees = transitive_closure(more_taggees, taggee)
+        else:
+            all_taggees = {taggee}
+        for n in all_taggees:
+            if n != tag:
+                self._tags_of[n].add(tag)
+        return tag
+
+    # TODO UT
+    def tags_of(self, taggee: Node) -> Iterable[Node]:
+        for tag in as_iter(self._tags_of.get(taggee, None)):
+            yield tag
+
+    def taggees_of(self, tag: Node) -> Iterable[Node]:
+        # INEFFICIENT: loops through all nodes in ws! FARGModel should probably
+        # have a _taggees_of member.
+        for node in self.nodes(Exclude(tag)):
+            if self.has_tag(node, tag):
+                yield node
+
+    # TODO UT
+    def has_tag(self, node: Node, pred: Pred) -> Optional[Node]:
+        pred = as_pred(pred)
+        return first(tag for tag in self.tags_of(node) if pred(tag))
+
     # Display
 
     def __str__(self):
@@ -1681,7 +1754,7 @@ class FARGException(Exception):
 
 @dataclass(frozen=True)
 class Fizzle(FARGException, Loggable):
-    agent: Optional[Agent] = None
+    actor: Optional[Actor] = None
     codelet: Optional[Codelet] = None
     next_agent_state: ClassVar[AgentState] = Snag
 
@@ -1726,9 +1799,9 @@ class ValuesNotAvail(Fizzle):
     unavails: Tuple[Value, ...] = ()
         # These values were unavail; indices match indices in seeker's request
 
-    def __str__(self):
+    def __str__(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.agent)}, {short(self.codelet)}, {self.cellref}, avails={self.avails}, unavails={self.unavails})'
+        return f'{cl}({short(self.actor)}, {short(self.codelet)}, {self.cellref}, avails={self.avails}, unavails={self.unavails})'
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -1750,10 +1823,9 @@ class MissingArgument(Fizzle):
     value: Any = None
     type_needed: Any = None  # type annotation
 
-
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.func)}, {repr(self.param_name)}, {short(self.value)}, {short(self.type_needed)}'
+        return f'{cl}({short(self.func)}, {repr(self.param_name)}, {short(self.value)}, {short(self.type_needed)})'
 
 ### Features
 

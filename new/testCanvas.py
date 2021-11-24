@@ -9,15 +9,15 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
     runtime_checkable
 
-from FARGModel import FARGModel, CellRef, Codelet
+from FARGModel import FARGModel, CellRef, Agent, Codelet, Fizzle
 from Canvas import Step, StepDelta, ValuesNotAvail, StepCanvas
 from Consume import Consume
 from Equation import plus
 from Agents import Consumer, VariantMakerFromAvails, LitPainter
 from Graph import Graph
 from Slipnet import Slipnet
-from Log import trace, lo, lenable, ldisable_all
-from util import as_iter, as_list, pr, pts
+from Log import trace, lo, lenable, ldisable_all, enabled_for_logging
+from util import as_iter, as_list, pr, pts, short
 
 
 class TestStepsCanvas(unittest.TestCase):
@@ -142,15 +142,19 @@ class TestStepsCanvas(unittest.TestCase):
             source=cr1
         ))
         fm.run_agent(co1, num=2)
-        vma: Any = fm.the(VariantMakerFromAvails)
+        vma: VariantMakerFromAvails = fm.the(VariantMakerFromAvails) # type: ignore[assignment]
         assert vma, 'Consumer did not produce a VariantMakerFromAvails'
+        self.assertEqual(vma.agent, co1)
 
         # Some other agent paints over cr1, removing the avail 5
         cr1.paint(Step([4, 11], StepDelta([6, 5], [11], '+')))
 
+        #lenable(Agent, Codelet, Fizzle)
         fm.run_agent(vma)
+        #ldisable_all()
         co2: Any = fm.built_by(vma)[0]
-        assert isinstance(co2, Consumer)
+        assert isinstance(co2, Consumer), \
+            f'built by {short(co2)}, not a Consumer'
 
         self.assertEqual(len(as_list(co2.operands)), 2)
         fm.run_agent(co2)  # Check for crash

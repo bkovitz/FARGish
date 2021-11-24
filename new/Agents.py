@@ -9,7 +9,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
 from Canvas import CellRef
 from FMTypes import Value, Node, R, Ref
 from FARGModel import Agent, Codelets, CellRef, Wake, ExcludeExisting, \
-    Desnag, ValuesNotAvail
+    Desnag, ValuesNotAvail, Painter
 from Codelets import Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, Build, NewState, MakeVariantFromAvails, ISucceeded, \
     RaiseException, FindLastPaintedCell, AddTag
@@ -22,17 +22,6 @@ from Graph import Before, After
 from Log import trace, lo
 from util import as_iter, pr, pts, short
 
-
-@dataclass(frozen=True)
-class LitPainter(Agent):
-    value: Optional[Value] = None
-    dest: Optional[CellRef] = None
-
-    wake: Codelets = (Paint(), ISucceeded())
-
-    def short(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({short(self.value)}, {short(self.dest)})'
 
 @dataclass(frozen=True)
 class Consumer(Agent):
@@ -95,6 +84,17 @@ class Consumer(Agent):
                         result = rator(rand1, rand2)
                         if result != rand1 and result != rand2:
                             yield cls(operator=rator, operands=(rand1, rand2))
+
+@dataclass(frozen=True)
+class LitPainter(Agent, Painter):
+    value: Optional[Value] = None
+    dest: Optional[CellRef] = None
+
+    wake: Codelets = (Paint(), ISucceeded())
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.value)}, {short(self.dest)})'
 
 @dataclass(frozen=True)
 class Want(Agent):

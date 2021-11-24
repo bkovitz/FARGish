@@ -195,9 +195,9 @@ Solve pons asinorum
 
         Tag the hopeless Consumers
 
-            NEXT New Agent: DeadEndExtender.
+            DeadEnd.extend()
 
-            DeadEndDetector starts DeadEndExtender.
+                NEXT FARGModel.painter_of()
 
         Erase the canvas
 

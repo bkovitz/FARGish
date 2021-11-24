@@ -14,7 +14,7 @@ from FARGModel import FARGModel, Agent, Born, Wake, Snag, Succeeded, Codelets, \
 from Codelets import Build, Paint, BuildLitPainter, QuerySlipnetForDelegate, \
     Sleep, MakeVariantFromAvails, RaiseException, AddTag
 from Consume import Consume
-from Agents import LitPainter, Consumer
+from Agents import Consumer, LitPainter
 from Canvas import Step, StepCanvas, StepDelta, CellRef
 from Features import Feature
 from Equation import plus, minus, times
@@ -90,7 +90,7 @@ class TestCodelets(unittest.TestCase):
         codelet = Paint(cr1, self.step1)
         with self.assertRaises(NeedMoreSupportToPaint) as cm:
             fm.run_codelet(codelet, ag)
-        self.assertEqual(cm.exception.agent, ag)
+        self.assertEqual(cm.exception.actor, ag)
         self.assertIsNone(ca[1])
         self.assertEqual(fm.agent_state(ag), Snag)
 

@@ -180,6 +180,23 @@ def d_subset(d: Dict, keys: Iterable) -> Dict:
         (k, v) for k, v in d.items() if k in as_set(keys)
     )
 
+T = TypeVar('T')
+
+# TODO UT
+def transitive_closure(more_xs: Callable[[T], Iterable[T]], x: T) -> Set[T]:
+    result: Set[T] = {x}
+    pending: Set[T] = {x}
+    new_xs: Set[T] = set()
+    while pending:
+        for old_x in pending:
+            for new_x in more_xs(old_x):
+                if new_x not in result:
+                    new_xs.add(new_x)
+        result |= new_xs
+        pending = new_xs
+        new_xs.clear()
+    return result
+
 def field_names(dclass) -> List[str]:
     return [f.name for f in fields(dclass)]
 
