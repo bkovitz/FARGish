@@ -1,3 +1,10 @@
+spike.py: Solve pons asinorum
+
+    Make and print a SeqCanvas.  DONE
+
+    NEXT Run the SeqCanvas.
+
+
 Solve pons asinorum
 
     Want
@@ -195,9 +202,14 @@ Solve pons asinorum
 
         Tag the hopeless Consumers
 
-            DeadEnd.extend()
+            DeadEnd.extend() DONE
 
-                NEXT FARGModel.painter_of()
+                FARGModel.painter_of() DONE
+
+                Ensure that the Consumer that produced the LitPainter gets
+                tagged with DeadEnd.  DONE
+
+                Why is Consumer(3) getting built?
 
         Erase the canvas
 
@@ -273,6 +285,8 @@ Seeing what's happening
     Easy way to see the graph in the Workspace.
 
 Small things
+
+    Refactor 'Sources' -> NameCtx.
 
     Make a lo() function to log a string at the current indent level.
 

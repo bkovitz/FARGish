@@ -1270,6 +1270,7 @@ class FARGModel(Workspace):
             return o
 
     # TODO rm? Just call .look_up_by_name?
+    '''
     def value_for_codelet_arg(
         self,
         codelet: Codelet,
@@ -1288,6 +1289,7 @@ class FARGModel(Workspace):
         except AttributeError:
             return None
         """
+    '''
 
     def look_up_by_name(
         self,

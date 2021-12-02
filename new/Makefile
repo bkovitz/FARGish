@@ -34,7 +34,7 @@ mtest: mypy test
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
+	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py  spike.py
 
 # For type-checking just one file (specified here).
 m:
