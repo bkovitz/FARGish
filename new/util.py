@@ -705,7 +705,7 @@ def pr(x: Any, *args, key=short, file=sys.stdout, **kwargs):
 #        for s in sorted(str(a) for a in as_iter(x)):
 #            print(s, file=file)
 
-def ps(*items: Any) -> None:
+def ps(*items: Any, file=sys.stdout) -> None:
     '''Short for print(short(i)).'''
     for i in items:
-        print(short(i))
+        print(short(i), file=file)
