@@ -237,7 +237,6 @@ class MissingArgument(Fizzle):
         cl = self.__class__.__name__
         return f'{cl}({short(self.func)}, {repr(self.param_name)}, {short(self.param_type)}, {short(self.value)})'
 
-
 @dataclass(frozen=True)
 class NotEnoughOperands(Fizzle):
     actual_num_operands: Optional[int] = None
@@ -261,6 +260,11 @@ class ValuesNotAvail(Fizzle):
         cl = self.__class__.__name__
         return f'{cl}({short(self.cellref)}, {short(self.avails)}, {short(self.unavails)})'
     '''
+
+@dataclass(frozen=True)
+class RunAborted(Fizzle):
+    canvas: Optional[SeqCanvas]
+    step: Optional[Program]
 
 @dataclass(frozen=True)
 class Avails(ArgsMap):
@@ -354,7 +358,7 @@ class Consume(Program):
 
     def short(self) -> str:
         return self.operator.mk_short(self.operands)
-    
+
 def Plus(*operands: int) -> Consume:
     return Consume(name='Plus', operator=plus, operands=as_tuple(operands))
 
@@ -363,7 +367,7 @@ if __name__ == '__main__':
     ca = SeqCanvas.make(
         Avails(4, 5),
         Plus(4, 5),
-        ArgsMap.empty()
+        None, #ArgsMap.empty()
     )
     ps(ca)
     #args = run(ca._cells[0], ArgsMap.empty())

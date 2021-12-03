@@ -12,7 +12,8 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 FARGISH_SRC = Agents.py Canvas.py Codelets.py Consume.py Detectors.py \
 	Equation.py FARGModel.py FMTypes.py Graph.py Indenting.py \
-	Propagator.py QArgs.py Slipnet.py Tags.py util.py Workspace.py see.py
+	Propagator.py QArgs.py Slipnet.py Tags.py util.py Workspace.py see.py \
+	CCModel.py
 # Plot.py 
 # Log.py 
 # Numbo1.py 
@@ -34,7 +35,7 @@ mtest: mypy test
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py  spike.py
+	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
 m:
@@ -49,7 +50,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_build_codelet
 	#$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
-	$(PY) -m unittest -v testCanvas.TestStepsCanvas.test_vma
+	$(PY) -m unittest -v testCCModel.TestCCModel
 
 # Acceptance tests
 at:

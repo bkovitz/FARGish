@@ -4,11 +4,16 @@ spike.py: Solve pons asinorum
 
     Run the SeqCanvas.  DONE
 
-    NEXT Make the SeqCanvas stop upon reaching an empty cell.
+    NEXT UT the 4+5=9 canvas.
+
+    Make the SeqCanvas stop upon reaching an empty cell.
 
     Provide a way to override the fields in a Codelet?
 
         Complexes?
+
+        "Modify" something deep inside a complex: it should cascade out.
+        (Need example.)
 
     Upon painting, save the overwritten cell contents to the ws.
 
@@ -17,6 +22,9 @@ spike.py: Solve pons asinorum
     A Workspace class.
 
         Put a complex in, and all its subcomplexes become nodes, too.
+
+    Put a + into ca[1] and let the model get it operands from the avails
+    in ca[0].
 
     Put 4+4 into ca[1] and recover.
 
