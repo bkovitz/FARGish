@@ -1,4 +1,4 @@
-# spike.py -- A spike for "codelets in canvases"
+# CCModel.py -- A spike for "codelets in canvases"
 
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
@@ -177,6 +177,13 @@ class Cell(Program):
 @dataclass
 class SeqCanvas(Canvas, Program):
     _cells: List[Cell]
+
+    def __getitem__(self, addr: int) -> CellContents:
+        try:
+            return self._cells[addr].contents
+        except IndexError:
+            # TODO What if addr < 0?
+            return None
 
     @classmethod
     #def make(cls, num_cells: Optional[int]=None) -> SeqCanvas:

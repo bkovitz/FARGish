@@ -4,7 +4,15 @@ spike.py: Solve pons asinorum
 
     Run the SeqCanvas.  DONE
 
-    NEXT UT the 4+5=9 canvas.
+    UT the 4+5=9 canvas.  DONE
+
+    Refactorings
+
+        canvas[index]  DONE
+
+        NEXT empty_args_map: a constant
+
+        ArgsMapSeries: skip empty_args_map
 
     Make the SeqCanvas stop upon reaching an empty cell.
 

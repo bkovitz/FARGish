@@ -4,18 +4,22 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from CCModel import SeqCanvas, ArgsMap, Avails, Plus, run
+from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
+    Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
+    Collection, Sequence, Literal, Protocol, Optional, TypeVar, IO, \
+    runtime_checkable
+
+from CCModel import SeqCanvas, ArgsMap, Avails, Plus, run, Cell
 from util import ps, pr
 
 
 class TestCCModel(unittest.TestCase):
 
-    def test_4_plus_5(self):
+    def test_4_plus_5(self) -> None:
         ca = SeqCanvas.make(
             Avails(4, 5),
             Plus(4, 5),
             None, #ArgsMap.empty()
         )
         run(ca, ArgsMap.empty())
-        c = ca._cells[2].contents
-        self.assertEqual(c, Avails(9))
+        self.assertEqual(ca[2], Avails(9))
