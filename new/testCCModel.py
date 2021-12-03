@@ -20,7 +20,7 @@ class TestCCModel(unittest.TestCase):
         ca = SeqCanvas.make(
             Avails(4, 5),
             Plus(4, 5),
-            None, #ArgsMap.empty()
+            None,
         )
         run(ca, ArgsMap.empty())
         self.assertEqual(ca[2], Avails(9))

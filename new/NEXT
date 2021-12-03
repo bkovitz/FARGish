@@ -10,9 +10,9 @@ spike.py: Solve pons asinorum
 
         canvas[index]  DONE
 
-        NEXT empty_args_map: a constant
+        empty_args_map: a constant  DONE
 
-        ArgsMapSeries: skip empty_args_map
+        ArgsMapSeries: skip empty_args_map  DONE
 
     Make the SeqCanvas stop upon reaching an empty cell.
 

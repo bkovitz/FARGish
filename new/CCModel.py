@@ -29,6 +29,8 @@ from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
 TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
 
 class ArgsMap(ABC):
+    '''An ArgsMap is immutable. To 'add' key-value pairs to an ArgsMap, you
+    must .prepend() another ArgsMap to it.'''
 
     def get(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
@@ -42,12 +44,16 @@ class ArgsMap(ABC):
     -> Optional[Value]:
         pass
 
+    @abstractmethod
+    def is_empty(self) -> bool:
+        pass
+
     def prepend(self, args: ArgsMap) -> ArgsMap:
         return ArgsMapSeries.make(args, self)
 
     @classmethod
     def empty(cls) -> EmptyArgsMap:
-        return EmptyArgsMap()
+        return empty_args_map
 
     def short(self) -> str:
         # TODO
@@ -57,19 +63,30 @@ class ArgsMap(ABC):
 class ArgsDict(ArgsMap):
     d: Dict[str, Value]
 
+    def is_empty(self) -> bool:
+        return not self.d
+
     def xget(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
         return self.d.get(k, default)
 
 class EmptyArgsMap(ArgsMap):
 
+    def is_empty(self) -> bool:
+        return True
+
     def xget(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
         return default
 
+empty_args_map: EmptyArgsMap = EmptyArgsMap()
+
 @dataclass(frozen=True)
 class ArgsMapSeries(ArgsMap):
     argss: Tuple[ArgsMap, ...]
+
+    def is_empty(self) -> bool:
+        return all(args.is_empty() for args in self.argss)
 
     def xget(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
@@ -82,7 +99,17 @@ class ArgsMapSeries(ArgsMap):
     @classmethod
     def make(cls, *argss: ArgsMap) -> ArgsMapSeries:
         # TODO Special treatment for empty and for existing ArgsMapSeries?
-        return ArgsMapSeries(as_tuple(argss))
+        return ArgsMapSeries(as_tuple(cls.flatten(argss)))
+
+    @classmethod
+    def flatten(cls, argss: Iterable[ArgsMap]) -> Iterable[ArgsMap]:
+        for args in argss:
+            if args.is_empty():
+                continue
+            elif isinstance(args, ArgsMapSeries):
+                yield from cls.flatten(args.argss)
+            else:
+                yield args
 
 class Program(ABC):
 
@@ -97,7 +124,7 @@ def as_argsmap(x: Any) -> ArgsMap:
     elif is_dataclass_instance(x) or isinstance(x, dict):
         return ArgsDict(as_dict(x))
     else:
-        return ArgsMap.empty()
+        return empty_args_map
 
 def run(program: Program, args: ArgsMap) -> ProgramResult:
     return program.run(
@@ -158,7 +185,7 @@ class Cell(Program):
 
     def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
         if args is None:
-            args = ArgsMap.empty()
+            args = empty_args_map
         if self.contents is None:
             return args
         elif isinstance(self.contents, ArgsMap):
@@ -279,6 +306,9 @@ class Avails(ArgsMap):
 
     def __init__(self, *values: Value):
         force_setattr(self, 'values', values)
+
+    def is_empty(self) -> bool:
+        return False
 
     def xget(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
