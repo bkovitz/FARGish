@@ -187,7 +187,7 @@ class Cell(Program):
         if args is None:
             args = empty_args_map
         if self.contents is None:
-            return args
+            raise RunAborted(self.canvas, self)
         elif isinstance(self.contents, ArgsMap):
             return args.prepend(self.contents)
         else:
@@ -297,7 +297,7 @@ class ValuesNotAvail(Fizzle):
 
 @dataclass(frozen=True)
 class RunAborted(Fizzle):
-    canvas: Optional[SeqCanvas]
+    canvas: Optional[Canvas]
     step: Optional[Program]
 
 @dataclass(frozen=True)
