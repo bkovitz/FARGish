@@ -2,7 +2,43 @@ spike.py: Solve pons asinorum
 
     Make and print a SeqCanvas.  DONE
 
-    NEXT Run the SeqCanvas.
+    Run the SeqCanvas.  DONE
+
+    NEXT Make the SeqCanvas stop upon reaching an empty cell.
+
+    Provide a way to override the fields in a Codelet?
+
+        Complexes?
+
+    Upon painting, save the overwritten cell contents to the ws.
+
+        And also upon erasing.
+
+    A Workspace class.
+
+        Put a complex in, and all its subcomplexes become nodes, too.
+
+    Put 4+4 into ca[1] and recover.
+
+        KnobTurner
+
+    Put 9+6 into ca[1] and recover.
+
+        Secondary Want, MatchMaker
+
+    Look up Consumers from the slipnet.
+
+
+
+    
+
+    Maybe:
+
+        When making a variant, such as varying the Operator in a Consumer,
+
+        Store Equations in the slipnet, and convert them to Consumers.
+
+            Convert Equation(9 + 6 = 15) to Consumer(15 - 6 = 9).
 
 
 Solve pons asinorum

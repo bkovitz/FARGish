@@ -704,3 +704,8 @@ def pr(x: Any, *args, key=short, file=sys.stdout, **kwargs):
         pts(sorted(as_iter(x), key=key), key=key, file=file)
 #        for s in sorted(str(a) for a in as_iter(x)):
 #            print(s, file=file)
+
+def ps(*items: Any) -> None:
+    '''Short for print(short(i)).'''
+    for i in items:
+        print(short(i))
