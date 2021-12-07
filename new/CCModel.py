@@ -18,7 +18,7 @@ import operator
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
-    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, T, Exclude
+    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, N, T, Exclude
 from Log import trace, lo
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, pr, pts, is_type_instance, \
@@ -166,7 +166,6 @@ ProgramResult = Union[Produced, CellContents]
 class Canvas:
     '''A Canvas is mutable. The contents of its cells may change, and the
     number of its cells may change.'''
-    pass
 
 @dataclass
 class Cell(Program):
@@ -201,9 +200,26 @@ class Cell(Program):
             s = short(self.contents)
         return f'[ {s} ]'
 
+@dataclass(frozen=True)
+class CellRef:
+    canvas: SeqCanvas
+    index: int
+
+    def paint(self, content: CellContents) -> None:
+        self.canvas.paint(self.index, content)
+
 @dataclass
 class SeqCanvas(Canvas, Program):
     _cells: List[Cell]
+
+    instance_count: ClassVar[int] = 0
+    
+    def __post_init__(self) -> None:
+        self.__class__.instance_count += 1
+
+    def __hash__(self):
+        '''This is necessary to maintain determinism.'''
+        return hash(self.instance_count)
 
     def __getitem__(self, addr: int) -> CellContents:
         try:
@@ -211,6 +227,9 @@ class SeqCanvas(Canvas, Program):
         except IndexError:
             # TODO What if addr < 0?
             return None
+
+    def cellref(self, addr: int) -> CellRef:
+        return CellRef(self, addr)
 
     @classmethod
     #def make(cls, num_cells: Optional[int]=None) -> SeqCanvas:
@@ -248,11 +267,27 @@ class SeqCanvas(Canvas, Program):
         else:
             return ''.join(short(c) for c in self._cells)
 
+@dataclass
 class FARGModel:
+    nodes: Set[Node] = field(default_factory=set)
 
     def run(self) -> None:
         # TODO
         pass
+
+    def build(self, node: N) -> N:
+        # TODO If it's a Canvas or other compound structure, build all its
+        # contents, too.
+        self.nodes.add(node)
+        return node
+
+    def paint(self, cellref: CellRef, content: CellContents) -> None:
+        content = self.build(content)
+        cellref.paint(content)
+        # TODO Save what was already painted there?
+
+    def has_node(self, node: Node) -> bool:
+        return node in self.nodes
 
 class Fizzle(Exception):
     pass
@@ -375,6 +410,7 @@ class Operator:
         return nm.join(short(o) for o in operands)
 
 plus = Operator(operator.add, '+')
+mult = Operator(operator.mul, '*')
 
 @dataclass(frozen=True)
 class Consume(Program):
@@ -398,6 +434,9 @@ class Consume(Program):
 
 def Plus(*operands: int) -> Consume:
     return Consume(name='Plus', operator=plus, operands=as_tuple(operands))
+
+def Mult(*operands: int) -> Consume:
+    return Consume(name='Mult', operator=mult, operands=as_tuple(operands))
 
 if __name__ == '__main__':
     #ca = SeqCanvas.make(num_cells=3)

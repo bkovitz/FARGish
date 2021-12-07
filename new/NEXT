@@ -14,7 +14,9 @@ spike.py: Solve pons asinorum
 
         ArgsMapSeries: skip empty_args_map  DONE
 
-    Make the SeqCanvas stop upon reaching an empty cell.
+    Make the SeqCanvas stop upon reaching an empty cell.  DONE
+
+    Need a way to verify that a Cell refers to a given spot in a Canvas.
 
     Provide a way to override the fields in a Codelet?
 
@@ -23,9 +25,21 @@ spike.py: Solve pons asinorum
         "Modify" something deep inside a complex: it should cascade out.
         (Need example.)
 
+        A Paint codelet. DONE
+        
+        NEXT Paint over the operands of a Plus.
+
+        A FillFromAvails(bias) codelet. It produces a Paint codelet.
+
+        A FinishStructure codelet, which produces a FillFromAvails codelet
+        or perhaps a Paint codelet directly.
+
     Upon painting, save the overwritten cell contents to the ws.
 
         And also upon erasing.
+
+    Experiment with the type() function to construct a FARGModel class
+    from a Workspace class.
 
     A Workspace class.
 

@@ -17,7 +17,7 @@ from random import randrange
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
-    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, T, Exclude
+    combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, N, T, Exclude
 from Propagator import Propagator, ActivationLogs, ActivationLog, \
     PropagatorOutgoing
 from Graph import Graph, Hop, WithActivations, Feature
@@ -31,7 +31,7 @@ from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     as_dict, fields_for, transitive_closure
 
 
-N = TypeVar('N', bound=Node)
+#N = TypeVar('N', bound=Node)
 W = TypeVar('W', bound='Workspace')
 
 ### Classes for named references inside Codelets and Agents ###

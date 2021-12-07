@@ -27,6 +27,8 @@ Elems = Union[Elem, Iterable[Elem], None]  # TODO rm
 Node = Elem
 Nodes = Elems
 
+N = TypeVar('N', bound=Node)
+
 # A value that can be stored in a Canvas cell
 #Value = NewType('Value', Hashable)
 Value = Hashable
