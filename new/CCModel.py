@@ -547,7 +547,22 @@ class FillFromAvails(Codelet):
                 k=2
             )))
         )
-        # TODO Select by augmented slipnet query.
+        # TODO Select by augmented slipnet query, not by
+        # sample_without_replacement.
+
+@dataclass(frozen=True)
+class FinishStructure(Codelet):
+    cellref: Optional[CellRef] = None
+    # TODO What about objects that aren't in canvases? What about finishing
+    # whole canvases? This codelet really should work by querying the
+    # slipnet.
+
+    def run(  # type: ignore[override]
+        self,
+        cellref: CellRef,
+    ) -> ProgramResult:
+        return FillFromAvails(cellref=cellref)
+        # TODO Replace this HACK with something more flexible.
 
 if __name__ == '__main__':
     #ca = SeqCanvas.make(num_cells=3)

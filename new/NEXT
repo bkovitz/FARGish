@@ -45,6 +45,10 @@ spike.py: Solve pons asinorum
 
         Put a complex in, and all its subcomplexes become nodes, too.
 
+        .all_nodes_in(): so that FARGModel.build() can be sure to build a node
+        for each element contained in a compound structure like a Canvas or
+        Complex.
+
     Put a + into ca[1] and let the model get it operands from the avails
     in ca[0].
 

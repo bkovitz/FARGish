@@ -12,7 +12,7 @@ from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
-    FillFromAvails
+    FillFromAvails, FinishStructure
 from FMTypes import match_wo_none
 from util import ps, pr
 
@@ -121,3 +121,14 @@ class TestCCModel(unittest.TestCase):
         fm.run_through(...)  # keep running produced codelets until there
                              # are no more.
     """
+
+    def test_finish_structure(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            Plus(),
+            None,
+        ))
+        co1 = FinishStructure(ca.cellref(1))
+        co2 = fm.run(co1, empty_args_map)
+        self.assertEqual(co2, FillFromAvails(cellref=ca.cellref(1)))
