@@ -20,16 +20,16 @@ spike.py: Solve pons asinorum
 
     Provide a way to override the fields in a Codelet?
 
-        Complexes?
+        Complexes?  DONE
 
         "Modify" something deep inside a complex: it should cascade out.
-        (Need example.)
+        For example, paint Mult over a Plus with overridden operators.
 
         A Paint codelet. DONE
         
-        NEXT Paint over the operands of a Plus.
+        Paint over the operands of a Mult. DONE
 
-        A FillFromAvails(bias) codelet. It produces a Paint codelet.
+        NEXT A FillFromAvails(bias) codelet. It produces a Paint codelet.
 
         A FinishStructure codelet, which produces a FillFromAvails codelet
         or perhaps a Paint codelet directly.

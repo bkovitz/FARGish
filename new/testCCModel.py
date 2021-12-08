@@ -73,10 +73,11 @@ class TestCCModel(unittest.TestCase):
         self.assertEqual(ca[1], Mult(2, 3))
         self.assertTrue(fm.has_node(Plus(4, 5)))
 
-        """
         fm.paint(ca.cellref(1), dict(operands=(4, 5)))
-        self.assertEqual(ca[1], Complex(Mult(4, 5), operands=(4,5)))
-        """
+        self.assertEqual(ca[1], Complex(Mult(2, 3), operands=(4, 5)))
+
+        run(ca, empty_args_map)
+        self.assertEqual(ca[2], Avails(20))
 
     """
     def test_missing_operands_fill_from_avails(self) -> None:

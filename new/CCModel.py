@@ -102,16 +102,22 @@ class ArgsMapSeries(ArgsMap):
         return default
 
     @classmethod
-    def make(cls, *argss: Union[None, ArgsMap]) -> ArgsMapSeries:
+    def make(cls, *argss: Union[None, Dict[str, Value], ArgsMap]) \
+    -> ArgsMapSeries:
         # TODO Special treatment for empty and for existing ArgsMapSeries?
         return ArgsMapSeries(as_tuple(cls.flatten(argss)))
 
     @classmethod
-    def flatten(cls, argss: Iterable[Union[None, ArgsMap]]) \
+    def flatten(cls, argss: Iterable[Union[None, Dict[str, Value], ArgsMap]]) \
     -> Iterable[ArgsMap]:
         for args in argss:
             if args is None:
                 continue
+            elif isinstance(args, dict):
+                if not args:
+                    continue
+                else:
+                    yield ArgsDict(args)
             elif args.is_empty():
                 continue
             elif isinstance(args, ArgsMapSeries):
@@ -130,9 +136,17 @@ class Complex(Program):
     nugget: Complex
     override: ArgsDict
 
-    def __init__(self, nugget: Union[Program, Complex], **kwargs):
+    def __init__(
+        self,
+        nugget: Union[Program, Complex],
+        *args: Union[Dict[str, Value], ArgsMap],
+        **kwargs
+    ):
         force_setattr(self, 'nugget', nugget)
-        force_setattr(self, 'override', ArgsDict(kwargs))
+        force_setattr(self, 'override', ArgsMapSeries.make(
+            *args,
+            ArgsDict(kwargs)
+        ))
 
     def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
         return run(self.nugget, ArgsMapSeries.make(
@@ -237,6 +251,9 @@ class CellRef:
     def paint(self, content: CellContents) -> None:
         self.canvas.paint(self.index, content)
 
+    def get(self) -> CellContents:
+        return self.canvas[self.index]
+
 @dataclass
 class SeqCanvas(Canvas, Program):
     _cells: List[Cell]
@@ -310,10 +327,25 @@ class FARGModel:
         self.nodes.add(node)
         return node
 
-    def paint(self, cellref: CellRef, content: CellContents) -> None:
-        content = self.build(content)
-        cellref.paint(content)
-        # TODO Save what was already painted there?
+    def paint(
+        self,
+        cellref: CellRef,
+        content: Union[CellContents, Dict[str, Value], ArgsMap]
+    ) -> None:
+        '''If 'content' is a dict or ArgsMap, painting incorporates 'content'
+        into whatever is already in the cell.'''
+        if isinstance(content, dict) or isinstance(content, ArgsMap):
+            old = cellref.get()
+            if old is None:
+                cellref.paint(as_argsmap(content))
+            elif isinstance(old, ArgsMap):
+                cellref.paint(ArgsMapSeries.make(as_argsmap(content), old))
+            else:
+                cellref.paint(Complex(old, content))
+        else:
+            content = self.build(content)
+            cellref.paint(content)
+            # TODO Save what was already painted there?
 
     def has_node(self, node: Node) -> bool:
         return node in self.nodes
