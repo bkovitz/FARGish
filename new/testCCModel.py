@@ -11,7 +11,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
-    run, Cell, empty_args_map, RunAborted
+    run, Cell, empty_args_map, RunAborted, Complex
 from util import ps, pr
 
 
@@ -42,6 +42,23 @@ class TestCCModel(unittest.TestCase):
         #self.assertEqual(cm.exception.step.addr, 1)
         # TODO Verify that the RunAborted shows that Cell 1 failed.
 
+    def test_complex(self) -> None:
+        c1 = Complex(Plus(4, 5), operands=(4, 6))
+        ca = SeqCanvas.make(
+            Avails(4, 5, 6),
+            c1,
+            None,
+        )
+        run(ca, empty_args_map)
+        self.assertEqual(ca[2], Avails(5, 10))
+
+        c2 = Complex(c1, operands=(5, 6))
+        ca.paint(1, c2)
+        run(ca, empty_args_map)
+        self.assertEqual(ca[2], Avails(4, 11))
+        #pr(ca)  # TODO Make short(Complex) return the short of the most
+        # reduced nugget.
+
     def test_paint(self) -> None:
         fm = FARGModel()
         ca = fm.build(SeqCanvas.make(
@@ -56,6 +73,11 @@ class TestCCModel(unittest.TestCase):
         self.assertEqual(ca[1], Mult(2, 3))
         self.assertTrue(fm.has_node(Plus(4, 5)))
 
+        """
+        fm.paint(ca.cellref(1), dict(operands=(4, 5)))
+        self.assertEqual(ca[1], Complex(Mult(4, 5), operands=(4,5)))
+        """
+
     """
     def test_missing_operands_fill_from_avails(self) -> None:
         ca = SeqCanvas.make(
@@ -68,4 +90,7 @@ class TestCCModel(unittest.TestCase):
         co = FillMissingOperands(CellRef(ca, 1))
         run(co, empty_args_map)
         self.assertEqual(ca[1], Plus(4, 5))  # or 5, 4?
+
+        fm.run_through(...)  # keep running produced codelets until there
+                             # are no more.
     """

@@ -55,9 +55,11 @@ class ArgsMap(ABC):
     def empty(cls) -> EmptyArgsMap:
         return empty_args_map
 
+    """
     def short(self) -> str:
         # TODO
         return '(empty)'
+    """
 
 @dataclass(frozen=True)
 class ArgsDict(ArgsMap):
@@ -69,6 +71,9 @@ class ArgsDict(ArgsMap):
     def xget(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
         return self.d.get(k, default)
+
+    def short(self) -> str:
+        return ' '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
 
 class EmptyArgsMap(ArgsMap):
 
@@ -97,14 +102,17 @@ class ArgsMapSeries(ArgsMap):
         return default
 
     @classmethod
-    def make(cls, *argss: ArgsMap) -> ArgsMapSeries:
+    def make(cls, *argss: Union[None, ArgsMap]) -> ArgsMapSeries:
         # TODO Special treatment for empty and for existing ArgsMapSeries?
         return ArgsMapSeries(as_tuple(cls.flatten(argss)))
 
     @classmethod
-    def flatten(cls, argss: Iterable[ArgsMap]) -> Iterable[ArgsMap]:
+    def flatten(cls, argss: Iterable[Union[None, ArgsMap]]) \
+    -> Iterable[ArgsMap]:
         for args in argss:
-            if args.is_empty():
+            if args is None:
+                continue
+            elif args.is_empty():
                 continue
             elif isinstance(args, ArgsMapSeries):
                 yield from cls.flatten(args.argss)
@@ -114,9 +122,25 @@ class ArgsMapSeries(ArgsMap):
 class Program(ABC):
 
     @abstractmethod
-    #def run(self, fm: FARGModel, **kwargs) -> None:
     def run(self, **kwargs) -> ProgramResult:
         pass
+
+@dataclass(frozen=True)
+class Complex(Program):
+    nugget: Complex
+    override: ArgsDict
+
+    def __init__(self, nugget: Union[Program, Complex], **kwargs):
+        force_setattr(self, 'nugget', nugget)
+        force_setattr(self, 'override', ArgsDict(kwargs))
+
+    def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
+        return run(self.nugget, ArgsMapSeries.make(
+            args, self.override
+        ))
+
+    def short(self) -> str:
+        return f'{short(self.override)}/{short(self.nugget)}'
 
 def as_argsmap(x: Any) -> ArgsMap:
     if isinstance(x, ArgsMap):
@@ -127,8 +151,13 @@ def as_argsmap(x: Any) -> ArgsMap:
         return empty_args_map
 
 def run(program: Program, args: ArgsMap) -> ProgramResult:
+    # TODO Why prepend? Shouldn't args override whatever is in program?
     return program.run(
-        **mk_func_args(program.run, args.prepend(as_argsmap(program)))
+        #**mk_func_args(program.run, args.prepend(as_argsmap(program)))
+        **mk_func_args(program.run, ArgsMapSeries.make(
+            args,
+            as_argsmap(program)
+        ))
     )
 
 def mk_func_args(func: Callable, args: ArgsMap) -> Dict[str, Any]:
