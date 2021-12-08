@@ -11,7 +11,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
-    run, Cell, empty_args_map, RunAborted, Complex
+    run, Cell, empty_args_map, RunAborted, Complex, Paint
 from util import ps, pr
 
 
@@ -59,7 +59,7 @@ class TestCCModel(unittest.TestCase):
         #pr(ca)  # TODO Make short(Complex) return the short of the most
         # reduced nugget.
 
-    def test_paint(self) -> None:
+    def test_painting_over(self) -> None:
         fm = FARGModel()
         ca = fm.build(SeqCanvas.make(
             Avails(4, 5),
@@ -79,6 +79,17 @@ class TestCCModel(unittest.TestCase):
         run(ca, empty_args_map)
         self.assertEqual(ca[2], Avails(20))
 
+    def test_paint(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            None,  # No codelet
+            None,
+        ))
+        p = Paint(cellref=ca.cellref(2), to_paint=Avails(9))
+        fm.run(p, empty_args_map)
+        self.assertEqual(ca[2], Avails(9))
+        
     """
     def test_missing_operands_fill_from_avails(self) -> None:
         ca = SeqCanvas.make(

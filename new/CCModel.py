@@ -197,6 +197,7 @@ def params_of(func: Callable) -> Iterable[Tuple[str, TypeAnnotation]]:
         yield (param_name, type_hints.get(param_name, Any))
 
 CellContents = Union[ArgsMap, Program, None]
+Paintable = Union[CellContents, Dict[str, Value]]
 
 @dataclass(frozen=True)
 class Produced:
@@ -317,9 +318,8 @@ class SeqCanvas(Canvas, Program):
 class FARGModel:
     nodes: Set[Node] = field(default_factory=set)
 
-    def run(self) -> None:
-        # TODO
-        pass
+    def run(self, program: Program, args: ArgsMap) -> ProgramResult:
+        return run(program, ArgsMapSeries.make(args, ArgsDict(dict(fm=self))))
 
     def build(self, node: N) -> N:
         # TODO If it's a Canvas or other compound structure, build all its
@@ -330,7 +330,7 @@ class FARGModel:
     def paint(
         self,
         cellref: CellRef,
-        content: Union[CellContents, Dict[str, Value], ArgsMap]
+        content: Paintable
     ) -> None:
         '''If 'content' is a dict or ArgsMap, painting incorporates 'content'
         into whatever is already in the cell.'''
@@ -473,8 +473,11 @@ class Operator:
 plus = Operator(operator.add, '+')
 mult = Operator(operator.mul, '*')
 
+class Codelet(Program):
+    pass
+
 @dataclass(frozen=True)
-class Consume(Program):
+class Consume(Codelet):
     name: str
     operator: Operator
     operands: Tuple[Value, ...]
@@ -498,6 +501,20 @@ def Plus(*operands: int) -> Consume:
 
 def Mult(*operands: int) -> Consume:
     return Consume(name='Mult', operator=mult, operands=as_tuple(operands))
+
+@dataclass(frozen=True)
+class Paint(Codelet):
+    cellref: Optional[CellRef] = None
+    to_paint: Optional[Paintable] = None
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        cellref: CellRef,
+        to_paint: Paintable
+    ) -> ProgramResult:
+        fm.paint(cellref, to_paint)
+        return None
 
 if __name__ == '__main__':
     #ca = SeqCanvas.make(num_cells=3)
