@@ -29,9 +29,9 @@ spike.py: Solve pons asinorum
         
         Paint over the operands of a Mult. DONE
 
-        NEXT A FillFromAvails(bias) codelet. It produces a Paint codelet.
+        A FillFromAvails(bias) codelet. It produces a Paint codelet. DONE
 
-        A FinishStructure codelet, which produces a FillFromAvails codelet
+        NEXT A FinishStructure codelet, which produces a FillFromAvails codelet
         or perhaps a Paint codelet directly.
 
     Upon painting, save the overwritten cell contents to the ws.

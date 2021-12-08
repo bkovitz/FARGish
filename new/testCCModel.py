@@ -13,6 +13,7 @@ from io import StringIO
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
     FillFromAvails
+from FMTypes import match_wo_none
 from util import ps, pr
 
 
@@ -102,10 +103,11 @@ class TestCCModel(unittest.TestCase):
             run(ca, empty_args_map)
         co = FillFromAvails(cellref=ca.cellref(1))
         paint: Any = run(co, empty_args_map)
-        self.assertEqual(
+        self.assertTrue(match_wo_none(
             paint,
-            Paint(cellref=ca.cellref(1), to_paint=dict(operands=(4, 5)))
-        )
+            Paint(cellref=ca.cellref(1))
+        ))
+        self.assertCountEqual(paint.to_paint['operands'], (4, 5))
 
         fm.run(paint, empty_args_map)
         fm.run(ca, empty_args_map)
