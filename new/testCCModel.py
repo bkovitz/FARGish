@@ -11,7 +11,8 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
 from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
-    run, Cell, empty_args_map, RunAborted, Complex, Paint
+    run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
+    FillFromAvails
 from util import ps, pr
 
 
@@ -90,15 +91,27 @@ class TestCCModel(unittest.TestCase):
         fm.run(p, empty_args_map)
         self.assertEqual(ca[2], Avails(9))
         
-    """
     def test_missing_operands_fill_from_avails(self) -> None:
-        ca = SeqCanvas.make(
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
             Avails(4, 5),
             Plus(),
             None,
-        )
+        ))
         with self.assertRaises(NotEnoughOperands):
             run(ca, empty_args_map)
+        co = FillFromAvails(cellref=ca.cellref(1))
+        paint: Any = run(co, empty_args_map)
+        self.assertEqual(
+            paint,
+            Paint(cellref=ca.cellref(1), to_paint=dict(operands=(4, 5)))
+        )
+
+        fm.run(paint, empty_args_map)
+        fm.run(ca, empty_args_map)
+        self.assertEqual(ca[2], Avails(9))
+
+    """
         co = FillMissingOperands(CellRef(ca, 1))
         run(co, empty_args_map)
         self.assertEqual(ca[1], Plus(4, 5))  # or 5, 4?

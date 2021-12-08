@@ -255,6 +255,9 @@ class CellRef:
     def get(self) -> CellContents:
         return self.canvas[self.index]
 
+    def avails_at(self) -> Tuple[Value, ...]:
+        return self.canvas.avails_at(self.index)
+
 @dataclass
 class SeqCanvas(Canvas, Program):
     _cells: List[Cell]
@@ -313,6 +316,16 @@ class SeqCanvas(Canvas, Program):
             return '(empty seqcanvas)'
         else:
             return ''.join(short(c) for c in self._cells)
+
+    def avails_at(self, addr: int) -> Tuple[Value, ...]:
+        while addr >= 0:
+            args = as_argsmap(self[addr])
+            avails: Avails = args.get('avails')  # type: ignore[assignment]
+            if avails is not None:
+                return avails.values
+            else:
+                addr -= 1
+        return ()
 
 @dataclass
 class FARGModel:
@@ -515,6 +528,26 @@ class Paint(Codelet):
     ) -> ProgramResult:
         fm.paint(cellref, to_paint)
         return None
+
+@dataclass(frozen=True)
+class FillFromAvails(Codelet):
+    cellref: Optional[CellRef] = None
+    # TODO A 'bias' or 'features' parameter to favor some avails over others
+    # TODO Name of argument of interest, e.g. 'operands'
+    # TODO How many avails are needed
+
+    def run(  # type: ignore[override]
+        self,
+        cellref: CellRef,
+    ) -> ProgramResult:
+        return Paint(
+            cellref=cellref,
+            to_paint=dict(operands=as_tuple(sample_without_replacement(
+                cellref.avails_at(),
+                k=2
+            )))
+        )
+        # TODO Select by augmented slipnet query.
 
 if __name__ == '__main__':
     #ca = SeqCanvas.make(num_cells=3)
