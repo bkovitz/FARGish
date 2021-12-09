@@ -162,8 +162,18 @@ class Complex(Program):
         ))
 
     def has_tag(self, tag: Type[Node]) -> bool:
-        # TODO WRONG Must recursively check all nuggets
+        return any(c._has_tag(tag) for c in self.complexes_all_down())
+
+    def _has_tag(self, tag: Type[Node]) -> bool:
         return any(isinstance(t, tag) for t in as_iter(self.tags))
+
+    def complexes_all_down(self) -> Iterable[Complex]:
+        x = self
+        while isinstance(x, Complex):
+            yield x
+            if not isinstance(x.nugget, Complex):
+                break
+            x = x.nugget
 
     def short(self) -> str:
         return f'{short(self.override)}/{short(self.nugget)}'
