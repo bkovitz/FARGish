@@ -31,8 +31,8 @@ spike.py: Solve pons asinorum
 
         A FillFromAvails(bias) codelet. It produces a Paint codelet. DONE
 
-        NEXT A FinishStructure codelet, which produces a FillFromAvails codelet
-        or perhaps a Paint codelet directly.
+        A FinishStructure codelet, which produces a FillFromAvails codelet
+        or perhaps a Paint codelet directly. DONE
 
     Upon painting, save the overwritten cell contents to the ws.
 
@@ -49,7 +49,7 @@ spike.py: Solve pons asinorum
         for each element contained in a compound structure like a Canvas or
         Complex.
 
-    Put a + into ca[1] and let the model get it operands from the avails
+    Put a + into ca[1] and let the model get its operands from the avails
     in ca[0].
 
     Put 4+4 into ca[1] and recover.

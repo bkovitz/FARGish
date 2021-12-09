@@ -99,8 +99,11 @@ class TestCCModel(unittest.TestCase):
             Plus(),
             None,
         ))
-        with self.assertRaises(NotEnoughOperands):
+        with self.assertRaises(NotEnoughOperands) as cm:
             run(ca, empty_args_map)
+        self.assertEqual(cm.exception.codelet, Plus())
+        self.assertTrue(fm.has_tag(ca.cellref(1), NotEnoughOperands))
+
         co = FillFromAvails(cellref=ca.cellref(1))
         paint: Any = run(co, empty_args_map)
         self.assertTrue(match_wo_none(

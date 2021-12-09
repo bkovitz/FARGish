@@ -222,7 +222,8 @@ def tupdict(**kwargs) -> Tuple[Tuple[str, Hashable]]:
         (k, v) for k, v in kwargs.items()
     )
 
-def as_dict(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) -> Dict:
+def as_dict(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) \
+-> Dict:
     # TODO Update type annotation to show that x can be a dataclass.
     if isinstance(x, dict):
         return x
@@ -236,6 +237,17 @@ def as_dict(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) -> Dict
         )
     else:
         return dict(x)
+
+def as_dstr(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) \
+-> str:
+    '''Convenient string to represent an object, especially a dataclass
+    instance, showing the class name and all of the object's fields.''' 
+    if x is None:
+        return 'None'
+    else:
+        cl = x.__class__.__name__
+        args = ', '.join(f'{k}={short(v)}' for k, v in as_dict(x).items())
+        return f'{cl}({args})'
 
 def asdict_with_classvars(x) -> Dict[str, Any]:
     '''Does not recurse (see dataclasses._asdict_inner() for how to do that

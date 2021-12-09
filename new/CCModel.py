@@ -15,6 +15,7 @@ import sys
 from types import MethodType, FunctionType
 from random import randrange
 import operator
+from traceback import print_stack
 
 from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
@@ -23,7 +24,7 @@ from Log import trace, lo
 from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     sample_without_replacement, pr, pts, is_type_instance, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit, \
-    as_dict, fields_for, transitive_closure, as_tuple, ps
+    as_dict, fields_for, transitive_closure, as_tuple, ps, as_dstr
 
 
 TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
@@ -135,11 +136,13 @@ class Program(ABC):
 class Complex(Program):
     nugget: Complex
     override: ArgsDict
+    tags: Optional[Tuple[Value]]
 
     def __init__(
         self,
         nugget: Union[Program, Complex],
         *args: Union[Dict[str, Value], ArgsMap],
+        tags: Optional[Sequence[Value]]=None,
         **kwargs
     ):
         force_setattr(self, 'nugget', nugget)
@@ -147,11 +150,20 @@ class Complex(Program):
             *args,
             ArgsDict(kwargs)
         ))
+        if tags:
+            force_setattr(self, 'tags', as_tuple(tags))
+        else:
+            force_setattr(self, 'tags', None)
+        #lo('COMPL', self.tags)
 
     def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
         return run(self.nugget, ArgsMapSeries.make(
             args, self.override
         ))
+
+    def has_tag(self, tag: Type[Node]) -> bool:
+        # TODO WRONG Must recursively check all nuggets
+        return any(isinstance(t, tag) for t in as_iter(self.tags))
 
     def short(self) -> str:
         return f'{short(self.override)}/{short(self.nugget)}'
@@ -165,14 +177,17 @@ def as_argsmap(x: Any) -> ArgsMap:
         return empty_args_map
 
 def run(program: Program, args: ArgsMap) -> ProgramResult:
-    # TODO Why prepend? Shouldn't args override whatever is in program?
-    return program.run(
-        #**mk_func_args(program.run, args.prepend(as_argsmap(program)))
-        **mk_func_args(program.run, ArgsMapSeries.make(
-            args,
-            as_argsmap(program)
-        ))
-    )
+    try:
+        return program.run(
+            **mk_func_args(program.run, ArgsMapSeries.make(
+                args,
+                as_argsmap(program)
+            ))
+        )
+    except Fizzle as fiz:
+        if fiz.codelet is None:
+            force_setattr(fiz, 'codelet', program)
+        raise
 
 def mk_func_args(func: Callable, args: ArgsMap) -> Dict[str, Any]:
     d: Dict[str, Any] = {}
@@ -230,12 +245,21 @@ class Cell(Program):
         if args is None:
             args = empty_args_map
         if self.contents is None:
-            raise RunAborted(self.canvas, self)
+            raise RunAborted(canvas=self.canvas, step=self)
         elif isinstance(self.contents, ArgsMap):
             return args.prepend(self.contents)
         else:
             #return self.contents.run(args=args)
-            return run(self.contents, args)
+            try:
+                return run(self.contents, args)
+            except Fizzle as fiz:
+                # TODO Don't we need a FARGModel to hold the untagged
+                # contents that we paint over?
+                fiz.paint_tagged_codelet(self)
+                raise
+
+    def has_tag(self, tag: Type[Node]) -> bool:
+        return has_tag(self.contents, tag)
 
     def short(self) -> str:
         if self.contents is None:
@@ -243,6 +267,10 @@ class Cell(Program):
         else:
             s = short(self.contents)
         return f'[ {s} ]'
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.addr}: {short(self.contents)})'
 
 @dataclass(frozen=True)
 class CellRef:
@@ -257,6 +285,15 @@ class CellRef:
 
     def avails_at(self) -> Tuple[Value, ...]:
         return self.canvas.avails_at(self.index)
+
+    def has_tag(self, tag: Type[Node]) -> bool:
+        return has_tag(self.get(), tag)
+
+def has_tag(x: Any, tag: Type[Node]) -> bool:
+    if isinstance(x, (Complex, Cell, CellRef)):
+        return x.has_tag(tag)
+    else:
+        return False
 
 @dataclass
 class SeqCanvas(Canvas, Program):
@@ -363,8 +400,24 @@ class FARGModel:
     def has_node(self, node: Node) -> bool:
         return node in self.nodes
 
+    def has_tag(self, x: Union[Node, Cell, CellRef], tag: Type[Node]) -> bool:
+        return has_tag(x, tag)
+
+@dataclass(frozen=True)
 class Fizzle(Exception):
-    pass
+    codelet: Optional[Program] = None  # This should always be a Codelet
+        # The global run() sets .codelet so individual Codelets' .run()
+        # methods don't have to.
+
+    def paint_tagged_codelet(self, cellref: Union[Cell, CellRef]) -> None:
+        if self.codelet is not None:
+            cellref.paint(Complex(self.codelet, tags=(self,)))
+        
+    def __str__(self) -> str:
+        return as_dstr(self)
+
+    def short(self) -> str:
+        return str(self)
 
 @dataclass(frozen=True)
 class MissingArgument(Fizzle):
@@ -372,9 +425,6 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     param_type: TypeAnnotation = None
     value: Any = None
-
-    def __str__(self) -> str:
-        return self.short()
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -406,8 +456,8 @@ class ValuesNotAvail(Fizzle):
 
 @dataclass(frozen=True)
 class RunAborted(Fizzle):
-    canvas: Optional[Canvas]
-    step: Optional[Program]
+    canvas: Optional[Canvas] = None
+    step: Optional[Program] = None
 
 @dataclass(frozen=True)
 class Avails(ArgsMap):
@@ -480,8 +530,11 @@ class Operator:
         return hash(str(self))
 
     def mk_short(self, operands: Sequence[Value]) -> str:
-        nm = f' {self.name} '
-        return nm.join(short(o) for o in operands)
+        if operands:
+            nm = f' {self.name} '
+            return nm.join(short(o) for o in operands)
+        else:
+            return f'_{self.name}_'
 
 plus = Operator(operator.add, '+')
 mult = Operator(operator.mul, '*')
@@ -504,7 +557,6 @@ class Consume(Codelet):
     ) -> ProgramResult:
         operands, new_avails = avails.take_avails(operands)
         return Produced(new_avails.add_avail(operator(*operands)))
-        #return args
 
     def short(self) -> str:
         return self.operator.mk_short(self.operands)
