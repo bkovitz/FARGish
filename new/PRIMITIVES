@@ -1,0 +1,141 @@
+Primitive actions
+-----------------
+
+Paint  (value, codelet, complex, canvas, cell, cellref, argsmap, overrides) onto (value, codelet, complex, canvas, cell, cellref, argsmap, overrides, detector)
+    Can you paint onto a glom? Can you paint a glom onto something?
+
+    Can you paint a detector onto something?
+
+    value -> value:  Just build a new value? Make a complex with both?
+
+    overrides -> value:  Build a new value with the overrides? Make a complex?
+
+    -> canvas:  Overwrite the cells one way or another.
+
+
+    Adding a tag. Should this ever directly modify anything rather than
+    putting it in a complex?
+
+
+    In each complex, store only the delta?
+
+    
+Build  (anything)
+
+    Stick it in the workspace.
+
+    Record the builder if possible: the codelet.
+
+
+Query  workspace, slipnet (possibly augmented), node
+
+    has_tag, find_tag
+
+    query (augmented) slipnet
+
+
+    Query arguments
+
+        Augmentations: Some additional nodes.
+
+        Filters: Limit results to certain nodes or types of nodes.
+
+        SimilarityMetric
+
+Run   codelet, detector, canvas, (runnable) complex, cell, cellref
+    Should you be able to 'run' anything? If it's not directly runnable,
+    then maybe consult the slipnet to figure out a way to 'run' it.
+
+    codelet: Run directly.
+
+    complex: Run the nugget with its overrides. Easily done if we keep a
+    ._reduced member in Complex.
+
+Support/Oppose
+
+    Spread activation (in slipnet or workspace)
+
+Glom?
+    Is glomming just a sort of tag? A sort of complex that embraces something
+    else? Can you glom only values?
+
+
+Elements
+--------
+
+Value
+
+ArgsMap
+
+    Avails
+
+Codelets
+
+    Paint
+
+    Scout
+
+    Consume
+
+    FinishStructure
+
+    FillFromAvails
+
+
+ProgramResults
+
+    codelet: Run it? Build it and maybe run it later?
+
+Canvas
+
+Cell
+
+CellRef
+
+NodeRef
+
+Complex
+
+Agents
+
+    Want
+
+Detectors
+
+    Matchmaker?
+
+Glom
+
+    How about a single Glom object for a cell, canvas, or node, with its own
+    history, so it can revert back to previous gloms? Does it need its own
+    mini-slipnet of gloms?
+
+SimilarityMetric
+
+Slipnet
+
+    Maybe also the ActivationsDict should be accessible by model elements.
+
+Tags
+
+    Exceptions
+
+
+
+Overall
+-------
+
+Overall, the model consists of painting and querying: making things or writing
+over them, and searching for matches.
+
+Ancillary to those are various gadgets for tagging, accumulating, and
+influencing. Complexes accumulate histories. Support/inhibition and similarity
+influence the results of queries. Tags influence both what queries get
+performed and their results. Gloms are essentially influencers.
+
+How do we get analogies? By running codelets or codelet-complexes in new
+contexts, where they get oriented by new elements, especially by getting
+overrides. In the process, we might construct new codelet-complexes. Overrides
+on codelets don't completely mask out overridden values; the latter can still
+influence slipnet searches, thus influencing which follow-on codelets get
+retrieved from the slipnet and run in the new context.
