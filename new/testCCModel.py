@@ -12,7 +12,7 @@ from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
-    FillFromAvails, FinishStructure
+    FillFromAvails, FinishStructure, Detector
 from FMTypes import match_wo_none
 from util import ps, pr
 
@@ -88,7 +88,7 @@ class TestCCModel(unittest.TestCase):
             None,  # No codelet
             None,
         ))
-        p = Paint(cellref=ca.cellref(2), to_paint=Avails(9))
+        p = Paint(noderef=ca.cellref(2), content=Avails(9))
         fm.run(p, empty_args_map)
         self.assertEqual(ca[2], Avails(9))
         
@@ -104,13 +104,14 @@ class TestCCModel(unittest.TestCase):
         self.assertEqual(cm.exception.codelet, Plus())
         self.assertTrue(fm.has_tag(ca.cellref(1), NotEnoughOperands))
 
-        co = FillFromAvails(cellref=ca.cellref(1))
+        co = FillFromAvails(noderef=ca.cellref(1))
         paint: Any = run(co, empty_args_map)
         self.assertTrue(match_wo_none(
             paint,
-            Paint(cellref=ca.cellref(1))
+            Paint(noderef=ca.cellref(1))
         ))
         self.assertCountEqual(paint.to_paint['operands'], (4, 5))
+        self.assertFalse(fm.has_tag(ca.cellref(1), NotEnoughOperands))
 
         fm.run(paint, empty_args_map)
         fm.run(ca, empty_args_map)
@@ -134,4 +135,31 @@ class TestCCModel(unittest.TestCase):
         ))
         co1 = FinishStructure(ca.cellref(1))
         co2 = fm.run(co1, empty_args_map)
-        self.assertEqual(co2, FillFromAvails(cellref=ca.cellref(1)))
+        self.assertEqual(co2, FillFromAvails(noderef=ca.cellref(1)))
+
+    def test_detector(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            Plus(),
+            None,
+        ))
+        de = fm.build(Detector(
+            watch=ca,
+            watch_for=NotEnoughOperands,
+            then=FinishStructure
+        ))
+        fm.do_timestep(run=ca)
+        assert fm.has_tag(ca.cellref(1), NotEnoughOperands)
+        fm.run(de)
+        # NEXT The Detector should trigger FinishStructure.
+
+    @unittest.skip('not implemented yet')
+    def test_respond_to_missing_operands(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            Plus(),
+            None,
+        ))
+        fm.run(ca, empty_args_map)

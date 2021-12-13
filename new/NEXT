@@ -34,9 +34,19 @@ spike.py: Solve pons asinorum
         A FinishStructure codelet, which produces a FillFromAvails codelet
         or perhaps a Paint codelet directly. DONE
 
+        A RemovedTag tag.
+
     Upon painting, save the overwritten cell contents to the ws.
 
         And also upon erasing.
+
+    Make the NotEnoughOperands exception trigger running a codelet
+    (FinishStructure, FillFromAvails) to fix it.
+
+        NEXT Make a Detector that responds to NotEnoughOperands.
+
+        Make a general Fizzle detector, which queries the slipnet for how
+        to fix the Fizzle.
 
     Experiment with the type() function to construct a FARGModel class
     from a Workspace class.

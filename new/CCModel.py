@@ -132,8 +132,42 @@ class Program(ABC):
     def run(self, **kwargs) -> ProgramResult:
         pass
 
+    def short(self) -> str:
+        return as_dstr(self)
+
+    def __str__(self) -> str:
+        return short(self)
+
+@dataclass(frozen=True)
+class Detector(Program):
+    watch: Optional[Node] = None
+    watch_for: Optional[Type[Node]] = None  # TODO broader match criterion
+    then: Optional[Type[Program]] = None
+
+    def run(  # type: ignore[override]
+        self,
+        fm: FARGModel,
+        watch: Union[Canvas, CellRef],
+        watch_for: Type[Node],  # TODO allow a broader match criterion
+        then: Type[Program]  # TODO allow an instance
+    ) -> ProgramResult:
+        found_node = fm.node_query(watch, watch_for)
+        if found_node is None:
+            return None
+        else:
+            then = fm.build(then, ArgsDict(dict(noderef=found_node)))  # type: ignore[arg-type]  # mypy bug?
+            return fm.run(then)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return cl  # TODO Show the fields, but in a very short form.
+                   # as_dstr() makes a long and confusing string when the
+                   # Detector is watching a canvas.
+
 @dataclass(frozen=True)
 class Complex(Program):
+    # TODO Replace .nugget and .override with a single dict? This would make
+    # it straightforward to override the nugget.
     nugget: Complex
     override: ArgsDict
     tags: Optional[Tuple[Value]]
@@ -204,11 +238,14 @@ def mk_func_args(func: Callable, args: ArgsMap) -> Dict[str, Any]:
     for param_name, param_type in params_of(func):
         value = args.get(param_name, None)
         if not is_type_instance(value, param_type):
+            # TODO Distinguish between missing argument and argument of
+            # wrong type?
             raise MissingArgument(
                 func=func,
                 param_name=param_name,
                 param_type=param_type,
-                value=value
+                value=value,
+                actual_type=type(value)
             )
         else:
             d[param_name] = value
@@ -221,8 +258,14 @@ def params_of(func: Callable) -> Iterable[Tuple[str, TypeAnnotation]]:
             continue  # disregard return type
         yield (param_name, type_hints.get(param_name, Any))
 
-CellContents = Union[ArgsMap, Program, None]
+@dataclass(frozen=True)
+class ValueWrapper:
+    v: Value
+
+CellContents = Union[ArgsMap, Program, Value, None]
 Paintable = Union[CellContents, Dict[str, Value]]
+# What is Paintable is that which can be painted onto something else
+# (not that on which something is painted).
 
 @dataclass(frozen=True)
 class Produced:
@@ -258,7 +301,7 @@ class Cell(Program):
             raise RunAborted(canvas=self.canvas, step=self)
         elif isinstance(self.contents, ArgsMap):
             return args.prepend(self.contents)
-        else:
+        elif isinstance(self.contents, Program):
             #return self.contents.run(args=args)
             try:
                 return run(self.contents, args)
@@ -267,6 +310,9 @@ class Cell(Program):
                 # contents that we paint over?
                 fiz.paint_tagged_codelet(self)
                 raise
+        else:
+            # ValueWrapper
+            return None  # TODO Should 'running' a value mean something?
 
     def has_tag(self, tag: Type[Node]) -> bool:
         return has_tag(self.contents, tag)
@@ -298,6 +344,8 @@ class CellRef:
 
     def has_tag(self, tag: Type[Node]) -> bool:
         return has_tag(self.get(), tag)
+
+NodeRef = Union[Node, Cell, CellRef]
 
 def has_tag(x: Any, tag: Type[Node]) -> bool:
     if isinstance(x, (Complex, Cell, CellRef)):
@@ -378,40 +426,127 @@ class SeqCanvas(Canvas, Program):
 class FARGModel:
     nodes: Set[Node] = field(default_factory=set)
 
-    def run(self, program: Program, args: ArgsMap) -> ProgramResult:
+    def run(self, program: Program, args: ArgsMap=empty_args_map) \
+    -> ProgramResult:
         return run(program, ArgsMapSeries.make(args, ArgsDict(dict(fm=self))))
 
-    def build(self, node: N) -> N:
+    def build(self, node_: Union[N, Type[N]], args: ArgsMap=empty_args_map) \
+    -> N:
         # TODO If it's a Canvas or other compound structure, build all its
         # contents, too.
+        node: N
+        if isclass(node_):
+            node = self.build_instance(node_, args)  # type: ignore[arg-type]
+        else:
+            node = node_  # type: ignore[assignment]
         self.nodes.add(node)
         return node
 
-    def paint(
+    def build_instance(self, ntype: Type[N], args: ArgsMap=empty_args_map) -> N:
+        # TODO Maybe return a Complex that includes any unused args
+        return ntype(**mk_func_args(ntype, args))  # type: ignore[call-arg]
+
+    """
+    def OLDpaint(
         self,
-        cellref: CellRef,
+        noderef: NodeRef,
         content: Paintable
     ) -> None:
         '''If 'content' is a dict or ArgsMap, painting incorporates 'content'
         into whatever is already in the cell.'''
         if isinstance(content, dict) or isinstance(content, ArgsMap):
-            old = cellref.get()
+            #old = noderef.get()
+            old = self.deref(noderef)
             if old is None:
-                cellref.paint(as_argsmap(content))
+                noderef.paint(as_argsmap(content))
             elif isinstance(old, ArgsMap):
-                cellref.paint(ArgsMapSeries.make(as_argsmap(content), old))
+                noderef.paint(ArgsMapSeries.make(as_argsmap(content), old))
             else:
-                cellref.paint(Complex(old, content))
+                noderef.paint(Complex(old, content))
         else:
             content = self.build(content)
-            cellref.paint(content)
+            noderef.paint(content)
             # TODO Save what was already painted there?
+    """
+
+    def paint(
+        self,
+        noderef: NodeRef,
+        content: Paintable
+    ) -> Node:
+        '''Returns what got painted.''' # TODO Explain the decision about
+        # what gets painted and what 'painting' actually is.
+        old_node = self.deref(noderef)
+        new_node = self.updated_content(old_node, content)
+        if isinstance(noderef, (Cell, CellRef)):
+            noderef.paint(new_node)
+        else:
+            self.build(new_node)
+        return new_node
+
+    def updated_content(self, old: CellContents, new: Paintable) \
+    -> CellContents:
+        '''Returns the new thing that results when you paint 'new' on
+        top of 'old'.'''
+        if new is None or isinstance(new, Program):
+            return new
+        elif isinstance(new, ArgsMap) or isinstance(new, dict):
+            if old is None:
+                return as_argsmap(new)
+            elif isinstance(old, ArgsMap):
+                return ArgsMapSeries.make(new, old)
+            elif isinstance(old, Program):
+                return Complex(old, as_argsmap(new))
+            else:
+                return as_argsmap(new)
+        else:
+            # new is a Program or a Value
+            return new
+            
+
+        """
+        if old_node is None:
+            return as_cellcontents(content)
+        elif isinstance(old_node, ArgsMap):
+            if content
+            return ArgsMapSeries.make(as_argsmap(content
+        elif isinstance(old_node, Program):
+            # TODO
+        else:
+            return as_cellcontents(content)
+        """
+
+    def deref(self, noderef: NodeRef) -> CellContents:
+        if isinstance(noderef, CellRef):
+            return noderef.get()
+        elif isinstance(noderef, Cell):
+            return noderef.contents
+        else:
+            return noderef
 
     def has_node(self, node: Node) -> bool:
         return node in self.nodes
 
     def has_tag(self, x: Union[Node, Cell, CellRef], tag: Type[Node]) -> bool:
         return has_tag(x, tag)
+
+    def do_timestep(self, run: Optional[Program]=None) -> Any:
+        if run is None:
+            raise NotImplementedError('need to choose codelet')
+        result: Any
+        try:
+            result = self.run(run)
+        except Fizzle as fiz:
+            result = fiz
+            pr(fiz)
+        return result
+
+    def node_query(self, node: Node, pred: Any) -> Optional[Node]:
+        # TODO
+        pass
+
+    def avails_at(self, noderef: NodeRef) -> Tuple[Value, ...]:
+        pass
 
 @dataclass(frozen=True)
 class Fizzle(Exception):
@@ -435,10 +570,14 @@ class MissingArgument(Fizzle):
     param_name: Optional[str] = None
     param_type: TypeAnnotation = None
     value: Any = None
+    actual_type: Optional[Type] = None
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.func)}, {repr(self.param_name)}, {short(self.param_type)}, {short(self.value)})'
+        #lo('MAR', type(self.func))
+        return f'{cl}({short(self.func)}, {repr(self.param_name)}, {short(self.param_type)}, {short(self.value)}, {short(self.actual_type)})'
+
+    __str__ = short
 
 @dataclass(frozen=True)
 class NotEnoughOperands(Fizzle):
@@ -579,33 +718,35 @@ def Mult(*operands: int) -> Consume:
 
 @dataclass(frozen=True)
 class Paint(Codelet):
-    cellref: Optional[CellRef] = None
-    to_paint: Optional[Paintable] = None
+    noderef: Optional[NodeRef] = None
+    content: Optional[Paintable] = None
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        cellref: CellRef,
-        to_paint: Paintable
+        noderef: NodeRef,
+        content: Paintable
     ) -> ProgramResult:
-        fm.paint(cellref, to_paint)
+        fm.paint(noderef, content)
         return None
 
 @dataclass(frozen=True)
 class FillFromAvails(Codelet):
-    cellref: Optional[CellRef] = None
+    noderef: Optional[NodeRef] = None
     # TODO A 'bias' or 'features' parameter to favor some avails over others
     # TODO Name of argument of interest, e.g. 'operands'
     # TODO How many avails are needed
 
     def run(  # type: ignore[override]
         self,
-        cellref: CellRef,
+        fm: FARGModel,
+        noderef: NodeRef,
     ) -> ProgramResult:
         return Paint(
-            cellref=cellref,
-            to_paint=dict(operands=as_tuple(sample_without_replacement(
-                cellref.avails_at(),
+            noderef=noderef,
+            content=dict(operands=as_tuple(sample_without_replacement(
+                #cellref.avails_at(),
+                fm.avails_at(noderef),
                 k=2
             )))
         )
@@ -614,16 +755,16 @@ class FillFromAvails(Codelet):
 
 @dataclass(frozen=True)
 class FinishStructure(Codelet):
-    cellref: Optional[CellRef] = None
+    noderef: Optional[NodeRef] = None
     # TODO What about objects that aren't in canvases? What about finishing
     # whole canvases? This codelet really should work by querying the
     # slipnet.
 
     def run(  # type: ignore[override]
         self,
-        cellref: CellRef,
+        noderef: NodeRef,
     ) -> ProgramResult:
-        return FillFromAvails(cellref=cellref)
+        return FillFromAvails(noderef=noderef)
         # TODO Replace this HACK with something more flexible.
 
 if __name__ == '__main__':

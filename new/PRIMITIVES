@@ -126,12 +126,13 @@ Overall
 -------
 
 Overall, the model consists of painting and querying: making things or writing
-over them, and searching for matches.
+over them, and searching for matches. Consuming is a sort of painting over.
 
 Ancillary to those are various gadgets for tagging, accumulating, and
 influencing. Complexes accumulate histories. Support/inhibition and similarity
-influence the results of queries. Tags influence both what queries get
-performed and their results. Gloms are essentially influencers.
+influence the results of queries. Agents provide persisting support for goals.
+Tags influence both what queries get performed and their results. Gloms are
+essentially influencers.
 
 How do we get analogies? By running codelets or codelet-complexes in new
 contexts, where they get oriented by new elements, especially by getting

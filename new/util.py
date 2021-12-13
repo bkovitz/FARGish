@@ -12,7 +12,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable, get_origin, get_args
 import typing
 from contextlib import AbstractContextManager
-from types import SimpleNamespace
+from types import SimpleNamespace, MethodType
 from itertools import chain, tee, filterfalse
 import functools
 import csv
@@ -283,6 +283,8 @@ def short(o) -> str:
         return o.__name__
 #    elif isinstance(o, str):
 #        return repr(o)
+    elif isinstance(o, MethodType):
+        return f'{short(o.__self__)}.{o.__name__}()'
     else:
         try:
             return o.short()
