@@ -12,8 +12,9 @@ from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
-    FillFromAvails, FinishStructure, Detector
+    FillFromAvails, FinishStructure, Detector, HasTag
 from FMTypes import match_wo_none
+from Log import lo
 from util import ps, pr
 
 
@@ -105,17 +106,18 @@ class TestCCModel(unittest.TestCase):
         self.assertTrue(fm.has_tag(ca.cellref(1), NotEnoughOperands))
 
         co = FillFromAvails(noderef=ca.cellref(1))
-        paint: Any = run(co, empty_args_map)
+        paint: Any = fm.run(co, empty_args_map)
         self.assertTrue(match_wo_none(
             paint,
             Paint(noderef=ca.cellref(1))
         ))
-        self.assertCountEqual(paint.to_paint['operands'], (4, 5))
-        self.assertFalse(fm.has_tag(ca.cellref(1), NotEnoughOperands))
+        self.assertCountEqual(paint.content['operands'], (4, 5))
+        self.assertTrue(fm.has_tag(ca.cellref(1), NotEnoughOperands))
 
         fm.run(paint, empty_args_map)
         fm.run(ca, empty_args_map)
         self.assertEqual(ca[2], Avails(9))
+        # TODO Should the NotEnoughOperands tag have come off now?
 
     """
         co = FillMissingOperands(CellRef(ca, 1))
@@ -146,13 +148,16 @@ class TestCCModel(unittest.TestCase):
         ))
         de = fm.build(Detector(
             watch=ca,
-            watch_for=NotEnoughOperands,
+            watch_for=HasTag(NotEnoughOperands),
             then=FinishStructure
         ))
         fm.do_timestep(run=ca)
         assert fm.has_tag(ca.cellref(1), NotEnoughOperands)
         fm.run(de)
+        self.assertTrue(fm.has_node(FinishStructure(ca.cellref(1))))
         # NEXT The Detector should trigger FinishStructure.
+
+        # Want: FinishStructure(ca.cellref(1)) in workspace
 
     @unittest.skip('not implemented yet')
     def test_respond_to_missing_operands(self) -> None:

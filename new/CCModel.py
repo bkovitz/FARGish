@@ -16,8 +16,9 @@ from types import MethodType, FunctionType
 from random import randrange
 import operator
 from traceback import print_stack
+from random import choice
 
-from FMTypes import Node, Nodes, Addr, Value, WSPred, match_wo_none, Pred, \
+from FMTypes import Node, Nodes, Value, WSPred, match_wo_none, Pred, \
     as_pred, ADict, AndFirst, CallablePred, MatchWoNone, IsInstance, \
     combine_preds, AlwaysTrue, HasBindWs, HasArgs, Ref, N, T, Exclude
 from Log import trace, lo
@@ -26,6 +27,8 @@ from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit, \
     as_dict, fields_for, transitive_closure, as_tuple, ps, as_dstr
 
+
+Addr = int  #Hashable
 
 TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
 
@@ -72,6 +75,15 @@ class ArgsDict(ArgsMap):
     def xget(self, k: str, default: Optional[Value]=None) \
     -> Optional[Value]:
         return self.d.get(k, default)
+
+    def __hash__(self) -> int:
+        return hash(self.d.values())
+
+    def __eq__(self, other) -> bool:
+        if not isinstance(other, ArgsDict):
+            return False
+        else:
+            return self.d == other.d
 
     def short(self) -> str:
         return ' '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
@@ -141,14 +153,14 @@ class Program(ABC):
 @dataclass(frozen=True)
 class Detector(Program):
     watch: Optional[Node] = None
-    watch_for: Optional[Type[Node]] = None  # TODO broader match criterion
+    watch_for: Optional[Callable] = None  # TODO broader match criterion
     then: Optional[Type[Program]] = None
 
     def run(  # type: ignore[override]
         self,
         fm: FARGModel,
-        watch: Union[Canvas, CellRef],
-        watch_for: Type[Node],  # TODO allow a broader match criterion
+        watch: Union[Canvas, CellRef],  # Allow Workspace?
+        watch_for: Callable,  # TODO more general type for predicate
         then: Type[Program]  # TODO allow an instance
     ) -> ProgramResult:
         found_node = fm.node_query(watch, watch_for)
@@ -275,9 +287,13 @@ class Produced:
 
 ProgramResult = Union[Produced, CellContents]
 
-class Canvas:
+class Canvas(ABC):
     '''A Canvas is mutable. The contents of its cells may change, and the
     number of its cells may change.'''
+
+    @abstractmethod
+    def avails_at(self, addr: int) -> Tuple[Value, ...]:
+        pass
 
 @dataclass
 class Cell(Program):
@@ -317,6 +333,9 @@ class Cell(Program):
     def has_tag(self, tag: Type[Node]) -> bool:
         return has_tag(self.contents, tag)
 
+    def avails_at(self) -> Tuple[Value, ...]:
+        return self.canvas.avails_at(self.addr)
+
     def short(self) -> str:
         if self.contents is None:
             s = '(empty cell)'
@@ -345,6 +364,9 @@ class CellRef:
     def has_tag(self, tag: Type[Node]) -> bool:
         return has_tag(self.get(), tag)
 
+    def short(self) -> str:
+        return f'[{self.index}]'
+
 NodeRef = Union[Node, Cell, CellRef]
 
 def has_tag(x: Any, tag: Type[Node]) -> bool:
@@ -352,6 +374,13 @@ def has_tag(x: Any, tag: Type[Node]) -> bool:
         return x.has_tag(tag)
     else:
         return False
+
+@dataclass(frozen=True)
+class HasTag:
+    tag: Type[Node]
+
+    def __call__(self, nref: NodeRef) -> bool:
+        return has_tag(nref, self.tag)
 
 @dataclass
 class SeqCanvas(Canvas, Program):
@@ -375,6 +404,10 @@ class SeqCanvas(Canvas, Program):
 
     def cellref(self, addr: int) -> CellRef:
         return CellRef(self, addr)
+
+    # TODO UT
+    def cellrefs(self) -> Iterable[CellRef]:
+        return (CellRef(self, i) for i in range(len(self._cells)))
 
     @classmethod
     #def make(cls, num_cells: Optional[int]=None) -> SeqCanvas:
@@ -480,7 +513,7 @@ class FARGModel:
         new_node = self.updated_content(old_node, content)
         if isinstance(noderef, (Cell, CellRef)):
             noderef.paint(new_node)
-        else:
+        if not isinstance(new_node, dict):
             self.build(new_node)
         return new_node
 
@@ -538,15 +571,25 @@ class FARGModel:
             result = self.run(run)
         except Fizzle as fiz:
             result = fiz
-            pr(fiz)
+            #pr(fiz)
         return result
 
-    def node_query(self, node: Node, pred: Any) -> Optional[Node]:
-        # TODO
-        pass
+    def node_query(self, node: Node, pred: Callable) -> Optional[CellRef]:
+        if isinstance(node, SeqCanvas):
+            # TODO Weighted choice
+            matching_nodes = [n for n in node.cellrefs() if pred(n)]
+            try:
+                return choice(matching_nodes)
+            except IndexError:
+                return None
+        else:
+            return None # TODO Query other kinds of nodes
 
     def avails_at(self, noderef: NodeRef) -> Tuple[Value, ...]:
-        pass
+        if isinstance(noderef, Cell) or isinstance(noderef, CellRef):  # TODO this right
+            return noderef.avails_at()
+        else:
+            return ()
 
 @dataclass(frozen=True)
 class Fizzle(Exception):

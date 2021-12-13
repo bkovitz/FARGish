@@ -43,7 +43,11 @@ spike.py: Solve pons asinorum
     Make the NotEnoughOperands exception trigger running a codelet
     (FinishStructure, FillFromAvails) to fix it.
 
-        NEXT Make a Detector that responds to NotEnoughOperands.
+        Make a Detector that responds to NotEnoughOperands.
+
+            NEXT Get an iterable of all the nodes in a canvas.
+
+            Query that iterable for a given predicate.
 
         Make a general Fizzle detector, which queries the slipnet for how
         to fix the Fizzle.

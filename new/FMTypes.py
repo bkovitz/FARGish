@@ -34,7 +34,6 @@ N = TypeVar('N', bound=Node)
 Value = Hashable
 
 # The address of a Canvas cell within its Canvas
-#Addr = NewType('Addr', Hashable)
 Addr = Hashable
 
 # Something that can be converted into a predicate function whose first
