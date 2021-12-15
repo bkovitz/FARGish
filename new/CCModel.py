@@ -177,6 +177,11 @@ class Detector(Program):
                    # Detector is watching a canvas.
 
 @dataclass(frozen=True)
+class SuccessfulCanvas:  # TODO inherit from Tag or PredicateTag
+
+    pass
+
+@dataclass(frozen=True)
 class Complex(Program):
     # TODO Replace .nugget and .override with a single dict? This would make
     # it straightforward to override the nugget.
@@ -227,6 +232,8 @@ class Complex(Program):
 def as_argsmap(x: Any) -> ArgsMap:
     if isinstance(x, ArgsMap):
         return x
+    elif isinstance(x, (Cell, CellRef)):
+        return as_argsmap(x.get())
     elif is_dataclass_instance(x) or isinstance(x, dict):
         return ArgsDict(as_dict(x))
     else:
@@ -300,7 +307,7 @@ class Cell(Program):
     '''A Cell is mutable. Its .contents may change, but its .canvas and .addr
     may not. A Cell may not exist outside of a Canvas.'''
     contents: CellContents
-    canvas: Canvas
+    canvas: SeqCanvas
     addr: Addr
 
     # TODO
@@ -309,6 +316,9 @@ class Cell(Program):
 
     def paint(self, contents: CellContents) -> None:
         self.contents = contents
+
+    def get(self) -> CellContents:
+        return self.canvas[self.addr]
 
     def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
         if args is None:
@@ -379,8 +389,29 @@ def has_tag(x: Any, tag: Type[Node]) -> bool:
 class HasTag:
     tag: Type[Node]
 
-    def __call__(self, nref: NodeRef) -> bool:
-        return has_tag(nref, self.tag)
+    def __call__(self, noderef: NodeRef) -> bool:
+        return has_tag(noderef, self.tag)
+
+class Tag:
+
+    @abstractmethod
+    def __call__(self, **kwargs) -> bool:
+        pass
+
+    def run(self, args: ArgsMap=empty_args_map, **kwargs) -> bool:
+        return self(**mk_func_args(self.__call__, ArgsMapSeries.make(
+            ArgsDict(kwargs),
+            args,
+            as_argsmap(self)
+        )))
+
+@dataclass(frozen=True)
+class HasAvail(Tag):
+    target: Optional[Value] = None
+
+    def __call__(self, noderef: NodeRef, target: Value) -> bool:  # type: ignore[override]
+        av = as_argsmap(noderef).get('avails')
+        return isinstance(av, Avails) and av.has_avail(target)
 
 @dataclass
 class SeqCanvas(Canvas, Program):
@@ -670,6 +701,9 @@ class Avails(ArgsMap):
 
     def add_avail(self, v: Value):
         return Avails(*(self.values + (v,)))
+
+    def has_avail(self, v: Value) -> bool:
+        return v in self.values
 
     def take_avails(self, values: Iterable[Value]) \
     -> Tuple[Sequence[Value], Avails]:

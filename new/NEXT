@@ -45,12 +45,32 @@ spike.py: Solve pons asinorum
 
         Make a Detector that responds to NotEnoughOperands.
 
-            NEXT Get an iterable of all the nodes in a canvas.
+            Get an iterable of all the nodes in a canvas. DONE
 
-            Query that iterable for a given predicate.
+            Query that iterable for a given predicate. DONE
 
         Make a general Fizzle detector, which queries the slipnet for how
         to fix the Fizzle.
+
+    Detect a finished, successful canvas.
+
+        Simplistic unit test (all tests done in one step):
+
+            NEXT Tagger for avail(15).
+
+            Tagger for arithmetic start to finish.
+
+            SuccessfulCanvas tag.
+
+            SuccessfulCanvas predicate.
+
+        Break the detection into multiple codelets/detectors.
+
+            Figure out how to make one trigger the others.
+
+            Figure out how or whether to get the slipnet involved.
+
+            Figure out how to yoke two conditions together to 'and' them.
 
     Experiment with the type() function to construct a FARGModel class
     from a Workspace class.

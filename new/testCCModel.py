@@ -1,5 +1,7 @@
 # testCCModel.py -- Unit tests for the "codelets in canvases" model
 
+from __future__ import annotations
+
 import unittest
 from pprint import pprint as pp
 import inspect
@@ -12,7 +14,7 @@ from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
-    FillFromAvails, FinishStructure, Detector, HasTag
+    FillFromAvails, FinishStructure, Detector, HasTag, HasAvail
 from FMTypes import match_wo_none
 from Log import lo
 from util import ps, pr
@@ -155,9 +157,45 @@ class TestCCModel(unittest.TestCase):
         assert fm.has_tag(ca.cellref(1), NotEnoughOperands)
         fm.run(de)
         self.assertTrue(fm.has_node(FinishStructure(ca.cellref(1))))
-        # NEXT The Detector should trigger FinishStructure.
 
-        # Want: FinishStructure(ca.cellref(1)) in workspace
+    def test_avail_tagger(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            Plus(),
+            None,
+        ))
+        cr0 = ca.cellref(0)
+        ha5 = HasAvail(target=5)
+        ha9 = HasAvail(target=9)
+        self.assertTrue(ha5.run(noderef=cr0))
+        self.assertFalse(ha9.run(noderef=cr0))
+        # run the ha predicate on ca[0], ca[1], ca[2]
+
+        #sc = fm.build(Tagger(HasAvail, target=9))
+        # run the tagger on ca[0]
+        # run the tagger on ca[1]
+        # run the tagger on ca[2]
+        # run the canvas
+
+        # TODO 
+
+    """
+    def test_detect_successfully_completed_canvas(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            Plus(),
+            None,
+        ))
+        success_tag = SuccessfulCanvas(9)
+        de = fm.build(Detector(
+            watch=ca,
+            watch_for=SuccessfulCanvas(9),
+            then=ApplyTag
+        ))
+    """
+        
 
     @unittest.skip('not implemented yet')
     def test_respond_to_missing_operands(self) -> None:
