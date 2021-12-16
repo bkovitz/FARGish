@@ -177,22 +177,16 @@ class TestCCModel(unittest.TestCase):
         self.assertFalse(ha5.run(noderef=cr2))
         self.assertFalse(ha9.run(noderef=cr2))
 
+        sc = fm.build(Tagger(HasAvail(target=9)))
+        sc.run_on(fm, cr2)
+        self.assertFalse(fm.has_tag(cr2, HasAvail), cr2.get())
+
         fm.run(ca)
         self.assertFalse(ha5.run(noderef=cr2))
         self.assertTrue(ha9.run(noderef=cr2))
 
-        # NEXT 4:00 Build the Tagger and run it
-        sc = fm.build(Tagger(HasAvail(target=9)))
         sc.run_on(fm, cr2)
-
-        lo('UT', fm.has_tag(cr2, HasAvail))
-
-        # run the tagger on ca[0]
-        # run the tagger on ca[1]
-        # run the tagger on ca[2]
-        # run the canvas
-
-        # TODO 
+        self.assertTrue(fm.has_tag(cr2, HasAvail), cr2.get())
 
     """
     def test_detect_successfully_completed_canvas(self) -> None:
