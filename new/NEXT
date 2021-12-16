@@ -56,7 +56,10 @@ spike.py: Solve pons asinorum
 
         Simplistic unit test (all tests done in one step):
 
-            NEXT Tagger for avail(15).
+            Tagger for avail(15).
+
+                NEXT Redo has_tag() in a consistent way: for Cell, CellRef, and
+                every kind of CellContents; i.e. for every kind of NodeRef.
 
             Tagger for arithmetic start to finish.
 

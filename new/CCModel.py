@@ -32,7 +32,24 @@ Addr = int  #Hashable
 
 TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
 
-class ArgsMap(ABC):
+class HasWithTag:
+    '''Mix-in for classes with a .with_tag() method, returning a new version
+    of the object, containing the given tags.'''
+    Q = TypeVar('Q', bound='HasWithTag')
+
+    @abstractmethod
+    def with_tag(self: Q, *tag: Tag) -> Q:
+        pass
+
+class HasAddTag:
+    '''Mix-in for classes with an .add_tag() method, which adds the given
+    tags to the object by modifying it.'''
+
+    @abstractmethod
+    def add_tag(self, *tag: Tag) -> None:
+        pass
+
+class ArgsMap(HasWithTag, ABC):
     '''An ArgsMap is immutable. To 'add' key-value pairs to an ArgsMap, you
     must .prepend() another ArgsMap to it.'''
 
@@ -59,11 +76,30 @@ class ArgsMap(ABC):
     def empty(cls) -> EmptyArgsMap:
         return empty_args_map
 
+    def with_tag(self, *tag: Tag) -> ArgsMap:
+        # TODO Don't add tags that are already there?
+        # TODO Just return self if self already has all the tags.
+        return ArgsMapWithTags(self, tag)
+
     """
     def short(self) -> str:
         # TODO
         return '(empty)'
     """
+
+
+@dataclass(frozen=True)
+class ArgsMapWithTags(ArgsMap):
+    argsmap: ArgsMap
+    tags: Tuple[Tag, ...]
+
+    def xget(self, k: str, default: Optional[Value]=None) \
+    -> Optional[Value]:
+        return self.argsmap.xget(k, default)
+
+    def is_empty(self) -> bool:
+        return self.argsmap.is_empty()
+
 
 @dataclass(frozen=True)
 class ArgsDict(ArgsMap):
@@ -303,7 +339,7 @@ class Canvas(ABC):
         pass
 
 @dataclass
-class Cell(Program):
+class Cell(Program, HasAddTag):
     '''A Cell is mutable. Its .contents may change, but its .canvas and .addr
     may not. A Cell may not exist outside of a Canvas.'''
     contents: CellContents
@@ -315,6 +351,7 @@ class Cell(Program):
     #def erase(self, fm: FARGModel):
 
     def paint(self, contents: CellContents) -> None:
+        lo('CELL.paint', contents)
         self.contents = contents
 
     def get(self) -> CellContents:
@@ -343,6 +380,17 @@ class Cell(Program):
     def has_tag(self, tag: Type[Node]) -> bool:
         return has_tag(self.contents, tag)
 
+    def add_tag(self, *tag: Tag) -> None:
+        contents = self.get()
+        lo('CELLA', self, self.addr, type(contents), contents, tag)
+        print_stack()
+        if isinstance(contents, HasWithTag):
+            self.paint(contents.with_tag(*tag))
+        elif contents is None:
+            pass
+        else:
+            raise NotImplementedError(f'Cell.add_tag() {type(contents)}, {short(contents)}')
+
     def avails_at(self) -> Tuple[Value, ...]:
         return self.canvas.avails_at(self.addr)
 
@@ -358,7 +406,7 @@ class Cell(Program):
         return f'{cl}({self.addr}: {short(self.contents)})'
 
 @dataclass(frozen=True)
-class CellRef:
+class CellRef(HasAddTag):
     canvas: SeqCanvas
     index: int
 
@@ -374,44 +422,14 @@ class CellRef:
     def has_tag(self, tag: Type[Node]) -> bool:
         return has_tag(self.get(), tag)
 
+    def add_tag(self, *tag: Tag) -> None:
+        lo('CELLREF', self.index)
+        self.canvas.cell_at(self.index).add_tag(*tag)
+
     def short(self) -> str:
         return f'[{self.index}]'
 
 NodeRef = Union[Node, Cell, CellRef]
-
-def has_tag(x: Any, tag: Type[Node]) -> bool:
-    if isinstance(x, (Complex, Cell, CellRef)):
-        return x.has_tag(tag)
-    else:
-        return False
-
-@dataclass(frozen=True)
-class HasTag:
-    tag: Type[Node]
-
-    def __call__(self, noderef: NodeRef) -> bool:
-        return has_tag(noderef, self.tag)
-
-class Tag:
-
-    @abstractmethod
-    def __call__(self, **kwargs) -> bool:
-        pass
-
-    def run(self, args: ArgsMap=empty_args_map, **kwargs) -> bool:
-        return self(**mk_func_args(self.__call__, ArgsMapSeries.make(
-            ArgsDict(kwargs),
-            args,
-            as_argsmap(self)
-        )))
-
-@dataclass(frozen=True)
-class HasAvail(Tag):
-    target: Optional[Value] = None
-
-    def __call__(self, noderef: NodeRef, target: Value) -> bool:  # type: ignore[override]
-        av = as_argsmap(noderef).get('avails')
-        return isinstance(av, Avails) and av.has_avail(target)
 
 @dataclass
 class SeqCanvas(Canvas, Program):
@@ -440,6 +458,11 @@ class SeqCanvas(Canvas, Program):
     def cellrefs(self) -> Iterable[CellRef]:
         return (CellRef(self, i) for i in range(len(self._cells)))
 
+    def cell_at(self, addr: Addr) -> Cell:
+        # TODO How to handle addr out of range?
+        lo('CELL_AT', addr)
+        return self._cells[addr]
+
     @classmethod
     #def make(cls, num_cells: Optional[int]=None) -> SeqCanvas:
     def make(cls, *cellcontents: CellContents) -> SeqCanvas:
@@ -449,7 +472,7 @@ class SeqCanvas(Canvas, Program):
         return result
 
     def append_cell(self, content: CellContents) -> None:
-        self._cells.append(Cell(content, self, len(self._cells) + 1))
+        self._cells.append(Cell(content, self, len(self._cells)))
 
     def paint(self, addr: int, content: CellContents) -> None:
         self._cells[addr].paint(content)
@@ -510,6 +533,14 @@ class FARGModel:
         # TODO Maybe return a Complex that includes any unused args
         return ntype(**mk_func_args(ntype, args))  # type: ignore[call-arg]
 
+    def add_tag(self, noderef: NodeRef, *tag: Tag) -> None:
+        if isinstance(noderef, HasWithTag):
+            self.build(noderef.with_tag(*tag))
+        elif isinstance(noderef, HasAddTag):
+            noderef.add_tag(*tag)
+        else:
+            raise NotImplementedError(f'FARGModel.add_tag: {type(noderef)}, {short(noderef)}')
+        
     """
     def OLDpaint(
         self,
@@ -843,6 +874,66 @@ class FinishStructure(Codelet):
     ) -> ProgramResult:
         return FillFromAvails(noderef=noderef)
         # TODO Replace this HACK with something more flexible.
+
+### Tags ###
+
+def has_tag(x: Any, tag: Type[Node]) -> bool:
+    if isinstance(x, (Complex, Cell, CellRef)):
+        return x.has_tag(tag)
+    else:
+        return False
+
+@dataclass(frozen=True)
+class HasTag:
+    tag: Type[Node]
+
+    def __call__(self, noderef: NodeRef) -> bool:
+        return has_tag(noderef, self.tag)
+
+class TagPred:
+    '''A predicate for determining if a node (or some nodes, or anything)
+    meets the criteria for a tag. Derive tag classes from TagPred.
+    Instances of those tag classes (possibly including arguments) go inside
+    Tag objects.'''
+
+    @abstractmethod
+    def __call__(self, **kwargs) -> bool:
+        pass
+
+    def run(self, args: ArgsMap=empty_args_map, **kwargs) -> bool:
+        return self(**mk_func_args(self.__call__, ArgsMapSeries.make(
+            ArgsDict(kwargs),
+            args,
+            as_argsmap(self)
+        )))
+
+@dataclass(frozen=True)
+class Tag:
+    tagpred: TagPred
+
+@dataclass(frozen=True)
+class Tagger(Codelet):
+    tagpred: TagPred
+
+    def run(self, fm: FARGModel) -> ProgramResult:  # type: ignore[override]
+        pass  # TODO
+
+    def run_on(
+        self,
+        fm: FARGModel,
+        noderef: NodeRef,
+        args: ArgsMap=empty_args_map
+    ) -> None:
+        if self.tagpred.run(args, fm=fm, noderef=noderef):
+            fm.add_tag(noderef, Tag(self.tagpred))
+
+@dataclass(frozen=True)
+class HasAvail(TagPred):
+    target: Optional[Value] = None
+
+    def __call__(self, noderef: NodeRef, target: Value) -> bool:  # type: ignore[override]
+        av = as_argsmap(noderef).get('avails')
+        return isinstance(av, Avails) and av.has_avail(target)
 
 if __name__ == '__main__':
     #ca = SeqCanvas.make(num_cells=3)

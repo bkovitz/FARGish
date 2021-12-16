@@ -14,7 +14,7 @@ from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
-    FillFromAvails, FinishStructure, Detector, HasTag, HasAvail
+    FillFromAvails, FinishStructure, Detector, HasTag, HasAvail, Tagger
 from FMTypes import match_wo_none
 from Log import lo
 from util import ps, pr
@@ -162,17 +162,31 @@ class TestCCModel(unittest.TestCase):
         fm = FARGModel()
         ca = fm.build(SeqCanvas.make(
             Avails(4, 5),
-            Plus(),
+            Plus(4, 5),
             None,
         ))
         cr0 = ca.cellref(0)
+        cr1 = ca.cellref(1)
+        cr2 = ca.cellref(2)
         ha5 = HasAvail(target=5)
         ha9 = HasAvail(target=9)
         self.assertTrue(ha5.run(noderef=cr0))
         self.assertFalse(ha9.run(noderef=cr0))
-        # run the ha predicate on ca[0], ca[1], ca[2]
+        self.assertFalse(ha5.run(noderef=cr1))
+        self.assertFalse(ha9.run(noderef=cr1))
+        self.assertFalse(ha5.run(noderef=cr2))
+        self.assertFalse(ha9.run(noderef=cr2))
 
-        #sc = fm.build(Tagger(HasAvail, target=9))
+        fm.run(ca)
+        self.assertFalse(ha5.run(noderef=cr2))
+        self.assertTrue(ha9.run(noderef=cr2))
+
+        # NEXT 4:00 Build the Tagger and run it
+        sc = fm.build(Tagger(HasAvail(target=9)))
+        sc.run_on(fm, cr2)
+
+        lo('UT', fm.has_tag(cr2, HasAvail))
+
         # run the tagger on ca[0]
         # run the tagger on ca[1]
         # run the tagger on ca[2]
