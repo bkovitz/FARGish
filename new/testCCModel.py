@@ -188,6 +188,23 @@ class TestCCModel(unittest.TestCase):
         sc.run_on(fm, cr2)
         self.assertTrue(fm.has_tag(cr2, HasAvail), cr2.get())
 
+    def test_arithmetic_all_through(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5, 6),
+            Plus(4, 5),
+            None,
+            None,
+            None
+        ))
+        try:
+            fm.run(ca)
+        except RunAborted:
+            pass
+        lo(ca)
+
+
+
     """
     def test_detect_successfully_completed_canvas(self) -> None:
         fm = FARGModel()

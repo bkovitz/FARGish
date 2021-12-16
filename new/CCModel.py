@@ -415,6 +415,9 @@ class Cell(Program, HasHasTag, HasAddTag):
     def avails_at(self) -> Tuple[Value, ...]:
         return self.canvas.avails_at(self.addr)
 
+    def as_cell(self) -> Cell:
+        return self
+
     def short(self) -> str:
         if self.contents is None:
             s = '(empty cell)'
@@ -446,6 +449,9 @@ class CellRef(HasHasTag, HasAddTag):
     def add_tag(self, *tag: Tag) -> None:
         #lo('CELLREF', self.index)
         self.canvas.cell_at(self.index).add_tag(*tag)
+
+    def as_cell(self) -> Cell:
+        return self.canvas.cell_at(self.index)
 
     def short(self) -> str:
         return f'[{self.index}]'
@@ -972,6 +978,16 @@ class HasAvail(TagPred):
     def condition(self, noderef: NodeRef, target: Value) -> bool:  # type: ignore[override]
         av = as_argsmap(noderef).get('avails')
         return isinstance(av, Avails) and av.has_avail(target)
+
+@dataclass(frozen=True)
+class ArithmeticToHere(TagPred):
+
+    def condition(self, c: Union[Cell, CellRef]) -> bool:  # type: ignore[override]
+        cell = c.as_cell()
+        # NEXT Running the canvas should apply this tag. Writing to the canvas
+        # should clear it.
+        return False # TODO
+
 
 if __name__ == '__main__':
     #ca = SeqCanvas.make(num_cells=3)

@@ -58,10 +58,11 @@ spike.py: Solve pons asinorum
 
             Tagger for avail(15).
 
-                NEXT Redo has_tag() in a consistent way: for Cell, CellRef, and
+                Redo has_tag() in a consistent way: for Cell, CellRef, and
                 every kind of CellContents; i.e. for every kind of NodeRef.
+                DONE
 
-            Tagger for arithmetic start to finish.
+            NEXT Tagger for arithmetic start to finish.
 
             SuccessfulCanvas tag.
 
