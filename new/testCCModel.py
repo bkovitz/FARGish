@@ -200,11 +200,27 @@ class TestCCModel(unittest.TestCase):
             None
         ))
         self.assertFalse(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
         try:
             fm.run(ca)
         except RunAborted:
             pass
         self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+
+        ca.paint(3, Plus(9, 6))
+        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+
+        fm.run(ca)
+        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
+        self.assertTrue(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+
+        # Now we check that painting on the canvas removes ArithmeticToHere()
+        # from the painted cell to the end of the canvas.
+        ca.paint(3, None)
+        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
 
     """
     def test_detect_successfully_completed_canvas(self) -> None:

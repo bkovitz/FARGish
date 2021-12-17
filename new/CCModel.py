@@ -374,6 +374,7 @@ class Cell(Program, HasHasTag, HasAddTag):
     def paint(self, contents: CellContents) -> None:
         #lo('CELL.paint', contents)
         self.contents = contents
+        self.canvas.clear_arithmetic_to_here(self.addr)
 
     def get(self) -> CellContents:
         return self.canvas[self.addr]
@@ -419,6 +420,11 @@ class Cell(Program, HasHasTag, HasAddTag):
         for t in tag:
             self.tags.add(t)
 
+    def remove_tag_from_cell(self, pred: Pred) -> None:
+        for tag in list(self.tags):
+            if tagmatch(tag, pred):
+                self.tags.remove(tag)
+
     def avails_at(self) -> Tuple[Value, ...]:
         return self.canvas.avails_at(self.addr)
 
@@ -461,6 +467,9 @@ class CellRef(HasHasTag, HasAddTag):
 
     def add_tag_to_cell(self, *tag: Tag) -> None:
         self.as_cell().add_tag_to_cell(*tag)
+
+    def remove_tag_from_cell(self, pred: Pred) -> None:
+        self.as_cell().remove_tag_from_cell(pred)
 
     def as_cell(self) -> Cell:
         return self.canvas.cell_at(self.index)
@@ -515,6 +524,12 @@ class SeqCanvas(Canvas, Program):
 
     def paint(self, addr: int, content: CellContents) -> None:
         self._cells[addr].paint(content)
+
+    def clear_arithmetic_to_here(self, start_from: Addr) -> None:
+        '''Removes all the ArithmeticToHere tags starting from 'start_from'
+        to the end of the canvas.'''
+        for cell in self._cells[start_from:]:
+            cell.remove_tag_from_cell(ArithmeticToHere)
 
     def run(self, args: Optional[ArgsMap]=None) -> ArgsMap:  # type: ignore[override]
         if args is None:
@@ -581,6 +596,9 @@ class FARGModel:
         else:
             raise NotImplementedError(f'FARGModel.add_tag: {type(noderef)}, {short(noderef)}')
         
+    def add_tag_to_cell(self, c: Union[Cell, CellRef], *tag: Tag) -> None:
+        c.add_tag_to_cell(*tag)
+
     """
     def OLDpaint(
         self,
@@ -665,6 +683,9 @@ class FARGModel:
     def has_tag(self, x: Union[Node, Cell, CellRef], tag: Type[Node]) -> bool:
         # TODO If x is not in the workspace, return False.
         return has_tag(x, tag)
+
+    def cell_has_tag(self, c: Union[Cell, CellRef], pred: Any) -> bool:
+        return c.cell_has_tag(pred)
 
     def do_timestep(self, run: Optional[Program]=None) -> Any:
         if run is None:
