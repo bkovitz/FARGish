@@ -365,6 +365,7 @@ class Cell(Program, HasHasTag, HasAddTag):
     contents: CellContents
     canvas: SeqCanvas
     addr: Addr
+    tags: Set[Tag] = field(default_factory=set)
 
     # TODO
     #def paint(
@@ -397,9 +398,11 @@ class Cell(Program, HasHasTag, HasAddTag):
             # ValueWrapper
             return None  # TODO Should 'running' a value mean something?
 
-    # TODO What about tags on the cell itself?
     def has_tag(self, tag: Any) -> bool:
         return has_tag(self.contents, tag)
+
+    def cell_has_tag(self, pred: Any) -> bool:
+        return any(tagmatch(t, pred) for t in self.tags)
 
     def add_tag(self, *tag: Tag) -> None:
         contents = self.get()
@@ -411,6 +414,10 @@ class Cell(Program, HasHasTag, HasAddTag):
             pass
         else:
             raise NotImplementedError(f'Cell.add_tag() {type(contents)}, {short(contents)}')
+
+    def add_tag_to_cell(self, *tag: Tag) -> None:
+        for t in tag:
+            self.tags.add(t)
 
     def avails_at(self) -> Tuple[Value, ...]:
         return self.canvas.avails_at(self.addr)
@@ -446,9 +453,14 @@ class CellRef(HasHasTag, HasAddTag):
     def has_tag(self, tag: Any) -> bool:
         return has_tag(self.get(), tag)
 
+    def cell_has_tag(self, tag: Any) -> bool:
+        return self.as_cell().cell_has_tag(tag)
+
     def add_tag(self, *tag: Tag) -> None:
-        #lo('CELLREF', self.index)
-        self.canvas.cell_at(self.index).add_tag(*tag)
+        self.as_cell().add_tag(*tag)
+
+    def add_tag_to_cell(self, *tag: Tag) -> None:
+        self.as_cell().add_tag_to_cell(*tag)
 
     def as_cell(self) -> Cell:
         return self.canvas.cell_at(self.index)
@@ -512,6 +524,7 @@ class SeqCanvas(Canvas, Program):
                 result = cell.run(args)
                 if isinstance(result, Produced):
                     self.paint(addr + 1, result.v)
+                    self._cells[addr + 1].add_tag_to_cell(ArithmeticToHere())
                 elif isinstance(result, ArgsMap):
                     args = result
         return args  # type: ignore[return-value]  # mypy bug?
@@ -916,7 +929,7 @@ def has_tag(x: Any, pred: Type[Node]) -> bool:
         return False
 
 def tagmatch(tag: Any, pred: Pred) -> bool:
-    if isinstance(tag, Tag):
+    if isinstance(tag, PTag):
         return as_pred(pred)(tag.tagpred)
     else:
         return as_pred(pred)(tag)
@@ -948,7 +961,8 @@ class TagPred:
         )
 
 @dataclass(frozen=True)
-class Tag:
+class PTag:
+    '''A Tag that means that its taggee satisfies a certain TagPred.'''
     tagpred: TagPred
 
     def __str__(self) -> str:
@@ -969,7 +983,7 @@ class Tagger(Codelet):
         args: ArgsMap=empty_args_map
     ) -> None:
         if self.tagpred.run(args, fm=fm, noderef=noderef):
-            fm.add_tag(noderef, Tag(self.tagpred))
+            fm.add_tag(noderef, PTag(self.tagpred))
 
 @dataclass(frozen=True)
 class HasAvail(TagPred):
@@ -979,14 +993,20 @@ class HasAvail(TagPred):
         av = as_argsmap(noderef).get('avails')
         return isinstance(av, Avails) and av.has_avail(target)
 
+class SimpleTag:
+    '''A tag that doesn't have a predicate.'''
+    pass
+
 @dataclass(frozen=True)
-class ArithmeticToHere(TagPred):
+class ArithmeticToHere(SimpleTag):
 
     def condition(self, c: Union[Cell, CellRef]) -> bool:  # type: ignore[override]
         cell = c.as_cell()
         # NEXT Running the canvas should apply this tag. Writing to the canvas
         # should clear it.
         return False # TODO
+
+Tag = Union[SimpleTag, PTag, Fizzle]
 
 
 if __name__ == '__main__':

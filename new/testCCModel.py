@@ -14,7 +14,8 @@ from io import StringIO
 
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
-    FillFromAvails, FinishStructure, Detector, HasTag, HasAvail, Tagger
+    FillFromAvails, FinishStructure, Detector, HasTag, HasAvail, Tagger, \
+    ArithmeticToHere
 from FMTypes import match_wo_none
 from Log import lo
 from util import ps, pr
@@ -186,9 +187,10 @@ class TestCCModel(unittest.TestCase):
         self.assertTrue(ha9.run(noderef=cr2))
 
         sc.run_on(fm, cr2)
+        #NEXT Distinguish between cell_has_tag and has_tag?
         self.assertTrue(fm.has_tag(cr2, HasAvail), cr2.get())
 
-    def test_arithmetic_all_through(self) -> None:
+    def test_arithmetic_to_here(self) -> None:
         fm = FARGModel()
         ca = fm.build(SeqCanvas.make(
             Avails(4, 5, 6),
@@ -197,13 +199,12 @@ class TestCCModel(unittest.TestCase):
             None,
             None
         ))
+        self.assertFalse(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
         try:
             fm.run(ca)
         except RunAborted:
             pass
-        lo(ca)
-
-
+        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
 
     """
     def test_detect_successfully_completed_canvas(self) -> None:

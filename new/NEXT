@@ -62,7 +62,10 @@ spike.py: Solve pons asinorum
                 every kind of CellContents; i.e. for every kind of NodeRef.
                 DONE
 
-            NEXT Tagger for arithmetic start to finish.
+            Tagger for arithmetic start to finish.
+
+                NEXT Remove ArithmeticToHere when anything is painted over any
+                cell on a canvas.
 
             SuccessfulCanvas tag.
 

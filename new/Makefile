@@ -50,7 +50,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testCodelets.TestCodelets.test_build_codelet
 	#$(PY) -m unittest -v testDetectors.TestDetectors.test_dead_end_detector
-	$(PY) -m unittest -v testCCModel.TestCCModel.test_arithmetic_all_through #.test_detector
+	$(PY) -m unittest -v testCCModel.TestCCModel #.test_detector
 
 # Acceptance tests
 at:
