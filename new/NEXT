@@ -64,12 +64,24 @@ spike.py: Solve pons asinorum
 
             Tagger for arithmetic start to finish.
 
-                NEXT Remove ArithmeticToHere when anything is painted over any
-                cell on a canvas.
+                Remove ArithmeticToHere when anything is painted over any
+                cell on a canvas. DONE
 
             SuccessfulCanvas tag.
 
-            SuccessfulCanvas predicate.
+                SuccessfulCanvas predicate.
+
+                NEXT as_ function that maps TagConjunct to something to pass
+                as the 2nd arg to tagmatch().
+
+                    Refactor tagmatch() and has_tag() to take a
+                    TagSpec rather than Any.  DONE
+
+                as_ function that maps TagConjunct to a Tagger, which the
+                TagConjunction should ensure exists.
+
+                CellHasTag
+
 
         Break the detection into multiple codelets/detectors.
 

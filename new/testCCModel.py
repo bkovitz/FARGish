@@ -15,7 +15,7 @@ from io import StringIO
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
     FillFromAvails, FinishStructure, Detector, HasTag, HasAvail, Tagger, \
-    ArithmeticToHere
+    ArithmeticToHere, PTag, TagConjunction
 from FMTypes import match_wo_none
 from Log import lo
 from util import ps, pr
@@ -222,7 +222,32 @@ class TestCCModel(unittest.TestCase):
         self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
         self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
 
-    """
+    def test_hasavail9_to_tagpred(self) -> None:
+        fm = FARGModel()
+        ca = fm.build(SeqCanvas.make(
+            Avails(4, 5),
+            Plus(4, 5),
+            Avails(9),  # This test will fail if this cell contains None
+        ))
+        cr0 = ca.cellref(0)
+        cr1 = ca.cellref(1)
+        cr2 = ca.cellref(2)
+        ha5 = HasAvail(target=5)
+
+        got = HasTag.make_from(HasAvail(5))
+        self.assertEqual(got, HasTag(PTag(HasAvail(5))))
+
+        # cr0 has the condition but not the tag
+        self.assertTrue(ha5.run(noderef=cr0))
+        self.assertFalse(fm.has_tag(cr2, PTag(HasAvail(5))))
+        self.assertFalse(got(cr0))
+
+        # Falsely adding the tag to cr2
+        fm.add_tag(cr2, PTag(HasAvail(5)))
+        self.assertFalse(ha5.run(noderef=cr2))
+        self.assertTrue(fm.has_tag(cr2, PTag(HasAvail(5))))
+        self.assertTrue(got(cr2))
+
     def test_detect_successfully_completed_canvas(self) -> None:
         fm = FARGModel()
         ca = fm.build(SeqCanvas.make(
@@ -230,13 +255,16 @@ class TestCCModel(unittest.TestCase):
             Plus(),
             None,
         ))
-        success_tag = SuccessfulCanvas(9)
-        de = fm.build(Detector(
-            watch=ca,
-            watch_for=SuccessfulCanvas(9),
-            then=ApplyTag
+        sc = fm.build(Tagger(
+            TagConjunction((HasAvail(9), ArithmeticToHere)),
+            #scope=ca
         ))
-    """
+#        success_tag = SuccessfulCanvas(9)
+#        de = fm.build(Detector(
+#            watch=ca,
+#            watch_for=SuccessfulCanvas(9),
+#            then=ApplyTag
+#        ))
         
 
     @unittest.skip('not implemented yet')

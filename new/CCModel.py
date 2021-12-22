@@ -53,7 +53,8 @@ class HasHasTag:
     '''Mix-in for classes with a .has_tag() method.'''
 
     @abstractmethod
-    def has_tag(self, tag: Any) -> bool:
+    def has_tag(self, pred: Pred) -> bool:
+        '''Is 'self' tagged with a tag that matches 'pred'?'''
         pass
 
 class ArgsMap(HasHasTag, HasWithTag, ABC):
@@ -88,7 +89,7 @@ class ArgsMap(HasHasTag, HasWithTag, ABC):
         # TODO Just return self if self already has all the tags.
         return ArgsMapWithTags(self, tag)
 
-    def has_tag(self, tag: Any) -> bool:
+    def has_tag(self, pred: Pred) -> bool:
         return False
 
     """
@@ -110,7 +111,7 @@ class ArgsMapWithTags(ArgsMap):
     def is_empty(self) -> bool:
         return self.argsmap.is_empty()
 
-    def has_tag(self, pred: Any) -> bool:
+    def has_tag(self, pred: Pred) -> bool:
         return any(tagmatch(t, pred) for t in self.tags)
 
     def short(self) -> str:
@@ -190,8 +191,8 @@ class ArgsMapSeries(ArgsMap):
             else:
                 yield args
 
-    def has_tag(self, tag: Any) -> bool:
-        return any(args.has_tag(tag) for args in self.argss)
+    def has_tag(self, pred: Pred) -> bool:
+        return any(args.has_tag(pred) for args in self.argss)
 
 class Program(ABC):
 
@@ -230,11 +231,6 @@ class Detector(Program):
         return cl  # TODO Show the fields, but in a very short form.
                    # as_dstr() makes a long and confusing string when the
                    # Detector is watching a canvas.
-
-@dataclass(frozen=True)
-class SuccessfulCanvas:  # TODO inherit from Tag or PredicateTag
-
-    pass
 
 @dataclass(frozen=True)
 class Complex(Program, HasHasTag):
@@ -399,8 +395,9 @@ class Cell(Program, HasHasTag, HasAddTag):
             # ValueWrapper
             return None  # TODO Should 'running' a value mean something?
 
-    def has_tag(self, tag: Any) -> bool:
-        return has_tag(self.contents, tag)
+    def has_tag(self, pred: Pred) -> bool:
+        lo('CELLHTG', type(self.contents), self.contents)
+        return has_tag(self.contents, pred)
 
     def cell_has_tag(self, pred: Any) -> bool:
         return any(tagmatch(t, pred) for t in self.tags)
@@ -411,6 +408,7 @@ class Cell(Program, HasHasTag, HasAddTag):
         #print_stack()
         if isinstance(contents, HasWithTag):
             self.paint(contents.with_tag(*tag))
+            #lo('CELLATG', self.contents, type(self.contents))
         elif contents is None:
             pass
         else:
@@ -456,11 +454,11 @@ class CellRef(HasHasTag, HasAddTag):
     def avails_at(self) -> Tuple[Value, ...]:
         return self.canvas.avails_at(self.index)
 
-    def has_tag(self, tag: Any) -> bool:
-        return has_tag(self.get(), tag)
+    def has_tag(self, pred: Pred) -> bool:
+        return has_tag(self.get(), pred)
 
-    def cell_has_tag(self, tag: Any) -> bool:
-        return self.as_cell().cell_has_tag(tag)
+    def cell_has_tag(self, pred: Pred) -> bool:
+        return self.as_cell().cell_has_tag(pred)
 
     def add_tag(self, *tag: Tag) -> None:
         self.as_cell().add_tag(*tag)
@@ -680,11 +678,11 @@ class FARGModel:
     def has_node(self, node: Node) -> bool:
         return node in self.nodes
 
-    def has_tag(self, x: Union[Node, Cell, CellRef], tag: Type[Node]) -> bool:
+    def has_tag(self, x: Union[Node, Cell, CellRef], pred: Pred) -> bool:
         # TODO If x is not in the workspace, return False.
-        return has_tag(x, tag)
+        return has_tag(x, pred)
 
-    def cell_has_tag(self, c: Union[Cell, CellRef], pred: Any) -> bool:
+    def cell_has_tag(self, c: Union[Cell, CellRef], pred: Pred) -> bool:
         return c.cell_has_tag(pred)
 
     def do_timestep(self, run: Optional[Program]=None) -> Any:
@@ -860,7 +858,7 @@ mult = Operator(operator.mul, '*')
 
 class Codelet(Program, HasHasTag):
 
-    def has_tag(self, tag: Any) -> bool:
+    def has_tag(self, pred: Pred) -> bool:
         return False
 
 @dataclass(frozen=True)
@@ -941,7 +939,7 @@ class FinishStructure(Codelet):
 
 ### Tags ###
 
-def has_tag(x: Any, pred: Type[Node]) -> bool:
+def has_tag(x: Any, pred: Pred) -> bool:
     if isinstance(x, HasHasTag):
         return x.has_tag(pred)
 #    elif isinstance(x, (Complex, Cell, CellRef)):  # TODO rm
@@ -950,17 +948,26 @@ def has_tag(x: Any, pred: Type[Node]) -> bool:
         return False
 
 def tagmatch(tag: Any, pred: Pred) -> bool:
-    if isinstance(tag, PTag):
+    if isinstance(tag, PTag) and not isinstance(pred, PTag):
         return as_pred(pred)(tag.tagpred)
     else:
         return as_pred(pred)(tag)
 
 @dataclass(frozen=True)
 class HasTag:
-    tag: Type[Node]
+    '''A predicate to check if an object has a given tag or type of tag, but
+    not to check if the object has the TagPred for that tag.'''
+    pred: Pred
 
     def __call__(self, noderef: NodeRef) -> bool:
-        return has_tag(noderef, self.tag)
+        return has_tag(noderef, self.pred)
+
+    @classmethod
+    def make_from(cls, tagspec: TagSpec) -> HasTag:
+        if isinstance(tagspec, TagPred):
+            return HasTag(PTag(tagspec))
+        else:
+            return HasTag(tagspec)
 
 class TagPred:
     '''A predicate for determining if a node (or some nodes, or anything)
@@ -995,7 +1002,7 @@ class Tagger(Codelet):
     tagpred: TagPred
 
     def run(self, fm: FARGModel) -> ProgramResult:  # type: ignore[override]
-        pass  # TODO
+        pass  # TODO Look for something to tag, and call .run_on() on it.
 
     def run_on(
         self,
@@ -1020,14 +1027,33 @@ class SimpleTag:
 
 @dataclass(frozen=True)
 class ArithmeticToHere(SimpleTag):
+    pass
 
-    def condition(self, c: Union[Cell, CellRef]) -> bool:  # type: ignore[override]
-        cell = c.as_cell()
-        # NEXT Running the canvas should apply this tag. Writing to the canvas
-        # should clear it.
-        return False # TODO
-
+#TagConjunct = Union[SimpleTag, Fizzle, TagPred]
 Tag = Union[SimpleTag, PTag, Fizzle]
+TagSpec = Union[Tag, TagPred, Type[Tag], Type[TagPred]]
+
+@dataclass(frozen=True)
+class TagConjunction(TagPred):
+    '''A Tag predicate (tester) for multiple tags at once.'''
+    conjuncts: Tuple[Pred, ...]
+    #scope: SeqCanvas  # TODO Allow other scopes, like the whole workspace
+
+    def __init__(self, conjuncts_: Tuple[TagSpec, ...]):
+        force_setattr(
+            self, 'conjuncts', tuple(HasTag.make_from(c) for c in conjuncts_)
+        )
+
+    def condition(self, fm: FARGModel, conjuncts: Tuple[Pred]) -> bool:  # type: ignore[override]
+        """
+        for noderef in self.scope:
+            # How do we decide whether to call has_tag or cell_has_tag?
+            # How do we get the predicate "HasTag" from the conjunct?
+            pass #TODO
+        """
+            
+        # WANT Find the node or cell that has all the conjuncts
+        return False # TODO
 
 
 if __name__ == '__main__':
