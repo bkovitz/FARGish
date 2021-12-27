@@ -187,7 +187,6 @@ class TestCCModel(unittest.TestCase):
         self.assertTrue(ha9.run(noderef=cr2))
 
         sc.run_on(fm, cr2)
-        #NEXT Distinguish between cell_has_tag and has_tag?
         self.assertTrue(fm.has_tag(cr2, HasAvail), cr2.get())
 
     def test_arithmetic_to_here(self) -> None:
@@ -199,28 +198,28 @@ class TestCCModel(unittest.TestCase):
             None,
             None
         ))
-        self.assertFalse(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
-        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(2).has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).has_tag(ArithmeticToHere))
         try:
             fm.run(ca)
         except RunAborted:
             pass
-        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
-        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+        self.assertTrue(ca.cell_at(2).has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).has_tag(ArithmeticToHere))
 
         ca.paint(3, Plus(9, 6))
-        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
-        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+        self.assertTrue(ca.cell_at(2).has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).has_tag(ArithmeticToHere))
 
         fm.run(ca)
-        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
-        self.assertTrue(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+        self.assertTrue(ca.cell_at(2).has_tag(ArithmeticToHere))
+        self.assertTrue(ca.cell_at(4).has_tag(ArithmeticToHere))
 
         # Now we check that painting on the canvas removes ArithmeticToHere()
         # from the painted cell to the end of the canvas.
         ca.paint(3, None)
-        self.assertTrue(ca.cell_at(2).cell_has_tag(ArithmeticToHere))
-        self.assertFalse(ca.cell_at(4).cell_has_tag(ArithmeticToHere))
+        self.assertTrue(ca.cell_at(2).has_tag(ArithmeticToHere))
+        self.assertFalse(ca.cell_at(4).has_tag(ArithmeticToHere))
 
     def test_hasavail9_to_tagpred(self) -> None:
         fm = FARGModel()

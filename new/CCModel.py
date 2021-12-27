@@ -57,6 +57,14 @@ class HasHasTag:
         '''Is 'self' tagged with a tag that matches 'pred'?'''
         pass
 
+def is_cell_tag_pred(pred: Pred) -> bool:
+    '''Does 'pred' test for a CellTag?'''
+    return (
+        isinstance(pred, CellTag)
+        or
+        (isclass(pred) and issubclass(pred, CellTag))
+    )
+
 class ArgsMap(HasHasTag, HasWithTag, ABC):
     '''An ArgsMap is immutable. To 'add' key-value pairs to an ArgsMap, you
     must .prepend() another ArgsMap to it.'''
@@ -396,11 +404,16 @@ class Cell(Program, HasHasTag, HasAddTag):
             return None  # TODO Should 'running' a value mean something?
 
     def has_tag(self, pred: Pred) -> bool:
-        lo('CELLHTG', type(self.contents), self.contents)
-        return has_tag(self.contents, pred)
+        if is_cell_tag_pred(pred):
+            return any(tagmatch(t, pred) for t in self.tags)
+        else:
+            return has_tag(self.contents, pred)
 
+    # TODO rm?
+    """
     def cell_has_tag(self, pred: Any) -> bool:
         return any(tagmatch(t, pred) for t in self.tags)
+    """
 
     def add_tag(self, *tag: Tag) -> None:
         contents = self.get()
@@ -1025,8 +1038,12 @@ class SimpleTag:
     '''A tag that doesn't have a predicate.'''
     pass
 
+class CellTag:
+    '''A tag that goes on a Cell rather than CellContents.'''
+    pass
+
 @dataclass(frozen=True)
-class ArithmeticToHere(SimpleTag):
+class ArithmeticToHere(SimpleTag, CellTag):
     pass
 
 #TagConjunct = Union[SimpleTag, Fizzle, TagPred]
