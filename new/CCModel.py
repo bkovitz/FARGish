@@ -62,7 +62,7 @@ def is_cell_tag_pred(pred: Pred) -> bool:
     return (
         isinstance(pred, CellTag)
         or
-        (isclass(pred) and issubclass(pred, CellTag))
+        (isclass(pred) and issubclass(pred, CellTag))  # type: ignore[arg-type]
     )
 
 class ArgsMap(HasHasTag, HasWithTag, ABC):
@@ -470,8 +470,11 @@ class CellRef(HasHasTag, HasAddTag):
     def has_tag(self, pred: Pred) -> bool:
         return has_tag(self.get(), pred)
 
+    """
+    # TODO rm?
     def cell_has_tag(self, pred: Pred) -> bool:
         return self.as_cell().cell_has_tag(pred)
+    """
 
     def add_tag(self, *tag: Tag) -> None:
         self.as_cell().add_tag(*tag)
@@ -695,8 +698,11 @@ class FARGModel:
         # TODO If x is not in the workspace, return False.
         return has_tag(x, pred)
 
+    """
+    # TODO rm?
     def cell_has_tag(self, c: Union[Cell, CellRef], pred: Pred) -> bool:
         return c.cell_has_tag(pred)
+    """
 
     def do_timestep(self, run: Optional[Program]=None) -> Any:
         if run is None:
@@ -1071,6 +1077,12 @@ class TagConjunction(TagPred):
             
         # WANT Find the node or cell that has all the conjuncts
         return False # TODO
+
+@dataclass(frozen=True)
+class SuccessfulCanvas(TagConjunction):
+
+    def __init__(self, target: int):
+        super().__init__((HasAvail(target), ArithmeticToHere))
 
 
 if __name__ == '__main__':

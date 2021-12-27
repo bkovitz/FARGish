@@ -15,7 +15,7 @@ from io import StringIO
 from CCModel import FARGModel, SeqCanvas, ArgsMap, Avails, Plus, Mult, \
     run, Cell, empty_args_map, RunAborted, Complex, Paint, NotEnoughOperands, \
     FillFromAvails, FinishStructure, Detector, HasTag, HasAvail, Tagger, \
-    ArithmeticToHere, PTag, TagConjunction
+    ArithmeticToHere, PTag, TagConjunction, SuccessfulCanvas
 from FMTypes import match_wo_none
 from Log import lo
 from util import ps, pr
@@ -255,9 +255,11 @@ class TestCCModel(unittest.TestCase):
             None,
         ))
         sc = fm.build(Tagger(
-            TagConjunction((HasAvail(9), ArithmeticToHere)),
+            SuccessfulCanvas(9)
+            #TagConjunction((HasAvail(9), ArithmeticToHere)),
             #scope=ca
         ))
+        # NEXT Build a tagger for each conjunct?
 #        success_tag = SuccessfulCanvas(9)
 #        de = fm.build(Detector(
 #            watch=ca,
