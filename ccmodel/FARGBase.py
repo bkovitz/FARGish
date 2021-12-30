@@ -8,11 +8,12 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
+from FMTypes import CellContents
 from ArgsMap import empty_args_map
 if TYPE_CHECKING:
     from FMTypes import Node, N, Value, Pred
     from ArgsMap import ArgsMap
-    from Canvas import NodeRef, Paintable, Cell, CellRef, CellContents
+    from Canvas import NodeRef, Paintable, Cell, CellRef
     from Program import Program, ProgramResult
     from Tag import Tag
 

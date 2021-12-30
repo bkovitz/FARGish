@@ -29,6 +29,8 @@ Elems = Union[Elem, Iterable[Elem], None]  # TODO rm
 Node = Elem
 Nodes = Elems
 
+CellContents = Node  # Union[ArgsMap, Program, Value, None]
+
 N = TypeVar('N', bound=Node)
 
 # A value that can be stored in a Canvas cell

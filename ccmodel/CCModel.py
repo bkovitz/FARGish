@@ -37,10 +37,9 @@ from util import as_iter, as_list, first, force_setattr, clip, HasRngSeed, \
     is_dataclass_instance, make_nonoptional, dict_str, short, class_of, omit, \
     as_dict, fields_for, transitive_closure, as_tuple, ps, as_dstr
 from Canvas import Cell
-if TYPE_CHECKING:
-    from Canvas import Canvas, CellContents, Paintable, CellRef, NodeRef, \
-        SeqCanvas
-    from Program import ProgramResult, Produced
+from Canvas import Canvas, CellContents, Paintable, CellRef, NodeRef, \
+    SeqCanvas
+from Program import ProgramResult, Produced
 
 
 @dataclass(frozen=True)

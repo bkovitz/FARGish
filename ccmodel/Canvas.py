@@ -8,8 +8,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
-from FMTypes import Node, Value, Addr, Pred
-from Program import Program, Produced
+from FMTypes import Node, Value, Addr, Pred, CellContents
+from Program import Program, Produced, ProgramResult
 from CCTypes import HasHasTag, HasAddTag
 from ArgsMap import ArgsMap, empty_args_map, as_argsmap, Avails
 from Fizzle import Fizzle
@@ -17,8 +17,6 @@ from run import run
 from Tag import Tag, is_cell_tag_pred, tagmatch, HasWithTag, TagConjunction, \
     SimpleTag, CellTag, has_tag, HasAvail
 from util import short
-if TYPE_CHECKING:
-    from Program import ProgramResult
 
 
 @dataclass(frozen=True)
@@ -26,13 +24,9 @@ class RunAborted(Fizzle):
     canvas: Optional[Canvas] = None
     step: Optional[Program] = None
 
-CellContents = Union[ArgsMap, Program, Value, None]
 Paintable = Union[CellContents, Dict[str, Value]]
 # What is Paintable is that which can be painted onto something else
 # (not that on which something is painted).
-
-def is_cell_or_cellref(x: Any) -> bool:
-    return isinstance(x, (Cell, CellRef))
 
 class Canvas(ABC):
     '''A Canvas is mutable. The contents of its cells may change, and the

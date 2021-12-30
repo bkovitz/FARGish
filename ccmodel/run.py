@@ -8,12 +8,12 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     get_type_hints, runtime_checkable, TYPE_CHECKING
 import inspect
 
+from FMTypes import TypeAnnotation
 from Fizzle import Fizzle, MissingArgument
-from ArgsMap import ArgsMap, ArgsMapSeries, as_argsmap
+from ArgsMap import ArgsMap, ArgsMapSeries, as_argsmap, Avails
+from Program import Program, ProgramResult
+from Log import lo, trace
 from util import force_setattr, short, as_dstr, is_type_instance
-if TYPE_CHECKING:
-    from FMTypes import TypeAnnotation
-    from Program import Program, ProgramResult
 
 
 def run(program: Program, args: ArgsMap) -> ProgramResult:
@@ -48,7 +48,20 @@ def mk_func_args(func: Callable, args: ArgsMap) -> Dict[str, Any]:
     return d
 
 def params_of(func: Callable) -> Iterable[Tuple[str, TypeAnnotation]]:
-    type_hints = get_type_hints(func)
+    # NEXT It looks like get_type_hints() needs *all* the types in the
+    # global namespace. I might have to move params_of(), or a special
+    # get_type_hints(), to its own file, which imports *everything*. Yuck!
+    # func.__annotations__ holds strings rather than types if func was
+    # imported.
+    try:
+        type_hints = get_type_hints(func, globalns=func.__globals__, localns=globals()) # type: ignore[attr-defined]
+    except NameError:
+        lo('PARAMS_OF', func, func.__annotations__)
+        raise
+    """
+    lo('PARAMS_OF', func, func.__annotations__)
+    type_hints = func.__annotations__
+    """
     for param_name in inspect.signature(func).parameters:
         if param_name == 'return':
             continue  # disregard return type

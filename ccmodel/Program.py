@@ -9,18 +9,16 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from abc import ABC, abstractmethod
 
 from util import force_setattr, short, as_dstr, is_type_instance
-if TYPE_CHECKING:
-    from Canvas import CellContents
+from FMTypes import CellContents
 
-
-if TYPE_CHECKING:
-    ProgramResult = Union[Produced, CellContents]
 
 @dataclass(frozen=True)
 class Produced:
     '''Something produced by a run of something, which probably should be
     deposited into the next cell of the current canvas, if appropriate.'''
     v: CellContents
+
+ProgramResult = Union[Produced, CellContents]
 
 class Program(ABC):
 

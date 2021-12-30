@@ -11,9 +11,9 @@ from CCTypes import Program, HasHasTag
 from FMTypes import Value
 from Tag import tagmatch
 from run import run
+from ArgsMap import ArgsMap, ArgsDict, ArgsMapSeries
 from util import force_setattr, as_tuple, short, as_iter
 if TYPE_CHECKING:
-    from ArgsMap import ArgsMap, ArgsDict, ArgsMapSeries
     from Program import ProgramResult
     from FMTypes import Pred
 

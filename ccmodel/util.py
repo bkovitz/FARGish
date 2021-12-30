@@ -48,7 +48,9 @@ def is_type_instance(o, typ) -> bool:
         args = get_args(typ)
         if origin == Union:
             return any(is_type_instance(o, arg) for arg in args)
-        #print('ORG', typ, origin, args)
+        elif origin == Optional:
+            return (o is None) or any(is_type_instance(o, arg) for arg in args)
+        print('ORG', type(type), typ, origin, args)
         if safe_issubclass(origin, type):
             if not isclass(o):
                 return False

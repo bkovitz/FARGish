@@ -14,7 +14,7 @@ from Fizzle import Fizzle
 from util import short, as_tuple, is_dataclass_instance, as_dict, force_setattr
 if TYPE_CHECKING:
     from Tag import Tag, tagmatch
-    from Canvas import Cell, CellRef, is_cell_or_cellref
+    from Canvas import Cell, CellRef
 
 
 def as_argsmap(x: Any) -> ArgsMap:
@@ -22,10 +22,14 @@ def as_argsmap(x: Any) -> ArgsMap:
     # ArgsMap, Cell, and CellRef. This will remove the need to import
     # is_cell_or_cellref(), Cell, and CellRef. Here, just test for the
     # .as_argsmap() attribute.
+    """
     if isinstance(x, ArgsMap):
         return x
     elif is_cell_or_cellref(x):
         return as_argsmap(x.get())
+    """
+    if hasattr(x, 'as_argsmap'):
+        return x.as_argsmap()
     elif is_dataclass_instance(x) or isinstance(x, dict):
         return ArgsDict(as_dict(x))
     else:
