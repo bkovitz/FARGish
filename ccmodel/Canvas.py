@@ -15,7 +15,7 @@ from ArgsMap import ArgsMap, empty_args_map, as_argsmap, Avails
 from Fizzle import Fizzle
 from run import run
 from Tag import Tag, is_cell_tag_pred, tagmatch, HasWithTag, TagConjunction, \
-    SimpleTag, CellTag, has_tag, HasAvail
+    SimpleTag, CellTag, has_tag
 from util import short
 
 
@@ -253,12 +253,6 @@ class SeqCanvas(Canvas, Program):
         return ()
 
 ### Tags ###
-
-@dataclass(frozen=True)
-class SuccessfulCanvas(TagConjunction):
-
-    def __init__(self, target: int):
-        super().__init__((HasAvail(target), ArithmeticToHere))
 
 @dataclass(frozen=True)
 class ArithmeticToHere(SimpleTag, CellTag):

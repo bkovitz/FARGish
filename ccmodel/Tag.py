@@ -17,9 +17,9 @@ from run import mk_func_args
 from ArgsMap import ArgsMap, ArgsMapWithTags, ArgsDict, EmptyArgsMap, \
     empty_args_map, ArgsMapSeries, as_argsmap, Avails
 from util import short, force_setattr
+from Canvas import NodeRef
 if TYPE_CHECKING:
     from CCModel import Codelet
-    from Canvas import NodeRef
     from FARGBase import FARGModel
     from Program import ProgramResult
 
