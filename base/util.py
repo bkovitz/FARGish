@@ -17,6 +17,7 @@ from itertools import chain, tee, filterfalse
 import functools
 import csv
 import sys
+from io import StringIO
 
 
 # Useful global constants
@@ -725,3 +726,8 @@ def ps(*items: Any, file=sys.stdout) -> None:
     '''Short for print(short(i)).'''
     for i in items:
         print(short(i), file=file)
+
+def pss(*items: Any) -> str:
+    sio = StringIO()
+    ps(*items, file=sio)
+    return sio.getvalue()

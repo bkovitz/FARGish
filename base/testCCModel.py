@@ -21,7 +21,7 @@ from run import run
 from Tag import Tagger, PTag, HasAvail, HasTag
 from Tags import SuccessfulCanvas
 from Log import lo
-from util import ps, pr
+from util import ps, pss, pr
 
 
 class TestCCModel(unittest.TestCase):
@@ -35,9 +35,7 @@ class TestCCModel(unittest.TestCase):
         run(ca, empty_args_map)
         self.assertEqual(ca[2], Avails(9))
 
-        sio = StringIO()
-        ps(ca, file=sio)
-        self.assertEqual(sio.getvalue(), '[ 4 5 ][ 4 + 5 ][ 9 ]\n')
+        self.assertEqual(pss(ca), '[ 4 5 ][ 4 + 5 ][ 9 ]\n')
 
     def test_stop_at_empty_cell(self) -> None:
         ca = SeqCanvas.make(

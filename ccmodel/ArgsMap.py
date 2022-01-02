@@ -14,7 +14,6 @@ from Fizzle import Fizzle
 from util import short, as_tuple, is_dataclass_instance, as_dict, force_setattr
 if TYPE_CHECKING:
     from Tag import Tag, tagmatch
-    from Canvas import Cell, CellRef
 
 
 def as_argsmap(x: Any) -> ArgsMap:

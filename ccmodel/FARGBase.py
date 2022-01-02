@@ -44,6 +44,9 @@ class FARGModel(ABC, FARGModelDataclassMixin):
 
     @abstractmethod
     def node_query(self, node: Node, pred: Callable) -> Optional[CellRef]:
+        '''Query a node (such as a Canvas or Glom) for nodes inside it.
+        Might be better to replace this with a generic workspace-query
+        function that takes a scope as an optional parameter.'''
         pass
 
     @abstractmethod

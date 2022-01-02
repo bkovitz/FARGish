@@ -12,7 +12,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
 #	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = Indenting.py Log.py util.py
+FARGISH_SRC = Base.py Indenting.py Log.py util.py
 
 # Plot.py 
 # Log.py 
@@ -39,7 +39,7 @@ mypy:
 
 # For type-checking just one file (specified here).
 m:
-	$(MYPY) $(MYPY_FLAGS) Tag.py
+	$(MYPY) $(MYPY_FLAGS) spike.py
 
 
 # Run all unit tests.
