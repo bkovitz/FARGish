@@ -1,5 +1,14 @@
 spike.py
 
-    Consume.run()
+    Consume.run()  DONE
+
+    ActionCanvas: desc = 'situation' or 'action'  DONE
+
+    Addr: a dataclass containing canvas, desc, and index. It can refer to
+    anything capable of holding a value, not just a Canvas.  DONE
+
+    fm.paint() should take an Addr.
 
     Canvas.run()
+
+    Canvas.paint(), Cell.paint() should return the painted-over node.
