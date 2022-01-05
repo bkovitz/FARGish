@@ -28,6 +28,8 @@ backslash = '\\'
 
 # Run-time type-checking
 
+TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
+
 def is_type_instance(o, typ) -> bool:
     '''Returns true iff 'o' is an instance of the type annotation 'typ'.
     'typ' should be the result of calling typing.get_type_hints(), so it

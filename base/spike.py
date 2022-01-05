@@ -8,13 +8,15 @@ from util import ps, pr
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
-    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
-    runtime_checkable, TYPE_CHECKING
+    Protocol, Sequence, Set, Tuple, Type, TypeVar, Union, \
+    runtime_checkable, get_type_hints
 from abc import ABC, abstractmethod
 import operator
+import inspect
 
 from Log import lo, trace
-from util import as_tuple, short, as_dstr
+from util import as_tuple, short, as_dstr, as_dict, is_type_instance, \
+    is_dataclass_instance, TypeAnnotation
 
 Value = Hashable
 CellContents = Value   # ?
@@ -40,11 +42,30 @@ class Node(NodeDataclassMixin):
             result += ' ' + short(self.tags)
         return result
 
+class Codelet(ABC):
+
+    @abstractmethod
+    def run(self, **kwargs) -> ProgramResult:
+        pass
+
+    def short(self) -> str:
+        return as_dstr(self)
+
+    def __str__(self) -> str:
+        return short(self)    
+
 @dataclass(frozen=True)
 class ArgsMap:
     '''A dictionary of argument names and their values, suitable for passing
     to a function.'''
     d: ArgsD
+
+    def get(self, k: str, default: Optional[Value]=None) \
+    -> Optional[Value]:
+        if k == 'args':
+            return self
+        else:
+            return self.d.get(k, default)
 
     def __add__(self, other) -> Union[ArgsMap, Node]:
         if isinstance(other, ArgsMap):
@@ -78,8 +99,21 @@ class ArgsMap:
             dold = old.d if isinstance(old, ArgsMap) else old
             return ArgsMap(dold | dnew)
 
+    def override_with(self, other: Args) -> Union[ArgsMap, None]:
+        return self.merged(other, self)
+
+empty_args_map = ArgsMap({})
+
 ArgsD = Dict[str, Value]
 Args = Union[None, ArgsD, ArgsMap]
+
+def as_argsmap(x: Any) -> ArgsMap:
+    if hasattr(x, 'as_argsmap'):
+        return x.as_argsmap()
+    elif is_dataclass_instance(x) or isinstance(x, dict):
+        return ArgsMap(as_dict(x))
+    else:
+        return empty_args_map
 
 def Avails(*vs: Value) -> ArgsMap:
     return ArgsMap(dict(avails=as_tuple(vs)))
@@ -98,8 +132,11 @@ class Addr:
         else:
             raise NotImplementedError  # TODO raise specific exception
 
-    def next(self) -> Addr:
-        return replace(self, index=self.index_as_int()+1)
+    def next(self, cpart: Optional[str]=None) -> Addr:
+        if cpart is None:
+            return replace(self, index=self.index_as_int()+1)
+        else:
+            return replace(self, cpart=cpart, index=self.index_as_int()+1)
 
 class Canvas:
     '''A Canvas is mutable. The contents of its cells may change, and the
@@ -114,7 +151,7 @@ class Canvas:
         pass
 
 @dataclass
-class ActionCanvas(Canvas):
+class ActionCanvas(Canvas, Codelet):
     '''An ActionCanvas contains two cparts: 'situation' and 'action'. Each
     'action' cell is an action to be done in the 'situation' described by
     the cell with the same index, and produces the following 'situation'
@@ -172,6 +209,24 @@ class ActionCanvas(Canvas):
             result.append(Cell(Addr(self, cpart_name, len(result)), None))
         return result
 
+    def paint(self, addr: Addr, v: Value) -> None:
+        self[addr] = v
+        # TODO Return the old value? Put the old value in the soup?
+
+    def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
+        if args is None:
+            args = empty_args_map
+        for action_cell in self._action_cells:
+            # TODO prepend args from situation cell
+            current_situation = self[action_cell.new_addr(cpart='situation')]
+            if isinstance(current_situation, ArgsMap):
+                args = ArgsMap.merged(current_situation, args)
+            result = action_cell.run(args)
+            self.paint(action_cell.addr.next(cpart='situation'), result.v)
+            # TODO tag SuccessfulToHere
+            # update args
+        return Produced(args)
+
     @classmethod
     def make(cls, *cellcontents: CellContents) -> ActionCanvas:
         '''Makes a new ActionCanvas, filled in from 'cellcontents', alternating
@@ -218,6 +273,17 @@ class Cell:
     def set_contents(self, contents: CellContents) -> None:
         self.contents = contents
 
+    def new_addr(self, **kwargs) -> Addr:
+        return replace(self.addr, **kwargs)
+
+    def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:
+        if self.contents is None:
+            raise NotImplementedError  # TODO RunAborted(self.addr)
+        elif isinstance(self.contents, Codelet):
+            return FARGModel.xrun(self.contents, args)
+        else:
+            return Produced(None)
+
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.addr}: {short(self.contents)})'
@@ -255,18 +321,6 @@ class Operator:
 plus = Operator(operator.add, '+')
 mult = Operator(operator.mul, '*')
 
-class Codelet(ABC):
-
-    @abstractmethod
-    def run(self, **kwargs) -> ProgramResult:
-        pass
-
-    def short(self) -> str:
-        return as_dstr(self)
-
-    def __str__(self) -> str:
-        return short(self)    
-
 @dataclass(frozen=True)
 class Consume(Codelet):
     name: str
@@ -275,7 +329,7 @@ class Consume(Codelet):
 
     def run(  # type: ignore[override]
         self,
-        avails: Sequence[Value],
+        avails: Tuple[Value, ...],
         operator: Operator,
         operands: Tuple[Value, ...]
     ) -> ProgramResult:
@@ -344,16 +398,59 @@ class FARGModelDataclassMixin:
 
 class FARGModel(FARGModelDataclassMixin):
 
-    def build(self, elem: Union[Value, Node, Canvas]) -> WSElem:
+    B = TypeVar('B', bound=Union[Value, Node, Canvas])
+    def build(self, elem: B) -> B:
         if isinstance(elem, Canvas):
             self.canvases.add(elem)
-            return elem
+            return elem  # type: ignore[return-value]
         else:
             raise NotImplementedError
         """
         else:
             node = as_node(elem)
         """
+
+    def run(self, codelet: Codelet, args: Args=empty_args_map) \
+    -> ProgramResult:
+        return self.xrun(codelet, ArgsMap.merged(dict(fm=self), args))
+
+    @classmethod
+    def xrun(cls, codelet: Codelet, args: Args) -> ProgramResult:
+        '''Generic 'run' method without necessarily specifying a FARGModel
+        object.'''
+        try:
+            return codelet.run(
+                **cls.mk_func_args(codelet.run, ArgsMap.merged(
+                    args,
+                    as_argsmap(codelet)
+                ))
+            )
+        except Fizzle as fiz:
+            # TODO
+            raise
+
+    @classmethod
+    def mk_func_args(cls, func: Callable, args: Args) -> Dict[str, Any]:
+        d: Dict[str, Any] = {}
+        args = as_argsmap(args)
+        for param_name, param_type in cls.params_of(func):
+            value = args.get(param_name, None)
+            if not is_type_instance(value, param_type):
+                # TODO Distinguish between missing argument and argument of
+                # wrong type?
+                lo('WRONGTYPE', param_type, value)
+                raise NotImplementedError  # TODO MissingArgument
+            else:
+                d[param_name] = value
+        return d
+
+    @classmethod
+    def params_of(cls, func: Callable) -> Iterable[Tuple[str, TypeAnnotation]]:
+        type_hints = get_type_hints(func, globalns=func.__globals__) # type: ignore[attr-defined]
+        for param_name in inspect.signature(func).parameters:
+            if param_name == 'return':
+                continue  # disregard return type
+            yield (param_name, type_hints.get(param_name, Any))
 
 # Spike test
 
@@ -371,5 +468,5 @@ ps(ca)
 got = Plus(4, 5).run((4, 5), plus, (4, 5))
 ps(got)
 #NEXT: run
-##fm.run(ca)
+fm.run(ca)
 ##ps(ca)
