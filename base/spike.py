@@ -340,7 +340,7 @@ class Consume(Codelet):
     ) -> ProgramResult:
         operands, new_avails = take_avails(avails, operands)
         result = operator(*operands)
-        return Produced(Avails(new_avails + (result,)))
+        return Produced(Avails(*(new_avails + (result,))))
 
     def short(self) -> str:
         return self.operator.mk_short(self.operands)
