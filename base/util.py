@@ -274,7 +274,7 @@ def is_dataclass_instance(x):
 
 def short(o) -> str:
     '''Returns a short string representation of o. If o has a .short() method
-    define, we call it and return its result. Otherwise we return str(o).'''
+    defined, we call it and return its result. Otherwise we return str(o).'''
     if isinstance(o, list):
         return f"[{', '.join(short(x) for x in o)}]"
     elif isinstance(o, tuple):

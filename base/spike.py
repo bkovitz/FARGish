@@ -75,9 +75,6 @@ class ArgsMap:
         else:
             return Node(other, self, None)
 
-    def short(self) -> str:
-        return ' '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
-
     @classmethod
     def merged(cls, new: Args, old: Args) -> Union[ArgsMap, None]:
         '''Returns an ArgsMap (or None) with the values from 'new' overriding
@@ -101,6 +98,12 @@ class ArgsMap:
 
     def override_with(self, other: Args) -> Union[ArgsMap, None]:
         return self.merged(other, self)
+
+    def as_argsmap(self) -> ArgsMap:
+        return self
+
+    def short(self) -> str:
+        return ' '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
 
 empty_args_map = ArgsMap({})
 
@@ -214,6 +217,8 @@ class ActionCanvas(Canvas, Codelet):
         # TODO Return the old value? Put the old value in the soup?
 
     def run(self, args: Optional[ArgsMap]=None) -> ProgramResult:  # type: ignore[override]
+        if not self._action_cells:
+            return Produced(None)
         if args is None:
             args = empty_args_map
         for action_cell in self._action_cells:
@@ -225,7 +230,7 @@ class ActionCanvas(Canvas, Codelet):
             self.paint(action_cell.addr.next(cpart='situation'), result.v)
             # TODO tag SuccessfulToHere
             # update args
-        return Produced(args)
+        return Produced(result.v)
 
     @classmethod
     def make(cls, *cellcontents: CellContents) -> ActionCanvas:
@@ -368,6 +373,10 @@ class Produced:
     deposited into the next cell of the current canvas, if appropriate.'''
     v: Value   # CellContents?
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.v)})'
+
 ProgramResult = Produced
 
 class Fizzle(Exception):
@@ -438,7 +447,9 @@ class FARGModel(FARGModelDataclassMixin):
             if not is_type_instance(value, param_type):
                 # TODO Distinguish between missing argument and argument of
                 # wrong type?
-                lo('WRONGTYPE', param_type, value)
+                lo('WRONGTYPE', param_name, param_type, value)
+                print('???')
+                lo('ARGS', type(args), short(args))
                 raise NotImplementedError  # TODO MissingArgument
             else:
                 d[param_name] = value
@@ -451,6 +462,9 @@ class FARGModel(FARGModelDataclassMixin):
             if param_name == 'return':
                 continue  # disregard return type
             yield (param_name, type_hints.get(param_name, Any))
+
+    def short(self) -> str:
+        return self.__class__.__name__
 
 # Spike test
 
@@ -467,6 +481,8 @@ ca = fm.build(ActionCanvas.make(
 ps(ca)
 got = Plus(4, 5).run((4, 5), plus, (4, 5))
 ps(got)
-#NEXT: run
-fm.run(ca)
-##ps(ca)
+got = ca.run()
+ps(got)
+got = fm.run(ca)
+ps(got)
+ps(ca)
