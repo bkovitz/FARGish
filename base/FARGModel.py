@@ -12,7 +12,7 @@ import inspect
 
 from Log import lo, trace
 from util import ps, pr, as_tuple, short, as_dstr, as_dict, is_type_instance, \
-    is_dataclass_instance, TypeAnnotation
+    is_dataclass_instance, TypeAnnotation, singleton
 
 Value = Hashable
 CellContents = Value   # ?
@@ -131,13 +131,14 @@ class Addr:
         else:
             raise NotImplementedError  # TODO raise specific exception
 
+    # TODO rm; replace with calls to Canvas.jump(, NEXT)
     def next(self, cpart: Optional[str]=None) -> Addr:
         if cpart is None:
             return replace(self, index=self.index_as_int()+1)
         else:
             return replace(self, cpart=cpart, index=self.index_as_int()+1)
 
-class Canvas:
+class Canvas(ABC):
     '''A Canvas is mutable. The contents of its cells may change, and the
     number of its cells may change.'''
 
@@ -148,6 +149,25 @@ class Canvas:
     @abstractmethod
     def __setitem__(self, addr: Addr, v: Value) -> None:
         pass
+
+    @abstractmethod
+    def jump(self, addr: Addr, relation: Value) -> Set[Addr]:
+        '''Starting at 'addr', what Addr or Addrs lie 'relation' away?
+
+        Might throw RelationUnknownToCanvas.'''
+        pass
+
+@singleton
+class Relation:
+    
+    def __init__(self, name: str):
+        self.name = name
+
+NEXT = Relation('NEXT')
+PREV = Relation('PREV')
+
+SITUATION = Relation('SITUATION')
+ACTION = Relation('ACTION')
 
 @dataclass
 class ActionCanvas(Canvas, Codelet):
@@ -188,6 +208,26 @@ class ActionCanvas(Canvas, Codelet):
             raise NotImplementedError  # TODO raise specific exception
         cell_list = self.get_cell_list(addr, i)
         cell_list[i].set_contents(v)
+
+    def jump(self, addr: Addr, relation: Value) -> Set[Addr]:
+        if relation is NEXT:
+            return self._jump_delta(addr, +1)
+        elif relation is PREV:
+            return self._jump_delta(addr, -1)
+        elif relation is SITUATION:
+            return {replace(addr, cpart='situation')}
+        elif relation is ACTION:
+            return {replace(addr, cpart='action')}
+        else:
+            raise RelationUnknownToCanvas(self, addr, relation)
+
+    def _jump_delta(self, addr: Addr, delta: int) -> Set[Addr]:
+        old_i = addr.index_as_int()
+        new_i = old_i + delta
+        if new_i < 0:
+            return set()
+        else:
+            return {replace(addr, index=new_i)}
 
     def get_cell_list(self, which: Union[Addr, str], at_least: int=0) \
     -> List[Cell]:
@@ -390,6 +430,14 @@ class ValuesNotAvail(Fizzle):
 class NotEnoughOperands(Fizzle):
     actual_num_operands: Optional[int] = None
     min_num_operands: Optional[int] = None
+
+@dataclass(frozen=True)
+class RelationUnknownToCanvas(Fizzle):
+    '''Something tried to .jump on a Canvas with a relation that is not
+    defined for the Canvas.'''
+    canvas: Optional[Canvas] = None
+    addr: Optional[Addr] = None  # caller tried to jump from this Addr
+    relation: Optional[Value] = None
 
 def Plus(*operands: int) -> Consume:
     return Consume(name='Plus', operator=plus, operands=as_tuple(operands))
