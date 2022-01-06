@@ -732,4 +732,4 @@ def ps(*items: Any, file=sys.stdout) -> None:
 def pss(*items: Any) -> str:
     sio = StringIO()
     ps(*items, file=sio)
-    return sio.getvalue()
+    return sio.getvalue().rstrip()

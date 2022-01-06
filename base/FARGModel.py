@@ -1,10 +1,6 @@
-# spike.py -- A spike to guide development of Base.py
+# FARGModel.py -- Base classes for a FARG model
 
 from __future__ import annotations
-#from Base import FARGModel, Canvas, Avails
-#from Base import Plus
-from util import ps, pr
-
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
@@ -15,7 +11,7 @@ import operator
 import inspect
 
 from Log import lo, trace
-from util import as_tuple, short, as_dstr, as_dict, is_type_instance, \
+from util import ps, pr, as_tuple, short, as_dstr, as_dict, is_type_instance, \
     is_dataclass_instance, TypeAnnotation
 
 Value = Hashable
@@ -467,22 +463,22 @@ class FARGModel(FARGModelDataclassMixin):
         return self.__class__.__name__
 
 # Spike test
-
-m = Avails(4, 5) + Plus(4, 5)
-ps(m)
-ca = ActionCanvas.make(Avails(4, 5), Plus(4, 5))
-ps(ca)
-fm = FARGModel()
-b = fm.build(ca)
-ps(b)
-ca = fm.build(ActionCanvas.make(
-    Avails(4, 5), Plus(4, 5)
-))
-ps(ca)
-got = Plus(4, 5).run((4, 5), plus, (4, 5))
-ps(got)
-got = ca.run()
-ps(got)
-got = fm.run(ca)
-ps(got)
-ps(ca)
+if __name__ == '__main__':
+    m = Avails(4, 5) + Plus(4, 5)
+    ps(m)
+    ca = ActionCanvas.make(Avails(4, 5), Plus(4, 5))
+    ps(ca)
+    fm = FARGModel()
+    b = fm.build(ca)
+    ps(b)
+    ca = fm.build(ActionCanvas.make(
+        Avails(4, 5), Plus(4, 5)
+    ))
+    ps(ca)
+    got = Plus(4, 5).run((4, 5), plus, (4, 5))
+    ps(got)
+    got = ca.run()
+    ps(got)
+    got = fm.run(ca)
+    ps(got)
+    ps(ca)
