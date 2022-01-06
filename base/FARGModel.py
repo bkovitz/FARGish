@@ -132,13 +132,6 @@ class Addr:
         else:
             raise NotImplementedError  # TODO raise specific exception
 
-    # TODO rm; replace with calls to Canvas.jump(, NEXT)
-    def next(self, cpart: Optional[str]=None) -> Addr:
-        if cpart is None:
-            return replace(self, index=self.index_as_int()+1)
-        else:
-            return replace(self, cpart=cpart, index=self.index_as_int()+1)
-
     def __str__(self) -> str:
         return as_dstr(self)
 
@@ -198,8 +191,12 @@ class ActionCanvas(Canvas, Codelet):
         self.__class__.instance_count += 1
 
     def __hash__(self):
+        # TODO Fix!! Must be an instance variable
         '''This is necessary to maintain determinism.'''
         return hash(self.instance_count)
+
+    def __eq__(self, other) -> bool:
+        return self is other
 
     def __getitem__(self, addr: Addr) -> CellContents:
         if addr.cpart == 'situation':
@@ -288,7 +285,6 @@ class ActionCanvas(Canvas, Codelet):
             if isinstance(current_situation, ArgsMap):
                 args = ArgsMap.merged(current_situation, args)
             result = action_cell.run(args)
-            #self.paint(action_cell.addr.next(cpart='situation'), result.v)
             self.paint(
                 self.jump_or_fizzle(action_cell.addr, (SITUATION, NEXT)),
                 result.v
@@ -331,7 +327,7 @@ class Cell:
     '''A Cell is mutable. Its .contents may change, but its .canvas and .addr
     may not. A Cell may not exist outside of a Canvas.'''
     addr: Addr  # must have a canvas specified
-    contents: CellContents  # Node?
+    contents: CellContents = None  # Node?
 
     def short(self) -> str:
         if self.contents is None:

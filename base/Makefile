@@ -12,7 +12,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
 #	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = FARGModel.py Indenting.py Log.py util.py
+FARGISH_SRC = CubeCanvas.py FARGModel.py Indenting.py Log.py util.py
 
 # Plot.py 
 # Log.py 
@@ -46,7 +46,7 @@ m:
 ut:
 	#$(PY) -m unittest -v
 	#$(PY) -m unittest -v testCCModel
-	$(PY) -m unittest -v test_util
+	$(PY) -m unittest -v test_util testFARGModel testCubeCanvas
 
 # Convenience target for single acceptance test current being worked on
 u:
