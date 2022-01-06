@@ -12,9 +12,10 @@ import inspect
 
 from Log import lo, trace
 from util import ps, pr, as_tuple, short, as_dstr, as_dict, is_type_instance, \
-    is_dataclass_instance, TypeAnnotation, singleton
+    is_dataclass_instance, TypeAnnotation, singleton, first, as_iter, as_set
 
 Value = Hashable
+Values = Union[None, Hashable, Iterable[Hashable]]
 CellContents = Value   # ?
 Tag = Value  # TODO
 
@@ -138,6 +139,9 @@ class Addr:
         else:
             return replace(self, cpart=cpart, index=self.index_as_int()+1)
 
+    def __str__(self) -> str:
+        return as_dstr(self)
+
 class Canvas(ABC):
     '''A Canvas is mutable. The contents of its cells may change, and the
     number of its cells may change.'''
@@ -151,11 +155,21 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
-    def jump(self, addr: Addr, relation: Value) -> Set[Addr]:
+    def jump(self, addr: Addr, relation: Values) -> Set[Addr]:
         '''Starting at 'addr', what Addr or Addrs lie 'relation' away?
 
         Might throw RelationUnknownToCanvas.'''
         pass
+
+    def jump_or_fizzle(self, addr: Addr, relation: Value) -> Addr:
+        '''Same as .jump(), but returns a single Addr or raises Not1AddrThere
+        if there is not exactly one Addr in the Canvas 'relation' away
+        from 'addr'.'''
+        result = self.jump(addr, relation)
+        if len(result) != 1:
+            raise Not1AddrThere(canvas=self, addr=addr, relation=relation)
+        else:
+            return first(result)
 
 @singleton
 class Relation:
@@ -209,7 +223,16 @@ class ActionCanvas(Canvas, Codelet):
         cell_list = self.get_cell_list(addr, i)
         cell_list[i].set_contents(v)
 
-    def jump(self, addr: Addr, relation: Value) -> Set[Addr]:
+    def jump(self, addr: Addr, relation: Values) -> Set[Addr]:
+        addrs = as_set(addr)
+        for r in as_iter(relation):
+            new_addrs = set()
+            for addr in addrs:
+                new_addrs |= self._single_jump(addr, r)
+            addrs = new_addrs
+        return addrs
+
+    def _single_jump(self, addr: Addr, relation: Value) -> Set[Addr]:
         if relation is NEXT:
             return self._jump_delta(addr, +1)
         elif relation is PREV:
@@ -219,7 +242,9 @@ class ActionCanvas(Canvas, Codelet):
         elif relation is ACTION:
             return {replace(addr, cpart='action')}
         else:
-            raise RelationUnknownToCanvas(self, addr, relation)
+            raise RelationUnknownToCanvas(
+                canvas=self, addr=addr, relation=relation
+            )
 
     def _jump_delta(self, addr: Addr, delta: int) -> Set[Addr]:
         old_i = addr.index_as_int()
@@ -263,7 +288,11 @@ class ActionCanvas(Canvas, Codelet):
             if isinstance(current_situation, ArgsMap):
                 args = ArgsMap.merged(current_situation, args)
             result = action_cell.run(args)
-            self.paint(action_cell.addr.next(cpart='situation'), result.v)
+            #self.paint(action_cell.addr.next(cpart='situation'), result.v)
+            self.paint(
+                self.jump_or_fizzle(action_cell.addr, (SITUATION, NEXT)),
+                result.v
+            )
             # TODO tag SuccessfulToHere
             # update args
         return Produced(result.v)
@@ -417,7 +446,9 @@ ProgramResult = Produced
 
 class Fizzle(Exception):
     #codelet: Optional[Codelet] = None
-    pass
+
+    def __str__(self) -> str:
+        return as_dstr(self)
 
 @dataclass(frozen=True)
 class ValuesNotAvail(Fizzle):
@@ -435,6 +466,15 @@ class NotEnoughOperands(Fizzle):
 class RelationUnknownToCanvas(Fizzle):
     '''Something tried to .jump on a Canvas with a relation that is not
     defined for the Canvas.'''
+    canvas: Optional[Canvas] = None
+    addr: Optional[Addr] = None  # caller tried to jump from this Addr
+    relation: Optional[Value] = None
+
+@dataclass(frozen=True)
+class Not1AddrThere(Fizzle):
+    '''Something tried to .jump from an Addr via a relation that led to
+    either no Addr (no place that could be on the Canvas) or more than
+    one Addr (an ambiguous jump).'''
     canvas: Optional[Canvas] = None
     addr: Optional[Addr] = None  # caller tried to jump from this Addr
     relation: Optional[Value] = None
