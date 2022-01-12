@@ -51,17 +51,17 @@ class CubeCanvas(Canvas):
 
     instance_count: ClassVar[int] = 0
     
+    def __init__(self):
+        self._cells = [
+            Cell(Addr(self, None, i)) for i in range(1, 9)
+        ]
+
     def __post_init__(self) -> None:
         self.__class__.instance_count += 1
 
     def __hash__(self):
         '''This is necessary to maintain determinism.'''
         return hash(self.instance_count)
-
-    def __init__(self):
-        self._cells = [
-            Cell(Addr(self, None, i)) for i in range(1, 9)
-        ]
 
     def __getitem__(self, addr: Addr) -> CellContents:
         i = addr.index_as_int()
@@ -74,6 +74,9 @@ class CubeCanvas(Canvas):
         if i < 1 or i > len(self._cells):
             raise NotImplementedError  # TODO raise specific exception
         self._cells[i - 1].set_contents(v)
+
+    def all_addrs(self) -> Iterable[Addr]:
+        return (Addr(self, None, i) for i in range(len(self._cells)))
 
     # TODO mv to Canvas; OAOO
     def jump(self, addr: Addr, relation: Values) -> Set[Addr]:
@@ -95,3 +98,8 @@ class CubeCanvas(Canvas):
             return {replace(addr, index=self.jump_table[(i, relation)])}
         except KeyError:
             return set()
+
+if __name__ == '__main__':
+    from FARGModel import FARGModel
+    fm = FARGModel()
+    cu = fm.build(CubeCanvas())

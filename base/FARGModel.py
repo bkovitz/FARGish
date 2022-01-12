@@ -148,6 +148,10 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
+    def all_addrs(self) -> Iterable[Addr]:
+        pass
+
+    @abstractmethod
     def jump(self, addr: Addr, relation: Values) -> Set[Addr]:
         '''Starting at 'addr', what Addr or Addrs lie 'relation' away?
 
@@ -220,6 +224,18 @@ class ActionCanvas(Canvas, Codelet):
         cell_list = self.get_cell_list(addr, i)
         cell_list[i].set_contents(v)
 
+    def all_addrs(self) -> Iterable[Addr]:
+        return (
+            Addr(self, cpart, i)
+                for cpart in ('situation', 'action')
+                    for i in range(
+                        max(
+                            len(self._situation_cells),
+                            len(self._action_cells)
+                        )
+                    )
+        )
+            
     def jump(self, addr: Addr, relation: Values) -> Set[Addr]:
         addrs = as_set(addr)
         for r in as_iter(relation):

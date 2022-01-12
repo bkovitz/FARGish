@@ -25,7 +25,7 @@ ut_and_go: ut current
 # Convenience target for "do whatever I'm currently working on".
 current: mypy
 	$(PY) -i atestPons.py
-i: current  # "interactive" version of what I'm currently working on
+#i: current  # "interactive" version of what I'm currently working on
 see: mypy
 	$(PY) -i see.py
 
@@ -39,8 +39,9 @@ mypy:
 
 # For type-checking just one file (specified here).
 m:
-	$(MYPY) $(MYPY_FLAGS) spike.py
-
+	$(MYPY) $(MYPY_FLAGS) CubeCanvas.py
+i: m
+	$(PY) -i CubeCanvas
 
 # Run all unit tests.
 ut:
