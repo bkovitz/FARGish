@@ -12,7 +12,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable, get_origin, get_args
 import typing
 from contextlib import AbstractContextManager
-from types import SimpleNamespace, MethodType
+from types import SimpleNamespace, MethodType, GeneratorType
 from itertools import chain, tee, filterfalse
 import functools
 import csv
@@ -727,9 +727,17 @@ def pr(x: Any, *args, key=short, file=sys.stdout, **kwargs):
 def ps(*items: Any, file=sys.stdout) -> None:
     '''Short for print(short(i)).'''
     for i in items:
-        print(short(i), file=file)
+        if isinstance(i, GeneratorType):
+            ps(*i, file=file)
+        else:
+            print(short(i), file=file)
 
 def pss(*items: Any) -> str:
     sio = StringIO()
     ps(*items, file=sio)
     return sio.getvalue().rstrip()
+
+def psa(*items: Any, file=sys.stdout) -> None:
+    '''Alphabetized ps().'''
+    for line in sorted(pss(*items).splitlines()):
+        print(line, file=file)
