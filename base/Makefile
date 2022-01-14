@@ -39,9 +39,9 @@ mypy:
 
 # For type-checking just one file (specified here).
 m:
-	$(MYPY) $(MYPY_FLAGS) CubeCanvas.py
+	$(MYPY) $(MYPY_FLAGS) regen.py
 i: m
-	$(PY) -i CubeCanvas
+	$(PY) -i regen.py
 
 # Run all unit tests.
 ut:

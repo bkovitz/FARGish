@@ -1,24 +1,31 @@
 # regen.py -- A simple test of a 'regenerative network' for grade-school
 #             arithmetic
 
+from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 import operator
-from random import choice
-from collections import defaultdict
+from random import choice, choices
+from collections import defaultdict, Counter
 from functools import reduce
 
 from Log import lo, trace
-from util import pr, ps, psa, union
+from util import pr, ps, psa, union, Numeric, as_tuple, short
 
 
-Func = Union[Callable[[int], int], int, str, None]
+BaseValue = Union[int, str, None]
+BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
+Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
 Addr = int
-Generator = Tuple[Addr, Addr, Func]
-GSet = Dict[Tuple[Addr, Addr], Func]
+Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
+GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
+Value = Func # type: ignore[misc]
+
+Fu = Union[Callable[['Val'], 'Val'], int, str, None] # type: ignore[misc]
+Val = Fu # type: ignore[misc]
 
 def make_eqns(rands=range(1, 11), rators=('+', '-', 'x', '/'), ndups=1):
     for operand1 in rands:
@@ -69,7 +76,7 @@ def make_generators(eqn: Tuple) -> Set[Generator]:
     return result
 
 def make_gset(gs: Iterable[Generator]) -> GSet:
-    result: GSet = defaultdict(set)
+    result: GSet = defaultdict(set)  # type: ignore[arg-type]
     for g in gs:
         a1, a2, f = g
         result[(a1, a2)] = f
@@ -78,7 +85,7 @@ def make_gset(gs: Iterable[Generator]) -> GSet:
 def add_two_gsets(gset1: GSet, gset2: GSet) -> GSet:
     '''Combine the gsets, analogous to '+' in the Hopfield equation to
     combine two images.'''
-    result: GSet = defaultdict(set)
+    result: GSet = defaultdict(set)  # type: ignore[arg-type]
     edges = union(gset1.keys(), gset2.keys())
     for edge in edges:
         if edge in gset1:
@@ -95,14 +102,14 @@ def add_two_gsets(gset1: GSet, gset2: GSet) -> GSet:
     return result
 
 def add_gsets(*gset: GSet) -> GSet:
-    result = reduce(add_two_gsets, gset, {})
+    result: GSet = reduce(add_two_gsets, gset, {})
     return dict(  # remove None funcs
         (k, v) for k, v in result.items() if v is not None
     )
 
 def run_generator(canvas: List, gen: Generator) -> List:
     addr1, addr2, func = gen
-    result = None
+    result: Func = None
     if canvas[addr1] is not None:
         if callable(func):
             result = func(canvas[addr1])
@@ -115,11 +122,17 @@ def run_generator(canvas: List, gen: Generator) -> List:
         canvas[addr2] = result
     return canvas
 
+def call_func(func: Fu, x: Value) -> Value:
+    if callable(func):
+        return func(x)
+    else:
+        return func
+
 def run_gset(canvas: List, gset: GSet, niters: int=20) -> List:
     for i in range(niters):
         gen = choose_runnable_generator(canvas, gset)
         run_generator(canvas, gen)
-        print(canvas, '       ', gen)
+        print(canvas, '       ', short(gen))
     return canvas
 
 def choose_runnable_generator(canvas: List, gset: GSet) -> Generator:
@@ -141,11 +154,12 @@ def avg_of_funcs(f1: Func, f2: Func) -> Func:
         return None
     elif f1 == f2:
         return f1
-    elif callable(f1) and callable(f2):
-        return rndfunc(f1, f2)  # TODO Equalize probabilities when f1 or f2
-                                # is itself a rndfunc
+    elif hasattr(f1, 'avg_with'):
+        return f1.avg_with(f2)  # type: ignore[union-attr]
+    elif hasattr(f2, 'avg_with'):
+        return f2.avg_with(f1)  # type: ignore[union-attr]
     else:
-        return None
+        return rndfunc.make([f1, f2])
 
 def func_from_to(x1, x2):
     '''Returns a function that maps x1 to x2.'''
@@ -205,19 +219,41 @@ class div_by:
 
 @dataclass(frozen=True)
 class rndfunc:
-    f1: Callable
-    f2: Callable
+    funcs: Tuple[Func]          # funcs and weights must have same # of elems
+    weights: Tuple[Numeric]
 
-    def __call__(self, x: int) -> int:
-        return choice((self.f1, self.f2))(x)
+    def __call__(self, x: Value) -> Value:
+        #return choice((self.f1, self.f2))(x)
+        func: Func = choices(self.funcs, weights=self.weights)[0]
+        return call_func(func, x)
+
+    @classmethod
+    def make(cls: Type[rndfunc], funcs: Sequence[Func]) -> rndfunc:
+        # TODO What if funcs is empty?
+        return cls._make(cls, Counter(funcs))
+
+    def avg_with(self, other: Func) -> Func:
+        if other is None:
+            return self
+        else:
+            c: Dict[Func, int] = Counter(dict(zip(self.funcs, self.weights)))
+            c.update([other])  # type: ignore[list-item]
+            return self._make(self.__class__, c)
+
+    @classmethod
+    def _make(_cls, cls: Type[rndfunc], c: Dict[Func, int]) -> rndfunc:
+        return cls(
+            funcs=as_tuple(c.keys()),  # type: ignore[arg-type]
+            weights=as_tuple(c.values())  # type: ignore[arg-type]
+        )
 
 def run(
     startc=(None, '+', 3, None, 5),
     rands=range(1, 11),
     rators=('+', '-', 'x', '/'),
     ndups=1,
-    nruns=10,
-    niters=20
+    nruns=1,
+    niters=40
 ):
     global gg, eqns
     eqns = list(make_eqns(rands=rands, rators=rators, ndups=ndups))
@@ -276,8 +312,8 @@ if __name__ == '__main__':
 
     run(
         rands=range(1, 4),
-        startc=(None, '+', 1, None, None),
-        ndups=10,
-        nruns=1,
-        niters=100
+        startc=(None, '+', 1, None, 3),
+        #ndups=10,
+        #nruns=1,
+        #niters=100
     )

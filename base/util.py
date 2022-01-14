@@ -12,7 +12,7 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, \
     runtime_checkable, get_origin, get_args
 import typing
 from contextlib import AbstractContextManager
-from types import SimpleNamespace, MethodType, GeneratorType
+from types import SimpleNamespace, MethodType, GeneratorType, FunctionType
 from itertools import chain, tee, filterfalse
 import functools
 import csv
@@ -26,9 +26,10 @@ empty_set: FrozenSet = frozenset()
 newline = '\n'
 backslash = '\\'
 
-# Run-time type-checking
+# Types
 
 TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
+Numeric = Union[int, float]
 
 def is_type_instance(o, typ) -> bool:
     '''Returns true iff 'o' is an instance of the type annotation 'typ'.
@@ -290,6 +291,8 @@ def short(o) -> str:
 #        return repr(o)
     elif isinstance(o, MethodType):
         return f'{short(o.__self__)}.{o.__name__}()'
+    elif isinstance(o, FunctionType):
+        return o.__name__
     else:
         try:
             return o.short()
