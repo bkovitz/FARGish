@@ -285,6 +285,8 @@ def short(o) -> str:
     elif isinstance(o, dict):
         items = [f'{repr(k)}: {short(v)}' for k, v in o.items()]
         return f"{{{', '.join(items)}}}"
+    elif isinstance(o, float):
+        return f'{o:1.3}'
     elif isclass(o):
         return o.__name__
 #    elif isinstance(o, str):

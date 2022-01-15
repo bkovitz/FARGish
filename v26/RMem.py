@@ -13,7 +13,8 @@ from functools import reduce
 import itertools
 
 from Log import lo, trace
-from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list
+from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
+    newline, force_setattr
 
 
 BaseValue = Union[int, str, None]
@@ -68,10 +69,17 @@ class ArithmeticFailed(Exception):
 @dataclass
 class Canvas:
     contents: List[Value]
-    clarity: List[Numeric] = field(  # same # of elems as 'contents'
+    clarities: List[Numeric] = field(  # same # of elems as 'contents'
         default_factory=list,
         init=False
     )
+    MAX_CLARITY: ClassVar[Numeric] = 5
+
+    def __post_init__(self) -> None:
+        self.clarities = [
+            0 if x is None else self.MAX_CLARITY - 1
+                for i, x in enumerate(self.contents)
+        ]
 
     def all_addrs(self) -> Iterable[Addr]:
         return range(len(self.contents))
@@ -83,18 +91,41 @@ class Canvas:
             return None
 
     def __setitem__(self, addr: Addr, x: Value) -> None:
+        if self.clarities[addr] == 0:
+            try:
+                self.contents[addr] = x
+            except IndexError:
+                # TODO Stretch the canvas?
+                return
+            if x is not None:
+                self.clarities[addr] = 1
+        elif x != self[addr]:  # Trying to overwrite a value
+            self.clarities[addr] -= 1
+            if self.clarities[addr] <= 0:
+                self[addr] = None
+        else:  # Trying to write the value that is already there
+            if self.clarities[addr] < self.MAX_CLARITY:
+                self.clarities[addr] += 1
+
+    def clarity(self, addr: Addr) -> Numeric:
         try:
-            self.contents[addr] = x
+            return self.clarities[addr]
         except IndexError:
-            # TODO Stretch the canvas?
-            return
-        # TODO Update clarity
+            return self.MAX_CLARITY
 
     def __str__(self) -> str:
         items = ' '.join(short(x) for x in self.contents)
+        citems = ' '.join(short(c) for c in self.clarities)
         return f'[{items}]'
+        #return f'[{items}]{newline}[{citems}]'
 
 CanvasAble = Union[Sequence[Value], Canvas]  # type: ignore[misc]
+
+def natural_func_weight(f: Func) -> Numeric:
+    if hasattr(f, 'natural_func_weight'):
+        return f.natural_func_weight()  # type: ignore[union-attr]
+    else:
+        return 1.0
 
 @dataclass
 class RMem:
@@ -165,6 +196,7 @@ class RMem:
     @classmethod
     def choose_runnable_generator(cls, canvas: Canvas, gset: GSet) \
     -> Generator:
+        '''
         keys = [
             (a1, a2)
                 for (a1, a2) in gset.keys()
@@ -177,21 +209,30 @@ class RMem:
             a1, a2 = choice(keys)
             f = gset[(a1, a2)]
             return (a1, a2, f)
+        '''
 
-        a1, a2 = choices(*zip(cls.painter_weights(canvas, gset)))
+        ps, ws = zip(*cls.painter_weights(canvas, gset))
+        #lo('CH', ws)
+        a1, a2 = choices(ps, weights=ws)[0]
         f = gset[(a1, a2)]
         return (a1, a2, f)
 
     @classmethod
     def painter_weights(cls, canvas: Canvas, gset: GSet) \
     -> Iterable[Tuple[FromTo, Numeric]]:
-        for (a1, a2) in gset.keys():
+        for ((a1, a2), f) in gset.items():
             if canvas[a1] is None:
                 continue
+            else:
+                w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
+                w2 = 1.0 - (canvas.clarity(a2) / canvas.MAX_CLARITY)
+                yield ((a1, a2), w1 * w2 * natural_func_weight(f))
+            '''
             if canvas[a2] is None:
                 yield ((a1, a2), 1.0)
             else:
                 yield ((a1, a2), 0.1)
+            '''
 
     # Making GSets (sets of generators)
 
@@ -331,9 +372,20 @@ class RMem:
         funcs: Tuple[Func]     # funcs and weights must have same # of elems
         weights: Tuple[Numeric]
 
+        nfw: Numeric = field(default=0.0, init=False)
+
+        def __post_init__(self) -> None:
+            force_setattr(self, 'nfw', 1.0 / sum(
+                0.5 if callable(f) else 1.0
+                    for f in self.funcs
+            ))
+
         def __call__(self, x: Value) -> Value:
             func: Func = choices(self.funcs, weights=self.weights)[0]
             return self.rmem.apply_func(func, x)
+
+        def natural_func_weight(self) -> Numeric:
+            return self.nfw
 
         @classmethod
         def make(
@@ -396,9 +448,9 @@ class RMem:
         return rmem
 
 if __name__ == '__main__':
-    rmem = RMem()
-    rmem.run(
-        operands=range(1, 4),
+    rmem = RMem.run(
+        operands=range(1, 8),   # 4
         startc=(None, '+', 1, None, 3),
-        ndups=5
+        ndups=3,
+        niters=1000
     )
