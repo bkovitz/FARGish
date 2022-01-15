@@ -20,7 +20,9 @@ BaseValue = Union[int, str, None]
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
 Addr = int
+FromTo = Tuple[Addr, Addr]
 Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
+Painter = Generator  # type: ignore[misc]
 GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
 Value = Func # type: ignore[misc]
 
@@ -66,6 +68,10 @@ class ArithmeticFailed(Exception):
 @dataclass
 class Canvas:
     contents: List[Value]
+    clarity: List[Numeric] = field(  # same # of elems as 'contents'
+        default_factory=list,
+        init=False
+    )
 
     def all_addrs(self) -> Iterable[Addr]:
         return range(len(self.contents))
@@ -81,7 +87,8 @@ class Canvas:
             self.contents[addr] = x
         except IndexError:
             # TODO Stretch the canvas?
-            pass
+            return
+        # TODO Update clarity
 
     def __str__(self) -> str:
         items = ' '.join(short(x) for x in self.contents)
@@ -155,7 +162,8 @@ class RMem:
             print(canvas, '       ', short(gen))
         return canvas
 
-    def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
+    @classmethod
+    def choose_runnable_generator(cls, canvas: Canvas, gset: GSet) \
     -> Generator:
         keys = [
             (a1, a2)
@@ -169,6 +177,21 @@ class RMem:
             a1, a2 = choice(keys)
             f = gset[(a1, a2)]
             return (a1, a2, f)
+
+        a1, a2 = choices(*zip(cls.painter_weights(canvas, gset)))
+        f = gset[(a1, a2)]
+        return (a1, a2, f)
+
+    @classmethod
+    def painter_weights(cls, canvas: Canvas, gset: GSet) \
+    -> Iterable[Tuple[FromTo, Numeric]]:
+        for (a1, a2) in gset.keys():
+            if canvas[a1] is None:
+                continue
+            if canvas[a2] is None:
+                yield ((a1, a2), 1.0)
+            else:
+                yield ((a1, a2), 0.1)
 
     # Making GSets (sets of generators)
 
@@ -343,6 +366,10 @@ class RMem:
                 funcs=as_tuple(c.keys()),  # type: ignore[arg-type]
                 weights=as_tuple(c.values())  # type: ignore[arg-type]
             )
+
+        def short(self) -> str:
+            cl = self.__class__.__name__
+            return f'{cl}({short(self.funcs)}, {short(self.weights)})'
 
     @classmethod
     def run(
