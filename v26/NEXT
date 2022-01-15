@@ -10,3 +10,50 @@ RMem
                2 + 2 = 4
                1 + 3 = 4
                3 + 3 = 6
+
+
+    rndfunc: Put conditions on functions, like "if these cells are the same".
+
+
+    Put painters in the canvas. This might implement 'relative addressing' and
+    'treat 1 as 10'.
+
+
+
+IDEAS
+
+    Tags can be stored with absolute addresses.
+
+    Annotations are values stored in additional cells--tags!
+
+    Some "painters" can be taggers, which test for a condition.
+
+    Running a conditional painter that needs a tag causes the tagger to be
+    created or activated.
+
+    An ambiguity: +1 on a generator: does it increment addr1, addr2, or the
+    func?
+
+    The main "substitution" should be on addresses, not values. ?
+
+    An addr is a sort of function: it "returns" the contents of its cell.
+
+
+    Instead of func_from_to, how about a function that maps a generator
+    to a generator, i.e. including relations between the addresses?
+
+    What would be really good is if painters could generate the painters
+    themselves (replacing make_generators).
+
+
+    To absorb a new canvas: run the existing memory on it (or parts of it),
+    and add painters to correct errors.
+
+    A step toward "painters in canvases": make the passive cells active,
+    so the + in '1 + 1 = 2' paints (prev, next, same).
+
+
+
+NOTES
+
+    The codelets are the memory.
