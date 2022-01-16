@@ -11,6 +11,8 @@ from random import choice, choices
 from collections import defaultdict, Counter
 from functools import reduce
 import itertools
+from io import StringIO
+from copy import deepcopy
 
 from Log import lo, trace
 from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
@@ -63,6 +65,9 @@ def calculate(operand1, operator, operand2):
         return int(result)
 
 class ArithmeticFailed(Exception):
+    pass
+    
+class NoRunnableGenerators(Exception):
     pass
 
 
@@ -124,14 +129,17 @@ CanvasAble = Union[Sequence[Value], Canvas]  # type: ignore[misc]
 def natural_func_weight(f: Func) -> Numeric:
     if hasattr(f, 'natural_func_weight'):
         return f.natural_func_weight()  # type: ignore[union-attr]
-    else:
+    elif callable(f):
         return 1.0
+    else:
+        return 0.2  # Low probability for constant painter
 
 @dataclass
 class RMem:
     '''Regenerative memory.'''
     Q = TypeVar('Q', bound='RMem')
     gset: GSet = field(default_factory=dict)
+    lsteps: List[LoggedStep] = field(default_factory=list)
 
     # Factories / converters
 
@@ -187,35 +195,40 @@ class RMem:
         '''Attempts to fill in canvas by running gset.'''
         gset: GSet = self.gset if gset is None else gset
         canvas: Canvas = self.as_canvas(canvas)
-        for i in range(niters):
-            gen = self.choose_runnable_generator(canvas, gset)
-            self.run_generator(canvas, gen)
-            print(canvas, '       ', short(gen))
+        self.lsteps = [LoggedStep(canvas=deepcopy(canvas), t=0)]
+        try:
+            for i in range(niters):
+                self.start_lstep()
+                gen = self.choose_runnable_generator(canvas, gset)
+                self.add_to_lstep(painter=gen)
+                self.run_generator(canvas, gen)
+                self.add_to_lstep(canvas=canvas)
+                #print(canvas, '       ', short(gen))
+                if self.termination_condition(canvas):
+                    break
+        except NoRunnableGenerators:
+            pass
         return canvas
 
-    @classmethod
-    def choose_runnable_generator(cls, canvas: Canvas, gset: GSet) \
-    -> Generator:
-        '''
-        keys = [
-            (a1, a2)
-                for (a1, a2) in gset.keys()
-                    #if canvas[a1] is not None and canvas[a2] is None
-                    if canvas[a1] is not None
-        ]
-        if not keys:
-            return (0, 0, None)
-        else:
-            a1, a2 = choice(keys)
-            f = gset[(a1, a2)]
-            return (a1, a2, f)
-        '''
+    def termination_condition(self, canvas: Canvas) -> bool:
+        threshold = 0.7 * canvas.MAX_CLARITY
+        return all(cl >= threshold for cl in canvas.clarities)
 
-        ps, ws = zip(*cls.painter_weights(canvas, gset))
-        #lo('CH', ws)
-        a1, a2 = choices(ps, weights=ws)[0]
+    def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
+    -> Generator:
+        ps, ws = zip(*self.painter_weights(canvas, gset))
+        if len(ps) == 0:
+            raise NoRunnableGenerators
+        try:
+            n = choices(range(len(ps)), weights=ws)[0]
+        except ValueError as exc:  # screwy way to check for sum(ws) <= 0
+            print(exc)
+            raise NoRunnableGenerators
+        a1, a2 = ps[n]
         f = gset[(a1, a2)]
-        return (a1, a2, f)
+        painter = (a1, a2, f)
+        self.add_to_lstep(painter=painter, painter_weight=ws[n] / sum(ws))
+        return painter
 
     @classmethod
     def painter_weights(cls, canvas: Canvas, gset: GSet) \
@@ -225,7 +238,7 @@ class RMem:
                 continue
             else:
                 w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
-                w2 = 1.0 - (canvas.clarity(a2) / canvas.MAX_CLARITY)
+                w2 = 1.0 - (canvas.clarity(a2) / (canvas.MAX_CLARITY * 1.00))
                 yield ((a1, a2), w1 * w2 * natural_func_weight(f))
             '''
             if canvas[a2] is None:
@@ -244,8 +257,7 @@ class RMem:
             result[(a1, a2)] = f
         return result
 
-    @classmethod
-    def add_two_gsets(cls, gset1: GSet, gset2: GSet) -> GSet:
+    def add_two_gsets(self, gset1: GSet, gset2: GSet) -> GSet:
         '''Combine the gsets, analogous to '+' in the Hopfield equation to
         combine two images.'''
         result: GSet = defaultdict(set)  # type: ignore[arg-type]
@@ -253,7 +265,7 @@ class RMem:
         for edge in edges:
             if edge in gset1:
                 if edge in gset2:
-                    f = cls.avg_of_funcs(
+                    f = self.avg_of_funcs(
                         gset1[edge],
                         gset2[edge]
                     )
@@ -264,9 +276,8 @@ class RMem:
             result[edge] = f
         return result
 
-    @classmethod
-    def add_gsets(cls, gsets: Iterable[GSet]) -> GSet:
-        result: GSet = reduce(cls.add_two_gsets, gsets, {})
+    def add_gsets(self, gsets: Iterable[GSet]) -> GSet:
+        result: GSet = reduce(self.add_two_gsets, gsets, {})
         return dict(  # remove None funcs
             (k, v) for k, v in result.items() if v is not None
         )
@@ -318,8 +329,7 @@ class RMem:
                     return cls.mul_by(factor)
             return cls.add_n(x2 - x1)
 
-    @classmethod
-    def avg_of_funcs(cls, f1: Func, f2: Func) -> Func:
+    def avg_of_funcs(self, f1: Func, f2: Func) -> Func:
         if f1 is None or f2 is None:
             return None
         elif f1 == f2:
@@ -329,7 +339,7 @@ class RMem:
         elif hasattr(f2, 'avg_with'):
             return f2.avg_with(f1)  # type: ignore[union-attr]
         else:
-            return cls.rndfunc.make(cls, [f1, f2])
+            return self.rndfunc.make(self, [f1, f2])
 
     # Functions
 
@@ -368,20 +378,28 @@ class RMem:
     @dataclass(frozen=True)
     class rndfunc:
         Q = TypeVar('Q', bound='RMem.rndfunc')
-        rmem: Union[RMem, Type[RMem]]
+        rmem: RMem
         funcs: Tuple[Func]     # funcs and weights must have same # of elems
         weights: Tuple[Numeric]
 
         nfw: Numeric = field(default=0.0, init=False)
+        weights_sum: Numeric = field(default=0.0, init=False)
 
         def __post_init__(self) -> None:
-            force_setattr(self, 'nfw', 1.0 / sum(
-                0.5 if callable(f) else 1.0
+            force_setattr(self, 'nfw', 3.0 / sum(
+                (1.0 / natural_func_weight(f))
+                #0.5 if callable(f) else 1.0
                     for f in self.funcs
             ))
+            force_setattr(self, 'weights_sum', sum(self.weights))
 
         def __call__(self, x: Value) -> Value:
-            func: Func = choices(self.funcs, weights=self.weights)[0]
+            n = choices(range(len(self.funcs)), weights=self.weights)[0]
+            func = self.funcs[n]
+            self.rmem.add_to_lstep(
+                real_painter=func,
+                real_painter_weight=self.weights[n] / self.weights_sum
+            )
             return self.rmem.apply_func(func, x)
 
         def natural_func_weight(self) -> Numeric:
@@ -390,7 +408,7 @@ class RMem:
         @classmethod
         def make(
             cls: Type[Q],
-            rmem: Union[RMem, Type[RMem]],
+            rmem: RMem,
             funcs: Sequence[Func]
         ) -> Q:
             # TODO What if funcs is empty?
@@ -410,7 +428,7 @@ class RMem:
         def _make(
             _cls,
             cls: Type[Q],
-            rmem: Union[RMem, Type[RMem]],
+            rmem: RMem,
             c: Dict[Func, int]
         ) -> Q:
             return cls(
@@ -422,6 +440,33 @@ class RMem:
         def short(self) -> str:
             cl = self.__class__.__name__
             return f'{cl}({short(self.funcs)}, {short(self.weights)})'
+
+    # Logging
+
+    def start_lstep(self) -> None:
+        self.lsteps.append(LoggedStep(t=self.lsteps[-1].t + 1))
+
+    def add_to_lstep(
+        self,
+        canvas: Optional[Canvas]=None,
+        painter: Optional[Painter]=None,
+        painter_weight: Optional[Numeric]=None,
+        real_painter: Union[Painter, Func, None]=None,
+        real_painter_weight: Optional[Numeric]=None
+    ):
+        lstep = self.lsteps[-1]
+        if canvas is not None:
+            lstep.canvas = deepcopy(canvas)
+        if painter is not None:
+            lstep.painter = painter
+        if painter_weight is not None:
+            lstep.painter_weight = painter_weight
+        if real_painter is not None:
+            lstep.real_painter = real_painter
+        if real_painter_weight is not None:
+            lstep.real_painter_weight = real_painter_weight
+
+    # Running experiments
 
     @classmethod
     def run(
@@ -441,11 +486,51 @@ class RMem:
 
         for _ in range(nruns):
             c = list(startc) * ndups
-            print(c)
+            #print(c)
             rmem.run_gset(c, niters=niters)
-            print()
+            #print()
 
         return rmem
+
+@dataclass
+class LoggedStep:
+    canvas: Optional[Canvas] = None  # The resulting Canvas
+    painter: Optional[Painter] = None
+    painter_weight: Optional[Numeric] = None
+    real_painter: Union[Painter, Func, None] = None
+    real_painter_weight: Optional[Numeric] = None
+    t: int = 0
+
+    def __str__(self) -> str:
+        sio = StringIO()
+        if self.canvas is None:
+            co = ''
+            cl = ''
+        else:
+            co = f'{short(self.canvas.contents):40}'
+            cl = f'{short(self.canvas.clarities):40}'
+        painter = f'{short(self.painter):.180}'
+        if self.real_painter:
+            real_painter = f'{short(self.real_painter):.180}'
+        else:
+            real_painter = ''
+        if self.painter_weight is None:
+            pw = ' --  '
+        else:
+            pw = f'{self.painter_weight:1.3f}'
+        if self.real_painter_weight is None:
+            rw = ' --  '
+        else:
+            rw = f'{self.real_painter_weight:1.3f}'
+        if self.t is None:
+            t = ' ' * 4
+        else:
+            t = f'{self.t:4}'
+        b = ' ' * 4
+            
+        print(f'{t}  {co}  {pw} {painter}', file=sio)
+        print(f'{b}  {cl}  {rw} {real_painter}', file=sio)
+        return sio.getvalue()
 
 if __name__ == '__main__':
     rmem = RMem.run(

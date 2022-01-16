@@ -1,6 +1,8 @@
 RMem
 
-    NEXT The current problem is that 'same' across dups in a canvas tends
+    NEXT A LoggedStep class to track what happened during a run.
+
+    The current problem is that 'same' across dups in a canvas tends
     to lock in a bad move. Solution to try: Wider canvas, so that 2 + 3 = 5
     becomes:
 
@@ -13,6 +15,11 @@ RMem
 
 
     rndfunc: Put conditions on functions, like "if these cells are the same".
+
+    as_canvas: enables overriding the Canvas class. Include the Canvas class
+    as a field of RMem. Make one version that bumps clarity in discrete
+    steps, and another that increases clarity linearly and decreases it
+    exponentially.
 
 
     Put painters in the canvas. This might implement 'relative addressing' and
@@ -44,6 +51,12 @@ IDEAS
 
     What would be really good is if painters could generate the painters
     themselves (replacing make_generators).
+
+    Painting a value might superimpose determine values over Nones, where
+    each value includes a generator:
+                  (None, None) None  '+'
+       paint:     (prev, next) same  None
+       result:    (prev, next) same  '+'
 
 
     To absorb a new canvas: run the existing memory on it (or parts of it),
