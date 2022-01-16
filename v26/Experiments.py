@@ -16,3 +16,14 @@ def exp1():
     )
     pr(rmem.lsteps)
     
+def xp_single():
+    global rmem
+    rmem = RMem.run(
+        operands=range(1, 2),
+        operators=('+'),
+        startc=(None, '+', None, None, None),
+        ndups=1,
+        niters=1000
+    )
+    pr(rmem.lsteps)
+
