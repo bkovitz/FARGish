@@ -27,3 +27,13 @@ def xp_single():
     )
     pr(rmem.lsteps)
 
+def xp_single2():
+    global rmem
+    rmem = RMem.run(
+        operands=range(1, 2),
+        operators=('+'),
+        startc=(None, '+', 2, None, None),
+        ndups=1,
+        niters=1000
+    )
+    pr(rmem.lsteps)
