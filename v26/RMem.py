@@ -305,7 +305,9 @@ class RMem:
     @classmethod
     def func_from_to(cls, x1: Value, x2: Value) -> Func:
         '''Returns a function that maps x1 to x2.'''
-        if x1 == x2:
+        if x2 is None:
+            return None
+        elif x1 == x2:
             return cls.same
         elif isinstance(x1, int) and isinstance(x2, int):
             return cls.int_func_from_to(x1, x2)

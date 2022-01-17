@@ -1,6 +1,13 @@
 RMem
 
-    NEXT A LoggedStep class to track what happened during a run.
+    A LoggedStep class to track what happened during a run. DONE
+
+    NEXT Rig up an exp() function, or an atest, to verify that an RMem
+    trained on only a single equation can regenerate that equation pretty
+    reliably.
+
+    To absorb a new equation, immerse it in a canvas with 'related' equations:
+    equations that randomly selected parts of the new equation evoke.
 
     The current problem is that 'same' across dups in a canvas tends
     to lock in a bad move. Solution to try: Wider canvas, so that 2 + 3 = 5
@@ -20,6 +27,8 @@ RMem
     as a field of RMem. Make one version that bumps clarity in discrete
     steps, and another that increases clarity linearly and decreases it
     exponentially.
+
+    Let painters adjust the size of the canvas.
 
 
     Put painters in the canvas. This might implement 'relative addressing' and
@@ -65,8 +74,55 @@ IDEAS
     A step toward "painters in canvases": make the passive cells active,
     so the + in '1 + 1 = 2' paints (prev, next, same).
 
+    How does the model creatively redefine '+'?
+
+    How does the model chunk?
+
+    How does the model handle Consume(xs)?
+
+    I'm thinking: via recursion, via painters that construct painters.
+
+    The model should evolve the way the acclivation models evolved: by
+    exposure to varied stimuli.
 
 
 NOTES
 
     The codelets are the memory.
+
+    Just as our bodies are colonies of 40 trillion microorganisms, our minds
+    might be colonies of 40 trillion codelets.
+
+    We don't start from random weights, we start from a blank slate.
+    And we don't need millions of trials.
+
+
+LESSONS LEARNED FROM FARG MODELS
+
+    Slippage: learned to see it everywhere, even within a musical melody, or
+    a melody slipping to accommodate the words of a song. Learned to see
+    how slippage is ubiquitous at all levels, not a special last resort.
+
+        More examples: erroneous subject-verb agreement by proximity.
+
+HUMAN-SUBJECT STUDIES
+
+    A test of serial-position effect: Give people a word list, and to probe
+    them, tell them XXX was in the list, and then ask if YYY was in the list.
+    Will it help if YYY came just after XXX? What will happen if XXX was not
+    really in the list?
+
+MORE TESTS OF THE MODEL
+
+    Will an RMem show the serial-position effect? Train it on a large
+    vocabulary of English words, and then train it on a list, and ask if a
+    given word was in the list.
+
+    Treisman's false-conjunction effect? Represent features as generators (or
+    little clusters of generators). The features are unordered. Let them paint
+    a canvas and see how they position themselves.
+
+    Regenerating a temporal sequence: the canvas is what happened recently,
+    a None for what happens next, and maybe some cells for what the system
+    expects to do soon. Let the system fill the 'next' cell, and then shift
+    the canvas one cell to the left.
