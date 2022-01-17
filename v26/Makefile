@@ -12,7 +12,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
 #	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = CubeCanvas.py FARGModel.py Indenting.py Log.py util.py
+FARGISH_SRC = Experiments.py Indenting.py Log.py util.py
 
 # Plot.py 
 # Log.py 
@@ -35,7 +35,7 @@ mtest: mypy test
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test_util.py testFARGModel.py #test*.py #atest*.py
+	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
 m:
@@ -59,7 +59,7 @@ at:
 
 # Convenience target for single acceptance test current being worked on
 a:
-	$(PY) -m unittest -v atestEquation
+	$(PY) -m unittest -v atestExperiments
 
 mut: mypy ut
 mu: mypy u

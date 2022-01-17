@@ -89,6 +89,9 @@ class Canvas:
     def all_addrs(self) -> Iterable[Addr]:
         return range(len(self.contents))
 
+    def as_tuple(self) -> Tuple[Value, ...]:
+        return as_tuple(self.contents)
+
     def __getitem__(self, addr: Addr) -> Value:
         try:
             return self.contents[addr]

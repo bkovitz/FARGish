@@ -8,11 +8,11 @@ from random import random
 import operator
 from functools import reduce
 
-from RMem import RMem, make_eqns
+from RMem import RMem, Canvas, make_eqns
 from util import pts, pr, ps, pss, psa, pl, as_tuple
 
 
-rmem: RMem = None
+rmem: RMem
 
 def exp1():
     global rmem
@@ -65,7 +65,7 @@ def xp() -> None:
         (None, None, 1, '=', 3),
         (2, '+', None, None, 3)
     ]
-    relateds: Set[Canvas] = set()
+    relateds: Set[Tuple] = set()
     '''
     for cue in cues:
         print(rmem.run_gset(cue))

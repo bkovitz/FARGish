@@ -3,11 +3,17 @@ RMem
     A LoggedStep class to track what happened during a run. DONE
 
     NEXT Rig up an exp() function, or an atest, to verify that an RMem
-    trained on only a single equation can regenerate that equation pretty
-    reliably.
+    trained on only a single equation can regenerate that equation reliably.
 
     To absorb a new equation, immerse it in a canvas with 'related' equations:
     equations that randomly selected parts of the new equation evoke.
+    DONE (no atest)
+
+    SOON Absorb many equations via immersion with related equations. See if it
+    becomes more or less accurate as the number of equations increases.
+
+    Rig up an xp where the second-order painters reconstruct the first-order
+    generators.
 
     The current problem is that 'same' across dups in a canvas tends
     to lock in a bad move. Solution to try: Wider canvas, so that 2 + 3 = 5
