@@ -85,6 +85,8 @@ def xp() -> None:
     rmem.absorb_canvases([new_canvas])
 
     new_cue = (None,) * 10 + (None, '+', 1, None, 3)
-    for _ in range(10):
-        print(rmem.run_gset(new_cue, niters=100))
+    for _ in range(1):
+        print()
+        rmem.run_gset(new_cue, niters=100)
+        pr(rmem.lsteps)
 

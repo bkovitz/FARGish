@@ -85,6 +85,101 @@ IDEAS
     The model should evolve the way the acclivation models evolved: by
     exposure to varied stimuli.
 
+    The "clearer" a painter in the soup, the more likely to run.
+
+    To "average" two conflicting painters, incorporate a relation with a third
+    cell. Maybe need an entire "shadow" set of painters, one for every cell.
+
+        avg(p1, p2) = two painters, one in the long-term soup, one in the
+        shadow canvas. Or perhaps many painters in the LTS, which produce
+        one in the shadow canvas. This enables relations with other cells
+        to contribute.
+
+    Instead of constant painters, paint to the shadow canvas. In 1+1=2,
+    (1, 0, paintfrom(shadow(to))) shadow(0) = paint(1)
+    (1, 0, painterfrom(shadow(to))), shadow(0) = paint(1)
+    Wait, how do we get the + involved? (+, before(+), 1)
+    (1, shadow(0), paint(1))
+    (4, shadow(0), paint(-1))   # indirection  @4 = 2; -1(@4) = 1
+    Relative overwrites absolute.
+    That changes absolute to relative. Now how do we get pressure for x
+    against +?
+
+        To average 1 and x2:
+
+    Could we paint to an edge? Isn't that what painting a painter means?
+    When we run or make a canvas, do we need a cell for every edge? Would
+    that lead to infinite regress? Perhaps the shadow cells' addresses
+    could be edges.
+
+        Maybe the LTS is nothing but painters with addresses of the form
+        (cell, edge).
+
+    In Robinsonizing, global properties (value counts) flow into cells
+    and cell values contribute to global properties.
+
+    The arguments to a painter should always include "my address" as well as
+    the current contents of that address.
+
+    Let the arguments to every func be:  from, to, painter.  Every value
+    should also be a painter.
+
+        So then how does +1 work? +1 means "However many times f does its
+        thing, return a painter that does it once more."
+
+    Could each cell be a little canvas, with three cells of its own: from, to,
+    painter? This means that each cell is also an edge. But why not infinite
+    regress?
+
+        In computers, address, data, and code are all the same. But the
+        interpretation depends on what's reading it, i.e. what part of the
+        'paint next value' machinery is reading it. What addr is '+'?
+        What should be stored in the soup?
+
+    If a painter refers to another cell, that increases the 'demand' for that
+    cell.
+
+    Incorporate value frequencies as in cryptograms?
+
+    "Absorbing" something familiar might turn a knob that increases its
+    probability of being redrawn, as opposed to modifying the graph of
+    cascades.
+
+    START and END are really parentheses--which can be nested. These can
+    enclose multi-digit numbers as well as subexpressions, and they are
+    also text. Could parentheses indicate 'types', like tags? This would
+    enable relative addressing within numbers to be distinct from within
+    subexpressions. Nah, better to go by what follows a parenthesis.
+
+    How do we "insert" text before or after something without falling easily
+    into infinite loops (generating infinitely long strings)?
+
+        Maybe insert by referring relatively. If you refer to something
+        before you, that implicitly creates a cell. If the cell doesn't get
+        filled in pretty soon, though, it disappears.
+
+    We might get something like currying by limiting the number of arguments
+    to painters.
+    
+    Make the '+' of Hopfield into a func that works with the global canvas to
+    recreate either operand. Does this make Robinsonizing into a special case
+    of regenerative memory? Would there need to be a function analogous to
+    sgn, or could the "averaged" function just paint and be overwritten?
+
+        A global property: a waveform representation, or number-line
+        representation.
+
+    Could the sequence of paintings itself be painted based on history of
+    painting sequences?
+
+    An ordering operator? Indicates where to put canvas-chunks in relation to
+    each other?
+
+    Really, painters should coalesce around a "north star".
+
+    Does make_generators() have a fixed point? If the number of generators
+    stops growing at some point, this would make it a lot like Robinsonizing.
+
 
 NOTES
 
