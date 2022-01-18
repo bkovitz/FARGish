@@ -139,4 +139,4 @@ def xp() -> None:
         pr(rmem.lsteps)
 
 if __name__ == '__main__':
-    counter = eqn_test(operands=range(1, 11), show=True, prep=correction_redundancy(3, 3), n_per_eqn=10, n_eqns=5, niters=1000)
+    counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)

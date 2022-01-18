@@ -14,7 +14,16 @@ RMem
     becomes more or less accurate as the number of equations increases.
     WOW, it's 100% accurate in 50 timesteps.
 
-    NEXT Return a logging object from eqn_test().
+    Return a logging object from eqn_test().
+
+    NEXT Rig up a test that recalls only painters.
+
+    Make an automated test that runs through several standard equation sets,
+    including just 1+1=2, just a few, just addition with all grade-school
+    operands, and the whole grade-school table; and parameterize this test so
+    it can run all sorts of variants on how to make and run painters.
+    Report results on how many equations were recalled correctly, and
+    how well it did with equations that it wasn't trained on.
 
     Watch the lsteps in some runs with correction_redundancy.
 
@@ -46,7 +55,13 @@ RMem
     Put painters in the canvas. This might implement 'relative addressing' and
     'treat 1 as 10'.
 
+    raw_make_painters(): All relative addressing (to the right of the 1,
+    paint a '+'), but distinguish whenever there's a conflict (by making
+    painters that require two anchor points). These relative painters
+    paint absolute painters.
 
+        Later, distinguish in the same way when absorbing painter-sets into
+        the long-term memory.
 
 IDEAS
 
@@ -192,6 +207,41 @@ IDEAS
     Does make_generators() have a fixed point? If the number of generators
     stops growing at some point, this would make it a lot like Robinsonizing.
 
+    Don't just paint from one origin cell, paint from several.
+
+    Make each painter work by relative addressing. This is the simplest form
+    of orientation. Favor relative addresses as well as relative values.
+
+    Orientation cues might be relative, too. Painting the + "between" the 1's
+    should be applicable with other numbers serving as "1's".
+
+    One painter might call others.
+
+    Have a small library of painters. Try to construct painters by
+    parameterizing or extending existing painters.
+
+    Let the relative, multi-origin painters evolve from the one-origin
+    painters by resolving conflicts. We should start absolute and go relative
+    under pressure. The secret is that the system responds easily to
+    "go relative" and can go relative any number of levels. We make
+    error-correctors, and then correctors for the error-correctors, and
+    so on.
+
+        This suggests that the correction-redundancy mechanism should
+        introduce relative painters, or painter-painters to correct the
+        errors found in the recalled canvases that don't match the present
+        canvas.
+
+    Are relations between relations something like Taylor's formula, where
+    all the derivatives of f can reconstruct f (under favorable conditions)?
+
+    The main problem right now: how to paint the operators. They have no
+    relation with anything else, hence have high information content, hence
+    are unpredictable, hence get arbitrarily redrawn a lot. But really,
+    there is a relation between the operators and the numbers. That's the
+    point of the equations! By evolution of cascades, the net should
+    figure out that relation.
+
 
 NOTES
 
@@ -202,6 +252,14 @@ NOTES
 
     We don't start from random weights, we start from a blank slate.
     And we don't need millions of trials.
+
+    For years, I came up with schemes to explain flexibility, but they always
+    had peculiar limitations that people lack. Even spreading-activation
+    networks couldn't enable everything to interact reasonably with everything
+    else. A major obstacle was a limitation on levels, such as applying
+    numbers to the numbers' positions within a sequence. The solution was
+    stigmergy: put everything on one level, including the painters that
+    draw on the canvas.
 
 
 LESSONS LEARNED FROM FARG MODELS
