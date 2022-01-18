@@ -8,9 +8,13 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from random import random
 import operator
 from functools import reduce
+from collections import defaultdict
 
-from RMem import RMem, Canvas, CanvasPrep, make_eqns
-from util import pts, pr, ps, pss, psa, pl, as_tuple
+from RMem import RMem, Canvas, CanvasPrep, make_eqns, no_prep, ndups, \
+    BaseValue, correction_redundancy
+from Log import lo, trace
+from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
+    sample_without_replacement
 
 
 rmem: RMem
@@ -25,6 +29,48 @@ def exp1():
     )
     pr(rmem.lsteps)
     
+# TODO rm for partial_tup
+def partial_eqn(eqn: Tuple[BaseValue, ...], k: int=3) -> Tuple[BaseValue, ...]:
+    r = range(len(eqn))
+    addrs = set(sample_without_replacement(r, k=k))
+    return tuple(
+        eqn[a] if a in addrs else None
+            for a in r
+    )
+
+EqnCounter = Dict[Tuple[BaseValue, ...], int]
+
+def eqn_test(  # TODO rename eqns_test
+    show: bool=False,
+    prep: CanvasPrep=no_prep,
+    n_per_eqn: int=3,
+    n_eqns: int=20,
+    niters: int=50,
+    seed: int=None,
+    operands=range(1, 11),
+    operators=('+', '-', 'x', '/')
+) -> EqnCounter:
+    reseed(seed)
+    full_table = tuple(make_eqns(operands=operands, operators=operators))
+    l = len(full_table[0])
+    rmem = RMem.make_from(full_table, prep=prep)
+    counter: EqnCounter = defaultdict(int)
+
+    for eqn in sample_without_replacement(full_table, k=n_eqns):
+        if show:
+            print(eqn)
+        for i in range(n_per_eqn):
+            startc = partial_eqn(eqn)
+            lo('CUE', startc)
+            got = rmem.run_gset(canvas=startc, niters=niters).as_tuple()
+            if show:
+                lo('GOT', got)
+            if got == eqn:
+                counter[eqn] += 1
+        if show:
+            print()
+    return counter
+
 def xp_single():
     global rmem
     rmem = RMem.run(
@@ -36,7 +82,7 @@ def xp_single():
     )
     pr(rmem.lsteps)
 
-def just_1_1_2(prep: Optional[CanvasPrep]=None) -> RMem:
+def just_1_1_2(prep: CanvasPrep=no_prep) -> RMem:
     return RMem.make_from(
         make_eqns(operands=[1], operators=['+']),
         prep=prep
@@ -92,3 +138,5 @@ def xp() -> None:
         rmem.run_gset(new_cue, niters=100)
         pr(rmem.lsteps)
 
+if __name__ == '__main__':
+    counter = eqn_test(operands=range(1, 11), show=True, prep=correction_redundancy(3, 3), n_per_eqn=10, n_eqns=5, niters=1000)

@@ -16,10 +16,11 @@ from copy import deepcopy
 
 from Log import lo, trace
 from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
-    newline, force_setattr
+    newline, force_setattr, sample_without_replacement, first
 
 
 BaseValue = Union[int, str, None]
+BaseValueTup = Tuple[BaseValue, ...]
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
 Addr = int
@@ -28,6 +29,7 @@ Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
 GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
 Value = Func # type: ignore[misc]
+ValueTup = Tuple[Value, ...]  # type: ignore[misc]
 
 def make_eqns(operands=range(1, 11), operators=('+', '-', 'x', '/')) \
 -> Iterable[Tuple[BaseValue, ...]]:
@@ -89,7 +91,7 @@ class Canvas:
     def all_addrs(self) -> Iterable[Addr]:
         return range(len(self.contents))
 
-    def as_tuple(self) -> Tuple[Value, ...]:
+    def as_tuple(self) -> ValueTup:
         return as_tuple(self.contents)
 
     def __getitem__(self, addr: Addr) -> Value:
@@ -128,7 +130,7 @@ class Canvas:
         #return f'[{items}]{newline}[{citems}]'
 
 CanvasAble = Union[Sequence[Value], Canvas]  # type: ignore[misc]
-CanvasPrep = Callable[[Canvas], Canvas]
+CanvasPrep = Callable[[Canvas, 'RMem'], Canvas]
     # Function to call before absorbing a Canvas, e.g. to add redundancy.
 
 def natural_func_weight(f: Func) -> Numeric:
@@ -140,9 +142,51 @@ def natural_func_weight(f: Func) -> Numeric:
         return 0.2  # Low probability for constant painter
 
 def ndups(n: int=1) -> CanvasPrep:
-    def ndups_f(c: Canvas) -> Canvas:
+    def ndups_f(c: Canvas, rmem: RMem) -> Canvas:
         return Canvas(c.contents * n)
     return ndups_f
+
+def no_prep(c: Canvas, rmem: RMem) -> Canvas:
+    '''An identity function for Canvases.'''
+    return c
+
+def pad_tup(tup: Tuple, ndups: int) -> Tuple:
+    return tuple(None for _ in range(ndups * len(tup))) + tup
+
+def correction_redundancy(ndups: int=2, npartial: int=2, niters: int=50) \
+-> CanvasPrep:
+    def correction_redundancy_f(c: Canvas, rmem: RMem):
+        tup_in = c.as_tuple()
+        lo(tup_in)
+        tup_out: ValueTup
+        if len(rmem) == 0:
+           tup_out = pad_tup(tup_in, ndups)
+        else:
+            lo('TUP_IN', tup_in)
+            #pr(rmem.gset)
+            relateds: Set[Tuple] = set()
+            while len(relateds) < npartial:
+                cue = pad_tup(
+                    partial_tup(c.as_tuple(), k=npartial),
+                    ndups=ndups
+                )
+                canvas_to_correct = rmem.run_gset(cue, niters=niters)
+                t = canvas_to_correct.as_tuple()[-len(tup_in):]
+                relateds.add(canvas_to_correct.as_tuple()[-len(tup_in):])
+                lo('CC2C', cue, canvas_to_correct, t, len(relateds), npartial)
+                #pr(rmem.lsteps)
+            tup_out = reduce(operator.add, relateds) + tup_in
+        lo(tup_out)
+        return Canvas(list(tup_out))
+    return correction_redundancy_f
+
+def partial_tup(tup: ValueTup, k: int=3) -> ValueTup:
+    r = range(len(tup))
+    addrs = set(sample_without_replacement(r, k=k))
+    return tuple(
+        tup[a] if a in addrs else None
+            for a in r
+    )
 
 @dataclass
 class RMem:
@@ -157,11 +201,11 @@ class RMem:
     def make_from(
         cls: Type[Q],
         cs: Iterable[CanvasAble],
-        prep: Optional[CanvasPrep]=None
+        prep: CanvasPrep=no_prep
     ) -> Q:
-        if prep:
-            cs = (prep(cls.as_canvas(c)) for c in cs)
-        return cls().absorb_canvases(cs)
+        rmem = cls()
+        cs = (prep(cls.as_canvas(c), rmem) for c in cs)
+        return rmem.absorb_canvases(cs)
 
     @classmethod
     def as_canvas(cls, c: CanvasAble) -> Canvas:
@@ -290,7 +334,9 @@ class RMem:
             else:
                 f = gset2[edge]
             result[edge] = f
-        return result
+        return dict(  # remove None funcs
+            (k, v) for k, v in result.items() if v is not None
+        )
 
     def add_gsets(self, gsets: Iterable[GSet]) -> GSet:
         result: GSet = reduce(self.add_two_gsets, gsets, {})
@@ -298,13 +344,19 @@ class RMem:
             (k, v) for k, v in result.items() if v is not None
         )
 
-    def absorb_canvases(self: Q, cs: Iterable[CanvasAble]) -> Q:
-        self.gset = self.add_gsets(
-            itertools.chain(
-                [self.gset],
-                (self.make_gset(self.make_generators(c)) for c in cs)
+    def absorb_canvases(
+        self: Q,
+        cs: Iterable[CanvasAble],
+        prep: CanvasPrep=no_prep
+    ) -> Q:
+        for c in cs:
+            c: Canvas = self.as_canvas(c)
+            new_gset = self.make_gset(
+                self.make_generators(prep(c, self))
             )
-        )
+            lo('ABS', c)
+            #pr(new_gset)
+            self.gset = self.add_two_gsets(self.gset, new_gset)
         return self
 
     # Calling a function
@@ -459,6 +511,11 @@ class RMem:
             cl = self.__class__.__name__
             return f'{cl}({short(self.funcs)}, {short(self.weights)})'
 
+    # Queries
+
+    def __len__(self) -> int:
+        return len(self.gset)
+
     # Logging
 
     def start_lstep(self) -> None:
@@ -492,7 +549,7 @@ class RMem:
         startc=(None, '+', 3, None, 5),
         operands=range(1, 11),
         operators=('+', '-', 'x', '/'),
-        prep: Optional[CanvasPrep]=None,
+        prep: CanvasPrep=no_prep,
         nruns=1,
         niters=40
     ) -> Q:
@@ -507,7 +564,7 @@ class RMem:
             #c = list(startc)
             c = Canvas(startc)
             if prep:
-                c = prep(c)
+                c = prep(c, rmem)
             #print(c)
             rmem.run_gset(c, niters=niters)
             #print()

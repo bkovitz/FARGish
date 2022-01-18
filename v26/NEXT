@@ -12,6 +12,11 @@ RMem
 
     SOON Absorb many equations via immersion with related equations. See if it
     becomes more or less accurate as the number of equations increases.
+    WOW, it's 100% accurate in 50 timesteps.
+
+    NEXT Return a logging object from eqn_test().
+
+    Watch the lsteps in some runs with correction_redundancy.
 
     Rig up an xp where the second-order painters reconstruct the first-order
     generators.
