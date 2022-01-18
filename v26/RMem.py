@@ -29,7 +29,8 @@ Painter = Generator  # type: ignore[misc]
 GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
 Value = Func # type: ignore[misc]
 
-def make_eqns(operands=range(1, 11), operators=('+', '-', 'x', '/'), ndups=1):
+def make_eqns(operands=range(1, 11), operators=('+', '-', 'x', '/')) \
+-> Iterable[Tuple[BaseValue, ...]]:
     for operand1 in operands:
         for operator in operators:
             for operand2 in operands:
@@ -38,14 +39,13 @@ def make_eqns(operands=range(1, 11), operators=('+', '-', 'x', '/'), ndups=1):
                 except ArithmeticFailed:
                     continue
                 if result > 0:
-                    eqn = (
+                    yield (
                         operand1,
                         operator,
                         operand2,
                         '=',
                         result
                     )
-                    yield eqn * ndups
 
 rator_symbol_to_func = {
     '+': operator.add,
@@ -128,6 +128,8 @@ class Canvas:
         #return f'[{items}]{newline}[{citems}]'
 
 CanvasAble = Union[Sequence[Value], Canvas]  # type: ignore[misc]
+CanvasPrep = Callable[[Canvas], Canvas]
+    # Function to call before absorbing a Canvas, e.g. to add redundancy.
 
 def natural_func_weight(f: Func) -> Numeric:
     if hasattr(f, 'natural_func_weight'):
@@ -136,6 +138,11 @@ def natural_func_weight(f: Func) -> Numeric:
         return 1.0
     else:
         return 0.2  # Low probability for constant painter
+
+def ndups(n: int=1) -> CanvasPrep:
+    def ndups_f(c: Canvas) -> Canvas:
+        return Canvas(c.contents * n)
+    return ndups_f
 
 @dataclass
 class RMem:
@@ -147,7 +154,13 @@ class RMem:
     # Factories / converters
 
     @classmethod
-    def make_from(cls: Type[Q], cs: Iterable[CanvasAble]) -> Q:
+    def make_from(
+        cls: Type[Q],
+        cs: Iterable[CanvasAble],
+        prep: Optional[CanvasPrep]=None
+    ) -> Q:
+        if prep:
+            cs = (prep(cls.as_canvas(c)) for c in cs)
         return cls().absorb_canvases(cs)
 
     @classmethod
@@ -479,18 +492,22 @@ class RMem:
         startc=(None, '+', 3, None, 5),
         operands=range(1, 11),
         operators=('+', '-', 'x', '/'),
-        ndups=1,
+        prep: Optional[CanvasPrep]=None,
         nruns=1,
         niters=40
     ) -> Q:
         '''Runs a whole experiment from start to finish. Creates and returns
         an RMem object so you can inspect the generators afterward.'''
         rmem = cls.make_from(
-            make_eqns(operands=operands, operators=operators, ndups=ndups)
+            make_eqns(operands=operands, operators=operators),
+            prep=prep
         )
 
         for _ in range(nruns):
-            c = list(startc) * ndups
+            #c = list(startc)
+            c = Canvas(startc)
+            if prep:
+                c = prep(c)
             #print(c)
             rmem.run_gset(c, niters=niters)
             #print()
@@ -541,6 +558,6 @@ if __name__ == '__main__':
     rmem = RMem.run(
         operands=range(1, 8),   # 4
         startc=(None, '+', 1, None, 3),
-        ndups=3,
+        prep=ndups(3),
         niters=1000
     )

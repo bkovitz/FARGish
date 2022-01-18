@@ -2,8 +2,9 @@ RMem
 
     A LoggedStep class to track what happened during a run. DONE
 
-    NEXT Rig up an exp() function, or an atest, to verify that an RMem
+    Rig up an exp() function, or an atest, to verify that an RMem
     trained on only a single equation can regenerate that equation reliably.
+    DONE
 
     To absorb a new equation, immerse it in a canvas with 'related' equations:
     equations that randomly selected parts of the new equation evoke.

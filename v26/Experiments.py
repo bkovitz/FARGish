@@ -1,14 +1,15 @@
 # Experiments.py  --  Configured runs of RMem
 
 from __future__ import annotations
-from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterable, Any, \
-    NewType, Type, ClassVar, Sequence, Callable, Hashable, Collection, \
-    Sequence, Literal
+from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
+    Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
+    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
+    runtime_checkable, TYPE_CHECKING
 from random import random
 import operator
 from functools import reduce
 
-from RMem import RMem, Canvas, make_eqns
+from RMem import RMem, Canvas, CanvasPrep, make_eqns
 from util import pts, pr, ps, pss, psa, pl, as_tuple
 
 
@@ -35,9 +36,10 @@ def xp_single():
     )
     pr(rmem.lsteps)
 
-def just_1_1_2() -> RMem:
+def just_1_1_2(prep: Optional[CanvasPrep]=None) -> RMem:
     return RMem.make_from(
-        make_eqns(operands=[1], operators=['+'], ndups=1)
+        make_eqns(operands=[1], operators=['+']),
+        prep=prep
     )
 
 def xp_single2():
