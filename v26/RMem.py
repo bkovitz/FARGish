@@ -13,6 +13,7 @@ from functools import reduce
 import itertools
 from io import StringIO
 from copy import deepcopy
+from abc import ABC, abstractmethod
 
 from Log import lo, trace
 from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
@@ -73,14 +74,37 @@ class NoRunnableGenerators(Exception):
     pass
 
 
+class Canvas(ABC):
+
+    @abstractmethod
+    def all_addrs(self) -> Iterable[Addr]:
+        pass
+    
+    @abstractmethod
+    def as_tuple(self) -> ValueTup:
+        pass
+
+    @abstractmethod
+    def __getitem__(self, addr: Addr) -> Value:
+        pass
+
+    @abstractmethod
+    def __setitem__(self, addr: Addr, x: Value) -> None:
+        pass
+
+    @abstractmethod
+    def clarity(self, addr: Addr) -> Numeric:
+        pass
+
+    MAX_CLARITY: ClassVar[Numeric] = 5
+
 @dataclass
-class Canvas:
+class Canvas1D(Canvas):
     contents: List[Value]
     clarities: List[Numeric] = field(  # same # of elems as 'contents'
         default_factory=list,
         init=False
     )
-    MAX_CLARITY: ClassVar[Numeric] = 5
 
     def __post_init__(self) -> None:
         self.clarities = [
@@ -132,6 +156,15 @@ class Canvas:
 CanvasAble = Union[Sequence[Value], Canvas]  # type: ignore[misc]
 CanvasPrep = Callable[[Canvas, 'RMem'], Canvas]
     # Function to call before absorbing a Canvas, e.g. to add redundancy.
+
+@dataclass
+class CanvasD(Canvas):
+    '''A Canvas whose contents are in a dict. A CanvasD's addrs are the keys
+    of the dict.'''
+    contents: Dict[Tuple[int, int], Generator]
+
+    #NEXT Write the required methods from Canvas
+
 
 def natural_func_weight(f: Func) -> Numeric:
     if hasattr(f, 'natural_func_weight'):
@@ -223,7 +256,13 @@ class RMem:
         result = set()
         for addr1 in c.all_addrs():
             for addr2 in c.all_addrs():
-                if addr1 != addr2:
+                if (
+                    addr1 != addr2
+                    and
+                    c[addr1] is not None
+                    and
+                    c[addr2] is not None
+                ):
                     result.add(
                         (addr1, addr2, cls.func_from_to(c[addr1], c[addr2]))
                     )
@@ -350,7 +389,7 @@ class RMem:
         prep: CanvasPrep=no_prep
     ) -> Q:
         for c in cs:
-            c: Canvas = self.as_canvas(c)
+            c = self.as_canvas(c)
             new_gset = self.make_gset(
                 self.make_generators(prep(c, self))
             )

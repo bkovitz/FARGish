@@ -102,7 +102,7 @@ def xp_single2():
 def pad_tup(tup: Tuple) -> Tuple:
     return tuple(None for _ in range(2 * len(tup))) + tup
 
-def xp() -> None:
+def xp1() -> None:
     global rmem
     rmem = RMem.make_from(
         pad_tup(e) for e in make_eqns([1], ['+'])
@@ -138,5 +138,24 @@ def xp() -> None:
         rmem.run_gset(new_cue, niters=100)
         pr(rmem.lsteps)
 
+def xp2() -> None:
+    '''Second-order painters'''
+    rmem = RMem()
+    # Make 1st-order painters for 1+1=2
+    p1s = rmem.make_generators((1, '+', 1, '=', 2))
+    pr(p1s)
+    print()
+
+    # Make 2nd-order painters
+    # NEXT Need to cycle through the p1s and create a gset.
+    rmem.absorb_canvases(p1s)
+    pr(rmem.gset)
+
+    # Make first-order painters for partial canvas: (1, '+', None, None, None)
+    re_p1s = rmem.make_generators((1, '+', None, None, None))
+
+    # Grow the first-order painters by running the 2nd-order painters.
+
 if __name__ == '__main__':
-    counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
+    #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
+    pass

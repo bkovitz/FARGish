@@ -39,15 +39,15 @@ mypy:
 
 # For type-checking just one file (specified here).
 m:
-	$(MYPY) $(MYPY_FLAGS) RMem.py
+	$(MYPY) $(MYPY_FLAGS) Experiments.py
 i: m
-	$(PY) -i RMem.py
+	$(PY) -i Experiments.py
 
 # Run all unit tests.
 ut:
 	#$(PY) -m unittest -v
 	#$(PY) -m unittest -v testCCModel
-	$(PY) -m unittest -v test_util testFARGModel testCubeCanvas
+	$(PY) -m unittest -v test*.py
 
 # Convenience target for single acceptance test current being worked on
 u:
