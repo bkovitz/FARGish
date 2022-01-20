@@ -24,7 +24,8 @@ BaseValue = Union[int, str, None]
 BaseValueTup = Tuple[BaseValue, ...]
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
-Addr = int
+Addr2 = Tuple[int, int]
+Addr = Union[int, Addr2]
 FromTo = Tuple[Addr, Addr]
 Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
@@ -75,7 +76,8 @@ class NoRunnableGenerators(Exception):
 
 
 class Canvas(ABC):
-
+    MAX_CLARITY: ClassVar[Numeric] = 5  # TODO move this to a dataclass or
+                                        # maybe to RMem
     @abstractmethod
     def all_addrs(self) -> Iterable[Addr]:
         pass
@@ -96,7 +98,20 @@ class Canvas(ABC):
     def clarity(self, addr: Addr) -> Numeric:
         pass
 
-    MAX_CLARITY: ClassVar[Numeric] = 5
+    def all_clarities(self) -> Iterable[Numeric]:
+        for addr in self.all_addrs():
+            yield self.clarity(addr)
+
+    @classmethod
+    def make_from(cls, c: CanvasAble) -> Canvas:
+        if isinstance(c, Canvas):
+            return c
+        elif isinstance(c, list):
+            return Canvas1D(c)
+        elif isinstance(c, tuple):
+            return Canvas1D(list(c))
+        else:
+            raise NotImplementedError
 
 @dataclass
 class Canvas1D(Canvas):
@@ -119,33 +134,45 @@ class Canvas1D(Canvas):
         return as_tuple(self.contents)
 
     def __getitem__(self, addr: Addr) -> Value:
-        try:
-            return self.contents[addr]
-        except IndexError:
+        if isinstance(addr, int):
+            try:
+                return self.contents[addr]
+            except IndexError:
+                return None
+        else:
             return None
 
     def __setitem__(self, addr: Addr, x: Value) -> None:
-        if self.clarities[addr] == 0:
-            try:
-                self.contents[addr] = x
-            except IndexError:
-                # TODO Stretch the canvas?
-                return
-            if x is not None:
-                self.clarities[addr] = 1
-        elif x != self[addr]:  # Trying to overwrite a value
-            self.clarities[addr] -= 1
-            if self.clarities[addr] <= 0:
-                self[addr] = None
-        else:  # Trying to write the value that is already there
-            if self.clarities[addr] < self.MAX_CLARITY:
-                self.clarities[addr] += 1
+        if isinstance(addr, int):
+            if self.clarities[addr] == 0:
+                try:
+                    self.contents[addr] = x
+                except IndexError:
+                    # TODO Stretch the canvas?
+                    return
+                if x is not None:
+                    self.clarities[addr] = 1
+            elif x != self[addr]:  # Trying to overwrite a value
+                self.clarities[addr] -= 1
+                if self.clarities[addr] <= 0:
+                    self[addr] = None
+            else:  # Trying to write the value that is already there
+                if self.clarities[addr] < self.MAX_CLARITY:
+                    self.clarities[addr] += 1
+        else:
+            pass  # raise an exception?
 
     def clarity(self, addr: Addr) -> Numeric:
-        try:
-            return self.clarities[addr]
-        except IndexError:
-            return self.MAX_CLARITY
+        if isinstance(addr, int):
+            try:
+                return self.clarities[addr]
+            except IndexError:
+                return self.MAX_CLARITY
+        else:
+            return 0  # raise an exception?
+
+    def all_clarities(self) -> Iterable[Numeric]:
+        return self.clarities
 
     def __str__(self) -> str:
         items = ' '.join(short(x) for x in self.contents)
@@ -158,13 +185,38 @@ CanvasPrep = Callable[[Canvas, 'RMem'], Canvas]
     # Function to call before absorbing a Canvas, e.g. to add redundancy.
 
 @dataclass
-class CanvasD(Canvas):
-    '''A Canvas whose contents are in a dict. A CanvasD's addrs are the keys
-    of the dict.'''
-    contents: Dict[Tuple[int, int], Generator]
+class Canvas2D(Canvas):
+    '''A two-dimensional Canvas.'''
+    contents: Dict[Addr2, Value]
+    clarities: Dict[Addr2, Numeric]
+    size_x: int
+    size_y: int
 
-    #NEXT Write the required methods from Canvas
+    def all_addrs(self) -> Iterable[Addr]:
+        return (
+            (x, y)
+                for x in range(self.size_x)
+                    for y in range(self.size_y)
+        )
 
+    def as_tuple(self) -> ValueTup:
+        raise NotImplementedError
+
+    def __getitem__(self, addr: Addr) -> Value:
+        if isinstance(addr, tuple):
+            return self.contents.get(addr, None)
+        else:
+            return None
+
+    def __setitem__(self, addr: Addr, x: Value) -> None:
+        if isinstance(addr, tuple):
+            self.contents[addr] = x
+            # TODO adjust clarity
+        else:
+            pass
+
+    def clarity(self, addr: Addr) -> Numeric:
+        return self.clarities.get(addr, 0)  # type: ignore[arg-type]
 
 def natural_func_weight(f: Func) -> Numeric:
     if hasattr(f, 'natural_func_weight'):
@@ -176,7 +228,10 @@ def natural_func_weight(f: Func) -> Numeric:
 
 def ndups(n: int=1) -> CanvasPrep:
     def ndups_f(c: Canvas, rmem: RMem) -> Canvas:
-        return Canvas(c.contents * n)
+        if isinstance(c, Canvas1D):
+            return Canvas1D(c.contents * n)
+        else:
+            raise NotImplementedError
     return ndups_f
 
 def no_prep(c: Canvas, rmem: RMem) -> Canvas:
@@ -188,7 +243,9 @@ def pad_tup(tup: Tuple, ndups: int) -> Tuple:
 
 def correction_redundancy(ndups: int=2, npartial: int=2, niters: int=50) \
 -> CanvasPrep:
-    def correction_redundancy_f(c: Canvas, rmem: RMem):
+    def correction_redundancy_f(c: Canvas, rmem: RMem) -> Canvas1D:
+        if not isinstance(c, Canvas1D):
+            raise NotImplementedError
         tup_in = c.as_tuple()
         lo(tup_in)
         tup_out: ValueTup
@@ -210,7 +267,7 @@ def correction_redundancy(ndups: int=2, npartial: int=2, niters: int=50) \
                 #pr(rmem.lsteps)
             tup_out = reduce(operator.add, relateds) + tup_in
         lo(tup_out)
-        return Canvas(list(tup_out))
+        return Canvas1D(list(tup_out))
     return correction_redundancy_f
 
 def partial_tup(tup: ValueTup, k: int=3) -> ValueTup:
@@ -243,10 +300,7 @@ class RMem:
     @classmethod
     def as_canvas(cls, c: CanvasAble) -> Canvas:
         '''Converts c to a Canvas.'''
-        if isinstance(c, Canvas):
-            return c
-        else:
-            return Canvas(as_list(c))
+        return Canvas.make_from(c)
 
     # Making generators (i.e. painters)
 
@@ -311,7 +365,8 @@ class RMem:
 
     def termination_condition(self, canvas: Canvas) -> bool:
         threshold = 0.7 * canvas.MAX_CLARITY
-        return all(cl >= threshold for cl in canvas.clarities)
+        #return all(cl >= threshold for cl in canvas.clarities)
+        return all(cl >= threshold for cl in canvas.all_clarities())
 
     def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
     -> Generator:
@@ -393,7 +448,7 @@ class RMem:
             new_gset = self.make_gset(
                 self.make_generators(prep(c, self))
             )
-            lo('ABS', c)
+            #lo('ABS', c)
             #pr(new_gset)
             self.gset = self.add_two_gsets(self.gset, new_gset)
         return self
@@ -601,7 +656,7 @@ class RMem:
 
         for _ in range(nruns):
             #c = list(startc)
-            c = Canvas(startc)
+            c = Canvas.make_from(startc)
             if prep:
                 c = prep(c, rmem)
             #print(c)
@@ -625,8 +680,11 @@ class LoggedStep:
             co = ''
             cl = ''
         else:
-            co = f'{short(self.canvas.contents):40}'
-            cl = f'{short(self.canvas.clarities):40}'
+            if isinstance(self.canvas, Canvas1D):
+                co = f'{short(self.canvas.contents):40}'
+                cl = f'{short(self.canvas.clarities):40}'
+            else:
+                raise NotImplementedError
         painter = f'{short(self.painter):.180}'
         if self.real_painter:
             real_painter = f'{short(self.real_painter):.180}'

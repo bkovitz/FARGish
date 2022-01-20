@@ -43,9 +43,12 @@ class ATestExperiments(unittest.TestCase):
         # is just a smoke test.
 
     def test_full_table_with_dups(self) -> None:
+        # TODO Run a Cartesian test on these parameters and save the
+        # results.
         counter = eqn_test(
-            prep=ndups(3), seed=0, niters=50, n_per_eqn=3, n_eqns=20
+            prep=ndups(3), seed=1, niters=40, n_per_eqn=5, n_eqns=50
         )
         num_correct = sum(counter.values())
+        #lo('NUMC', num_correct)
         self.assertGreaterEqual(num_correct, 2)
             # a low standard: this method gets poor results

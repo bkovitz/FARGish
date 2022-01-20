@@ -61,7 +61,8 @@ def eqn_test(  # TODO rename eqns_test
             print(eqn)
         for i in range(n_per_eqn):
             startc = partial_eqn(eqn)
-            lo('CUE', startc)
+            if show:
+                lo('CUE', startc)
             got = rmem.run_gset(canvas=startc, niters=niters).as_tuple()
             if show:
                 lo('GOT', got)
@@ -125,7 +126,8 @@ def xp1() -> None:
         print(rel)
         got = rmem.run_gset(pad_tup(rel))
         print(got)
-        relateds.add(as_tuple(got.contents)[-5:])
+        #relateds.add(as_tuple(got.contents)[-5:])
+        relateds.add(as_tuple(got)[-5:])
     print()
     pr(relateds)
 
@@ -148,11 +150,15 @@ def xp2() -> None:
 
     # Make 2nd-order painters
     # NEXT Need to cycle through the p1s and create a gset.
-    rmem.absorb_canvases(p1s)
-    pr(rmem.gset)
+    for x, (xa, xb, xfunc) in enumerate(p1s):
+        for y, (ya, yb, yfunc) in enumerate(p1s):
+            
+            
+    #rmem.absorb_canvases(p1s)
+    #pr(rmem.gset)
 
     # Make first-order painters for partial canvas: (1, '+', None, None, None)
-    re_p1s = rmem.make_generators((1, '+', None, None, None))
+    #re_p1s = rmem.make_generators((1, '+', None, None, None))
 
     # Grow the first-order painters by running the 2nd-order painters.
 

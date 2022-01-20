@@ -51,7 +51,7 @@ ut:
 
 # Convenience target for single acceptance test current being worked on
 u:
-	$(PY) -m unittest -v testFARGModel.TestFARGModel
+	$(PY) -m unittest -v atestExperiments.ATestExperiments.test_full_table_with_dups
 
 # Acceptance tests
 at:
