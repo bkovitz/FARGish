@@ -24,8 +24,8 @@ BaseValue = Union[int, str, None]
 BaseValueTup = Tuple[BaseValue, ...]
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
-Addr2 = Tuple[int, int]
-Addr = Union[int, Addr2]
+#Addr2 = Tuple[int, int]
+Addr = Hashable
 FromTo = Tuple[Addr, Addr]
 Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
@@ -187,8 +187,8 @@ CanvasPrep = Callable[[Canvas, 'RMem'], Canvas]
 @dataclass
 class Canvas2D(Canvas):
     '''A two-dimensional Canvas.'''
-    contents: Dict[Addr2, Value]
-    clarities: Dict[Addr2, Numeric]
+    contents: Dict[Addr, Value]
+    clarities: Dict[Addr, Numeric]
     size_x: int
     size_y: int
 
@@ -217,6 +217,30 @@ class Canvas2D(Canvas):
 
     def clarity(self, addr: Addr) -> Numeric:
         return self.clarities.get(addr, 0)  # type: ignore[arg-type]
+
+@dataclass
+class CanvasD(Canvas):
+    '''A Canvas with arbitrary Addrs, represented by a dict that includes
+    only cells for which an Addr and Value have been provided (in other words,
+    a "sparse" Canvas).'''
+    contents: Dict[Addr, Value]
+    clarities: Dict[Addr, Numeric]
+
+    def all_addrs(self) -> Iterable[Addr]:
+        return self.contents.keys()
+
+    def as_tuple(self) -> ValueTup:
+        raise NotImplementedError
+
+    def __getitem__(self, addr: Addr) -> Value:
+        return self.contents.get(addr, None)
+
+    def __setitem__(self, addr: Addr, x: Value) -> None:
+        self.contents[addr] = x
+        # TODO adjust clarity
+
+    def clarity(self, addr: Addr) -> Numeric:
+        return self.clarities.get(addr, 0)
 
 def natural_func_weight(f: Func) -> Numeric:
     if hasattr(f, 'natural_func_weight'):
@@ -321,6 +345,17 @@ class RMem:
                         (addr1, addr2, cls.func_from_to(c[addr1], c[addr2]))
                     )
         return result
+
+    def make_next_order_painters(self, painters: Collection[Generator]) \
+    -> Iterable[Generator]:
+        '''Returns painters that, given one painter from 'painters', can
+        paint another painter from 'painters'.'''
+        for (xa, xb, xf) in painters:
+            for (ya, yb, yf) in painters:
+                if xa != ya or xb != yb:
+                    zf = self.func_from_to(xf, yf)
+                    if zf is not None:
+                        yield ((xa, xb), (ya, yb), zf)
 
     # Running generators
 
@@ -474,7 +509,15 @@ class RMem:
         elif isinstance(x1, int) and isinstance(x2, int):
             return cls.int_func_from_to(x1, x2)
         else:
-            return x2
+            return cls.make_K(x2)
+
+    @classmethod
+    def make_K(cls, x: Value) -> Func:
+        '''Returns a constant Func that paints x.'''
+        if isinstance(x, int) or isinstance(x, str) or x is None:
+            return x
+        else:
+            return cls.K(x)
 
     @classmethod
     def int_func_from_to(cls, x1: int, x2: int):
@@ -510,6 +553,17 @@ class RMem:
     @classmethod
     def same(cls, x: Any):
         return x
+
+    @dataclass(frozen=True)
+    class K:
+        '''Constant Func.'''
+        x: Value
+
+        def __call__(self, _: Any) -> Value:
+            return self.x
+
+        def __str__(self) -> str:
+            return f'K({short(self.x)})'
 
     @dataclass(frozen=True)
     class add_n:

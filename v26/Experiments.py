@@ -148,12 +148,18 @@ def xp2() -> None:
     pr(p1s)
     print()
 
+    gs1 = rmem.make_gset(p1s)
+
     # Make 2nd-order painters
     # NEXT Need to cycle through the p1s and create a gset.
-    for x, (xa, xb, xfunc) in enumerate(p1s):
-        for y, (ya, yb, yfunc) in enumerate(p1s):
-            yield ((xa, xb), (ya, yb), func_from_to(xfunc, yfunc))
-            
+    p2s = list(rmem.make_next_order_painters(p1s))
+    #pr(p2s)
+    for p2 in p2s:
+        (xa, xb), (ya, yb), f = p2
+        lo(gs1[(xa, xb)], gs1[(ya, yb)])
+        lo(p2)
+        print()
+
     #rmem.absorb_canvases(p1s)
     #pr(rmem.gset)
 
