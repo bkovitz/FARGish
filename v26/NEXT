@@ -242,6 +242,28 @@ IDEAS
     point of the equations! By evolution of cascades, the net should
     figure out that relation.
 
+    Reference points can only emerge from "averaging".
+
+    1 _ 1 -> 1 + 1
+    same _ same -> same + same   Derive relative painters from absolute
+                                 whenever possible, and reconstruct the
+                                 absolute when regenerating.
+
+                                 Exercise: make a "Taylor series" for
+                                 1+1=2.
+
+    Three-cell relative painters are little absolute psets? To regenerate,
+    move the three-cell window along?
+
+        We always need to be able to regenerate the whole canvas from one
+        cell.
+
+        Wherever there is a conflict, we need disambiguation. A random
+        painter with two equally probable alternatives needs additional
+        information to settle the choice. A rare *start condition* (requires
+        a relative addr) is distinctive, therefore should have a lot of
+        force in triggering follow-on painters.
+
 
 NOTES
 

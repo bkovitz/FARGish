@@ -152,7 +152,7 @@ def xp2() -> None:
     # NEXT Need to cycle through the p1s and create a gset.
     for x, (xa, xb, xfunc) in enumerate(p1s):
         for y, (ya, yb, yfunc) in enumerate(p1s):
-            
+            yield ((xa, xb), (ya, yb), func_from_to(xfunc, yfunc))
             
     #rmem.absorb_canvases(p1s)
     #pr(rmem.gset)
