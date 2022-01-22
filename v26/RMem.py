@@ -128,7 +128,7 @@ class Canvas1D(Canvas):
         ]
 
     def all_addrs(self) -> Iterable[Addr]:
-        return range(len(self.contents))
+        return range(1, len(self.contents) + 1)
 
     def as_tuple(self) -> ValueTup:
         return as_tuple(self.contents)
@@ -136,7 +136,7 @@ class Canvas1D(Canvas):
     def __getitem__(self, addr: Addr) -> Value:
         if isinstance(addr, int):
             try:
-                return self.contents[addr]
+                return self.contents[addr - 1]
             except IndexError:
                 return None
         else:
@@ -144,6 +144,7 @@ class Canvas1D(Canvas):
 
     def __setitem__(self, addr: Addr, x: Value) -> None:
         if isinstance(addr, int):
+            addr = addr - 1
             if self.clarities[addr] == 0:
                 try:
                     self.contents[addr] = x
@@ -152,7 +153,7 @@ class Canvas1D(Canvas):
                     return
                 if x is not None:
                     self.clarities[addr] = 1
-            elif x != self[addr]:  # Trying to overwrite a value
+            elif x != self.contents[addr]:  # Trying to overwrite a value
                 self.clarities[addr] -= 1
                 if self.clarities[addr] <= 0:
                     self[addr] = None
@@ -164,6 +165,7 @@ class Canvas1D(Canvas):
 
     def clarity(self, addr: Addr) -> Numeric:
         if isinstance(addr, int):
+            addr = addr - 1
             try:
                 return self.clarities[addr]
             except IndexError:

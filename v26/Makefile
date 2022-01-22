@@ -59,7 +59,7 @@ at:
 
 # Convenience target for single acceptance test current being worked on
 a:
-	$(PY) -m unittest -v atestExperiments
+	$(PY) -m unittest -v atestExperiments.ATestExperiments.test_xp_single
 
 mut: mypy ut
 mu: mypy u

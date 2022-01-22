@@ -46,9 +46,10 @@ class ATestExperiments(unittest.TestCase):
         # TODO Run a Cartesian test on these parameters and save the
         # results.
         counter = eqn_test(
-            prep=ndups(3), seed=1, niters=40, n_per_eqn=5, n_eqns=50
+            prep=ndups(3), seed=1, niters=20, n_per_eqn=10, n_eqns=50
+            # 3, 1, 20, 10, 50  -->  num_correct = 10, 22-Jan-2022
         )
         num_correct = sum(counter.values())
-        #lo('NUMC', num_correct)
+        # lo('NUMC', num_correct)
         self.assertGreaterEqual(num_correct, 2)
             # a low standard: this method gets poor results
