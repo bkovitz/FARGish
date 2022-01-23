@@ -11,7 +11,7 @@ from functools import reduce
 from collections import defaultdict
 
 from RMem import RMem, Canvas, CanvasPrep, make_eqns, no_prep, ndups, \
-    BaseValue, correction_redundancy
+    BaseValue, correction_redundancy, Painter, Func
 from Log import lo, trace
 from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
     sample_without_replacement
@@ -141,7 +141,7 @@ def xp1() -> None:
         pr(rmem.lsteps)
 
 def xp2() -> None:
-    '''Second-order painters'''
+    '''Second-order painters'''  # TODO  Not working yet  22-Jan-2022
     rmem = RMem()
     # Make 1st-order painters for 1+1=2
     p1s = rmem.make_generators((1, '+', 1, '=', 2))
@@ -152,11 +152,11 @@ def xp2() -> None:
 
     # Make 2nd-order painters
     # NEXT Need to cycle through the p1s and create a gset.
-    p2s = list(rmem.make_next_order_painters(p1s))
+    p2s: List[Painter] = list(rmem.make_next_order_painters(p1s))
     #pr(p2s)
     for p2 in p2s:
-        (xa, xb), (ya, yb), f = p2
-        lo(gs1[(xa, xb)], gs1[(ya, yb)])
+        (xa, xb), (ya, yb), f = p2  # type: ignore[misc]
+        lo(gs1[(xa, xb)], gs1[(ya, yb)])  # type: ignore[has-type]
         lo(p2)
         print()
 
@@ -168,6 +168,73 @@ def xp2() -> None:
 
     # Grow the first-order painters by running the 2nd-order painters.
 
+def count_fs(painters: Iterable[Painter], func: Func) -> int:
+    return sum(
+        1
+            for (a, b, f) in painters
+                if f == func
+    )
+
+def find_limit_cycle(
+    base_canvas: tuple,
+    funcs: Collection,  # Collection[Func]
+    max_iters: int=100,
+    show: bool=False
+) -> None:
+    global rmem
+    rmem = RMem()
+    count_columns = (0,) * len(funcs)
+    history = [count_columns]
+    for _ in range(max_iters):
+        startc = count_columns + base_canvas
+        if show:
+            lo(startc)
+        painters = rmem.make_generators(startc)
+        count_columns = tuple(
+            count_fs(painters, f) for f in funcs
+        )
+        try:
+            index = history.index(count_columns)
+        except ValueError:
+            history.append(count_columns)
+            continue
+        pr(history[index:])
+        lo(f'    len={len(history) - index}   starts at: {history[index]}   index={index}')
+        break
+
+def xpg0() -> None:
+    '''Simple experiment with global parameters: counts of certain types of
+    Funcs appended to the Canvas.'''
+    global rmem
+    rmem = RMem()
+
+    #eqn = (1, '+', 1, '=', 2)
+    eqn = (2, '+', 1, '=', 3)
+    count_columns = [0, 0]
+    add1 = rmem.add_n(1)
+    for i in range(10):
+        startc = tuple(count_columns) + eqn  # (count(same), count(+1))
+        lo(startc)
+        painters = rmem.make_generators(startc)
+        count_columns[0] = sum(1 for (a, b, f) in painters if f == rmem.same)
+        count_columns[1] = sum(1 for (a, b, f) in painters if f == add1)
+    lo(tuple(count_columns) + eqn)
+
+def xpg() -> None:
+    funcs = (
+        RMem.same,
+        RMem.add_n(1),
+        RMem.mul_by(2),
+        RMem.add_n(2),
+        #RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
+    )
+    for eqn in make_eqns(operands=range(1, 4), operators=['+', '-']):
+    #for eqn in make_eqns():
+        lo(eqn)
+        find_limit_cycle(eqn, funcs, show=True)
+        print()
+
+
 if __name__ == '__main__':
     #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
-    pass
+    xpg()

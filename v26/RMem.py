@@ -332,6 +332,7 @@ class RMem:
 
     @classmethod
     def make_generators(cls, c: CanvasAble) -> Set[Generator]:
+        '''Makes absolute painters.'''
         c: Canvas = cls.as_canvas(c)
         result = set()
         for addr1 in c.all_addrs():
