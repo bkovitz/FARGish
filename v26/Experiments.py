@@ -9,6 +9,7 @@ from random import random
 import operator
 from functools import reduce
 from collections import defaultdict
+from random import randrange
 
 from RMem import RMem, Canvas, CanvasPrep, make_eqns, no_prep, ndups, \
     BaseValue, correction_redundancy, Painter, Func
@@ -178,12 +179,16 @@ def count_fs(painters: Iterable[Painter], func: Func) -> int:
 def find_limit_cycle(
     base_canvas: tuple,
     funcs: Collection,  # Collection[Func]
+    start_columns: Optional[Tuple[int, ...]]=None,
     max_iters: int=100,
     show: bool=False
-) -> None:
+) -> Sequence[Tuple[int, ...]]:
     global rmem
     rmem = RMem()
-    count_columns = (0,) * len(funcs)
+    if start_columns is None:
+        count_columns = (0,) * len(funcs)
+    else:
+        count_columns = start_columns
     history = [count_columns]
     for _ in range(max_iters):
         startc = count_columns + base_canvas
@@ -198,9 +203,14 @@ def find_limit_cycle(
         except ValueError:
             history.append(count_columns)
             continue
-        pr(history[index:])
+        if show:
+            pts(history[index:])
         lo(f'    len={len(history) - index}   starts at: {history[index]}   index={index}')
-        break
+#        lo(f'    ends at: {history[-1]}')
+#        if len(history) - index != 48:
+#            raise Exception
+        return history[index:]
+    return []
 
 def xpg0() -> None:
     '''Simple experiment with global parameters: counts of certain types of
@@ -220,21 +230,30 @@ def xpg0() -> None:
         count_columns[1] = sum(1 for (a, b, f) in painters if f == add1)
     lo(tuple(count_columns) + eqn)
 
-def xpg() -> None:
+def xpg() -> Set[FrozenSet[Tuple]]:
     funcs = (
         RMem.same,
         RMem.add_n(1),
         RMem.mul_by(2),
         RMem.add_n(2),
-        #RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
+        RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
     )
-    for eqn in make_eqns(operands=range(1, 4), operators=['+', '-']):
+    lcsets: Set[FrozenSet[Tuple]] = set()  # limit cycles, each unordered
+    #for eqn in make_eqns(operands=range(1, 4), operators=['+', '-']):
     #for eqn in make_eqns():
-        lo(eqn)
-        find_limit_cycle(eqn, funcs, show=True)
-        print()
+    #for eqn in [(9, '+', 9, '=', 18)]:
+    for eqn in [(2, '+', 1, '=', 3)]:
+        for startn in range(1000):
+            #start_columns = (startn,) * len(funcs)
+            start_columns = tuple(randrange(10) for _ in range(len(funcs)))
+            lo(eqn)
+            lc = find_limit_cycle(eqn, funcs, start_columns, show=False)
+            lcsets.add(frozenset(lc))
+            print()
+    return lcsets
 
 
 if __name__ == '__main__':
     #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
-    xpg()
+    lcsets = xpg()
+    print('number of limit cycles found:', len(lcsets))
