@@ -30,6 +30,7 @@ FromTo = Tuple[Addr, Addr]
 Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
 GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
+PSet = GSet  # type: ignore[misc]
 Value = Func # type: ignore[misc]
 ValueTup = Tuple[Value, ...]  # type: ignore[misc]
 
@@ -414,7 +415,7 @@ class RMem:
         try:
             n = choices(range(len(ps)), weights=ws)[0]
         except ValueError as exc:  # screwy way to check for sum(ws) <= 0
-            print(exc)
+            #print(exc)
             raise NoRunnableGenerators
         a1, a2 = ps[n]
         f = gset[(a1, a2)]
@@ -476,11 +477,26 @@ class RMem:
             (k, v) for k, v in result.items() if v is not None
         )
 
+    def raw_absorb_gset(self, new_gset: GSet) -> None:
+        self.gset = self.add_two_gsets(self.gset, new_gset)
+
+    def raw_absorb_canvas(self, c: CanvasAble) -> None:
+        self.raw_absorb_gset(self.make_gset(self.make_generators(c)))
+
+    def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
+        c = self.as_canvas(c)
+        self.raw_absorb_canvas(prep(c, self))
+
     def absorb_canvases(
         self: Q,
         cs: Iterable[CanvasAble],
         prep: CanvasPrep=no_prep
     ) -> Q:
+        for c in cs:
+            self.absorb_canvas(c)
+        return self
+
+        '''
         for c in cs:
             c = self.as_canvas(c)
             new_gset = self.make_gset(
@@ -490,6 +506,7 @@ class RMem:
             #pr(new_gset)
             self.gset = self.add_two_gsets(self.gset, new_gset)
         return self
+        '''
 
     # Calling a function
 
@@ -523,7 +540,7 @@ class RMem:
             return cls.K(x)
 
     @classmethod
-    def int_func_from_to(cls, x1: int, x2: int):
+    def int_func_from_to(cls, x1: int, x2: int) -> Func:
         if x1 == x2:
             return cls.same
         elif x1 > x2:

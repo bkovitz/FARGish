@@ -1,6 +1,7 @@
 # Experiments.py  --  Configured runs of RMem
 
 from __future__ import annotations
+from dataclasses import dataclass
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -10,9 +11,11 @@ import operator
 from functools import reduce
 from collections import defaultdict
 from random import randrange
+from inspect import isclass
 
-from RMem import RMem, Canvas, CanvasPrep, make_eqns, no_prep, ndups, \
-    BaseValue, correction_redundancy, Painter, Func
+from RMem import RMem, Canvas, CanvasAble, CanvasPrep, make_eqns, \
+    no_prep, ndups, BaseValue, correction_redundancy, \
+    Painter, Func, GSet, PSet, Value
 from Log import lo, trace
 from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
     sample_without_replacement
@@ -49,25 +52,33 @@ def eqn_test(  # TODO rename eqns_test
     niters: int=50,
     seed: int=None,
     operands=range(1, 11),
-    operators=('+', '-', 'x', '/')
+    operators=('+', '-', 'x', '/'),
+    rm: Union[RMem, Type[RMem]]=RMem,
+    npartial: int=3,
+    pre: Tuple[Value, ...]=()
 ) -> EqnCounter:
     reseed(seed)
     full_table = tuple(make_eqns(operands=operands, operators=operators))
     l = len(full_table[0])
-    rmem = RMem.make_from(full_table, prep=prep)
+    rmem: RMem
+    if isclass(rm):
+        rmem = rm.make_from(full_table, prep=prep)
+    else:
+        rmem = rm  # type: ignore[assignment]
+        rmem.absorb_canvases(full_table, prep=prep)
     counter: EqnCounter = defaultdict(int)
 
     for eqn in sample_without_replacement(full_table, k=n_eqns):
         if show:
             print(eqn)
         for i in range(n_per_eqn):
-            startc = partial_eqn(eqn)
+            startc = pre + partial_eqn(eqn, k=npartial)
             if show:
                 lo('CUE', startc)
             got = rmem.run_gset(canvas=startc, niters=niters).as_tuple()
             if show:
                 lo('GOT', got)
-            if got == eqn:
+            if got[-len(eqn):] == eqn:
                 counter[eqn] += 1
         if show:
             print()
@@ -252,8 +263,144 @@ def xpg() -> Set[FrozenSet[Tuple]]:
             print()
     return lcsets
 
+@dataclass
+class WithCountColumns(RMem):
+    funcs_to_count: Tuple[Func, ...] = (
+        RMem.same,
+        RMem.add_n(1)
+    )
+
+    #def absorb_canvas(self, c: CanvasAble) -> None:
+    def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
+        for pset in self.limit_cycle_of_psets(c):
+            self.raw_absorb_gset(pset)
+
+    def limit_cycle_of_psets(
+        self,
+        canvas: CanvasAble,
+        funcs: Optional[Collection[Func]]=None,
+        max_iters: int=100,
+        show: bool=False
+    ) -> Sequence[PSet]:
+        '''The canvases that this makes psets for will have extra columns
+        prepended for the painter counts.''' # TODO Clean that up so calling
+        # code isn't bug-prone.
+        base_tuple = as_tuple(canvas)
+        if funcs is None:
+            funcs = self.funcs_to_count
+        count_columns = (0,) * len(funcs)
+        cc_history = [count_columns]
+        pset_history: List[PSet] = []
+        for _ in range(max_iters):  # loop until a limit cycle completes
+            startc = count_columns + base_tuple
+            if show:
+                lo(startc)
+            pset = self.make_gset(self.make_generators(startc))
+            pset_history.append(pset)
+            count_columns = tuple(
+                sum(1 for f in pset.values() if f == func)
+                    for func in funcs
+            )
+            try:
+                index = cc_history.index(count_columns)
+            except ValueError:
+                cc_history.append(count_columns)
+                continue
+            if show:
+                pts(cc_history[index:])
+                lo(f'    len={len(cc_history) - index}   starts at: {cc_history[index]}   index={index}')
+            cycle_len = len(cc_history) - index
+            return pset_history[-cycle_len:]
+
+        return []
+
+    """
+    def funcs_to_count(self) -> Collection[Func]:
+        # TODO Optimize? It shouldn't be necessary to recreate these objects
+        # on every call to .limit_cycle_of_psets().
+        return [
+            self.same,
+            self.add_n(1)
+        ]
+    """
+
+    """
+    # TODO Move this to a separate mix-in.
+    @classmethod
+    def int_func_from_to(cls, x1: int, x2: int) -> Func:
+        '''Returns only 'same' or addition/subtraction Funcs.'''
+        if x1 == x2:
+            return cls.same
+        elif x1 > x2:
+            return cls.sub_n(x1 - x2)
+        else:
+            return cls.add_n(x2 - x1)
+    """
+
+def xpgfid() -> None:
+    '''Fidelity test: Does adding global count-columns enable the regeneration
+    process to restore the original equation more often?'''
+    # New absorb_canvas():
+    #   For each pset in the limit cycle:
+    #      raw_absorb it
+    # Measure fidelity on grade-school table without count-columns.
+    # Measure fidelity on grade-school table with count-columns.
+    cls = type('RM', (WithCountColumns, RMem), {})
+    rmem = cls()
+    #eqn = (2, '+', 1, '=', 3)
+    eqns = list(make_eqns(operands=range(1, 4), operators=['+']))
+    for eqn in eqns:
+        rmem.absorb_canvas(eqn)
+    for eqn in eqns:
+        startc = (None, None) + partial_eqn(eqn, k=4)
+        got = rmem.run_gset(startc, niters=1000)
+        lo(eqn)
+        lo(startc)
+        lo(got)
+        lo()
+    pr(rmem.lsteps)
+    print()
+    lo(startc)
+    lo(eqn)
+
+def xpgfid2() -> None:
+    cls = type('RM', (WithCountColumns, RMem), {})
+    rmem = cls()
+    common_kwargs = dict(
+        #operands=[1, 2],
+        operands=[1, 2, 3, 4],
+        #operators=['+'],
+        operators=['+', '-', 'x'],
+        n_per_eqn=200,
+    )
+    basic_kwargs: Dict = dict(
+    )
+    cc_kwargs = dict(
+        #rm=rmem,
+        rm=cls(funcs_to_count=(
+            RMem.same,
+            RMem.add_n(1),
+            RMem.mul_by(2),
+            RMem.add_n(2),
+            RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
+        )),
+        #pre=(None, None),
+        pre=(None, None, None, None, None),
+    )
+    for kwargs in [basic_kwargs, cc_kwargs]:
+        pr(kwargs)
+        print()
+        result = eqn_test(
+            #show=True,
+            **(common_kwargs | kwargs)  # type: ignore[arg-type]
+        )
+        pr(result)
+        lo(sum(result.values()))
 
 if __name__ == '__main__':
     #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
-    lcsets = xpg()
-    print('number of limit cycles found:', len(lcsets))
+
+    #lcsets = xpg()
+    #print('number of limit cycles found:', len(lcsets))
+
+    xpgfid2()
