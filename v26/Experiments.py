@@ -12,6 +12,7 @@ from functools import reduce
 from collections import defaultdict
 from random import randrange
 from inspect import isclass
+from time import perf_counter
 
 from RMem import RMem, Canvas, CanvasAble, CanvasPrep, make_eqns, \
     no_prep, ndups, BaseValue, correction_redundancy, \
@@ -55,7 +56,6 @@ def eqn_test(  # TODO rename eqns_test
     operators=('+', '-', 'x', '/'),
     rm: Union[RMem, Type[RMem]]=RMem,
     npartial: int=3,
-    pre: Tuple[Value, ...]=()
 ) -> EqnCounter:
     reseed(seed)
     full_table = tuple(make_eqns(operands=operands, operators=operators))
@@ -72,7 +72,7 @@ def eqn_test(  # TODO rename eqns_test
         if show:
             print(eqn)
         for i in range(n_per_eqn):
-            startc = pre + partial_eqn(eqn, k=npartial)
+            startc = partial_eqn(eqn, k=npartial)
             if show:
                 lo('CUE', startc)
             got = rmem.run_gset(canvas=startc, niters=niters).as_tuple()
@@ -82,6 +82,10 @@ def eqn_test(  # TODO rename eqns_test
                 counter[eqn] += 1
         if show:
             print()
+        else:
+            print('.', end='')
+    if not show:
+        print()
     return counter
 
 def xp_single():
@@ -270,10 +274,19 @@ class WithCountColumns(RMem):
         RMem.add_n(1)
     )
 
-    #def absorb_canvas(self, c: CanvasAble) -> None:
-    def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
+    def raw_absorb_canvas(self, c: Canvas) -> None:
         for pset in self.limit_cycle_of_psets(c):
             self.raw_absorb_gset(pset)
+
+    """
+    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
+        prefix = (None,) * len(self.funcs_to_count)
+        return super().prep_absorb(prefix + as_tuple(c))
+    """
+
+    def prep_regen(self, c: CanvasAble) -> CanvasAble:
+        prefix = (None,) * len(self.funcs_to_count)
+        return super().prep_regen(prefix + as_tuple(c))
 
     def limit_cycle_of_psets(
         self,
@@ -337,6 +350,33 @@ class WithCountColumns(RMem):
             return cls.add_n(x2 - x1)
     """
 
+@dataclass
+class WithRandomSalt(RMem):
+    '''Prepends cells containing random numbers (the 'salt') to every canvas
+    absorbed.'''
+    nsalt: int = 30  # number of cells to prepend
+    saltrange: Tuple[int, int] = (0, 11) # args to randrange for each salt cell
+    # NEXT1 number of copies of each image to absorb
+    # NEXT2 specify number of regeneration iterations somewhere
+
+    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
+        prefix = tuple(randrange(*self.saltrange) for _ in range(self.nsalt))
+        return super().prep_absorb(prefix + as_tuple(c))
+
+    def prep_regen(self, c: CanvasAble) -> CanvasAble:
+        prefix = (None,) * self.nsalt
+        return super().prep_regen(prefix + as_tuple(c))
+
+    # TODO Factor this out
+    def termination_condition(self, canvas: Canvas) -> bool:
+        threshold = 0.5 * canvas.MAX_CLARITY
+        #return all(cl >= threshold for cl in canvas.clarities)
+        return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.nsalt})'
+
 def xpgfid() -> None:
     '''Fidelity test: Does adding global count-columns enable the regeneration
     process to restore the original equation more often?'''
@@ -364,38 +404,43 @@ def xpgfid() -> None:
     lo(eqn)
 
 def xpgfid2() -> None:
-    cls = type('RM', (WithCountColumns, RMem), {})
-    rmem = cls()
+    RMemCC = type('RMemCC', (WithCountColumns, RMem), {})
+    RMemSalt = type('RMemSalt', (WithRandomSalt, RMem), {})
+    rmemcc = RMemCC()
     common_kwargs = dict(
         #operands=[1, 2],
-        operands=[1, 2, 3, 4],
+        operands=[1, 2, 3, 4, 5, 6],
         #operators=['+'],
-        operators=['+', '-', 'x'],
-        n_per_eqn=200,
+        operators=['+', '-', 'x', '/'],
+        n_per_eqn=20,
+        niters=100
     )
     basic_kwargs: Dict = dict(
     )
     cc_kwargs = dict(
-        #rm=rmem,
-        rm=cls(funcs_to_count=(
+        rm=RMemCC(funcs_to_count=(
             RMem.same,
             RMem.add_n(1),
             RMem.mul_by(2),
             RMem.add_n(2),
             RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
         )),
-        #pre=(None, None),
-        pre=(None, None, None, None, None),
     )
-    for kwargs in [basic_kwargs, cc_kwargs]:
-        pr(kwargs)
+    salt_kwargs = dict(
+        rm=RMemSalt()
+    )
+    for kwargs in [basic_kwargs, cc_kwargs, salt_kwargs]:
+    #for kwargs in [salt_kwargs]:
         print()
+        pr(kwargs)
+        start_time = perf_counter()
         result = eqn_test(
             #show=True,
             **(common_kwargs | kwargs)  # type: ignore[arg-type]
         )
+        test_duration = perf_counter() - start_time
         pr(result)
-        lo(sum(result.values()))
+        lo(f'{sum(result.values())}      {test_duration:8.3f} sec')
 
 if __name__ == '__main__':
     #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)

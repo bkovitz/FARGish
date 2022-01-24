@@ -5,7 +5,7 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
-    runtime_checkable, TYPE_CHECKING
+    runtime_checkable, TYPE_CHECKING, final
 import operator
 from random import choice, choices
 from collections import defaultdict, Counter
@@ -345,6 +345,8 @@ class RMem:
                     and
                     c[addr2] is not None
                 ):
+                    f = cls.func_from_to(c[addr1], c[addr2])
+                    #lo('MKG', addr1, addr2, c[addr2], c)
                     result.add(
                         (addr1, addr2, cls.func_from_to(c[addr1], c[addr2]))
                     )
@@ -386,7 +388,7 @@ class RMem:
     ) -> Canvas:
         '''Attempts to fill in canvas by running gset.'''
         gset: GSet = self.gset if gset is None else gset
-        canvas: Canvas = self.as_canvas(canvas)
+        canvas: Canvas = self.as_canvas(self.prep_regen(canvas))
         self.lsteps = [LoggedStep(canvas=deepcopy(canvas), t=0)]
         try:
             for i in range(niters):
@@ -402,10 +404,18 @@ class RMem:
             pass
         return canvas
 
+    def prep_regen(self, c: CanvasAble) -> CanvasAble:
+        '''.run_gset() calls this before regenerating from c. Default
+        implementation does nothing. Override to do things like prepend
+        a bunch of Nones to the canvas.'''
+        return c
+
+    # TODO Factor out the constant
     def termination_condition(self, canvas: Canvas) -> bool:
-        threshold = 0.7 * canvas.MAX_CLARITY
+        threshold = 0.5 * canvas.MAX_CLARITY   # 0.7
         #return all(cl >= threshold for cl in canvas.clarities)
-        return all(cl >= threshold for cl in canvas.all_clarities())
+        # TODO Make that -5 a parameter, or refer to 'central canvas'
+        return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])
 
     def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
     -> Generator:
@@ -480,12 +490,24 @@ class RMem:
     def raw_absorb_gset(self, new_gset: GSet) -> None:
         self.gset = self.add_two_gsets(self.gset, new_gset)
 
-    def raw_absorb_canvas(self, c: CanvasAble) -> None:
+    # TODO Break off this notion: canvas_to_psets_for_absorption() ?
+    def raw_absorb_canvas(self, c: Canvas) -> None:
+        '''Absorbs c into self.gset, without modifying c. Override
+        .raw_absorb_canvas() to change the way absorption works. Override
+        .prep_absorb() to add columns to c or otherwise modify c before
+        absorbing it.'''
         self.raw_absorb_gset(self.make_gset(self.make_generators(c)))
 
+    @final
     def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
-        c = self.as_canvas(c)
+        c = self.as_canvas(self.prep_absorb(c))
         self.raw_absorb_canvas(prep(c, self))
+
+    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
+        '''.absorb_canvas() calls this before absorbing c. Default
+        implementation does nothing. Override to do things like prepend
+        additional information to the canvas.'''
+        return c
 
     def absorb_canvases(
         self: Q,
@@ -683,6 +705,12 @@ class RMem:
 
     def __len__(self) -> int:
         return len(self.gset)
+
+    def __str__(self) -> str:
+        return self.__class__.__name__
+
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
     # Logging
 

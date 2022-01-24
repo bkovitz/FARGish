@@ -148,6 +148,8 @@ def as_list(o) -> List:
 def as_tuple(o) -> Tuple:
     if isinstance(o, tuple):
         return o
+    elif hasattr(o, 'as_tuple'):
+        return o.as_tuple()  # type: ignore[arg-type]
     else:
         return tuple(as_iter(o))
 
