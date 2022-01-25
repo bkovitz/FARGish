@@ -246,7 +246,7 @@ def intersection(*iters: Iterable) -> Set:
 def union(*sets: Iterable) -> Set:
     return set().union(*sets)
 
-### Dataclass utilities
+### Utilities for working with dataclasses
 
 def is_dataclass_instance(x):
     return is_dataclass(x) and not isinstance(x, type)
@@ -268,14 +268,22 @@ def as_dict(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) \
         return x
     elif x is None:
         return dict()
-    elif is_dataclass_instance(x):
+    elif is_dataclass(x):  #is_dataclass_instance(x):
         # dataclasses.asdict() fails on many objects because it recursively
         # makes dictionaries for all of x's members. Here, we don't recurse.
         return dict(
-            (name, getattr(x, name)) for name in field_names(x)
+            #(name, getattr(x, name)) for name in field_names(x)
+            field_names_and_values(x)
         )
     else:
         return dict(x)
+
+def field_names_and_values(dclass) -> Iterable[Tuple[str, Any]]:
+    for name in field_names(dclass):
+        try:
+            yield (name, getattr(dclass, name))
+        except AttributeError:
+            continue
 
 def as_dstr(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) \
 -> str:

@@ -14,7 +14,7 @@ import typing
 from random import randrange
 from collections import Counter
 
-from util import PushAttr, asdict_with_classvars, HasRngSeed, pr, \
+from util import PushAttr, as_dict, asdict_with_classvars, HasRngSeed, pr, \
     is_type_instance, make_nonoptional
 
 
@@ -74,6 +74,30 @@ class TestDataclassInspection(unittest.TestCase):
             asdict_with_classvars(blah),
             {'x': 22, 'y': 'the classvar'}
         )
+
+    def test_as_dict_with_class(self):
+        @dataclass
+        class Blah:
+            y: ClassVar[str] = 'the classvar'
+            z: str
+            x: int = 22
+
+        self.assertEqual(
+            as_dict(Blah),
+            {'x': 22}  # no y or z because these are not instance args with
+                       # defaults
+        )
+
+        @dataclass
+        class WithZ(Blah):
+            z: str = 'default_z'
+
+        cls: Any = type('BlahWithZ', (WithZ, Blah), {})
+        self.assertEqual(
+            as_dict(cls),
+            {'x': 22, 'z': 'default_z'}
+        )
+
 
 class TestIsTypeInstance(unittest.TestCase):
 
