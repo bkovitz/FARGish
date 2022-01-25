@@ -77,7 +77,7 @@ class NoRunnableGenerators(Exception):
 
 
 class Canvas(ABC):
-    MAX_CLARITY: ClassVar[Numeric] = 5  # TODO move this to a dataclass or
+    MAX_CLARITY: ClassVar[Numeric] = 6  # TODO move this to a dataclass or  # 5
                                         # maybe to RMem
     @abstractmethod
     def all_addrs(self) -> Iterable[Addr]:
@@ -104,11 +104,11 @@ class Canvas(ABC):
             yield self.clarity(addr)
 
     @classmethod
-    def make_from(cls, c: CanvasAble) -> Canvas:
+    def make_from(cls, c: CanvasAble, mx: Optional[int]=None) -> Canvas:
         if isinstance(c, Canvas):
             return c
         elif isinstance(c, list):
-            return Canvas1D(c)
+            return Canvas1D(c)  # TODO copy the list
         elif isinstance(c, tuple):
             return Canvas1D(list(c))
         else:
@@ -124,7 +124,7 @@ class Canvas1D(Canvas):
 
     def __post_init__(self) -> None:
         self.clarities = [
-            0 if x is None else self.MAX_CLARITY - 1
+            0 if x is None else int(self.MAX_CLARITY * 0.61 + 0.5)   # - 1  * 0.61
                 for i, x in enumerate(self.contents)
         ]
 
@@ -412,7 +412,7 @@ class RMem:
 
     # TODO Factor out the constant
     def termination_condition(self, canvas: Canvas) -> bool:
-        threshold = 0.5 * canvas.MAX_CLARITY   # 0.7
+        threshold = int(0.7 * canvas.MAX_CLARITY + 0.5)   # 0.5  0.7
         #return all(cl >= threshold for cl in canvas.clarities)
         # TODO Make that -5 a parameter, or refer to 'central canvas'
         return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])

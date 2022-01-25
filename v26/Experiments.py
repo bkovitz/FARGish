@@ -14,7 +14,7 @@ from random import randrange
 from inspect import isclass
 from time import perf_counter
 
-from RMem import RMem, Canvas, CanvasAble, CanvasPrep, make_eqns, \
+from RMem import RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, make_eqns, \
     no_prep, ndups, BaseValue, correction_redundancy, \
     Painter, Func, GSet, PSet, Value
 from Log import lo, trace
@@ -368,10 +368,12 @@ class WithRandomSalt(RMem):
         return super().prep_regen(prefix + as_tuple(c))
 
     # TODO Factor this out
+    """
     def termination_condition(self, canvas: Canvas) -> bool:
-        threshold = 0.5 * canvas.MAX_CLARITY
+        threshold = 0.8 * canvas.MAX_CLARITY  # 0.5
         #return all(cl >= threshold for cl in canvas.clarities)
         return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])
+    """
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -403,17 +405,21 @@ def xpgfid() -> None:
     lo(startc)
     lo(eqn)
 
+RMemCC = type('RMemCC', (WithCountColumns, RMem), {})
+RMemSalt = type('RMemSalt', (WithRandomSalt, RMem), {})
+
 def xpgfid2() -> None:
-    RMemCC = type('RMemCC', (WithCountColumns, RMem), {})
-    RMemSalt = type('RMemSalt', (WithRandomSalt, RMem), {})
     rmemcc = RMemCC()
     common_kwargs = dict(
         #operands=[1, 2],
         operands=[1, 2, 3, 4, 5, 6],
         #operators=['+'],
         operators=['+', '-', 'x', '/'],
-        n_per_eqn=20,
-        niters=100
+        npartial=4,  #3
+        n_per_eqn=3, #100,
+        niters=100,   #100
+        n_eqns=5,  #20
+        show=True
     )
     basic_kwargs: Dict = dict(
     )
@@ -427,7 +433,7 @@ def xpgfid2() -> None:
         )),
     )
     salt_kwargs = dict(
-        rm=RMemSalt()
+        rm=RMemSalt(nsalt=5)
     )
     for kwargs in [basic_kwargs, cc_kwargs, salt_kwargs]:
     #for kwargs in [salt_kwargs]:

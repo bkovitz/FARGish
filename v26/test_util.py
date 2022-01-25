@@ -29,18 +29,6 @@ class TestUtil(unittest.TestCase):
             self.assertEqual(o.myattr, 'SECOND')
         self.assertEqual(o.myattr, 'FIRST')
 
-    def test_asdict_with_classvars(self) -> None:
-        @dataclass
-        class Blah:
-            x: int
-            y: ClassVar[str] = 'the classvar'
-
-        blah = Blah(22)
-        self.assertEqual(
-            asdict_with_classvars(blah),
-            {'x': 22, 'y': 'the classvar'}
-        )
-
     def test_hasrngseed(self) -> None:
         @dataclass
         class Blah(HasRngSeed):
@@ -72,6 +60,20 @@ class TestUtil(unittest.TestCase):
 
         blah = Blah()
         self.assertTrue(isinstance(blah.seed, int))
+
+class TestDataclassInspection(unittest.TestCase):
+
+    def test_asdict_with_classvars(self) -> None:
+        @dataclass
+        class Blah:
+            x: int
+            y: ClassVar[str] = 'the classvar'
+
+        blah = Blah(22)
+        self.assertEqual(
+            asdict_with_classvars(blah),
+            {'x': 22, 'y': 'the classvar'}
+        )
 
 class TestIsTypeInstance(unittest.TestCase):
 
