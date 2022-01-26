@@ -39,9 +39,9 @@ mypy:
 
 # For type-checking just one file (specified here).
 m:
-	$(MYPY) $(MYPY_FLAGS) Experiments.py
+	$(MYPY) $(MYPY_FLAGS) Harness.py
 i: m
-	$(PY) -i Experiments.py
+	$(PY) -i Harness.py
 
 # Run all unit tests.
 ut:

@@ -285,6 +285,15 @@ def field_names_and_values(dclass) -> Iterable[Tuple[str, Any]]:
         except AttributeError:
             continue
 
+# TODO UT
+def instantiate_dataclass_from_kwargs(dclass: Type[T], kwargs: Dict[str, Any]) \
+-> T:
+    '''dclass must be a dataclass.'''
+    # TODO
+    return dclass(  # type: ignore[call-arg]
+        **(as_dict(dclass) | fields_for(dclass, kwargs))
+    )
+
 def as_dstr(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) \
 -> str:
     '''Convenient string to represent an object, especially a dataclass
@@ -449,25 +458,30 @@ def sample_without_replacement(items, k=1, weights=None):
     '''Returns a generator of k items sampled randomly without replacement from
     'items', weighted by 'weights'. If 'weights' is None, then all items have
     equal probability.  If k > number of items, returns same result as if k =
-    number of items.'''
-    try:
-        n = len(items)
-    except TypeError:
-        items = list(items)
-        n = len(items)
-    if weights is None:
-        weights = [1.0] * n
-    weights = rescale(weights)
-    items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
-    weights = [w for w in weights if w > 0.0]
-    for i in range(k):
-        if items:
-            i = random.choices(range(len(items)), weights=weights, k=1)[0]
-            item = items.pop(i)
-            del weights[i]
-            yield item
-        else:
-            return
+    number of items.
+
+    If k is None, returns all items.'''
+    if k is None:
+        yield from items
+    else:
+        try:
+            n = len(items)
+        except TypeError:
+            items = list(items)
+            n = len(items)
+        if weights is None:
+            weights = [1.0] * n
+        weights = rescale(weights)
+        items = [x for (i, x) in enumerate(items) if weights[i] > 0.0]
+        weights = [w for w in weights if w > 0.0]
+        for i in range(k):
+            if items:
+                i = random.choices(range(len(items)), weights=weights, k=1)[0]
+                item = items.pop(i)
+                del weights[i]
+                yield item
+            else:
+                return
 
 ### Comma-separated values (CSVs)
 
@@ -563,7 +577,7 @@ def reweight(xs: Sequence[float], s: float) -> Iterable[float]:
         #print('REWx', x, x ** p)
         yield x ** p
 
-def clip(lb, ub, x):
+def clip(lb: Numeric, ub: Numeric, x: Numeric) -> Numeric:
     '''Passing None for lb and/ub gives that bound no effect.'''
     if lb is not None and x <= lb:
         return lb
@@ -770,6 +784,11 @@ def pr(x: Any, *args, key=short, file=sys.stdout, **kwargs):
         pts(sorted(as_iter(x), key=key), key=key, file=file)
 #        for s in sorted(str(a) for a in as_iter(x)):
 #            print(s, file=file)
+
+def prs(*args, **kwargs) -> str:
+    sio = StringIO()
+    pr(*args, file=sio, **kwargs)
+    return sio.getvalue().rstrip()
 
 def ps(*items: Any, file=sys.stdout) -> None:
     '''Short for print(short(i)).'''

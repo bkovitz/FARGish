@@ -124,7 +124,7 @@ class Canvas1D(Canvas):
 
     def __post_init__(self) -> None:
         self.clarities = [
-            0 if x is None else int(self.MAX_CLARITY * 0.61 + 0.5)   # - 1  * 0.61
+            0 if x is None else int(self.MAX_CLARITY - 1)   # - 1  * 0.61
                 for i, x in enumerate(self.contents)
         ]
 
@@ -311,6 +311,7 @@ class RMem:
     Q = TypeVar('Q', bound='RMem')
     gset: GSet = field(default_factory=dict)
     lsteps: List[LoggedStep] = field(default_factory=list)
+    niters: int = 40
 
     # Factories / converters
 
@@ -384,10 +385,13 @@ class RMem:
     # Running GSets
 
     def run_gset(
-        self, canvas: CanvasAble, gset: Optional[GSet]=None, niters: int=20
+        self,
+        canvas: CanvasAble,
+        gset: Optional[GSet]=None, niters: Optional[int]=None
     ) -> Canvas:
         '''Attempts to fill in canvas by running gset.'''
         gset: GSet = self.gset if gset is None else gset
+        niters: int = self.niters if niters is None else niters
         canvas: Canvas = self.as_canvas(self.prep_regen(canvas))
         self.lsteps = [LoggedStep(canvas=deepcopy(canvas), t=0)]
         try:
@@ -412,7 +416,7 @@ class RMem:
 
     # TODO Factor out the constant
     def termination_condition(self, canvas: Canvas) -> bool:
-        threshold = int(0.7 * canvas.MAX_CLARITY + 0.5)   # 0.5  0.7
+        threshold = int(0.7 * canvas.MAX_CLARITY)   # 0.5  0.7
         #return all(cl >= threshold for cl in canvas.clarities)
         # TODO Make that -5 a parameter, or refer to 'central canvas'
         return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])

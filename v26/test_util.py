@@ -14,7 +14,8 @@ import typing
 from random import randrange
 from collections import Counter
 
-from util import PushAttr, as_dict, asdict_with_classvars, HasRngSeed, pr, \
+from util import PushAttr, as_dict, asdict_with_classvars, field_names, \
+    instantiate_dataclass_from_kwargs, HasRngSeed, pr, \
     is_type_instance, make_nonoptional
 
 
@@ -87,6 +88,7 @@ class TestDataclassInspection(unittest.TestCase):
             {'x': 22}  # no y or z because these are not instance args with
                        # defaults
         )
+        self.assertCountEqual(field_names(Blah), ['x', 'z'])
 
         @dataclass
         class WithZ(Blah):
@@ -97,6 +99,11 @@ class TestDataclassInspection(unittest.TestCase):
             as_dict(cls),
             {'x': 22, 'z': 'default_z'}
         )
+        self.assertCountEqual(field_names(cls), ['x', 'z'])
+
+        d = {'x': 55, 'h': 'should-be-ignored'}
+        blahz = instantiate_dataclass_from_kwargs(cls, d)
+        self.assertEqual(blahz, cls(x=55))
 
 
 class TestIsTypeInstance(unittest.TestCase):
