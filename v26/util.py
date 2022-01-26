@@ -518,8 +518,8 @@ def repr_str(name, items):
 
 def dict_str(d: Dict, xform: Callable=repr) -> str:
     '''Returns a string containing all the keys and values of d in the
-    format key=repr(value) key=repr(value) etc.'''
-    return ' '.join(f'{k}={xform(v)}' for k, v in d.items())
+    format key=repr(value) key=repr(value) etc., in sorted order.'''
+    return ' '.join(f'{k}={xform(v)}' for k, v in sorted(d.items()))
 
 def nrepr(o):
     '''Helper for nice_object_repr().'''

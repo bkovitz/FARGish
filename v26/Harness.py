@@ -17,28 +17,21 @@ from Experiments import RMemCC, RMemSalt
 from Log import lo, trace
 from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
     newline, force_setattr, sample_without_replacement, first, reseed, \
-    instantiate_dataclass_from_kwargs
+    instantiate_dataclass_from_kwargs, dict_str, as_dict
 
 CanvasMaker = Callable[[], Iterable[CanvasAble]]
 CueMaker = Callable[[CanvasAble], CanvasAble]
 
 @dataclass(frozen=True)
 class EquationMaker:
-    operands: Collection[int]
-    operators: Collection[str]
+    operands: Collection[int] = range(1, 11)
+    operators: Collection[str] = ('+', '-', 'x', '/')
 
     def __call__(self) -> Iterable[CanvasAble]:
         return make_eqns(operands=self.operands, operators=self.operators)
 
-"""
-def partial_canvas(c: Tuple[BaseValue, ...], k: int=3) -> Tuple[BaseValue, ...]:
-    r = range(len(c))
-    addrs = set(sample_without_replacement(r, k=k))
-    return tuple(
-        c[a] if a in addrs else None
-            for a in r
-    )
-"""
+    def short(self) -> str:
+        return dict_str(as_dict(self))
 
 @dataclass(frozen=True)
 class PartialCueMaker:
@@ -63,6 +56,10 @@ class PartialCueMaker:
             full_image[a] if a in addrs else None
                 for a in r
         )
+
+    def short(self) -> str:
+        return dict_str(as_dict(self))
+
 
 @dataclass(frozen=True)
 class TestSpec:
@@ -92,7 +89,10 @@ class TestSpec:
         # Create RMem and absorb initial canvases
         rmem = instantiate_dataclass_from_kwargs(self.cls, self.kwargs)
         if vv >= 1:
-            print(short(rmem))
+            print()
+            print(
+                f'{short(rmem):40}  niters={rmem.niters}  {short(initial_canvases_f)}  {short(cue_maker)}'
+            )
         initial_canvases: Collection[CanvasAble] = list(initial_canvases_f())
         num_initial_canvases = len(initial_canvases)
         rmem.absorb_canvases(initial_canvases)
@@ -119,6 +119,8 @@ class TestSpec:
                 if vv == 1:
                     print('+' if yes else '.', end='', flush=True)
         duration = perf_counter() - start_time
+        if vv == 1:
+            print(flush=True)
         
         return FidelityTestResult(
             tspec=self,
@@ -157,34 +159,41 @@ class FidelityTestResult:
     def kwargs(self) -> Dict[str, Any]:
         return self.tspec.kwargs
 
+    def nstr(self) -> str:
+        '''Returns a string containing just the principal numerical results.'''
+        return f'{self.num_correct:3} / {self.num_tests} ({100 * self.prop_correct:1.2f}%)     {self.duration:8.3f} sec        seed={self.seed}'
+
     def __str__(self) -> str:
         sio = StringIO()
         print(file=sio)
-        print(f'{short(self.rmem):60s}  seed={self.seed}', file=sio)
+        print(short(self.rmem), file=sio)
         #pr(self.tspec.kwargs, file=sio)
         print(self.initial_canvases_f, file=sio)  # type: ignore[misc]
         print(self.cue_maker, file=sio)  # type: ignore[misc]
-        print(f'{self.num_correct} / {self.num_tests} ({100 * self.prop_correct:1.2f}%)     {self.duration:8.3f} sec', file=sio)
+        print(self.nstr(), file=sio)
         return sio.getvalue().rstrip()
 
 if __name__ == '__main__':
-    eqns_params = [
-        dict(operands=[1], operators=['+']),
-        dict(operands=[1, 2], operators=['+']),
+    eqns_params: List[Dict[str, Any]] = [
+        #dict(operands=[1], operators=['+']),
+        #dict(operands=[1, 2], operators=['+']),
         dict(operands=range(1, 7), operators=['+', '-', 'x', '/']),
+        dict()
     ]
     for eqn_ps in eqns_params:
-        #for niters in [20, 60, 100]:
-        for niters in [150, 200]:
+        for niters in [20, 60, 100, 150, 200, 500]:
+        #for niters in [150, 200]:
             for cls in RMem, RMemCC, RMemSalt:
                 kwargs = dict(niters=niters) | eqn_ps
                 tspec = TestSpec(
                     cls=cls,
                     kwargs=kwargs,
-                    initial_canvases_cls=EquationMaker
+                    initial_canvases_cls=EquationMaker,
+                    nsamples=100,
+                    n_per_sample=2
                 )
                 result = tspec.run()
-                print(result)
+                print(result.nstr())
 
                     # How to make class-specific arg sets?
                     # call cartesian_product?

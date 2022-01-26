@@ -15,7 +15,7 @@ from collections import Counter
 
 from util import PushAttr, as_dict, asdict_with_classvars, field_names, \
     instantiate_dataclass_from_kwargs, HasRngSeed, pr, \
-    is_type_instance, make_nonoptional
+    is_type_instance, make_nonoptional, dict_str
 
 
 class TestUtil(unittest.TestCase):
@@ -75,7 +75,7 @@ class TestDataclassInspection(unittest.TestCase):
             {'x': 22, 'y': 'the classvar'}
         )
 
-    def test_as_dict_with_class(self):
+    def test_various_inspections(self):
         @dataclass
         class Blah:
             y: ClassVar[str] = 'the classvar'
@@ -104,6 +104,17 @@ class TestDataclassInspection(unittest.TestCase):
         blahz = instantiate_dataclass_from_kwargs(cls, d)
         self.assertEqual(blahz, cls(x=55))
 
+    def test_dict_str(self) -> None:
+        @dataclass
+        class Blah:
+            y: ClassVar[str] = 'the classvar'
+            z: str
+            x: int = 22
+
+        self.assertEqual(dict_str(as_dict(Blah)), 'x=22')
+
+        blah = Blah(z='this-is-z')
+        self.assertEqual(dict_str(as_dict(blah)), "x=22 z='this-is-z'")
 
 class TestIsTypeInstance(unittest.TestCase):
 
