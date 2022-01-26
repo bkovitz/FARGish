@@ -70,20 +70,21 @@ class TestSpec:
         for canvas in sample_without_replacement(
             initial_canvases, k=self.nsamples
         ):
-            num_tests += 1
             if vv >= 2:
                 lo(canvas)
-            cue = partial_canvas(canvas, k=self.npartial)
-            if vv >= 3:
-                lo('  CUE', cue)
-            got = rmem.run_gset(canvas=cue).as_tuple()
-            if vv >= 3:
-                lo('  GOT', got)
-            yes = got[-len(canvas):] == canvas
-            if yes:
-                results[canvas] += 1
-            if vv >= 1:
-                print('+' if yes else '.', end='', flush=True)
+            for _ in range(self.n_per_sample):
+                num_tests += 1
+                cue = partial_canvas(canvas, k=self.npartial)
+                if vv >= 3:
+                    lo('  CUE', cue)
+                got = rmem.run_gset(canvas=cue).as_tuple()
+                if vv >= 3:
+                    lo('  GOT', got)
+                yes = got[-len(canvas):] == canvas
+                if yes:
+                    results[canvas] += 1
+                if vv == 1:
+                    print('+' if yes else '.', end='', flush=True)
         duration = perf_counter() - start_time
         
         return FidelityTestResult(
@@ -92,7 +93,8 @@ class TestSpec:
             results=results,  # type: ignore[arg-type]
             duration=duration,
             num_tests=num_tests,
-            num_initial_canvases=num_initial_canvases
+            num_initial_canvases=num_initial_canvases,
+            seed=seed
         )
 
 @dataclass(frozen=True)
@@ -103,6 +105,7 @@ class FidelityTestResult:
     duration: float  # in seconds
     num_tests: int
     num_initial_canvases: int
+    seed: int
 
     @property
     def num_correct(self) -> int:
@@ -113,12 +116,16 @@ class FidelityTestResult:
         '''Proportion correct.'''
         return self.num_correct / self.num_tests
 
+    @property
+    def kwargs(self) -> Dict[str, Any]:
+        return self.tspec.kwargs
+
     def __str__(self) -> str:
         sio = StringIO()
-        print()
-        print(short(self.rmem))
-        pr(self.tspec.kwargs)
-        print(f'{self.num_correct} / {self.num_tests} ({100 * self.prop_correct:1.2f}%)     {self.duration:8.3f} sec')
+        print(file=sio)
+        print(f'{short(self.rmem):40s}  seed={self.seed}', file=sio)
+        pr(self.tspec.kwargs, file=sio)
+        print(f'{self.num_correct} / {self.num_tests} ({100 * self.prop_correct:1.2f}%)     {self.duration:8.3f} sec', file=sio)
         return sio.getvalue().rstrip()
 
 if __name__ == '__main__':

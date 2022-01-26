@@ -10,7 +10,6 @@ from typing import Union, List, Tuple, Dict, Set, FrozenSet, Iterator, \
     Iterable, Any, NewType, Type, ClassVar, Sequence, Callable, Hashable, \
     Collection, Sequence, Literal, Protocol, Optional, TypeVar, \
     runtime_checkable, get_type_hints, get_origin, get_args
-import typing
 from random import randrange
 from collections import Counter
 
