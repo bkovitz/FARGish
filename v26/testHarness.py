@@ -10,7 +10,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING, final
 
-from Harness import TestSpec, EquationMaker, partial_canvas
+from Harness import TestSpec, EquationMaker, PartialCueMaker
 from Experiments import RMemSalt
 from Log import lo, trace
 from util import pr, pts, short
@@ -22,7 +22,8 @@ class TestTestSpec(unittest.TestCase):
             vv=0,
             cls=RMemSalt,
             kwargs=dict(
-                nsalt=2, operands=range(1, 3), operators=['+'], niters=20
+                nsalt=2, operands=range(1, 3), operators=['+'], niters=20,
+                npartial=4
             ),
             n_per_sample=2,
             nsamples=3,
@@ -39,6 +40,15 @@ class TestTestSpec(unittest.TestCase):
         self.assertEqual(result.rmem.nsalt, 2) # type: ignore[attr-defined]
         self.assertEqual(result.rmem.saltrange, (0, 11)) # type: ignore[attr-defined]
         self.assertEqual(result.kwargs, tspec.kwargs)
+        self.assertEqual(
+            result.initial_canvases_f, # type: ignore[misc]
+            EquationMaker(operands=range(1, 3), operators=['+'])
+        )
+        self.assertEqual(
+            result.cue_maker, # type: ignore[misc]
+            PartialCueMaker(npartial=4)
+        )
+        s = str(result) # smoke test
 
         # TODO Test determinism by repeating with same seed
 
