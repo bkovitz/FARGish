@@ -11,9 +11,9 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from collections import defaultdict
 from time import perf_counter
 from io import StringIO
+from random import choice
 
 from RMem import RMem, CanvasAble, BaseValue, Value, ValueTup, make_eqns
-from Experiments import RMemCC, RMemSalt
 from Log import lo, trace
 from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
     newline, force_setattr, sample_without_replacement, first, reseed, \
@@ -63,13 +63,12 @@ class PartialCueMaker:
 
 @dataclass(frozen=True)
 class TestSpec:
-    cls: Type[RMem]
-    kwargs: Dict[str, Any]
-    initial_canvases_cls: Type[CanvasMaker]
+    cls: Type[RMem] = RMem
+    kwargs: Dict[str, Any] = field(default_factory=lambda: {})
+    initial_canvases_cls: Type[CanvasMaker] = EquationMaker
     cue_maker_cls: Type[CueMaker] = PartialCueMaker
     nsamples: Optional[int] = None  # How many initial canvases to test
     n_per_sample: int = 50          # Number of cues per sample
-    #npartial: int = 3               # Number of cells to fill in partial cue
     vv: int = 1  # verbosity level
     seed: Optional[int] = None      # random-number seed
     #name: Optional[str] = None      # The name of this TestSpec
@@ -79,24 +78,16 @@ class TestSpec:
         seed = reseed(self.seed)
         num_tests = 0  # number of tests actually run
         results: Dict[Tuple[BaseValue, ...], int] = defaultdict(int)
-        initial_canvases_f = instantiate_dataclass_from_kwargs(
-            self.initial_canvases_cls, self.kwargs
-        )
-        cue_maker = instantiate_dataclass_from_kwargs(
-            self.cue_maker_cls, self.kwargs
-        )
 
-        # Create RMem and absorb initial canvases
-        rmem = instantiate_dataclass_from_kwargs(self.cls, self.kwargs)
+        rmem, initial_canvases_f, initial_canvases, cue_maker = \
+            self.make_setup()
         if vv >= 1:
             print()
             print(
                 f'{short(rmem):40}  niters={rmem.niters}  {short(initial_canvases_f)}  {short(cue_maker)}'
             )
-        initial_canvases: Collection[CanvasAble] = list(initial_canvases_f())
-        num_initial_canvases = len(initial_canvases)
-        rmem.absorb_canvases(initial_canvases)
         initial_canvases = set(initial_canvases)
+        num_initial_canvases = len(initial_canvases)
 
         # Run the tests
         start_time = perf_counter()
@@ -110,7 +101,7 @@ class TestSpec:
                 cue = cue_maker(canvas)
                 if vv >= 3:
                     lo('  CUE', cue)
-                got = rmem.run_gset(canvas=cue).as_tuple()
+                got = as_tuple(self.run1(cue, rmem, vv=vv))
                 if vv >= 3:
                     lo('  GOT', got)
                 yes = got[-len(canvas):] == canvas
@@ -133,6 +124,52 @@ class TestSpec:
             num_initial_canvases=num_initial_canvases,
             seed=seed
         )
+
+    def run1(
+        self,
+        cue: Optional[CanvasAble]=None,
+        rmem: Optional[RMem]=None,
+        target_canvas: Optional[CanvasAble]=None,
+        vv: int=4
+    ) -> CanvasAble:
+        cue_maker: Any = None
+        if rmem is None or cue is None:
+            rm, _, initial_canvases, cue_maker = self.make_setup()
+            if cue is None:
+                if target_canvas is None:
+                    target_canvas = choice(initial_canvases)
+                    '''
+                    raise AttributeError(
+                        'must specify target_canvas from which to generate cue.'
+                    )
+                    '''
+                cue_maker = self.make_cue_maker()
+                cue = cue_maker(target_canvas)
+            if rmem is None:
+                rmem = rm
+        got = rmem.run_gset(canvas=cue).as_tuple()
+        if vv >= 4:
+            pr(rmem.lsteps)
+        return got
+
+    def make_rmem(self) -> RMem:
+        return instantiate_dataclass_from_kwargs(self.cls, self.kwargs)
+
+    def make_cue_maker(self) -> CueMaker:
+        return instantiate_dataclass_from_kwargs(
+            self.cue_maker_cls, self.kwargs
+        )
+
+    def make_setup(self) \
+    -> Tuple[RMem, CanvasMaker, Sequence[CanvasAble], CueMaker]:
+        cue_maker = self.make_cue_maker()
+        initial_canvases_f = instantiate_dataclass_from_kwargs(
+            self.initial_canvases_cls, self.kwargs
+        )
+        initial_canvases = list(initial_canvases_f())
+        rmem = instantiate_dataclass_from_kwargs(self.cls, self.kwargs)
+        rmem.absorb_canvases(initial_canvases)  # This can be slow.
+        return rmem, initial_canvases_f, initial_canvases, cue_maker
 
 @dataclass(frozen=True)
 class FidelityTestResult:
@@ -172,28 +209,3 @@ class FidelityTestResult:
         print(self.cue_maker, file=sio)  # type: ignore[misc]
         print(self.nstr(), file=sio)
         return sio.getvalue().rstrip()
-
-if __name__ == '__main__':
-    eqns_params: List[Dict[str, Any]] = [
-        #dict(operands=[1], operators=['+']),
-        #dict(operands=[1, 2], operators=['+']),
-        dict(operands=range(1, 7), operators=['+', '-', 'x', '/']),
-        dict()
-    ]
-    for eqn_ps in eqns_params:
-        for niters in [20, 60, 100, 150, 200, 500]:
-        #for niters in [150, 200]:
-            for cls in RMem, RMemCC, RMemSalt:
-                kwargs = dict(niters=niters) | eqn_ps
-                tspec = TestSpec(
-                    cls=cls,
-                    kwargs=kwargs,
-                    initial_canvases_cls=EquationMaker,
-                    nsamples=100,
-                    n_per_sample=2
-                )
-                result = tspec.run()
-                print(result.nstr())
-
-                    # How to make class-specific arg sets?
-                    # call cartesian_product?

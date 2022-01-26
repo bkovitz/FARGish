@@ -17,6 +17,7 @@ from time import perf_counter
 from RMem import RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, make_eqns, \
     no_prep, ndups, BaseValue, correction_redundancy, \
     Painter, Func, GSet, PSet, Value
+from Harness import TestSpec, EquationMaker, PartialCueMaker
 from Log import lo, trace
 from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
     sample_without_replacement
@@ -448,10 +449,46 @@ def xpgfid2() -> None:
         pr(result)
         lo(f'{sum(result.values())}      {test_duration:8.3f} sec')
 
+def big_run() -> None:
+    eqns_params: List[Dict[str, Any]] = [
+        #dict(operands=[1], operators=['+']),
+        #dict(operands=[1, 2], operators=['+']),
+        dict(operands=range(1, 7), operators=['+', '-', 'x', '/']),
+        dict()
+    ]
+    for eqn_ps in eqns_params:
+        for niters in [20, 60, 100, 150, 200, 500]:
+        #for niters in [150, 200]:
+            for cls in RMem, RMemCC, RMemSalt:
+                kwargs = dict(niters=niters) | eqn_ps
+                tspec = TestSpec(
+                    cls=cls,
+                    kwargs=kwargs,
+                    initial_canvases_cls=EquationMaker,
+                    nsamples=100,
+                    n_per_sample=2
+                )
+                result = tspec.run()
+                print(result.nstr())
+
+                    # How to make class-specific arg sets?
+                    # call cartesian_product?
+    
+
 if __name__ == '__main__':
     #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
 
     #lcsets = xpg()
     #print('number of limit cycles found:', len(lcsets))
 
-    xpgfid2()
+    #big_run()
+
+    rmem = RMemSalt(nsalt=10, niters=100)
+    eqnmaker = EquationMaker()
+    lo('HERE1')
+    rmem.absorb_canvases(eqnmaker())
+    lo('HERE2')
+
+    rmem.run1([2, '+', None, None, 5])
+
+    

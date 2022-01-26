@@ -39,9 +39,9 @@ mypy:
 
 # For type-checking just one file (specified here).
 m:
-	$(MYPY) $(MYPY_FLAGS) Harness.py
+	$(MYPY) $(MYPY_FLAGS) Experiments.py
 i: m
-	$(PY) -i Harness.py
+	$(PY) -i Experiments.py
 
 # Run all unit tests.
 ut:
@@ -49,9 +49,9 @@ ut:
 	#$(PY) -m unittest -v testCCModel
 	$(PY) -m unittest -v test*.py
 
-# Convenience target for single acceptance test current being worked on
+# Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testHarness.TestTestSpec
+	$(PY) -m unittest -v testRMem.TestRMem.test_canvas1d
 
 # Acceptance tests
 at:

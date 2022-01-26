@@ -157,7 +157,7 @@ class Canvas1D(Canvas):
             elif x != self.contents[addr]:  # Trying to overwrite a value
                 self.clarities[addr] -= 1
                 if self.clarities[addr] <= 0:
-                    self[addr] = None
+                    self.contents[addr] = None
             else:  # Trying to write the value that is already there
                 if self.clarities[addr] < self.MAX_CLARITY:
                     self.clarities[addr] += 1
@@ -387,7 +387,8 @@ class RMem:
     def run_gset(
         self,
         canvas: CanvasAble,
-        gset: Optional[GSet]=None, niters: Optional[int]=None
+        gset: Optional[GSet]=None, niters: Optional[int]=None,
+        vv: int=0  # verbosity
     ) -> Canvas:
         '''Attempts to fill in canvas by running gset.'''
         gset: GSet = self.gset if gset is None else gset
@@ -402,11 +403,24 @@ class RMem:
                 self.run_generator(canvas, gen)
                 self.add_to_lstep(canvas=canvas)
                 #print(canvas, '       ', short(gen))
+                if vv >= 4:
+                    print(self.lsteps[-1])
                 if self.termination_condition(canvas):
                     break
         except NoRunnableGenerators:
             pass
         return canvas
+
+    def run1(
+        self,
+        canvas: CanvasAble,
+        gset: Optional[GSet]=None, niters: Optional[int]=None,
+        vv: int=4
+    ) -> None:
+        '''Like .run_gset() but for running from the Python REPL.'''
+        print()
+        print()
+        self.run_gset(canvas, gset, vv=vv)
 
     def prep_regen(self, c: CanvasAble) -> CanvasAble:
         '''.run_gset() calls this before regenerating from c. Default
