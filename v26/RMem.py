@@ -16,7 +16,7 @@ from copy import deepcopy
 from abc import ABC, abstractmethod
 
 from Log import lo, trace
-from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
+from util import pr, ps, pts, psa, union, Numeric, as_tuple, short, as_list, \
     newline, force_setattr, sample_without_replacement, first
 
 
@@ -245,6 +245,7 @@ class CanvasD(Canvas):
     def clarity(self, addr: Addr) -> Numeric:
         return self.clarities.get(addr, 0)
 
+# TODO Move this into RMem, where it can be overridden
 def natural_func_weight(f: Func) -> Numeric:
     if hasattr(f, 'natural_func_weight'):
         return f.natural_func_weight()  # type: ignore[union-attr]
@@ -430,14 +431,17 @@ class RMem:
 
     # TODO Factor out the constant
     def termination_condition(self, canvas: Canvas) -> bool:
-        threshold = int(0.7 * canvas.MAX_CLARITY)   # 0.5  0.7
+        #threshold = int(0.7 * canvas.MAX_CLARITY)   # 0.5  0.7
+        threshold = 4
         #return all(cl >= threshold for cl in canvas.clarities)
         # TODO Make that -5 a parameter, or refer to 'central canvas'
         return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])
 
     def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
     -> Generator:
-        ps, ws = zip(*self.painter_weights(canvas, gset))
+        pws = list(self.painter_weights(canvas, gset))
+        #pts(sorted([p[1], p[0]] for p in pws)) #DEBUG
+        ps, ws = zip(*pws)
         if len(ps) == 0:
             raise NoRunnableGenerators
         try:
@@ -458,15 +462,26 @@ class RMem:
             if canvas[a1] is None:
                 continue
             else:
-                w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
-                w2 = 1.0 - (canvas.clarity(a2) / (canvas.MAX_CLARITY * 1.00))
-                yield ((a1, a2), w1 * w2 * natural_func_weight(f))
-            '''
-            if canvas[a2] is None:
-                yield ((a1, a2), 1.0)
-            else:
-                yield ((a1, a2), 0.1)
-            '''
+                #w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
+                #w2 = 1.0 - (canvas.clarity(a2) / (canvas.MAX_CLARITY * 1.00))
+                #yield ((a1, a2), w1 * w2 * natural_func_weight(f))
+                w = cls.a_to_w(a1, a2, f, canvas)
+                yield ((a1, a2), w)
+
+    # TODO Factor this out to a mix-in
+    weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
+    weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
+    @classmethod
+    def a_to_w(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:
+        return (
+            (
+                cls.weight_from[int(c.clarity(a1))]
+                *
+                cls.weight_to[int(c.clarity(a2))]
+            )
+            *
+            natural_func_weight(f)
+        )
 
     # Making GSets (sets of generators)
 
@@ -717,7 +732,7 @@ class RMem:
 
         def short(self) -> str:
             cl = self.__class__.__name__
-            return f'{cl}({short(self.funcs)}, {short(self.weights)})'
+            return f'{cl}({self.nfw:1.3f} {short(self.weights)}, {short(self.funcs)})'
 
     # Queries
 

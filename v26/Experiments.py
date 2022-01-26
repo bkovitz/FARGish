@@ -355,7 +355,7 @@ class WithCountColumns(RMem):
 class WithRandomSalt(RMem):
     '''Prepends cells containing random numbers (the 'salt') to every canvas
     absorbed.'''
-    nsalt: int = 30  # number of cells to prepend
+    nsalt: int = 10  # number of cells to prepend
     saltrange: Tuple[int, int] = (0, 11) # args to randrange for each salt cell
     # NEXT1 number of copies of each image to absorb
     # NEXT2 specify number of regeneration iterations somewhere
@@ -379,6 +379,24 @@ class WithRandomSalt(RMem):
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.nsalt})'
+
+@dataclass
+class WithSequentialSalt(RMem):
+    '''Prepends calls containing numbers in sequence: 1, 2, 3, ... to every
+    canvas absorbed.'''
+    nseqsalt: int = 5
+
+    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
+        prefix = tuple(range(self.nseqsalt))
+        return super().prep_absorb(prefix + as_tuple(c))
+
+    def prep_regen(self, c: CanvasAble) -> CanvasAble:
+        prefix = (None,) * self.nseqsalt
+        return super().prep_regen(prefix + as_tuple(c))
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.nseqsalt})'
 
 def xpgfid() -> None:
     '''Fidelity test: Does adding global count-columns enable the regeneration
@@ -408,6 +426,7 @@ def xpgfid() -> None:
 
 RMemCC = type('RMemCC', (WithCountColumns, RMem), {})
 RMemSalt = type('RMemSalt', (WithRandomSalt, RMem), {})
+RMemSeqSalt = type('RMemSeqSalt', (WithSequentialSalt, RMem), {})
 
 def xpgfid2() -> None:
     rmemcc = RMemCC()
@@ -453,37 +472,36 @@ def big_run() -> None:
     eqns_params: List[Dict[str, Any]] = [
         #dict(operands=[1], operators=['+']),
         #dict(operands=[1, 2], operators=['+']),
-        dict(operands=range(1, 7), operators=['+', '-', 'x', '/']),
+        #dict(operands=range(1, 4), operators=['+']),
+        #dict(operands=range(1, 6), operators=['+']),
+        #dict(operands=range(1, 11), operators=['+']),
+        #dict(operands=range(1, 11), operators=['+', 'x']),
+        dict(operands=range(1, 4), operators=['+', '-', 'x', '/']),
         dict()
     ]
     for eqn_ps in eqns_params:
-        for niters in [20, 60, 100, 150, 200, 500]:
+        #for niters in [20, 60, 100, 200, 500]:
         #for niters in [150, 200]:
-            for cls in RMem, RMemCC, RMemSalt:
+        for niters in [1000]:
+            for cls in RMem, RMemCC, RMemSalt, RMemSeqSalt:
                 kwargs = dict(niters=niters) | eqn_ps
                 tspec = TestSpec(
                     cls=cls,
                     kwargs=kwargs,
                     initial_canvases_cls=EquationMaker,
-                    nsamples=100,
-                    n_per_sample=2
+                    nsamples=50,
+                    n_per_sample=10
                 )
                 result = tspec.run()
                 print(result.nstr())
 
                     # How to make class-specific arg sets?
                     # call cartesian_product?
-    
 
-if __name__ == '__main__':
-    #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
-
-    #lcsets = xpg()
-    #print('number of limit cycles found:', len(lcsets))
-
-    #big_run()
-
-    rmem = RMemSalt(nsalt=10, niters=100)
+def little_run() -> None:
+    global rmem
+    #rmem = RMemSalt(nsalt=10, niters=100)
+    rmem = RMemSeqSalt(niters=1000)
     eqnmaker = EquationMaker()
     lo('HERE1')
     rmem.absorb_canvases(eqnmaker())
@@ -492,3 +510,13 @@ if __name__ == '__main__':
     rmem.run1([2, '+', None, None, 5])
 
     
+
+if __name__ == '__main__':
+    #counter = eqn_test(operands=range(1, 3), operators=['+'], show=True, prep=correction_redundancy(2, 2), n_per_eqn=10, n_eqns=5, niters=50)
+
+    #lcsets = xpg()
+    #print('number of limit cycles found:', len(lcsets))
+
+    big_run()
+
+    #little_run()
