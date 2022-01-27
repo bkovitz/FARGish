@@ -264,6 +264,15 @@ IDEAS
         a relative addr) is distinctive, therefore should have a lot of
         force in triggering follow-on painters.
 
+    A relation-only RMem can't get started from a single absolute value.
+    So maybe include the first value in some painter.
+
+    Exponential decay: after being written to, painters with an interest in a
+    cell should check it. This is the opposite of "gatekeepers". Both
+    hypotheses should be run. Exponential decay doesn't solve the problem of
+    rndfuncs painting wrong values; that's from exceeding the memory capacity.
+    But it might get the system to reach attractors sooner.
+
 
 NOTES
 
@@ -282,6 +291,10 @@ NOTES
     numbers to the numbers' positions within a sequence. The solution was
     stigmergy: put everything on one level, including the painters that
     draw on the canvas.
+
+    How is the Hopfield net, or RMem, *indexed*? You look stuff up in a card
+    catalog by author or title; your brain indexes words by starting letter.
+    What indexing do you get from painters that can start anywhere?
 
 
 LESSONS LEARNED FROM FARG MODELS
