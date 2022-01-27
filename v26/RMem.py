@@ -103,6 +103,10 @@ class Canvas(ABC):
         for addr in self.all_addrs():
             yield self.clarity(addr)
 
+    @abstractmethod
+    def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
+        pass
+        
     @classmethod
     def make_from(cls, c: CanvasAble, mx: Optional[int]=None) -> Canvas:
         if isinstance(c, Canvas):
@@ -177,6 +181,11 @@ class Canvas1D(Canvas):
     def all_clarities(self) -> Iterable[Numeric]:
         return self.clarities
 
+    def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
+        if isinstance(addr, int):
+            addr -= 1
+            self.clarities[addr] = clarity
+
     def __str__(self) -> str:
         items = ' '.join(short(x) for x in self.contents)
         citems = ' '.join(short(c) for c in self.clarities)
@@ -221,6 +230,9 @@ class Canvas2D(Canvas):
     def clarity(self, addr: Addr) -> Numeric:
         return self.clarities.get(addr, 0)  # type: ignore[arg-type]
 
+    def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
+        self.clarities[addr] = clarity
+
 @dataclass
 class CanvasD(Canvas):
     '''A Canvas with arbitrary Addrs, represented by a dict that includes
@@ -245,14 +257,8 @@ class CanvasD(Canvas):
     def clarity(self, addr: Addr) -> Numeric:
         return self.clarities.get(addr, 0)
 
-# TODO Move this into RMem, where it can be overridden
-def natural_func_weight(f: Func) -> Numeric:
-    if hasattr(f, 'natural_func_weight'):
-        return f.natural_func_weight()  # type: ignore[union-attr]
-    elif callable(f):
-        return 1.0
-    else:
-        return 0.2  # Low probability for constant painter
+    def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
+        self.clarities[addr] = clarity
 
 def ndups(n: int=1) -> CanvasPrep:
     def ndups_f(c: Canvas, rmem: RMem) -> Canvas:
@@ -465,23 +471,24 @@ class RMem:
                 #w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
                 #w2 = 1.0 - (canvas.clarity(a2) / (canvas.MAX_CLARITY * 1.00))
                 #yield ((a1, a2), w1 * w2 * natural_func_weight(f))
-                w = cls.a_to_w(a1, a2, f, canvas)
-                yield ((a1, a2), w)
+                #w = cls.a_to_w(a1, a2, f, canvas)
+                yield ((a1, a2), cls.painter_weight(a1, a2, f, canvas))
 
-    # TODO Factor this out to a mix-in
-    weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
-    weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
     @classmethod
-    def a_to_w(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:
-        return (
-            (
-                cls.weight_from[int(c.clarity(a1))]
-                *
-                cls.weight_to[int(c.clarity(a2))]
-            )
-            *
-            natural_func_weight(f)
-        )
+    def painter_weight(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:
+        '''Address weights are a linear function of current cell clarity.'''
+        w1 = c.clarity(a1) / c.MAX_CLARITY
+        w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
+        return w1 * w2 * cls.natural_func_weight(f)
+
+    @classmethod
+    def natural_func_weight(cls, f: Func) -> Numeric:
+        if hasattr(f, 'natural_func_weight'):
+            return f.natural_func_weight()  # type: ignore[union-attr]
+        elif callable(f):
+            return 1.0
+        else:
+            return 0.2  # Low probability for constant painter
 
     # Making GSets (sets of generators)
 
@@ -680,7 +687,7 @@ class RMem:
 
         def __post_init__(self) -> None:
             force_setattr(self, 'nfw', 3.0 / sum(
-                (1.0 / natural_func_weight(f))
+                (1.0 / self.rmem.natural_func_weight(f))
                 #0.5 if callable(f) else 1.0
                     for f in self.funcs
             ))
@@ -799,6 +806,23 @@ class RMem:
             #print()
 
         return rmem
+
+@dataclass
+class SkewedPainterWeight(RMem):
+    weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
+    weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
+
+    @classmethod
+    def painter_weight(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:
+        return (
+            (
+                cls.weight_from[int(c.clarity(a1))]
+                *
+                cls.weight_to[int(c.clarity(a2))]
+            )
+            *
+            cls.natural_func_weight(f)
+        )
 
 @dataclass
 class LoggedStep:

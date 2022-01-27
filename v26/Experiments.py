@@ -16,7 +16,7 @@ from time import perf_counter
 
 from RMem import RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, make_eqns, \
     no_prep, ndups, BaseValue, correction_redundancy, \
-    Painter, Func, GSet, PSet, Value
+    Painter, Func, GSet, PSet, Value, SkewedPainterWeight
 from Harness import TestSpec, EquationMaker, PartialCueMaker
 from Log import lo, trace
 from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
@@ -469,24 +469,27 @@ def xpgfid2() -> None:
         lo(f'{sum(result.values())}      {test_duration:8.3f} sec')
 
 def big_run() -> None:
+    start_time = perf_counter()
     eqns_params: List[Dict[str, Any]] = [
         #dict(operands=[1], operators=['+']),
         #dict(operands=[1, 2], operators=['+']),
-        #dict(operands=range(1, 4), operators=['+']),
+        dict(operands=range(1, 4), operators=['+']),
         #dict(operands=range(1, 6), operators=['+']),
-        #dict(operands=range(1, 11), operators=['+']),
+        dict(operands=range(1, 11), operators=['+']),
         #dict(operands=range(1, 11), operators=['+', 'x']),
-        dict(operands=range(1, 4), operators=['+', '-', 'x', '/']),
-        dict()
+        #dict(operands=range(1, 4), operators=['+', '-', 'x', '/']),
+        #dict()
     ]
     for eqn_ps in eqns_params:
         #for niters in [20, 60, 100, 200, 500]:
         #for niters in [150, 200]:
         for niters in [1000]:
             for cls in RMem, RMemCC, RMemSalt, RMemSeqSalt:
+                cl: Type[RMem] = \
+                    type(cls.__name__, (SkewedPainterWeight, cls), {})
                 kwargs = dict(niters=niters) | eqn_ps
                 tspec = TestSpec(
-                    cls=cls,
+                    cls=cl,
                     kwargs=kwargs,
                     initial_canvases_cls=EquationMaker,
                     nsamples=50,
@@ -494,6 +497,8 @@ def big_run() -> None:
                 )
                 result = tspec.run()
                 print(result.nstr())
+
+    print(f'total time: {perf_counter() - start_time:1.3f} sec')
 
                     # How to make class-specific arg sets?
                     # call cartesian_product?
