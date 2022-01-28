@@ -322,7 +322,7 @@ def default_field_value(f: Field) -> Any:
 
 ### Utilities for inspecting classes (including whatever class an object is)
 
-def class_of(x: Any) -> bool:
+def class_of(x: Any) -> Type:
     '''Returns x's class, or, if x is a class object, returns x.'''
     if isclass(x):
         return x

@@ -18,8 +18,9 @@ from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
 class TestRMem(unittest.TestCase):
 
     def test_make_generators_partial_canvas(self) -> None:
+        rmem = RMem()
         self.assertCountEqual(
-            RMem.make_generators((1, '+', None, None, None)),
+            rmem.make_generators((1, '+', None, None, None)),
             [(1, 2, '+'), (2, 1, 1)]
         )
 
@@ -39,6 +40,9 @@ class TestRMem(unittest.TestCase):
         c[3] = 8  # should only decrease clarity, not affect cell
         self.assertEqual(as_tuple(c), (None, '+', 2, None, 5))
         self.assertEqual(c.all_clarities(), [0, 5, 4, 0, 5])
+
+        c = Canvas1D([None, '+', 2, None, 5], INITIAL_CLARITY=4)
+        self.assertEqual(c.all_clarities(), [0, 4, 4, 0, 4])
 
     def test_painter_weight(self) -> None:
         c = Canvas1D([None, '+', 2, None, 5])

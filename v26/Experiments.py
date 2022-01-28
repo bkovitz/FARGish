@@ -239,7 +239,7 @@ def xpg0() -> None:
     count_columns = [0, 0]
     add1 = rmem.add_n(1)
     for i in range(10):
-        startc = tuple(count_columns) + eqn  # (count(same), count(+1))
+        startc: CanvasAble = tuple(count_columns) + eqn  # (count(same), count(+1))
         lo(startc)
         painters = rmem.make_generators(startc)
         count_columns[0] = sum(1 for (a, b, f) in painters if f == rmem.same)
@@ -468,7 +468,7 @@ def xpgfid2() -> None:
         pr(result)
         lo(f'{sum(result.values())}      {test_duration:8.3f} sec')
 
-def big_run() -> None:
+def big_run(**kwargs) -> None:
     start_time = perf_counter()
     eqns_params: List[Dict[str, Any]] = [
         #dict(operands=[1], operators=['+']),
@@ -482,15 +482,15 @@ def big_run() -> None:
     ]
     for eqn_ps in eqns_params:
         #for niters in [20, 60, 100, 200, 500]:
-        #for niters in [150, 200]:
-        for niters in [1000]:
+        for niters in [150]:
+        #for niters in [1000]:
             for cls in RMem, RMemCC, RMemSalt, RMemSeqSalt:
                 cl: Type[RMem] = \
                     type(cls.__name__, (SkewedPainterWeight, cls), {})
-                kwargs = dict(niters=niters) | eqn_ps
+                kw = kwargs | dict(niters=niters) | eqn_ps
                 tspec = TestSpec(
                     cls=cl,
-                    kwargs=kwargs,
+                    kwargs=kw,
                     initial_canvases_cls=EquationMaker,
                     nsamples=50,
                     n_per_sample=10
@@ -522,6 +522,30 @@ if __name__ == '__main__':
     #lcsets = xpg()
     #print('number of limit cycles found:', len(lcsets))
 
-    big_run()
+    #big_run(npartial=None)
+    big_run(termination_threshold=5)
+    #big_run(termination_threshold=5, npartial=None)
 
     #little_run()
+
+    '''
+    rmem = RMem()
+    startc1 = (1, '+', 1, '=', 2)
+    p1s1 = rmem.make_generators(startc1)
+    p2s1 = rmem.make_gset(rmem.make_next_order_painters(p1s1))
+
+    startc2 = (1, '+', 2, '=', 3)
+    p1s2 = rmem.make_generators(startc2)
+    p2s2 = rmem.make_gset(rmem.make_next_order_painters(p1s2))
+    pr(p2s2)
+    print()
+    print()
+
+    a1set = rmem.add_two_gsets(rmem.make_gset(p1s1), rmem.make_gset(p1s2))
+    a2set = rmem.add_two_gsets(p2s1, p2s2)
+
+    pr(a1set)
+    print()
+    print()
+    pr(a2set)
+    '''

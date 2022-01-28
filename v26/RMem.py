@@ -17,7 +17,7 @@ from abc import ABC, abstractmethod
 
 from Log import lo, trace
 from util import pr, ps, pts, psa, union, Numeric, as_tuple, short, as_list, \
-    newline, force_setattr, sample_without_replacement, first
+    newline, force_setattr, sample_without_replacement, first, is_iter
 
 
 BaseValue = Union[int, str, None]
@@ -76,9 +76,16 @@ class NoRunnableGenerators(Exception):
     pass
 
 
-class Canvas(ABC):
+@dataclass(kw_only=True)  # type: ignore[call-overload]
+class CanvasDataclassMixin:
+    MAX_CLARITY: Numeric = 6
+    INITIAL_CLARITY: Numeric = 5
+
+class Canvas(CanvasDataclassMixin, ABC):
+    """
     MAX_CLARITY: ClassVar[Numeric] = 6  # TODO move this to a dataclass or  # 5
                                         # maybe to RMem
+    """
     @abstractmethod
     def all_addrs(self) -> Iterable[Addr]:
         pass
@@ -108,19 +115,32 @@ class Canvas(ABC):
         pass
         
     @classmethod
-    def make_from(cls, c: CanvasAble, mx: Optional[int]=None) -> Canvas:
+    def make_from(
+        cls,
+        c: CanvasAble,
+        MAX_CLARITY: Optional[int]=None,
+        INITIAL_CLARITY: Optional[int]=None
+    ) -> Canvas:
         if isinstance(c, Canvas):
-            return c
-        elif isinstance(c, list):
-            return Canvas1D(c)  # TODO copy the list
-        elif isinstance(c, tuple):
-            return Canvas1D(list(c))
+            return c  # TODO Update with MAX_CLARITY?
+#        elif isinstance(c, list)
+#            return Canvas1D(c)  # TODO copy the list
+#        elif isinstance(c, tuple):
+#            return Canvas1D(list(c))
+        elif is_iter(c):
+            #MAX_CLARITY: int = MAX_CLARITY if isinstance(MAX_CLARITY, int) 
+            if MAX_CLARITY is None:
+                return Canvas1D(contents=as_list(c))
+            else:
+                return Canvas1D(contents=as_list(c), MAX_CLARITY=MAX_CLARITY)
         else:
             raise NotImplementedError
 
 @dataclass
 class Canvas1D(Canvas):
-    contents: List[Value]
+    contents: List[Value] #= field(default_factory=list)
+        # Always supply a value for 'contents'! The default is only to
+        # avoid an error for following MAX_CLARITY, which has a default.
     clarities: List[Numeric] = field(  # same # of elems as 'contents'
         default_factory=list,
         init=False
@@ -128,7 +148,7 @@ class Canvas1D(Canvas):
 
     def __post_init__(self) -> None:
         self.clarities = [
-            0 if x is None else int(self.MAX_CLARITY - 1)   # - 1  * 0.61
+            0 if x is None else int(self.INITIAL_CLARITY)   # - 1  * 0.61
                 for i, x in enumerate(self.contents)
         ]
 
@@ -319,6 +339,9 @@ class RMem:
     gset: GSet = field(default_factory=dict)
     lsteps: List[LoggedStep] = field(default_factory=list)
     niters: int = 40
+    termination_threshold: int = 4
+    max_clarity: int = 6
+    initial_clarity: int = 5
 
     # Factories / converters
 
@@ -329,20 +352,22 @@ class RMem:
         prep: CanvasPrep=no_prep
     ) -> Q:
         rmem = cls()
-        cs = (prep(cls.as_canvas(c), rmem) for c in cs)
+        cs = (prep(rmem.as_canvas(c), rmem) for c in cs)
         return rmem.absorb_canvases(cs)
 
-    @classmethod
-    def as_canvas(cls, c: CanvasAble) -> Canvas:
+    def as_canvas(self, c: CanvasAble) -> Canvas:
         '''Converts c to a Canvas.'''
-        return Canvas.make_from(c)
+        return Canvas.make_from(
+            c,
+            MAX_CLARITY=self.max_clarity,
+            INITIAL_CLARITY=self.initial_clarity
+        )
 
     # Making generators (i.e. painters)
 
-    @classmethod
-    def make_generators(cls, c: CanvasAble) -> Set[Generator]:
+    def make_generators(self, c: CanvasAble) -> Set[Generator]:
         '''Makes absolute painters.'''
-        c: Canvas = cls.as_canvas(c)
+        c: Canvas = self.as_canvas(c)
         result = set()
         for addr1 in c.all_addrs():
             for addr2 in c.all_addrs():
@@ -353,21 +378,22 @@ class RMem:
                     and
                     c[addr2] is not None
                 ):
-                    f = cls.func_from_to(c[addr1], c[addr2])
+                    f = self.func_from_to(c[addr1], c[addr2])
                     #lo('MKG', addr1, addr2, c[addr2], c)
                     result.add(
-                        (addr1, addr2, cls.func_from_to(c[addr1], c[addr2]))
+                        (addr1, addr2, self.func_from_to(c[addr1], c[addr2]))
                     )
         return result
 
-    def make_next_order_painters(self, painters: Collection[Generator]) \
+    @classmethod
+    def make_next_order_painters(cls, painters: Collection[Generator]) \
     -> Iterable[Generator]:
         '''Returns painters that, given one painter from 'painters', can
         paint another painter from 'painters'.'''
         for (xa, xb, xf) in painters:
             for (ya, yb, yf) in painters:
                 if xa != ya or xb != yb:
-                    zf = self.func_from_to(xf, yf)
+                    zf = cls.func_from_to(xf, yf)
                     if zf is not None:
                         yield ((xa, xb), (ya, yb), zf)
 
@@ -438,10 +464,13 @@ class RMem:
     # TODO Factor out the constant
     def termination_condition(self, canvas: Canvas) -> bool:
         #threshold = int(0.7 * canvas.MAX_CLARITY)   # 0.5  0.7
-        threshold = 4
+        #threshold = 4
         #return all(cl >= threshold for cl in canvas.clarities)
         # TODO Make that -5 a parameter, or refer to 'central canvas'
-        return all(cl >= threshold for cl in list(canvas.all_clarities())[-5:])
+        return all(
+            cl >= self.termination_threshold
+                for cl in list(canvas.all_clarities())[-5:]
+        )
 
     def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
     -> Generator:

@@ -4,9 +4,9 @@ BROWSER = open
 MYPY = mypy
 else
 #PY = python3.7
-PY = PYTHONHASHSEED=0 python3.9
+PY = PYTHONHASHSEED=0 python3.10
 BROWSER = google-chrome
-MYPY = mypy --python-version 3.9
+MYPY = mypy --python-version 3.10
 endif
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 

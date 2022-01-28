@@ -37,7 +37,9 @@ class EquationMaker:
 class PartialCueMaker:
     '''Returns a cue consisting of a given canvas image with some of its
     cells overwritten with None. 'npartial' is how many cells to retain,
-    or, if negative, how many cells to overwrite with None.'''
+    or, if negative, how many cells to overwrite with None. If 'npartial'
+    is itself None, then the PartialCueMaker always returns the original
+    full image.'''
     npartial: Optional[int] = -2   # negative for 'all but -npartial'
 
     def __call__(self, full_image: CanvasAble) -> CanvasAble:
