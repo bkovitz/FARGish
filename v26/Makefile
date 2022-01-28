@@ -1,7 +1,7 @@
 ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
-PY = python3
+PY = python3.10
 BROWSER = open
-MYPY = mypy
+MYPY = mypy --python-version 3.10
 else
 #PY = python3.7
 PY = PYTHONHASHSEED=0 python3.10
