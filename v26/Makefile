@@ -23,12 +23,6 @@ FARGISH_SRC = Experiments.py Indenting.py Log.py util.py
 ut_and_go: ut current
 
 # Convenience target for "do whatever I'm currently working on".
-current: mypy
-	$(PY) -i atestPons.py
-#i: current  # "interactive" version of what I'm currently working on
-see: mypy
-	$(PY) -i see.py
-
 test: ut at
 mtest: mypy test
 
@@ -38,10 +32,11 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
+CURRENT = RMem.py
 m:
-	$(MYPY) $(MYPY_FLAGS) Experiments.py
-i: m
-	$(PY) -i Experiments.py
+	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
+i: m   # 'interactive' way to type-check and run current file of interest
+	$(PY) -i $(CURRENT)
 
 # Run all unit tests.
 ut:
