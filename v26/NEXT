@@ -273,6 +273,10 @@ IDEAS
     rndfuncs painting wrong values; that's from exceeding the memory capacity.
     But it might get the system to reach attractors sooner.
 
+    Could a subcanvas be not a separate object but simply a part of a plain
+    canvas designated in some way, e.g. the 'before' part. Then painters
+    could designate it as well as use it.
+
 
 NOTES
 
@@ -295,6 +299,11 @@ NOTES
     How is the Hopfield net, or RMem, *indexed*? You look stuff up in a card
     catalog by author or title; your brain indexes words by starting letter.
     What indexing do you get from painters that can start anywhere?
+
+    The Hopfield net as a model of computation--as a model of goal-directed
+    computation. Some painters may need to be insistent about getting their
+    way (via "testers")? We demand certain relationships between parts of
+    the canvas and keep pushing the search until we get them.
 
 
 LESSONS LEARNED FROM FARG MODELS
