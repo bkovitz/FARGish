@@ -10,13 +10,18 @@ RMem
     equations that randomly selected parts of the new equation evoke.
     DONE (no atest)
 
-    SOON Absorb many equations via immersion with related equations. See if it
+    Absorb many equations via immersion with related equations. See if it
     becomes more or less accurate as the number of equations increases.
-    WOW, it's 100% accurate in 50 timesteps.
+    WOW, it's 100% accurate in 50 timesteps.  DONE
 
-    Return a logging object from eqn_test().
+    Make a relative painter:  match 1, paint '+' in next space to the
+    right.
 
-    NEXT Rig up a test that recalls only painters.
+        NEXT RMem.as_addr_from(c, from)
+
+        Run it in a unit test on 1+1=2.
+
+    Rig up a test that recalls only painters.
 
     Make an automated test that runs through several standard equation sets,
     including just 1+1=2, just a few, just addition with all grade-school

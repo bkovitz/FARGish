@@ -17,20 +17,40 @@ from abc import ABC, abstractmethod
 
 from Log import lo, trace
 from util import pr, ps, pts, psa, union, Numeric, as_tuple, short, as_list, \
-    newline, force_setattr, sample_without_replacement, first, is_iter
+    newline, force_setattr, sample_without_replacement, first, is_iter, \
+    singleton
 
+
+@singleton
+@dataclass(frozen=True)
+class Outcome:
+    '''Succeeded or Failed.'''
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+Succeeded = Outcome('Succeeded')
+Failed = Outcome('Failed')
+
+class Jumper(ABC):
+
+    @abstractmethod
+    def to(self, a: Addr) -> Addr:
+        pass
 
 BaseValue = Union[int, str, None]
 BaseValueTup = Tuple[BaseValue, ...]
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
-Matcher = Callable[[Any], bool]
 Addr = int | Tuple['Addr', 'Addr']   # type: ignore[misc]
+Matcher = Callable[[Any], bool]
 From = Union[Addr, Matcher]  # type: ignore[misc]
-FromTo = Tuple[From, Addr]   # type: ignore[misc]
-Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
+To = Union[Addr, Jumper]  # type: ignore[misc]
+FromTo = Tuple[From, To]   # type: ignore[misc]
+Generator = Tuple[From, To, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
-GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
+GSet = Dict[FromTo, Func] # type: ignore[misc]
 PSet = GSet  # type: ignore[misc]
 Value = Func # type: ignore[misc]
 ValueTup = Tuple[Value, ...]  # type: ignore[misc]
@@ -369,7 +389,7 @@ class RMem:
     def make_generators(self, c: CanvasAble) -> Set[Generator]:
         '''Makes absolute painters.'''
         c: Canvas = self.as_canvas(c)
-        result = set()
+        result: Set[Generator] = set()
         for addr1 in c.all_addrs():
             for addr2 in c.all_addrs():
                 if (
@@ -400,7 +420,14 @@ class RMem:
 
     # Running generators
 
-    def run_generator(self, canvas: Canvas, gen: Generator) -> Canvas:
+    def run_generator(self, canvas: Canvas, gen: Generator) -> Outcome:
+        fro, _, _ = gen
+        a = self.as_addr_from(canvas, fro)
+        if isinstance(a, int):
+            return self.paint_from_abs_addr(canvas, gen, a)
+        else:
+            raise NotImplementedError
+        """
         addr1, addr2, func = gen
         result: Func = None
         if canvas[addr1] is not None:
@@ -414,8 +441,41 @@ class RMem:
         result = self.apply_func(func, canvas[addr1])
         if result is not None:
             canvas[addr2] = result
-        return canvas
+        return Succeeded
+        """
 
+    # What should run_generator() do with a relative From?
+
+    def paint_from_abs_addr(
+        self,
+        canvas: Canvas,
+        painter: Painter,
+        a: Addr
+    ) -> Outcome:
+        _, to, func = painter
+        x = canvas[a]
+        if x is None:
+            return Failed
+        result = self.apply_func(func, x)
+        if result is None:
+            return Failed
+        b = self.as_addr_to(canvas, a, to)
+        if b is None:
+            return Failed
+        canvas[b] = result
+        return Succeeded
+
+    def as_addr_from(self, canvas: Canvas, fro: From) -> Addr | None:
+        if isinstance(fro, int):
+            return fro
+        else:
+            raise NotImplementedError
+
+    def as_addr_to(self, canvas: Canvas, a: Addr, to: To) -> Addr | None:
+        if isinstance(to, int):
+            return to
+        else:
+            raise NotImplementedError
     # Running GSets
 
     def run_gset(
@@ -495,7 +555,7 @@ class RMem:
     def painter_weights(cls, canvas: Canvas, gset: GSet) \
     -> Iterable[Tuple[FromTo, Numeric]]:
         for ((a1, a2), f) in gset.items():
-            if canvas[a1] is None:
+            if isinstance(a1, int) and canvas[a1] is None:
                 continue
             else:
                 #w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
@@ -517,11 +577,14 @@ class RMem:
                     yield addr
 
     @classmethod
-    def painter_weight(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:
+    def painter_weight(cls, a1: From, a2: To, f: Func, c: Canvas) -> Numeric:
         '''Address weights are a linear function of current cell clarity.'''
-        w1 = c.clarity(a1) / c.MAX_CLARITY
-        w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
-        return w1 * w2 * cls.natural_func_weight(f)
+        if isinstance(a1, int) and isinstance(a2, int):
+            w1 = c.clarity(a1) / c.MAX_CLARITY
+            w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
+            return w1 * w2 * cls.natural_func_weight(f)
+        else:
+            raise NotImplementedError
 
     @classmethod
     def natural_func_weight(cls, f: Func) -> Numeric:
@@ -855,16 +918,19 @@ class SkewedPainterWeight(RMem):
     weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
 
     @classmethod
-    def painter_weight(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:
-        return (
-            (
-                cls.weight_from[int(c.clarity(a1))]
+    def painter_weight(cls, a: From, b: To, f: Func, c: Canvas) -> Numeric:
+        if isinstance(a, int) and isinstance(b, int):
+            return (
+                (
+                    cls.weight_from[int(c.clarity(a))]
+                    *
+                    cls.weight_to[int(c.clarity(b))]
+                )
                 *
-                cls.weight_to[int(c.clarity(a2))]
+                cls.natural_func_weight(f)
             )
-            *
-            cls.natural_func_weight(f)
-        )
+        else:
+            raise NotImplementedError
 
 @dataclass
 class LoggedStep:
@@ -909,6 +975,24 @@ class LoggedStep:
         print(f'{b}  {cl}  {rw} {real_painter}', file=sio)
         return sio.getvalue()
 
+@dataclass(frozen=True)
+class Match:
+    v: Value
+
+    def __call__(self, x: Any) -> bool:
+        return x == self.v
+
+@dataclass(frozen=True)
+class Right(Jumper):
+    n: int
+
+    def to(self, a: Addr) -> Addr:
+        if isinstance(a, int):
+            return a + self.n
+        else:
+            raise NotImplementedError
+
+
 if __name__ == '__main__':
     rmem = RMem.run(
         operands=range(1, 8),   # 4
@@ -916,3 +1000,4 @@ if __name__ == '__main__':
         prep=ndups(3),
         niters=1000
     )
+    p: Painter = (Match(1), Right(1), '+')
