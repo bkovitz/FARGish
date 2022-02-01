@@ -21,6 +21,8 @@ from util import pr, ps, pts, psa, union, Numeric, as_tuple, short, as_list, \
     singleton
 
 
+epsilon = 0.0001
+
 @singleton
 @dataclass(frozen=True)
 class Outcome:
@@ -36,6 +38,10 @@ Failed = Outcome('Failed')
 class Jumper(ABC):
     @abstractmethod
     def to(self, canvas: Canvas, a: Addr) -> Addr:
+        pass
+
+    @abstractmethod
+    def could_jump(self, canvas: Canvas, fro: From) -> bool:
         pass
 
 BaseValue = Union[int, str, None]
@@ -123,6 +129,10 @@ class Canvas(CanvasDataclassMixin, ABC):
         pass
 
     @abstractmethod
+    def has_addr(self, addr: Addr) -> bool:
+        pass
+
+    @abstractmethod
     def clarity(self, addr: Addr) -> Numeric:
         pass
 
@@ -178,6 +188,13 @@ class Canvas1D(Canvas):
     def as_tuple(self) -> ValueTup:
         return as_tuple(self.contents)
 
+    def has_addr(self, addr: Addr) -> bool:
+        if isinstance(addr, int):
+            addr = addr - 1
+            return addr >= 0 and addr < len(self.contents)
+        else:
+            return False
+
     def __getitem__(self, addr: Addr) -> Value:
         if isinstance(addr, int):
             try:
@@ -190,6 +207,8 @@ class Canvas1D(Canvas):
     def __setitem__(self, addr: Addr, x: Value) -> None:
         if isinstance(addr, int):
             addr = addr - 1
+            if addr < 0:  # off the left edge of the canvas
+                return
             if self.clarities[addr] == 0:
                 try:
                     self.contents[addr] = x
@@ -251,6 +270,19 @@ class Canvas2D(Canvas):
                     for y in range(self.size_y)
         )
 
+    def has_addr(self, addr: Addr) -> bool:
+        if isinstance(addr, tuple) and len(addr) == 2:
+            x, y = addr
+            return (
+                isinstance(x, int) and isinstance(y, int)
+                and
+                x >= 1 and y >= 1
+                and
+                x <= self.size_x and y <= self.size_y
+            )
+        else:
+            return False
+
     def as_tuple(self) -> ValueTup:
         raise NotImplementedError
 
@@ -286,6 +318,9 @@ class CanvasD(Canvas):
 
     def as_tuple(self) -> ValueTup:
         raise NotImplementedError
+
+    def has_addr(self, addr: Addr) -> bool:
+        return True
 
     def __getitem__(self, addr: Addr) -> Value:
         return self.contents.get(addr, None)
@@ -375,6 +410,14 @@ class RMem:
         cs = (prep(rmem.as_canvas(c), rmem) for c in cs)
         return rmem.absorb_canvases(cs)
 
+    @classmethod
+    def make_instance(cls: Type[Q], *mixins: Type[RMem]) -> Q:
+        class_name = cls.__name__ + ''.join(
+            getattr(mixin, 'mixin_name', '') for mixin in mixins
+        )
+        ty = type(class_name, mixins + (cls,), {})
+        return ty()
+
     def as_canvas(self, c: CanvasAble) -> Canvas:
         '''Converts c to a Canvas.'''
         return Canvas.make_from(
@@ -413,10 +456,13 @@ class RMem:
     def run_generator(self, canvas: Canvas, gen: Generator) -> Outcome:
         fro, _, _ = gen
         a = self.as_addr_from(canvas, fro)
+        #lo('RG', a)
         if isinstance(a, int):
             return self.paint_from_abs_addr(canvas, gen, a)
+        elif a is None:
+            return Failed
         else:
-            raise NotImplementedError
+            raise NotImplementedError(a)
         """
         addr1, addr2, func = gen
         result: Func = None
@@ -455,6 +501,7 @@ class RMem:
         canvas[b] = result
         return Succeeded
 
+    #@trace
     def as_addr_from(self, canvas: Canvas, fro: From) -> Addr | None:
         if isinstance(fro, int):
             return fro
@@ -496,7 +543,7 @@ class RMem:
         try:
             for i in range(niters):
                 self.start_lstep()
-                gen = self.choose_runnable_generator(canvas, gset)
+                gen = self.choose_runnable_painter(canvas, gset)
                 self.add_to_lstep(painter=gen)
                 self.run_generator(canvas, gen)
                 self.add_to_lstep(canvas=canvas)
@@ -537,7 +584,7 @@ class RMem:
                 for cl in list(canvas.all_clarities())[-5:]
         )
 
-    def choose_runnable_generator(self, canvas: Canvas, gset: GSet) \
+    def choose_runnable_painter(self, canvas: Canvas, gset: GSet) \
     -> Generator:
         pws = list(self.painter_weights(canvas, gset))
         #pts(sorted([p[1], p[0]] for p in pws)) #DEBUG
@@ -566,7 +613,9 @@ class RMem:
                 #w2 = 1.0 - (canvas.clarity(a2) / (canvas.MAX_CLARITY * 1.00))
                 #yield ((a1, a2), w1 * w2 * natural_func_weight(f))
                 #w = cls.a_to_w(a1, a2, f, canvas)
-                yield ((a1, a2), cls.painter_weight(a1, a2, f, canvas))
+                w = cls.painter_weight(a1, a2, f, canvas)
+                if w >= epsilon:
+                    yield ((a1, a2), w)
 
     # TODO Redefine Painter as Tuple[From, To, Func]
     # TODO Make this a method of Canvas
@@ -583,12 +632,68 @@ class RMem:
     @classmethod
     def painter_weight(cls, a1: From, a2: To, f: Func, c: Canvas) -> Numeric:
         '''Address weights are a linear function of current cell clarity.'''
+        '''
         if isinstance(a1, int) and isinstance(a2, int):
             w1 = c.clarity(a1) / c.MAX_CLARITY
             w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
             return w1 * w2 * cls.natural_func_weight(f)
+        elif callable(a1):  # a1 is a Matcher
+            if cls.could_run(a1, a2, f, c):
+                return 1.0  # HACK: Should assign weight based on something
+                            # something more than whether the painter could run
+            else:
+                return 0.0
         else:
             raise NotImplementedError
+        '''
+        w1 = (
+            cls.from_weight_relative(a1, a2, f, c)
+            if callable(a1)
+            else cls.from_weight_absolute(a1, c)
+        )
+        w2 = (
+            cls.to_weight_relative(a1, a2, c)
+            if isinstance(a2, Jumper)
+            else cls.to_weight_absolute(a2, c)
+        )
+        return w1 * w2 * cls.natural_func_weight(f)
+
+    @classmethod
+    def from_weight_absolute(cls, a: Addr, c: Canvas) -> Numeric:
+        return c.clarity(a) / c.MAX_CLARITY
+
+    @classmethod
+    def from_weight_relative(
+        cls, a: Matcher, b: To, f: Func, c: Canvas
+    ) -> Numeric:
+        if cls.could_run(a, b, f, c):
+            return 1.0  # TODO Base weight on the matched cell?
+        else:
+            return 0.0
+
+    @classmethod
+    def to_weight_absolute(cls, b: Addr, c: Canvas) -> Numeric:
+        return 1.0 - (c.clarity(b) / c.MAX_CLARITY)
+
+    @classmethod
+    def to_weight_relative(cls, a: From, b: Jumper, c: Canvas) -> Numeric:
+        return 1.0  # TODO
+
+    @classmethod
+    def could_run(cls, a: From, b: To, f: Func, c: Canvas) -> bool:
+        if callable(a):
+            if not any(a(c[i]) for i in c.all_addrs()):
+                return False
+        else:
+            if not c.has_addr(a):
+                return False
+        if isinstance(b, Jumper):
+            if not b.could_jump(c, a):
+                return False
+        else:
+            if not c.has_addr(b):
+                return False
+        return True
 
     @classmethod
     def natural_func_weight(cls, f: Func) -> Numeric:
@@ -1001,7 +1106,7 @@ class Match:
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({self.v})'
+        return f'{cl}({self.v!r})'
 
 @dataclass(frozen=True)
 class Right(Jumper):
@@ -1012,6 +1117,14 @@ class Right(Jumper):
             return a + self.n
         else:
             raise NotImplementedError
+
+    def could_jump(self, canvas: Canvas, fro: From) -> bool:
+        if isinstance(fro, int):
+            return canvas.has_addr(fro + 1)
+        elif isinstance(fro, tuple):
+            raise NotImplementedError
+        else:
+            return True
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
@@ -1027,11 +1140,20 @@ class Left(Jumper):
         else:
             raise NotImplementedError
 
+    def could_jump(self, canvas: Canvas, fro: From) -> bool:
+        if isinstance(fro, int):
+            return canvas.has_addr(fro - 1)
+        elif isinstance(fro, tuple):
+            raise NotImplementedError
+        else:
+            return True
+
     def __repr__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.n})'
 
 class WithAdjacentRelativePainters(RMem):
+    mixin_name: ClassVar[str] = 'AdjRel'
 
     def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
     -> Painter | None:
@@ -1060,7 +1182,7 @@ if __name__ == '__main__':
 #        niters=1000
 #    )
     rmtype = type('RMemAdjacent', (WithAdjacentRelativePainters, RMem), {})
-    rmem = rmtype()
+    rmem = rmtype(niters=10)
 
     #p = rmem.painter_from_to(1, 2, 1, '+')
     #print(p)
@@ -1070,6 +1192,12 @@ if __name__ == '__main__':
     #rmem.run_generator(c, p)
     #print(c)
 
-    startc = (1, '+', 1, '=', 2)
-    pps = rmem.canvas_to_painters(startc)
-    pr(pps)
+    eqn = (1, '+', 1, '=', 2)
+    pps = rmem.canvas_to_painters(eqn)
+    #pr(pps)
+    pset = rmem.make_gset(pps)
+    pr(pset)
+
+    startc = (1, None, None, None, None)
+    c = rmem.run_gset(startc, pset, vv=4)
+    print(c)

@@ -270,6 +270,8 @@ def xpg() -> Set[FrozenSet[Tuple]]:
 
 @dataclass
 class WithCountColumns(RMem):
+    mixin_name: ClassVar[str] = 'CoCo'
+
     funcs_to_count: Tuple[Func, ...] = (
         RMem.same,
         RMem.add_n(1)
@@ -355,6 +357,8 @@ class WithCountColumns(RMem):
 class WithRandomSalt(RMem):
     '''Prepends cells containing random numbers (the 'salt') to every canvas
     absorbed.'''
+    mixin_name: ClassVar[str] = 'RandomSalt'
+
     nsalt: int = 10  # number of cells to prepend
     saltrange: Tuple[int, int] = (0, 11) # args to randrange for each salt cell
     # NEXT1 number of copies of each image to absorb
@@ -384,6 +388,8 @@ class WithRandomSalt(RMem):
 class WithSequentialSalt(RMem):
     '''Prepends calls containing numbers in sequence: 1, 2, 3, ... to every
     canvas absorbed.'''
+    mixin_name: ClassVar[str] = 'SeqSalt'
+
     nseqsalt: int = 5
 
     def prep_absorb(self, c: CanvasAble) -> CanvasAble:

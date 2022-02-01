@@ -45,6 +45,10 @@ class TestRMem(unittest.TestCase):
         c = Canvas1D([None, '+', 2, None, 5], INITIAL_CLARITY=4)
         self.assertEqual(c.all_clarities(), [0, 4, 4, 0, 4])
 
+        c = Canvas1D.make_from((1, None, None, None, None))
+        c[0] = 88  # Should do nothing, since addr is off canvas
+        self.assertEqual(c.as_tuple(), (1, None, None, None, None))
+
     def test_painter_weight(self) -> None:
         c = Canvas1D([None, '+', 2, None, 5])
         RMemSkewed: Type[RMem] = \
@@ -72,12 +76,19 @@ class TestRMem(unittest.TestCase):
             RMemSkewed.painter_weight(2, 3, '+', c), 5.0, places=3
         )
 
-    def test_relative_painter(self) -> None:
+    def test_painter_right(self) -> None:
         rmem = RMem()
         p: Painter = (Match(1), Right(1), '+')
         c = Canvas1D.make_from((1, None, None, None, None))
         rmem.run_generator(c, p)
         self.assertEqual(c.as_tuple(), (1, '+', None, None, None))
+
+    def test_painter_left(self) -> None:
+        rmem = RMem()
+        p: Painter = (Match(1), Left(1), '+')
+        c = Canvas1D.make_from((1, None, None, None, None))
+        rmem.run_generator(c, p)
+        self.assertEqual(c.as_tuple(), (1, None, None, None, None))
 
     def test_make_adjacent_painter(self) -> None:
         rmadjtype = type(
@@ -94,8 +105,8 @@ class TestRMem(unittest.TestCase):
         )
         rmem = rmadjtype()
 
-        startc = (1, '+', 1, '=', 2)
-        painters = rmem.canvas_to_painters(startc)
+        eqn = (1, '+', 1, '=', 2)
+        painters = rmem.canvas_to_painters(eqn)
         self.assertCountEqual(
             painters,
             set([
