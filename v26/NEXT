@@ -274,7 +274,7 @@ IDEAS
     But it might get the system to reach attractors sooner.
 
     Could a subcanvas be not a separate object but simply a part of a plain
-    canvas designated in some way, e.g. the 'before' part. Then painters
+    canvas designated in some way, e.g. the 'before' part? Then painters
     could designate it as well as use it.
 
 

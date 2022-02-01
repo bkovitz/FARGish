@@ -24,10 +24,10 @@ BaseValue = Union[int, str, None]
 BaseValueTup = Tuple[BaseValue, ...]
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
-#Addr2 = Tuple[int, int]
-AbsAddr = int
-Addr = Hashable
-FromTo = Tuple[Addr, Addr]
+Matcher = Callable[[Any], bool]
+Addr = int | Tuple['Addr', 'Addr']   # type: ignore[misc]
+From = Union[Addr, Matcher]  # type: ignore[misc]
+FromTo = Tuple[From, Addr]   # type: ignore[misc]
 Generator = Tuple[Addr, Addr, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
 GSet = Dict[Tuple[Addr, Addr], Func] # type: ignore[misc]
@@ -506,12 +506,15 @@ class RMem:
 
     # TODO Redefine Painter as Tuple[From, To, Func]
     # TODO Make this a method of Canvas
+    # TODO Matchers and matching_addrs() should return weights
     @classmethod
-    def matching_addrs(cls, c: Canvas, a: Addr) -> Iterable[AbsAddr]:
-        if isinstance(a, AbsAddr):
+    def matching_addrs(cls, c: Canvas, a: From) -> Iterable[Addr]:
+        if isinstance(a, int) or isinstance(a, tuple):
             yield a
-        elif isinstance(a, Matcher):
-            for addr
+        else:  # a is a Matcher
+            for addr in c.all_addrs():
+                if a(c[addr]):
+                    yield addr
 
     @classmethod
     def painter_weight(cls, a1: Addr, a2: Addr, f: Func, c: Canvas) -> Numeric:

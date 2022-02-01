@@ -1,13 +1,12 @@
 ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
 PY = python3.10
 BROWSER = open
-MYPY = mypy --python-version 3.10
 else
-#PY = python3.7
 PY = PYTHONHASHSEED=0 python3.10
 BROWSER = google-chrome
-MYPY = mypy --python-version 3.10
 endif
+
+MYPY = mypy --python-version 3.10
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
@@ -40,8 +39,6 @@ i: m   # 'interactive' way to type-check and run current file of interest
 
 # Run all unit tests.
 ut:
-	#$(PY) -m unittest -v
-	#$(PY) -m unittest -v testCCModel
 	$(PY) -m unittest -v test*.py
 
 # Convenience target for single unit test current being worked on
