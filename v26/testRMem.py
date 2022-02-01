@@ -10,7 +10,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, final
 
 from RMem import RMem, CanvasPrep, make_eqns, BaseValue, ndups, no_prep, \
-    Canvas1D, SkewedPainterWeight
+    Canvas1D, SkewedPainterWeight, Match, Right, Painter
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
     reseed
@@ -71,3 +71,9 @@ class TestRMem(unittest.TestCase):
             RMemSkewed.painter_weight(2, 3, '+', c), 5.0, places=3
         )
 
+    def test_relative_painter(self) -> None:
+        rmem = RMem()
+        p: Painter = (Match(1), Right(1), '+')
+        c = Canvas1D.make_from((1, None, None, None, None))
+        rmem.run_generator(c, p)
+        self.assertEqual(c.as_tuple(), (1, '+', None, None, None))

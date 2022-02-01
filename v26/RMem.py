@@ -34,9 +34,8 @@ Succeeded = Outcome('Succeeded')
 Failed = Outcome('Failed')
 
 class Jumper(ABC):
-
     @abstractmethod
-    def to(self, a: Addr) -> Addr:
+    def to(self, canvas: Canvas, a: Addr) -> Addr:
         pass
 
 BaseValue = Union[int, str, None]
@@ -468,14 +467,28 @@ class RMem:
     def as_addr_from(self, canvas: Canvas, fro: From) -> Addr | None:
         if isinstance(fro, int):
             return fro
+        elif callable(fro):
+            return self.choose_matching_addr(canvas, fro)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(fro)
+
+    def choose_matching_addr(self, canvas: Canvas, m: Matcher) -> Addr | None:
+        '''Searches for an absolute address containing a value that 'm'
+        matches. Default implementation simply returns the first matching
+        address, or None.'''
+        for addr in canvas.all_addrs():
+            if m(canvas[addr]):
+                return addr
+        return None
 
     def as_addr_to(self, canvas: Canvas, a: Addr, to: To) -> Addr | None:
         if isinstance(to, int):
             return to
+        elif isinstance(to, Jumper):
+            return to.to(canvas, a)
         else:
             raise NotImplementedError
+
     # Running GSets
 
     def run_gset(
@@ -986,7 +999,7 @@ class Match:
 class Right(Jumper):
     n: int
 
-    def to(self, a: Addr) -> Addr:
+    def to(self, canvas: Canvas, a: Addr) -> Addr:
         if isinstance(a, int):
             return a + self.n
         else:
@@ -994,10 +1007,15 @@ class Right(Jumper):
 
 
 if __name__ == '__main__':
-    rmem = RMem.run(
-        operands=range(1, 8),   # 4
-        startc=(None, '+', 1, None, 3),
-        prep=ndups(3),
-        niters=1000
-    )
+#    rmem = RMem.run(
+#        operands=range(1, 8),   # 4
+#        startc=(None, '+', 1, None, 3),
+#        prep=ndups(3),
+#        niters=1000
+#    )
+    rmem = RMem()
     p: Painter = (Match(1), Right(1), '+')
+
+    c = Canvas1D.make_from((1, None, None, None, None))
+    rmem.run_generator(c, p)
+    print(c)
