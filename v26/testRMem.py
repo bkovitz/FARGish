@@ -10,7 +10,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, final
 
 from RMem import RMem, CanvasPrep, make_eqns, BaseValue, ndups, no_prep, \
-    Canvas1D, SkewedPainterWeight, Match, Right, Painter
+    Canvas1D, SkewedPainterWeight, Match, Right, Left, Painter, \
+    WithAdjacentRelativePainters
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
     reseed
@@ -77,3 +78,34 @@ class TestRMem(unittest.TestCase):
         c = Canvas1D.make_from((1, None, None, None, None))
         rmem.run_generator(c, p)
         self.assertEqual(c.as_tuple(), (1, '+', None, None, None))
+
+    def test_make_adjacent_painter(self) -> None:
+        rmadjtype = type(
+            'RMemAdjacent', (WithAdjacentRelativePainters, RMem), {}
+        )
+        rmem = rmadjtype()
+
+        p = rmem.painter_from_to(1, 2, 1, '+')
+        self.assertEqual(p, (Match(1), Right(1), '+'))
+
+    def test_make_adjacent_painters(self) -> None:
+        rmadjtype = type(
+            'RMemAdjacent', (WithAdjacentRelativePainters, RMem), {}
+        )
+        rmem = rmadjtype()
+
+        startc = (1, '+', 1, '=', 2)
+        painters = rmem.canvas_to_painters(startc)
+        self.assertCountEqual(
+            painters,
+            set([
+                (Match('+'), Left(1), 1),
+                (Match('+'), Right(1), 1),
+                (Match(1), Left(1), '+'),
+                (Match(1), Right(1), '+'),
+                (Match(1), Right(1), '='),
+                (Match(2), Left(1), '='),
+                (Match('='), Left(1), 1),
+                (Match('='), Right(1), 2),
+            ])
+        )

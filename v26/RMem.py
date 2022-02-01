@@ -999,6 +999,10 @@ class Match:
     def __call__(self, x: Any) -> bool:
         return x == self.v
 
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.v})'
+
 @dataclass(frozen=True)
 class Right(Jumper):
     n: int
@@ -1009,6 +1013,44 @@ class Right(Jumper):
         else:
             raise NotImplementedError
 
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.n})'
+
+@dataclass(frozen=True)
+class Left(Jumper):
+    n: int
+
+    def to(self, canvas: Canvas, a: Addr) -> Addr:
+        if isinstance(a, int):
+            return a - self.n
+        else:
+            raise NotImplementedError
+
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.n})'
+
+class WithAdjacentRelativePainters(RMem):
+
+    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
+    -> Painter | None:
+        if a != b and xa is not None and xb is not None:
+            if isinstance(a, int) and isinstance(b, int):
+                jumper: Jumper
+                if b == a + 1:
+                    jumper = Right(1)
+                elif b == a - 1:
+                    jumper = Left(1)
+                else:
+                    return None
+                func = self.func_from_to(xa, xb)
+                if func is None:
+                    return None
+                return (Match(xa), jumper, func)
+            else:
+                raise NotImplementedError((a, b))
+        return None
 
 if __name__ == '__main__':
 #    rmem = RMem.run(
@@ -1017,9 +1059,17 @@ if __name__ == '__main__':
 #        prep=ndups(3),
 #        niters=1000
 #    )
-    rmem = RMem()
-    p: Painter = (Match(1), Right(1), '+')
+    rmtype = type('RMemAdjacent', (WithAdjacentRelativePainters, RMem), {})
+    rmem = rmtype()
 
-    c = Canvas1D.make_from((1, None, None, None, None))
-    rmem.run_generator(c, p)
-    print(c)
+    #p = rmem.painter_from_to(1, 2, 1, '+')
+    #print(p)
+
+    #p: Painter = (Match(1), Right(1), '+')
+    #c = Canvas1D.make_from((1, None, None, None, None))
+    #rmem.run_generator(c, p)
+    #print(c)
+
+    startc = (1, '+', 1, '=', 2)
+    pps = rmem.canvas_to_painters(startc)
+    pr(pps)
