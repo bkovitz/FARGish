@@ -386,24 +386,14 @@ class RMem:
     # Making generators (i.e. painters)
 
     def canvas_to_painters(self, c: CanvasAble) -> Set[Generator]:
-        '''Makes absolute painters.'''
+        '''Makes painters as determined by self.painter_from_to().'''
         c: Canvas = self.as_canvas(c)
         result: Set[Generator] = set()
         for addr1 in c.all_addrs():
             for addr2 in c.all_addrs():
-                if (
-                    addr1 != addr2
-                    and
-                    c[addr1] is not None
-                    and
-                    c[addr2] is not None
-                ):
-                    func = self.func_from_to(c[addr1], c[addr2])
-                    #lo('MKG', addr1, addr2, c[addr2], c)
-                    if func is not None:
-                        result.add(
-                            (addr1, addr2, func)
-                        )
+                p = self.painter_from_to(addr1, addr2, c[addr1], c[addr2])
+                if p is not None:
+                    result.add(p)
         return result
 
     @classmethod
@@ -697,6 +687,19 @@ class RMem:
             return func(x)
         else:
             return func
+
+    # Painter-makers
+
+    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
+    -> Painter | None:
+        '''Returns a painter that, given the value xa at address a, will paint
+        the value xb at address b. Default implementation returns an absolute
+        painter.'''
+        if a != b and xa is not None and xb is not None:
+            func = self.func_from_to(xa, xb)
+            if func is not None:
+                return (a, b, func)
+        return None
 
     # Function-makers
 
