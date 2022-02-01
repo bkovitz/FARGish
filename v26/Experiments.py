@@ -161,7 +161,7 @@ def xp2() -> None:
     '''Second-order painters'''  # TODO  Not working yet  22-Jan-2022
     rmem = RMem()
     # Make 1st-order painters for 1+1=2
-    p1s = rmem.make_generators((1, '+', 1, '=', 2))
+    p1s = rmem.canvas_to_painters((1, '+', 1, '=', 2))
     pr(p1s)
     print()
 
@@ -181,7 +181,7 @@ def xp2() -> None:
     #pr(rmem.gset)
 
     # Make first-order painters for partial canvas: (1, '+', None, None, None)
-    #re_p1s = rmem.make_generators((1, '+', None, None, None))
+    #re_p1s = rmem.canvas_to_painters((1, '+', None, None, None))
 
     # Grow the first-order painters by running the 2nd-order painters.
 
@@ -210,7 +210,7 @@ def find_limit_cycle(
         startc = count_columns + base_canvas
         if show:
             lo(startc)
-        painters = rmem.make_generators(startc)
+        painters = rmem.canvas_to_painters(startc)
         count_columns = tuple(
             count_fs(painters, f) for f in funcs
         )
@@ -241,7 +241,7 @@ def xpg0() -> None:
     for i in range(10):
         startc: CanvasAble = tuple(count_columns) + eqn  # (count(same), count(+1))
         lo(startc)
-        painters = rmem.make_generators(startc)
+        painters = rmem.canvas_to_painters(startc)
         count_columns[0] = sum(1 for (a, b, f) in painters if f == rmem.same)
         count_columns[1] = sum(1 for (a, b, f) in painters if f == add1)
     lo(tuple(count_columns) + eqn)
@@ -309,7 +309,7 @@ class WithCountColumns(RMem):
             startc = count_columns + base_tuple
             if show:
                 lo(startc)
-            pset = self.make_gset(self.make_generators(startc))
+            pset = self.make_gset(self.canvas_to_painters(startc))
             pset_history.append(pset)
             count_columns = tuple(
                 sum(1 for f in pset.values() if f == func)
@@ -531,11 +531,11 @@ if __name__ == '__main__':
     '''
     rmem = RMem()
     startc1 = (1, '+', 1, '=', 2)
-    p1s1 = rmem.make_generators(startc1)
+    p1s1 = rmem.canvas_to_painters(startc1)
     p2s1 = rmem.make_gset(rmem.make_next_order_painters(p1s1))
 
     startc2 = (1, '+', 2, '=', 3)
-    p1s2 = rmem.make_generators(startc2)
+    p1s2 = rmem.canvas_to_painters(startc2)
     p2s2 = rmem.make_gset(rmem.make_next_order_painters(p1s2))
     pr(p2s2)
     print()

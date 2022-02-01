@@ -385,7 +385,7 @@ class RMem:
 
     # Making generators (i.e. painters)
 
-    def make_generators(self, c: CanvasAble) -> Set[Generator]:
+    def canvas_to_painters(self, c: CanvasAble) -> Set[Generator]:
         '''Makes absolute painters.'''
         c: Canvas = self.as_canvas(c)
         result: Set[Generator] = set()
@@ -398,11 +398,12 @@ class RMem:
                     and
                     c[addr2] is not None
                 ):
-                    f = self.func_from_to(c[addr1], c[addr2])
+                    func = self.func_from_to(c[addr1], c[addr2])
                     #lo('MKG', addr1, addr2, c[addr2], c)
-                    result.add(
-                        (addr1, addr2, self.func_from_to(c[addr1], c[addr2]))
-                    )
+                    if func is not None:
+                        result.add(
+                            (addr1, addr2, func)
+                        )
         return result
 
     @classmethod
@@ -654,7 +655,7 @@ class RMem:
         .raw_absorb_canvas() to change the way absorption works. Override
         .prep_absorb() to add columns to c or otherwise modify c before
         absorbing it.'''
-        self.raw_absorb_gset(self.make_gset(self.make_generators(c)))
+        self.raw_absorb_gset(self.make_gset(self.canvas_to_painters(c)))
 
     @final
     def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
@@ -680,7 +681,7 @@ class RMem:
         for c in cs:
             c = self.as_canvas(c)
             new_gset = self.make_gset(
-                self.make_generators(prep(c, self))
+                self.canvas_to_painters(prep(c, self))
             )
             #lo('ABS', c)
             #pr(new_gset)

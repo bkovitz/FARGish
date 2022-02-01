@@ -17,10 +17,10 @@ from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
 
 class TestRMem(unittest.TestCase):
 
-    def test_make_generators_partial_canvas(self) -> None:
+    def test_make_painters_partial_canvas(self) -> None:
         rmem = RMem()
         self.assertCountEqual(
-            rmem.make_generators((1, '+', None, None, None)),
+            rmem.canvas_to_painters((1, '+', None, None, None)),
             [(1, 2, '+'), (2, 1, 1)]
         )
 
