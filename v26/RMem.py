@@ -44,19 +44,41 @@ class Jumper(ABC):
     def could_jump(self, canvas: Canvas, fro: From) -> bool:
         pass
 
+    @abstractmethod
+    def could_jump_to(self, c: Canvas, a: Addr) -> Iterable[To]:
+        '''Returns all the Addrs that this Jumper could jump to from 'a',
+        or, if that can't be determined, returns this Jumper.'''
+        pass
+
+class Matcher(ABC):
+    @abstractmethod
+    def is_match(self, x: Any) -> Addr:
+        pass
+
+    def matching_addrs(self, canvas: Canvas) -> Collection[Addr]:
+        return set(a for a in canvas.all_addrs() if self.is_match(canvas[a]))
+
 BaseValue = Union[int, str, None]
 BaseValueTup = Tuple[BaseValue, ...]
+
 BaseFunc = Callable[['Func'], 'Func']  # type: ignore[misc]
 Func = Union[BaseFunc, BaseValue] # type: ignore[misc]
+
 Addr = int | Tuple['Addr', 'Addr']   # type: ignore[misc]
-Matcher = Callable[[Any], bool]
+#Matcher = Callable[[Any], bool]
 From = Union[Addr, Matcher]  # type: ignore[misc]
 To = Union[Addr, Jumper]  # type: ignore[misc]
 FromTo = Tuple[From, To]   # type: ignore[misc]
+AbsFromTo = Tuple[Addr, To]   # type: ignore[misc]
+
 Generator = Tuple[From, To, Func] # type: ignore[misc]
 Painter = Generator  # type: ignore[misc]
+AbsPainter = Tuple[Addr, To, Func]  # type: ignore[misc]
+
 GSet = Dict[FromTo, Func] # type: ignore[misc]
 PSet = GSet  # type: ignore[misc]
+AbsPSet = Dict[AbsFromTo, Func]  # type: ignore[misc]
+
 Value = Func # type: ignore[misc]
 ValueTup = Tuple[Value, ...]  # type: ignore[misc]
 
@@ -411,7 +433,11 @@ class RMem:
         return rmem.absorb_canvases(cs)
 
     @classmethod
-    def make_instance(cls: Type[Q], *mixins: Type[RMem]) -> Q:
+    def make_instance(
+        cls: Type[Q],
+        mixins: Tuple[Type[RMem], ...],
+        **kwargs
+    ) -> Q:
         class_name = cls.__name__ + ''.join(
             getattr(mixin, 'mixin_name', '') for mixin in mixins
         )
@@ -429,7 +455,7 @@ class RMem:
     # Making generators (i.e. painters)
 
     def canvas_to_painters(self, c: CanvasAble) -> Set[Generator]:
-        '''Makes painters as determined by self.painter_from_to().'''
+        '''Makes painters as determined by .painter_from_to().'''
         c: Canvas = self.as_canvas(c)
         result: Set[Generator] = set()
         for addr1 in c.all_addrs():
@@ -454,38 +480,61 @@ class RMem:
     # Running generators
 
     def run_generator(self, canvas: Canvas, gen: Generator) -> Outcome:
-        fro, _, _ = gen
-        a = self.as_addr_from(canvas, fro)
-        #lo('RG', a)
-        if isinstance(a, int):
-            return self.paint_from_abs_addr(canvas, gen, a)
-        elif a is None:
+        abspainters = list(self.as_absolute_painters(canvas, gen))
+        if not abspainters:
             return Failed
-        else:
-            raise NotImplementedError(a)
-        """
-        addr1, addr2, func = gen
-        result: Func = None
-        if canvas[addr1] is not None:
-            if callable(func):
-                result = func(canvas[addr1])
-            else:
-                result = func
-        else:
-            if isinstance(func, str):
-                result = func
-        result = self.apply_func(func, canvas[addr1])
-        if result is not None:
-            canvas[addr2] = result
-        return Succeeded
-        """
+        weights = [self.simple_painter_weight(canvas, p) for p in abspainters]
+        return self.run_absolute_painter(
+            canvas,
+            choices(abspainters, weights)[0]
+        )
 
-    # What should run_generator() do with a relative From?
+#        fro, _, _ = gen
+#        a = self.as_addr_from(canvas, fro)
+#        if isinstance(a, int):
+#            return self.paint_from_abs_addr(canvas, gen, a)
+#        elif a is None:
+#            return Failed
+#        else:
+#            raise NotImplementedError(a)
+
+#        addr1, addr2, func = gen
+#        result: Func = None
+#        if canvas[addr1] is not None:
+#            if callable(func):
+#                result = func(canvas[addr1])
+#            else:
+#                result = func
+#        else:
+#            if isinstance(func, str):
+#                result = func
+#        result = self.apply_func(func, canvas[addr1])
+#        if result is not None:
+#            canvas[addr2] = result
+#        return Succeeded
+
+    def run_absolute_painter(self, c: Canvas, painter: AbsPainter) -> Outcome:
+        return self.paint_from_abs_addr(c, painter, painter[0])
+
+    # TODO UT
+    @classmethod
+    def as_absolute_painters(cls, c: Canvas, painter: Painter) \
+    -> Iterable[AbsPainter]:
+        a, b, f = painter
+        if isinstance(a, Matcher):
+            for addr1 in a.matching_addrs(c):
+                if isinstance(b, Jumper):
+                    for to in b.could_jump_to(c, addr1):
+                        yield (addr1, to, f)
+                else:
+                    yield (addr1, b, f)
+        else:
+            yield painter  # type: ignore[misc]
 
     def paint_from_abs_addr(
         self,
         canvas: Canvas,
-        painter: Painter,
+        painter: AbsPainter,
         a: Addr
     ) -> Outcome:
         _, to, func = painter
@@ -501,23 +550,27 @@ class RMem:
         canvas[b] = result
         return Succeeded
 
-    #@trace
+    @trace
     def as_addr_from(self, canvas: Canvas, fro: From) -> Addr | None:
         if isinstance(fro, int):
             return fro
-        elif callable(fro):
+        elif isinstance(fro, Matcher):
             return self.choose_matching_addr(canvas, fro)
         else:
             raise NotImplementedError(fro)
 
     def choose_matching_addr(self, canvas: Canvas, m: Matcher) -> Addr | None:
         '''Searches for an absolute address containing a value that 'm'
-        matches. Default implementation simply returns the first matching
-        address, or None.'''
-        for addr in canvas.all_addrs():
-            if m(canvas[addr]):
-                return addr
-        return None
+        matches. Default implementation chooses randomly, weighted by
+        .from_weight_absolute(). Returns None if no canvas cell matches.'''
+        pairs: List[Tuple[Addr, float]] = [
+            (a, self.from_weight_absolute(a, canvas))
+                for a in m.matching_addrs(canvas)
+        ]
+        if len(pairs):
+            return choices(*zip(*pairs))[0]
+        else:
+            return None
 
     def as_addr_to(self, canvas: Canvas, a: Addr, to: To) -> Addr | None:
         if isinstance(to, int):
@@ -589,6 +642,7 @@ class RMem:
         pws = list(self.painter_weights(canvas, gset))
         #pts(sorted([p[1], p[0]] for p in pws)) #DEBUG
         ps, ws = zip(*pws)
+        #pr(pws) #DEBUG
         if len(ps) == 0:
             raise NoRunnableGenerators
         try:
@@ -626,40 +680,51 @@ class RMem:
             yield a
         else:  # a is a Matcher
             for addr in c.all_addrs():
-                if a(c[addr]):
+                if a.is_match(c[addr]):
                     yield addr
 
     @classmethod
     def painter_weight(cls, a1: From, a2: To, f: Func, c: Canvas) -> Numeric:
         '''Address weights are a linear function of current cell clarity.'''
-        '''
-        if isinstance(a1, int) and isinstance(a2, int):
-            w1 = c.clarity(a1) / c.MAX_CLARITY
-            w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
-            return w1 * w2 * cls.natural_func_weight(f)
-        elif callable(a1):  # a1 is a Matcher
-            if cls.could_run(a1, a2, f, c):
-                return 1.0  # HACK: Should assign weight based on something
-                            # something more than whether the painter could run
-            else:
-                return 0.0
-        else:
-            raise NotImplementedError
-        '''
-        w1 = (
-            cls.from_weight_relative(a1, a2, f, c)
-            if callable(a1)
-            else cls.from_weight_absolute(a1, c)
-        )
-        w2 = (
-            cls.to_weight_relative(a1, a2, c)
-            if isinstance(a2, Jumper)
-            else cls.to_weight_absolute(a2, c)
-        )
+#        if isinstance(a1, int) and isinstance(a2, int):
+#            w1 = c.clarity(a1) / c.MAX_CLARITY
+#            w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
+#            return w1 * w2 * cls.natural_func_weight(f)
+#        elif callable(a1):  # a1 is a Matcher
+#            if cls.could_run(a1, a2, f, c):
+#                return 1.0  # HACK: Should assign weight based on something
+#                            # something more than whether the painter could run
+#            else:
+#                return 0.0
+#        else:
+#            raise NotImplementedError
+
+#        w1 = (
+#            cls.from_weight_relative(a1, a2, f, c)
+#            if isinstance(a1, Matcher)
+#            else cls.from_weight_absolute(a1, c)
+#        )
+#        w2 = (
+#            cls.to_weight_relative(a1, a2, c)
+#            if isinstance(a2, Jumper)
+#            else cls.to_weight_absolute(a2, c)
+#        )
+#        return w1 * w2 * cls.natural_func_weight(f)
+
+        return max([
+            cls.simple_painter_weight(c, absp)
+                for absp in cls.as_absolute_painters(c, (a1, a2, f))
+        ], default=0)
+
+    @classmethod
+    def simple_painter_weight(cls, c: Canvas, painter: AbsPainter) -> Numeric:
+        a, b, f = painter
+        w1 = cls.from_weight_absolute(a, c)
+        w2 = 1.0 if isinstance(b, Jumper) else cls.to_weight_absolute(b, c)
         return w1 * w2 * cls.natural_func_weight(f)
 
     @classmethod
-    def from_weight_absolute(cls, a: Addr, c: Canvas) -> Numeric:
+    def from_weight_absolute(cls, a: Addr, c: Canvas) -> float:
         return c.clarity(a) / c.MAX_CLARITY
 
     @classmethod
@@ -681,8 +746,8 @@ class RMem:
 
     @classmethod
     def could_run(cls, a: From, b: To, f: Func, c: Canvas) -> bool:
-        if callable(a):
-            if not any(a(c[i]) for i in c.all_addrs()):
+        if isinstance(a, Matcher):
+            if not any(a.is_match(c[i]) for i in c.all_addrs()):
                 return False
         else:
             if not c.has_addr(a):
@@ -706,13 +771,21 @@ class RMem:
 
     # Making GSets (sets of generators)
 
-    @classmethod
-    def make_gset(cls, gs: Iterable[Generator]) -> GSet:
-        result: GSet = defaultdict(set)  # type: ignore[arg-type]
+    def make_gset(self, gs: Iterable[Generator]) -> GSet:
+        result: PSet = {}
         for g in gs:
             a1, a2, f = g
+            oldf = result.get((a1, a2), None)
+            #lo('MKGS', a1, a2, f, oldf)
+            if oldf is not None:
+                f = self.avg_of_funcs(oldf, f)
+                #lo('MKGS2', f)
             result[(a1, a2)] = f
         return result
+
+    def canvas_to_pset(self, c: CanvasAble) -> PSet:
+        '''Makes a PSet of painters as determined by .canvas_to_painters().'''
+        return self.make_gset(self.canvas_to_painters(c))
 
     def add_two_gsets(self, gset1: GSet, gset2: GSet) -> GSet:
         '''Combine the gsets, analogous to '+' in the Hopfield equation to
@@ -750,7 +823,8 @@ class RMem:
         .raw_absorb_canvas() to change the way absorption works. Override
         .prep_absorb() to add columns to c or otherwise modify c before
         absorbing it.'''
-        self.raw_absorb_gset(self.make_gset(self.canvas_to_painters(c)))
+        #self.raw_absorb_gset(self.make_gset(self.canvas_to_painters(c)))
+        self.raw_absorb_gset(self.canvas_to_pset(c))
 
     @final
     def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
@@ -1039,18 +1113,32 @@ class SkewedPainterWeight(RMem):
     weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
     weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
 
+#    @classmethod
+#    def painter_weight(cls, a: From, b: To, f: Func, c: Canvas) -> Numeric:
+#        if isinstance(a, int) and isinstance(b, int):
+#            return (
+#                (
+#                    cls.weight_from[int(c.clarity(a))]
+#                    *
+#                    cls.weight_to[int(c.clarity(b))]
+#                )
+#                *
+#                cls.natural_func_weight(f)
+#            )
+#        else:
+#            raise NotImplementedError
+
     @classmethod
-    def painter_weight(cls, a: From, b: To, f: Func, c: Canvas) -> Numeric:
-        if isinstance(a, int) and isinstance(b, int):
-            return (
-                (
-                    cls.weight_from[int(c.clarity(a))]
-                    *
-                    cls.weight_to[int(c.clarity(b))]
-                )
-                *
-                cls.natural_func_weight(f)
-            )
+    def from_weight_absolute(cls, a: Addr, c: Canvas) -> float:
+        if isinstance(a, int):
+            return cls.weight_from[int(c.clarity(a))]
+        else:
+            raise NotImplementedError
+
+    @classmethod
+    def to_weight_absolute(cls, b: Addr, c: Canvas) -> Numeric:
+        if isinstance(b, int):
+            return cls.weight_to[int(c.clarity(b))]
         else:
             raise NotImplementedError
 
@@ -1098,10 +1186,10 @@ class LoggedStep:
         return sio.getvalue()
 
 @dataclass(frozen=True)
-class Match:
+class Match(Matcher):
     v: Value
 
-    def __call__(self, x: Any) -> bool:
+    def is_match(self, x: Any) -> bool:
         return x == self.v
 
     def __repr__(self) -> str:
@@ -1126,6 +1214,13 @@ class Right(Jumper):
         else:
             return True
 
+    def could_jump_to(self, c: Canvas, a: Addr) -> Iterable[To]:
+        if isinstance(a, int):
+            if c.has_addr(a + 1):
+                yield a + 1
+        else:
+            raise NotImplementedError
+
     def __repr__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.n})'
@@ -1147,6 +1242,13 @@ class Left(Jumper):
             raise NotImplementedError
         else:
             return True
+
+    def could_jump_to(self, c: Canvas, a: Addr) -> Iterable[To]:
+        if isinstance(a, int):
+            if c.has_addr(a - 1):
+                yield a - 1
+        else:
+            raise NotImplementedError
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
@@ -1181,8 +1283,12 @@ if __name__ == '__main__':
 #        prep=ndups(3),
 #        niters=1000
 #    )
-    rmtype = type('RMemAdjacent', (WithAdjacentRelativePainters, RMem), {})
-    rmem = rmtype(niters=10)
+    #rmtype = type('RMemAdjacent', (WithAdjacentRelativePainters, RMem), {})
+    #rmem = rmtype(niters=30)
+    rmem = RMem.make_instance(
+        (SkewedPainterWeight, WithAdjacentRelativePainters),
+        niters=30
+    )
 
     #p = rmem.painter_from_to(1, 2, 1, '+')
     #print(p)

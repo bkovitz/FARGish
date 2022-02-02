@@ -120,3 +120,19 @@ class TestRMem(unittest.TestCase):
                 (Match('='), Right(1), 2),
             ])
         )
+
+        pset = rmem.canvas_to_pset(eqn)
+        #pr(pset) #DEBUG
+        self.assertEqual(
+            pset,
+            {
+                (Match('+'), Left(1)): 1,
+                (Match('+'), Right(1)): 1,
+                (Match(1), Left(1)): '+',
+                (Match(1), Right(1)): rmem.rndfunc(rmem, ('=', '+'), (1, 1)),
+                (Match(2), Left(1)): '=',
+                (Match('='), Left(1)): 1,
+                (Match('='), Right(1)): 2,
+                
+            }
+        )

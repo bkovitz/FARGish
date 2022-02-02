@@ -43,7 +43,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testRMem.TestRMem.test_painter_left
+	$(PY) -m unittest -v testRMem.TestRMem.test_make_adjacent_painters
 
 # Acceptance tests
 at:
