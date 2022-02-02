@@ -136,3 +136,5 @@ class TestRMem(unittest.TestCase):
                 
             }
         )
+
+    maxDiff = None

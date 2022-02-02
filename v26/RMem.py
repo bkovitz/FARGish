@@ -980,8 +980,8 @@ class RMem:
     class rndfunc:
         Q = TypeVar('Q', bound='RMem.rndfunc')
         rmem: RMem
-        funcs: Tuple[Func]     # funcs and weights must have same # of elems
-        weights: Tuple[Numeric]
+        funcs: Tuple[Func, ...]  # funcs and weights must have same # of elems
+        weights: Tuple[Numeric, ...]
 
         nfw: Numeric = field(default=0.0, init=False)
         weights_sum: Numeric = field(default=0.0, init=False)
@@ -1024,6 +1024,23 @@ class RMem:
                 )
                 c.update([other])  # type: ignore[list-item]
                 return self._make(self.__class__, self.rmem, c)
+
+        def __eq__(self, other: Any) -> bool:
+            return (
+                isinstance(other, self.__class__)
+                and
+                self._normalized() == other._normalized()
+            )
+
+        def _normalized(self) -> Tuple[Tuple[Func, ...], Tuple[Numeric, ...]]:
+            indices = sorted(
+                range(len(self.funcs)), key=lambda i: str(self.funcs[i])
+            )
+            return (
+                tuple(self.funcs[i] for i in indices),
+                tuple(self.weights[i] for i in indices)
+            )
+            
 
         @classmethod
         def _make(
