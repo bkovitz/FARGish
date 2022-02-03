@@ -24,6 +24,8 @@ RMem
     NEXT Remove methods in RMem that are now obsolete because of
     as_absolute_painters().
 
+    Refactor RMem so it contains just the minimal interface.
+
     Rig up a test that recalls only painters.
 
     Make an automated test that runs through several standard equation sets,
@@ -285,6 +287,17 @@ IDEAS
     canvas designated in some way, e.g. the 'before' part? Then painters
     could designate it as well as use it.
 
+    Try a more Hopfieldesque run: all other cells get a vote each time a
+    cell is updated. rndfunc cells give fractional votes.
+
+NUMBO
+
+    Not to be missed: a big part of solving numbles is thinking of ways to
+    define small subproblems that can be exhaustively checked. The same
+    thing happens in Wordle: you think "how many words fit S_ITS" and
+    compare that to how many moves you have left. We define a little "space"
+    to search--the space consisting of the remaining blanks, holding
+    current guesses constant.
 
 NOTES
 

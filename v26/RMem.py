@@ -439,7 +439,7 @@ class RMem:
         **kwargs
     ) -> Q:
         class_name = cls.__name__ + ''.join(
-            getattr(mixin, 'mixin_name', '') for mixin in mixins
+            getattr(mixin, 'mixin_name', 'X') for mixin in mixins
         )
         ty = type(class_name, mixins + (cls,), {})
         return ty()
@@ -1026,6 +1026,7 @@ class RMem:
                 return self._make(self.__class__, self.rmem, c)
 
         def __eq__(self, other: Any) -> bool:
+            '''This should be needed only for unit testing.'''
             return (
                 isinstance(other, self.__class__)
                 and
@@ -1040,7 +1041,6 @@ class RMem:
                 tuple(self.funcs[i] for i in indices),
                 tuple(self.weights[i] for i in indices)
             )
-            
 
         @classmethod
         def _make(
