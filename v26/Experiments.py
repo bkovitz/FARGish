@@ -14,9 +14,9 @@ from random import randrange
 from inspect import isclass
 from time import perf_counter
 
-from RMem import RMemBase, RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, \
-    make_eqns, \
-    no_prep, ndups, BaseValue, correction_redundancy, \
+from RMem import RMem, RMemAbs, RMemFuncs, Absorb, Regenerate, \
+    CanvasToPainters, \
+    Canvas, Canvas1D, CanvasAble, make_eqns, BaseValue, \
     Painter, Func, GSet, PSet, Value, SkewedClarityWeight
 from Harness import TestSpec, EquationMaker, PartialCueMaker
 from Log import lo, trace
@@ -24,7 +24,7 @@ from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
     sample_without_replacement
 
 
-rmem: RMem
+rmem: RMemAbs
 
 def exp1():
     global rmem
@@ -55,7 +55,7 @@ def eqn_test(  # TODO rename eqns_test
     seed: int=None,
     operands=range(1, 11),
     operators=('+', '-', 'x', '/'),
-    rm: Union[RMemBase, Type[RMemBase]]=RMem,
+    rm: Union[RMem, Type[RMem]]=RMemAbs,
     npartial: int=3,
 ) -> EqnCounter:
     reseed(seed)
@@ -102,7 +102,7 @@ def xp_single():
     pr(rmem.lsteps)
 
 def just_1_1_2() -> RMem:
-    rmem = RMem()
+    rmem = RMemAbs()
     return rmem.absorb_canvases(
         make_eqns(operands=[1], operators=['+']),
     )
@@ -123,7 +123,7 @@ def pad_tup(tup: Tuple) -> Tuple:
 
 def xp1() -> None:
     global rmem
-    rmem = RMem().absorb_canvases(
+    rmem = RMemAbs().absorb_canvases(
         pad_tup(e) for e in make_eqns([1], ['+'])
     )
     new_eqn = (2, '+', 1, '=', 3)
@@ -203,7 +203,7 @@ def find_limit_cycle(
     show: bool=False
 ) -> Sequence[Tuple[int, ...]]:
     global rmem
-    rmem = RMem()
+    rmem = RMemAbs()
     if start_columns is None:
         count_columns = (0,) * len(funcs)
     else:
@@ -235,7 +235,7 @@ def xpg0() -> None:
     '''Simple experiment with global parameters: counts of certain types of
     Funcs appended to the Canvas.'''
     global rmem
-    rmem = RMem()
+    rmem = RMemAbs()
 
     #eqn = (1, '+', 1, '=', 2)
     eqn = (2, '+', 1, '=', 3)
@@ -251,11 +251,11 @@ def xpg0() -> None:
 
 def xpg() -> Set[FrozenSet[Tuple]]:
     funcs = (
-        RMem.same,
-        RMem.add_n(1),
-        RMem.mul_by(2),
-        RMem.add_n(2),
-        RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
+        RMemFuncs.same,
+        RMemFuncs.add_n(1),
+        RMemFuncs.mul_by(2),
+        RMemFuncs.add_n(2),
+        RMemFuncs.sub_n(1),  # putting this one in lengthens the cycles by a lot
     )
     lcsets: Set[FrozenSet[Tuple]] = set()  # limit cycles, each unordered
     #for eqn in make_eqns(operands=range(1, 4), operators=['+', '-']):
@@ -271,14 +271,16 @@ def xpg() -> Set[FrozenSet[Tuple]]:
             print()
     return lcsets
 
-@dataclass
-class WithCountColumns(RMem):
-    mixin_name: ClassVar[str] = 'CoCo'
-
+@dataclass  # type: ignore[misc]
+class WithCountColumnsDataclassMixin(RMem):
     funcs_to_count: Tuple[Func, ...] = (
-        RMem.same,
-        RMem.add_n(1)
+        RMemFuncs.same,
+        RMemFuncs.add_n(1)
     )
+
+class WithCountColumns(WithCountColumnsDataclassMixin, CanvasToPainters,
+Absorb, Regenerate):
+    mixin_name: ClassVar[str] = 'CoCo'
 
     """
     def raw_absorb_canvas(self, c: Canvas) -> None:
@@ -360,16 +362,17 @@ class WithCountColumns(RMem):
             return cls.add_n(x2 - x1)
     """
 
-@dataclass
-class WithRandomSalt(RMem):
-    '''Prepends cells containing random numbers (the 'salt') to every canvas
-    absorbed.'''
-    mixin_name: ClassVar[str] = 'RandomSalt'
-
+@dataclass  # type: ignore[misc]
+class WithRandomSaltDataclassMixin(RMem):
     nsalt: int = 10  # number of cells to prepend
     saltrange: Tuple[int, int] = (0, 11) # args to randrange for each salt cell
     # NEXT1 number of copies of each image to absorb
     # NEXT2 specify number of regeneration iterations somewhere
+
+class WithRandomSalt(WithRandomSaltDataclassMixin, Absorb, Regenerate):
+    '''Prepends cells containing random numbers (the 'salt') to every canvas
+    absorbed.'''
+    mixin_name: ClassVar[str] = 'RandomSalt'
 
     def prep_absorb(self, c: CanvasAble) -> CanvasAble:
         prefix = tuple(randrange(*self.saltrange) for _ in range(self.nsalt))
@@ -391,13 +394,14 @@ class WithRandomSalt(RMem):
         cl = self.__class__.__name__
         return f'{cl}({self.nsalt})'
 
-@dataclass
-class WithSequentialSalt(RMem):
+@dataclass  # type: ignore[misc]
+class WithSequentialSaltDataclassMixin(RMem):
+    nseqsalt: int = 5
+
+class WithSequentialSalt(WithSequentialSaltDataclassMixin, Absorb, Regenerate):
     '''Prepends calls containing numbers in sequence: 1, 2, 3, ... to every
     canvas absorbed.'''
     mixin_name: ClassVar[str] = 'SeqSalt'
-
-    nseqsalt: int = 5
 
     def prep_absorb(self, c: CanvasAble) -> CanvasAble:
         prefix = tuple(range(self.nseqsalt))
@@ -437,9 +441,9 @@ def xpgfid() -> None:
     lo(startc)
     lo(eqn)
 
-RMemCC = type('RMemCC', (WithCountColumns, RMem), {})
-RMemSalt = type('RMemSalt', (WithRandomSalt, RMem), {})
-RMemSeqSalt = type('RMemSeqSalt', (WithSequentialSalt, RMem), {})
+RMemCC = type('RMemCC', (WithCountColumns, RMemAbs), {})
+RMemSalt = type('RMemSalt', (WithRandomSalt, RMemAbs), {})
+RMemSeqSalt = type('RMemSeqSalt', (WithSequentialSalt, RMemAbs), {})
 
 def xpgfid2() -> None:
     rmemcc = RMemCC()
@@ -458,11 +462,11 @@ def xpgfid2() -> None:
     )
     cc_kwargs = dict(
         rm=RMemCC(funcs_to_count=(
-            RMem.same,
-            RMem.add_n(1),
-            RMem.mul_by(2),
-            RMem.add_n(2),
-            RMem.sub_n(1),  # putting this one in lengthens the cycles by a lot
+            RMemFuncs.same,
+            RMemFuncs.add_n(1),
+            RMemFuncs.mul_by(2),
+            RMemFuncs.add_n(2),
+            RMemFuncs.sub_n(1),  # putting this one in lengthens the cycles by a lot
         )),
     )
     salt_kwargs = dict(
@@ -519,6 +523,7 @@ def big_run(**kwargs) -> None:
 def little_run() -> None:
     global rmem
     #rmem = RMemSalt(nsalt=10, niters=100)
+
     rmem = RMemSeqSalt(niters=1000)
     eqnmaker = EquationMaker()
     lo('HERE1')

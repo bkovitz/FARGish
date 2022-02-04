@@ -275,8 +275,6 @@ class Canvas1D(Canvas):
         #return f'[{items}]{newline}[{citems}]'
 
 CanvasAble = Union[Sequence[Value], Canvas]  # type: ignore[misc]
-CanvasPrep = Callable[[Canvas, 'RMem'], Canvas]
-    # Function to call before absorbing a Canvas, e.g. to add redundancy.
 
 @dataclass
 class Canvas2D(Canvas):
@@ -358,70 +356,18 @@ class CanvasD(Canvas):
     def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
         self.clarities[addr] = clarity
 
-def ndups(n: int=1) -> CanvasPrep:
-    def ndups_f(c: Canvas, rmem: RMem) -> Canvas:
-        if isinstance(c, Canvas1D):
-            return Canvas1D(c.contents * n)
-        else:
-            raise NotImplementedError
-    return ndups_f
-
-def no_prep(c: Canvas, rmem: RMem) -> Canvas:
-    '''An identity function for Canvases.'''
-    return c
-
-def pad_tup(tup: Tuple, ndups: int) -> Tuple:
-    return tuple(None for _ in range(ndups * len(tup))) + tup
-
-def correction_redundancy(ndups: int=2, npartial: int=2, niters: int=50) \
--> CanvasPrep:
-    def correction_redundancy_f(c: Canvas, rmem: RMem) -> Canvas1D:
-        if not isinstance(c, Canvas1D):
-            raise NotImplementedError
-        tup_in = c.as_tuple()
-        lo(tup_in)
-        tup_out: ValueTup
-        if len(rmem) == 0:
-           tup_out = pad_tup(tup_in, ndups)
-        else:
-            lo('TUP_IN', tup_in)
-            #pr(rmem.gset)
-            relateds: Set[Tuple] = set()
-            while len(relateds) < npartial:
-                cue = pad_tup(
-                    partial_tup(c.as_tuple(), k=npartial),
-                    ndups=ndups
-                )
-                canvas_to_correct = rmem.regenerate(cue, niters=niters)
-                t = canvas_to_correct.as_tuple()[-len(tup_in):]
-                relateds.add(canvas_to_correct.as_tuple()[-len(tup_in):])
-                lo('CC2C', cue, canvas_to_correct, t, len(relateds), npartial)
-                #pr(rmem.lsteps)
-            tup_out = reduce(operator.add, relateds) + tup_in
-        lo(tup_out)
-        return Canvas1D(list(tup_out))
-    return correction_redundancy_f
-
-def partial_tup(tup: ValueTup, k: int=3) -> ValueTup:
-    r = range(len(tup))
-    addrs = set(sample_without_replacement(r, k=k))
-    return tuple(
-        tup[a] if a in addrs else None
-            for a in r
-    )
-
 @dataclass
-class RMemBaseDataclassMixin:
+class RMemDataclassMixin:
     pset: PSet = field(default_factory=dict)  # the memory
     niters: int = 40
     canvas_cls: ClassVar[Type[Canvas]] = Canvas1D
     lsteps: List[LoggedStep] = field(default_factory=list)
 
-class RMemBase(RMemBaseDataclassMixin, ABC):
+class RMem(RMemDataclassMixin, ABC):
     '''Abstract base class for regenerative memory. To make an actual
     regenerative-memory (RMem) object, you must override two methods:
     .absorb_canvas() and .regenerate().'''
-    Q = TypeVar('Q', bound='RMemBase')
+    Q = TypeVar('Q', bound='RMem')
 
     @abstractmethod
     def absorb_canvas(self, c: CanvasAble) -> None:
@@ -440,7 +386,7 @@ class RMemBase(RMemBaseDataclassMixin, ABC):
         '''Regenerates 'canvas' from the PSet in the memory. 'canvas' should
         be a partial canvas, i.e. containing some Nones in place of determinate
         values. Returns the resulting canvas. 'pset' and 'niters' default to
-        the corresponding fields in the RMemBase object. An implementation of
+        the corresponding fields in the RMem object. An implementation of
         .regenerate() should log each step in self.lsteps.'''
         pass
 
@@ -455,7 +401,7 @@ class RMemBase(RMemBaseDataclassMixin, ABC):
     @classmethod
     def make_class(
         cls: Type[Q],
-        mixins: Tuple[Type[RMemBase], ...],
+        mixins: Tuple[Type[RMem], ...],
         **kwargs
     ) -> Type[Q]:
         '''Dynamically defines an RMem class from cls, mixins, and kwargs.'''
@@ -467,7 +413,7 @@ class RMemBase(RMemBaseDataclassMixin, ABC):
     @classmethod
     def make_instance(
         cls: Type[Q],
-        mixins: Tuple[Type[RMemBase], ...],
+        mixins: Tuple[Type[RMem], ...],
         **kwargs
     ) -> Q:
         '''Dynamically defines an RMem class from cls, mixins, and kwargs, and
@@ -518,7 +464,7 @@ class RMemBase(RMemBaseDataclassMixin, ABC):
         if real_painter_weight is not None:
             lstep.real_painter_weight = real_painter_weight
 
-class RMemFuncs(RMemBase):
+class RMemFuncs(RMem):
 
     @classmethod
     def apply_func(cls, func: Func, x: Value) -> Value:
@@ -713,7 +659,7 @@ class RMemFuncs(RMemBase):
             cl = self.__class__.__name__
             return f'{cl}({self.nfw:1.3f} {short(self.weights)}, {short(self.funcs)})'
 
-class Absorb(RMemFuncs, RMemBase, ABC):
+class Absorb(RMemFuncs, RMem, ABC):
     '''Basic implementation of .absorb_canvases() and ancillary methods.
     Provides all but implementations of .canvas_to_psets(); a concrete class
     must override this.'''
@@ -794,10 +740,10 @@ class Absorb(RMemFuncs, RMemBase, ABC):
     # Function-makers
 
 @dataclass  # type: ignore[misc]
-class RegenerateDataclassMixin(RMemBase):
+class RegenerateDataclassMixin(RMem):
     termination_threshold: int = 4
 
-class Regenerate(RegenerateDataclassMixin, RMemBase, ABC):
+class Regenerate(RegenerateDataclassMixin, RMem, ABC):
     '''Basic implementation of .regenerate() and ancillary methods. Provides
     all but an implementation of .painter_weight().'''
 
@@ -904,7 +850,7 @@ class Regenerate(RegenerateDataclassMixin, RMemBase, ABC):
         to cell 'b'.'''
         pass
 
-class ClarityWeight(RMemBase, ABC):
+class ClarityWeight(RMem, ABC):
 
     @classmethod
     @abstractmethod
@@ -933,7 +879,7 @@ class LinearClarityWeight(ClarityWeight):
         return 1.0 - (cl / c.MAX_CLARITY)
 
 @dataclass  # type: ignore[misc]
-class SkewedClarityWeightDataclassMixin(RMemBase):
+class SkewedClarityWeightDataclassMixin(RMem):
     weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
     weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
 
@@ -946,13 +892,9 @@ class SkewedClarityWeight(SkewedClarityWeightDataclassMixin, ClarityWeight):
     def to_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
         return cls.weight_to[int(cl)]
 
-class CanvasToOnePSet(Absorb, ABC):
-    '''Overrides .canvas_to_psets() with a method that yields a single PSet,
-    constructed by calling .painter_from_to() on every pair of addresses
-    in the canvas. .painter_from_to() must be overridden in a concrete class.'''
-
-    def canvas_to_psets(self, c: CanvasAble) -> Iterable[PSet]:
-        yield self.painters_to_pset(self.canvas_to_painters(c))
+class CanvasToPainters(RMem, ABC):
+    '''Includes a .canvas_to_painters() method. Requires that a concrete class
+    override .painter_from_to().'''
 
     def canvas_to_painters(self, c: CanvasAble) -> Set[Painter]:
         '''Makes painters as determined by .painter_from_to().'''
@@ -971,6 +913,14 @@ class CanvasToOnePSet(Absorb, ABC):
         '''Returns a painter that, given the value xa at address a, will paint
         the value xb at address b.'''
         pass
+
+class CanvasToOnePSet(CanvasToPainters, Absorb, ABC):
+    '''Overrides .canvas_to_psets() with a method that yields a single PSet,
+    constructed by calling .painter_from_to() on every pair of addresses
+    in the canvas. .painter_from_to() must be overridden in a concrete class.'''
+
+    def canvas_to_psets(self, c: CanvasAble) -> Iterable[PSet]:
+        yield self.painters_to_pset(self.canvas_to_painters(c))
 
 class WithAbsolutePainters(CanvasToOnePSet, Absorb, Regenerate, ClarityWeight):
     mixin_name: ClassVar[str] = 'Abs'
@@ -1123,7 +1073,7 @@ class WithAdjacentRelativePainters(
             yield painter  # type: ignore[misc]
 
 @dataclass  # type: ignore[misc]
-class WithNDupsDataclassMixin(RMemBase):
+class WithNDupsDataclassMixin(RMem):
     ndups: ClassVar[int] = 2
 
 class WithNDups(WithNDupsDataclassMixin, Absorb, Regenerate):
@@ -1141,9 +1091,8 @@ class WithNDups(WithNDupsDataclassMixin, Absorb, Regenerate):
         blankdup: Tuple[Value, ...] = (None,) * len(t)
         return (blankdup * self.ndups) + t
 
-class RMem(
-    WithAbsolutePainters, Absorb, LinearClarityWeight, Regenerate,
-    RegenerateDataclassMixin, RMemBase
+class RMemAbs(
+    WithAbsolutePainters, Absorb, LinearClarityWeight, Regenerate, RMem
 ):
     pass
 
@@ -1268,7 +1217,7 @@ if __name__ == '__main__':
 #    )
     #rmtype = type('RMemAdjacent', (WithAdjacentRelativePainters, RMem), {})
     #rmem = rmtype(niters=30)
-    rmem = RMem.make_instance(
+    rmem = RMemAbs.make_instance(
         (SkewedClarityWeight, WithAdjacentRelativePainters),
         niters=30
     )

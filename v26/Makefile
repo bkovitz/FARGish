@@ -11,7 +11,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
 #	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = Experiments.py Indenting.py Log.py util.py
+FARGISH_SRC = Experiments.py Harness.py Indenting.py Log.py util.py
 
 # Plot.py 
 # Log.py 

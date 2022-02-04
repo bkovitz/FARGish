@@ -9,10 +9,9 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from RMem import RMemBase, WithAbsolutePainters, Absorb, LinearClarityWeight, \
-    Regenerate, WithNDups
+from RMem import RMem, WithAbsolutePainters, Absorb, LinearClarityWeight, \
+    Regenerate, WithNDups, make_eqns, BaseValue
 from Experiments import xp_single, just_1_1_2, eqn_test
-from RMem import RMem, CanvasPrep, make_eqns, BaseValue, ndups, no_prep
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
     reseed
@@ -47,7 +46,7 @@ class ATestExperiments(unittest.TestCase):
     def test_full_table_with_dups(self) -> None:
         # TODO Run a Cartesian test on these parameters and save the
         # results.
-        cls = RMemBase.make_class(
+        cls = RMem.make_class(
             (WithAbsolutePainters, WithNDups, Absorb, LinearClarityWeight,
              Regenerate)
         )

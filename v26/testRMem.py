@@ -9,9 +9,9 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING, final
 
-from RMem import RMem, CanvasPrep, make_eqns, BaseValue, ndups, no_prep, \
+from RMem import RMem, RMemAbs, make_eqns, BaseValue, \
     Canvas1D, SkewedClarityWeight, Match, Right, Left, Painter, \
-    WithAdjacentRelativePainters, RMemBase, WithAbsolutePainters, \
+    WithAdjacentRelativePainters, RMem, WithAbsolutePainters, \
     LinearClarityWeight, Absorb, Regenerate
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
@@ -20,7 +20,7 @@ from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
 class TestRMem(unittest.TestCase):
 
     def test_make_painters_partial_canvas(self) -> None:
-        rmem = RMem()
+        rmem = RMemAbs()
         self.assertCountEqual(
             rmem.canvas_to_painters((1, '+', None, None, None)),
             [(1, 2, '+'), (2, 1, 1)]
@@ -54,8 +54,8 @@ class TestRMem(unittest.TestCase):
         c = Canvas1D([None, '+', 2, None, 5])
 #        RMemSkewed: Type[RMem] = \
 #            type('RMemSkewed', (SkewedClarityWeight, RMem), {})
-        rmem = RMem()
-        rmem_skewed = RMem.make_instance((SkewedClarityWeight,))
+        rmem = RMemAbs()
+        rmem_skewed = RMemAbs.make_instance((SkewedClarityWeight,))
 
         # source has clarity 0, so painter weight is 0
         self.assertEqual(c.clarity(1), 0)
@@ -81,7 +81,7 @@ class TestRMem(unittest.TestCase):
 
     def test_run_absolute(self) -> None:
         eqn = (1, '+', 1, '=', 2)
-        rmem = RMemBase.make_instance(
+        rmem = RMem.make_instance(
             (WithAbsolutePainters, LinearClarityWeight, Absorb, Regenerate)
         ).absorb_canvases([eqn])
         for i in range(1, 11):
@@ -90,7 +90,7 @@ class TestRMem(unittest.TestCase):
 
     def test_run_rel_adj(self) -> None:
         orig = ('a', 'b', 'c')
-        rmem = RMemBase.make_instance(
+        rmem = RMem.make_instance(
             (WithAdjacentRelativePainters, LinearClarityWeight, Absorb,
              Regenerate)
         ).absorb_canvases([orig])
@@ -98,7 +98,7 @@ class TestRMem(unittest.TestCase):
             got = rmem.regenerate(('a', None, None))
             self.assertEqual(got.as_tuple(), orig, f'failed on iter {i}')
 
-    RMemAdjRel: Type[WithAdjacentRelativePainters] = RMemBase.make_class(
+    RMemAdjRel: Type[WithAdjacentRelativePainters] = RMem.make_class(
         (WithAdjacentRelativePainters, LinearClarityWeight, Absorb, Regenerate)
     ) # type: ignore[assignment]
 
@@ -118,7 +118,7 @@ class TestRMem(unittest.TestCase):
 
     def test_make_adjacent_painter(self) -> None:
         rmadjtype = type(
-            'RMemAdjacent', (WithAdjacentRelativePainters, RMem), {}
+            'RMemAdjacent', (WithAdjacentRelativePainters, RMemAbs), {}
         )
         rmem = rmadjtype()
 
@@ -127,7 +127,7 @@ class TestRMem(unittest.TestCase):
 
     def test_make_adjacent_painters(self) -> None:
         rmadjtype = type(
-            'RMemAdjacent', (WithAdjacentRelativePainters, RMem), {}
+            'RMemAdjacent', (WithAdjacentRelativePainters, RMemAbs), {}
         )
         rmem = rmadjtype()
 

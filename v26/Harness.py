@@ -13,7 +13,8 @@ from time import perf_counter
 from io import StringIO
 from random import choice
 
-from RMem import RMem, CanvasAble, BaseValue, Value, ValueTup, make_eqns
+from RMem import RMem, RMemAbs, CanvasAble, BaseValue, Value, ValueTup, \
+    make_eqns
 from Log import lo, trace
 from util import pr, ps, psa, union, Numeric, as_tuple, short, as_list, \
     newline, force_setattr, sample_without_replacement, first, reseed, \
@@ -65,7 +66,7 @@ class PartialCueMaker:
 
 @dataclass(frozen=True)
 class TestSpec:
-    cls: Type[RMem] = RMem
+    cls: Type[RMem] = RMemAbs
     kwargs: Dict[str, Any] = field(default_factory=lambda: {})
     initial_canvases_cls: Type[CanvasMaker] = EquationMaker
     cue_maker_cls: Type[CueMaker] = PartialCueMaker
