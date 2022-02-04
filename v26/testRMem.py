@@ -10,11 +10,12 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, final
 
 from RMem import RMem, CanvasPrep, make_eqns, BaseValue, ndups, no_prep, \
-    Canvas1D, SkewedPainterWeight, Match, Right, Left, Painter, \
-    WithAdjacentRelativePainters
+    Canvas1D, SkewedClarityWeight, Match, Right, Left, Painter, \
+    WithAdjacentRelativePainters, RMemBase, WithAbsolutePainters, \
+    LinearClarityWeight, Absorb, Regenerate
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
-    reseed
+    reseed, is_dataclass_instance
 
 class TestRMem(unittest.TestCase):
 
@@ -51,43 +52,68 @@ class TestRMem(unittest.TestCase):
 
     def test_painter_weight(self) -> None:
         c = Canvas1D([None, '+', 2, None, 5])
-        RMemSkewed: Type[RMem] = \
-            type('RMemSkewed', (SkewedPainterWeight, RMem), {})
+#        RMemSkewed: Type[RMem] = \
+#            type('RMemSkewed', (SkewedClarityWeight, RMem), {})
+        rmem = RMem()
+        rmem_skewed = RMem.make_instance((SkewedClarityWeight,))
 
         # source has clarity 0, so painter weight is 0
         self.assertEqual(c.clarity(1), 0)
-        self.assertEqual(RMem.painter_weight(1, 2, '+', c), 0)
-        self.assertEqual(RMemSkewed.painter_weight(1, 2, '+', c), 0)
+        self.assertEqual(rmem.painter_weight(1, 2, '+', c), 0)
+        self.assertEqual(rmem_skewed.painter_weight(1, 2, '+', c), 0)
 
         # source has high clarity, target low clarity, so high painter weight
         self.assertAlmostEqual(
-            RMem.painter_weight(2, 1, '+', c), 0.167, places=3
+            rmem.painter_weight(2, 1, '+', c), 0.167, places=3
         )
         self.assertAlmostEqual(
-            RMemSkewed.painter_weight(2, 1, '+', c), 1800, places=3
+            rmem_skewed.painter_weight(2, 1, '+', c), 1800, places=3
         )
 
         # source has low clarity, target high clarity
         c.set_clarity(2, 1)
         self.assertAlmostEqual(
-            RMem.painter_weight(2, 3, '+', c), 0.00556, places=5
+            rmem.painter_weight(2, 3, '+', c), 0.00556, places=5
         )
         self.assertAlmostEqual(
-            RMemSkewed.painter_weight(2, 3, '+', c), 5.0, places=3
+            rmem_skewed.painter_weight(2, 3, '+', c), 5.0, places=3
         )
 
+    def test_run_absolute(self) -> None:
+        eqn = (1, '+', 1, '=', 2)
+        rmem = RMemBase.make_instance(
+            (WithAbsolutePainters, LinearClarityWeight, Absorb, Regenerate)
+        ).absorb_canvases([eqn])
+        for i in range(1, 11):
+            got = rmem.regenerate((1, None, None, None, None))
+            self.assertEqual(got.as_tuple(), eqn, f'failed on iter {i}')
+
+    def test_run_rel_adj(self) -> None:
+        orig = ('a', 'b', 'c')
+        rmem = RMemBase.make_instance(
+            (WithAdjacentRelativePainters, LinearClarityWeight, Absorb,
+             Regenerate)
+        ).absorb_canvases([orig])
+        for i in range(1, 11):
+            got = rmem.regenerate(('a', None, None))
+            self.assertEqual(got.as_tuple(), orig, f'failed on iter {i}')
+
+    RMemAdjRel: Type[WithAdjacentRelativePainters] = RMemBase.make_class(
+        (WithAdjacentRelativePainters, LinearClarityWeight, Absorb, Regenerate)
+    ) # type: ignore[assignment]
+
     def test_painter_right(self) -> None:
-        rmem = RMem()
+        rmem = self.RMemAdjRel()
         p: Painter = (Match(1), Right(1), '+')
         c = Canvas1D.make_from((1, None, None, None, None))
-        rmem.run_generator(c, p)
+        rmem.run_painter(c, p)
         self.assertEqual(c.as_tuple(), (1, '+', None, None, None))
 
     def test_painter_left(self) -> None:
-        rmem = RMem()
+        rmem = self.RMemAdjRel()
         p: Painter = (Match(1), Left(1), '+')
         c = Canvas1D.make_from((1, None, None, None, None))
-        rmem.run_generator(c, p)
+        rmem.run_painter(c, p)
         self.assertEqual(c.as_tuple(), (1, None, None, None, None))
 
     def test_make_adjacent_painter(self) -> None:
@@ -121,10 +147,11 @@ class TestRMem(unittest.TestCase):
             ])
         )
 
-        pset = rmem.canvas_to_pset(eqn)
+        psets = list(rmem.canvas_to_psets(eqn))
+        self.assertEqual(len(psets), 1)
         #pr(pset) #DEBUG
         self.assertEqual(
-            pset,
+            psets[0],
             {
                 (Match('+'), Left(1)): 1,
                 (Match('+'), Right(1)): 1,

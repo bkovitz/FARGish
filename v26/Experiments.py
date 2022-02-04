@@ -16,7 +16,7 @@ from time import perf_counter
 
 from RMem import RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, make_eqns, \
     no_prep, ndups, BaseValue, correction_redundancy, \
-    Painter, Func, GSet, PSet, Value, SkewedPainterWeight
+    Painter, Func, GSet, PSet, Value, SkewedClarityWeight
 from Harness import TestSpec, EquationMaker, PartialCueMaker
 from Log import lo, trace
 from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
@@ -48,7 +48,6 @@ EqnCounter = Dict[Tuple[BaseValue, ...], int]
 
 def eqn_test(  # TODO rename eqns_test
     show: bool=False,
-    prep: CanvasPrep=no_prep,
     n_per_eqn: int=3,
     n_eqns: int=20,
     niters: int=50,
@@ -63,10 +62,11 @@ def eqn_test(  # TODO rename eqns_test
     l = len(full_table[0])
     rmem: RMem
     if isclass(rm):
-        rmem = rm.make_from(full_table, prep=prep)
+        #rmem = rm.make_from(full_table)
+        rmem = rm().absorb_canvases(full_table)
     else:
         rmem = rm  # type: ignore[assignment]
-        rmem.absorb_canvases(full_table, prep=prep)
+        rmem.absorb_canvases(full_table)
     counter: EqnCounter = defaultdict(int)
 
     for eqn in sample_without_replacement(full_table, k=n_eqns):
@@ -76,7 +76,7 @@ def eqn_test(  # TODO rename eqns_test
             startc = partial_eqn(eqn, k=npartial)
             if show:
                 lo('CUE', startc)
-            got = rmem.run_gset(canvas=startc, niters=niters).as_tuple()
+            got = rmem.regenerate(canvas=startc, niters=niters).as_tuple()
             if show:
                 lo('GOT', got)
             if got[-len(eqn):] == eqn:
@@ -100,10 +100,10 @@ def xp_single():
     )
     pr(rmem.lsteps)
 
-def just_1_1_2(prep: CanvasPrep=no_prep) -> RMem:
-    return RMem.make_from(
+def just_1_1_2() -> RMem:
+    rmem = RMem()
+    return rmem.absorb_canvases(
         make_eqns(operands=[1], operators=['+']),
-        prep=prep
     )
 
 def xp_single2():
@@ -122,7 +122,7 @@ def pad_tup(tup: Tuple) -> Tuple:
 
 def xp1() -> None:
     global rmem
-    rmem = RMem.make_from(
+    rmem = RMem().absorb_canvases(
         pad_tup(e) for e in make_eqns([1], ['+'])
     )
     new_eqn = (2, '+', 1, '=', 3)
@@ -141,7 +141,7 @@ def xp1() -> None:
         if all(x is None for x in rel):
             continue
         print(rel)
-        got = rmem.run_gset(pad_tup(rel))
+        got = rmem.regenerate(pad_tup(rel))
         print(got)
         #relateds.add(as_tuple(got.contents)[-5:])
         relateds.add(as_tuple(got)[-5:])
@@ -154,9 +154,10 @@ def xp1() -> None:
     new_cue = (None,) * 10 + (None, '+', 1, None, 3)
     for _ in range(1):
         print()
-        rmem.run_gset(new_cue, niters=100)
+        rmem.regenerate(new_cue, niters=100)
         pr(rmem.lsteps)
 
+"""
 def xp2() -> None:
     '''Second-order painters'''  # TODO  Not working yet  22-Jan-2022
     rmem = RMem()
@@ -165,7 +166,7 @@ def xp2() -> None:
     pr(p1s)
     print()
 
-    gs1 = rmem.make_gset(p1s)
+    gs1 = rmem.painters_to_pset(p1s)
 
     # Make 2nd-order painters
     # NEXT Need to cycle through the p1s and create a gset.
@@ -184,6 +185,7 @@ def xp2() -> None:
     #re_p1s = rmem.canvas_to_painters((1, '+', None, None, None))
 
     # Grow the first-order painters by running the 2nd-order painters.
+"""
 
 def count_fs(painters: Iterable[Painter], func: Func) -> int:
     return sum(
@@ -277,9 +279,13 @@ class WithCountColumns(RMem):
         RMem.add_n(1)
     )
 
+    """
     def raw_absorb_canvas(self, c: Canvas) -> None:
         for pset in self.limit_cycle_of_psets(c):
             self.raw_absorb_gset(pset)
+    """
+    def canvas_to_psets(self, c: CanvasAble) -> Iterable[PSet]:
+        return self.limit_cycle_of_psets(c)
 
     """
     def prep_absorb(self, c: CanvasAble) -> CanvasAble:
@@ -311,7 +317,7 @@ class WithCountColumns(RMem):
             startc = count_columns + base_tuple
             if show:
                 lo(startc)
-            pset = self.make_gset(self.canvas_to_painters(startc))
+            pset = self.painters_to_pset(self.canvas_to_painters(startc))
             pset_history.append(pset)
             count_columns = tuple(
                 sum(1 for f in pset.values() if f == func)
@@ -492,7 +498,7 @@ def big_run(**kwargs) -> None:
         #for niters in [1000]:
             for cls in RMem, RMemCC, RMemSalt, RMemSeqSalt:
                 cl: Type[RMem] = \
-                    type(cls.__name__, (SkewedPainterWeight, cls), {})
+                    type(cls.__name__, (SkewedClarityWeight, cls), {})
                 kw = kwargs | dict(niters=niters) | eqn_ps
                 tspec = TestSpec(
                     cls=cl,

@@ -1,7 +1,8 @@
 # RMem.py -- Classes and functions for regenerative memory
 
 from __future__ import annotations
-from dataclasses import dataclass, field, fields, replace, InitVar, Field
+from dataclasses import dataclass, field, fields, replace, InitVar, Field, \
+    is_dataclass
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -391,7 +392,7 @@ def correction_redundancy(ndups: int=2, npartial: int=2, niters: int=50) \
                     partial_tup(c.as_tuple(), k=npartial),
                     ndups=ndups
                 )
-                canvas_to_correct = rmem.run_gset(cue, niters=niters)
+                canvas_to_correct = rmem.regenerate(cue, niters=niters)
                 t = canvas_to_correct.as_tuple()[-len(tup_in):]
                 relateds.add(canvas_to_correct.as_tuple()[-len(tup_in):])
                 lo('CC2C', cue, canvas_to_correct, t, len(relateds), npartial)
@@ -410,355 +411,121 @@ def partial_tup(tup: ValueTup, k: int=3) -> ValueTup:
     )
 
 @dataclass
-class RMem:
-    '''Regenerative memory.'''
-    Q = TypeVar('Q', bound='RMem')
-    gset: GSet = field(default_factory=dict)
-    lsteps: List[LoggedStep] = field(default_factory=list)
+class RMemBaseDataclassMixin:
+    pset: PSet = field(default_factory=dict)  # the memory
     niters: int = 40
-    termination_threshold: int = 4
-    max_clarity: int = 6
-    initial_clarity: int = 5
+    canvas_cls: ClassVar[Type[Canvas]] = Canvas1D
+    lsteps: List[LoggedStep] = field(default_factory=list)
 
-    # Factories / converters
+class RMemBase(RMemBaseDataclassMixin, ABC):
+    '''Abstract base class for regenerative memory. To make an actual
+    regenerative-memory (RMem) object, you must override two methods:
+    .absorb_canvas() and .regenerate().'''
+    Q = TypeVar('Q', bound='RMemBase')
 
-    @classmethod
-    def make_from(
-        cls: Type[Q],
-        cs: Iterable[CanvasAble],
-        prep: CanvasPrep=no_prep
+    @abstractmethod
+    def absorb_canvas(self, c: CanvasAble) -> None:
+        '''Absorbs canvas 'c' into the memory. The memory can then guide the
+        .regenerate() method. Updates .pset.'''
+        pass
+
+    @abstractmethod
+    def regenerate(
+        self,
+        canvas: CanvasAble,
+        pset: Optional[PSet]=None,
+        niters: Optional[int]=None,
+        vv: int=0  # verbosity
+    ) -> Canvas:
+        '''Regenerates 'canvas' from the PSet in the memory. 'canvas' should
+        be a partial canvas, i.e. containing some Nones in place of determinate
+        values. Returns the resulting canvas. 'pset' and 'niters' default to
+        the corresponding fields in the RMemBase object. An implementation of
+        .regenerate() should log each step in self.lsteps.'''
+        pass
+
+    def absorb_canvases(
+        self: Q,
+        cs: Iterable[CanvasAble]
     ) -> Q:
-        rmem = cls()
-        cs = (prep(rmem.as_canvas(c), rmem) for c in cs)
-        return rmem.absorb_canvases(cs)
+        for c in cs:
+            self.absorb_canvas(c)
+        return self
 
     @classmethod
-    def make_instance(
+    def make_class(
         cls: Type[Q],
-        mixins: Tuple[Type[RMem], ...],
+        mixins: Tuple[Type[RMemBase], ...],
         **kwargs
-    ) -> Q:
+    ) -> Type[Q]:
+        '''Dynamically defines an RMem class from cls, mixins, and kwargs.'''
         class_name = cls.__name__ + ''.join(
             getattr(mixin, 'mixin_name', 'X') for mixin in mixins
         )
-        ty = type(class_name, mixins + (cls,), {})
-        return ty()
-
-    def as_canvas(self, c: CanvasAble) -> Canvas:
-        '''Converts c to a Canvas.'''
-        return Canvas.make_from(
-            c,
-            MAX_CLARITY=self.max_clarity,
-            INITIAL_CLARITY=self.initial_clarity
-        )
-
-    # Making generators (i.e. painters)
-
-    def canvas_to_painters(self, c: CanvasAble) -> Set[Generator]:
-        '''Makes painters as determined by .painter_from_to().'''
-        c: Canvas = self.as_canvas(c)
-        result: Set[Generator] = set()
-        for addr1 in c.all_addrs():
-            for addr2 in c.all_addrs():
-                p = self.painter_from_to(addr1, addr2, c[addr1], c[addr2])
-                if p is not None:
-                    result.add(p)
-        return result
+        return type(class_name, mixins + (cls,), {})
+        
+    @classmethod
+    def make_instance(
+        cls: Type[Q],
+        mixins: Tuple[Type[RMemBase], ...],
+        **kwargs
+    ) -> Q:
+        '''Dynamically defines an RMem class from cls, mixins, and kwargs, and
+        returns an instance ot it.'''
+        return cls.make_class(mixins, **kwargs)()
 
     @classmethod
-    def make_next_order_painters(cls, painters: Collection[Generator]) \
-    -> Iterable[Generator]:
-        '''Returns painters that, given one painter from 'painters', can
-        paint another painter from 'painters'.'''
-        for (xa, xb, xf) in painters:
-            for (ya, yb, yf) in painters:
-                if xa != ya or xb != yb:
-                    zf = cls.func_from_to(xf, yf)
-                    if zf is not None:
-                        yield ((xa, xb), (ya, yb), zf)
+    def as_canvas(cls, c: CanvasAble) -> Canvas:
+        '''Converts something that could be treated as a canvas, such as a
+        tuple or list, into a Canvas object, by calling .canvas_cls to
+        construct it.  Override to pass additional arguments to each canvas
+        constructed.'''
+        return cls.canvas_cls.make_from(c)
 
-    # Running generators
+    # Queries
 
-    def run_generator(self, canvas: Canvas, gen: Generator) -> Outcome:
-        abspainters = list(self.as_absolute_painters(canvas, gen))
-        if not abspainters:
-            return Failed
-        weights = [self.simple_painter_weight(canvas, p) for p in abspainters]
-        return self.run_absolute_painter(
-            canvas,
-            choices(abspainters, weights)[0]
-        )
+    def __len__(self) -> int:
+        return len(self.pset)
 
-#        fro, _, _ = gen
-#        a = self.as_addr_from(canvas, fro)
-#        if isinstance(a, int):
-#            return self.paint_from_abs_addr(canvas, gen, a)
-#        elif a is None:
-#            return Failed
-#        else:
-#            raise NotImplementedError(a)
+    def __str__(self) -> str:
+        return self.__class__.__name__
 
-#        addr1, addr2, func = gen
-#        result: Func = None
-#        if canvas[addr1] is not None:
-#            if callable(func):
-#                result = func(canvas[addr1])
-#            else:
-#                result = func
-#        else:
-#            if isinstance(func, str):
-#                result = func
-#        result = self.apply_func(func, canvas[addr1])
-#        if result is not None:
-#            canvas[addr2] = result
-#        return Succeeded
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
-    def run_absolute_painter(self, c: Canvas, painter: AbsPainter) -> Outcome:
-        return self.paint_from_abs_addr(c, painter, painter[0])
+    # Logging
 
-    # TODO UT
-    @classmethod
-    def as_absolute_painters(cls, c: Canvas, painter: Painter) \
-    -> Iterable[AbsPainter]:
-        a, b, f = painter
-        if isinstance(a, Matcher):
-            for addr1 in a.matching_addrs(c):
-                if isinstance(b, Jumper):
-                    for to in b.could_jump_to(c, addr1):
-                        yield (addr1, to, f)
-                else:
-                    yield (addr1, b, f)
-        else:
-            yield painter  # type: ignore[misc]
+    def start_lstep(self) -> None:
+        self.lsteps.append(LoggedStep(t=self.lsteps[-1].t + 1))
 
-    def paint_from_abs_addr(
+    def add_to_lstep(
         self,
-        canvas: Canvas,
-        painter: AbsPainter,
-        a: Addr
-    ) -> Outcome:
-        _, to, func = painter
-        x = canvas[a]
-        if x is None:
-            return Failed
-        result = self.apply_func(func, x)
-        if result is None:
-            return Failed
-        b = self.as_addr_to(canvas, a, to)
-        if b is None:
-            return Failed
-        canvas[b] = result
-        return Succeeded
+        canvas: Optional[Canvas]=None,
+        painter: Optional[Painter]=None,
+        painter_weight: Optional[Numeric]=None,
+        real_painter: Union[Painter, Func, None]=None,
+        real_painter_weight: Optional[Numeric]=None
+    ):
+        lstep = self.lsteps[-1]
+        if canvas is not None:
+            lstep.canvas = deepcopy(canvas)
+        if painter is not None:
+            lstep.painter = painter
+        if painter_weight is not None:
+            lstep.painter_weight = painter_weight
+        if real_painter is not None:
+            lstep.real_painter = real_painter
+        if real_painter_weight is not None:
+            lstep.real_painter_weight = real_painter_weight
 
-    @trace
-    def as_addr_from(self, canvas: Canvas, fro: From) -> Addr | None:
-        if isinstance(fro, int):
-            return fro
-        elif isinstance(fro, Matcher):
-            return self.choose_matching_addr(canvas, fro)
+class RMemFuncs(RMemBase):
+
+    @classmethod
+    def apply_func(cls, func: Func, x: Value) -> Value:
+        if callable(func):
+            return func(x)
         else:
-            raise NotImplementedError(fro)
-
-    def choose_matching_addr(self, canvas: Canvas, m: Matcher) -> Addr | None:
-        '''Searches for an absolute address containing a value that 'm'
-        matches. Default implementation chooses randomly, weighted by
-        .from_weight_absolute(). Returns None if no canvas cell matches.'''
-        pairs: List[Tuple[Addr, float]] = [
-            (a, self.from_weight_absolute(a, canvas))
-                for a in m.matching_addrs(canvas)
-        ]
-        if len(pairs):
-            return choices(*zip(*pairs))[0]
-        else:
-            return None
-
-    def as_addr_to(self, canvas: Canvas, a: Addr, to: To) -> Addr | None:
-        if isinstance(to, int):
-            return to
-        elif isinstance(to, Jumper):
-            return to.to(canvas, a)
-        else:
-            raise NotImplementedError
-
-    # Running GSets
-
-    def run_gset(
-        self,
-        canvas: CanvasAble,
-        gset: Optional[GSet]=None, niters: Optional[int]=None,
-        vv: int=0  # verbosity
-    ) -> Canvas:
-        '''Attempts to fill in canvas by running gset.'''
-        gset: GSet = self.gset if gset is None else gset
-        niters: int = self.niters if niters is None else niters
-        canvas: Canvas = self.as_canvas(self.prep_regen(canvas))
-        self.lsteps = [LoggedStep(canvas=deepcopy(canvas), t=0)]
-        try:
-            for i in range(niters):
-                self.start_lstep()
-                gen = self.choose_runnable_painter(canvas, gset)
-                self.add_to_lstep(painter=gen)
-                self.run_generator(canvas, gen)
-                self.add_to_lstep(canvas=canvas)
-                #print(canvas, '       ', short(gen))
-                if vv >= 4:
-                    print(self.lsteps[-1])
-                if self.termination_condition(canvas):
-                    break
-        except NoRunnableGenerators:
-            pass
-        return canvas
-
-    def run1(
-        self,
-        canvas: CanvasAble,
-        gset: Optional[GSet]=None, niters: Optional[int]=None,
-        vv: int=4
-    ) -> None:
-        '''Like .run_gset() but for running from the Python REPL.'''
-        print()
-        print()
-        self.run_gset(canvas, gset, vv=vv)
-
-    def prep_regen(self, c: CanvasAble) -> CanvasAble:
-        '''.run_gset() calls this before regenerating from c. Default
-        implementation does nothing. Override to do things like prepend
-        a bunch of Nones to the canvas.'''
-        return c
-
-    # TODO Factor out the constant
-    def termination_condition(self, canvas: Canvas) -> bool:
-        #threshold = int(0.7 * canvas.MAX_CLARITY)   # 0.5  0.7
-        #threshold = 4
-        #return all(cl >= threshold for cl in canvas.clarities)
-        # TODO Make that -5 a parameter, or refer to 'central canvas'
-        return all(
-            cl >= self.termination_threshold
-                for cl in list(canvas.all_clarities())[-5:]
-        )
-
-    def choose_runnable_painter(self, canvas: Canvas, gset: GSet) \
-    -> Generator:
-        pws = list(self.painter_weights(canvas, gset))
-        #pts(sorted([p[1], p[0]] for p in pws)) #DEBUG
-        ps, ws = zip(*pws)
-        #pr(pws) #DEBUG
-        if len(ps) == 0:
-            raise NoRunnableGenerators
-        try:
-            n = choices(range(len(ps)), weights=ws)[0]
-        except ValueError as exc:  # screwy way to check for sum(ws) <= 0
-            #print(exc)
-            raise NoRunnableGenerators
-        a1, a2 = ps[n]
-        f = gset[(a1, a2)]
-        painter = (a1, a2, f)
-        self.add_to_lstep(painter=painter, painter_weight=ws[n] / sum(ws))
-        return painter
-
-    @classmethod
-    def painter_weights(cls, canvas: Canvas, gset: GSet) \
-    -> Iterable[Tuple[FromTo, Numeric]]:
-        for ((a1, a2), f) in gset.items():
-            if isinstance(a1, int) and canvas[a1] is None:
-                continue
-            else:
-                #w1 = canvas.clarity(a1) / canvas.MAX_CLARITY
-                #w2 = 1.0 - (canvas.clarity(a2) / (canvas.MAX_CLARITY * 1.00))
-                #yield ((a1, a2), w1 * w2 * natural_func_weight(f))
-                #w = cls.a_to_w(a1, a2, f, canvas)
-                w = cls.painter_weight(a1, a2, f, canvas)
-                if w >= epsilon:
-                    yield ((a1, a2), w)
-
-    # TODO Redefine Painter as Tuple[From, To, Func]
-    # TODO Make this a method of Canvas
-    # TODO Matchers and matching_addrs() should return weights
-    @classmethod
-    def matching_addrs(cls, c: Canvas, a: From) -> Iterable[Addr]:
-        if isinstance(a, int) or isinstance(a, tuple):
-            yield a
-        else:  # a is a Matcher
-            for addr in c.all_addrs():
-                if a.is_match(c[addr]):
-                    yield addr
-
-    @classmethod
-    def painter_weight(cls, a1: From, a2: To, f: Func, c: Canvas) -> Numeric:
-        '''Address weights are a linear function of current cell clarity.'''
-#        if isinstance(a1, int) and isinstance(a2, int):
-#            w1 = c.clarity(a1) / c.MAX_CLARITY
-#            w2 = 1.0 - (c.clarity(a2) / (c.MAX_CLARITY * 1.00))
-#            return w1 * w2 * cls.natural_func_weight(f)
-#        elif callable(a1):  # a1 is a Matcher
-#            if cls.could_run(a1, a2, f, c):
-#                return 1.0  # HACK: Should assign weight based on something
-#                            # something more than whether the painter could run
-#            else:
-#                return 0.0
-#        else:
-#            raise NotImplementedError
-
-#        w1 = (
-#            cls.from_weight_relative(a1, a2, f, c)
-#            if isinstance(a1, Matcher)
-#            else cls.from_weight_absolute(a1, c)
-#        )
-#        w2 = (
-#            cls.to_weight_relative(a1, a2, c)
-#            if isinstance(a2, Jumper)
-#            else cls.to_weight_absolute(a2, c)
-#        )
-#        return w1 * w2 * cls.natural_func_weight(f)
-
-        return max([
-            cls.simple_painter_weight(c, absp)
-                for absp in cls.as_absolute_painters(c, (a1, a2, f))
-        ], default=0)
-
-    @classmethod
-    def simple_painter_weight(cls, c: Canvas, painter: AbsPainter) -> Numeric:
-        a, b, f = painter
-        w1 = cls.from_weight_absolute(a, c)
-        w2 = 1.0 if isinstance(b, Jumper) else cls.to_weight_absolute(b, c)
-        return w1 * w2 * cls.natural_func_weight(f)
-
-    @classmethod
-    def from_weight_absolute(cls, a: Addr, c: Canvas) -> float:
-        return c.clarity(a) / c.MAX_CLARITY
-
-    @classmethod
-    def from_weight_relative(
-        cls, a: Matcher, b: To, f: Func, c: Canvas
-    ) -> Numeric:
-        if cls.could_run(a, b, f, c):
-            return 1.0  # TODO Base weight on the matched cell?
-        else:
-            return 0.0
-
-    @classmethod
-    def to_weight_absolute(cls, b: Addr, c: Canvas) -> Numeric:
-        return 1.0 - (c.clarity(b) / c.MAX_CLARITY)
-
-    @classmethod
-    def to_weight_relative(cls, a: From, b: Jumper, c: Canvas) -> Numeric:
-        return 1.0  # TODO
-
-    @classmethod
-    def could_run(cls, a: From, b: To, f: Func, c: Canvas) -> bool:
-        if isinstance(a, Matcher):
-            if not any(a.is_match(c[i]) for i in c.all_addrs()):
-                return False
-        else:
-            if not c.has_addr(a):
-                return False
-        if isinstance(b, Jumper):
-            if not b.could_jump(c, a):
-                return False
-        else:
-            if not c.has_addr(b):
-                return False
-        return True
+            return func
 
     @classmethod
     def natural_func_weight(cls, f: Func) -> Numeric:
@@ -768,119 +535,6 @@ class RMem:
             return 1.0
         else:
             return 0.2  # Low probability for constant painter
-
-    # Making GSets (sets of generators)
-
-    def make_gset(self, gs: Iterable[Generator]) -> GSet:
-        result: PSet = {}
-        for g in gs:
-            a1, a2, f = g
-            oldf = result.get((a1, a2), None)
-            #lo('MKGS', a1, a2, f, oldf)
-            if oldf is not None:
-                f = self.avg_of_funcs(oldf, f)
-                #lo('MKGS2', f)
-            result[(a1, a2)] = f
-        return result
-
-    def canvas_to_pset(self, c: CanvasAble) -> PSet:
-        '''Makes a PSet of painters as determined by .canvas_to_painters().'''
-        return self.make_gset(self.canvas_to_painters(c))
-
-    def add_two_gsets(self, gset1: GSet, gset2: GSet) -> GSet:
-        '''Combine the gsets, analogous to '+' in the Hopfield equation to
-        combine two images.'''
-        result: GSet = defaultdict(set)  # type: ignore[arg-type]
-        edges = union(gset1.keys(), gset2.keys())
-        for edge in edges:
-            if edge in gset1:
-                if edge in gset2:
-                    f = self.avg_of_funcs(
-                        gset1[edge],
-                        gset2[edge]
-                    )
-                else:
-                    f = gset1[edge]
-            else:
-                f = gset2[edge]
-            result[edge] = f
-        return dict(  # remove None funcs
-            (k, v) for k, v in result.items() if v is not None
-        )
-
-    def add_gsets(self, gsets: Iterable[GSet]) -> GSet:
-        result: GSet = reduce(self.add_two_gsets, gsets, {})
-        return dict(  # remove None funcs
-            (k, v) for k, v in result.items() if v is not None
-        )
-
-    def raw_absorb_gset(self, new_gset: GSet) -> None:
-        self.gset = self.add_two_gsets(self.gset, new_gset)
-
-    # TODO Break off this notion: canvas_to_psets_for_absorption() ?
-    def raw_absorb_canvas(self, c: Canvas) -> None:
-        '''Absorbs c into self.gset, without modifying c. Override
-        .raw_absorb_canvas() to change the way absorption works. Override
-        .prep_absorb() to add columns to c or otherwise modify c before
-        absorbing it.'''
-        #self.raw_absorb_gset(self.make_gset(self.canvas_to_painters(c)))
-        self.raw_absorb_gset(self.canvas_to_pset(c))
-
-    @final
-    def absorb_canvas(self, c: CanvasAble, prep: CanvasPrep=no_prep) -> None:
-        c = self.as_canvas(self.prep_absorb(c))
-        self.raw_absorb_canvas(prep(c, self))
-
-    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
-        '''.absorb_canvas() calls this before absorbing c. Default
-        implementation does nothing. Override to do things like prepend
-        additional information to the canvas.'''
-        return c
-
-    def absorb_canvases(
-        self: Q,
-        cs: Iterable[CanvasAble],
-        prep: CanvasPrep=no_prep
-    ) -> Q:
-        for c in cs:
-            self.absorb_canvas(c)
-        return self
-
-        '''
-        for c in cs:
-            c = self.as_canvas(c)
-            new_gset = self.make_gset(
-                self.canvas_to_painters(prep(c, self))
-            )
-            #lo('ABS', c)
-            #pr(new_gset)
-            self.gset = self.add_two_gsets(self.gset, new_gset)
-        return self
-        '''
-
-    # Calling a function
-
-    @classmethod
-    def apply_func(cls, func: Func, x: Value) -> Value:
-        if callable(func):
-            return func(x)
-        else:
-            return func
-
-    # Painter-makers
-
-    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
-    -> Painter | None:
-        '''Returns a painter that, given the value xa at address a, will paint
-        the value xb at address b. Default implementation returns an absolute
-        painter.'''
-        if a != b and xa is not None and xb is not None:
-            func = self.func_from_to(xa, xb)
-            if func is not None:
-                return (a, b, func)
-        return None
-
-    # Function-makers
 
     @classmethod
     def func_from_to(cls, x1: Value, x2: Value) -> Func:
@@ -978,8 +632,8 @@ class RMem:
 
     @dataclass(frozen=True)
     class rndfunc:
-        Q = TypeVar('Q', bound='RMem.rndfunc')
-        rmem: RMem
+        Q = TypeVar('Q', bound='RMemFuncs.rndfunc')
+        rmem: RMemFuncs
         funcs: Tuple[Func, ...]  # funcs and weights must have same # of elems
         weights: Tuple[Numeric, ...]
 
@@ -1009,7 +663,7 @@ class RMem:
         @classmethod
         def make(
             cls: Type[Q],
-            rmem: RMem,
+            rmem: RMemFuncs,
             funcs: Sequence[Func]
         ) -> Q:
             # TODO What if funcs is empty?
@@ -1046,7 +700,7 @@ class RMem:
         def _make(
             _cls,
             cls: Type[Q],
-            rmem: RMem,
+            rmem: RMemFuncs,
             c: Dict[Func, int]
         ) -> Q:
             return cls(
@@ -1059,105 +713,420 @@ class RMem:
             cl = self.__class__.__name__
             return f'{cl}({self.nfw:1.3f} {short(self.weights)}, {short(self.funcs)})'
 
-    # Queries
+class Absorb(RMemFuncs, RMemBase, ABC):
+    '''Basic implementation of .absorb_canvases() and ancillary methods.
+    Provides all but implementations of .canvas_to_psets(); a concrete class
+    must override this.'''
 
-    def __len__(self) -> int:
-        return len(self.gset)
+    ### Top-level absorption methods
 
-    def __str__(self) -> str:
-        return self.__class__.__name__
+    @final
+    def absorb_canvas(self, c: CanvasAble) -> None:
+        '''Calls .prep_absorb() on c before absorbing it through
+        .raw_absorb_canvas(). Override .raw_absorb_canvas() to provide
+        a specific way of absorbing a canvas.''' # TODO fix comment
+        for pset in self.canvas_to_psets(
+            self.prep_absorb(c)
+        ):
+            self.absorb_pset(pset)
 
-    def __repr__(self) -> str:
-        return self.__class__.__name__
+    @abstractmethod
+    def canvas_to_psets(self, c: CanvasAble) -> Iterable[PSet]:
+        '''Should yield zero or more PSets to be 'added' into self.pset
+        by .absorb_pset() in order to absorb canvas 'c'.'''
+        pass
 
-    # Logging
+    def absorb_pset(self, new_pset: PSet) -> None:
+        self.pset = self.add_two_psets(self.pset, new_pset)
 
-    def start_lstep(self) -> None:
-        self.lsteps.append(LoggedStep(t=self.lsteps[-1].t + 1))
+    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
+        '''.absorb_canvas() calls this before absorbing c. Default
+        implementation does nothing. Override to do things like prepend
+        additional information to the canvas.'''
+        return c
 
-    def add_to_lstep(
-        self,
-        canvas: Optional[Canvas]=None,
-        painter: Optional[Painter]=None,
-        painter_weight: Optional[Numeric]=None,
-        real_painter: Union[Painter, Func, None]=None,
-        real_painter_weight: Optional[Numeric]=None
-    ):
-        lstep = self.lsteps[-1]
-        if canvas is not None:
-            lstep.canvas = deepcopy(canvas)
-        if painter is not None:
-            lstep.painter = painter
-        if painter_weight is not None:
-            lstep.painter_weight = painter_weight
-        if real_painter is not None:
-            lstep.real_painter = real_painter
-        if real_painter_weight is not None:
-            lstep.real_painter_weight = real_painter_weight
+    ### Making and combining PSets
 
-    # Running experiments
+    def painters_to_pset(self, ps: Iterable[Painter]) -> PSet:
+        result: PSet = {}
+        for p in ps:
+            a1, a2, f = p
+            oldf = result.get((a1, a2), None)
+            if oldf is not None:
+                f = self.avg_of_funcs(oldf, f)
+            result[(a1, a2)] = f
+        return result
 
-    @classmethod
-    def run(
-        cls: Type[Q],
-        startc=(None, '+', 3, None, 5),
-        operands=range(1, 11),
-        operators=('+', '-', 'x', '/'),
-        prep: CanvasPrep=no_prep,
-        nruns=1,
-        niters=40
-    ) -> Q:
-        '''Runs a whole experiment from start to finish. Creates and returns
-        an RMem object so you can inspect the generators afterward.'''
-        rmem = cls.make_from(
-            make_eqns(operands=operands, operators=operators),
-            prep=prep
+    def add_two_psets(self, pset1: PSet, pset2: PSet) -> PSet:
+        '''Combines the psets, analogous to '+' in the Hopfield equation to
+        combine two images. The default implementation calls .avg_of_funcs()
+        on the Cartesian product of all the edges (FromTo addresses) in
+        both psets.'''
+        result: PSet = defaultdict(set)  # type: ignore[arg-type]
+        edges = union(pset1.keys(), pset2.keys())
+        for edge in edges:
+            if edge in pset1:
+                if edge in pset2:
+                    f = self.avg_of_funcs(
+                        pset1[edge],
+                        pset2[edge]
+                    )
+                else:
+                    f = pset1[edge]
+            else:
+                f = pset2[edge]
+            result[edge] = f
+        return dict(  # remove None funcs
+            (k, v) for k, v in result.items() if v is not None
         )
 
-        for _ in range(nruns):
-            #c = list(startc)
-            c = Canvas.make_from(startc)
-            if prep:
-                c = prep(c, rmem)
-            #print(c)
-            rmem.run_gset(c, niters=niters)
-            #print()
+    ### Making painters
 
-        return rmem
+    """
+    @abstractmethod
+    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
+    -> Painter | None:
+        '''Returns a painter that, given the value xa at address a, will paint
+        the value xb at address b.'''
+        pass
+    """
 
-@dataclass
-class SkewedPainterWeight(RMem):
+    # Function-makers
+
+@dataclass  # type: ignore[misc]
+class RegenerateDataclassMixin(RMemBase):
+    termination_threshold: int = 4
+
+class Regenerate(RegenerateDataclassMixin, RMemBase, ABC):
+    '''Basic implementation of .regenerate() and ancillary methods. Provides
+    all but an implementation of .painter_weight().'''
+
+    @abstractmethod
+    def run_painter(self, canvas: Canvas, painter: Painter) -> Outcome:
+        '''Should run 'painter' on 'canvas', returning Succeeded or Failed
+        as appropriate.'''
+        pass
+
+    ### Top-level regeneration methods
+
+    def regenerate(
+        self,
+        canvas: CanvasAble,
+        pset: Optional[PSet]=None,
+        niters: Optional[int]=None,
+        vv: int=0  # verbosity
+    ) -> Canvas:
+        '''Attempts to fill in canvas by running pset. Calls .prep_regen()
+        on 'canvas' before starting the filling-in process.'''
+        pset: PSet = self.pset if pset is None else pset
+        niters: int = self.niters if niters is None else niters
+        canvas: Canvas = self.as_canvas(self.prep_regen(canvas))
+        self.lsteps = [LoggedStep(canvas=deepcopy(canvas), t=0)]
+        try:
+            for i in range(niters):
+                self.start_lstep()
+                p = self.choose_runnable_painter(canvas, pset)
+                self.add_to_lstep(painter=p)
+                self.run_painter(canvas, p)
+                self.add_to_lstep(canvas=canvas)
+                #print(canvas, '       ', short(gen))
+                if vv >= 4:
+                    print(self.lsteps[-1])
+                if self.termination_condition(canvas):
+                    break
+        except NoRunnableGenerators:
+            pass
+        return canvas
+
+    def termination_condition(self, canvas: Canvas) -> bool:
+        '''Is the state of 'canvas' such that .regenerate() should stop even
+        if .niters iterations haven't been completed?'''
+        # TODO Make that -5 a parameter, or refer to 'central canvas'
+        return all(
+            cl >= self.termination_threshold
+                for cl in list(canvas.all_clarities())[-5:]
+        )
+
+    def prep_regen(self, c: CanvasAble) -> CanvasAble:
+        '''.regenerate() calls this before regenerating from c. Default
+        implementation does nothing. Override to do things like prepend
+        a bunch of Nones to the canvas.'''
+        return c
+
+    def run1(
+        self,
+        canvas: CanvasAble,
+        pset: Optional[PSet]=None,
+        niters: Optional[int]=None,
+        vv: int=4
+    ) -> None:
+        '''Like .regenerate() but for running from the Python REPL.'''
+        print()
+        print()
+        self.regenerate(canvas, pset, niters, vv=vv)
+
+    ### Choosing a painter
+
+    def choose_runnable_painter(self, canvas: Canvas, pset: PSet) \
+    -> Painter:
+        pws = list(self.painter_weights(canvas, pset))
+        #pts(sorted([p[1], p[0]] for p in pws)) #DEBUG
+        ps, ws = zip(*pws)
+        #pr(pws) #DEBUG
+        if len(ps) == 0:
+            raise NoRunnableGenerators
+        try:
+            n = choices(range(len(ps)), weights=ws)[0]
+        except ValueError as exc:  # screwy way to check for sum(ws) <= 0
+            #print(exc)
+            raise NoRunnableGenerators
+        a1, a2 = ps[n]
+        f = pset[(a1, a2)]
+        painter = (a1, a2, f)
+        self.add_to_lstep(painter=painter, painter_weight=ws[n] / sum(ws))
+        return painter
+
+    def painter_weights(self, canvas: Canvas, pset: PSet) \
+    -> Iterable[Tuple[FromTo, Numeric]]:
+        # NEXT Convert the PSet into an iterable of 'actual' painters
+        for ((a1, a2), f) in pset.items():
+            if isinstance(a1, int) and canvas[a1] is None:
+                continue
+            else:
+                w = self.painter_weight(a1, a2, f, canvas)
+                if w >= epsilon:
+                    yield ((a1, a2), w)
+
+    @abstractmethod
+    def painter_weight(self, a: From, b: To, f: Func, c: Canvas) -> Numeric:
+        '''Returns the weight to be given to a painter that reads from cell 'a'
+        of the canvas, passed it through Func 'f', and paints the result 
+        to cell 'b'.'''
+        pass
+
+class ClarityWeight(RMemBase, ABC):
+
+    @classmethod
+    @abstractmethod
+    def from_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
+        '''Should return the weight associated with a canvas cell being painted
+        *from*, with clarity 'cl'. Normally, the greater the clarity of a
+        'from' cell, the greater the weight.'''
+        pass
+
+    @classmethod
+    @abstractmethod
+    def to_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
+        '''Should return the weight associated with a canvas cell being painted
+        *to*, with clarity 'cl'. Normally, the lower the clarity of a
+        'to' cell, the greater the weight.'''
+        pass
+
+class LinearClarityWeight(ClarityWeight):
+
+    @classmethod
+    def from_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
+        return cl / c.MAX_CLARITY
+
+    @classmethod
+    def to_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
+        return 1.0 - (cl / c.MAX_CLARITY)
+
+@dataclass  # type: ignore[misc]
+class SkewedClarityWeightDataclassMixin(RMemBase):
     weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
     weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
 
-#    @classmethod
-#    def painter_weight(cls, a: From, b: To, f: Func, c: Canvas) -> Numeric:
-#        if isinstance(a, int) and isinstance(b, int):
-#            return (
-#                (
-#                    cls.weight_from[int(c.clarity(a))]
-#                    *
-#                    cls.weight_to[int(c.clarity(b))]
-#                )
-#                *
-#                cls.natural_func_weight(f)
-#            )
-#        else:
-#            raise NotImplementedError
+class SkewedClarityWeight(SkewedClarityWeightDataclassMixin, ClarityWeight):
+    @classmethod
+    def from_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
+        return cls.weight_from[int(cl)]
 
     @classmethod
-    def from_weight_absolute(cls, a: Addr, c: Canvas) -> float:
-        if isinstance(a, int):
-            return cls.weight_from[int(c.clarity(a))]
+    def to_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
+        return cls.weight_to[int(cl)]
+
+class CanvasToOnePSet(Absorb, ABC):
+    '''Overrides .canvas_to_psets() with a method that yields a single PSet,
+    constructed by calling .painter_from_to() on every pair of addresses
+    in the canvas. .painter_from_to() must be overridden in a concrete class.'''
+
+    def canvas_to_psets(self, c: CanvasAble) -> Iterable[PSet]:
+        yield self.painters_to_pset(self.canvas_to_painters(c))
+
+    def canvas_to_painters(self, c: CanvasAble) -> Set[Painter]:
+        '''Makes painters as determined by .painter_from_to().'''
+        c: Canvas = self.as_canvas(c)
+        result: Set[Painter] = set()
+        for addr1 in c.all_addrs():
+            for addr2 in c.all_addrs():
+                p = self.painter_from_to(addr1, addr2, c[addr1], c[addr2])
+                if p is not None:
+                    result.add(p)
+        return result
+
+    @abstractmethod
+    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
+    -> Painter | None:
+        '''Returns a painter that, given the value xa at address a, will paint
+        the value xb at address b.'''
+        pass
+
+class WithAbsolutePainters(CanvasToOnePSet, Absorb, Regenerate, ClarityWeight):
+    mixin_name: ClassVar[str] = 'Abs'
+
+    # Absorption
+
+    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
+    -> Painter | None:
+        if a != b and xa is not None and xb is not None:
+            func = self.func_from_to(xa, xb)
+            if func is not None:
+                return (a, b, func)
+        return None
+
+    ### Regeneration
+
+    def run_painter(self, canvas: Canvas, painter: Painter) -> Outcome:
+        a, b, f = painter
+        assert not isinstance(a, Matcher)
+        assert not isinstance(b, Jumper)
+        #return self.paint_from_abs_addr(c, p)
+        x = canvas[a]
+        if x is None:
+            return Failed
+        y = self.apply_func(f, x)
+        if y is None:
+            return Failed
+        canvas[b] = y
+        return Succeeded
+
+    def painter_weight(self, a: From, b: To, f: Func, c: Canvas) -> Numeric:
+        if not isinstance(a, int):
+            raise NotImplementedError(a)
+        if not isinstance(b, int):
+            raise NotImplementedError(b)
+        wa = self.from_clarity_weight(c, c.clarity(a))
+        wb = self.to_clarity_weight(c, c.clarity(b))
+        return wa * wb * self.natural_func_weight(f)
+
+class WithAdjacentRelativePainters(
+    CanvasToOnePSet, Absorb, Regenerate, ClarityWeight
+):
+    mixin_name: ClassVar[str] = 'AdjRel'
+
+    ### Absorption
+
+    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
+    -> Painter | None:
+        if a != b and xa is not None and xb is not None:
+            if isinstance(a, int) and isinstance(b, int):
+                jumper: Jumper
+                if b == a + 1:
+                    jumper = Right(1)
+                elif b == a - 1:
+                    jumper = Left(1)
+                else:
+                    return None
+                func = self.func_from_to(xa, xb)
+                if func is None:
+                    return None
+                return (Match(xa), jumper, func)
+            else:
+                raise NotImplementedError((a, b))
+        return None
+
+    ### Regeneration
+
+    def run_painter(self, canvas: Canvas, painter: Painter) -> Outcome:
+        abspainters = list(self.as_absolute_painters(canvas, painter))
+        if not abspainters:
+            return Failed
+        weights = [self.simple_painter_weight(canvas, p) for p in abspainters]
+        return self.run_absolute_painter(
+            canvas,
+            choices(abspainters, weights)[0]
+        )
+        
+    def run_absolute_painter(self, c: Canvas, painter: AbsPainter) -> Outcome:
+        return self.paint_from_abs_addr(c, painter, painter[0])
+
+    def paint_from_abs_addr(
+        self,
+        canvas: Canvas,
+        painter: AbsPainter,
+        a: Addr
+    ) -> Outcome:
+        _, to, func = painter
+        x = canvas[a]
+        if x is None:
+            return Failed
+        result = self.apply_func(func, x)
+        if result is None:
+            return Failed
+        b = self.as_addr_to(canvas, a, to)
+        if b is None:
+            return Failed
+        canvas[b] = result
+        return Succeeded
+
+    def as_addr_to(self, canvas: Canvas, a: Addr, to: To) -> Addr | None:
+        if isinstance(to, int):
+            return to
+        elif isinstance(to, Jumper):
+            return to.to(canvas, a)
         else:
             raise NotImplementedError
 
     @classmethod
-    def to_weight_absolute(cls, b: Addr, c: Canvas) -> Numeric:
-        if isinstance(b, int):
-            return cls.weight_to[int(c.clarity(b))]
+    def could_run(cls, a: From, b: To, f: Func, c: Canvas) -> bool:
+        if isinstance(a, Matcher):
+            if not any(a.is_match(c[i]) for i in c.all_addrs()):
+                return False
         else:
-            raise NotImplementedError
+            if not c.has_addr(a):
+                return False
+        if isinstance(b, Jumper):
+            if not b.could_jump(c, a):
+                return False
+        else:
+            if not c.has_addr(b):
+                return False
+        return True
+
+    def painter_weight(self, a: From, b: To, f: Func, c: Canvas) -> Numeric:
+        return max([
+            self.simple_painter_weight(c, absp)
+                for absp in self.as_absolute_painters(c, (a, b, f))
+        ], default=0)
+
+    def simple_painter_weight(self, c: Canvas, painter: AbsPainter) -> Numeric:
+        a, b, f = painter
+        wa = self.from_clarity_weight(c, c.clarity(a))
+        wb = 1.0 if isinstance(b, Jumper) \
+                 else self.to_clarity_weight(c, c.clarity(b))
+        return wa * wb * self.natural_func_weight(f)
+
+    # TODO UT
+    @classmethod
+    def as_absolute_painters(cls, c: Canvas, painter: Painter) \
+    -> Iterable[AbsPainter]:
+        a, b, f = painter
+        if isinstance(a, Matcher):
+            for addr1 in a.matching_addrs(c):
+                if isinstance(b, Jumper):
+                    for to in b.could_jump_to(c, addr1):
+                        yield (addr1, to, f)
+                else:
+                    yield (addr1, b, f)
+        else:
+            yield painter  # type: ignore[misc]
+
+class RMem(
+    WithAbsolutePainters, Absorb, LinearClarityWeight, Regenerate,
+    RegenerateDataclassMixin, RMemBase
+):
+    pass
 
 @dataclass
 class LoggedStep:
@@ -1271,28 +1240,6 @@ class Left(Jumper):
         cl = self.__class__.__name__
         return f'{cl}({self.n})'
 
-class WithAdjacentRelativePainters(RMem):
-    mixin_name: ClassVar[str] = 'AdjRel'
-
-    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
-    -> Painter | None:
-        if a != b and xa is not None and xb is not None:
-            if isinstance(a, int) and isinstance(b, int):
-                jumper: Jumper
-                if b == a + 1:
-                    jumper = Right(1)
-                elif b == a - 1:
-                    jumper = Left(1)
-                else:
-                    return None
-                func = self.func_from_to(xa, xb)
-                if func is None:
-                    return None
-                return (Match(xa), jumper, func)
-            else:
-                raise NotImplementedError((a, b))
-        return None
-
 if __name__ == '__main__':
 #    rmem = RMem.run(
 #        operands=range(1, 8),   # 4
@@ -1303,7 +1250,7 @@ if __name__ == '__main__':
     #rmtype = type('RMemAdjacent', (WithAdjacentRelativePainters, RMem), {})
     #rmem = rmtype(niters=30)
     rmem = RMem.make_instance(
-        (SkewedPainterWeight, WithAdjacentRelativePainters),
+        (SkewedClarityWeight, WithAdjacentRelativePainters),
         niters=30
     )
 
@@ -1318,9 +1265,9 @@ if __name__ == '__main__':
     eqn = (1, '+', 1, '=', 2)
     pps = rmem.canvas_to_painters(eqn)
     #pr(pps)
-    pset = rmem.make_gset(pps)
+    pset = rmem.painters_to_pset(pps)
     pr(pset)
 
     startc = (1, None, None, None, None)
-    c = rmem.run_gset(startc, pset, vv=4)
+    c = rmem.regenerate(startc, pset, vv=4)
     print(c)

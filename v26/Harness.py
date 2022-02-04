@@ -149,7 +149,7 @@ class TestSpec:
                 cue = cue_maker(target_canvas)
             if rmem is None:
                 rmem = rm
-        got = rmem.run_gset(canvas=cue).as_tuple()
+        got = rmem.regenerate(canvas=cue).as_tuple()
         if vv >= 4:
             pr(rmem.lsteps)
         return got
@@ -169,6 +169,8 @@ class TestSpec:
             self.initial_canvases_cls, self.kwargs
         )
         initial_canvases = list(initial_canvases_f())
+        # TODO Rework the interface to TestSpec so we can call
+        # RMem.make_instance() here.
         rmem = instantiate_dataclass_from_kwargs(self.cls, self.kwargs)
         rmem.absorb_canvases(initial_canvases)  # This can be slow.
         return rmem, initial_canvases_f, initial_canvases, cue_maker

@@ -28,7 +28,7 @@ class ATestExperiments(unittest.TestCase):
             (None, '+', 1, None, None),
             (None, None, None, None, 2)
         ]:
-            got = [rmem.run_gset(canvas=startc) for _ in range(20)]
+            got = [rmem.regenerate(canvas=startc) for _ in range(20)]
             self.assertTrue(
                 all(canvas.as_tuple() == expect for canvas in got),
                 f'Failed on {startc}'
@@ -46,7 +46,8 @@ class ATestExperiments(unittest.TestCase):
         # TODO Run a Cartesian test on these parameters and save the
         # results.
         counter = eqn_test(
-            prep=ndups(3), seed=1, niters=20, n_per_eqn=10, n_eqns=50
+            #prep=ndups(3),
+            seed=1, niters=20, n_per_eqn=10, n_eqns=50
             # 3, 1, 20, 10, 50  -->  num_correct = 10, 22-Jan-2022
         )
         num_correct = sum(counter.values())
