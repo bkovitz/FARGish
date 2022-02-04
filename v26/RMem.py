@@ -408,7 +408,7 @@ class RMem(RMemDataclassMixin, ABC):
         class_name = cls.__name__ + ''.join(
             getattr(mixin, 'mixin_name', 'X') for mixin in mixins
         )
-        return type(class_name, mixins + (cls,), {})
+        return type(class_name, mixins + (cls,), kwargs)
         
     @classmethod
     def make_instance(
@@ -726,22 +726,9 @@ class Absorb(RMemFuncs, RMem, ABC):
             (k, v) for k, v in result.items() if v is not None
         )
 
-    ### Making painters
-
-    """
-    @abstractmethod
-    def painter_from_to(self, a: Addr, b: Addr, xa: Value, xb: Value) \
-    -> Painter | None:
-        '''Returns a painter that, given the value xa at address a, will paint
-        the value xb at address b.'''
-        pass
-    """
-
-    # Function-makers
-
 @dataclass  # type: ignore[misc]
 class RegenerateDataclassMixin(RMem):
-    termination_threshold: int = 4
+    termination_threshold: int = 3
 
 class Regenerate(RegenerateDataclassMixin, RMem, ABC):
     '''Basic implementation of .regenerate() and ancillary methods. Provides

@@ -32,7 +32,7 @@ class RMem:
             getattr(mixin, 'mixin_name', 'X') for mixin in mixins
         )
         ty = type(class_name, mixins + (cls,), {})
-        return ty()
+        return ty(**kwargs)
 
     def as_canvas(self, c: CanvasAble) -> Canvas:
         '''Converts c to a Canvas.'''

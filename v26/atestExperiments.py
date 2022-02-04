@@ -4,13 +4,15 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
+from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from RMem import RMem, WithAbsolutePainters, Absorb, LinearClarityWeight, \
-    Regenerate, WithNDups, make_eqns, BaseValue
+from RMem import RMem, RMemAbs, WithAbsolutePainters, Absorb, Value, \
+    LinearClarityWeight, Regenerate, WithNDups, make_eqns, BaseValue
+from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt
 from Experiments import xp_single, just_1_1_2, eqn_test
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
@@ -59,3 +61,62 @@ class ATestExperiments(unittest.TestCase):
         # lo('NUMC', num_correct)
         self.assertGreaterEqual(num_correct, 2)
             # a low standard: this method gets poor results
+
+    eqns = list(make_eqns(operands=[1, 2, 3], operators=['+']))
+
+    @dataclass(frozen=True)
+    class CC:
+        '''A cue to give an RMem to regenerate from, and the correct response
+        that it should regenerate.'''
+        cue: Tuple[Value, ...]
+        correct: Tuple[Value, ...]
+
+    ccs = [
+        CC((None, '+', 1, '=', 2), (1, '+', 1, '=', 2)),
+        CC((1, None, None, None, 2), (1, '+', 1, '=', 2)),
+        CC((3, None, 1, None, None), (3, '+', 1, '=', 4))
+    ]
+
+    def quick_test(
+        self,
+        rmem_cls: Type[RMem],
+        show: bool=False,
+        **kwargs
+    ) -> int:
+        '''Runs a quick test on an RMem, giving it a standard small set of
+        canvases to absorb, and checking its ability to reconstruct a few
+        equations.'''
+        reseed(0)
+        rmem = rmem_cls(**kwargs).absorb_canvases(self.eqns)
+        #print(rmem.termination_threshold, rmem_cls.niters, rmem.niters) # type: ignore[attr-defined]
+        num_correct = 0
+        for cc in self.ccs:
+            for i in range(40):
+                got = rmem.regenerate(cc.cue).as_tuple()
+                if show:
+                    lo(cc.cue, got)
+                if got[-len(cc.cue):] == cc.cue:
+                    num_correct += 1
+        if show:
+            lo(f'num_correct = {num_correct}')
+        return num_correct
+
+    def test_count_columns(self) -> None:
+        n = self.quick_test(
+            RMem.make_class((WithCountColumns, RMemAbs)),
+            #niters=100,
+            #termination_threshold=3
+        )
+        self.assertGreaterEqual(n, 2)
+
+    def test_random_salt(self) -> None:
+        n = self.quick_test(
+            RMem.make_class((WithRandomSalt, RMemAbs)),
+        )
+        self.assertGreaterEqual(n, 8)
+
+    def test_sequential_salt(self) -> None:
+        n = self.quick_test(
+            RMem.make_class((WithSequentialSalt, RMemAbs)),
+        )
+        self.assertGreaterEqual(n, 5)

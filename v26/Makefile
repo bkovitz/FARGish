@@ -11,7 +11,7 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
 #	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = Experiments.py Harness.py Indenting.py Log.py util.py
+FARGISH_SRC = Experiments.py Harness.py Indenting.py Log.py Mixins.py util.py
 
 # Plot.py 
 # Log.py 
@@ -43,7 +43,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testRMem.TestRMem.test_run_rel_adj
+	$(PY) -m unittest -v testMixins.TestMixins.testCountColumns
 
 # Acceptance tests
 at:
@@ -51,7 +51,7 @@ at:
 
 # Convenience target for single acceptance test current being worked on
 a:
-	$(PY) -m unittest -v atestExperiments.ATestExperiments.test_full_table_with_dups
+	$(PY) -m unittest -v atestExperiments.ATestExperiments.test_sequential_salt
 
 mut: mypy ut
 mu: mypy u
