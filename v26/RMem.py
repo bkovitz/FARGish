@@ -1122,6 +1122,25 @@ class WithAdjacentRelativePainters(
         else:
             yield painter  # type: ignore[misc]
 
+@dataclass  # type: ignore[misc]
+class WithNDupsDataclassMixin(RMemBase):
+    ndups: ClassVar[int] = 2
+
+class WithNDups(WithNDupsDataclassMixin, Absorb, Regenerate):
+    '''Replaces every canvas with .ndups duplicates preceding itself.'''
+
+    ### Absorption
+
+    def prep_absorb(self, c: CanvasAble) -> CanvasAble:
+        return as_tuple(c) * (self.ndups + 1)
+
+    ### Regeneration
+
+    def prep_regen(self, c: CanvasAble) -> CanvasAble:
+        t = as_tuple(c)
+        blankdup: Tuple[Value, ...] = (None,) * len(t)
+        return (blankdup * self.ndups) + t
+
 class RMem(
     WithAbsolutePainters, Absorb, LinearClarityWeight, Regenerate,
     RegenerateDataclassMixin, RMemBase

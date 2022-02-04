@@ -14,7 +14,8 @@ from random import randrange
 from inspect import isclass
 from time import perf_counter
 
-from RMem import RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, make_eqns, \
+from RMem import RMemBase, RMem, Canvas, Canvas1D, CanvasAble, CanvasPrep, \
+    make_eqns, \
     no_prep, ndups, BaseValue, correction_redundancy, \
     Painter, Func, GSet, PSet, Value, SkewedClarityWeight
 from Harness import TestSpec, EquationMaker, PartialCueMaker
@@ -54,7 +55,7 @@ def eqn_test(  # TODO rename eqns_test
     seed: int=None,
     operands=range(1, 11),
     operators=('+', '-', 'x', '/'),
-    rm: Union[RMem, Type[RMem]]=RMem,
+    rm: Union[RMemBase, Type[RMemBase]]=RMem,
     npartial: int=3,
 ) -> EqnCounter:
     reseed(seed)
