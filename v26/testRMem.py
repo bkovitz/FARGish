@@ -13,11 +13,35 @@ from RMem import RMem, RMemAbs, make_eqns, BaseValue, \
     Canvas1D, SkewedClarityWeight, Match, Right, Left, Painter, \
     WithAdjacentRelativePainters, RMem, WithAbsolutePainters, \
     LinearClarityWeight, Absorb, Regenerate
+from Mixins import WithCountColumns
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
     reseed, is_dataclass_instance
 
 class TestRMem(unittest.TestCase):
+
+    def test_override(self) -> None:
+        rmem = RMemAbs(termination_threshold=11)
+        self.assertEqual(rmem.termination_threshold, 11)
+
+        cls = RMem.make_class(
+            (WithAbsolutePainters, LinearClarityWeight,
+             Absorb, Regenerate)
+        )
+        rmem = cls(termination_threshold=11) # type: ignore
+        self.assertEqual(rmem.termination_threshold, 11) # type: ignore
+
+        cls = RMemAbs.make_class(())
+        rmem = cls(termination_threshold=11) # type: ignore
+        self.assertEqual(rmem.termination_threshold, 11) # type: ignore
+
+        cls = RMemAbs.make_class((WithCountColumns,))
+        rmem = cls(termination_threshold=11) # type: ignore
+        self.assertEqual(rmem.termination_threshold, 11) # type: ignore
+
+        cls = RMem.make_class((WithCountColumns, RMemAbs))
+        rmem = cls(termination_threshold=11) # type: ignore
+        self.assertEqual(rmem.termination_threshold, 11) # type: ignore
 
     def test_make_painters_partial_canvas(self) -> None:
         rmem = RMemAbs()

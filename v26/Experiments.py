@@ -358,7 +358,7 @@ def big_run(**kwargs) -> None:
         #for niters in [20, 60, 100, 200, 500]:
         for niters in [150]:
         #for niters in [1000]:
-            for cls in RMem, RMemCC, RMemSalt, RMemSeqSalt:
+            for cls in RMemAbs, RMemCC, RMemSalt, RMemSeqSalt:
                 cl: Type[RMem] = \
                     type(cls.__name__, (SkewedClarityWeight, cls), {})
                 kw = kwargs | dict(niters=niters) | eqn_ps

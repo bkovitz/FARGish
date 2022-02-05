@@ -125,12 +125,11 @@ class NoRunnableGenerators(Exception):
     pass
 
 
-@dataclass(kw_only=True)  # type: ignore[call-overload]
-class CanvasDataclassMixin:
+@dataclass(kw_only=True)  # type: ignore[call-overload, misc]
+class Canvas(ABC):
     MAX_CLARITY: Numeric = 6
     INITIAL_CLARITY: Numeric = 5
 
-class Canvas(CanvasDataclassMixin, ABC):
     """
     MAX_CLARITY: ClassVar[Numeric] = 6  # TODO move this to a dataclass or  # 5
                                         # maybe to RMem
@@ -356,18 +355,17 @@ class CanvasD(Canvas):
     def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
         self.clarities[addr] = clarity
 
-@dataclass
-class RMemDataclassMixin:
-    pset: PSet = field(default_factory=dict)  # the memory
-    niters: int = 40
-    canvas_cls: ClassVar[Type[Canvas]] = Canvas1D
-    lsteps: List[LoggedStep] = field(default_factory=list)
-
-class RMem(RMemDataclassMixin, ABC):
+@dataclass  # type: ignore[misc]
+class RMem(ABC):
     '''Abstract base class for regenerative memory. To make an actual
     regenerative-memory (RMem) object, you must override two methods:
     .absorb_canvas() and .regenerate().'''
     Q = TypeVar('Q', bound='RMem')
+
+    pset: PSet = field(default_factory=dict)  # the memory
+    niters: int = 40
+    canvas_cls: ClassVar[Type[Canvas]] = Canvas1D
+    lsteps: List[LoggedStep] = field(default_factory=list)
 
     @abstractmethod
     def absorb_canvas(self, c: CanvasAble) -> None:
@@ -727,12 +725,10 @@ class Absorb(RMemFuncs, RMem, ABC):
         )
 
 @dataclass  # type: ignore[misc]
-class RegenerateDataclassMixin(RMem):
-    termination_threshold: int = 3
-
-class Regenerate(RegenerateDataclassMixin, RMem, ABC):
+class Regenerate(RMem, ABC):
     '''Basic implementation of .regenerate() and ancillary methods. Provides
     all but an implementation of .painter_weight().'''
+    termination_threshold: int = 3
 
     @abstractmethod
     def run_painter(self, canvas: Canvas, painter: Painter) -> Outcome:
@@ -866,11 +862,10 @@ class LinearClarityWeight(ClarityWeight):
         return 1.0 - (cl / c.MAX_CLARITY)
 
 @dataclass  # type: ignore[misc]
-class SkewedClarityWeightDataclassMixin(RMem):
+class SkewedClarityWeight(ClarityWeight):
     weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
     weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
 
-class SkewedClarityWeight(SkewedClarityWeightDataclassMixin, ClarityWeight):
     @classmethod
     def from_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
         return cls.weight_from[int(cl)]
@@ -1063,8 +1058,10 @@ class WithAdjacentRelativePainters(
 class WithNDupsDataclassMixin(RMem):
     ndups: ClassVar[int] = 2
 
-class WithNDups(WithNDupsDataclassMixin, Absorb, Regenerate):
+@dataclass  # type: ignore[misc]
+class WithNDups(Absorb, Regenerate):
     '''Replaces every canvas with .ndups duplicates preceding itself.'''
+    ndups: ClassVar[int] = 2
 
     ### Absorption
 

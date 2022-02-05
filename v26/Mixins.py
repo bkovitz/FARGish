@@ -9,20 +9,13 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from random import randrange
 
 from RMem import RMem, Absorb, Regenerate, Func, RMemFuncs, PSet, \
-    CanvasAble, CanvasToPainters, RegenerateDataclassMixin
+    CanvasAble, CanvasToPainters
 from Log import lo, trace
 from util import pts, short, as_tuple
 
 
 @dataclass  # type: ignore[misc]
-class WithCountColumnsDataclassMixin(RegenerateDataclassMixin):
-    pass
-
-@dataclass  # type: ignore[misc]
-class WithCountColumns(
-    #WithCountColumnsDataclassMixin,
-    CanvasToPainters, Absorb, Regenerate
-):
+class WithCountColumns(CanvasToPainters, Absorb, Regenerate):
     mixin_name: ClassVar[str] = 'CoCo'
 
     funcs_to_count: Tuple[Func, ...] = (
@@ -111,16 +104,15 @@ class WithCountColumns(
     """
 
 @dataclass  # type: ignore[misc]
-class WithRandomSaltDataclassMixin(RMem):
-    nsalt: int = 10  # number of cells to prepend
-    saltrange: Tuple[int, int] = (0, 11) # args to randrange for each salt cell
-    # NEXT1 number of copies of each image to absorb
-    # NEXT2 specify number of regeneration iterations somewhere
-
-class WithRandomSalt(WithRandomSaltDataclassMixin, Absorb, Regenerate):
+class WithRandomSalt(Absorb, Regenerate):
     '''Prepends cells containing random numbers (the 'salt') to every canvas
     absorbed.'''
     mixin_name: ClassVar[str] = 'RandomSalt'
+
+    nsalt: int = 10  # number of cells to prepend
+    saltrange: Tuple[int, int] = (0, 11) # args to randrange for each salt cell
+    # TODO number of copies of each image to absorb (for fair comparison
+    # with WithCountColumns).
 
     def prep_absorb(self, c: CanvasAble) -> CanvasAble:
         prefix = tuple(randrange(*self.saltrange) for _ in range(self.nsalt))
@@ -143,16 +135,15 @@ class WithRandomSalt(WithRandomSaltDataclassMixin, Absorb, Regenerate):
         return f'{cl}({self.nsalt})'
 
 @dataclass  # type: ignore[misc]
-class WithSequentialSaltDataclassMixin(RMem):
-    nseqsalt: int = 5
-
-class WithSequentialSalt(WithSequentialSaltDataclassMixin, Absorb, Regenerate):
+class WithSequentialSalt(Absorb, Regenerate):
     '''Prepends calls containing numbers in sequence: 1, 2, 3, ... to every
     canvas absorbed.'''
     mixin_name: ClassVar[str] = 'SeqSalt'
 
+    nseqsalt: int = 5
+
     def prep_absorb(self, c: CanvasAble) -> CanvasAble:
-        prefix = tuple(range(self.nseqsalt))
+        prefix = tuple(range(1, self.nseqsalt + 1))
         return super().prep_absorb(prefix + as_tuple(c))
 
     def prep_regen(self, c: CanvasAble) -> CanvasAble:
