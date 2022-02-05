@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field, \
-    is_dataclass
+    is_dataclass, make_dataclass
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from Log import lo, trace
 from util import pr, ps, pts, psa, union, Numeric, as_tuple, short, as_list, \
     newline, force_setattr, sample_without_replacement, first, is_iter, \
-    singleton
+    singleton, dc_type_of
 
 
 epsilon = 0.0001
@@ -407,7 +407,7 @@ class RMem(ABC):
             getattr(mixin, 'mixin_name', 'X') for mixin in mixins
         )
         return type(class_name, mixins + (cls,), kwargs)
-        
+
     @classmethod
     def make_instance(
         cls: Type[Q],
@@ -416,7 +416,7 @@ class RMem(ABC):
     ) -> Q:
         '''Dynamically defines an RMem class from cls, mixins, and kwargs, and
         returns an instance ot it.'''
-        return cls.make_class(mixins, **kwargs)()
+        return cls.make_class(mixins)(**kwargs)
 
     @classmethod
     def as_canvas(cls, c: CanvasAble) -> Canvas:

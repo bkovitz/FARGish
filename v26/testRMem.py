@@ -4,6 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
+from dataclasses import field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -41,6 +42,12 @@ class TestRMem(unittest.TestCase):
 
         cls = RMem.make_class((WithCountColumns, RMemAbs))
         rmem = cls(termination_threshold=11) # type: ignore
+        self.assertEqual(rmem.termination_threshold, 11) # type: ignore
+
+        rmem = RMem.make_instance(
+            (WithCountColumns, RMemAbs),
+            termination_threshold=11
+        )
         self.assertEqual(rmem.termination_threshold, 11) # type: ignore
 
     def test_make_painters_partial_canvas(self) -> None:

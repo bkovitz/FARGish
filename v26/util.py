@@ -320,6 +320,15 @@ def default_field_value(f: Field) -> Any:
     else:
         return f.default
 
+# TODO UT
+def dc_type_of(cls: Type, field_name: str) -> Type:
+    '''Returns the type of 'field_name' as defined in 'cls'. 'cls' must be
+    a dataclass.'''
+    for f in fields(cls):
+        if f.name == field_name:
+            return f.type
+    raise AttributeError(f'{cls} contains no field named {field_name}.')
+
 ### Utilities for inspecting classes (including whatever class an object is)
 
 def class_of(x: Any) -> Type:
