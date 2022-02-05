@@ -10,7 +10,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING, final
 
-from RMem import RMem, RMemAbs, RMemFuncs, Absorb, Regenerate, make_eqns
+from RMem import RMem, RMemAbs, RMemFuncs, Absorb, Regenerate, make_eqns, \
+    WithNDups
 from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt
 from util import as_tuple
 
@@ -61,4 +62,17 @@ class TestMixins(unittest.TestCase):
         self.assertEqual(
             as_tuple(rmem.prep_regen(eqn)),
             (None,) * 10 + eqn
+        )
+
+    def test_with_ndups(self) -> None:
+        rmem: WithNDups = \
+            RMem.make_instance((WithNDups, RMemAbs), ndups=3) # type: ignore[assignment]
+        eqn = (1, '+', 1, '=', 2)
+        self.assertEqual(
+            rmem.prep_absorb(eqn),
+            eqn * 4
+        )
+        self.assertEqual(
+            rmem.prep_regen(eqn),
+            (None,) * 5 * 3 + eqn
         )

@@ -1061,7 +1061,7 @@ class WithNDupsDataclassMixin(RMem):
 @dataclass  # type: ignore[misc]
 class WithNDups(Absorb, Regenerate):
     '''Replaces every canvas with .ndups duplicates preceding itself.'''
-    ndups: ClassVar[int] = 2
+    ndups: int = 2
 
     ### Absorption
 
