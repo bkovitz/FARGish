@@ -31,7 +31,7 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = RMem.py
+CURRENT = Experiments.py
 m:
 	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
@@ -43,7 +43,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testMixins.TestMixins.testCountColumns
+	$(PY) -m unittest -v testRMem.TestRMem.test_fields_for
 
 # Acceptance tests
 at:

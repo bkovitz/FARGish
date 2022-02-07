@@ -1,7 +1,7 @@
 # Experiments.py  --  Configured runs of RMem
 
 from __future__ import annotations
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -25,7 +25,7 @@ from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
     sample_without_replacement
 
 
-rmem: RMemAbs
+rmem: RMem
 
 def exp1():
     global rmem
@@ -298,12 +298,12 @@ def xpgfid() -> None:
     lo(startc)
     lo(eqn)
 
-RMemCC = type('RMemCC', (WithCountColumns, RMemAbs), {})
-RMemSalt = type('RMemSalt', (WithRandomSalt, RMemAbs), {})
-RMemSeqSalt = type('RMemSeqSalt', (WithSequentialSalt, RMemAbs), {})
+RMemCC = RMemAbs.make_class((WithCountColumns,)) # type: ignore[assignment]
+RMemSalt = RMemAbs.make_class((WithRandomSalt,)) # type: ignore[assignment]
+RMemSeqSalt = RMemAbs.make_class((WithSequentialSalt,)) # type: ignore[assignment]
 
 def xpgfid2() -> None:
-    rmemcc = RMemCC()
+    rmemcc = RMemCC.make_instance()
     common_kwargs = dict(
         #operands=[1, 2],
         operands=[1, 2, 3, 4, 5, 6],
@@ -318,7 +318,7 @@ def xpgfid2() -> None:
     basic_kwargs: Dict = dict(
     )
     cc_kwargs = dict(
-        rm=RMemCC(funcs_to_count=(
+        rm=RMemCC.make_instance(funcs_to_count=(
             RMemFuncs.same,
             RMemFuncs.add_n(1),
             RMemFuncs.mul_by(2),
@@ -327,7 +327,7 @@ def xpgfid2() -> None:
         )),
     )
     salt_kwargs = dict(
-        rm=RMemSalt(nsalt=5)
+        rm=RMemSalt.make_instance(nsalt=5)
     )
     for kwargs in [basic_kwargs, cc_kwargs, salt_kwargs]:
     #for kwargs in [salt_kwargs]:
@@ -358,9 +358,19 @@ def big_run(**kwargs) -> None:
         #for niters in [20, 60, 100, 200, 500]:
         for niters in [150]:
         #for niters in [1000]:
-            for cls in RMemAbs, RMemCC, RMemSalt, RMemSeqSalt:
-                cl: Type[RMem] = \
-                    type(cls.__name__, (SkewedClarityWeight, cls), {})
+            cls: Type[RMem]
+            clss: Sequence[Type[RMem]] = [RMemAbs, RMemCC, RMemSalt, RMemSeqSalt]
+            for cls in clss:
+                #print() #DEBUG
+                #print(cls.__name__) #DEBUG
+                #pts(fields(cls)) #DEBUG
+#                cl: Type[RMem] = \
+#                    type(cls.__name__, (SkewedClarityWeight,) + cls.__mro__, {})
+#                    #type(cls.__name__, (SkewedClarityWeight, cls), {})
+                cl = cls.make_class((SkewedClarityWeight,))
+                #print() #DEBUG
+                #pts(fields(cl)) #DEBUG
+                #print() #DEBUG
                 kw = kwargs | dict(niters=niters) | eqn_ps
                 tspec = TestSpec(
                     cls=cl,
@@ -371,6 +381,8 @@ def big_run(**kwargs) -> None:
                 )
                 result = tspec.run()
                 print(result.nstr())
+                #print(kwargs)  #DEBUG
+                #print(result.rmem.termination_threshold) # type: ignore  #DEBUG
 
     print(f'total time: {perf_counter() - start_time:1.3f} sec')
 
@@ -381,7 +393,7 @@ def little_run() -> None:
     global rmem
     #rmem = RMemSalt(nsalt=10, niters=100)
 
-    rmem = RMemSeqSalt(niters=1000)
+    rmem = RMemSeqSalt.make_instance(niters=1000)
     eqnmaker = EquationMaker()
     lo('HERE1')
     rmem.absorb_canvases(eqnmaker())
@@ -397,8 +409,9 @@ if __name__ == '__main__':
     #lcsets = xpg()
     #print('number of limit cycles found:', len(lcsets))
 
+    #big_run()
     #big_run(npartial=None)
-    big_run(termination_threshold=5)
+    big_run(termination_threshold=3)
     #big_run(termination_threshold=5, npartial=None)
 
     #little_run()

@@ -172,7 +172,9 @@ class TestSpec:
         initial_canvases = list(initial_canvases_f())
         # TODO Rework the interface to TestSpec so we can call
         # RMem.make_instance() here.
+        #print('MKSET1', self.kwargs)
         rmem = instantiate_dataclass_from_kwargs(self.cls, self.kwargs)
+        #print('MKSET2', as_dict(rmem))
         rmem.absorb_canvases(initial_canvases)  # This can be slow.
         return rmem, initial_canvases_f, initial_canvases, cue_maker
 

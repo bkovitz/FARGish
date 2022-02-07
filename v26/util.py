@@ -259,6 +259,7 @@ def field_names(dclass) -> List[str]:
     return [f.name for f in fields(dclass)]
 
 def fields_for(dclass, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    #print('FFOR', dclass.__name__, field_names(dclass), kwargs)
     return d_subset(kwargs, field_names(dclass))
 
 def as_dict(x: Union[Dict, Any, None, Collection[Tuple[str, Hashable]]]) \
@@ -290,6 +291,8 @@ def instantiate_dataclass_from_kwargs(dclass: Type[T], kwargs: Dict[str, Any]) \
 -> T:
     '''dclass must be a dataclass.'''
     # TODO
+    #print('IDFK1', fields_for(dclass, kwargs))
+    #print('IDFK2', as_dict(dclass))
     return dclass(  # type: ignore[call-arg]
         **(as_dict(dclass) | fields_for(dclass, kwargs))
     )

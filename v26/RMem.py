@@ -406,17 +406,24 @@ class RMem(ABC):
         class_name = cls.__name__ + ''.join(
             getattr(mixin, 'mixin_name', 'X') for mixin in mixins
         )
-        return type(class_name, mixins + (cls,), kwargs)
+        #return type(class_name, mixins + (cls,), kwargs)
+        bases = mixins + (cls,)
+        return make_dataclass(
+            class_name, fields=(), bases=bases, namespace=kwargs
+        )
 
     @classmethod
     def make_instance(
         cls: Type[Q],
-        mixins: Tuple[Type[RMem], ...],
+        mixins: Optional[Tuple[Type[RMem], ...]]=None,
         **kwargs
     ) -> Q:
         '''Dynamically defines an RMem class from cls, mixins, and kwargs, and
         returns an instance ot it.'''
-        return cls.make_class(mixins)(**kwargs)
+        if mixins:
+            return cls.make_class(mixins)(**kwargs)
+        else:
+            return cls(**kwargs)
 
     @classmethod
     def as_canvas(cls, c: CanvasAble) -> Canvas:
@@ -462,6 +469,7 @@ class RMem(ABC):
         if real_painter_weight is not None:
             lstep.real_painter_weight = real_painter_weight
 
+@dataclass  # type: ignore[misc]
 class RMemFuncs(RMem):
 
     @classmethod
@@ -657,6 +665,7 @@ class RMemFuncs(RMem):
             cl = self.__class__.__name__
             return f'{cl}({self.nfw:1.3f} {short(self.weights)}, {short(self.funcs)})'
 
+@dataclass  # type: ignore[misc]
 class Absorb(RMemFuncs, RMem, ABC):
     '''Basic implementation of .absorb_canvases() and ancillary methods.
     Provides all but implementations of .canvas_to_psets(); a concrete class
@@ -725,10 +734,10 @@ class Absorb(RMemFuncs, RMem, ABC):
         )
 
 @dataclass  # type: ignore[misc]
-class Regenerate(RMem, ABC):
+class Regenerate(RMem):
     '''Basic implementation of .regenerate() and ancillary methods. Provides
     all but an implementation of .painter_weight().'''
-    termination_threshold: int = 3
+    termination_threshold: int = 4
 
     @abstractmethod
     def run_painter(self, canvas: Canvas, painter: Painter) -> Outcome:
@@ -833,6 +842,7 @@ class Regenerate(RMem, ABC):
         to cell 'b'.'''
         pass
 
+@dataclass  # type: ignore[misc]
 class ClarityWeight(RMem, ABC):
 
     @classmethod
@@ -851,6 +861,7 @@ class ClarityWeight(RMem, ABC):
         'to' cell, the greater the weight.'''
         pass
 
+@dataclass  # type: ignore[misc]
 class LinearClarityWeight(ClarityWeight):
 
     @classmethod
@@ -863,8 +874,12 @@ class LinearClarityWeight(ClarityWeight):
 
 @dataclass  # type: ignore[misc]
 class SkewedClarityWeight(ClarityWeight):
-    weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
-    weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
+    mixin_name: ClassVar[str] = 'Sk'
+
+#    weight_from: ClassVar[List[Numeric]] = [0, 5,  10, 25, 50, 90, 100]
+#    weight_to: ClassVar[List[Numeric]] =  [100, 100, 90, 80,  20,  5,  1]
+    weight_from: Tuple[Numeric, ...] = (0, 5,  10, 25, 50, 90, 100)
+    weight_to: Tuple[Numeric, ...] =  (100, 100, 90, 80,  20,  5,  1)
 
     @classmethod
     def from_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
@@ -874,6 +889,7 @@ class SkewedClarityWeight(ClarityWeight):
     def to_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
         return cls.weight_to[int(cl)]
 
+@dataclass  # type: ignore[misc]
 class CanvasToPainters(RMem, ABC):
     '''Includes a .canvas_to_painters() method. Requires that a concrete class
     override .painter_from_to().'''
@@ -896,6 +912,7 @@ class CanvasToPainters(RMem, ABC):
         the value xb at address b.'''
         pass
 
+@dataclass  # type: ignore[misc]
 class CanvasToOnePSet(CanvasToPainters, Absorb, ABC):
     '''Overrides .canvas_to_psets() with a method that yields a single PSet,
     constructed by calling .painter_from_to() on every pair of addresses
@@ -904,6 +921,7 @@ class CanvasToOnePSet(CanvasToPainters, Absorb, ABC):
     def canvas_to_psets(self, c: CanvasAble) -> Iterable[PSet]:
         yield self.painters_to_pset(self.canvas_to_painters(c))
 
+@dataclass  # type: ignore[misc]
 class WithAbsolutePainters(CanvasToOnePSet, Absorb, Regenerate, ClarityWeight):
     mixin_name: ClassVar[str] = 'Abs'
 
@@ -942,6 +960,7 @@ class WithAbsolutePainters(CanvasToOnePSet, Absorb, Regenerate, ClarityWeight):
         wb = self.to_clarity_weight(c, c.clarity(b))
         return wa * wb * self.natural_func_weight(f)
 
+@dataclass  # type: ignore[misc]
 class WithAdjacentRelativePainters(
     CanvasToOnePSet, Absorb, Regenerate, ClarityWeight
 ):
@@ -1075,6 +1094,7 @@ class WithNDups(Absorb, Regenerate):
         blankdup: Tuple[Value, ...] = (None,) * len(t)
         return (blankdup * self.ndups) + t
 
+@dataclass
 class RMemAbs(
     WithAbsolutePainters, Absorb, LinearClarityWeight, Regenerate, RMem
 ):

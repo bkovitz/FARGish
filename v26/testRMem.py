@@ -4,7 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from dataclasses import field
+from dataclasses import field, fields
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -17,7 +17,7 @@ from RMem import RMem, RMemAbs, make_eqns, BaseValue, \
 from Mixins import WithCountColumns
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
-    reseed, is_dataclass_instance
+    reseed, is_dataclass_instance, field_names
 
 class TestRMem(unittest.TestCase):
 
@@ -49,6 +49,20 @@ class TestRMem(unittest.TestCase):
             termination_threshold=11
         )
         self.assertEqual(rmem.termination_threshold, 11) # type: ignore
+
+    def test_override_skewed(self) -> None:
+        canvas = Canvas1D.make_from(['A'])
+        cls = RMemAbs.make_class((SkewedClarityWeight,))  # OK
+
+        rmem = cls(termination_threshold=11) # type: ignore
+        self.assertEqual(rmem.from_clarity_weight(canvas, 1), 5) #type: ignore
+        self.assertEqual(rmem.termination_threshold, 11) # type: ignore
+
+    def test_fields_for(self) -> None:
+        self.assertCountEqual(
+            field_names(RMemAbs),
+            ['pset', 'niters', 'lsteps', 'termination_threshold']
+        )
 
     def test_make_painters_partial_canvas(self) -> None:
         rmem = RMemAbs()
