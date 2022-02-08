@@ -4,7 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from dataclasses import field, fields
+from dataclasses import dataclass, field, fields
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -13,7 +13,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from RMem import RMem, RMemAbs, make_eqns, BaseValue, \
     Canvas1D, SkewedClarityWeight, Match, Right, Left, Painter, \
     WithAdjacentRelativePainters, RMem, WithAbsolutePainters, \
-    LinearClarityWeight, Absorb, Regenerate
+    LinearClarityWeight, Absorb, Regenerate, WithAllRunnablePainters
 from Mixins import WithCountColumns
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
@@ -207,6 +207,19 @@ class TestRMem(unittest.TestCase):
                 (Match('='), Right(1)): 2,
                 
             }
+        )
+
+    def test_weighted_funcs(self) -> None:
+        @dataclass
+        #class RCls(LinearClarityWeight, WithAllRunnablePainters, WithAbsolutePainters, Absorb): # type: ignore[misc]
+        class RCls(WithAllRunnablePainters, RMemAbs): # type: ignore[misc]
+            pass
+        rmem = RCls()
+        rf = rmem.rndfunc.make(rmem, [5, 5, 5, '+'])
+        p: Painter = (1, 2, rf)
+        self.assertCountEqual(
+            list(rmem.weighted_funcs(p)),
+            [(5, 0.75), ('+', 0.25)]  # three 5's, one '+'
         )
 
     maxDiff = None

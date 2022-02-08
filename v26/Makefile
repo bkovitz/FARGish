@@ -43,7 +43,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testRMem.TestRMem.test_fields_for
+	$(PY) -m unittest -v testRMem.TestRMem.test_weighted_funcs
 
 # Acceptance tests
 at:

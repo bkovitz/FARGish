@@ -364,9 +364,6 @@ def big_run(**kwargs) -> None:
                 #print() #DEBUG
                 #print(cls.__name__) #DEBUG
                 #pts(fields(cls)) #DEBUG
-#                cl: Type[RMem] = \
-#                    type(cls.__name__, (SkewedClarityWeight,) + cls.__mro__, {})
-#                    #type(cls.__name__, (SkewedClarityWeight, cls), {})
                 cl = cls.make_class((SkewedClarityWeight,))
                 #print() #DEBUG
                 #pts(fields(cl)) #DEBUG

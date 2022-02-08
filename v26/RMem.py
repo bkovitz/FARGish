@@ -11,7 +11,7 @@ import operator
 from random import choice, choices
 from collections import defaultdict, Counter
 from functools import reduce
-import itertools
+from itertools import chain
 from io import StringIO
 from copy import deepcopy
 from abc import ABC, abstractmethod
@@ -21,8 +21,6 @@ from util import pr, ps, pts, psa, union, Numeric, as_tuple, short, as_list, \
     newline, force_setattr, sample_without_replacement, first, is_iter, \
     singleton, dc_type_of
 
-
-epsilon = 0.0001
 
 @singleton
 @dataclass(frozen=True)
@@ -367,6 +365,8 @@ class RMem(ABC):
     canvas_cls: ClassVar[Type[Canvas]] = Canvas1D
     lsteps: List[LoggedStep] = field(default_factory=list)
 
+    epsilon: ClassVar[float] = 0.0001
+
     @abstractmethod
     def absorb_canvas(self, c: CanvasAble) -> None:
         '''Absorbs canvas 'c' into the memory. The memory can then guide the
@@ -395,6 +395,18 @@ class RMem(ABC):
         for c in cs:
             self.absorb_canvas(c)
         return self
+
+    @classmethod
+    def pset_to_painters(cls, pset: PSet) -> Iterable[Painter]:
+        for (a, b), f in pset.items():
+            yield (a, b, f)
+
+    @classmethod
+    def abs_painters_only(cls, pset: PSet) -> Iterable[AbsPainter]:
+        for p in cls.pset_to_painters(pset):
+            a, b, f = p
+            if not isinstance(a, Matcher) and not isinstance(b, Jumper):
+                yield p  # type: ignore[misc]
 
     @classmethod
     def make_class(
@@ -611,6 +623,12 @@ class RMemFuncs(RMem):
 
         def natural_func_weight(self) -> Numeric:
             return self.nfw
+
+        def weighted_funcs(self) -> Iterable[Tuple[Func, Numeric]]:
+            return zip(
+                self.funcs,
+                ((w / self.weights_sum) for w in self.weights)
+            )
 
         @classmethod
         def make(
@@ -832,7 +850,7 @@ class Regenerate(RMem):
                 continue
             else:
                 w = self.painter_weight(a1, a2, f, canvas)
-                if w >= epsilon:
+                if w >= self.epsilon:
                     yield ((a1, a2), w)
 
     @abstractmethod
@@ -843,7 +861,7 @@ class Regenerate(RMem):
         pass
 
 @dataclass  # type: ignore[misc]
-class ClarityWeight(RMem, ABC):
+class ClarityWeight(RMem):
 
     @classmethod
     @abstractmethod
@@ -888,6 +906,86 @@ class SkewedClarityWeight(ClarityWeight):
     @classmethod
     def to_clarity_weight(cls, c: Canvas, cl: Numeric) -> float:
         return cls.weight_to[int(cl)]
+
+@dataclass  # type: ignore[misc]
+#class WithAllRunnablePainters(RMemFuncs, ClarityWeight, Regenerate):
+#class WithAllRunnablePainters(Regenerate, ClarityWeight):  # WORKS
+class WithAllRunnablePainters(RMemFuncs, Regenerate, ClarityWeight): # WORKS
+#class WithAllRunnablePainters(Regenerate, RMemFuncs, ClarityWeight):
+
+    def regenerate(
+        self,
+        canvas: CanvasAble,
+        pset: Optional[PSet]=None,
+        niters: Optional[int]=None,
+        vv: int=0  # verbosity
+    ) -> Canvas:
+        pset: PSet = self.pset if pset is None else pset
+        niters: int = self.niters if niters is None else niters
+        canvas: Canvas = self.as_canvas(self.prep_regen(canvas))
+        for i in range(self.niters):
+            addr = self.choose_target_addr(canvas)
+            values, weights = zip(*chain.from_iterable(
+                self.weighted_values(canvas, p)
+                    for p in self.all_runnable_painters(canvas, addr, pset)
+            ))
+            # get their "votes"
+            # choose a value
+            # paint it in addr
+            pass
+            if self.termination_condition(canvas):
+                break
+        return canvas
+
+    def choose_target_addr(self, canvas: Canvas) -> Addr:
+        addrs = list(canvas.all_addrs())
+        weights = [
+            self.to_clarity_weight(canvas, cl) for cl in canvas.all_clarities()
+        ]
+        return choices(addrs, weights)[0]
+
+    def all_runnable_painters(
+        self,
+        canvas: Canvas,
+        addr: Addr,
+        pset: Optional[PSet]=None
+    ) -> Iterable[AbsPainter]:
+        '''Returns a generator yielding all painters that paint to addr, from
+        an addr with a clarity > 0.'''
+        if not isinstance(addr, int):
+            raise NotImplementedError
+        pset: PSet = self.pset if pset is None else pset
+        for p in self.abs_painters_only(pset):
+            a, b, f = p
+            if b == addr and canvas.clarity(a) > 0:
+                yield p
+
+    @classmethod
+    def weighted_values(cls, canvas: Canvas, p: AbsPainter) \
+    -> Iterable[Tuple[Value, Numeric]]:
+        a, b, func = p
+        x = canvas[a]
+        if x is None:
+            return
+        wcl = cls.from_clarity_weight(canvas, canvas.clarity(a))
+        if abs(wcl) < cls.epsilon:
+            return
+        for f, w in cls.weighted_funcs(p):
+            yweight = w * wcl
+            if abs(yweight) < cls.epsilon:
+                continue
+            y = cls.apply_func(f, x)
+            if y is not None:
+                yield (y, w * wcl)
+
+    @classmethod
+    def weighted_funcs(cls, p: Painter) -> Iterable[Tuple[Func, Numeric]]:
+        '''The weights of all the funcs for one painter should be 1.0.'''
+        _, _, f = p
+        if hasattr(f, 'weighted_funcs'):
+            yield from f.weighted_funcs()  # type: ignore[union-attr, attr-defined]
+        else:
+            yield (f, 1.0)
 
 @dataclass  # type: ignore[misc]
 class CanvasToPainters(RMem, ABC):
@@ -1096,7 +1194,7 @@ class WithNDups(Absorb, Regenerate):
 
 @dataclass
 class RMemAbs(
-    WithAbsolutePainters, Absorb, LinearClarityWeight, Regenerate, RMem
+    WithAbsolutePainters, Absorb, Regenerate, LinearClarityWeight
 ):
     pass
 
