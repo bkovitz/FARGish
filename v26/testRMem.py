@@ -211,8 +211,7 @@ class TestRMem(unittest.TestCase):
 
     def test_weighted_funcs(self) -> None:
         @dataclass
-        #class RCls(LinearClarityWeight, WithAllRunnablePainters, WithAbsolutePainters, Absorb): # type: ignore[misc]
-        class RCls(WithAllRunnablePainters, RMemAbs): # type: ignore[misc]
+        class RCls(WithAllRunnablePainters, RMemAbs):
             pass
         rmem = RCls()
         rf = rmem.rndfunc.make(rmem, [5, 5, 5, '+'])

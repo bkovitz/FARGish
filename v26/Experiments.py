@@ -15,7 +15,7 @@ from inspect import isclass
 from time import perf_counter
 
 from RMem import RMem, RMemAbs, RMemFuncs, Absorb, Regenerate, \
-    CanvasToPainters, \
+    CanvasToPainters, WithAllRunnablePainters, \
     Canvas, Canvas1D, CanvasAble, make_eqns, BaseValue, \
     Painter, Func, GSet, PSet, Value, SkewedClarityWeight
 from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt
@@ -342,6 +342,9 @@ def xpgfid2() -> None:
         pr(result)
         lo(f'{sum(result.values())}      {test_duration:8.3f} sec')
 
+class RMemVotes(WithAllRunnablePainters, RMemAbs):
+    pass
+
 def big_run(**kwargs) -> None:
     start_time = perf_counter()
     eqns_params: List[Dict[str, Any]] = [
@@ -349,17 +352,19 @@ def big_run(**kwargs) -> None:
         #dict(operands=[1, 2], operators=['+']),
         dict(operands=range(1, 4), operators=['+']),
         #dict(operands=range(1, 6), operators=['+']),
-        dict(operands=range(1, 11), operators=['+']),
-        #dict(operands=range(1, 11), operators=['+', 'x']),
-        #dict(operands=range(1, 4), operators=['+', '-', 'x', '/']),
+        #dict(operands=range(1, 11), operators=['+']),
+        dict(operands=range(1, 11), operators=['+', 'x']),
+        dict(operands=range(1, 4), operators=['+', '-', 'x', '/']),
         #dict()
     ]
     for eqn_ps in eqns_params:
         #for niters in [20, 60, 100, 200, 500]:
-        for niters in [150]:
+        for niters in [20, 60]:
+        #for niters in [150]:
         #for niters in [1000]:
             cls: Type[RMem]
-            clss: Sequence[Type[RMem]] = [RMemAbs, RMemCC, RMemSalt, RMemSeqSalt]
+            #clss: Sequence[Type[RMem]] = [RMemAbs, RMemCC, RMemSalt, RMemSeqSalt]
+            clss: Sequence[Type[RMem]] = [RMemAbs, RMemVotes]
             for cls in clss:
                 #print() #DEBUG
                 #print(cls.__name__) #DEBUG
@@ -406,9 +411,9 @@ if __name__ == '__main__':
     #lcsets = xpg()
     #print('number of limit cycles found:', len(lcsets))
 
-    #big_run()
+    big_run()
     #big_run(npartial=None)
-    big_run(termination_threshold=3)
+    #big_run(termination_threshold=3)
     #big_run(termination_threshold=5, npartial=None)
 
     #little_run()

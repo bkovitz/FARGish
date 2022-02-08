@@ -11,7 +11,7 @@ import operator
 from random import choice, choices
 from collections import defaultdict, Counter
 from functools import reduce
-from itertools import chain
+from itertools import chain, islice
 from io import StringIO
 from copy import deepcopy
 from abc import ABC, abstractmethod
@@ -397,6 +397,13 @@ class RMem(ABC):
         return self
 
     @classmethod
+    def apply_func(cls, func: Func, x: Value) -> Value:
+        if callable(func):
+            return func(x)
+        else:
+            return func
+
+    @classmethod
     def pset_to_painters(cls, pset: PSet) -> Iterable[Painter]:
         for (a, b), f in pset.items():
             yield (a, b, f)
@@ -483,13 +490,6 @@ class RMem(ABC):
 
 @dataclass  # type: ignore[misc]
 class RMemFuncs(RMem):
-
-    @classmethod
-    def apply_func(cls, func: Func, x: Value) -> Value:
-        if callable(func):
-            return func(x)
-        else:
-            return func
 
     @classmethod
     def natural_func_weight(cls, f: Func) -> Numeric:
@@ -908,10 +908,7 @@ class SkewedClarityWeight(ClarityWeight):
         return cls.weight_to[int(cl)]
 
 @dataclass  # type: ignore[misc]
-#class WithAllRunnablePainters(RMemFuncs, ClarityWeight, Regenerate):
-#class WithAllRunnablePainters(Regenerate, ClarityWeight):  # WORKS
-class WithAllRunnablePainters(RMemFuncs, Regenerate, ClarityWeight): # WORKS
-#class WithAllRunnablePainters(Regenerate, RMemFuncs, ClarityWeight):
+class WithAllRunnablePainters(RMemFuncs, Regenerate, ClarityWeight):
 
     def regenerate(
         self,
@@ -929,13 +926,26 @@ class WithAllRunnablePainters(RMemFuncs, Regenerate, ClarityWeight): # WORKS
                 self.weighted_values(canvas, p)
                     for p in self.all_runnable_painters(canvas, addr, pset)
             ))
-            # get their "votes"
-            # choose a value
-            # paint it in addr
-            pass
+            #print()
+            #pr(zip(values, weights))
+            #value = choices(values, weights)[0]
+            value = self.choose_value(values, weights)
+            #lo('chose:', value)
+            #print()
+            canvas[addr] = value
             if self.termination_condition(canvas):
                 break
         return canvas
+
+    @classmethod
+    def choose_value(
+        self,
+        values: Iterable[Value],   # these must have the same number of elems
+        weights: Iterable[Numeric]
+    ) -> Value:
+        weights: List[Numeric] = list(weights)
+        i = max(range(len(weights)), key=weights.__getitem__)
+        return next(islice(values, i, None))
 
     def choose_target_addr(self, canvas: Canvas) -> Addr:
         addrs = list(canvas.all_addrs())
@@ -971,7 +981,7 @@ class WithAllRunnablePainters(RMemFuncs, Regenerate, ClarityWeight): # WORKS
         if abs(wcl) < cls.epsilon:
             return
         for f, w in cls.weighted_funcs(p):
-            yweight = w * wcl
+            yweight = w * wcl * cls.natural_func_weight(f)
             if abs(yweight) < cls.epsilon:
                 continue
             y = cls.apply_func(f, x)

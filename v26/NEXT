@@ -27,9 +27,13 @@ RMem
     Refactor RMem so it contains just the minimal interface. DONE
 
     Try a more Hopfieldesque run: all other cells get a vote each time a
-    cell is updated. rndfunc cells give fractional votes.
+    cell is updated. rndfunc cells give fractional votes. DONE
 
-        NEXT Make a subclass of Regenerate that overrides .regenerate().
+        Make a subclass of Regenerate that overrides .regenerate(). DONE
+
+        NEXT Rig up an easy way to specify and run a single test of
+        WithAllRunnablePainters, showing all the values and weights at
+        each timestep.
 
     Rig up a test that recalls only painters.
 
