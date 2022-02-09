@@ -11,9 +11,12 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, final
 
 from RMem import RMem, RMemAbs, RMemFuncs, Absorb, Regenerate, make_eqns, \
-    WithNDups
-from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt
-from util import as_tuple
+    WithNDups, WithAdjacentRelativePainters, Canvas, LinearClarityWeight, \
+    Match, Right
+from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt, \
+    WithRelsPaintAbsolutes
+from Log import lo, trace
+from util import as_tuple, pts
 
 
 class TestMixins(unittest.TestCase):
@@ -75,4 +78,15 @@ class TestMixins(unittest.TestCase):
         self.assertEqual(
             rmem.prep_regen(eqn),
             (None,) * 5 * 3 + eqn
+        )
+
+    def test_as_abs_painters(self) -> None:
+        canvas = Canvas.make_from((1, None, 1, '=', 2))
+        rmem: WithAdjacentRelativePainters = RMem.make_instance( # type: ignore[assignment]
+            (WithAdjacentRelativePainters, LinearClarityWeight)
+        )
+        p = (Match(1), Right(1), '+')
+        self.assertCountEqual(
+            rmem.as_absolute_painters(canvas, p),
+            [(1, 2, '+'), (3, 4, '+')]
         )

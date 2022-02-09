@@ -48,9 +48,15 @@ RMem
     like a good idea?
 
         Make run_painter() make a relative painter paint an absolute
-        painter.
+        painter. DONE?
 
             Write .is_abs_painter()  DONE
+
+            Paint an absolute painter from a relative painter.
+            make_abs_painter().  Maybe this is already done, implemented
+            by .as_absolute_painters(). So, write a unit test for it. DONE
+
+        NEXT Sketch out the code for this. To go in WithRelsPaintAbsolutes.
 
     Watch the lsteps in some runs with correction_redundancy.
 

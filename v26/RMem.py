@@ -424,6 +424,10 @@ class RMem(ABC):
     def is_abs_painter(cls, p: Painter) -> TypeGuard[AbsPainter]:
         a, b, _ = p
         return not isinstance(a, Matcher) and not isinstance(b, Jumper)
+
+    @classmethod
+    def is_rel_painter(cls, p: Painter) -> bool:
+        return not cls.is_abs_painter(p)
         
     @classmethod
     def make_class(
@@ -1100,10 +1104,6 @@ class WithAdjacentRelativePainters(
                     yield (addr1, b, f)
         else:
             yield painter  # type: ignore[misc]
-
-@dataclass  # type: ignore[misc]
-class WithNDupsDataclassMixin(RMem):
-    ndups: ClassVar[int] = 2
 
 @dataclass  # type: ignore[misc]
 class WithNDups(Absorb, Regenerate):
