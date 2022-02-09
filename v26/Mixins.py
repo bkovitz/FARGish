@@ -6,12 +6,14 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
-from random import randrange
+from random import randrange, choices
+from itertools import chain, islice
 
 from RMem import RMem, Absorb, Regenerate, Func, RMemFuncs, PSet, \
-    CanvasAble, CanvasToPainters
+    Canvas, CanvasAble, CanvasToPainters, ClarityWeight, Addr, Value, \
+    Painter, AbsPainter
 from Log import lo, trace
-from util import pts, short, as_tuple
+from util import pts, short, as_tuple, Numeric
 
 
 @dataclass  # type: ignore[misc]
@@ -154,4 +156,100 @@ class WithSequentialSalt(Absorb, Regenerate):
         cl = self.__class__.__name__
         return f'{cl}({self.nseqsalt})'
 
+@dataclass  # type: ignore[misc]
+class WithVoting(RMemFuncs, Regenerate, ClarityWeight):
+    '''When regenerating, all runnable painters "vote" on the value to paint.
+    This is closer to the Hopfield net, where the value painted into each
+    target cell is determined by simultaneous contributions from all edges
+    and hence all other cells.'''
 
+    def regenerate(
+        self,
+        canvas: CanvasAble,
+        pset: Optional[PSet]=None,
+        niters: Optional[int]=None,
+        vv: int=0  # verbosity
+    ) -> Canvas:
+        pset: PSet = self.pset if pset is None else pset
+        niters: int = self.niters if niters is None else niters
+        canvas: Canvas = self.as_canvas(self.prep_regen(canvas))
+        for i in range(self.niters):
+            addr = self.choose_target_addr(canvas)
+            values, weights = zip(*chain.from_iterable(
+                self.weighted_values(canvas, p)
+                    for p in self.all_runnable_painters(canvas, addr, pset)
+            ))
+            #print()
+            #pr(zip(values, weights))
+            #value = choices(values, weights)[0]
+            value = self.choose_value(values, weights)
+            #lo('chose:', value)
+            #print()
+            canvas[addr] = value
+            if self.termination_condition(canvas):
+                break
+        return canvas
+
+    @classmethod
+    def choose_value(
+        self,
+        values: Iterable[Value],   # these must have the same number of elems
+        weights: Iterable[Numeric]
+    ) -> Value:
+        weights: List[Numeric] = list(weights)
+        i = max(range(len(weights)), key=weights.__getitem__)
+        return next(islice(values, i, None))
+
+    def choose_target_addr(self, canvas: Canvas) -> Addr:
+        addrs = list(canvas.all_addrs())
+        weights = [
+            self.to_clarity_weight(canvas, cl) for cl in canvas.all_clarities()
+        ]
+        return choices(addrs, weights)[0]
+
+    def all_runnable_painters(
+        self,
+        canvas: Canvas,
+        addr: Addr,
+        pset: Optional[PSet]=None
+    ) -> Iterable[AbsPainter]:
+        '''Returns a generator yielding all painters that paint to addr, from
+        an addr with a clarity > 0.'''
+        if not isinstance(addr, int):
+            raise NotImplementedError
+        pset: PSet = self.pset if pset is None else pset
+        for p in self.abs_painters_only(pset):
+            a, b, f = p
+            if b == addr and canvas.clarity(a) > 0:
+                yield p
+
+    @classmethod
+    def weighted_values(cls, canvas: Canvas, p: AbsPainter) \
+    -> Iterable[Tuple[Value, Numeric]]:
+        a, b, func = p
+        x = canvas[a]
+        if x is None:
+            return
+        wcl = cls.from_clarity_weight(canvas, canvas.clarity(a))
+        if abs(wcl) < cls.epsilon:
+            return
+        for f, w in cls.weighted_funcs(p):
+            yweight = w * wcl * cls.natural_func_weight(f)
+            if abs(yweight) < cls.epsilon:
+                continue
+            y = cls.apply_func(f, x)
+            if y is not None:
+                yield (y, w * wcl)
+
+    @classmethod
+    def weighted_funcs(cls, p: Painter) -> Iterable[Tuple[Func, Numeric]]:
+        '''The weights of all the funcs for one painter should be 1.0.'''
+        _, _, f = p
+        if hasattr(f, 'weighted_funcs'):
+            yield from f.weighted_funcs()  # type: ignore[union-attr, attr-defined]
+        else:
+            yield (f, 1.0)
+
+@dataclass  # type: ignore[misc]
+class WithRelsPaintAbsolutes(RMem):
+    pass

@@ -31,7 +31,7 @@ RMem
 
         Make a subclass of Regenerate that overrides .regenerate(). DONE
 
-        NEXT Rig up an easy way to specify and run a single test of
+        Rig up an easy way to specify and run a single test of
         WithAllRunnablePainters, showing all the values and weights at
         each timestep.
 
@@ -43,6 +43,14 @@ RMem
     it can run all sorts of variants on how to make and run painters.
     Report results on how many equations were recalled correctly, and
     how well it did with equations that it wasn't trained on.
+
+    Relative painters that paint absolute painters. Why did this seem
+    like a good idea?
+
+        Make run_painter() make a relative painter paint an absolute
+        painter.
+
+            Write .is_abs_painter()  DONE
 
     Watch the lsteps in some runs with correction_redundancy.
 

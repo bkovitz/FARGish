@@ -13,8 +13,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from RMem import RMem, RMemAbs, make_eqns, BaseValue, \
     Canvas1D, SkewedClarityWeight, Match, Right, Left, Painter, \
     WithAdjacentRelativePainters, RMem, WithAbsolutePainters, \
-    LinearClarityWeight, Absorb, Regenerate, WithAllRunnablePainters
-from Mixins import WithCountColumns
+    LinearClarityWeight, Absorb, Regenerate
+from Mixins import WithCountColumns, WithVoting
 from Log import lo, trace
 from util import as_tuple, pr, pts, ps, pss, psa, sample_without_replacement, \
     reseed, is_dataclass_instance, field_names
@@ -211,7 +211,7 @@ class TestRMem(unittest.TestCase):
 
     def test_weighted_funcs(self) -> None:
         @dataclass
-        class RCls(WithAllRunnablePainters, RMemAbs):
+        class RCls(WithVoting, RMemAbs):
             pass
         rmem = RCls()
         rf = rmem.rndfunc.make(rmem, [5, 5, 5, '+'])

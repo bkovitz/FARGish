@@ -15,10 +15,11 @@ from inspect import isclass
 from time import perf_counter
 
 from RMem import RMem, RMemAbs, RMemFuncs, Absorb, Regenerate, \
-    CanvasToPainters, WithAllRunnablePainters, \
+    CanvasToPainters, \
     Canvas, Canvas1D, CanvasAble, make_eqns, BaseValue, \
     Painter, Func, GSet, PSet, Value, SkewedClarityWeight
-from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt
+from Mixins import WithCountColumns, WithRandomSalt, WithSequentialSalt, \
+    WithVoting
 from Harness import TestSpec, EquationMaker, PartialCueMaker
 from Log import lo, trace
 from util import pts, pr, ps, pss, psa, pl, as_tuple, reseed, \
@@ -342,7 +343,7 @@ def xpgfid2() -> None:
         pr(result)
         lo(f'{sum(result.values())}      {test_duration:8.3f} sec')
 
-class RMemVotes(WithAllRunnablePainters, RMemAbs):
+class RMemVotes(WithVoting, RMemAbs):
     pass
 
 def big_run(**kwargs) -> None:
