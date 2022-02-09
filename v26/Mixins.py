@@ -257,6 +257,6 @@ class WithRelsPaintAbsolutes(RMem):
     def make_abs_painter(self, c: Canvas, p: Painter) -> AbsPainter:
         if self.is_abs_painter(p):
             return p
-        # NEXT Is this already implemented by .as_absolute_painters()?
+        # NEXT Is this already implemented by .as_abs_painters()?
     """
     pass

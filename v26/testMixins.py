@@ -87,6 +87,6 @@ class TestMixins(unittest.TestCase):
         )
         p = (Match(1), Right(1), '+')
         self.assertCountEqual(
-            rmem.as_absolute_painters(canvas, p),
+            rmem.as_abs_painters(canvas, p),
             [(1, 2, '+'), (3, 4, '+')]
         )

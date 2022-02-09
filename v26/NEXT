@@ -319,6 +319,11 @@ NUMBO
     to search--the space consisting of the remaining blanks, holding
     current guesses constant.
 
+    Backup plan: Make a lot of codelets manually but still operate on
+    canvases. E.g. a codelet to check and correct arithmetic, codelets that
+    operate on little canvases that explore ideas or try to anticipate
+    where another canvas is headed.
+
 NOTES
 
     The codelets are the memory.

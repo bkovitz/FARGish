@@ -1022,7 +1022,7 @@ class WithAdjacentRelativePainters(
     ### Regeneration
 
     def run_painter(self, canvas: Canvas, painter: Painter) -> Outcome:
-        abspainters = list(self.as_absolute_painters(canvas, painter))
+        abspainters = list(self.as_abs_painters(canvas, painter))
         if not abspainters:
             return Failed
         weights = [self.simple_painter_weight(canvas, p) for p in abspainters]
@@ -1080,7 +1080,7 @@ class WithAdjacentRelativePainters(
     def painter_weight(self, a: From, b: To, f: Func, c: Canvas) -> Numeric:
         return max([
             self.simple_painter_weight(c, absp)
-                for absp in self.as_absolute_painters(c, (a, b, f))
+                for absp in self.as_abs_painters(c, (a, b, f))
         ], default=0)
 
     def simple_painter_weight(self, c: Canvas, painter: AbsPainter) -> Numeric:
@@ -1090,9 +1090,8 @@ class WithAdjacentRelativePainters(
                  else self.to_clarity_weight(c, c.clarity(b))
         return wa * wb * self.natural_func_weight(f)
 
-    # TODO UT
     @classmethod
-    def as_absolute_painters(cls, c: Canvas, painter: Painter) \
+    def as_abs_painters(cls, c: Canvas, painter: Painter) \
     -> Iterable[AbsPainter]:
         a, b, f = painter
         if isinstance(a, Matcher):
