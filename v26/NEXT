@@ -313,6 +313,63 @@ IDEAS
     canvas designated in some way, e.g. the 'before' part? Then painters
     could designate it as well as use it.
 
+    Match on a group, not just a value.
+
+    Annotate each cell with the painter who painted its value?
+
+    Try putting '1+1=2' as the salt for all equations. Or simply
+    '1234567890+-x/'. Then every constant can be painted as a relation by
+    at least one other cell.
+
+    There needs to be a "mutational" mechanism: a way to generate variations
+    on canvas values, painters, addresses, relations, functions. Thus the
+    model can explore "nearby" possibilities, turn "knobs", and alter the
+    "graph" of cascades. And it should be possible to create knobs via those
+    cascades, as in the acclivation paper. With virtual knobs, it should be
+    possible to alter the metric of "near" variations and to make some parts
+    of the space inaccessible.
+
+    If there is a mutational mechanism, there must also be a mechanism to
+    preserve the ones that work best--not only the mutations that solve
+    problems, but the mutational mechanisms (or cascades) that find those
+    solutions the fastest.
+
+    "Canvas name" might be a nice additional thing for a relative painter
+    to match on (as well as jump to). More broadly, we might consider any
+    sort of annotation on a cell. But the best annotation, surely, for
+    indirection, is "the painter who painted this".
+
+    Matchers with 'don't care' masks, as in CAM. Or various forms of 'lowering
+    the standards' of a match. These can be explored by the mutation generator.
+
+    What we really want is for the painters in the long-term soup to become
+    more likely to run on 'from' and 'to' addresses in a suitable context.
+    Two painters ('1', right1, '+') and ('1', right1, '=') should each tend
+    to run only in an appropriate context: at the left side of an expression
+    and at the right side of an expression, respectively. But, lacking such
+    context, these painters also need the ability to help get such a context
+    created.
+
+    If we think of a matcher for '1' as meaning "the" 1, then it needs a
+    context in which there is only a single 1.
+
+    Layers of attractor basins. "Averaging" two relative painters should
+    create a basin in the potential space that contains twio smaller basins.
+    Other factors should determine which of the smaller basins the system
+    goes to.
+
+    An axiom: Everything non-local must become local in order to have an
+    effect. On the other hand, this is violated by absolute painters.
+
+    When we paint a '1' in a cell, we could actually paint (1, right1, +),
+    which 'looks like' 1 when viewed. Then every cell value would also be
+    a painter. Would this gain anything?
+
+    "Look where the information is."
+
+    We can install an attractor in a Hopfield net. How about installing two:w
+
+
 NUMBO
 
     Not to be missed: a big part of solving numbles is thinking of ways to
@@ -326,6 +383,15 @@ NUMBO
     canvases. E.g. a codelet to check and correct arithmetic, codelets that
     operate on little canvases that explore ideas or try to anticipate
     where another canvas is headed.
+
+    A FARGish spec could simply be a set of basis functions/painters, a set
+    of symbols, a canvas class, and rules for pressures.
+
+    The role of "averaging" is to make a painter that will paint different
+    values depending on what values other painters support. That is, the
+    average painter should cooperate with other painters to paint a value
+    they both agree on. So, perhaps an average painter should paint a painter
+    that somehow decides what to paint based on some other painter.
 
 NOTES
 
@@ -354,6 +420,24 @@ NOTES
     way (via "testers")? We demand certain relationships between parts of
     the canvas and keep pushing the search until we get them.
 
+    Principle: reconstruct the context in which each element was seen--and
+    the context in which that context was seen, and so on.
+
+    12-Feb-2022: My major concern right now: how to make an iterative
+    process that converges on painters that converge on the canvas.
+
+    The lambda calculus has nothing like "addressing"--unless, of course,
+    you make an interpreter in the lambda calculus for a programming
+    language that does have addressing. But in FARGish we don't want to
+    go out so many levels. We want interesting things to be constructed
+    pretty simply. And yet, shouldn't a FARGish model have the ability to
+    rig up its own "interpreter"--say, for arithmetic?
+
+    Regarding a Hopfield net that can reconstruct its own edge weights:
+    could this be done with relative painters? "Next to these edge weights,
+    put this edge weight." But then how do we reconstruct the relative
+    painters? Do relative painters not have the problem of exponentially
+    growing addresses?
 
 LESSONS LEARNED FROM FARG MODELS
 
