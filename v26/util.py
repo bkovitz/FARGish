@@ -32,6 +32,7 @@ backslash = '\\'
 TypeAnnotation = Any  # In lieu of a type annotation for 'type annotation'
 Numeric = Union[int, float]
 T = TypeVar('T')
+U = TypeVar('U')
 
 ### as_ utilities: for coercing objects to a given type
 
@@ -218,6 +219,11 @@ def loose_dict_eq(d1: Dict, d2: Dict) -> bool:
         if d1.get(k, None) != d2.get(k, None):
             return False
     return True
+
+def dupdate(d: Dict[T, U], *args, **kwargs) -> Dict[T, U]:
+    result = d.copy()
+    result.update(*args, **kwargs)
+    return result
 
 ### Utilities for working with tuples
 

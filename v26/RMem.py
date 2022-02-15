@@ -502,6 +502,8 @@ class RMem(ABC):
         if real_painter_weight is not None:
             lstep.real_painter_weight = real_painter_weight
 
+RMemAble = Union[RMem, Tuple[Type[RMem], ...], Type[RMem]]
+
 @dataclass  # type: ignore[misc]
 class RMemFuncs(RMem):
 
