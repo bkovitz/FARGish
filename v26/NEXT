@@ -99,6 +99,12 @@ RMem
         Later, distinguish in the same way when absorbing painter-sets into
         the long-term memory.
 
+ON PAPER
+
+    NEXT Make a minimal list of cognitive biases needed for Numbo.
+
+    Figure out how to get them from regenerative memory.
+
 IDEAS
 
     Tags can be stored with absolute addresses.
@@ -368,6 +374,38 @@ IDEAS
     "Look where the information is."
 
     We can install an attractor in a Hopfield net. How about installing two:w
+
+    If a relative painter can't find its cue but itself has a high clarity or
+    activation level, maybe then it should paint its cue. Even more so if the
+    other things it paints are already there.
+
+    To average painters, blur the result? Then need a way for multiple
+    blurry paintings to "sharpen".
+
+    Is there any value in asking, "Who sees this?" That is, which painters
+    respond to it?
+
+    A principal goal of spreading activation: to recreate the context in
+    which something occurred previously, but built from elements in the
+    current context. Words need to evoke contexts in which they occur;
+    numbers need to evoke equations in which they occur; equations need
+    to evoke deductions from other equations and nearby or landmark variants.
+
+    How can we break apart more of the process into little bits that
+    coalesce? The building of functions, the building of painters,
+    querying the soup?
+
+    Some notion of expectation should prime searches at every level.
+    Should everything have a before/now pair?
+
+    Is it OK for a "self-description" canvas to have a column indicating only
+    the presence of a certain type of painter? More pertinently: what
+    columns should there be for painters, or descriptions of painters?
+
+    Should each painter paint only the next iteration of the canvas? Well,
+    that's what painters do, no? But it seems that we have both canvas and
+    soup. The soup persists and accumulates through many iterations of the
+    canvas.
 
 
 NUMBO
