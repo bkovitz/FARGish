@@ -25,7 +25,7 @@ def run(rmem: RMemAble) -> None:
             tspec = TestSpec2(
                 rmem=rmem,
                 initial_canvases=eqns,
-                kwargs=dict(niters=niters),
+                kwargs=dict(niters=niters),  #, ndups=20),
                 nsamples=400,
             )
             # TODO Print short form of tspec

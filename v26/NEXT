@@ -477,6 +477,10 @@ NOTES
     painters? Do relative painters not have the problem of exponentially
     growing addresses?
 
+    Could a 'context' marker (e.g. "true equation", "mistake to avoid")
+    function like an absolute address in SDM, i.e. allowing for the marker
+    to be 'near' the marked items?
+
 LESSONS LEARNED FROM FARG MODELS
 
     Slippage: learned to see it everywhere, even within a musical melody, or
