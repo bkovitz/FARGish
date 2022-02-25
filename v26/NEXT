@@ -1,3 +1,9 @@
+Soup
+
+    NEXT Implement reconstruction of 'ajaqb' using only 2-cell Segs.
+
+    Implement a painter with 'unification'.
+
 RMem
 
     A LoggedStep class to track what happened during a run. DONE
@@ -44,8 +50,10 @@ RMem
     Report results on how many equations were recalled correctly, and
     how well it did with equations that it wasn't trained on.
 
-    NEXT On paper, see what happens in 1+1=2 with relative painters in the LTS
+    On paper, see what happens in 1+1=2 with relative painters in the LTS
     and absolute painters during reconstruction.
+
+    On paper, do 1+1=2 Jumbo-style.  DONE?
 
     Relative painters that paint absolute painters. Why did this seem
     like a good idea?
@@ -101,7 +109,7 @@ RMem
 
 ON PAPER
 
-    NEXT Make a minimal list of cognitive biases needed for Numbo.
+    Make a minimal list of cognitive biases needed for Numbo.
 
     Figure out how to get them from regenerative memory.
 
@@ -406,6 +414,22 @@ IDEAS
     that's what painters do, no? But it seems that we have both canvas and
     soup. The soup persists and accumulates through many iterations of the
     canvas.
+
+IDEAS FOR HOW TO CONVERGE ON AN AUTOCATALYTIC SET OF PAINTERS
+
+    There is one process that makes painters from what's on the canvas, and
+    maybe from the current set of painters. There is another process, that
+    paints the canvas, and maybe painters. When process A constructs the
+    painters of process B, and process B paints the canvas cells of A, then we
+    have an autocatalytic set.
+
+    Now, what condition makes it likely or necessary that running these two
+    processes simultaneously will lead to an autocatalytic set?
+
+    Painters, possibly from the long-term memory, might perform process A.
+    Painters in the long-term memory don't need to be part of the autocatalytic
+    set, even though they're necessary to run the process.
+
 
 
 NUMBO
