@@ -1,5 +1,6 @@
 # An experiment: canvas-segments in a "soup", i.e. an unordered set
 
+from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
@@ -12,7 +13,11 @@ from util import pts
 
 Seg = str  # A segment of a canvas.
 
-def item_matches(mem: Set[Seg], item: Seg):
+def soup_matches(mem: Set[Seg], soup: Set[Seg]) -> Iterable[Overlap]:
+    for item in soup:
+        yield from item_matches(mem, item)
+
+def item_matches(mem: Set[Seg], item: Seg) -> Iterable[Overlap]:
     for mem_item in mem:
         yield from ii_matches(mem_item, item)
 
@@ -33,13 +38,21 @@ class Overlap:
     ifirst: int  # index of overlapping char
     isecond: int  # index of overlapping char
 
-    def conjoin(self) -> Seg:
+    def result(self) -> Seg:
         return self.first[:self.ifirst] + self.second[self.isecond:]
     
 
-mem = set(['jb'])
-soup = set('aj')
+def test1() -> None:
+    mem = set(['jb'])
 
-ms = item_matches(mem, 'aj')
+    ms = item_matches(mem, 'aj')
+    for m in ms:
+        print(f'{m}  {m.result()}')
+
+
+mem = set(['aj', 'ja'])
+soup = set(['[aj'])
+
+ms = soup_matches(mem, soup)
 for m in ms:
-    print(f'{m}  {m.conjoin()}')
+    print(f'{m}  {m.result()}')

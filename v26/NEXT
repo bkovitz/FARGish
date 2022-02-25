@@ -1,6 +1,8 @@
 Soup
 
-    NEXT Implement reconstruction of 'ajaqb' using only 2-cell Segs.
+    Implement reconstruction of 'ajaqb' using only 2-cell Segs.
+
+        NEXT To stop 'aj' from becoming 'jaj', implement brackets: '[aj'.
 
     Implement a painter with 'unification'.
 
@@ -504,6 +506,11 @@ NOTES
     Could a 'context' marker (e.g. "true equation", "mistake to avoid")
     function like an absolute address in SDM, i.e. allowing for the marker
     to be 'near' the marked items?
+
+    If you remember the reasons for a mathematical idea--the train of thought
+    that leads to it--you're more likely to remember the idea, or at least
+    be able to reconstruct it if a need for it arises. Isn't this a lot like
+    retaining painters as well as the canvas?
 
 LESSONS LEARNED FROM FARG MODELS
 
