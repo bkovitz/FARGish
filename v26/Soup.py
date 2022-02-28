@@ -11,7 +11,7 @@ from Log import trace, lo
 from util import pts
 
 
-Seg = str  # A segment of a canvas.
+Seg = str | List  # str  # A segment of a canvas.
 
 def soup_matches(mem: Set[Seg], soup: Set[Seg]) -> Iterable[Overlap]:
     for item in soup:
@@ -31,6 +31,12 @@ def ilast(item: Seg) -> int:
     '''Returns index of last element of 'item'.'''
     return len(item) - 1
 
+def lst(s: Seg) -> List:
+    if isinstance(s, list):
+        return s
+    else:
+        return list(s)
+
 @dataclass
 class Overlap:
     first: Seg
@@ -39,19 +45,24 @@ class Overlap:
     isecond: int  # index of overlapping char
 
     def result(self) -> Seg:
-        return self.first[:self.ifirst] + self.second[self.isecond:]
+        if isinstance(self.first, str) and isinstance(self.second, str):
+            return self.first[:self.ifirst] + self.second[self.isecond:]
+        else:
+            return (
+                lst(self.first)[:self.ifirst] + lst(self.second)[self.isecond:]
+            )
     
 
 def test1() -> None:
-    mem = set(['jb'])
+    mem: Set[Seg] = set(['jb'])
 
     ms = item_matches(mem, 'aj')
     for m in ms:
         print(f'{m}  {m.result()}')
 
 
-mem = set(['aj', 'ja'])
-soup = set(['[aj'])
+mem: Set[Seg] = set(['aj', 'ja'])
+soup: Set[Seg] = set(['[aj'])
 
 ms = soup_matches(mem, soup)
 for m in ms:

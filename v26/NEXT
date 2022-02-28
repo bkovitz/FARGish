@@ -2,9 +2,11 @@ Soup
 
     Implement reconstruction of 'ajaqb' using only 2-cell Segs.
 
-        NEXT To stop 'aj' from becoming 'jaj', implement brackets: '[aj'.
+        To stop 'aj' from becoming 'jaj', implement brackets: '[aj'. DONE?
 
     Implement a painter with 'unification'.
+
+        NEXT Replace strings with lists.
 
 RMem
 
