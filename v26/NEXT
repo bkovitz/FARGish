@@ -6,7 +6,13 @@ Soup
 
     Implement a painter with 'unification'.
 
-        NEXT Replace strings with lists.
+        Replace strings with lists. DONE
+
+        NEXT Make a painter (x, 'j', x).
+
+        Make a painter (x, 'j', x+1).
+
+    Go from 'ajaqb' to painters.
 
 RMem
 
