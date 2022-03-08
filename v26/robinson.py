@@ -1,14 +1,12 @@
 def run(first_row):
     rows = [first_row]
-    row = first_row
-    print(row)
+    print(first_row)
     while True:
-        new_row = next_row(row)
+        new_row = next_row(rows[-1])
         print(new_row)
         if new_row in rows:
             break
         rows.append(new_row)
-        row = new_row
 
 def next_row(row):
     result = [0] * 10
