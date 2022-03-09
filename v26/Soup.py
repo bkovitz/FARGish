@@ -183,6 +183,9 @@ class PatternPainter:
 
 Painter = Union[Seg, PatternPainter]
 
+def top_level() -> None:
+    # IDEA: .paint() to a canvas, with absolute addresses
+
 def test1() -> None:
     mem: Set[Seg] = set(['jb'])
 

@@ -520,6 +520,13 @@ NOTES
     be able to reconstruct it if a need for it arises. Isn't this a lot like
     retaining painters as well as the canvas?
 
+    "Convergence of Some Self-Describing Systems": dissertation title?
+
+    When the model sees that the set of workspace painters is not cohering
+    (not reaching autocatalysis), can the model debug itself? Can it find
+    a new painter to throw in (or one to remove) that will help find
+    coherence?
+
 LESSONS LEARNED FROM FARG MODELS
 
     Slippage: learned to see it everywhere, even within a musical melody, or

@@ -412,7 +412,7 @@ if __name__ == '__main__':
     #lcsets = xpg()
     #print('number of limit cycles found:', len(lcsets))
 
-    big_run()
+    #big_run()
     #big_run(npartial=None)
     #big_run(termination_threshold=3)
     #big_run(termination_threshold=5, npartial=None)
@@ -440,3 +440,18 @@ if __name__ == '__main__':
     print()
     pr(a2set)
     '''
+
+#    # TODO Save this in a test-results file.
+#    # TODO Measure how often it lands at 2+2=4.
+#    rmem = RMemAbs(niters=200)
+#    rmem.absorb_canvas((1, '+', 1, '=', 2))
+#    got = rmem.regenerate((1, None, None, None, None))
+#    for _ in range(10):
+#        got2 = rmem.regenerate((2, None, None, None, None))
+#        print(repr(got2))
+
+    rmem = RMemAbs(niters=500)
+    rmem.absorb_canvases(make_eqns(operands=[1, 2, 3], operators=['+']))
+    for _ in range(20):
+        got = rmem.regenerate((3, '+', None, '=', 4))
+        print(repr(got))
