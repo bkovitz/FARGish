@@ -41,6 +41,13 @@ def detect_three_tens(avails: Collection[int]) -> Optional[Sequence[int]]:
     else:
         return list(sample_without_replacement(matching, k=3))
 
+def dt3_and_mul(avails: Collection[int]) -> Optional[SolutionStep]:
+    operands = detect_three_tens(avails)
+    if operands:
+        return SolutionStep(times, as_tuple(operands))
+    else:
+        return None
+
 @dataclass(frozen=True)
 class CantSolve(Exception):
     pass
@@ -68,6 +75,7 @@ def next_avails(avails: Collection[int], step: SolutionStep) -> Tuple[int, ...]:
 Solution = Tuple[SolutionStep, ...]
 
 plus = Operator('+', operator.add)
+times = Operator('*', operator.mul)
 
 def numbo(bricks: Collection[int], target: int) -> Solution:
     step = SolutionStep(plus, as_tuple(bricks))

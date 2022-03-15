@@ -440,8 +440,6 @@ IDEAS FOR HOW TO CONVERGE ON AN AUTOCATALYTIC SET OF PAINTERS
     Painters in the long-term memory don't need to be part of the autocatalytic
     set, even though they're necessary to run the process.
 
-
-
 NUMBO
 
     Not to be missed: a big part of solving numbles is thinking of ways to
@@ -464,6 +462,29 @@ NUMBO
     average painter should cooperate with other painters to paint a value
     they both agree on. So, perhaps an average painter should paint a painter
     that somehow decides what to paint based on some other painter.
+
+PROBLEMS
+
+    In 'ad hoc Numbo' (a collection of see-and-do codelets that implement
+    manually chosen heuristics), detecting three avails in the range 10..19
+    in order to multiply them to get 1,000 runs into the old headaches:
+
+    1. If there are four avails that meet the criterion, we need to bias
+       their probability of being chosen based on other factors.
+
+    2. What about 4 avails and a target of 10,000? What other variations are
+       there? The modeler should not have to anticipate all, but let's have
+       a look:
+
+           9 is almost 10
+
+           20 is just outside the range
+
+           We should prefer numbers closer to 10--or perhaps prefer higher
+           numbers if the target is much higher than 1000.
+
+           13 x 13 is almost 100 (a fact known by the mathematically
+           knowledgeable)
 
 NOTES
 
