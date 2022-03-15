@@ -44,7 +44,7 @@ ut:
 # Convenience target for single unit test current being worked on
 u:
 	#$(PY) -m unittest -v testRMem.TestRMem.test_weighted_funcs
-	$(PY) -m unittest -v testSoup
+	$(PY) -m unittest -v testNumbo1
 
 # Acceptance tests
 at:

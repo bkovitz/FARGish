@@ -1,4 +1,4 @@
-# testHarness -- Unit tests for Harness.py, the test harness
+# testHarness.py -- Unit tests for Harness.py, the test harness
 
 import unittest
 from pprint import pprint as pp

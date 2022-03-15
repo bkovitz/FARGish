@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 import operator
 
-from util import as_tuple, T
+from util import as_tuple, T, sample_without_replacement
 
 
 @dataclass(frozen=True)
@@ -33,6 +33,13 @@ class SolutionStep:
 #@dataclass(frozen=True)
 #class NumboState
 
+
+def detect_three_tens(avails: Collection[int]) -> Optional[Sequence[int]]:
+    matching = [a for a in avails if a >=10 and a <= 19]
+    if len(matching) < 3:
+        return None
+    else:
+        return list(sample_without_replacement(matching, k=3))
 
 @dataclass(frozen=True)
 class CantSolve(Exception):
