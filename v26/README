@@ -1,1 +1,14 @@
 v26 of FARGish: do nearly everything by regenerative memory
+
+
+RMem.py
+   Generic classes and mix-ins for regenerative memory (RMem) and canvases.
+
+Numbo1.py
+   Trying to build Numbo top-down from "big" codelets that "see and paint",
+   and maybe later figure out how to get those big codelets out of the tiny
+   painters of regenerative memory.
+
+Grid.py
+   An experiment with regenerative memory where the canvas is an 8x8 grid and
+   the painters are movable 2x2 grids.
