@@ -1,4 +1,4 @@
-# Grid.py
+# Grid.py -- PPainters and QPainters, and the Canvas is a grid
 
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
@@ -93,6 +93,28 @@ class Canvas:
             raise BadAddr.make(a, y)
         return self.pixels[CANVAS_HEIGHT - y][x - 1]
 
+    def __setitem__(self, a: Addr | int, y: int | None, v: int | None=None) \
+    -> None:
+        '''Sets cell (x, y) to v. Same calling convention for (x, y) as
+        .__getitem__().'''
+        xx: int
+        yy: int
+        vv: int
+        if v is None:
+            assert(isinstance(y, int))
+            vv = y
+            xx, yy = as_xy(a)
+        else:
+            vv = v
+            xx, yy = as_xy(a, y)
+        if (
+            xx < 1 or xx > CANVAS_WIDTH
+            or
+            yy < 1 or yy > CANVAS_HEIGHT
+        ):
+            raise BadAddr.make(xx, yy)
+        self.pixels[CANVAS_HEIGHT - yy][xx - 1] = vv
+
     @classmethod
     def from_data(cls, d: CanvasData) -> Canvas:
         return Canvas(cls.canvasdata_to_lists(d), [[0] * 8] * 8)
@@ -152,3 +174,9 @@ if __name__ == '__main__':
         for x in range(1, 9):
             print(c[x, y], end='')
         print()
+    print()
+
+    c[1, 1] = 2
+    print(c[A(1, 1)])
+    c[(1, 1)] = 3
+    print(c[A(1, 1)])
