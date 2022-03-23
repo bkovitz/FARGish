@@ -1,3 +1,8 @@
+Grid
+
+    Write functions to absorb (make_ppainters) two_cs and regenerate it,
+    using only PPainters.
+
 Soup
 
     Implement reconstruction of 'ajaqb' using only 2-cell Segs.

@@ -6,8 +6,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
+from random import choices
 
-from util import Numeric
+from util import Numeric, pts
+from Log import lo
 
 
 CanvasData = Sequence[Sequence[int]]  # 8x8 grid, [x][y], [0][0] is upper left
@@ -20,6 +22,20 @@ class AddrDC:
     '''x,y of a Canvas, 0-relative, (1, 8) is upper left.'''
     x: int
     y: int
+
+    def right(self) -> AddrDC:
+        return AddrDC(self.x + 1, self.y)
+
+    def down(self) -> AddrDC:
+        return AddrDC(self.x, self.y - 1)
+
+    def sq2x2(self) -> Iterable[AddrDC]:
+        '''Yields AddrDCs in a 2x2 square with (x, y) at upper left, in
+        row-major order.'''
+        yield self
+        yield AddrDC(self.x + 1, self.y)
+        yield AddrDC(self.x, self.y - 1)
+        yield AddrDC(self.x + 1, self.y - 1)
 
     def __str__(self) -> str:
         return f'({self.x}, {self.y})'
@@ -45,6 +61,14 @@ def as_addrdc(a: Addr | Tuple[int, int] | int, y: int | None=None) -> AddrDC:
     else:
         assert isinstance(y, int)
         return AddrDC(a, y)
+
+def as_xo(v: int) -> str:
+    if v < 0:
+        return 'O'
+    elif v > 0:
+        return 'X'
+    else:
+        return '.'
 
 @dataclass(frozen=True)
 class BadPPainterAddr(Exception):
@@ -114,15 +138,65 @@ class Canvas:
         ):
             raise BadAddr.make(xx, yy)
         self.pixels[CANVAS_HEIGHT - yy][xx - 1] = vv
+        if vv == 0:
+            self.clarities[CANVAS_HEIGHT - yy][xx - 1] = 0
+
+    def all_addrs(self) -> Iterable[A]:
+        for y in range(CANVAS_HEIGHT, 0, -1):
+            for x in range(1, CANVAS_WIDTH + 1):
+                yield A(x, y)
+
+    def all_2x2_addrs(self) -> Iterable[A]:
+        for y in range(CANVAS_HEIGHT, 1, -1):
+            for x in range(1, CANVAS_WIDTH):
+                yield A(x, y)
+
+    def reweight(self, match_wt: Numeric) -> Numeric:
+        '''Reweights a painter's match_wt to give huge emphasis to 19.'''
+        #lo(match_wt, match_wt < 12)
+        if match_wt < 12:
+            return match_wt / 12.0
+        elif match_wt <= 16:
+            return (match_wt - 11) * 250
+        else:
+            return 5 - (20 - match_wt)
+
+    def pp_weights_everywhere(self, pps: Collection[PPainter]) \
+    -> Iterable[Tuple[Tuple[PPainter, A], Numeric]]:
+        for a in self.all_2x2_addrs():
+            for pp in pps:
+                wt = pp.match_wt(self, a)
+                if wt > 0:
+                    yield ((pp, a), self.reweight(wt))
+
+    def choose_painter(self, pps: Collection[PPainter]): # -> PPainter:
+        # TODO Should return Optional[PPainter]
+        pairs, weights = zip(*self.pp_weights_everywhere(pps))
+        i = choices(range(len(pairs)), weights)[0]
+        lo(pairs[i], weights[i])
+        return pairs[i]
+        
+    def blank_all_but(self, *addrs: Addr) -> None:
+        addrs: Set[Addr] = set(as_addrdc(a) for a in addrs)
+        for a in self.all_addrs():
+            if a not in addrs:
+                self[a] = 0
 
     @classmethod
     def from_data(cls, d: CanvasData) -> Canvas:
-        return Canvas(cls.canvasdata_to_lists(d), [[0] * 8] * 8)
+        # TODO clarity should be 0 for pixels with value 0
+        return Canvas(cls.canvasdata_to_lists(d), [[4] * 8] * 8)
 
     @classmethod
     def canvasdata_to_lists(cls, d: CanvasData) -> List[List[int]]:
         '''Copies 'd' to a list of lists.'''
         return [list(row) for row in d]
+
+    def __str__(self) -> str:
+        return '\n'.join(
+            ''.join(as_xo(self[x, y]) for x in range(1, CANVAS_WIDTH + 1))
+                for y in range(CANVAS_HEIGHT, 0, -1)
+        )
 
 @dataclass(frozen=True)
 class PPainter:
@@ -145,8 +219,32 @@ class PPainter:
             c[x, y], c[x+1, y], c[x, y-1], c[x+1, y-1]
         )
 
-    def match_amt(self, c: Canvas, addr: Addr) -> Numeric:
-        pass
+    def match_wt(self, c: Canvas, addr: Addr) -> int:
+        '''How well does this painter match the canvas at 'addr'? The returned
+        value is the sum of match scores for each pixel: 5 points for an exact
+        match with a non-zero value on the canvas, 1 point for a zero on the
+        canvas, and no points for non-zero value that disagrees.'''
+        result = 0
+        for a, v in zip(as_addrdc(addr).sq2x2(), self.values()):
+            cv = c[a]
+            if cv == 0:
+                result += 1
+            elif cv == v:
+                result += 5
+        return result
+
+    def values(self) -> Iterable[int]:
+        yield self.ul
+        yield self.ur
+        yield self.ll
+        yield self.lr
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.as_xos()})'
+
+    def as_xos(self) -> str:
+        return ''.join(as_xo(v) for v in self.values())
 
 Painter = PPainter   # union this with QPainter, DPainter, anything else
 
@@ -160,9 +258,8 @@ class QPainter:
 
 
 def make_ppainters(c: Canvas) -> Iterable[PPainter]:
-    for x in range(0, CANVAS_WIDTH - 1):
-        for y in range(0, CANVAS_HEIGHT - 1):
-            yield PPainter.from_canvas(c, A(x, y))
+    for a in c.all_2x2_addrs():
+        yield PPainter.from_canvas(c, a)
 
 def pps_to_qqs(c: Canvas, pps: Collection[PPainter]) -> Iterable[QPainter]:
     pass
@@ -170,13 +267,17 @@ def pps_to_qqs(c: Canvas, pps: Collection[PPainter]) -> Iterable[QPainter]:
 
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
-    for y in range(8, 0, -1):
-        for x in range(1, 9):
-            print(c[x, y], end='')
-        print()
+    pps = list(make_ppainters(c))
+    #pts(pps)
+    print(pps[0].match_wt(c, (1, 8)))
+    print(pps[0].match_wt(c, (5, 8)))
+    print()
+    pps = set(pps)
+    c.blank_all_but((2, 7), (3, 7))
+    tups = list(c.pp_weights_everywhere(pps))
+    pts(tups)
     print()
 
-    c[1, 1] = 2
-    print(c[A(1, 1)])
-    c[(1, 1)] = 3
-    print(c[A(1, 1)])
+    for _ in range(30):
+        p = c.choose_painter(pps)
+        print(p)
