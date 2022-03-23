@@ -34,10 +34,10 @@ class SolutionStep:
 #class NumboState
 
 
-def detect_three_tens(avails: Collection[int]) -> Optional[Sequence[int]]:
+def detect_three_tens(avails: Collection[int]) -> Sequence[int]:
     matching = [a for a in avails if a >=10 and a <= 19]
     if len(matching) < 3:
-        return None
+        return ()
     else:
         return list(sample_without_replacement(matching, k=3))
 

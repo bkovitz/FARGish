@@ -10,9 +10,9 @@ from Numbo1 import detect_three_tens
 class TestNumbo1(unittest.TestCase):
 
     def test_detect_three_tens(self) -> None:
-        self.assertIsNone(detect_three_tens([]))
-        self.assertIsNone(detect_three_tens([1, 2, 3]))
-        self.assertIsNone(detect_three_tens([1, 10, 2, 11]))
+        self.assertEqual(detect_three_tens([]), ())
+        self.assertEqual(detect_three_tens([1, 2, 3]), ())
+        self.assertEqual(detect_three_tens([1, 10, 2, 11]), ())
         self.assertCountEqual(detect_three_tens(
             [1, 10, 2, 11, 10]),
             [10, 10, 11]
