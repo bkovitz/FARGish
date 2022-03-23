@@ -207,8 +207,8 @@ class PPainter:
     lr: int
 
     def paint(self, c: Canvas, addr: Addr) -> None:
-        pass
-        #TODO
+        for a, v in zip(as_addrdc(addr).sq2x2(), self.values()):
+            c[a] = v
 
     @classmethod
     def from_canvas(cls, c: Canvas, a: Addr) -> PPainter:
@@ -267,6 +267,16 @@ def pps_to_qqs(c: Canvas, pps: Collection[PPainter]) -> Iterable[QPainter]:
 
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
+    c.blank_all_but((2, 7), (3, 7))
+    print(str(c))
+    print()
+    p = PPainter(-1, -1, -1, -1)
+    p.paint(c, (3, 7))
+    print(str(c))
+    print()
+
+    '''
+    c = Canvas.from_data(two_cs)
     pps = list(make_ppainters(c))
     #pts(pps)
     print(pps[0].match_wt(c, (1, 8)))
@@ -281,3 +291,4 @@ if __name__ == '__main__':
     for _ in range(30):
         p = c.choose_painter(pps)
         print(p)
+    '''
