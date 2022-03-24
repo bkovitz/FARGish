@@ -185,6 +185,10 @@ class Canvas:
         i, j = self.addr_to_indices(a, y)
         return self.clarities[i][j]
 
+    def set_clarity(self, a: Addr, clarity: int) -> None:
+        i, j = self.addr_to_indices(a)
+        self.clarities[i][j] = clarity
+
     def all_addrs(self) -> Iterable[A]:
         for y in range(CANVAS_HEIGHT, 0, -1):
             for x in range(1, CANVAS_WIDTH + 1):
@@ -205,7 +209,7 @@ class Canvas:
         else:
             return 5 - (20 - match_wt)
 
-    def pp_weights_everywhere(self, pps: Collection[PPainter]) \
+    def OLDpp_weights_everywhere(self, pps: Collection[PPainter]) \
     -> Iterable[Tuple[Tuple[PPainter, A], Numeric]]:
         for a in self.all_2x2_addrs():
             for pp in pps:
@@ -213,8 +217,45 @@ class Canvas:
                 if wt > 0:
                     yield ((pp, a), self.reweight(wt))
 
-    def choose_painter(self, pps: Collection[PPainter]): # -> PPainter:
+    def pp_weights_everywhere(self, pps: Collection[PPainter]) \
+    -> Iterable[Tuple[Tuple[PPainter, A], Numeric]]:
+        for a in self.all_2x2_addrs():
+            for pp in pps:
+                wt = self.painter_wt(pp, a)
+                #lo('PPW', pp, a, wt)
+                if wt > 0:
+                    yield ((pp, a), wt)
+
+    already_all_painted = [
+        'SameValue', 'SameValue', 'SameValue', 'SameValue'
+    ]
+
+    num_matches_weights = {
+        0: 0.0,
+        1: 1.0,
+        2: 100.0,
+        3: 200.0,
+        4: 1.0
+    }
+
+    def painter_wt(self, p: PPainter, addr: Addr) -> Numeric:
+        # TODO Favor higher source clarity than target clarity
+        result = 0.0
+        num_matches = 0
+        for a, mtype in p.match_types(self, addr):
+            wfrom = self.clarity(a) / self.MAX_CLARITY
+            wto = 1.0 - (self.clarity(a) / self.MAX_CLARITY)
+            if mtype == 'DifferentValue' or mtype == 'Target0':
+                result += wfrom * wto * 100.0
+            else:  # painting value that is already there
+                result += wfrom * wto
+                num_matches += 1
+        #lo('PWT', p, addr, result, num_matches)
+        return result * self.num_matches_weights[num_matches]
+                
+    def choose_painter(self, pps: Collection[PPainter]) -> Tuple[PPainter, A]:
         # TODO Should return Optional[PPainter]
+        # TODO Consider cell clarities in the weight
         pairs, weights = zip(*self.pp_weights_everywhere(pps))
         i = choices(range(len(pairs)), weights)[0]
         lo(pairs[i], weights[i])
@@ -225,11 +266,28 @@ class Canvas:
         for a in self.all_addrs():
             if a not in addrs:
                 self[a] = 0
+                self.set_clarity(a, 0)
+
+    def regenerate(self, pset: Set[PPainter], niters: int=20) -> None:
+        '''Loops through choosing painters and letting them paint.'''
+        for i in range(niters):
+            pp, a = self.choose_painter(pset)
+            pp.paint(self, a)
 
     @classmethod
     def from_data(cls, d: CanvasData) -> Canvas:
-        # TODO clarity should be 0 for pixels with value 0
-        return Canvas(cls.canvasdata_to_lists(d), [[4] * 8] * 8)
+        return Canvas(
+            cls.canvasdata_to_lists(d),
+            #[[0] * 8 for _ in range(8)]
+            [cls.initial_row_clarities(row) for row in d]
+        )
+
+    @classmethod
+    def initial_row_clarities(cls, row: Sequence[int]) -> List[int]:
+        '''Initial clarities for a row initialized in .from_data(): each
+        non-zero value gets a clarity of 4; each zero value gets a clarity
+        of 0.'''
+        return [0 if v == 0 else 4 for v in row]
 
     @classmethod
     def canvasdata_to_lists(cls, d: CanvasData) -> List[List[int]]:
@@ -249,6 +307,16 @@ class Canvas:
                 for y in range(CANVAS_HEIGHT, 0, -1)
         )
 
+    def claritystr(self) -> str:
+        '''Returns a string representing all the clarities as a matrix.'''
+        return '\n'.join(
+            ''.join(f'{self.clarity(x, y):2d}'
+                for x in range(1, CANVAS_WIDTH + 1))
+                    for y in range(CANVAS_HEIGHT, 0, -1)
+        )
+
+MatchType = Literal['Target0', 'SameValue', 'DifferentValue']
+
 @dataclass(frozen=True)
 class PPainter:
     ul: int  # value of upper left pixel.
@@ -259,7 +327,8 @@ class PPainter:
 
     def paint(self, c: Canvas, addr: Addr) -> None:
         for a, v in zip(as_addrdc(addr).sq2x2(), self.values()):
-            c[a] = v
+            #c[a] = v
+            c.paint(a, v)
 
     @classmethod
     def from_canvas(cls, c: Canvas, a: Addr) -> PPainter:
@@ -292,6 +361,20 @@ class PPainter:
         yield self.ll
         yield self.lr
 
+    def match_types(self, c: Canvas, addr: Addr) \
+    -> Iterable[Tuple[A, MatchType]]:
+        '''Returns an iterable of four tuples (A, MatchType), corresponding to
+        the matches between the painter cells and the canvas cells as 'addr',
+        in row-major order.'''
+        for a, v in zip(as_addrdc(addr).sq2x2(), self.values()):
+            cv = c[a]
+            if cv == 0:
+                yield (a, 'Target0')
+            elif cv == v:
+                yield (a, 'SameValue')
+            else:
+                yield (a, 'DifferentValue')
+
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.as_xos()})'
@@ -320,13 +403,18 @@ def pps_to_qqs(c: Canvas, pps: Collection[PPainter]) -> Iterable[QPainter]:
 
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
+    pps = set(make_ppainters(c))
+
     c.blank_all_but((2, 7), (3, 7))
     print(str(c))
     print()
-    p = PPainter(-1, -1, -1, -1)
-    p.paint(c, (3, 7))
-    print(str(c))
+    print(c.claritystr())
     print()
+    #c.regenerate(pps, niters=100)
+    #print(str(c))
+    #print()
+
+    # NEXT Call c.regenerate()
 
     '''
     c = Canvas.from_data(two_cs)
