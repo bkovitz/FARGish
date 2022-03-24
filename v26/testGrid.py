@@ -34,3 +34,11 @@ class TestCanvas(unittest.TestCase):
         self.assertEqual(c[1, 8], 3)
         c[A(1, 8)] = 4
         self.assertEqual(c[1, 8], 4)
+
+    def test_addr_to_indices(self) -> None:
+        c = Canvas.from_data(two_cs)
+        self.assertEqual(c.addr_to_indices(3, 7), (1, 2))
+        self.assertEqual(c.addr_to_indices((3, 7)), (1, 2))
+        self.assertEqual(c.addr_to_indices(A(3, 7)), (1, 2))
+        # TODO Get a BadAddr
+        

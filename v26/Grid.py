@@ -79,7 +79,7 @@ class BadPPainterAddr(Exception):
         return f'Bad PPainter location: ({self.x}, {self.y})'
 
 @dataclass(frozen=True)
-class BadAddr(Exception):
+class BadAddr(IndexError):
     a: AddrDC
 
     def __str__(self) -> str:
@@ -107,40 +107,67 @@ class Canvas:
     pixels: List[List[int]]     # [x][y], [0][0] is upper left
     clarities: List[List[int]]  # [x][y], [0][0] is upper left
 
-    def __getitem__(self, a: Addr | int, y: int | None=None) -> int:
-        x, y = as_xy(a)
+    MAX_CLARITY: int = 6
+
+    #def __getitem__(self, a: Addr | int, y: int | None=None) -> int:
+    def __getitem__(self, a: Addr) -> int:
+#        x, y = as_xy(a)
+#        if (
+#            x < 1 or x > CANVAS_WIDTH
+#            or
+#            y < 1 or y > CANVAS_HEIGHT
+#        ):
+#            raise BadAddr.make(a, y)
+#        return self.pixels[CANVAS_HEIGHT - y][x - 1]
+        i, j = self.addr_to_indices(a)
+        return self.pixels[i][j]
+
+    #def __setitem__(self, a: Addr | int, y: int | None, v: int | None=None) \
+    def __setitem__(self, a: Addr, v: int) \
+    -> None:
+        '''Sets cell (x, y) to v. Same calling convention for (x, y) as
+        .__getitem__().'''
+#        xx: int
+#        yy: int
+#        vv: int
+#        if v is None:
+#            assert(isinstance(y, int))
+#            vv = y
+#            xx, yy = as_xy(a)
+#        else:
+#            vv = v
+#            xx, yy = as_xy(a, y)
+#        if (
+#            xx < 1 or xx > CANVAS_WIDTH
+#            or
+#            yy < 1 or yy > CANVAS_HEIGHT
+#        ):
+#            raise BadAddr.make(xx, yy)
+#        self.pixels[CANVAS_HEIGHT - yy][xx - 1] = vv
+#        if vv == 0:
+#            self.clarities[CANVAS_HEIGHT - yy][xx - 1] = 0
+        i, j = self.addr_to_indices(a)
+        self.pixels[i][j] = v
+
+    def addr_to_indices(self, a: Addr | int, y: int | None=None) \
+    -> Tuple[int, int]:
+        '''Returns tuple of indices to access the element in either .pixels
+        or .clarities corresponding to 'a'. Raises BadAddr if 'a' is out
+        of range.'''
+        x, y = as_xy(a, y)
         if (
             x < 1 or x > CANVAS_WIDTH
             or
             y < 1 or y > CANVAS_HEIGHT
         ):
-            raise BadAddr.make(a, y)
-        return self.pixels[CANVAS_HEIGHT - y][x - 1]
+            raise BadAddr.make(x, y)
+        return CANVAS_HEIGHT - y, x - 1
 
-    def __setitem__(self, a: Addr | int, y: int | None, v: int | None=None) \
-    -> None:
-        '''Sets cell (x, y) to v. Same calling convention for (x, y) as
-        .__getitem__().'''
-        xx: int
-        yy: int
-        vv: int
-        if v is None:
-            assert(isinstance(y, int))
-            vv = y
-            xx, yy = as_xy(a)
-        else:
-            vv = v
-            xx, yy = as_xy(a, y)
-        if (
-            xx < 1 or xx > CANVAS_WIDTH
-            or
-            yy < 1 or yy > CANVAS_HEIGHT
-        ):
-            raise BadAddr.make(xx, yy)
-        self.pixels[CANVAS_HEIGHT - yy][xx - 1] = vv
-        if vv == 0:
-            self.clarities[CANVAS_HEIGHT - yy][xx - 1] = 0
-
+    def paint(self, a: Addr, v: int) -> None:
+        #oldv = self[a]
+        #oldc =
+        pass
+        
     def all_addrs(self) -> Iterable[A]:
         for y in range(CANVAS_HEIGHT, 0, -1):
             for x in range(1, CANVAS_WIDTH + 1):
@@ -234,6 +261,8 @@ class PPainter:
         return result
 
     def values(self) -> Iterable[int]:
+        '''Returns an iterable containing the values of this painter, in
+        row-major order.'''
         yield self.ul
         yield self.ur
         yield self.ll
