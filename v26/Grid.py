@@ -104,8 +104,8 @@ two_cs: CanvasData = [
 @dataclass(frozen=True)
 class Canvas:
     '''8x8 grid with clarities, [x, y], [1, CANVAS_HEIGHT] is upper left.'''
-    pixels: List[List[int]]     # [x][y], [0][0] is upper left
-    clarities: List[List[int]]  # [x][y], [0][0] is upper left
+    pixels: List[List[int]]     # [row][column], [0][0] is upper left
+    clarities: List[List[int]]  # [row][column], [0][0] is upper left
 
     MAX_CLARITY: int = 6
 
@@ -123,8 +123,7 @@ class Canvas:
         return self.pixels[i][j]
 
     #def __setitem__(self, a: Addr | int, y: int | None, v: int | None=None) \
-    def __setitem__(self, a: Addr, v: int) \
-    -> None:
+    def __setitem__(self, a: Addr, v: int) -> None:
         '''Sets cell (x, y) to v. Same calling convention for (x, y) as
         .__getitem__().'''
 #        xx: int
@@ -164,10 +163,28 @@ class Canvas:
         return CANVAS_HEIGHT - y, x - 1
 
     def paint(self, a: Addr, v: int) -> None:
-        #oldv = self[a]
-        #oldc =
-        pass
+        i, j = self.addr_to_indices(a)
+        oldv = self.pixels[i][j]
+        if oldv == v:
+            if self.clarities[i][j] < self.MAX_CLARITY:
+                self.clarities[i][j] += 1
+        elif oldv == 0:
+            if v != 0:
+                self.pixels[i][j] = v
+                self.clarities[i][j] = 1
+        else:  # else there is a different value there
+            clarity = self.clarities[i][j]
+            clarity -= 1
+            if clarity < 1:
+                self.pixels[i][j] = 0  # i.e. unknown pixel value
+                self.clarities[i][j] = 0
+            else:
+                self.clarities[i][j] = clarity
         
+    def clarity(self, a: Addr | int, y: int | None=None) -> int:
+        i, j = self.addr_to_indices(a, y)
+        return self.clarities[i][j]
+
     def all_addrs(self) -> Iterable[A]:
         for y in range(CANVAS_HEIGHT, 0, -1):
             for x in range(1, CANVAS_WIDTH + 1):
@@ -218,6 +235,13 @@ class Canvas:
     def canvasdata_to_lists(cls, d: CanvasData) -> List[List[int]]:
         '''Copies 'd' to a list of lists.'''
         return [list(row) for row in d]
+
+    @classmethod
+    def empty(self) -> Canvas:
+        return Canvas(
+            [[0] * 8 for _ in range(8)],
+            [[0] * 8 for _ in range(8)]
+        )
 
     def __str__(self) -> str:
         return '\n'.join(

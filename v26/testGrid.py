@@ -5,6 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from Grid import Canvas, CanvasData, A
+from Log import lo
 
 
 two_cs: CanvasData = [
@@ -41,4 +42,20 @@ class TestCanvas(unittest.TestCase):
         self.assertEqual(c.addr_to_indices((3, 7)), (1, 2))
         self.assertEqual(c.addr_to_indices(A(3, 7)), (1, 2))
         # TODO Get a BadAddr
+
+    def test_paint(self) -> None:
+        c = Canvas.empty()
+
+        c.paint((1, 8), +1)
+        self.assertEqual(c[1, 8], +1)
+        self.assertEqual(c.clarity(1, 8), 1)
+        self.assertEqual(c[1, 7], 0)  # should be unchanged
+        self.assertEqual(c.clarity(1, 7), 0)  # should be unchanged
         
+        c.paint((1, 8), +1)
+        self.assertEqual(c[1, 8], +1)
+        self.assertEqual(c.clarity(1, 8), 2)
+        
+        c.paint((1, 8), -1)
+        self.assertEqual(c[1, 8], +1)
+        self.assertEqual(c.clarity(1, 8), 1)
