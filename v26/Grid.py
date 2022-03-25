@@ -222,8 +222,8 @@ class Canvas:
         for a in self.all_2x2_addrs():
             for pp in pps:
                 wt = self.painter_wt(pp, a)
-                #lo('PPW', pp, a, wt)
                 if wt > 0:
+                    lo('PPW', (pp, a), wt, '   ', list(pp.match_types(self, a)))
                     yield ((pp, a), wt)
 
     already_all_painted = [
@@ -233,35 +233,59 @@ class Canvas:
     num_matches_weights = {
         0: 0.0,
         1: 1.0,
-        2: 100.0,
-        3: 200.0,
+        2: 5.0,
+        3: 10.0,
         4: 1.0
     }
 
-    def painter_wt(self, p: PPainter, addr: Addr) -> Numeric:
+    def OLDpainter_wt(self, p: PPainter, addr: Addr) -> Numeric:
         # TODO Favor higher source clarity than target clarity
         result = 0.0
         num_matches = 0
+        #breakpoint()
         for a, mtype in p.match_types(self, addr):
             wfrom = self.clarity(a) / self.MAX_CLARITY
             wto = 1.0 - (self.clarity(a) / self.MAX_CLARITY)
             if mtype == 'DifferentValue' or mtype == 'Target0':
-                result += wfrom * wto * 100.0
+                result += wto ** 2
             else:  # painting value that is already there
-                result += wfrom * wto
+                result += wfrom ** 2
                 num_matches += 1
         #lo('PWT', p, addr, result, num_matches)
-        return result * self.num_matches_weights[num_matches]
+        #return result * self.num_matches_weights[num_matches]
+        return result
+
+    def painter_wt(self, p: PPainter, addr: Addr) -> Numeric:
+        source_strength = 0.0
+        target_strength = 0.0
+        num_targets = 0
+        for a, mtype in p.match_types(self, addr):
+            cl = self.clarity(a)
+            w = cl / self.MAX_CLARITY
+            if mtype != 'SameValue':
+                target_strength += w + 0.01
+                num_targets += 1
+            else:
+                if cl <= 2:
+                    target_strength += 2 * w + 0.01
+                    num_targets += 1
+                else:
+                    source_strength += w
+        if num_targets:
+            return source_strength / target_strength
+        else:
+            return 0
                 
     def choose_painter(self, pps: Collection[PPainter]) -> Tuple[PPainter, A]:
         # TODO Should return Optional[PPainter]
-        # TODO Consider cell clarities in the weight
+        # TODO Optionally, print sorted list of choices, with info
+        # TODO ChoiceInfo
         pairs, weights = zip(*self.pp_weights_everywhere(pps))
         i = choices(range(len(pairs)), weights)[0]
-        lo(pairs[i], weights[i])
+        lo('CHOSE', pairs[i], weights[i])
         return pairs[i]
         
-    def blank_all_but(self, *addrs: Addr) -> None:
+    def blank_all_but(self, addrs: Iterable[Addr]) -> None:
         addrs: Set[Addr] = set(as_addrdc(a) for a in addrs)
         for a in self.all_addrs():
             if a not in addrs:
@@ -400,16 +424,40 @@ def make_ppainters(c: Canvas) -> Iterable[PPainter]:
 def pps_to_qqs(c: Canvas, pps: Collection[PPainter]) -> Iterable[QPainter]:
     pass
 
+c: Canvas
+pps: Set[PPainter]
+
+def go(niters: int=1) -> None:
+    global c, pps
+    for _ in range(niters):
+        c.regenerate(pps, niters=1)
+        print(str(c))
+        print()
+        print(c.claritystr())
+        print()
 
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
     pps = set(make_ppainters(c))
+    lpps = list(pps)
 
-    c.blank_all_but((2, 7), (3, 7))
+    save = [
+        (1, 8), (2, 8), (3, 8), (4, 8),
+        (1, 7), (2, 7), (3, 7),
+                (2, 6), (3, 6)
+    ]
+    c.blank_all_but(save)
     print(str(c))
     print()
     print(c.claritystr())
     print()
+    pts(lpps)
+
+    p1 = lpps[1]
+    p2 = lpps[-1]
+
+    print(c.painter_wt(p1, (2, 8)))
+    print(c.painter_wt(p2, (2, 7)))
     #c.regenerate(pps, niters=100)
     #print(str(c))
     #print()

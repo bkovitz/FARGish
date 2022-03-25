@@ -3,6 +3,18 @@ Grid
     Write functions to absorb (make_ppainters) two_cs and regenerate it,
     using only PPainters.
 
+    Let's see all four MatchTypes for each painter with nonzero weight
+    in pp_weights_everywhere(). DONE
+
+    Revise painter_wt() to take the ratio of source strength to target strength.
+    DONE
+
+    NEXT Choose what to paint in a given cell based on several painters'
+    opinions.
+
+    Print a sorted table of all the painters with non-zero weight, showing
+    their MatchTypes, weight, and num_matches.
+
 Soup
 
     Implement reconstruction of 'ajaqb' using only 2-cell Segs.
