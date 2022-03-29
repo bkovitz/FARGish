@@ -9,7 +9,14 @@ Grid
     Revise painter_wt() to take the ratio of source strength to target strength.
     DONE
 
-    NEXT Choose what to paint in a given cell based on several painters'
+    Test by blanking just four random cells from two_cs and see if they
+    get filled in correctly.
+
+        NEXT Automated test to measure how often the result is correct.
+
+    Animate this grid passably well?
+
+    Choose what to paint in a given cell based on several painters'
     opinions.
 
     Print a sorted table of all the painters with non-zero weight, showing

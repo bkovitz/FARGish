@@ -7,8 +7,9 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 from random import choices
+from copy import deepcopy
 
-from util import Numeric, pts
+from util import Numeric, pts, sample_without_replacement
 from Log import lo
 
 
@@ -223,7 +224,7 @@ class Canvas:
             for pp in pps:
                 wt = self.painter_wt(pp, a)
                 if wt > 0:
-                    lo('PPW', (pp, a), wt, '   ', list(pp.match_types(self, a)))
+                    #lo('PPW', (pp, a), wt, '   ', list(pp.match_types(self, a)))
                     yield ((pp, a), wt)
 
     already_all_painted = [
@@ -282,15 +283,26 @@ class Canvas:
         # TODO ChoiceInfo
         pairs, weights = zip(*self.pp_weights_everywhere(pps))
         i = choices(range(len(pairs)), weights)[0]
-        lo('CHOSE', pairs[i], weights[i])
+        #lo('CHOSE', pairs[i], weights[i])
         return pairs[i]
         
+    def blank_addr(self, a: Addr) -> None:
+        self[a] = 0
+        self.set_clarity(a, 0)  # NEXT OAOO
+
     def blank_all_but(self, addrs: Iterable[Addr]) -> None:
         addrs: Set[Addr] = set(as_addrdc(a) for a in addrs)
         for a in self.all_addrs():
             if a not in addrs:
                 self[a] = 0
                 self.set_clarity(a, 0)
+
+    def blank_random(self, num=4) -> None:
+        coords = list(self.all_2x2_addrs())
+        for a in sample_without_replacement(coords, k=4):
+            self.blank_addr(a)
+            #self[a] = 0
+            #self.set_clarity(a, 0)
 
     def regenerate(self, pset: Set[PPainter], niters: int=20) -> None:
         '''Loops through choosing painters and letting them paint.'''
@@ -325,9 +337,24 @@ class Canvas:
             [[0] * 8 for _ in range(8)]
         )
 
+    def levdist(self, other: Canvas) -> Numeric:
+        '''Levenshtein distance between 'self' and 'other', counting a blank
+        in one Canvas corresponding to a non-blank in the other Canvas as only
+        0.5 wrong. Insertions and deletions are not possible.'''
+        result: Numeric = 0
+        for a in self.all_addrs():
+            x = self[a]
+            y = other[a]
+            if x != y:
+                if x == 0 or y == 0:
+                    result += 0.5
+                else:
+                    result += 1
+        return result
+
     def __str__(self) -> str:
         return '\n'.join(
-            ''.join(as_xo(self[x, y]) for x in range(1, CANVAS_WIDTH + 1))
+            ''.join(' ' + as_xo(self[x, y]) for x in range(1, CANVAS_WIDTH + 1))
                 for y in range(CANVAS_HEIGHT, 0, -1)
         )
 
@@ -441,6 +468,12 @@ if __name__ == '__main__':
     pps = set(make_ppainters(c))
     lpps = list(pps)
 
+    print(c)
+    print()
+    c.blank_random()
+    print(c)
+
+    """
     save = [
         (1, 8), (2, 8), (3, 8), (4, 8),
         (1, 7), (2, 7), (3, 7),
@@ -461,6 +494,7 @@ if __name__ == '__main__':
     #c.regenerate(pps, niters=100)
     #print(str(c))
     #print()
+    """
 
     # NEXT Call c.regenerate()
 
