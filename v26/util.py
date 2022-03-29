@@ -1,5 +1,6 @@
 # util.py -- Generic utility functions and classes for FARGish
 
+from __future__ import annotations
 from collections.abc import Iterable
 import collections
 import random
@@ -18,6 +19,7 @@ import functools
 import csv
 import sys
 from io import StringIO
+from statistics import fmean, stdev, median
 
 
 # Useful global constants
@@ -500,6 +502,36 @@ def sample_without_replacement(items, k=1, weights=None):
                 yield item
             else:
                 return
+
+### Descriptive statistics
+
+@dataclass(frozen=True)
+class DescStats:
+    mean: Numeric
+    stdev: Numeric
+    n: int
+    median: Numeric
+    min: Numeric
+    max: Numeric
+
+    @classmethod
+    def from_data(cls, data: Iterable[Numeric]) -> DescStats:
+        data: List[Numeric] = as_list(data)
+        return DescStats(
+            fmean(data),
+            stdev(data),
+            len(data),
+            median(data),
+            min(data),
+            max(data)
+        )
+
+    def __str__(self) -> str:
+        return f'mean={nf(self.mean)} stdev={nf(self.stdev)} median={nf(self.median)} min={nf(self.min)} max={nf(self.max)}'
+
+def nf(x: Numeric) -> str:
+    '''Convenient format for floating-point numbers.'''
+    return f'{x:0.3f}'
 
 ### Comma-separated values (CSVs)
 
