@@ -4,7 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Grid import Canvas, CanvasData, A
+from Grid import Canvas, CanvasData, A, PPainter
 from Log import lo
 
 
@@ -59,3 +59,27 @@ class TestCanvas(unittest.TestCase):
         c.paint((1, 8), -1)
         self.assertEqual(c[1, 8], +1)
         self.assertEqual(c.clarity(1, 8), 1)
+
+class TestOPainter(unittest.TestCase):
+    
+    def test_opainter(self) -> None:
+        c = Canvas.empty()
+        p = PPainter(1, -1, 1, -1)
+
+        self.assertEqual(p.as_xos(), 'XOXO')
+        self.assertCountEqual(p.values(), [1, -1, 1, -1])
+
+        self.assertEqual(p.match_wt(c, (1, 8)), 4)
+
+        p.paint(c, (1, 8))
+        self.assertEqual(c[1, 8], 1)
+        self.assertEqual(c[2, 8], -1)
+        self.assertEqual(c[1, 7], 1)
+        self.assertEqual(c[2, 8], -1)
+
+        self.assertEqual(p.match_wt(c, (1, 8)), 20)
+
+    def test_opainter_from_canvas(self) -> None:
+        c = Canvas.from_data(two_cs)
+        p = PPainter.from_canvas(c, (1, 8))
+        self.assertEqual(p, PPainter(-1, -1, -1, 1))

@@ -527,7 +527,7 @@ class DescStats:
         )
 
     def __str__(self) -> str:
-        return f'mean={nf(self.mean)} stdev={nf(self.stdev)} median={nf(self.median)} min={nf(self.min)} max={nf(self.max)}'
+        return f'mean={nf(self.mean)} stdev={nf(self.stdev)} n={self.n} median={nf(self.median)} min={nf(self.min)} max={nf(self.max)}'
 
 def nf(x: Numeric) -> str:
     '''Convenient format for floating-point numbers.'''

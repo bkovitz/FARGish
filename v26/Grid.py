@@ -112,14 +112,6 @@ class Canvas:
 
     #def __getitem__(self, a: Addr | int, y: int | None=None) -> int:
     def __getitem__(self, a: Addr) -> int:
-#        x, y = as_xy(a)
-#        if (
-#            x < 1 or x > CANVAS_WIDTH
-#            or
-#            y < 1 or y > CANVAS_HEIGHT
-#        ):
-#            raise BadAddr.make(a, y)
-#        return self.pixels[CANVAS_HEIGHT - y][x - 1]
         i, j = self.addr_to_indices(a)
         return self.pixels[i][j]
 
@@ -127,25 +119,6 @@ class Canvas:
     def __setitem__(self, a: Addr, v: int) -> None:
         '''Sets cell (x, y) to v. Same calling convention for (x, y) as
         .__getitem__().'''
-#        xx: int
-#        yy: int
-#        vv: int
-#        if v is None:
-#            assert(isinstance(y, int))
-#            vv = y
-#            xx, yy = as_xy(a)
-#        else:
-#            vv = v
-#            xx, yy = as_xy(a, y)
-#        if (
-#            xx < 1 or xx > CANVAS_WIDTH
-#            or
-#            yy < 1 or yy > CANVAS_HEIGHT
-#        ):
-#            raise BadAddr.make(xx, yy)
-#        self.pixels[CANVAS_HEIGHT - yy][xx - 1] = vv
-#        if vv == 0:
-#            self.clarities[CANVAS_HEIGHT - yy][xx - 1] = 0
         i, j = self.addr_to_indices(a)
         self.pixels[i][j] = v
 
@@ -238,23 +211,6 @@ class Canvas:
         3: 10.0,
         4: 1.0
     }
-
-    def OLDpainter_wt(self, p: PPainter, addr: Addr) -> Numeric:
-        # TODO Favor higher source clarity than target clarity
-        result = 0.0
-        num_matches = 0
-        #breakpoint()
-        for a, mtype in p.match_types(self, addr):
-            wfrom = self.clarity(a) / self.MAX_CLARITY
-            wto = 1.0 - (self.clarity(a) / self.MAX_CLARITY)
-            if mtype == 'DifferentValue' or mtype == 'Target0':
-                result += wto ** 2
-            else:  # painting value that is already there
-                result += wfrom ** 2
-                num_matches += 1
-        #lo('PWT', p, addr, result, num_matches)
-        #return result * self.num_matches_weights[num_matches]
-        return result
 
     def painter_wt(self, p: PPainter, addr: Addr) -> Numeric:
         source_strength = 0.0
@@ -412,6 +368,7 @@ class PPainter:
         yield self.ll
         yield self.lr
 
+    # TODO UT
     def match_types(self, c: Canvas, addr: Addr) \
     -> Iterable[Tuple[A, MatchType]]:
         '''Returns an iterable of four tuples (A, MatchType), corresponding to
