@@ -407,7 +407,24 @@ class QPainter:
 class QPainterTemplate:
     '''Like a QPainter, but the Addr is only a template, containing variables
     rather than absolute addresses.'''
-    pass # TODO
+    a: Tuple[AExpr, AExpr]
+    ppainter: PPainter
+
+    def is_match(self, qp: QPainter) -> Optional[Tuple[Subst, Subst]]:
+        qpx, qpy = as_xy(qp.a)
+        ex, ey = self.a
+        ux = unify(ex, [qpx])
+        uy = unify(ey, [qpy])
+        if ux and uy:
+            return ux, uy
+
+    def make_qpainter(self, env: Tuple[Subst, Subst]) -> QPainter:
+        abs_addr = tuple(eval_ae(s, a) for s, a in zip(env, self.a))
+        # TODO eval_ae() fail?
+        return QPainter(
+            abs_addr,
+            self.ppainter
+        )
 
 @dataclass(frozen=True)
 class RPainter:
@@ -446,7 +463,6 @@ def go(niters: int=1) -> None:
         print(c.claritystr())
         print()
 
-# type: ignore
 def et(e: AExpr) -> None:
     '''AExpr test.'''
     print(e)
@@ -457,24 +473,6 @@ def et(e: AExpr) -> None:
             print('n:', n)
         case (a, op, b):
             print(f'a: {a}, op: {op}, b: {b}')
-
-"""
-def extract_vos(e: AExpr) -> Iterable[AVarOffset]:
-    match e:
-        case name if isinstance(name, str):
-            yield AVarOffset(name, 0)
-        case (a, op, b):
-            # NEXT Put in correct offset; no recursion.
-            if isinstance
-            yield from extract_vos(a)
-            yield from extract_vos(b)
-
-@dataclass(frozen=True)
-class AVarOffset:
-    '''A variable and an associated offset from that variable's value.'''
-    var: AVar
-    offset: int
-"""
 
 def extract_offset(e: AExpr) -> int:
     match e:
@@ -493,6 +491,11 @@ class Subst:
 
     def __str__(self) -> str:
         return f'{self.var}={self.v}'
+
+def eval_ae(s: Subst, e: AExpr) -> int:
+    '''Returns value of 'e' given 's'. Ignores the name of the variable in
+    's'.'''
+    return extract_offset(e) + s.v
 
 def unify(es: Sequence[AExpr], ns: Sequence[int]) -> Optional[Subst]:
     '''Poor man's unification.'''
@@ -514,12 +517,27 @@ if __name__ == '__main__':
     #et(e)
     #et('x')
     #et(2)
+    p1 = PPainter(-1, -1, -1, 1)
+    p2 = PPainter(-1, -1, 1, 1)
+    qp1 = QPainter((1, 8), p1)
+    qp2 = QPainter((2, 8), p2)
+    qpt1 = QPainterTemplate(
+        ('x', 'y'), p1
+    )
+    qpt2 = QPainterTemplate(
+        (('x', '+', 1), 'y'), p2
+    )
+    subs = qpt1.is_match(qp1)
+    print(subs)
+
+    '''
     got = unify(['x', ('x', '+', 1)], (1, 2))
     print(got)  # want x=1
     got = unify([('x', '+', 1), 'x'], (1, 2))
     print(got)  # want nothing
     got = unify([('x', '+', 1), ('x', '+', 2)], (1, 2))
     print(got)  # want x=0
+    '''
 
     '''
     pps = set(make_ppainters(c))
