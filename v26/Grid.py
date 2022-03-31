@@ -458,25 +458,57 @@ def et(e: AExpr) -> None:
         case (a, op, b):
             print(f'a: {a}, op: {op}, b: {b}')
 
-def extract_vars(e: AExpr) -> Iterable[AVarOffset]:
+"""
+def extract_vos(e: AExpr) -> Iterable[AVarOffset]:
     match e:
         case name if isinstance(name, str):
             yield AVarOffset(name, 0)
         case (a, op, b):
-            yield from extract_vars(a)
-            yield from extract_vars(b)
+            # NEXT Put in correct offset; no recursion.
+            if isinstance
+            yield from extract_vos(a)
+            yield from extract_vos(b)
 
 @dataclass(frozen=True)
 class AVarOffset:
     '''A variable and an associated offset from that variable's value.'''
     var: AVar
     offset: int
+"""
 
-def unify(e1: AExpr, e2: AExpr, ns: Sequence[int]):
+def extract_offset(e: AExpr) -> int:
+    match e:
+        case name if isinstance(name, str):
+            return 0
+        case (a, op, b) if isinstance(a, str) and isinstance(b, int):
+            return b
+        case (a, op, b) if isinstance(a, int) and isinstance(b, str):
+            return a
+
+@dataclass(frozen=True)
+class Subst:
+    '''A 'substitution': a variable and the value to give it.'''
+    var: AVar
+    v: int
+
+    def __str__(self) -> str:
+        return f'{self.var}={self.v}'
+
+def unify(es: Sequence[AExpr], ns: Sequence[int]):
     '''Poor man's unification.'''
-    vars = union(extract_vars(e1), extract_vars(e2))
-    lo('VARS', vars)
-    # TODO
+    offsets = [extract_offset(e) for e in es]
+    mino = min(offsets)
+    normalized_offsets = [o - mino for o in offsets]
+    minn = min(ns)
+    normalized_ns = [n - minn for n in ns]
+    if normalized_ns == normalized_offsets:
+        return Subst('x', ns[0] - offsets[0])
+            
+            
+    # TODO  See if there is a way to make every expression with a number,
+    # by finding a single value to go with the variable. For now, just
+    # ignore variable names; assume that every variable is 'x'.
+
 
 
 if __name__ == '__main__':
@@ -488,7 +520,12 @@ if __name__ == '__main__':
     #et(e)
     #et('x')
     #et(2)
-    unify('x', ('x', '+', 1), (1, 2))
+    got = unify(['x', ('x', '+', 1)], (1, 2))
+    print(got)  # want x=1
+    got = unify([('x', '+', 1), 'x'], (1, 2))
+    print(got)  # want nothing
+    got = unify([('x', '+', 1), ('x', '+', 2)], (1, 2))
+    print(got)  # want x=0
 
     '''
     pps = set(make_ppainters(c))
