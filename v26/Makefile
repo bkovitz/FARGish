@@ -6,7 +6,7 @@ PY = PYTHONHASHSEED=0 python3.10
 BROWSER = google-chrome
 endif
 
-MYPY = mypy --python-version 3.10
+MYPY = mypy --python-version 3.10 --version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
@@ -31,7 +31,7 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = GridResults.py
+CURRENT = Grid.py  #GridResults.py
 m:
 	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest

@@ -1,4 +1,4 @@
-# Grid.py -- PPainters and QPainters, and the Canvas is a grid
+# Grid.py -- PPainters, and QPainters, and the Canvas is a grid
 
 from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from random import choices
 from copy import deepcopy
 
-from util import Numeric, pts, sample_without_replacement
+from util import Numeric, pts, sample_without_replacement, union
 from Log import lo
 
 
@@ -44,6 +44,11 @@ class AddrDC:
 A = AddrDC
 Addr = AddrDC | Tuple[int, int]
 
+AVar = str
+ATerm = AVar | int
+AOpExpr = Tuple[ATerm, Literal['+', '-'], ATerm]
+AExpr = Union[ATerm, AOpExpr]
+
 def as_xy(a: Addr | int, y: int | None=None) \
 -> Tuple[int, int]:
     if isinstance(a, tuple):
@@ -70,14 +75,6 @@ def as_xo(v: int) -> str:
         return 'X'
     else:
         return '.'
-
-@dataclass(frozen=True)
-class BadPPainterAddr(Exception):
-    x: int
-    y: int
-
-    def __str__(self) -> str:
-        return f'Bad PPainter location: ({self.x}, {self.y})'
 
 @dataclass(frozen=True)
 class BadAddr(IndexError):
@@ -173,6 +170,7 @@ class Canvas:
             for x in range(1, CANVAS_WIDTH):
                 yield A(x, y)
 
+    # TODO rm?
     def reweight(self, match_wt: Numeric) -> Numeric:
         '''Reweights a painter's match_wt to give huge emphasis to 19.'''
         #lo(match_wt, match_wt < 12)
@@ -183,6 +181,7 @@ class Canvas:
         else:
             return 5 - (20 - match_wt)
 
+    # TODO rm?
     def OLDpp_weights_everywhere(self, pps: Collection[PPainter]) \
     -> Iterable[Tuple[Tuple[PPainter, A], Numeric]]:
         for a in self.all_2x2_addrs():
@@ -390,16 +389,43 @@ class PPainter:
     def as_xos(self) -> str:
         return ''.join(as_xo(v) for v in self.values())
 
+@dataclass(frozen=True)
+class QPainter:
+    '''A PPainter with a specific Addr that it paints to.'''
+    a: Addr
+    ppainter: PPainter
+
+    def paint(self, c: Canvas) -> None:
+        self.ppainter.paint(c, self.a)
+
+    @classmethod
+    def derive_from_canvas(cls, c: Canvas) -> Iterable[QPainter]:
+        for a in c.all_2x2_addrs():
+            yield QPainter(a, PPainter.from_canvas(c, a))
+
+@dataclass(frozen=True)
+class QPainterTemplate:
+    '''Like a QPainter, but the Addr is only a template, containing variables
+    rather than absolute addresses.'''
+    pass # TODO
+
+@dataclass(frozen=True)
+class RPainter:
+    '''A painter that matches a QPainter and paints one or more other
+    QPainters.'''
+    qpts: Tuple[QPainterTemplate]
+
 Painter = PPainter   # union this with QPainter, DPainter, anything else
 
 VarAddr = str
 PMatcher = Tuple[VarAddr, Painter]  # Matches a Painter at an Addr
 
+'''
 @dataclass(frozen=True)
 class QPainter:
     triple1: PPainter
     triple2: PPainter
-
+'''
 
 def make_ppainters(c: Canvas) -> Iterable[PPainter]:
     for a in c.all_2x2_addrs():
@@ -420,8 +446,51 @@ def go(niters: int=1) -> None:
         print(c.claritystr())
         print()
 
+# type: ignore
+def et(e: AExpr) -> None:
+    '''AExpr test.'''
+    print(e)
+    match e:
+        case name if isinstance(name, str):
+            print('name:', name)
+        case n if isinstance(n, int):
+            print('n:', n)
+        case (a, op, b):
+            print(f'a: {a}, op: {op}, b: {b}')
+
+def extract_vars(e: AExpr) -> Iterable[AVarOffset]:
+    match e:
+        case name if isinstance(name, str):
+            yield AVarOffset(name, 0)
+        case (a, op, b):
+            yield from extract_vars(a)
+            yield from extract_vars(b)
+
+@dataclass(frozen=True)
+class AVarOffset:
+    '''A variable and an associated offset from that variable's value.'''
+    var: AVar
+    offset: int
+
+def unify(e1: AExpr, e2: AExpr, ns: Sequence[int]):
+    '''Poor man's unification.'''
+    vars = union(extract_vars(e1), extract_vars(e2))
+    lo('VARS', vars)
+    # TODO
+
+
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
+    qps = set(QPainter.derive_from_canvas(c))
+    pts(qps)
+    print()
+    e: AExpr = ('x', '+', 2)
+    #et(e)
+    #et('x')
+    #et(2)
+    unify('x', ('x', '+', 1), (1, 2))
+
+    '''
     pps = set(make_ppainters(c))
     lpps = list(pps)
 
@@ -429,6 +498,7 @@ if __name__ == '__main__':
     print()
     c.blank_random()
     print(c)
+    '''
 
     """
     save = [

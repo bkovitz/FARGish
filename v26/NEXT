@@ -14,28 +14,33 @@ Grid
 
         Automated test to measure how often the result is correct.  DONE
 
-    Q-Painter test
+    R-Painter test
 
-        Derive only ad-hoc absolute P-Painters from original image.
+        Derive only Q-Painters from original image. DONE
 
-            NEXT Two classes: one for PPainter without an Addr, one with.
+            Two classes: one for PPainter without an Addr, one with. DONE
 
-        Make Q-Painters:
+        Make R-Painters:
 
-            Match an absolute P-Painter.
+            AbstractAddr
 
-            Define a Q-Painter manually: PPainter to PPainter.
+                NEXT Match an AbstractAddr by returning a set of values for the
+                variables.
 
-            QPainter paints the other PPainter than the one matched.
+            Match a QPainter.
 
-            Derive Q-Painters from all the P-Painters of the original image.
+            Define an R-Painter manually: QPainter to QPainter.
 
-            Derive P-Painters from seed image with blanks, allowing ambiguous
+            RPainter paints the other QPainter than the one matched.
+
+            Derive R-Painters from all the Q-Painters of the original image.
+
+            Derive Q-Painters from seed image with blanks, allowing ambiguous
             matches (at blank cells).
 
-            Run regeneration: From seed image, generate P-Painters, then
-            call upon Q-Painters from original image to make more P-Painters,
-            let the P-Painters paint, and so on.
+            Run regeneration: From seed image, generate Q-Painters, then
+            call upon R-Painters from original image to make more Q-Painters,
+            let the Q-Painters paint, and so on.
 
     Try a "radiation-hardened quine" test.
 

@@ -4,7 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Grid import Canvas, CanvasData, A, PPainter
+from Grid import Canvas, CanvasData, A, PPainter, QPainter
 from Log import lo
 
 
@@ -60,9 +60,9 @@ class TestCanvas(unittest.TestCase):
         self.assertEqual(c[1, 8], +1)
         self.assertEqual(c.clarity(1, 8), 1)
 
-class TestOPainter(unittest.TestCase):
+class TestPPainter(unittest.TestCase):
     
-    def test_opainter(self) -> None:
+    def test_ppainter(self) -> None:
         c = Canvas.empty()
         p = PPainter(1, -1, 1, -1)
 
@@ -75,11 +75,22 @@ class TestOPainter(unittest.TestCase):
         self.assertEqual(c[1, 8], 1)
         self.assertEqual(c[2, 8], -1)
         self.assertEqual(c[1, 7], 1)
-        self.assertEqual(c[2, 8], -1)
+        self.assertEqual(c[2, 7], -1)
 
         self.assertEqual(p.match_wt(c, (1, 8)), 20)
 
-    def test_opainter_from_canvas(self) -> None:
+    def test_ppainter_from_canvas(self) -> None:
         c = Canvas.from_data(two_cs)
         p = PPainter.from_canvas(c, (1, 8))
         self.assertEqual(p, PPainter(-1, -1, -1, 1))
+
+class TestQPainter(unittest.TestCase):
+
+    def test_qpainter(self) -> None:
+        c = Canvas.empty()
+        p = QPainter((1, 8), PPainter(1, 1, -1, -1))
+        p.paint(c)
+        self.assertEqual(c[1, 8], 1)
+        self.assertEqual(c[2, 8], 1)
+        self.assertEqual(c[1, 7], -1)
+        self.assertEqual(c[2, 7], -1)
