@@ -5,7 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from Grid import Canvas, CanvasData, A, PPainter, QPainter, QPainterTemplate, \
-    Subst, unify
+    RPainter, Subst, unify
 from Log import lo
 
 
@@ -131,3 +131,53 @@ class TestQPainterTemplate(unittest.TestCase):
         )
         got = qpt2.make_qpainter(qpt1.make_env(qp1))
         self.assertEqual(got, qp2)
+
+class TestRPainter(unittest.TestCase):
+
+    def test_make_qpainters(self) -> None:
+        p1 = PPainter(-1, -1, -1, 1)
+        p2 = PPainter(-1, -1, 1, 1)
+        qp1 = QPainter((1, 8), p1)
+        qp2 = QPainter((2, 8), p2)
+        qpt1 = QPainterTemplate(
+            ('x', 'y'), p1
+        )
+        qpt2 = QPainterTemplate(
+            (('x', '+', 1), 'y'), p2
+        )
+        rp = RPainter((qpt1, qpt2))
+
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((1, 8), p1)),
+            [QPainter((2, 8), p2)]
+        )
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((2, 8), p1)),
+            [QPainter((3, 8), p2)]
+        )
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((7, 8), p1)),
+            []
+        )
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((8, 8), p1)),
+            []
+        )
+
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((1, 2), p1)),
+            [QPainter((2, 2), p2)]
+        )
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((1, 1), p1)),
+            []
+        )
+
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((2, 8), p2)),
+            [QPainter((1, 8), p1)]
+        )
+        self.assertCountEqual(
+            rp.make_qpainters(QPainter((1, 8), p2)),
+            []
+        )

@@ -10,7 +10,7 @@ from random import choices
 from copy import deepcopy
 
 from util import Numeric, pts, sample_without_replacement, union
-from Log import lo
+from Log import lo, trace
 
 
 CanvasData = Sequence[Sequence[int]]  # 8x8 grid, [x][y], [0][0] is upper left
@@ -170,6 +170,11 @@ class Canvas:
             for x in range(1, CANVAS_WIDTH):
                 yield A(x, y)
 
+    @classmethod
+    def is_valid_2x2_addr(cls, a: Addr) -> bool:
+        x, y = as_xy(a)
+        return x >= 1 and x <= 7 and y >= 2 and y <= 8
+
     # TODO rm?
     def reweight(self, match_wt: Numeric) -> Numeric:
         '''Reweights a painter's match_wt to give huge emphasis to 19.'''
@@ -243,7 +248,7 @@ class Canvas:
         
     def blank_addr(self, a: Addr) -> None:
         self[a] = 0
-        self.set_clarity(a, 0)  # NEXT OAOO
+        self.set_clarity(a, 0)  # TODO OAOO
 
     def blank_all_but(self, addrs: Iterable[Addr]) -> None:
         addrs: Set[Addr] = set(as_addrdc(a) for a in addrs)
@@ -413,8 +418,8 @@ class QPainterTemplate:
     def make_env(self, qp: QPainter) -> Optional[Tuple[Subst, Subst]]:
         qpx, qpy = as_xy(qp.a)
         ex, ey = self.a
-        ux = unify(ex, [qpx])
-        uy = unify(ey, [qpy])
+        ux = unify([ex], [qpx])
+        uy = unify([ey], [qpy])
         if ux and uy:
             return ux, uy
 
@@ -430,7 +435,19 @@ class QPainterTemplate:
 class RPainter:
     '''A painter that matches a QPainter and paints one or more other
     QPainters.'''
-    qpts: Tuple[QPainterTemplate]
+    qpts: Tuple[QPainterTemplate, ...]
+    
+    def make_qpainters(self, qp: QPainter) -> Iterable[QPainter]:
+        for qpt in self.qpts:
+            if qpt.ppainter == qp.ppainter:
+                subs = qpt.make_env(qp)
+                if subs:
+                    for other_qpt in self.qpts:  # all except qpt
+                        if qpt == other_qpt:
+                            continue
+                        qp_out = other_qpt.make_qpainter(subs)
+                        if Canvas.is_valid_2x2_addr(qp_out.a):
+                            yield qp_out
 
 Painter = PPainter   # union this with QPainter, DPainter, anything else
 
@@ -482,6 +499,8 @@ def extract_offset(e: AExpr) -> int:
             return b
         case (a, op, b) if isinstance(a, int) and isinstance(b, str):
             return a
+        case _:
+            raise ValueError(f'extract_offset: Can\'t find offset in {e}')
 
 @dataclass(frozen=True)
 class Subst:
@@ -527,8 +546,12 @@ if __name__ == '__main__':
     qpt2 = QPainterTemplate(
         (('x', '+', 1), 'y'), p2
     )
-    subs = qpt1.make_env(qp1)
-    print(subs)
+    #subs = qpt1.make_env(qp1)
+    #print(subs)
+
+    rp = RPainter((qpt1, qpt2))
+    got = list(rp.make_qpainters(qp1))
+    pts(got)
 
     '''
     got = unify(['x', ('x', '+', 1)], (1, 2))

@@ -22,16 +22,16 @@ Grid
 
         Make R-Painters:
 
-            AExpr
+            AExpr DONE
 
                 Match an AExpr by returning a set of values for the
                 variables. DONE
 
-            NEXT QPainterTemplate
+            QPainterTemplate DONE
 
-            Match a QPainter.
+            Match a QPainter. DONE
 
-            Define an R-Painter manually: QPainter to QPainter.
+            NEXT Define an R-Painter manually: QPainter to QPainter.
 
             RPainter paints the other QPainter than the one matched.
 
