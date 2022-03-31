@@ -4,7 +4,7 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Grid import Canvas, CanvasData, A, PPainter, QPainter
+from Grid import Canvas, CanvasData, A, PPainter, QPainter, Subst, unify
 from Log import lo
 
 
@@ -94,3 +94,24 @@ class TestQPainter(unittest.TestCase):
         self.assertEqual(c[2, 8], 1)
         self.assertEqual(c[1, 7], -1)
         self.assertEqual(c[2, 7], -1)
+
+class TestUnify(unittest.TestCase):
+
+    def test_unify(self) -> None:
+        self.assertEqual(
+            unify(['x', ('x', '+', 1)], (1, 2)),
+            Subst('x', 1)
+        )
+        self.assertEqual(
+            unify(['x', ('x', '+', 1)], (3, 4)),
+            Subst('x', 3)
+        )
+        self.assertEqual(
+            unify([('x', '+', 1), 'x'], (1, 2)),
+            None
+        )
+        self.assertEqual(
+            unify([('x', '+', 1), ('x', '+', 2)], (1, 2)),
+            Subst('x', 0)
+        )
+

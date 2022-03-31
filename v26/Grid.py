@@ -494,7 +494,7 @@ class Subst:
     def __str__(self) -> str:
         return f'{self.var}={self.v}'
 
-def unify(es: Sequence[AExpr], ns: Sequence[int]):
+def unify(es: Sequence[AExpr], ns: Sequence[int]) -> Optional[Subst]:
     '''Poor man's unification.'''
     offsets = [extract_offset(e) for e in es]
     mino = min(offsets)
@@ -505,12 +505,6 @@ def unify(es: Sequence[AExpr], ns: Sequence[int]):
         return Subst('x', ns[0] - offsets[0])
             
             
-    # TODO  See if there is a way to make every expression with a number,
-    # by finding a single value to go with the variable. For now, just
-    # ignore variable names; assume that every variable is 'x'.
-
-
-
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
     qps = set(QPainter.derive_from_canvas(c))

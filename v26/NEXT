@@ -22,10 +22,12 @@ Grid
 
         Make R-Painters:
 
-            AbstractAddr
+            AExpr
 
-                NEXT Match an AbstractAddr by returning a set of values for the
-                variables.
+                Match an AExpr by returning a set of values for the
+                variables. DONE
+
+            NEXT QPainterTemplate
 
             Match a QPainter.
 
