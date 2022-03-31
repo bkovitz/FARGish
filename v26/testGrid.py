@@ -4,7 +4,8 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Grid import Canvas, CanvasData, A, PPainter, QPainter, Subst, unify
+from Grid import Canvas, CanvasData, A, PPainter, QPainter, QPainterTemplate, \
+    Subst, unify
 from Log import lo
 
 
@@ -115,3 +116,18 @@ class TestUnify(unittest.TestCase):
             Subst('x', 0)
         )
 
+class TestQPainterTemplate(unittest.TestCase):
+
+    def test_make_qpainter(self) -> None:
+        p1 = PPainter(-1, -1, -1, 1)
+        p2 = PPainter(-1, -1, 1, 1)
+        qp1 = QPainter((1, 8), p1)
+        qp2 = QPainter((2, 8), p2)
+        qpt1 = QPainterTemplate(
+            ('x', 'y'), p1
+        )
+        qpt2 = QPainterTemplate(
+            (('x', '+', 1), 'y'), p2
+        )
+        got = qpt2.make_qpainter(qpt1.make_env(qp1))
+        self.assertEqual(got, qp2)

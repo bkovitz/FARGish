@@ -410,7 +410,7 @@ class QPainterTemplate:
     a: Tuple[AExpr, AExpr]
     ppainter: PPainter
 
-    def is_match(self, qp: QPainter) -> Optional[Tuple[Subst, Subst]]:
+    def make_env(self, qp: QPainter) -> Optional[Tuple[Subst, Subst]]:
         qpx, qpy = as_xy(qp.a)
         ex, ey = self.a
         ux = unify(ex, [qpx])
@@ -527,7 +527,7 @@ if __name__ == '__main__':
     qpt2 = QPainterTemplate(
         (('x', '+', 1), 'y'), p2
     )
-    subs = qpt1.is_match(qp1)
+    subs = qpt1.make_env(qp1)
     print(subs)
 
     '''
