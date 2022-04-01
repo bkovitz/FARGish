@@ -578,9 +578,15 @@ def extract_offset(e: AExpr) -> int:
         case name if isinstance(name, str):
             return 0
         case (a, op, b) if isinstance(a, str) and isinstance(b, int):
-            return b
+            if op == '+':
+                return b
+            else:
+                return -b
         case (a, op, b) if isinstance(a, int) and isinstance(b, str):
-            return a
+            if op == '+':
+                return a
+            else:
+                return -a
         case _:
             raise ValueError(f'extract_offset: Can\'t find offset in {e}')
 

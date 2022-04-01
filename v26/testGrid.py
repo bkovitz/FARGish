@@ -115,6 +115,11 @@ class TestUnify(unittest.TestCase):
             unify([('x', '+', 1), ('x', '+', 2)], (1, 2)),
             Subst('x', 0)
         )
+        self.assertEqual(
+            unify(['x', ('x', '-', 2)], (5, 3)),
+            Subst('x', 5)
+        )
+
 
 class TestQPainterTemplate(unittest.TestCase):
 
