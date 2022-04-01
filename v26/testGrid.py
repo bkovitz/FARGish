@@ -4,8 +4,8 @@ import unittest
 from pprint import pprint as pp
 import inspect
 
-from Grid import Canvas, CanvasData, A, PPainter, QPainter, QPainterTemplate, \
-    RPainter, Subst, unify, all_white
+from Grid import Canvas, CanvasData, A, PPainter, P, QPainter, \
+    QPainterTemplate, RPainter, Subst, unify, all_white
 from Log import lo
 
 
@@ -85,6 +85,28 @@ class TestPPainter(unittest.TestCase):
         p = PPainter.from_canvas(c, (1, 8))
         self.assertEqual(p, PPainter(-1, -1, -1, 1))
 
+    maxDiff = None
+
+    def test_ppainter_multi_from_canvas(self) -> None:
+        c = Canvas.from_data(two_cs)
+        c.blank_all_but([(1, 8), (2, 8), (3, 8), (1, 7), (2, 7)])
+        self.assertCountEqual(
+            PPainter.multi_from_canvas(c, (1, 8)),
+            [P('OOOX')]
+        )
+        self.assertCountEqual(
+            PPainter.multi_from_canvas(c, (2, 8)),
+            [P('OOXO'), P('OOXX')]
+        )
+        self.assertCountEqual(
+            PPainter.multi_from_canvas(c, (1, 7)),
+            [P('OXOO'), P('OXOX'), P('OXXO'), P('OXXX')]
+        )
+        self.assertCountEqual(
+            PPainter.multi_from_canvas(c, (4, 4)),
+            []
+        )
+
 class TestQPainter(unittest.TestCase):
 
     def test_qpainter(self) -> None:
@@ -119,7 +141,6 @@ class TestUnify(unittest.TestCase):
             unify(['x', ('x', '-', 2)], (5, 3)),
             Subst('x', 5)
         )
-
 
 class TestQPainterTemplate(unittest.TestCase):
 

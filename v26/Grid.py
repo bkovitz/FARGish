@@ -78,6 +78,16 @@ def as_xo(v: int) -> str:
     else:
         return '.'
 
+def xo_to_num(xo: str) -> int:
+    if xo == 'X':
+        return +1
+    elif xo == 'O':
+        return -1
+    elif xo == '.':
+        return 0
+    else:
+        raise ValueError(f'xo_to_num: invalid xo: {xo!r}')
+
 def are_within_radius(addr1: Addr, addr2: Addr, radius: int) -> bool:
     x1, y1 = as_xy(addr1)
     x2, y2 = as_xy(addr2)
@@ -377,6 +387,23 @@ class PPainter:
             c[x, y], c[x+1, y], c[x, y-1], c[x+1, y-1]
         )
 
+    @classmethod
+    def multi_from_canvas(cls, c: Canvas, a: Addr) -> Set[PPainter]:
+        '''Returns zero or more PPainters that draw the 2x2 square of pixels
+        contained in 'c' with upper left corner at 'a'. If all four pixels
+        are blank, returns an empty set. Otherwise, for each blank cell,
+        returns two painters: one to draw -1 and one to draw +1.'''
+        addrs = list(as_addrdc(a).sq2x2())
+        vals = [c[a] for a in addrs]
+        if sum(1 for v in vals if v == 0) == 4:
+            return
+        else:
+            for vs in cartesian_product(*(
+                [v] if v != 0 else [-1, +1]
+                    for v in vals
+            )):
+                yield PPainter(*vs)
+
     def match_wt(self, c: Canvas, addr: Addr) -> int:
         '''How well does this painter match the canvas at 'addr'? The returned
         value is the sum of match scores for each pixel: 5 points for an exact
@@ -421,6 +448,14 @@ class PPainter:
     def as_xos(self) -> str:
         return ''.join(as_xo(v) for v in self.values())
 
+    @classmethod
+    def from_xos(cls, xos: str) -> Painter:
+        return Painter(*(
+            xo_to_num(xo) for xo in xos
+        ))
+
+P = PPainter.from_xos
+
 @dataclass(frozen=True)
 class QPainter:
     '''A PPainter with a specific Addr that it paints to.'''
@@ -433,6 +468,7 @@ class QPainter:
     @classmethod
     def derive_from_canvas(cls, c: Canvas) -> Iterable[QPainter]:
         for a in c.all_2x2_addrs():
+            # NEXT Multiple PPainters when there are one or more blanks
             yield QPainter(a, PPainter.from_canvas(c, a))
 
 @dataclass(frozen=True)
@@ -483,21 +519,6 @@ class RPainter:
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({sstr(self.qpts)})'
-
-#    @classmethod
-#    def derive_from_qpainters(
-#        cls, qpainters: Collection[QPainter], radius: int=1
-#    ) -> Set[RPainter]:
-#        result: Set[RPainter] = set()
-#        for qp1, qp2 in cartesian_product(qpainters, qpainters):
-#            if qp1.is_within_radius(qp2, radius):
-#                result.add(RPainter(
-#                    # NEXT The first template is always ('x', 'y')
-#                    (qp2.make_qpainter_template(qp1.a),
-#                     qp1.make_qpainter_template(qp2.a)
-#                    )
-#                ))
-#        return result
 
     @classmethod
     def derive_from_qpainters(
@@ -623,6 +644,9 @@ if __name__ == '__main__':
 
     rps = RPainter.derive_from_qpainters(qps)
     pts(rps)
+
+    c.blank_all_but([(1, 8), (2, 8), (1, 7)])
+    pts(PPainter.multi_from_canvas(c, (1, 8)))
 
     '''
     e: AExpr = ('x', '+', 2)

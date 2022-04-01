@@ -39,11 +39,11 @@ Grid
 
                 Put it in the Working Soup.
 
-            NEXT Derive R-Painters from all the Q-Painters of the original
-            image.
+            Derive R-Painters from all the Q-Painters of the original image.
+            DONE
 
-            Derive Q-Painters from seed image with blanks, allowing ambiguous
-            matches (at blank cells).
+            NEXT Derive Q-Painters from seed image with blanks, allowing
+            ambiguous matches (at blank cells).
 
             Run regeneration: From seed image, generate Q-Painters, then
             call upon R-Painters from original image to make more Q-Painters,
