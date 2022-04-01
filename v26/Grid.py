@@ -8,8 +8,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from random import choices
 from copy import deepcopy
+from itertools import product as cartesian_product
 
-from util import Numeric, pts, sample_without_replacement, union
+from util import Numeric, pts, sample_without_replacement, union, \
+    unique_everseen, sstr
 from Log import lo, trace
 
 
@@ -76,6 +78,20 @@ def as_xo(v: int) -> str:
     else:
         return '.'
 
+def are_within_radius(addr1: Addr, addr2: Addr, radius: int) -> bool:
+    x1, y1 = as_xy(addr1)
+    x2, y2 = as_xy(addr2)
+    return abs(x1 - x2) <= radius and abs(y1 - y2) <= radius
+
+def difference_aexpr(val1: int, val2: int, varname: str) -> AExpr:
+    '''Returns AExpr for val1 - val2, assigning varname to val2.'''
+    if val1 == val2:
+        return varname
+    elif val1 < val2:
+        return (varname, '+', val2 - val1)
+    else:
+        return (varname, '-', val1 - val2)
+
 @dataclass(frozen=True)
 class BadAddr(IndexError):
     a: AddrDC
@@ -95,6 +111,17 @@ two_cs: CanvasData = [
     [-1, +1, +1, -1, +1, +1, -1, -1],
     [-1, -1, -1, -1, +1, -1, -1, -1],
     [-1, -1, -1, -1, +1, +1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+]
+
+all_white: CanvasData = [
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
+    [-1, -1, -1, -1, -1, -1, -1, -1],
     [-1, -1, -1, -1, -1, -1, -1, -1],
     [-1, -1, -1, -1, -1, -1, -1, -1],
 ]
@@ -431,6 +458,10 @@ class QPainterTemplate:
             self.ppainter
         )
 
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.a}, {self.ppainter})'
+
 @dataclass(frozen=True)
 class RPainter:
     '''A painter that matches a QPainter and paints one or more other
@@ -448,6 +479,57 @@ class RPainter:
                         qp_out = other_qpt.make_qpainter(subs)
                         if Canvas.is_valid_2x2_addr(qp_out.a):
                             yield qp_out
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({sstr(self.qpts)})'
+
+#    @classmethod
+#    def derive_from_qpainters(
+#        cls, qpainters: Collection[QPainter], radius: int=1
+#    ) -> Set[RPainter]:
+#        result: Set[RPainter] = set()
+#        for qp1, qp2 in cartesian_product(qpainters, qpainters):
+#            if qp1.is_within_radius(qp2, radius):
+#                result.add(RPainter(
+#                    # NEXT The first template is always ('x', 'y')
+#                    (qp2.make_qpainter_template(qp1.a),
+#                     qp1.make_qpainter_template(qp2.a)
+#                    )
+#                ))
+#        return result
+
+    @classmethod
+    def derive_from_qpainters(
+        cls, qpainters: Collection[QPainter], radius: int=1
+    ) -> Set[RPainter]:
+        result: Set[RPainter] = set()
+        for qp1, qp2 in cls.qpainter_pairs(qpainters, radius):
+            x1, y1 = as_xy(qp1.a)
+            x2, y2 = as_xy(qp2.a)
+            result.add(RPainter((
+                QPainterTemplate(('x', 'y'), qp1.ppainter),
+                QPainterTemplate(
+                   (difference_aexpr(x2, x1, 'x'),
+                    difference_aexpr(y2, y1, 'y')),
+                   qp2.ppainter
+                )
+            )))
+        return result
+            
+    @classmethod
+    def qpainter_pairs(cls, qpainters: Collection[QPainter], radius: int=1) \
+    -> Set[FrozenSet[QPainter]]:
+        '''Returns a generator containing unordered pairs (sets of two) of
+        'qpainters' that are within 'radius' of each other.'''
+        result: Set[FrozenSet[QPainter]] = set()
+        for qp1, qp2 in cartesian_product(qpainters, qpainters):
+            if qp1 != qp2:
+                pair = frozenset((qp1, qp2))
+                if pair not in result:
+                    if are_within_radius(qp1.a, qp2.a, radius):
+                        result.add(pair)
+        return result
 
 Painter = PPainter   # union this with QPainter, DPainter, anything else
 
@@ -532,6 +614,11 @@ if __name__ == '__main__':
     qps = set(QPainter.derive_from_canvas(c))
     pts(qps)
     print()
+
+    rps = RPainter.derive_from_qpainters(qps)
+    pts(rps)
+
+    '''
     e: AExpr = ('x', '+', 2)
     #et(e)
     #et('x')
@@ -552,6 +639,7 @@ if __name__ == '__main__':
     rp = RPainter((qpt1, qpt2))
     got = list(rp.make_qpainters(qp1))
     pts(got)
+    '''
 
     '''
     got = unify(['x', ('x', '+', 1)], (1, 2))

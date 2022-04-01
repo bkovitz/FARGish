@@ -5,7 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from Grid import Canvas, CanvasData, A, PPainter, QPainter, QPainterTemplate, \
-    RPainter, Subst, unify
+    RPainter, Subst, unify, all_white
 from Log import lo
 
 
@@ -181,3 +181,10 @@ class TestRPainter(unittest.TestCase):
             rp.make_qpainters(QPainter((1, 8), p2)),
             []
         )
+
+    def test_derive_from_qpainters(self) -> None:
+        c = Canvas.from_data(all_white)
+        qps = set(QPainter.derive_from_canvas(c))
+        assert len(qps) == 49  # 8x8 without last row and column
+        rps = RPainter.derive_from_qpainters(qps)
+        self.assertEqual(len(rps), 8)  # same PPainter in all 8 directions

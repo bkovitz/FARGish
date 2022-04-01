@@ -802,7 +802,17 @@ def ssep(xs) -> str:
     '''Space-separated string for whatever you pass it.'''
     return ' '.join(str(x) for x in as_iter(xs))
 
-def pts(ls: Iterable, n=None, key=str, file=sys.stdout):
+def sstr(x: Any) -> str:
+    if isinstance(x, tuple):
+        return f"({', '.join(sstr(xx) for xx in x)})"
+    elif isinstance(x, list):
+        return f"[{', '.join(sstr(xx) for xx in x)}]"
+    elif isinstance(x, set):
+        return f"{{{', '.join(sstr(xx) for xx in x)}}}"
+    else:
+        return str(x)
+
+def pts(ls: Iterable, n=None, key=sstr, file=sys.stdout):
     '''Prints ls as a table of strings. For debugging.'''
     if isinstance(ls, dict):
         pts((k, v) for k, v in ls.items())

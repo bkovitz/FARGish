@@ -31,11 +31,16 @@ Grid
 
             Match a QPainter. DONE
 
-            NEXT Define an R-Painter manually: QPainter to QPainter.
+            Define an R-Painter manually: QPainter to QPainter. DONE
 
             RPainter paints the other QPainter than the one matched.
 
-            Derive R-Painters from all the Q-Painters of the original image.
+                .make_qpainters()  DONE
+
+                Put it in the Working Soup.
+
+            NEXT Derive R-Painters from all the Q-Painters of the original
+            image.
 
             Derive Q-Painters from seed image with blanks, allowing ambiguous
             matches (at blank cells).
