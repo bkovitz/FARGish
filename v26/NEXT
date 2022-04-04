@@ -49,7 +49,15 @@ Grid
             call upon R-Painters from original image to make more Q-Painters,
             let the Q-Painters paint, and so on.
 
-                NEXT Find a QPainter that matches an RPainter.
+                RPainter.is_match()  DONE
+
+                Find a QPainter that matches an RPainter.  DONE
+
+                Weight the probabilities of RPainters.
+
+                Weight the probabilities of QPainters.
+
+                Choose an RPainter *or* a QPainter on each iteration.
 
     Try a "radiation-hardened quine" test.
 

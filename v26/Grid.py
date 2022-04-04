@@ -6,7 +6,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
-from random import choices
+from random import choice, choices
 from copy import deepcopy
 from itertools import product as cartesian_product
 
@@ -363,6 +363,13 @@ class Canvas:
                     for y in range(CANVAS_HEIGHT, 0, -1)
         )
 
+    def pr(self) -> None:
+        '''Prints both the Canvas and its claritystr().'''
+        print(self)
+        print()
+        print(self.claritystr())
+        print()
+
 MatchType = Literal['Target0', 'SameValue', 'DifferentValue']
 
 @dataclass(frozen=True)
@@ -475,6 +482,43 @@ class QPainter:
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.a}, {self.ppainter})'
+
+@dataclass
+class Regenerator:
+    
+    def iteration(
+        self,
+        c: Canvas,
+        ltsoup: Collection[RPainter],
+        wsoup: Set[QPainter]
+    ) -> None:
+        '''Updates 'c' and 'wsoup'.'''
+        # find a matching RPainter
+        # from RPainter, make QPainter(s)
+        # run a QPainter
+        rp, qp = self.choose_rp_and_qp(ltsoup, wsoup)
+        for new_qp in rp.make_qpainters(qp):
+            lo('ADDED', new_qp)
+            wsoup.add(new_qp)
+        qp = self.choose_qp(wsoup)
+        lo('PAINTING', qp)
+        qp.paint(c)
+
+    def choose_rp_and_qp(
+        self,
+        ltsoup: Collection[RPainter],
+        wsoup: Set[QPainter]
+    ) -> Tuple[RPainter, QPainter]:
+        rpqps = [
+            (rp, qp)
+                for rp, qp in cartesian_product(ltsoup, wsoup)
+                    if rp.is_match(qp)
+        ]
+        #lo('RPQPS', rpqps)
+        return choice(rpqps)
+
+    def choose_qp(self, wsoup: Set[QPainter]) -> QPainter:
+        return choice(list(wsoup))
 
 @dataclass(frozen=True)
 class QPainterTemplate:
@@ -660,6 +704,14 @@ if __name__ == '__main__':
     c.blank_all_but([(1, 8), (2, 8), (1, 7)])
     qps = set(QPainter.derive_from_canvas(c))
     pts(qps)
+
+    regenerator = Regenerator()
+
+    c.pr()
+    for t in range(20):
+        print(f't={t}')
+        regenerator.iteration(c, rps, qps)
+        c.pr()
 
     '''
     e: AExpr = ('x', '+', 2)
