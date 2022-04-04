@@ -155,7 +155,7 @@ class TestQPainterTemplate(unittest.TestCase):
         qpt2 = QPainterTemplate(
             (('x', '+', 1), 'y'), p2
         )
-        got = qpt2.make_qpainter(qpt1.make_env(qp1))
+        got = qpt2.make_qpainter(qpt1.make_env(qp1))  # type: ignore[arg-type]
         self.assertEqual(got, qp2)
 
 class TestRPainter(unittest.TestCase):

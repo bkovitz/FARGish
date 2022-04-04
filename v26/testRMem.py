@@ -143,9 +143,9 @@ class TestRMem(unittest.TestCase):
             got = rmem.regenerate(('a', None, None))
             self.assertEqual(got.as_tuple(), orig, f'failed on iter {i}')
 
-    RMemAdjRel: Type[WithAdjacentRelativePainters] = RMem.make_class(
+    RMemAdjRel: Type[WithAdjacentRelativePainters] = RMem.make_class( # type: ignore[assignment]
         (WithAdjacentRelativePainters, LinearClarityWeight, Absorb, Regenerate)
-    ) # type: ignore[assignment]
+    )
 
     def test_painter_right(self) -> None:
         rmem = self.RMemAdjRel()

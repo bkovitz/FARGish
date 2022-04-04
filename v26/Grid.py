@@ -8,17 +8,30 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from random import choice, choices
 from copy import deepcopy
-from itertools import product as cartesian_product
+from itertools import chain, product as cartesian_product
+from abc import ABC, abstractmethod
+from collections import defaultdict
 
 from util import Numeric, pts, sample_without_replacement, union, \
     unique_everseen, sstr
 from Log import lo, trace
 
 
+class MPainter(ABC):
+    '''Generic class for a painter that paint to a Model (not necessarily to
+    a Canvas).'''
+
+    @abstractmethod
+    def mpaint(self, m: Model) -> None:
+        pass
+
+    @abstractmethod
+    def weight(self, m: Model) -> float:
+        pass
+
 CanvasData = Sequence[Sequence[int]]  # 8x8 grid, [x][y], [0][0] is upper left
 CANVAS_WIDTH = 8
 CANVAS_HEIGHT = 8
-
 
 @dataclass(frozen=True)
 class AddrDC:
@@ -395,7 +408,7 @@ class PPainter:
         )
 
     @classmethod
-    def multi_from_canvas(cls, c: Canvas, a: Addr) -> Set[PPainter]:
+    def multi_from_canvas(cls, c: Canvas, a: Addr) -> Iterable[PPainter]:
         '''Returns zero or more PPainters that draw the 2x2 square of pixels
         contained in 'c' with upper left corner at 'a'. If all four pixels
         are blank, returns an empty set. Otherwise, for each blank cell,
@@ -456,21 +469,32 @@ class PPainter:
         return ''.join(as_xo(v) for v in self.values())
 
     @classmethod
-    def from_xos(cls, xos: str) -> Painter:
-        return Painter(*(
+    def from_xos(cls, xos: str) -> PPainter:
+        return PPainter(*(
             xo_to_num(xo) for xo in xos
         ))
 
 P = PPainter.from_xos
 
 @dataclass(frozen=True)
-class QPainter:
+class QPainter(MPainter):
     '''A PPainter with a specific Addr that it paints to.'''
     a: Addr
     ppainter: PPainter
 
     def paint(self, c: Canvas) -> None:
         self.ppainter.paint(c, self.a)
+
+    def mpaint(self, m: Model) -> None:
+        return self.paint(m.c)
+
+    def weight(self, m: Model) -> float:
+        return (
+            m.wsoup.activation(self)
+            *
+            m.c.painter_wt(self.ppainter, self.a)
+        )
+        
 
     @classmethod
     def derive_from_canvas(cls, c: Canvas) -> Iterable[QPainter]:
@@ -484,41 +508,110 @@ class QPainter:
         return f'{cl}({self.a}, {self.ppainter})'
 
 @dataclass
-class Regenerator:
-    
-    def iteration(
-        self,
-        c: Canvas,
-        ltsoup: Collection[RPainter],
-        wsoup: Set[QPainter]
-    ) -> None:
-        '''Updates 'c' and 'wsoup'.'''
-        # find a matching RPainter
-        # from RPainter, make QPainter(s)
-        # run a QPainter
-        rp, qp = self.choose_rp_and_qp(ltsoup, wsoup)
-        for new_qp in rp.make_qpainters(qp):
-            lo('ADDED', new_qp)
-            wsoup.add(new_qp)
-        qp = self.choose_qp(wsoup)
-        lo('PAINTING', qp)
-        qp.paint(c)
+class LongTermSoup:
+    rpainters: Dict[RPainter, float]
+        # RPainter -> activation level
 
-    def choose_rp_and_qp(
-        self,
-        ltsoup: Collection[RPainter],
-        wsoup: Set[QPainter]
-    ) -> Tuple[RPainter, QPainter]:
-        rpqps = [
-            (rp, qp)
-                for rp, qp in cartesian_product(ltsoup, wsoup)
+    def all_painters(self, m: Model) -> Iterable[RPQP]:
+        return (
+            RPQP(rp, qp)
+                for rp, qp in cartesian_product(
+                    self.rpainters, m.wsoup.qpainters
+                )
                     if rp.is_match(qp)
-        ]
-        #lo('RPQPS', rpqps)
-        return choice(rpqps)
+        )
 
-    def choose_qp(self, wsoup: Set[QPainter]) -> QPainter:
-        return choice(list(wsoup))
+    @classmethod
+    def make_from_canvas(cls, c: Canvas) -> LongTermSoup:
+        result = LongTermSoup({})
+        qps = set(QPainter.derive_from_canvas(c))
+        for rp in RPainter.derive_from_qpainters(qps):
+            # TODO Higher activation for repeated RPainters?
+            result.rpainters[rp] = 1.0
+        return result
+
+    def activation(self, rp: RPainter) -> float:
+        return self.rpainters.get(rp, 0.0)
+
+    # TODO rm?
+    def painters_and_weights(self) \
+    -> Tuple[Iterable[RPainter], Iterable[float]]:
+        return self.rpainters.keys(), self.rpainters.values()
+
+@dataclass
+class WorkingSoup:
+    qpainters: Dict[QPainter, float] = \
+        field(default_factory=lambda: defaultdict(float))
+        # QPainter -> activation level
+
+    def add(self, qp: QPainter) -> None:
+        self.qpainters[qp] += 1.0
+
+    def all_painters(self, m: Model) -> Iterable[QPainter]:
+        return self.qpainters.keys()
+
+    @classmethod
+    def make_from_canvas(cls, c: Canvas) -> WorkingSoup:
+        result = WorkingSoup()
+        for qp in QPainter.derive_from_canvas(c):
+            # TODO Higher activation for repeated QPainters?
+            result.qpainters[qp] = 1.0
+        return result
+
+    def activation(self, qp: QPainter) -> float:
+        return self.qpainters.get(qp, 0.0)
+
+    # TODO rm?
+    def painters_and_weights(self) \
+    -> Tuple[Iterable[QPainter], Iterable[float]]:
+        return self.qpainters.keys(), self.qpainters.values()
+
+@dataclass(frozen=True)
+class RPQP(MPainter):
+    '''An RPainter and a QPainter.'''
+    rpainter: RPainter
+    qpainter: QPainter
+
+    def weight(self, m: Model) -> float:
+        return (
+            m.ltsoup.activation(self.rpainter)
+            *
+            m.wsoup.activation(self.qpainter)
+        )
+
+    def mpaint(self, m: Model) -> None:
+        for qp in self.rpainter.make_qpainters(self.qpainter):
+            m.wsoup.add(qp)
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({sstr(self.rpainter)}, {sstr(self.qpainter)})'
+
+@dataclass
+class Model:
+    '''A model with painters, LongTermSoup, WorkingSoup, and Canvas.'''
+    ltsoup: LongTermSoup
+    wsoup: WorkingSoup
+    c: Canvas
+
+    def iteration(self) -> None:
+        '''Updates 'c' and 'wsoup'.'''
+        p = self.choose_painter()
+        p.mpaint(self)
+
+    def choose_painter(self) -> MPainter:
+        painters = self.all_painters()
+        weights = [p.weight(self) for p in painters]
+        # TODO Detect if there are no painters or the weights sum to 0.
+        result = choices(painters, weights)[0]
+        lo('CHOSE', sstr(result))
+        return result
+
+    def all_painters(self) -> Sequence[MPainter]:
+        return list(chain(ltsoup.all_painters(self), wsoup.all_painters(self)))
+
+    def pr(self) -> None:
+        self.c.pr()
 
 @dataclass(frozen=True)
 class QPainterTemplate:
@@ -534,18 +627,20 @@ class QPainterTemplate:
         uy = unify([ey], [qpy])
         if ux and uy:
             return ux, uy
+        else:
+            return None
 
     def make_qpainter(self, env: Tuple[Subst, Subst]) -> QPainter:
         abs_addr = tuple(eval_ae(s, a) for s, a in zip(env, self.a))
         # TODO eval_ae() fail?
         return QPainter(
-            abs_addr,
+            abs_addr,  # type: ignore[arg-type]
             self.ppainter
         )
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({self.a}, {self.ppainter})'
+        return f'{cl}({self.a}, {sstr(self.ppainter)})'
 
 @dataclass(frozen=True)
 class RPainter:
@@ -607,18 +702,6 @@ class RPainter:
                         result.add(pair)
         return result
 
-Painter = PPainter   # union this with QPainter, DPainter, anything else
-
-VarAddr = str
-PMatcher = Tuple[VarAddr, Painter]  # Matches a Painter at an Addr
-
-'''
-@dataclass(frozen=True)
-class QPainter:
-    triple1: PPainter
-    triple2: PPainter
-'''
-
 def make_ppainters(c: Canvas) -> Iterable[PPainter]:
     for a in c.all_2x2_addrs():
         yield PPainter.from_canvas(c, a)
@@ -638,18 +721,8 @@ def go(niters: int=1) -> None:
         print(c.claritystr())
         print()
 
-def et(e: AExpr) -> None:
-    '''AExpr test.'''
-    print(e)
-    match e:
-        case name if isinstance(name, str):
-            print('name:', name)
-        case n if isinstance(n, int):
-            print('n:', n)
-        case (a, op, b):
-            print(f'a: {a}, op: {op}, b: {b}')
-
 def extract_offset(e: AExpr) -> int:
+    '''
     match e:
         case name if isinstance(name, str):
             return 0
@@ -665,6 +738,22 @@ def extract_offset(e: AExpr) -> int:
                 return -a
         case _:
             raise ValueError(f'extract_offset: Can\'t find offset in {e}')
+    '''
+    if isinstance(e, str):
+        return 0
+    a, op, b = e  # type: ignore[misc]
+    if isinstance(a, str) and isinstance(b, int):
+        if op == '+':
+            return b
+        else:
+            return -b
+    elif isinstance(a, int) and isinstance(b, str):
+        if op == '+':
+            return a
+        else:
+            return -a
+    else:
+        raise ValueError(f'extract_offset: Can\'t find offset in {e}')
 
 @dataclass(frozen=True)
 class Subst:
@@ -689,11 +778,14 @@ def unify(es: Sequence[AExpr], ns: Sequence[int]) -> Optional[Subst]:
     normalized_ns = [n - minn for n in ns]
     if normalized_ns == normalized_offsets:
         return Subst('x', ns[0] - offsets[0])
+    else:
+        return None
             
             
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
 
+    '''
     qps = set(QPainter.derive_from_canvas(c))
     pts(qps)
     print()
@@ -704,14 +796,19 @@ if __name__ == '__main__':
     c.blank_all_but([(1, 8), (2, 8), (1, 7)])
     qps = set(QPainter.derive_from_canvas(c))
     pts(qps)
+    '''
 
-    regenerator = Regenerator()
+    ltsoup = LongTermSoup.make_from_canvas(c)
+    c.blank_all_but([(1, 8), (2, 8), (1, 7)])
+    wsoup = WorkingSoup.make_from_canvas(c)
+    model = Model(ltsoup, wsoup, c)
+    # TODO Give args to Model
 
-    c.pr()
+    model.pr()
     for t in range(20):
         print(f't={t}')
-        regenerator.iteration(c, rps, qps)
-        c.pr()
+        model.iteration()
+        model.pr()
 
     '''
     e: AExpr = ('x', '+', 2)
