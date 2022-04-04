@@ -214,3 +214,21 @@ class TestRPainter(unittest.TestCase):
         assert len(qps) == 49  # 8x8 without last row and column
         rps = RPainter.derive_from_qpainters(qps)
         self.assertEqual(len(rps), 8)  # same PPainter in all 8 directions
+
+    def test_match_qpainter(self) -> None:
+        p1 = PPainter(-1, -1, -1, +1)
+        p2 = PPainter(-1, -1, +1, +1)
+        p3 = PPainter(-1, -1, +1, -1)
+        qp1 = QPainter((1, 8), p1)
+        qp2 = QPainter((2, 8), p2)
+        qp3 = QPainter((1, 8), p3)
+        qpt1 = QPainterTemplate(
+            ('x', 'y'), p1
+        )
+        qpt2 = QPainterTemplate(
+            (('x', '+', 1), 'y'), p2
+        )
+        rp = RPainter((qpt1, qpt2))
+        self.assertTrue(rp.is_match(qp1))
+        self.assertTrue(rp.is_match(qp2))
+        self.assertFalse(rp.is_match(qp3))

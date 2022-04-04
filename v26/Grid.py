@@ -468,8 +468,13 @@ class QPainter:
     @classmethod
     def derive_from_canvas(cls, c: Canvas) -> Iterable[QPainter]:
         for a in c.all_2x2_addrs():
-            # NEXT Multiple PPainters when there are one or more blanks
-            yield QPainter(a, PPainter.from_canvas(c, a))
+            #yield QPainter(a, PPainter.from_canvas(c, a))
+            for pp in PPainter.multi_from_canvas(c, a):
+                yield QPainter(a, pp)
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.a}, {self.ppainter})'
 
 @dataclass(frozen=True)
 class QPainterTemplate:
@@ -515,6 +520,12 @@ class RPainter:
                         qp_out = other_qpt.make_qpainter(subs)
                         if Canvas.is_valid_2x2_addr(qp_out.a):
                             yield qp_out
+
+    def is_match(self, x: Any) -> bool:
+        return isinstance(x, QPainter) and x.ppainter in self.ppainters()
+
+    def ppainters(self) -> Iterable[PPainter]:
+        return (qpt.ppainter for qpt in self.qpts)
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -638,6 +649,7 @@ def unify(es: Sequence[AExpr], ns: Sequence[int]) -> Optional[Subst]:
             
 if __name__ == '__main__':
     c = Canvas.from_data(two_cs)
+
     qps = set(QPainter.derive_from_canvas(c))
     pts(qps)
     print()
@@ -646,7 +658,8 @@ if __name__ == '__main__':
     pts(rps)
 
     c.blank_all_but([(1, 8), (2, 8), (1, 7)])
-    pts(PPainter.multi_from_canvas(c, (1, 8)))
+    qps = set(QPainter.derive_from_canvas(c))
+    pts(qps)
 
     '''
     e: AExpr = ('x', '+', 2)

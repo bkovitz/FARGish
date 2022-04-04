@@ -42,12 +42,14 @@ Grid
             Derive R-Painters from all the Q-Painters of the original image.
             DONE
 
-            NEXT Derive Q-Painters from seed image with blanks, allowing
-            ambiguous matches (at blank cells).
+            Derive Q-Painters from seed image with blanks, allowing
+            ambiguous matches (at blank cells). DONE
 
             Run regeneration: From seed image, generate Q-Painters, then
             call upon R-Painters from original image to make more Q-Painters,
             let the Q-Painters paint, and so on.
+
+                NEXT Find a QPainter that matches an RPainter.
 
     Try a "radiation-hardened quine" test.
 
