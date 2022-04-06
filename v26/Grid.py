@@ -11,9 +11,10 @@ from copy import deepcopy
 from itertools import chain, product as cartesian_product
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from operator import itemgetter
 
-from util import Numeric, pts, sample_without_replacement, union, \
-    unique_everseen, sstr
+from util import Numeric, pts, nf, sample_without_replacement, union, \
+    unique_everseen, sstr, first
 from Log import lo, trace
 
 
@@ -23,6 +24,12 @@ class MPainter(ABC):
 
     @abstractmethod
     def mpaint(self, m: Model) -> None:
+        pass
+
+    @abstractmethod
+    def boost_target(self, m: Model) -> None:
+        '''What to do after painting: boost the activation level of whatever
+        got painted, if that is appropriate to the type of MPainter.'''
         pass
 
     @abstractmethod
@@ -63,6 +70,16 @@ AVar = str
 ATerm = AVar | int
 AOpExpr = Tuple[ATerm, Literal['+', '-'], ATerm]
 AExpr = Union[ATerm, AOpExpr]
+
+def astr(e: AExpr) -> str:
+    if isinstance(e, AVar):
+        return e
+    elif isinstance(e, int):
+        return str(e)
+    elif isinstance(e, tuple):
+        return ''.join(astr(ee) for ee in e)
+    else:
+        raise ValueError(f'astr({e!r})')
 
 def as_xy(a: Addr | int, y: int | None=None) \
 -> Tuple[int, int]:
@@ -488,13 +505,15 @@ class QPainter(MPainter):
     def mpaint(self, m: Model) -> None:
         return self.paint(m.c)
 
+    def boost_target(self, m: Model) -> None:
+        pass
+
     def weight(self, m: Model) -> float:
         return (
             m.wsoup.activation(self)
             *
             m.c.painter_wt(self.ppainter, self.a)
         )
-        
 
     @classmethod
     def derive_from_canvas(cls, c: Canvas) -> Iterable[QPainter]:
@@ -505,7 +524,7 @@ class QPainter(MPainter):
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({self.a}, {self.ppainter})'
+        return f'{cl}({self.a}, {sstr(self.ppainter)})'
 
 @dataclass
 class LongTermSoup:
@@ -533,10 +552,26 @@ class LongTermSoup:
     def activation(self, rp: RPainter) -> float:
         return self.rpainters.get(rp, 0.0)
 
+    def decay(self, factor: float=0.9) -> None:
+        for rp in self.rpainters:
+            self.rpainters[rp] *= factor
+
+    def boost(self, rp: RPainter) -> None:
+        if rp in self.rpainters:
+            self.rpainters[rp] += 100.0
+
+    def deboost(self, rp: RPainter) -> None:
+        if rp in self.rpainters:
+            self.rpainters[rp] *= 0.1
+
     # TODO rm?
     def painters_and_weights(self) \
     -> Tuple[Iterable[RPainter], Iterable[float]]:
         return self.rpainters.keys(), self.rpainters.values()
+
+    def pr(self) -> None:
+        for rp, activation in sorted(self.rpainters.items(), key=itemgetter(1)):
+            print(f'{activation:8.3f}', rp)
 
 @dataclass
 class WorkingSoup:
@@ -545,7 +580,7 @@ class WorkingSoup:
         # QPainter -> activation level
 
     def add(self, qp: QPainter) -> None:
-        self.qpainters[qp] += 1.0
+        self.qpainters[qp] += 100.0
 
     def all_painters(self, m: Model) -> Iterable[QPainter]:
         return self.qpainters.keys()
@@ -561,10 +596,26 @@ class WorkingSoup:
     def activation(self, qp: QPainter) -> float:
         return self.qpainters.get(qp, 0.0)
 
+    def boost(self, qp: QPainter) -> None:
+        if qp in self.qpainters:
+            self.qpainters[qp] += 100.0
+
+    def deboost(self, qp: QPainter) -> None:
+        if qp in self.qpainters:
+            self.qpainters[qp] *= 0.1
+
+    def decay(self, factor: float=0.9) -> None:
+        for qp in self.qpainters:
+            self.qpainters[qp] *= factor
+
     # TODO rm?
     def painters_and_weights(self) \
     -> Tuple[Iterable[QPainter], Iterable[float]]:
         return self.qpainters.keys(), self.qpainters.values()
+
+    def pr(self) -> None:
+        for qp, activation in sorted(self.qpainters.items(), key=itemgetter(1)):
+            print(f'{activation:8.3f}', qp)
 
 @dataclass(frozen=True)
 class RPQP(MPainter):
@@ -575,13 +626,19 @@ class RPQP(MPainter):
     def weight(self, m: Model) -> float:
         return (
             m.ltsoup.activation(self.rpainter)
+            #self.rpainter.weight(m)
             *
-            m.wsoup.activation(self.qpainter)
+            #m.wsoup.activation(self.qpainter)
+            self.qpainter.weight(m)
         )
 
     def mpaint(self, m: Model) -> None:
         for qp in self.rpainter.make_qpainters(self.qpainter):
             m.wsoup.add(qp)
+
+    def boost_target(self, m: Model) -> None:
+        m.boost(self.qpainter)
+        lo('BOOSTED', f'{self.qpainter.weight(m):8.3f}', self.qpainter)
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -596,22 +653,56 @@ class Model:
 
     def iteration(self) -> None:
         '''Updates 'c' and 'wsoup'.'''
+        ltsoup.decay()
+        wsoup.decay()
         p = self.choose_painter()
         p.mpaint(self)
+        p.boost_target(self)
+        self.deboost(p)
+        lo('NEW_W', f'{p.weight(self):8.3f}')
+        self.pr()
 
     def choose_painter(self) -> MPainter:
         painters = self.all_painters()
         weights = [p.weight(self) for p in painters]
+        self.pr_painters(painters, weights)
         # TODO Detect if there are no painters or the weights sum to 0.
         result = choices(painters, weights)[0]
-        lo('CHOSE', sstr(result))
+        lo('CHOSE', f'{result.weight(self):8.3f}', sstr(result))
         return result
+
+    def boost(self, p: QPainter | RPainter) -> None:
+        if isinstance(p, QPainter):
+            wsoup.boost(p)
+        else:  # RPainter
+            ltsoup.boost(p)
+
+    def deboost(self, p: MPainter) -> None:
+        if isinstance(p, QPainter):
+            wsoup.deboost(p)
+        elif isinstance(p, RPQP):
+            ltsoup.deboost(p.rpainter)
+        else:
+            raise ValueError(f"deboost(): Don't know how to deboost {p}")
 
     def all_painters(self) -> Sequence[MPainter]:
         return list(chain(ltsoup.all_painters(self), wsoup.all_painters(self)))
 
+    def matching_qpainters(self, pp: PPainter) -> Iterable[QPainter]:
+        return (
+            qp for qp in wsoup.all_painters(self)
+                if qp.ppainter == pp
+        )
+
     def pr(self) -> None:
+        '''Print self in a neat format.'''
         self.c.pr()
+
+    def pr_painters(
+        self, painters: Sequence[MPainter], weights: Sequence[float]
+    ) -> None:
+        for p, w in sorted(zip(painters, weights), key=itemgetter(1)):
+            print(f'{w:8.3f} {p}')
 
 @dataclass(frozen=True)
 class QPainterTemplate:
@@ -638,9 +729,15 @@ class QPainterTemplate:
             self.ppainter
         )
 
+    def weight(self, m: Model) -> float:
+        return max(
+            (qp.weight(m) for qp in m.matching_qpainters(self.ppainter)),
+            default=0.0
+        )
+
     def __str__(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({self.a}, {sstr(self.ppainter)})'
+        return f"{cl}({', '.join(astr(aa) for aa in self.a)}, {sstr(self.ppainter)})"
 
 @dataclass(frozen=True)
 class RPainter:
@@ -665,6 +762,10 @@ class RPainter:
 
     def ppainters(self) -> Iterable[PPainter]:
         return (qpt.ppainter for qpt in self.qpts)
+
+    # TODO rm?
+    def weight(self, m: Model) -> float:
+        return m.ltsoup.activation(self)
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -721,17 +822,18 @@ def go(niters: int=1) -> None:
         print(c.claritystr())
         print()
 
-def extract_offset(e: AExpr) -> int:
-    '''
+
+# e: AExpr  Bug in mypy 0.942
+def extract_offset(e: Union[str, int, tuple]) -> int:  # type: ignore[return]
     match e:
         case name if isinstance(name, str):
             return 0
-        case (a, op, b) if isinstance(a, str) and isinstance(b, int):
+        case (str(a), op, int(b)):
             if op == '+':
                 return b
             else:
                 return -b
-        case (a, op, b) if isinstance(a, int) and isinstance(b, str):
+        case (int(a), op, str(b)):
             if op == '+':
                 return a
             else:
@@ -754,6 +856,7 @@ def extract_offset(e: AExpr) -> int:
             return -a
     else:
         raise ValueError(f'extract_offset: Can\'t find offset in {e}')
+    '''
 
 @dataclass(frozen=True)
 class Subst:
@@ -805,10 +908,10 @@ if __name__ == '__main__':
     # TODO Give args to Model
 
     model.pr()
-    for t in range(20):
+    for t in range(1):  # 20
         print(f't={t}')
         model.iteration()
-        model.pr()
+        #model.pr()
 
     '''
     e: AExpr = ('x', '+', 2)

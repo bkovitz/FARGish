@@ -27,12 +27,15 @@ mtest: mypy test
 
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
+	which mypy
 	@echo -e \\n\\n\\n\\n\\n
 	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = Grid.py  #GridResults.py
+CURRENT = x.py  #Grid.py  #GridResults.py
 m:
+	which mypy
+	mypy --version
 	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $(CURRENT)

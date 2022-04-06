@@ -53,11 +53,35 @@ Grid
 
                 Find a QPainter that matches an RPainter.  DONE
 
-                Weight the probabilities of RPainters.
+                Weight the probabilities of RPainters.  DONE
 
-                Weight the probabilities of QPainters.
+                Weight the probabilities of QPainters.  DONE
 
-                Choose an RPainter *or* a QPainter on each iteration.
+                Choose an RPainter *or* a QPainter on each iteration.  DONE
+
+                Decay painter activations.  DONE
+
+                Print painters and their activations.  DONE
+
+                Boost QPainters of chosen RPainter?
+
+                Boost RPainters of just-active QPainter.
+
+                Consult multiple painters to decide what to paint.
+
+                Give activations to PPainters?
+
+                Deboost painter when it paints?  DONE
+
+                Could purely relative painters sit in absolute locations?
+                That would enable competition between them.
+
+            Generate just one QPainter from the Canvas per timestep?
+
+    On paper, list all the painters and functions, in a simple
+    mathematical form.  DONE
+
+    NEXT Sketch out simplified code: Grid2.py.
 
     Try a "radiation-hardened quine" test.
 
