@@ -32,7 +32,7 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = x.py  #Grid.py  #GridResults.py
+CURRENT = Grid2.py  #Grid.py  #GridResults.py
 m:
 	which mypy
 	mypy --version
@@ -48,7 +48,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testRMem.TestRMem.test_weighted_funcs
 	#$(PY) -m unittest -v testNumbo1
-	$(PY) -m unittest -v testGrid
+	$(PY) -m unittest -v testGrid2
 
 # Acceptance tests
 at:

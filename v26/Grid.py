@@ -644,6 +644,7 @@ class RPQP(MPainter):
         cl = self.__class__.__name__
         return f'{cl}({sstr(self.rpainter)}, {sstr(self.qpainter)})'
 
+
 @dataclass
 class Model:
     '''A model with painters, LongTermSoup, WorkingSoup, and Canvas.'''

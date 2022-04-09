@@ -81,7 +81,12 @@ Grid
     On paper, list all the painters and functions, in a simple
     mathematical form.  DONE
 
-    NEXT Sketch out simplified code: Grid2.py.
+    Sketch out simplified code: Grid2.py.
+
+        NEXT Write args for a top-level iterate() function.
+
+        Choose 2x2 block for next PPainter.multi_from_canvas() by
+        clarities.
 
     Try a "radiation-hardened quine" test.
 
