@@ -213,7 +213,7 @@ CANVAS_HEIGHT = 8
 
 @dataclass(frozen=True)
 class AddrDC:
-    '''x,y of a Canvas, 0-relative, (1, 8) is upper left.'''
+    '''"Address Dataclass": x,y of a Canvas cell. (1, 8) is upper left.'''
     x: int
     y: int
 
@@ -344,19 +344,19 @@ class PPainter:
             )):
                 yield PPainter(*vs)
 
-    def match_wt(self, c: Canvas, addr: Addr) -> int:
-        '''How well does this painter match the canvas at 'addr'? The returned
-        value is the sum of match scores for each pixel: 5 points for an exact
-        match with a non-zero value on the canvas, 1 point for a zero on the
-        canvas, and no points for non-zero value that disagrees.'''
-        result = 0
-        for a, v in zip(as_addrdc(addr).sq2x2(), self.values()):
-            cv = c[a]
-            if cv == 0:
-                result += 1
-            elif cv == v:
-                result += 5
-        return result
+#    def match_wt(self, c: Canvas, addr: Addr) -> int:
+#        '''How well does this painter match the canvas at 'addr'? The returned
+#        value is the sum of match scores for each pixel: 5 points for an exact
+#        match with a non-zero value on the canvas, 1 point for a zero on the
+#        canvas, and no points for non-zero value that disagrees.'''
+#        result = 0
+#        for a, v in zip(as_addrdc(addr).sq2x2(), self.values()):
+#            cv = c[a]
+#            if cv == 0:
+#                result += 1
+#            elif cv == v:
+#                result += 5
+#        return result
 
     def values(self) -> Iterable[int]:
         '''Returns an iterable containing the values of this painter, in
@@ -366,7 +366,6 @@ class PPainter:
         yield self.ll
         yield self.lr
 
-    # TODO UT
     def match_types(self, c: Canvas, addr: Addr) \
     -> Iterable[Tuple[A, MatchType]]:
         '''Returns an iterable of four tuples (A, MatchType), corresponding to
@@ -397,6 +396,54 @@ class PPainter:
 P = PPainter.from_xos
 
 
+@dataclass(frozen=True)
+class WeightScheme:
+    empty_cell_weight: Numeric = 1
+    matched_cell_weight: Numeric = 5
+
+#    def weight_of(self, m: ModelState, p: Painter) -> float:
+#        pass # TODO
+
+    #NEXT
+    def ppainter_weight(self, c: Canvas, pp: PPainter, addr: Addr) -> Numeric:
+        source_strength = 0.0
+        target_strength = 0.0
+        num_targets = 0
+        for a, mtype in pp.match_types(c, addr):
+            cl = c.clarity(a)
+            w = cl / c.MAX_CLARITY
+            if mtype != 'SameValue':
+                target_strength += w + 0.01
+                num_targets += 1
+            else:
+                if cl <= 2:
+                    target_strength += 2 * w + 0.01
+                    num_targets += 1
+                else:
+                    source_strength += w
+        if num_targets:
+            return source_strength / target_strength
+        else:
+            return 0
+        
+
+    def pp_match_weight(self, c: Canvas, pp: PPainter, addr: Addr) -> Numeric:
+        '''How well does this painter match the canvas at 'addr'?'''
+        result: Numeric = 0
+        for a, v in zip(as_addrdc(addr).sq2x2(), pp.values()):
+            canvas_value = c[a]
+            if canvas_value == 0:
+                result += self.empty_cell_weight
+            elif canvas_value == v:
+                result += self.matched_cell_weight
+        return result
+
+default_weight_scheme = WeightScheme()
+
+def run_small_seed(wts: WeightScheme=default_weight_scheme) -> None:
+    '''Runs the small-seed experiment with given WeightScheme.'''
+    pass
+        
 #@dataclass
 #class ModelState:
 #    ltsoup: LongTermSoup
