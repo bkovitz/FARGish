@@ -14,8 +14,11 @@ from collections import defaultdict
 from operator import itemgetter
 
 from util import Numeric, pts, nf, sample_without_replacement, union, \
-    unique_everseen, sstr, first
+    unique_everseen, sstr, first, short
 from Log import lo, trace
+
+
+epsilon = 0.00001
 
 @dataclass
 class Canvas:
@@ -211,6 +214,8 @@ CanvasData = Sequence[Sequence[int]]  # 8x8 grid, [x][y], [0][0] is upper left
 CANVAS_WIDTH = 8
 CANVAS_HEIGHT = 8
 
+### Addresses of canvas cells ###
+
 @dataclass(frozen=True)
 class AddrDC:
     '''"Address Dataclass": x,y of a Canvas cell. (1, 8) is upper left.'''
@@ -256,6 +261,23 @@ def as_addrdc(a: Addr | Tuple[int, int] | int, y: int | None=None) -> AddrDC:
         assert isinstance(y, int)
         return AddrDC(a, y)
 
+def are_within_radius(addr1: Addr, addr2: Addr, radius: int) -> bool:
+    x1, y1 = as_xy(addr1)
+    x2, y2 = as_xy(addr2)
+    return abs(x1 - x2) <= radius and abs(y1 - y2) <= radius
+
+@dataclass(frozen=True)
+class BadAddr(IndexError):
+    a: AddrDC
+
+    def __str__(self) -> str:
+        return f'Bad Addr: {self.a}'
+
+    @classmethod
+    def make(cls, a: Addr | Tuple[int, int] | int, y: int | None=None) \
+    -> BadAddr:
+        return BadAddr(as_addrdc(a, y))
+
 def as_xo(v: int) -> str:
     if v < 0:
         return 'O'
@@ -274,24 +296,78 @@ def xo_to_num(xo: str) -> int:
     else:
         raise ValueError(f'xo_to_num: invalid xo: {xo!r}')
 
-def are_within_radius(addr1: Addr, addr2: Addr, radius: int) -> bool:
-    x1, y1 = as_xy(addr1)
-    x2, y2 = as_xy(addr2)
-    return abs(x1 - x2) <= radius and abs(y1 - y2) <= radius
+### Expressions and substitutions ###
 
+AVar = str
+ATerm = AVar | int
+AOpExpr = Tuple[ATerm, Literal['+', '-'], ATerm]
+AExpr = Union[ATerm, AOpExpr]
+
+def difference_aexpr(val1: int, val2: int, varname: str) -> AExpr:
+    '''Returns AExpr for val1 - val2, assigning varname to val2.'''
+    if val1 == val2:
+        return varname
+    elif val1 < val2:
+        return (varname, '+', val2 - val1)
+    else:
+        return (varname, '-', val1 - val2)
+
+def astr(e: AExpr) -> str:
+    if isinstance(e, AVar):
+        return e
+    elif isinstance(e, int):
+        return str(e)
+    elif isinstance(e, tuple):
+        return ''.join(astr(ee) for ee in e)
+    else:
+        raise ValueError(f'astr({e!r})')
 
 @dataclass(frozen=True)
-class BadAddr(IndexError):
-    a: AddrDC
+class Subst:
+    '''A 'substitution': a variable and the value to give it.'''
+    var: AVar
+    v: int
 
     def __str__(self) -> str:
-        return f'Bad Addr: {self.a}'
+        return f'{self.var}={self.v}'
 
-    @classmethod
-    def make(cls, a: Addr | Tuple[int, int] | int, y: int | None=None) \
-    -> BadAddr:
-        return BadAddr(as_addrdc(a, y))
+def eval_ae(s: Subst, e: AExpr) -> int:
+    '''Returns value of 'e' given 's'. Ignores the name of the variable in
+    's'.'''
+    return extract_offset(e) + s.v
 
+# e: AExpr  Bug in mypy 0.942
+def extract_offset(e: Union[str, int, tuple]) -> int:  # type: ignore[return]
+    '''Returns the 'offset' part an an AExpr, e.g. the 2 in (x, '+', 2), or
+    0 if the AExpr contains no offset.'''
+    match e:
+        case name if isinstance(name, str):
+            return 0
+        case (str(a), op, int(b)):
+            if op == '+':
+                return b
+            else:
+                return -b
+        case (int(a), op, str(b)):
+            if op == '+':
+                return a
+            else:
+                return -a
+        case _:
+            raise ValueError(f'extract_offset: Can\'t find offset in {e}')
+
+def unify(es: Sequence[AExpr], ns: Sequence[int]) -> Optional[Subst]:
+    '''Poor man's unification.'''
+    offsets = [extract_offset(e) for e in es]
+    mino = min(offsets)
+    normalized_offsets = [o - mino for o in offsets]
+    minn = min(ns)
+    normalized_ns = [n - minn for n in ns]
+    if normalized_ns == normalized_offsets:
+        return Subst('x', ns[0] - offsets[0])
+    else:
+        return None
+            
 two_cs: CanvasData = [
     [-1, -1, -1, -1, -1, -1, -1, -1],
     [-1, +1, +1, -1, -1, -1, -1, -1],
@@ -384,6 +460,9 @@ class PPainter:
         cl = self.__class__.__name__
         return f'{cl}({self.as_xos()})'
 
+    def short(self) -> str:
+        return self.as_xos()
+
     def as_xos(self) -> str:
         return ''.join(as_xo(v) for v in self.values())
 
@@ -401,10 +480,26 @@ class WeightScheme:
     empty_cell_weight: Numeric = 1
     matched_cell_weight: Numeric = 5
 
-#    def weight_of(self, m: ModelState, p: Painter) -> float:
-#        pass # TODO
+    def weight_of(self, m: Model, p: MPainter) -> float:
+        match p:
+            case QPainter():
+                return self.qpainter_weight(m, p)
+            case RPQP(rp, qp):
+                return (
+                    m.ltsoup.activation(rp)
+                    *
+                    self.weight_of(m, qp)
+                )
+            case _:
+                raise NotImplementedError(p)
 
-    #NEXT
+    def qpainter_weight(self, m: Model, qp: QPainter) -> float:
+        return (
+            m.wsoup.activation(qp)
+            *
+            self.ppainter_weight(m.c, qp.ppainter, qp.a)
+        )
+
     def ppainter_weight(self, c: Canvas, pp: PPainter, addr: Addr) -> Numeric:
         source_strength = 0.0
         target_strength = 0.0
@@ -440,20 +535,60 @@ class WeightScheme:
 
 default_weight_scheme = WeightScheme()
 
-def run_small_seed(wts: WeightScheme=default_weight_scheme) -> None:
-    '''Runs the small-seed experiment with given WeightScheme.'''
-    pass
-        
-#@dataclass
-#class ModelState:
-#    ltsoup: LongTermSoup
-#    wsoup: WorkingSoup
-#    c: Canvas
-#
-#def iterate(m: ModelState) -> None:
-#    m.ltsoup.decay()
-#    m.wsoup.decay()
-#    painters = list(chain(
+@dataclass
+class Model:
+    ltsoup: LongTermSoup
+    wsoup: WorkingSoup
+    c: Canvas
+    wts: WeightScheme = field(default=default_weight_scheme)
+
+    def decay(self) -> None:
+        self.ltsoup.decay()
+        self.wsoup.decay()
+
+    def boost(self, p: MPainter) -> None:
+        match p:
+            case QPainter():
+                self.wsoup.boost(p)
+            case _:
+                raise NotImplementedError(p)
+
+    def deboost(self, p: MPainter | RPainter) -> None:
+        match p:
+            case QPainter():
+                self.wsoup.deboost(p)
+            case RPainter():
+                self.ltsoup.deboost(p)
+            case RPQP(rp, qp):
+                self.deboost(rp)
+            case _:
+                raise NotImplementedError(p)
+
+    def all_painters(self) -> Sequence[MPainter]:
+        return list(chain(
+            self.ltsoup.all_painters(self),
+            self.wsoup.all_painters(self),
+        ))
+
+    def iteration(self) -> None:
+        self.decay()
+        painters = self.all_painters()
+        weights = [self.wts.weight_of(self, p) for p in painters]
+        # TODO What if no painters or 0 weight?
+        #pts(painters, key=short)
+        i = choices(range(len(painters)), weights)[0]
+        lo('CHOSE', f'{short(painters[i])}  {weights[i]:8.3f}')
+        p = painters[i]
+        p.mpaint(self)
+        p.boost_target(self)
+        self.deboost(p)
+
+    def pr(self) -> None:
+        print(self.c)
+        print()
+        print(self.c.claritystr())
+        print()
+
 #        m.ltsoup.all_painters(m),
 #        m.wsoup.all_painters(m)
 #    ))
@@ -462,7 +597,7 @@ def run_small_seed(wts: WeightScheme=default_weight_scheme) -> None:
 #    p = choices(painters, weights)[0]
 #    p.paint(m)
 #
-#def weight_of(m: ModelState, p: MPainter) -> float:
+#def weight_of(m: Model, p: MPainter) -> float:
 #    match p:
 #        case PPainter():
 #            lo('PPainter')
@@ -473,7 +608,7 @@ def run_small_seed(wts: WeightScheme=default_weight_scheme) -> None:
 #    rpainters: Dict[RPainter, float]
 #        # RPainter -> activation level
 #
-#    def all_painters(self, m: ModelState) -> Iterable[RPRQ]:
+#    def all_painters(self, m: Model) -> Iterable[RPRQ]:
 #        return (
 #            RPQP(rp, qp)
 #                for rp, qp in cartesian_product(
@@ -487,86 +622,310 @@ def run_small_seed(wts: WeightScheme=default_weight_scheme) -> None:
 #            self.rpainters[rp] *= factor
 #
 #    
-#@dataclass
-#class WorkingSoup:
-#    qpainters: Dict[QPainter, float] = \
-#        field(default_factory=lambda: defaultdict(float))
-#        # QPainter -> activation level
-#
-#    def all_painters(self, m: Model) -> Iterable[QPainter]:
-#        return self.qpainters.keys()
-#
-#    def decay(self, factor: float=0.9) -> None:
-#        for qp in self.qpainters:
-#            self.qpainters[qp] *= factor
-#
-#
+@dataclass
+class WorkingSoup:
+    qpainters: Dict[QPainter, float] = \
+        field(default_factory=lambda: defaultdict(float))
+        # QPainter -> activation level
+
+    def add(self, qp: QPainter) -> None:
+        self.qpainters[qp] += 100.0
+
+    def all_painters(self, m: Model) -> Iterable[QPainter]:
+        return self.qpainters.keys()
+
+    def decay(self, factor: float=0.9) -> None:
+        for qp in self.qpainters:
+            self.qpainters[qp] *= factor
+
+    def activation(self, qp: QPainter) -> float:
+        return self.qpainters.get(qp, 0.0)
+
+    def boost(self, qp: QPainter) -> None:
+        if qp in self.qpainters:
+            self.qpainters[qp] += 100.0
+
+    def deboost(self, qp: QPainter) -> None:
+        if qp in self.qpainters:
+            self.qpainters[qp] *= 0.1
+            if self.qpainters[qp] < epsilon:
+                del self.qpainters[qp]
+
+    @classmethod
+    def make_from_canvas(cls, c: Canvas) -> WorkingSoup:
+        result = WorkingSoup()
+        for qp in QPainter.derive_from_canvas(c):
+            # TODO Higher activation for repeated QPainters?
+            result.qpainters[qp] = 1.0
+        return result
+
 #### Painters
-#
-#@dataclass(frozen=True)
-#class PPainter:
-#    ul: int  # value of upper left pixel.
-#             # 1 or -1 for black or white; 0 for don't know
-#    ur: int  # etc.
-#    ll: int
-#    lr: int
-#
-#class MPainter(ABC):
-#    '''Generic class for a painter that paint to a Model (not necessarily to
-#    a Canvas).'''
-#
-#    @abstractmethod
-#    def mpaint(self, m: Model) -> None:
-#        pass
-#
-#    @abstractmethod
-#    def boost_target(self, m: Model) -> None:
-#        '''What to do after painting: boost the activation level of whatever
-#        got painted, if that is appropriate to the type of MPainter.'''
-#        pass
-#
-#@dataclass(frozen=True)
-#class RPainter:
-#    '''A painter that matches a QPainter and paints one or more other
-#    QPainters.'''
-#    qpts: Tuple[QPainterTemplate, ...]
-#    
-#@dataclass(frozen=True)
-#class RPQP(MPainter):
-#    '''An RPainter and a QPainter.'''
-#    rpainter: RPainter
-#    qpainter: QPainter
-#
-#    def weight(self, m: Model) -> float:
-#        return (
-#            m.ltsoup.activation(self.rpainter)
-#            *
-#            weight_of(m, self.qpainter)
-#        )
-#
-#
-##class Model:
-##
-##
-##class MPainter:
-##
-##
-##class PPainter:
-##
-##class QPainter:
-##
-##class RPainter:
-##
-##class RPQP:
-##
-##
-##class Weigher:
-##
-##
-##class WorkingSoup:
-##
-##class LongTermSoup:
-##
-##
-##
+
+class MPainter(ABC):
+    '''Generic class for a painter that paint to a Model (not necessarily to
+    a Canvas).'''
+
+    @abstractmethod
+    def mpaint(self, m: Model) -> None:
+        pass
+
+    @abstractmethod
+    def boost_target(self, m: Model) -> None:
+        '''What to do after painting: boost the activation level of whatever
+        got painted, if that is appropriate to the type of MPainter.'''
+        pass
+
+    @abstractmethod
+    def weight(self, m: Model) -> float:
+        pass
+
+@dataclass(frozen=True)
+class QPainter(MPainter):
+    '''A PPainter with a specific Addr that it paints to.'''
+    a: Addr
+    ppainter: PPainter
+
+    def paint(self, c: Canvas) -> None:
+        self.ppainter.paint(c, self.a)
+
+    def mpaint(self, m: Model) -> None:
+        return self.paint(m.c)
+
+    def boost_target(self, m: Model) -> None:
+        pass
+
+    def weight(self, m: Model) -> float:
+        return (
+            m.wsoup.activation(self)
+            *
+            m.c.painter_wt(self.ppainter, self.a)
+        )
+
+    @classmethod
+    def derive_from_canvas(cls, c: Canvas) -> Iterable[QPainter]:
+        for a in c.all_2x2_addrs():
+            #yield QPainter(a, PPainter.from_canvas(c, a))
+            for pp in PPainter.multi_from_canvas(c, a):
+                yield QPainter(a, pp)
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.a}, {self.ppainter.as_xos()})'
+
+    def short(self) -> str:
+        x, y = as_xy(self.a)
+        return f'({x}, {y}, {self.ppainter.as_xos()})'
+
+@dataclass(frozen=True)
+class QPainterTemplate:
+    '''Like a QPainter, but the Addr is only a template, containing variables
+    rather than absolute addresses.'''
+    a: Tuple[AExpr, AExpr]
+    ppainter: PPainter
+
+    def make_env(self, qp: QPainter) -> Optional[Tuple[Subst, Subst]]:
+        qpx, qpy = as_xy(qp.a)
+        ex, ey = self.a
+        ux = unify([ex], [qpx])
+        uy = unify([ey], [qpy])
+        if ux and uy:
+            return ux, uy
+        else:
+            return None
+
+    def make_qpainter(self, env: Tuple[Subst, Subst]) -> QPainter:
+        abs_addr = tuple(eval_ae(s, a) for s, a in zip(env, self.a))
+        # TODO eval_ae() fail?
+        return QPainter(
+            abs_addr,  # type: ignore[arg-type]
+            self.ppainter
+        )
+
+    '''
+    def weight(self, m: Model) -> float:
+        return max(
+            (qp.weight(m) for qp in m.matching_qpainters(self.ppainter)),
+            default=0.0
+        )
+    '''
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f"{cl}({', '.join(astr(aa) for aa in self.a)}, {sstr(self.ppainter)})"
+
+    def short(self) -> str:
+        return f'({astr(self.a[0])}, {astr(self.a[1])}, {self.ppainter.as_xos()})'
+
+@dataclass(frozen=True)
+class RPainter:
+    '''A painter that matches a QPainter and paints one or more other
+    QPainters.'''
+    qpts: Tuple[QPainterTemplate, ...]
+    
+    def make_qpainters(self, qp: QPainter) -> Iterable[QPainter]:
+        for qpt in self.qpts:
+            if qpt.ppainter == qp.ppainter:
+                subs = qpt.make_env(qp)
+                if subs:
+                    for other_qpt in self.qpts:  # all except qpt
+                        if qpt == other_qpt:
+                            continue
+                        qp_out = other_qpt.make_qpainter(subs)
+                        if Canvas.is_valid_2x2_addr(qp_out.a):
+                            yield qp_out
+
+    def is_match(self, x: Any) -> bool:
+        return isinstance(x, QPainter) and x.ppainter in self.ppainters()
+
+    def ppainters(self) -> Iterable[PPainter]:
+        return (qpt.ppainter for qpt in self.qpts)
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({sstr(self.qpts)})'
+
+    def short(self) -> str:
+        return ' <-> '.join(short(qpt) for qpt in self.qpts)
+
+    @classmethod
+    def derive_from_qpainters(
+        cls, qpainters: Collection[QPainter], radius: int=1
+    ) -> Set[RPainter]:
+        result: Set[RPainter] = set()
+        for qp1, qp2 in cls.qpainter_pairs(qpainters, radius):
+            x1, y1 = as_xy(qp1.a)
+            x2, y2 = as_xy(qp2.a)
+            result.add(RPainter((
+                QPainterTemplate(('x', 'y'), qp1.ppainter),
+                QPainterTemplate(
+                   (difference_aexpr(x2, x1, 'x'),
+                    difference_aexpr(y2, y1, 'y')),
+                   qp2.ppainter
+                )
+            )))
+        return result
+            
+    @classmethod
+    def qpainter_pairs(cls, qpainters: Collection[QPainter], radius: int=1) \
+    -> Set[FrozenSet[QPainter]]:
+        '''Returns a generator containing unordered pairs (sets of two) of
+        'qpainters' that are within 'radius' of each other.'''
+        result: Set[FrozenSet[QPainter]] = set()
+        for qp1, qp2 in cartesian_product(qpainters, qpainters):
+            if qp1 != qp2:
+                pair = frozenset((qp1, qp2))
+                if pair not in result:
+                    if are_within_radius(qp1.a, qp2.a, radius):
+                        result.add(pair)
+        return result
+
+@dataclass(frozen=True)
+class RPQP(MPainter):
+    '''An RPainter and a QPainter.'''
+    rpainter: RPainter
+    qpainter: QPainter
+
+    def weight(self, m: Model) -> float:
+        return (
+            m.ltsoup.activation(self.rpainter)
+            #self.rpainter.weight(m)
+            *
+            #m.wsoup.activation(self.qpainter)
+            self.qpainter.weight(m)
+        )
+
+    def mpaint(self, m: Model) -> None:
+        for qp in self.rpainter.make_qpainters(self.qpainter):
+            m.wsoup.add(qp)
+
+    def boost_target(self, m: Model) -> None:
+        m.boost(self.qpainter)
+        lo('BOOSTED', f'{self.qpainter.weight(m):8.3f}', self.qpainter)
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({sstr(self.rpainter)}, {sstr(self.qpainter)})'
+
+    def short(self) -> str:
+        return f'{short(self.rpainter):40s} => {short(self.qpainter)}'
+
+@dataclass
+class LongTermSoup:
+    rpainters: Dict[RPainter, float]
+        # RPainter -> activation level
+
+    def all_painters(self, m: Model) -> Iterable[RPQP]:
+        return (
+            RPQP(rp, qp)
+                for rp, qp in cartesian_product(
+                    self.rpainters, m.wsoup.qpainters
+                )
+                    if rp.is_match(qp)
+        )
+
+    @classmethod
+    def make_from_canvas(cls, c: Canvas) -> LongTermSoup:
+        result = LongTermSoup({})
+        qps = set(QPainter.derive_from_canvas(c))
+        for rp in RPainter.derive_from_qpainters(qps):
+            # TODO Higher activation for repeated RPainters?
+            result.rpainters[rp] = 1.0
+        return result
+
+    def activation(self, rp: RPainter) -> float:
+        return self.rpainters.get(rp, 0.0)
+
+    def decay(self, factor: float=0.9) -> None:
+        for rp in self.rpainters:
+            self.rpainters[rp] *= factor
+
+    def boost(self, rp: RPainter) -> None:
+        if rp in self.rpainters:
+            self.rpainters[rp] += 100.0
+
+    def deboost(self, rp: RPainter) -> None:
+        if rp in self.rpainters:
+            self.rpainters[rp] *= 0.1
+
+    def __len__(self) -> int:
+        return len(self.rpainters)
+
+    def pr(self) -> None:
+        for rp, activation in sorted(self.rpainters.items(), key=itemgetter(1)):
+            print(f'{activation:8.3f}', rp)
+
+
 ##class Pixel:  # ?
+
+default_seed_addrs = [
+    (1, 8), (2, 8), (3, 8), (4, 8),
+    (1, 7), (2, 7), (3, 7),
+            (2, 6), (3, 6)
+]
+
+def run_small_seed(
+    num_t: int=20,
+    wts: WeightScheme=default_weight_scheme,
+    seed_addrs: Sequence[Addr]=default_seed_addrs,
+) -> Model:
+    '''Runs the small-seed experiment with given WeightScheme.'''
+    c = Canvas.from_data(two_cs)
+    ltsoup = LongTermSoup.make_from_canvas(c)
+    c.blank_all_but(seed_addrs)
+    m = Model(
+        ltsoup,
+        WorkingSoup.make_from_canvas(c),
+        c
+    )
+
+    m.pr()
+    for t in range(1, num_t + 1):
+        input()
+        print(f't={t}')
+        m.iteration()
+        m.pr()
+
+    return m
+
+if __name__ == '__main__':
+    run_small_seed()

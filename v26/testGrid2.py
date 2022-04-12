@@ -5,7 +5,7 @@ from pprint import pprint as pp
 import inspect
 
 from Grid2 import Canvas, CanvasData, A, PPainter, P, WeightScheme, \
-    default_weight_scheme
+    default_weight_scheme, run_small_seed
     #, QPainter, \
     #QPainterTemplate, RPainter, Subst, unify, all_white
 from Log import lo
@@ -152,3 +152,11 @@ class TestWeightScheme(unittest.TestCase):
             default_weight_scheme.ppainter_weight(c, pp, (1, 8)),
             200.0
         )
+
+class TestModelState(unittest.TestCase):
+    """
+    def test_run_small_seed(self) -> None:
+        '''Smoke test only.'''
+        run_small_seed()
+    """
+    pass

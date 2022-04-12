@@ -809,6 +809,8 @@ def sstr(x: Any) -> str:
         return f"[{', '.join(sstr(xx) for xx in x)}]"
     elif isinstance(x, set):
         return f"{{{', '.join(sstr(xx) for xx in x)}}}"
+    elif hasattr(x, 'sstr'):
+        return x.sstr()
     else:
         return str(x)
 
