@@ -764,6 +764,12 @@ class ClassStrIsName(type):
     def __str__(self):
         return self.__name__
 
+'''
+def hsb_to_rgb(h: int, s: int, b: int) -> Tuple[int, int, int]:
+    h: float = h 
+    chroma = (1 - abs(2 * (b / 255.0)
+'''
+
 ### Debugging and reporting
 
 def short(o) -> str:
