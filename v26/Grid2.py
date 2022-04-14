@@ -903,20 +903,26 @@ default_seed_addrs = [
             (2, 6), (3, 6)
 ]
 
+def make_small_seed_model(
+    wts: WeightScheme=default_weight_scheme,
+    seed_addrs: Sequence[Addr]=default_seed_addrs,
+) -> Model:
+    c = Canvas.from_data(two_cs)
+    ltsoup = LongTermSoup.make_from_canvas(c)
+    c.blank_all_but(seed_addrs)
+    return Model(
+        ltsoup,
+        WorkingSoup.make_from_canvas(c),
+        c
+    )
+
 def run_small_seed(
     num_t: int=20,
     wts: WeightScheme=default_weight_scheme,
     seed_addrs: Sequence[Addr]=default_seed_addrs,
 ) -> Model:
     '''Runs the small-seed experiment with given WeightScheme.'''
-    c = Canvas.from_data(two_cs)
-    ltsoup = LongTermSoup.make_from_canvas(c)
-    c.blank_all_but(seed_addrs)
-    m = Model(
-        ltsoup,
-        WorkingSoup.make_from_canvas(c),
-        c
-    )
+    m = make_small_seed_model(wts=wts, seed_addrs=seed_addrs)
 
     m.pr()
     for t in range(1, num_t + 1):

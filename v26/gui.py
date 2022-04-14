@@ -6,8 +6,38 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from colorsys import hls_to_rgb
 
 from Grid2 import Canvas as GCanvas, A, as_xy, Addr, two_cs, \
-    default_seed_addrs, Model, WorkingSoup, LongTermSoup
+    default_seed_addrs, Model, WorkingSoup, LongTermSoup, make_small_seed_model
 from util import dupdate, pts
+
+def prt(*args, **kwargs):
+    print('PRT', args, kwargs)
+
+class App(Frame):
+
+    def __init__(self):
+        Frame.__init__(self)
+        self.pack(expand=YES, fill=BOTH)
+        self.master.title('Canvas-and-Painters: Grid')
+        self.gridw = GridWidget(self)
+        Button(self, text='Small seed', command=self.small_seed).pack(side=LEFT, expand=YES)
+        Button(self, text='Step', command=self.step).pack(side=LEFT, expand=YES)
+        self.bind_all('<s>', self.step)
+        self.small_seed()
+
+    def key(self, event):
+        print(event)
+
+    def small_seed(self):
+        self.model = make_small_seed_model()
+        self.draw_model()
+
+    def draw_model(self):
+        self.gridw.draw_gc(self.model.c)
+
+    def step(self, event=None):
+        print(event)
+        self.model.iteration()
+        self.draw_model()
 
 class GridWidget(Canvas):
 
@@ -17,9 +47,6 @@ class GridWidget(Canvas):
         super().__init__(*args, **dupdate(self.defaults, kwargs))
         self.pack(anchor=W, padx=3, pady=3)
         self.draw_outlines()
-
-#    def key(self, event):
-#        print(event)
 
     def draw_gc(self, gc: GCanvas) -> None:
         '''Updates all the squares in the GridWidget to match 'gc'.'''
@@ -61,28 +88,30 @@ class GridWidget(Canvas):
                 self.create_rectangle(x + 50, y + 50, x, y, outline='#eee')
 
 if __name__ == '__main__':
-    root = Tk()
-    root.title('Canvas-and-Painters: Grid')
-    root.geometry('800x600')
+#    root = Tk()
+#    root.title('Canvas-and-Painters: Grid')
+#    root.geometry('800x600')
+#
+#    gridw = GridWidget(root)
+#    '''
+#    gridw.draw_square((3, 4), +1, 2)
+#    gridw.draw_square((1, 1), -1, 2)
+#    gridw.draw_square((1, 2), -1, 2)
+#    gridw.draw_square((8, 8), -1, 2)
+#    gridw.draw_square((7, 8), -1, 2)
+#    for clarity in range(7):
+#        gridw.draw_square((clarity + 1, 6), -1, clarity)
+#        gridw.draw_square((clarity + 1, 7), +1, clarity)
+#    '''
+#    gc = GCanvas.from_data(two_cs)
+#    ltsoup = LongTermSoup.make_from_canvas(gc)
+#    gc.blank_all_but(default_seed_addrs)
+#    m = Model(
+#        ltsoup,
+#        WorkingSoup.make_from_canvas(gc),
+#        gc
+#    )
+#    gridw.draw_gc(gc)
+#    root.mainloop()
 
-    gridw = GridWidget(root)
-    '''
-    gridw.draw_square((3, 4), +1, 2)
-    gridw.draw_square((1, 1), -1, 2)
-    gridw.draw_square((1, 2), -1, 2)
-    gridw.draw_square((8, 8), -1, 2)
-    gridw.draw_square((7, 8), -1, 2)
-    for clarity in range(7):
-        gridw.draw_square((clarity + 1, 6), -1, clarity)
-        gridw.draw_square((clarity + 1, 7), +1, clarity)
-    '''
-    gc = GCanvas.from_data(two_cs)
-    ltsoup = LongTermSoup.make_from_canvas(gc)
-    gc.blank_all_but(default_seed_addrs)
-    m = Model(
-        ltsoup,
-        WorkingSoup.make_from_canvas(gc),
-        gc
-    )
-    gridw.draw_gc(gc)
-    root.mainloop()
+    App().mainloop()
