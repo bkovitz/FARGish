@@ -83,10 +83,22 @@ Grid
 
     Sketch out simplified code: Grid2.py.
 
-        NEXT Write args for a top-level iterate() function.
+        Write args for a top-level iterate() function.
 
         Choose 2x2 block for next PPainter.multi_from_canvas() by
         clarities.
+
+    gui.py
+
+        NEXT Put the Model into the GridWidget.
+
+        Button to reset to small-seed start position.
+
+        Button to reset to small-gap start position.
+
+        Button (or space bar) to do one iteration.
+
+        Do an iteration.
 
     Try a "radiation-hardened quine" test.
 

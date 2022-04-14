@@ -5,7 +5,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from colorsys import hls_to_rgb
 
-from Grid2 import Canvas as GCanvas, A, as_xy, Addr
+from Grid2 import Canvas as GCanvas, A, as_xy, Addr, two_cs, \
+    default_seed_addrs, Model, WorkingSoup, LongTermSoup
 from util import dupdate, pts
 
 class GridWidget(Canvas):
@@ -20,10 +21,10 @@ class GridWidget(Canvas):
 #    def key(self, event):
 #        print(event)
 
-    def newgc(self, gc: GCanvas) -> None:
+    def draw_gc(self, gc: GCanvas) -> None:
         '''Updates all the squares in the GridWidget to match 'gc'.'''
         for a in gc.all_addrs():
-            self.draw_square(a, gc[a], gc.clarity[a])
+            self.draw_square(a, gc[a], gc.clarity(a))
 
     lo_hue = 170   # deep blue
     lo_sat = 153
@@ -44,10 +45,7 @@ class GridWidget(Canvas):
                 h = self.hi_hue
                 s = self.hi_sat
             rgb = hls_to_rgb(h / 255, 1 - (clarity / 9), s / 255)
-            print('RGB', h, s, rgb)
-            pts(int(x * 255) for x in rgb)
             color = '#' + ''.join('%02x' % int(x * 255) for x in rgb)
-            print('COLOR', color)
         self.create_rectangle(*self.addr_to_canvasxy(a), fill=color, outline='')
 
     @classmethod
@@ -68,6 +66,7 @@ if __name__ == '__main__':
     root.geometry('800x600')
 
     gridw = GridWidget(root)
+    '''
     gridw.draw_square((3, 4), +1, 2)
     gridw.draw_square((1, 1), -1, 2)
     gridw.draw_square((1, 2), -1, 2)
@@ -76,4 +75,14 @@ if __name__ == '__main__':
     for clarity in range(7):
         gridw.draw_square((clarity + 1, 6), -1, clarity)
         gridw.draw_square((clarity + 1, 7), +1, clarity)
+    '''
+    gc = GCanvas.from_data(two_cs)
+    ltsoup = LongTermSoup.make_from_canvas(gc)
+    gc.blank_all_but(default_seed_addrs)
+    m = Model(
+        ltsoup,
+        WorkingSoup.make_from_canvas(gc),
+        gc
+    )
+    gridw.draw_gc(gc)
     root.mainloop()

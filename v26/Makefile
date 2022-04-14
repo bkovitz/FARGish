@@ -11,7 +11,8 @@ MYPY_FLAGS = --show-error-codes --allow-redefinition
 
 #FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
 #	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = Experiments.py Harness.py Indenting.py Log.py Mixins.py util.py
+FARGISH_SRC = Experiments.py Harness.py Indenting.py Log.py Mixins.py util.py \
+	gui.py
 
 # Plot.py 
 # Log.py 
@@ -34,8 +35,6 @@ mypy:
 # For type-checking just one file (specified here).
 CURRENT = Grid2.py  #Grid.py  #GridResults.py
 m:
-	which mypy
-	mypy --version
 	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $(CURRENT)
