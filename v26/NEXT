@@ -90,13 +90,15 @@ Grid
 
     gui.py
 
-        NEXT Put the Model into the GridWidget.
+        Put the Model into the GridWidget.  DONE
 
-        Button to reset to small-seed start position.
+        Button to reset to small-seed start position.  DONE
 
         Button to reset to small-gap start position.
 
-        Button (or space bar) to do one iteration.
+        Button (or space bar) to do one iteration.  DONE
+
+        NEXT Show all the painters.
 
         Do an iteration.
 

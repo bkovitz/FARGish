@@ -1,4 +1,5 @@
 from tkinter import *
+#from tkinter.ttk import *
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -16,12 +17,16 @@ class App(Frame):
 
     def __init__(self):
         Frame.__init__(self)
-        self.pack(expand=YES, fill=BOTH)
+        self.pack(side=TOP, expand=NO, fill=None)
         self.master.title('Canvas-and-Painters: Grid')
-        self.gridw = GridWidget(self)
-        Button(self, text='Small seed', command=self.small_seed).pack(side=LEFT, expand=YES)
-        Button(self, text='Step', command=self.step).pack(side=LEFT, expand=YES)
+        leftframe = Frame(self)
+        leftframe.pack(side=LEFT, expand=YES, anchor=N)
+        self.gridw = GridWidget(leftframe)
+        Button(leftframe, text='Small seed', command=self.small_seed).pack(side=LEFT, expand=YES)
+        Button(leftframe, text='Step', command=self.step).pack(side=LEFT, expand=YES)
         self.bind_all('<s>', self.step)
+        self.wsoup = SimpleTable(self)
+        self.wsoup.pack(side=RIGHT, fill='both')
         self.small_seed()
 
     def key(self, event):
@@ -86,6 +91,27 @@ class GridWidget(Canvas):
         for x in range(0, 351, 50):
             for y in range(0, 351, 50):
                 self.create_rectangle(x + 50, y + 50, x, y, outline='#eee')
+
+class SimpleTable(Frame):
+    def __init__(self, parent, rows=30, columns=2):
+        Frame.__init__(self, parent, background='black')
+        self._widgets = []
+        for row in range(rows):
+            current_row = []
+            for column in range(columns):
+                label = Label(self, text='%s/%s' % (row, column),
+                              borderwidth=0, width=10)
+                label.grid(row=row, column=column, sticky='n',
+                           padx=1, pady=1)
+                current_row.append(label)
+            self._widgets.append(current_row)
+
+        for column in range(columns):
+            self.grid_columnconfigure(column, weight=1)
+
+    def set(self, row, column, value):
+        widget = self._widgets[row][column]
+        widget.configure(text=value)
 
 if __name__ == '__main__':
 #    root = Tk()
