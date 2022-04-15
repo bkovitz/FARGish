@@ -25,9 +25,30 @@ class App(Frame):
         Button(leftframe, text='Small seed', command=self.small_seed).pack(side=LEFT, expand=YES)
         Button(leftframe, text='Step', command=self.step).pack(side=LEFT, expand=YES)
         self.bind_all('<s>', self.step)
-        self.wsoup = SimpleTable(self)
-        self.wsoup.pack(side=RIGHT, fill='both')
+
+        self.rightcanvas = Canvas(self, borderwidth=0) # will be scrollable
+        self.rightframe = SimpleTable(self.rightcanvas)
+        self.vsb = Scrollbar(
+            self, orient='vertical', command=self.rightcanvas.yview
+        )
+        self.rightcanvas.configure(yscrollcommand=self.vsb.set)
+
+        self.vsb.pack(side='right', fill='y')
+        self.rightcanvas.pack(side='left', fill='both', expand=True)
+        self.rightcanvas.create_window(
+            (4, 4), window=self.rightframe,
+            anchor='nw', tags='self.frame'
+        )
+
+        self.rightframe.bind('<Configure>', self.onFrameConfigure)
+
+        #self.wsoup = SimpleTable(self)
+        #self.wsoup.pack(side=RIGHT, fill='both')
         self.small_seed()
+
+    def onFrameConfigure(self, event):
+        '''Reset the scroll region to encompass the inner frame'''
+        self.rightcanvas.configure(scrollregion=self.rightcanvas.bbox("all"))
 
     def key(self, event):
         print(event)
