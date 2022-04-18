@@ -8,7 +8,7 @@ from colorsys import hls_to_rgb
 
 from Grid2 import Canvas as GCanvas, A, as_xy, Addr, two_cs, \
     default_seed_addrs, Model, WorkingSoup, LongTermSoup, make_small_seed_model
-from util import dupdate, pts
+from util import dupdate, pts, sstr
 
 def prt(*args, **kwargs):
     print('PRT', args, kwargs)
@@ -17,10 +17,10 @@ class App(Frame):
 
     def __init__(self):
         Frame.__init__(self)
-        self.pack(side=TOP, expand=NO, fill=None)
+        self.pack(side=TOP, expand=YES, fill=None)
         self.master.title('Canvas-and-Painters: Grid')
         leftframe = Frame(self)
-        leftframe.pack(side=LEFT, expand=YES, anchor=N)
+        leftframe.pack(side=LEFT, expand=NO, anchor=W)
         self.gridw = GridWidget(leftframe)
         Button(leftframe, text='Small seed', command=self.small_seed).pack(side=LEFT, expand=YES)
         Button(leftframe, text='Step', command=self.step).pack(side=LEFT, expand=YES)
@@ -28,6 +28,7 @@ class App(Frame):
 
         self.rightcanvas = Canvas(self, borderwidth=0) # will be scrollable
         self.rightframe = SimpleTable(self.rightcanvas)
+        self.rightframe.pack(side=RIGHT, expand=YES, fill=X)
         self.vsb = Scrollbar(
             self, orient='vertical', command=self.rightcanvas.yview
         )
@@ -59,6 +60,12 @@ class App(Frame):
 
     def draw_model(self):
         self.gridw.draw_gc(self.model.c)
+        for row, (rpainter, activation) in enumerate(
+            self.model.ltsoup.rpainters.items()
+        ):
+            self.rightframe.set(row, 0, sstr(rpainter))
+            self.rightframe.set(row, 1, str(activation))
+            
 
     def step(self, event=None):
         print(event)
@@ -114,14 +121,14 @@ class GridWidget(Canvas):
                 self.create_rectangle(x + 50, y + 50, x, y, outline='#eee')
 
 class SimpleTable(Frame):
-    def __init__(self, parent, rows=30, columns=2):
+    def __init__(self, parent, rows=300, columns=2):
         Frame.__init__(self, parent, background='black')
         self._widgets = []
         for row in range(rows):
             current_row = []
             for column in range(columns):
                 label = Label(self, text='%s/%s' % (row, column),
-                              borderwidth=0, width=10)
+                              borderwidth=0, width=25)
                 label.grid(row=row, column=column, sticky='n',
                            padx=1, pady=1)
                 current_row.append(label)
