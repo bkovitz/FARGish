@@ -28,7 +28,7 @@ class App(Frame):
         self.bind_all('<s>', self.step)
 
         self.rightcanvas = Canvas(self, borderwidth=0, highlightbackground='red', highlightthickness=4) # will be scrollable
-        self.rightframe = SimpleTable(self.rightcanvas)
+        self.rightframe = PainterTable(self.rightcanvas)
         #self.rightframe = Frame(self.rightcanvas, highlightbackground='green', highlightthickness=4)
         #Label(self.rightframe, text='Look at this nice text').pack(side=LEFT, expand=YES, fill=X)
         self.rightframe.pack(side=LEFT, expand=YES, fill=BOTH)
@@ -38,8 +38,8 @@ class App(Frame):
             self.rightcanvas.yview(*args, **kwargs)
 
         self.vsb = Scrollbar(
-            #self, orient='vertical', command=self.rightcanvas.yview
-            self, orient='vertical', command=my_command
+            self, orient='vertical', command=self.rightcanvas.yview
+            #self, orient='vertical', command=my_command
         )
 
         self.rightcanvas.configure(yscrollcommand=self.vsb.set)
@@ -51,16 +51,16 @@ class App(Frame):
             anchor='nw', tags='self.frame'
         )
 
-        #self.rightframe.bind('<Configure>', self.onFrameConfigure)
+        self.rightframe.bind('<Configure>', self.onFrameConfigure)
         self.rightcanvas.bind('<Configure>', self.onCanvasConfigure)
 
-        #self.wsoup = SimpleTable(self)
+        #self.wsoup = PainterTable(self)
         #self.wsoup.pack(side=RIGHT, fill='both')
         self.small_seed()
 
     def onFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''
-        #self.rightcanvas.configure(scrollregion=self.rightcanvas.bbox("all"))
+        self.rightcanvas.configure(scrollregion=self.rightcanvas.bbox("all"))
         pass
 
     def onCanvasConfigure(self, event):
@@ -135,7 +135,7 @@ class GridWidget(Canvas):
             for y in range(0, 351, 50):
                 self.create_rectangle(x + 50, y + 50, x, y, outline='#eee')
 
-class SimpleTable(Frame):
+class PainterTable(Frame):
     def __init__(self, parent, rows=300, columns=2):
         Frame.__init__(self, parent) #, background='black', highlightbackground='green', highlightthickness=5)
         self._widgets = []
@@ -144,7 +144,7 @@ class SimpleTable(Frame):
             for column in range(columns):
                 label = Label(self, text='%s/%s' % (row, column),
                               borderwidth=0) #, width=25)
-                label.grid(row=row, column=column, sticky='n',
+                label.grid(row=row, column=column, sticky='w',
                            padx=1, pady=1)
                 current_row.append(label)
             self._widgets.append(current_row)

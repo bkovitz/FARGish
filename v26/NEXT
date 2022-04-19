@@ -98,7 +98,13 @@ Grid
 
         Button (or space bar) to do one iteration.  DONE
 
-        NEXT Show all the painters.
+        Show all the painters.
+            
+            Show the LongTermSoup painters.
+
+                NEXT Sort by weight or name.
+
+            Show the WorkingSoup painters.
 
         Do an iteration.
 
