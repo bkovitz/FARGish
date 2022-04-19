@@ -79,9 +79,8 @@ class App(Frame):
             self.model.ltsoup.rpainters.items()
         ):
             self.rightframe.set(row, 0, sstr(rpainter))
-            self.rightframe.set(row, 1, str(activation))
+            self.rightframe.set(row, 1, '%8.3f' % activation)
             pass
-            
 
     def step(self, event=None):
         print(event)
@@ -139,12 +138,17 @@ class PainterTable(Frame):
     def __init__(self, parent, rows=300, columns=2):
         Frame.__init__(self, parent) #, background='black', highlightbackground='green', highlightthickness=5)
         self._widgets = []
+        self.painters_button = Button(self, text='Painters')
+        self.painters_button.grid(row=0, column=0)
+        self.weights_button = Button(self, text='Weights')
+        self.weights_button.grid(row=0, column=1)
+
         for row in range(rows):
             current_row = []
             for column in range(columns):
                 label = Label(self, text='%s/%s' % (row, column),
                               borderwidth=0) #, width=25)
-                label.grid(row=row, column=column, sticky='w',
+                label.grid(row=row+1, column=column, sticky='w' if column == 0 else None,
                            padx=1, pady=1)
                 current_row.append(label)
             self._widgets.append(current_row)
