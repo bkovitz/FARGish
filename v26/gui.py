@@ -34,7 +34,7 @@ class App(Frame):
         self.rightframe.pack(side=LEFT, expand=YES, fill=BOTH)
 
         def my_command(*args, **kwargs):
-            print('my_command:', args, kwargs)
+            #print('my_command:', args, kwargs)
             self.rightcanvas.yview(*args, **kwargs)
 
         self.vsb = Scrollbar(
@@ -51,7 +51,8 @@ class App(Frame):
             anchor='nw', tags='self.frame'
         )
 
-        self.rightframe.bind('<Configure>', self.onFrameConfigure)
+        #self.rightframe.bind('<Configure>', self.onFrameConfigure)
+        self.rightcanvas.bind('<Configure>', self.onCanvasConfigure)
 
         #self.wsoup = SimpleTable(self)
         #self.wsoup.pack(side=RIGHT, fill='both')
@@ -59,7 +60,11 @@ class App(Frame):
 
     def onFrameConfigure(self, event):
         '''Reset the scroll region to encompass the inner frame'''
-        self.rightcanvas.configure(scrollregion=self.rightcanvas.bbox("all"))
+        #self.rightcanvas.configure(scrollregion=self.rightcanvas.bbox("all"))
+        pass
+
+    def onCanvasConfigure(self, event):
+        self.rightcanvas.itemconfigure('self.frame', width=event.width)
 
     def key(self, event):
         print(event)
@@ -132,19 +137,19 @@ class GridWidget(Canvas):
 
 class SimpleTable(Frame):
     def __init__(self, parent, rows=300, columns=2):
-        Frame.__init__(self, parent, background='black', highlightbackground='green', highlightthickness=5)
+        Frame.__init__(self, parent) #, background='black', highlightbackground='green', highlightthickness=5)
         self._widgets = []
         for row in range(rows):
             current_row = []
             for column in range(columns):
                 label = Label(self, text='%s/%s' % (row, column),
-                              borderwidth=0, width=25)
+                              borderwidth=0) #, width=25)
                 label.grid(row=row, column=column, sticky='n',
                            padx=1, pady=1)
                 current_row.append(label)
             self._widgets.append(current_row)
 
-        self.grid_columnconfigure(0, weight=2)
+        self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 #        for column in range(columns):
 #            self.grid_columnconfigure(column, weight=1)
