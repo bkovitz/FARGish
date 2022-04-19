@@ -1,5 +1,6 @@
 from tkinter import *
 #from tkinter.ttk import *
+from tkscrolledframe import ScrolledFrame
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
@@ -19,6 +20,10 @@ class App(Frame):
         Frame.__init__(self, highlightbackground='blue', highlightthickness=4)
         self.pack(side=TOP, expand=YES, fill=BOTH, anchor=NW)
         self.master.title('Canvas-and-Painters: Grid')
+        #self.make_modelcanvasframe()
+        #self.make_painterframe()
+
+
         leftframe = Frame(self)
         leftframe.pack(side=LEFT, expand=NO, fill=None, anchor=NW)
         self.gridw = GridWidget(leftframe)
@@ -27,39 +32,12 @@ class App(Frame):
         Button(leftframe, text='Step', command=self.step).pack(side=LEFT, expand=YES)
         self.bind_all('<s>', self.step)
 
-        self.rightcanvas = Canvas(self, borderwidth=0, highlightbackground='red', highlightthickness=4) # will be scrollable
-        self.rightframe = SimpleTable(self.rightcanvas)
-        #self.rightframe = Frame(self.rightcanvas, highlightbackground='green', highlightthickness=4)
-        #Label(self.rightframe, text='Look at this nice text').pack(side=LEFT, expand=YES, fill=X)
-        self.rightframe.pack(side=LEFT, expand=YES, fill=BOTH)
+        self.painterframe = ScrolledFrame(self)
+        #self.paintertable = SimpleTable(self.painterframe)
+        self.painterframe.display_widget(SimpleTable)
+        self.painterframe.pack(side=LEFT, expand=YES, fill=BOTH)
 
-        def my_command(*args, **kwargs):
-            print('my_command:', args, kwargs)
-            self.rightcanvas.yview(*args, **kwargs)
-
-        self.vsb = Scrollbar(
-            #self, orient='vertical', command=self.rightcanvas.yview
-            self, orient='vertical', command=my_command
-        )
-
-        self.rightcanvas.configure(yscrollcommand=self.vsb.set)
-
-        self.vsb.pack(side='right', fill='y')
-        self.rightcanvas.pack(side='left', fill='both', expand=YES)
-        self.rightcanvas.create_window(
-            (4, 4), window=self.rightframe,
-            anchor='nw', tags='self.frame'
-        )
-
-        self.rightframe.bind('<Configure>', self.onFrameConfigure)
-
-        #self.wsoup = SimpleTable(self)
-        #self.wsoup.pack(side=RIGHT, fill='both')
         self.small_seed()
-
-    def onFrameConfigure(self, event):
-        '''Reset the scroll region to encompass the inner frame'''
-        self.rightcanvas.configure(scrollregion=self.rightcanvas.bbox("all"))
 
     def key(self, event):
         print(event)
@@ -73,8 +51,8 @@ class App(Frame):
         for row, (rpainter, activation) in enumerate(
             self.model.ltsoup.rpainters.items()
         ):
-            self.rightframe.set(row, 0, sstr(rpainter))
-            self.rightframe.set(row, 1, str(activation))
+            #self.rightframe.set(row, 0, sstr(rpainter))
+            #self.rightframe.set(row, 1, str(activation))
             pass
             
 
@@ -146,6 +124,7 @@ class SimpleTable(Frame):
 
         self.grid_columnconfigure(0, weight=2)
         self.grid_columnconfigure(0, weight=1)
+        self.pack(side=LEFT, fill=BOTH, expand=YES)
 #        for column in range(columns):
 #            self.grid_columnconfigure(column, weight=1)
 

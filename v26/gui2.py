@@ -19,6 +19,10 @@ class App(Frame):
         Frame.__init__(self, highlightbackground='blue', highlightthickness=4)
         self.pack(side=TOP, expand=YES, fill=BOTH, anchor=NW)
         self.master.title('Canvas-and-Painters: Grid')
+        #self.make_modelcanvasframe()
+        #self.make_painterframe()
+
+
         leftframe = Frame(self)
         leftframe.pack(side=LEFT, expand=NO, fill=None, anchor=NW)
         self.gridw = GridWidget(leftframe)
@@ -27,34 +31,36 @@ class App(Frame):
         Button(leftframe, text='Step', command=self.step).pack(side=LEFT, expand=YES)
         self.bind_all('<s>', self.step)
 
-        self.rightcanvas = Canvas(self, borderwidth=0, highlightbackground='red', highlightthickness=4) # will be scrollable
-        self.rightframe = SimpleTable(self.rightcanvas)
-        #self.rightframe = Frame(self.rightcanvas, highlightbackground='green', highlightthickness=4)
-        #Label(self.rightframe, text='Look at this nice text').pack(side=LEFT, expand=YES, fill=X)
-        self.rightframe.pack(side=LEFT, expand=YES, fill=BOTH)
-
-        def my_command(*args, **kwargs):
-            print('my_command:', args, kwargs)
-            self.rightcanvas.yview(*args, **kwargs)
-
-        self.vsb = Scrollbar(
-            #self, orient='vertical', command=self.rightcanvas.yview
-            self, orient='vertical', command=my_command
-        )
-
-        self.rightcanvas.configure(yscrollcommand=self.vsb.set)
-
-        self.vsb.pack(side='right', fill='y')
-        self.rightcanvas.pack(side='left', fill='both', expand=YES)
-        self.rightcanvas.create_window(
-            (4, 4), window=self.rightframe,
-            anchor='nw', tags='self.frame'
-        )
-
-        self.rightframe.bind('<Configure>', self.onFrameConfigure)
-
-        #self.wsoup = SimpleTable(self)
-        #self.wsoup.pack(side=RIGHT, fill='both')
+        self.painterframe = ScrollableTable(self)
+        self.painterframe.pack(side=LEFT, expand=YES, fill=BOTH)
+#        self.rightcanvas = Canvas(self, borderwidth=0, highlightbackground='red', highlightthickness=4) # will be scrollable
+#        self.rightframe = SimpleTable(self.rightcanvas)
+#        #self.rightframe = Frame(self.rightcanvas, highlightbackground='green', highlightthickness=4)
+#        #Label(self.rightframe, text='Look at this nice text').pack(side=LEFT, expand=YES, fill=X)
+#        self.rightframe.pack(side=LEFT, expand=YES, fill=BOTH)
+#
+#        def my_command(*args, **kwargs):
+#            print('my_command:', args, kwargs)
+#            self.rightcanvas.yview(*args, **kwargs)
+#
+#        self.vsb = Scrollbar(
+#            #self, orient='vertical', command=self.rightcanvas.yview
+#            self, orient='vertical', command=my_command
+#        )
+#
+#        self.rightcanvas.configure(yscrollcommand=self.vsb.set)
+#
+#        self.vsb.pack(side='right', fill='y')
+#        self.rightcanvas.pack(side='left', fill='both', expand=YES)
+#        self.rightcanvas.create_window(
+#            (4, 4), window=self.rightframe,
+#            anchor='nw', tags='self.frame'
+#        )
+#
+#        self.rightframe.bind('<Configure>', self.onFrameConfigure)
+#
+#        #self.wsoup = SimpleTable(self)
+#        #self.wsoup.pack(side=RIGHT, fill='both')
         self.small_seed()
 
     def onFrameConfigure(self, event):
@@ -73,8 +79,8 @@ class App(Frame):
         for row, (rpainter, activation) in enumerate(
             self.model.ltsoup.rpainters.items()
         ):
-            self.rightframe.set(row, 0, sstr(rpainter))
-            self.rightframe.set(row, 1, str(activation))
+            #self.rightframe.set(row, 0, sstr(rpainter))
+            #self.rightframe.set(row, 1, str(activation))
             pass
             
 
@@ -130,28 +136,46 @@ class GridWidget(Canvas):
             for y in range(0, 351, 50):
                 self.create_rectangle(x + 50, y + 50, x, y, outline='#eee')
 
-class SimpleTable(Frame):
+class ScrollableTable(Frame):
     def __init__(self, parent, rows=300, columns=2):
         Frame.__init__(self, parent, background='black', highlightbackground='green', highlightthickness=5)
+        self.innerframe = Frame(self)
+        self.innerframe.pack(side=LEFT, expand=YES, fill=BOTH)
+        self.vsb = Scrollbar(
+            self, orient='vertical', command=self.yview
+        )
+        self.vsb.pack(side='right', fill='y')
+        self.vsb.set(0.1, 0.2)
         self._widgets = []
         for row in range(rows):
             current_row = []
             for column in range(columns):
-                label = Label(self, text='%s/%s' % (row, column),
+                label = Label(self.innerframe, text='%s/%s' % (row, column),
                               borderwidth=0, width=25)
                 label.grid(row=row, column=column, sticky='n',
                            padx=1, pady=1)
                 current_row.append(label)
             self._widgets.append(current_row)
 
-        self.grid_columnconfigure(0, weight=2)
-        self.grid_columnconfigure(0, weight=1)
+        self._widgets[0].update()
+        self.labelheight = self._widgets[0].winfo_height()
+
+        self.innerframe.grid_columnconfigure(0, weight=2)
+        self.innerframe.grid_columnconfigure(0, weight=1)
 #        for column in range(columns):
 #            self.grid_columnconfigure(column, weight=1)
 
     def set(self, row, column, value):
         widget = self._widgets[row][column]
         widget.configure(text=value)
+
+    def yview(self, cmd, n=None, unit=None) -> None:
+        print('yview:', cmd, n, unit)
+        print('get:', self.vsb.get())
+        print('frame height:', self.innerframe.winfo_height())
+        print()
+#        if cmd == MOVETO:
+#            # TODO
 
 if __name__ == '__main__':
 #    root = Tk()
