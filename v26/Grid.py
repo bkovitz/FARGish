@@ -485,6 +485,8 @@ class PPainter:
     def as_xos(self) -> str:
         return ''.join(as_xo(v) for v in self.values())
 
+    sstr = as_xos
+
     @classmethod
     def from_xos(cls, xos: str) -> PPainter:
         return PPainter(*(
@@ -739,6 +741,9 @@ class QPainterTemplate:
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f"{cl}({', '.join(astr(aa) for aa in self.a)}, {sstr(self.ppainter)})"
+
+    def sstr(self) -> str:
+        return f'({astr(self.a[0])}, {astr(self.a[1])}, {sstr(self.ppainter)})'
 
 @dataclass(frozen=True)
 class RPainter:

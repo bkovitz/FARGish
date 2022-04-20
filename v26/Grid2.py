@@ -466,6 +466,8 @@ class PPainter:
     def as_xos(self) -> str:
         return ''.join(as_xo(v) for v in self.values())
 
+    sstr = as_xos
+
     @classmethod
     def from_xos(cls, xos: str) -> PPainter:
         return PPainter(*(
@@ -573,7 +575,7 @@ class Model:
     def iteration(self) -> None:
         self.decay()
         painters = self.all_painters()
-        weights = [self.wts.weight_of(self, p) for p in painters]
+        weights = [self.weight_of(self, p) for p in painters]
         # TODO What if no painters or 0 weight?
         #pts(painters, key=short)
         i = choices(range(len(painters)), weights)[0]
@@ -582,6 +584,9 @@ class Model:
         p.mpaint(self)
         p.boost_target(self)
         self.deboost(p)
+
+    def weight_of(self, p: MPainter) -> float:
+        return self.wts.weight_of(self, p)
 
     def pr(self) -> None:
         print(self.c)
@@ -753,7 +758,7 @@ class QPainterTemplate:
         cl = self.__class__.__name__
         return f"{cl}({', '.join(astr(aa) for aa in self.a)}, {sstr(self.ppainter)})"
 
-    def short(self) -> str:
+    def sstr(self) -> str:
         return f'({astr(self.a[0])}, {astr(self.a[1])}, {self.ppainter.as_xos()})'
 
 @dataclass(frozen=True)
@@ -784,8 +789,8 @@ class RPainter:
         cl = self.__class__.__name__
         return f'{cl}({sstr(self.qpts)})'
 
-    def short(self) -> str:
-        return ' <-> '.join(short(qpt) for qpt in self.qpts)
+    def sstr(self) -> str:
+        return ' <-> '.join(sstr(qpt) for qpt in self.qpts)
 
     @classmethod
     def derive_from_qpainters(
@@ -846,8 +851,8 @@ class RPQP(MPainter):
         cl = self.__class__.__name__
         return f'{cl}({sstr(self.rpainter)}, {sstr(self.qpainter)})'
 
-    def short(self) -> str:
-        return f'{short(self.rpainter):40s} => {short(self.qpainter)}'
+    def sstr(self) -> str:
+        return f'{sstr(self.rpainter)}  =>  {sstr(self.qpainter)}'
 
 @dataclass
 class LongTermSoup:
