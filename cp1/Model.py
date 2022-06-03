@@ -8,10 +8,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
-from util import Numeric, short
+from util import Numeric, short, as_tuple
 
 
-Addr = Numeric
+Addr = int
 
 Value = Hashable
 ValueTup = Tuple[Value, ...]
@@ -63,6 +63,11 @@ class DeterminateAddress:
     canvas: Canvas
     abs_addr: int
 
+    def get_value(self) -> Value:
+        return self.canvas[self.abs_addr]
+
+    def set_value(self, v: Value) -> None:
+        self.canvas[self.abs_addr] = v
 
 @dataclass
 class Canvas1D(Canvas):
@@ -155,7 +160,7 @@ class Canvas1D(Canvas):
 
     def short(self) -> str:
         return ''.join(
-            ' ' if x is None else x
+            ' ' if x is None else str(x)
                 for x in self.contents
         )
 
@@ -177,41 +182,48 @@ def target_of(p: Painter) -> Addr:
 def func_of(p: Painter) -> Func:
     return p[2]
 
-def run_painter_on_canvas(
-    p: Painter, c: Canvas
-) -> None:
-    dsource = to_determinate_address(source_of(p))
-    dtarget = to_determinate_address(dtarget_of(p))
-
-    set_value(dtarget, func_of(p)(get_value(dsource)))
-    
 
 @dataclass
 class Model:
 #    lts: LongTermSoup
 #    ws: WorkingSoup
-#    canvas: Canvas
+    canvas: Canvas
+
+    Q = TypeVar('Q', bound='Model')
 #
 #    def update(self) -> None:
 #        self.run_painter(self.choose_painter())
 #
-#    def run_painter(self, p: Painter) -> None:
-#        pass
-#
+    def run_painter(self, p: Painter) -> None:
+        dsource = self.to_determinate_address(source_of(p))
+        dtarget = self.to_determinate_address(target_of(p))
+        vin = dsource.get_value()
+        dtarget.set_value(func_of(p)(vin))
+
 #    def choose_painter(self) -> Painter:
 #        pass
 
-    @classmethod
-    def to_determinate_address(cls, addr: Addr) -> DeterminateAddress:
-        pass
-        
+    def to_determinate_address(self, addr: Addr) -> DeterminateAddress:
+        #STUB TODO
+        return DeterminateAddress(self.canvas, addr)
 
-def succ(v: str) -> str:
-    return chr(ord(v) + 1)
+    @classmethod
+    def make_from(cls: Type[Q], s: str) -> Q:
+        return cls(canvas=Canvas1D.make_from(s))
+
+    def __str__(self) -> str:
+        return str(self.canvas)
+
+    def short(self) -> str:
+        return short(self.canvas)
+
+def succ(v: Value) -> str:
+    # TODO Deal with non-str
+    return chr(ord(v) + 1)  # type: ignore[arg-type]
 
 p = (1, 2, succ)
-c = Canvas1D.make_from('a  ')
-#run_painter_on_canvas(p, c)
-c[2] = succ(c[1])
+#c = Canvas1D.make_from('a  ')
+m = Model.make_from('a  ')
+m.run_painter(p)
 
-print(c)
+print(m)

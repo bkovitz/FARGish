@@ -9,10 +9,7 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-#FARGISH_SRC = ArgsMap.py CCModel.py CCTypes.py Complex.py FARGBase.py \
-#	FMTypes.py Indenting.py Log.py Program.py Tag.py run.py util.py
-FARGISH_SRC = Experiments.py Harness.py Indenting.py Log.py Mixins.py util.py \
-	gui.py
+SRCFILES = Model.py
 
 # Plot.py 
 # Log.py 
@@ -30,7 +27,7 @@ mtest: mypy test
 mypy:
 	which mypy
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) $(FARGISH_SRC) test*.py atest*.py
+	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py #atest*.py
 
 # For type-checking just one file (specified here).
 CURRENT = gui.py  #Grid2.py  #Grid.py  #GridResults.py
@@ -65,7 +62,7 @@ ma: mypy a
 # line counts
 lc: clean
 	@echo 'LIVE: '
-	@wc -l $(FARGISH_SRC)
+	@wc -l $(SRCFILES)
 	@echo -e '\nTEST: '
 	@wc -l test*.py atest*.py
 #@wc -l `ls -1 *.py | grep -Ev '^a?test'`
