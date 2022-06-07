@@ -7,6 +7,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
+from random import choices
 
 from util import Numeric, short, as_tuple, pts
 
@@ -97,7 +98,7 @@ class Canvas(ABC):
 @dataclass(frozen=True)
 class DeterminateAddress:
     canvas: Canvas
-    abs_addr: int
+    abs_addr: int  # rename -> index
 
     def get_value(self) -> Value:
         return self.canvas[self.abs_addr]
@@ -107,6 +108,10 @@ class DeterminateAddress:
 
     def __add__(self, operand: int) -> DeterminateAddress:
         return DeterminateAddress(self.canvas, self.abs_addr + operand)
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.abs_addr})'
 
 @dataclass(frozen=True)
 class MatchAddr:
@@ -317,8 +322,25 @@ class Model:
         vin = env.determinate_address('I').get_value()
         env.determinate_address('J').set_value(func_of(p)(vin))
 
-#    def choose_painter(self) -> Painter:
-#        pass
+    def choose_painter(
+        self,
+        ps: Sequence[Painter],
+        env: Union[Env, None]=None
+    ) -> Painter:
+        if env is None:
+            env = self.fresh_env()
+        weights = [self.painter_weight(p, env) for p in ps]
+        # TODO Handle case where there is no painter or no weight
+        return choices(ps, weights=weights)[0]
+
+    def painter_weight(self, p: Painter, env: Env) -> Numeric:
+        s_da = self.to_determinate_address(source_of(p), env)
+        t_da = self.to_determinate_address(target_of(p), env)
+        s_clarity = self.canvas.clarity(s_da.abs_addr) / self.canvas.MAX_CLARITY
+        t_clarity = 1.0 - (
+            self.canvas.clarity(t_da.abs_addr) / (self.canvas.MAX_CLARITY + 1)
+        )
+        return s_clarity * t_clarity
 
     def to_determinate_address(self, addr: Addr, env: Env) \
     -> DeterminateAddress:
@@ -384,7 +406,7 @@ def pred(v: Value) -> Value:
     raise Fizzle
 
 if __name__ == '__main__':
-    m = Model.make_from('ajaqb')
+    m = Model.make_from('abc')
     painters = list(m.make_spont())
 
     #print(m)
