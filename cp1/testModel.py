@@ -8,7 +8,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from Model import Model, Canvas1D, succ, DeterminateAddress, RPainter
+from Model import Model, Canvas1D, succ, DeterminateAddress, RPainter, \
+    FizzleValueNotFound
 from util import short
 
 class TestModel(unittest.TestCase):
@@ -32,7 +33,13 @@ class TestModel(unittest.TestCase):
         self.assertEqual(short(m), 'ab ')
 
     def test_simple_rpainter(self) -> None:
-        p = RPainter.make('a', 1, succ)   # TODO  1 -> right1
+        p = RPainter.make('a', 1, succ)
         m = Model.make_from(' a ')
         m.run_painter(p)
         self.assertEqual(short(m), ' ab')
+
+    def test_fizzle_value_not_found(self) -> None:
+        c = Canvas1D.make_from('a  ')
+        with self.assertRaises(FizzleValueNotFound) as cm:
+            i = c.addr_of('b')
+        self.assertEqual(cm.exception, FizzleValueNotFound('b'))

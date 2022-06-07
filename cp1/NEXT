@@ -1,0 +1,32 @@
+Painters
+
+    Absolute painter.  DONE
+
+    Relative painter: source matches a value; target is left or right of
+    the source.
+
+        A match address: a value to match, returning its absolute address. DONE
+
+        Match address returns an env. DONE
+
+        Target address calculates address from offset in env. DONE
+
+    Fizzle
+
+Spontaneous generation of painters
+
+    Generate absolute painter with a basis func.
+
+    Generate relative painter with a constant func, that paints between two
+    values related by a basis func.
+
+
+Override an element of a painter
+
+    Override canvas
+
+    Override source
+
+    Override target
+
+    Override func

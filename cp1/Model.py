@@ -15,6 +15,31 @@ Value = Hashable
 ValueTup = Tuple[Value, ...]
 Func = Callable[[Value], Value]
 
+class Fizzle(Exception):
+    pass
+
+@dataclass(frozen=True)
+class FizzleValueNotFound(Fizzle):
+    v: Value
+
+    def __str__(self) -> str:
+        return f'value not found: {repr(self.v)}'
+
+@dataclass(frozen=True)
+class FizzleUndefined(Fizzle):
+    varname: str
+
+    def __str__(self) -> str:
+        return f'variable is undefined: {repr(self.varname)}'
+
+@dataclass(frozen=True)
+class FizzleNotADeterminateAddress(Fizzle):
+    varname: str
+    v: Value
+
+    def __str__(self) -> str:
+        return f'value of {repr(self.varname)} is not a DeterminateAddress: {repr(self.v)}'
+
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
 class Canvas(ABC):
     MAX_CLARITY: Numeric = 6
@@ -172,8 +197,7 @@ class Canvas1D(Canvas):
         for i, x in enumerate(self.contents):
             if x == v:
                 return DeterminateAddress(self, i + 1)
-        # TODO raise Fizzle
-        raise ValueError
+        raise FizzleValueNotFound(v)
 
     def __str__(self) -> str:
         items = ' '.join(short(x) for x in self.contents)
@@ -203,7 +227,7 @@ class RPainter:
 class OffsetAddr:
     '''An Addr defined as an offset relative to a variable in an Env.'''
     varname: str
-    o: int   # the number of cells of offset
+    o: int   # the number of cells to skip ahead or back
 
     def to_determinate_address(self, env: Env) -> DeterminateAddress:
         return env.determinate_address(self.varname) + self.o
@@ -230,9 +254,6 @@ def func_of(p: Painter) -> Func:
     if isinstance(p, tuple):
         return p[2]
     else:
-        assert isinstance(p, RPainter)
-        #reveal_type(p)
-        #reveal_type(p.func)
         return p.func  # type: ignore[return-value]  # mypy bug?
 
 
@@ -253,7 +274,10 @@ class Env:
         if isinstance(v, DeterminateAddress):
             return v
         else:
-            raise ValueError   # TODO Fizzle
+            if v is None:
+                raise FizzleUndefined(varname)
+            else:
+                raise FizzleNotADeterminateAddress(varname, v)
 
 @dataclass
 class Model:
@@ -307,7 +331,7 @@ def succ(v: Value) -> str:
 
 if __name__ == '__main__':
     #p = (1, 2, succ)
-    p = RPainter.make('a', 1, succ)   # TODO  1 -> right1
+    p = RPainter.make('b', 1, succ)
     #c = Canvas1D.make_from('a  ')
     m = Model.make_from('a  ')
     m.run_painter(p)
