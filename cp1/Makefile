@@ -30,7 +30,8 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py #atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = gui.py  #Grid2.py  #Grid.py  #GridResults.py
+CURRENT = Model.py
+
 m:
 	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
