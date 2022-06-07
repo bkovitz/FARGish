@@ -7,18 +7,24 @@ Painters
 
         A match address: a value to match, returning its absolute address. DONE
 
-        Match address returns an env. DONE
+        Match address returns an env.  DONE
 
-        Target address calculates address from offset in env. DONE
+        Target address calculates address from offset in env.  DONE
 
-    Fizzle
+    Fizzle  DONE
 
 Spontaneous generation of painters
 
-    Generate absolute painter with a basis func.
+    Generate absolute painter with a basis func.  DONE
 
     Generate relative painter with a constant func, that paints between two
     values related by a basis func.
+
+Regeneration
+
+    NEXT Regenerate 'abc' from 'a  '.
+
+    Regenerate 'ajaqc' from 'a    '.
 
 
 Override an element of a painter

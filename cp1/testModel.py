@@ -8,8 +8,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from Model import Model, Canvas1D, succ, DeterminateAddress, RPainter, \
-    FizzleValueNotFound
+from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
+    RPainter, FizzleValueNotFound
 from util import short
 
 class TestModel(unittest.TestCase):
@@ -43,3 +43,17 @@ class TestModel(unittest.TestCase):
         with self.assertRaises(FizzleValueNotFound) as cm:
             i = c.addr_of('b')
         self.assertEqual(cm.exception, FizzleValueNotFound('b'))
+
+    def test_simple_make_spont(self) -> None:
+        m = Model.make_from('ajaqb')
+        self.assertCountEqual(
+            m.make_spont(),
+            [
+                (1, 3, same),
+                (3, 1, same),
+                (1, 5, succ),
+                (5, 1, pred),
+                (3, 5, succ),
+                (5, 3, pred)
+            ]
+        )

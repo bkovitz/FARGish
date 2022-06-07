@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 
-from util import Numeric, short, as_tuple
+from util import Numeric, short, as_tuple, pts
 
 
 Value = Hashable
@@ -83,8 +83,16 @@ class Canvas(ABC):
 
     @abstractmethod
     def addr_of(self, v: Value) -> DeterminateAddress:
+        '''Returns the DeterminateAddress of the cell that contains v, or
+        raises FizzleValueNotFound if no cell contains v.'''
         pass
-        
+
+    @abstractmethod
+    def all_ixjypairs(self) -> Iterable[Tuple[Index, Value, Index, Value]]:
+        '''Returns a generator of all tuples (i, x, j, y) where i and j
+        are distinct indices of cells within this Canvas and x = self[i]
+        and y = self[j]. Skips cells that contain None.'''
+        pass
 
 @dataclass(frozen=True)
 class DeterminateAddress:
@@ -130,7 +138,7 @@ class Canvas1D(Canvas):
     def make_from(cls, s: str) -> Canvas1D:
         return Canvas1D(contents=list(c if c != ' ' else None for c in s))
 
-    def all_addrs(self) -> Iterable[Addr]:
+    def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
         return range(1, len(self.contents) + 1)
 
     def as_tuple(self) -> ValueTup:
@@ -174,6 +182,17 @@ class Canvas1D(Canvas):
                     self.clarities[addr] += 1
         else:
             pass  # raise an exception?
+
+    # TODO UT
+    def all_ixjypairs(self) -> Iterable[Tuple[Index, Value, Index, Value]]:
+        for i in self.all_addrs():
+            x = self[i]
+            if x is not None:
+                for j in self.all_addrs():
+                    if i != j:
+                        y = self[j]
+                        if y is not None:
+                            yield i, x, j, y
 
     def clarity(self, addr: Addr) -> Numeric:
         if isinstance(addr, int):
@@ -257,7 +276,8 @@ def func_of(p: Painter) -> Func:
         return p.func  # type: ignore[return-value]  # mypy bug?
 
 
-Addr = Union[int, MatchAddr, OffsetAddr]
+Index = int   # the index of a cell within a Canvas
+Addr = Union[Index, MatchAddr, OffsetAddr]
 Painter = Union[Tuple[Addr, Addr, Func], RPainter]
 
 
@@ -293,9 +313,6 @@ class Model:
     def run_painter(self, p: Painter) -> None:
         env = self.fresh_env()
         env.to_determinate_address('I', source_of(p))
-        #dsource = self.to_determinate_address(source_of(p))
-        #dtarget = self.to_determinate_address(target_of(p))
-        #vin = dsource.get_value()
         env.to_determinate_address('J', target_of(p))
         vin = env.determinate_address('I').get_value()
         env.determinate_address('J').set_value(func_of(p)(vin))
@@ -319,21 +336,56 @@ class Model:
     def make_from(cls: Type[Q], s: str) -> Q:
         return cls(canvas=Canvas1D.make_from(s))
 
+    def make_spont(self) -> Iterable[Painter]:
+        '''Returns generator of Painters that recreate values in this Canvas.'''
+        for i, x, j, y in self.canvas.all_ixjypairs():
+            for func in self.basis_funcs_for(x, y):
+                yield (i, j, func)
+
+    def basis_funcs_for(self, x: Value, y: Value) -> Iterable[Func]:
+        if x == y:
+            yield same
+        if isinstance(x, str):
+            if isinstance(y, str):
+                if ord(x) == ord(y) - 1:
+                    yield succ
+                elif ord(x) == ord(y) + 1:
+                    yield pred
+        elif isinstance(x, int):
+            if isinstance(y, int):
+                if x == y - 1:
+                    yield succ
+                elif x == y + 1:
+                    yield pred
+
     def __str__(self) -> str:
         return str(self.canvas)
 
     def short(self) -> str:
         return short(self.canvas)
 
-def succ(v: Value) -> str:
-    # TODO Deal with non-str
-    return chr(ord(v) + 1)  # type: ignore[arg-type]
+def succ(v: Value) -> Value:
+    # TODO Deal with 'z'
+    if isinstance(v, str):
+        return chr(ord(v) + 1)
+    elif isinstance(v, int):
+        return v + 1
+    raise Fizzle
+
+def same(v: Value) -> Value:
+    return v
+
+def pred(v: Value) -> Value:
+    # TODO Deal with 'a'
+    if isinstance(v, str):
+        return chr(ord(v) - 1)
+    elif isinstance(v, int):
+        return v - 1
+    raise Fizzle
 
 if __name__ == '__main__':
-    #p = (1, 2, succ)
-    p = RPainter.make('b', 1, succ)
-    #c = Canvas1D.make_from('a  ')
-    m = Model.make_from('a  ')
-    m.run_painter(p)
+    m = Model.make_from('ajaqb')
+    painters = list(m.make_spont())
 
-    print(m)
+    #print(m)
+    pts(painters)
