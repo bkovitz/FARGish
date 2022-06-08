@@ -358,11 +358,40 @@ class Model:
     def make_from(cls: Type[Q], s: str) -> Q:
         return cls(canvas=Canvas1D.make_from(s))
 
+    def set_canvas(self, s: str) -> None:
+        self.canvas = Canvas1D.make_from(s)
+
     def make_spont(self) -> Iterable[Painter]:
         '''Returns generator of Painters that recreate values in this Canvas.'''
         for i, x, j, y in self.canvas.all_ixjypairs():
             for func in self.basis_funcs_for(x, y):
                 yield (i, j, func)
+
+    def regenerate(
+        self,
+        ps: Sequence[Painter],
+        nt: int=10,  # number of timesteps
+        vv: int=2  # verbosity
+    ) -> None:
+        '''Regenerate .canvas. Stop after nt timesteps of when
+        .stopping_condition() is met, whichever comes first.'''
+        for t in range(1, nt + 1):
+            if self.stopping_condition():
+                if t == 1 and vv >= 1:
+                    print(repr(self.canvas))
+                break
+            if vv >= 1:
+                print(f't={t}')
+            p = self.choose_painter(ps)
+            if vv >= 2:
+                print(p)
+            self.run_painter(p)
+            if vv >= 1:
+                print(repr(self.canvas))
+                print()
+
+    def stopping_condition(self):
+        return all(cl >= 3 for cl in self.canvas.all_clarities())
 
     def basis_funcs_for(self, x: Value, y: Value) -> Iterable[Func]:
         if x == y:
@@ -407,7 +436,17 @@ def pred(v: Value) -> Value:
 
 if __name__ == '__main__':
     m = Model.make_from('abc')
-    painters = list(m.make_spont())
+    ps = list(m.make_spont())
 
     #print(m)
-    pts(painters)
+    pts(ps)
+    m.set_canvas('a  ')
+
+#    for t in range(10):
+#        print(f't={t}')
+#        p = m.choose_painter(ps)
+#        print(p)
+#        m.run_painter(p)
+#        print(repr(m.canvas))
+#        print()
+    m.regenerate(ps)

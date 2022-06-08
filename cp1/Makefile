@@ -27,7 +27,7 @@ mtest: mypy test
 mypy:
 	which mypy
 	@echo -e \\n\\n\\n\\n\\n
-	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py #atest*.py
+	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py atest*.py
 
 # For type-checking just one file (specified here).
 CURRENT = Model.py

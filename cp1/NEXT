@@ -22,7 +22,9 @@ Spontaneous generation of painters
 
 Regeneration
 
-    NEXT Regenerate 'abc' from 'a  '.
+    Regenerate 'abc' from 'a  '.  DONE
+
+        NEXT Write .regenerate()
 
     Regenerate 'ajaqc' from 'a    '.
 

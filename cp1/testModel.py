@@ -12,6 +12,7 @@ from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
     RPainter, FizzleValueNotFound
 from util import short
 
+
 class TestModel(unittest.TestCase):
 
     def test_canvas1d_basics(self) -> None:
