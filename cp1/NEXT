@@ -13,6 +13,8 @@ Painters
 
     Fizzle  DONE
 
+    NEXT QPainter: source matches a value, target is an absolute painter.
+
 Spontaneous generation of painters
 
     Generate absolute painter with a basis func.  DONE
@@ -24,7 +26,7 @@ Regeneration
 
     Regenerate 'abc' from 'a  '.  DONE
 
-        NEXT Write .regenerate()
+        Write .regenerate()  DONE
 
     Regenerate 'ajaqc' from 'a    '.
 

@@ -248,6 +248,14 @@ class RPainter:
         return RPainter(MatchAddr(v), OffsetAddr('I', o), fn)
 
 @dataclass(frozen=True)
+class QPainter:
+    '''A Painter whose source is a value to match, and that paints an absolute
+    painter.'''
+    source: MatchAddr
+    target: PainterAddr
+    func: MkPainter
+
+@dataclass(frozen=True)
 class OffsetAddr:
     '''An Addr defined as an offset relative to a variable in an Env.'''
     varname: str
@@ -435,18 +443,18 @@ def pred(v: Value) -> Value:
     raise Fizzle
 
 if __name__ == '__main__':
-    m = Model.make_from('abc')
-    ps = list(m.make_spont())
+#    m = Model.make_from('abc')
+#    ps = list(m.make_spont())
+#
+#    #print(m)
+#    pts(ps)
+#    m.set_canvas('a  ')
+#
+#    m.regenerate(ps)
 
-    #print(m)
-    pts(ps)
-    m.set_canvas('a  ')
-
-#    for t in range(10):
-#        print(f't={t}')
-#        p = m.choose_painter(ps)
-#        print(p)
-#        m.run_painter(p)
-#        print(repr(m.canvas))
-#        print()
-    m.regenerate(ps)
+    m = Model.make_from('a  ')
+    qp = QPainter(
+        MatchAddr('a'),
+        PainterAddr((OffsetAddr('I', 0), OffsetAddr('I', 2))),
+        cf(succ)
+    )
