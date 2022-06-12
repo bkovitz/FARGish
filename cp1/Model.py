@@ -329,6 +329,8 @@ class Model:
         env.to_determinate_address('J', target_of(p))
         vin = env.determinate_address('I').get_value()
         env.determinate_address('J').set_value(func_of(p)(vin))
+        # NEXT Model.set_value(DeterminateAddress, Value)
+        # better: Model.paint(DeterminateAddress, Value)
 
     def choose_painter(
         self,
