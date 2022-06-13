@@ -13,7 +13,9 @@ Painters
 
     Fizzle  DONE
 
-    NEXT QPainter: source matches a value, target is an absolute painter.
+    QPainter: source matches a value, target is an absolute painter.
+
+        NEXT PainterAddr: Some way to paint a painter in the model.
 
 Spontaneous generation of painters
 
@@ -28,7 +30,7 @@ Regeneration
 
         Write .regenerate()  DONE
 
-    Regenerate 'ajaqc' from 'a    '.
+    Regenerate 'ajaqb' from 'a    '.
 
 
 Override an element of a painter

@@ -247,13 +247,32 @@ class RPainter:
     def make(cls, v: Value, o: int, fn: Func) -> RPainter:
         return RPainter(MatchAddr(v), OffsetAddr('I', o), fn)
 
+    def paint(self, env: Env) -> None:
+        env.to_determinate_address('I', self.source)
+        env.to_determinate_address('J', self.target)
+        vin = env.determinate_address('I').get_value()
+        env.determinate_address('J').set_value(self.func(vin))  # type: ignore[operator]  #mypy bug?
+
 @dataclass(frozen=True)
-class QPainter:
-    '''A Painter whose source is a value to match, and that paints an absolute
-    painter.'''
-    source: MatchAddr
-    target: PainterAddr
-    func: MkPainter
+class PainterAddr:
+    source: Addr
+    target: Addr
+
+MkFunc = Callable[[Value], Func]
+
+#@dataclass(frozen=True)
+#class QPainter:
+#    '''A Painter whose source is a value to match, and that paints an absolute
+#    painter.'''
+#    source: MatchAddr
+#    target: PainterAddr
+#    mkfunc: MkFunc
+#
+#    def mkpainter(self, m: Model) -> Painter:
+#        return (
+#            self.target.source,
+#            self.target.target,
+#            self.mkfunc(m.get_value(self.  # @@
 
 @dataclass(frozen=True)
 class OffsetAddr:
@@ -319,18 +338,32 @@ class Model:
     canvas: Canvas
 
     Q = TypeVar('Q', bound='Model')
+
+    def get_value(self, addr: Addr) -> Value:
+        pass
+
 #
 #    def update(self) -> None:
 #        self.run_painter(self.choose_painter())
 #
     def run_painter(self, p: Painter) -> None:
+#        env = self.fresh_env()
+#        env.to_determinate_address('I', source_of(p))
+#        env.to_determinate_address('J', target_of(p))
+#        vin = env.determinate_address('I').get_value()
+#        env.determinate_address('J').set_value(func_of(p)(vin))
+#        # NEXT Model.set_value(DeterminateAddress, Value)
+#        # better: Model.paint(DeterminateAddress, Value)
+
         env = self.fresh_env()
-        env.to_determinate_address('I', source_of(p))
-        env.to_determinate_address('J', target_of(p))
-        vin = env.determinate_address('I').get_value()
-        env.determinate_address('J').set_value(func_of(p)(vin))
-        # NEXT Model.set_value(DeterminateAddress, Value)
-        # better: Model.paint(DeterminateAddress, Value)
+        if isinstance(p, tuple):
+            source, target, func = p
+            env.to_determinate_address('I', source)
+            env.to_determinate_address('J', target)
+            vin = env.determinate_address('I').get_value()
+            env.determinate_address('J').set_value(func(vin))
+        else:
+            p.paint(env)
 
     def choose_painter(
         self,
@@ -444,19 +477,22 @@ def pred(v: Value) -> Value:
         return v - 1
     raise Fizzle
 
-if __name__ == '__main__':
-#    m = Model.make_from('abc')
-#    ps = list(m.make_spont())
-#
-#    #print(m)
-#    pts(ps)
-#    m.set_canvas('a  ')
-#
-#    m.regenerate(ps)
+# def cf(v: Value) -> 
+# constant function
 
-    m = Model.make_from('a  ')
-    qp = QPainter(
-        MatchAddr('a'),
-        PainterAddr((OffsetAddr('I', 0), OffsetAddr('I', 2))),
-        cf(succ)
-    )
+if __name__ == '__main__':
+    m = Model.make_from('abc')
+    ps = list(m.make_spont())
+
+    #print(m)
+    pts(ps)
+    m.set_canvas('a  ')
+
+    m.regenerate(ps)
+
+#    m = Model.make_from('a  ')
+#    qp = QPainter(
+#        MatchAddr('a'),
+#        PainterAddr(OffsetAddr('I', 0), OffsetAddr('I', 2)),
+#        cmkf(succ)
+#    )
