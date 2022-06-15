@@ -290,10 +290,19 @@ def get_value(dsource: DeterminateAddress) -> Value:
     pass
 
 def source_of(p: Painter) -> Addr:
+    '''
     if isinstance(p, tuple):
         return p[0]
     else:
         return p.source
+    '''
+    return as_addr(p[0])
+
+def as_addr(x: Addr | str) -> Addr:
+    if isinstance(x, str):
+        return MatchAddr(x)
+    else:
+        return x
 
 def target_of(p: Painter) -> Addr:
     if isinstance(p, tuple):
@@ -310,7 +319,7 @@ def func_of(p: Painter) -> Func:
 
 Index = int   # the index of a cell within a Canvas
 Addr = Union[Index, MatchAddr, OffsetAddr]
-Painter = Union[Tuple[Addr, Addr, Func], RPainter]
+Painter = Union[Tuple[Addr, Addr, Func], Tuple[str, OffsetAddr, Func]]
 
 
 @dataclass
@@ -333,9 +342,9 @@ class Env:
 
 @dataclass
 class Model:
-#    lts: LongTermSoup
-#    ws: WorkingSoup
     canvas: Canvas
+#    lts: LongTermSoup
+    ws: Set[Painter] = field(default_factory=set)
 
     Q = TypeVar('Q', bound='Model')
 
@@ -358,12 +367,17 @@ class Model:
         env = self.fresh_env()
         if isinstance(p, tuple):
             source, target, func = p
-            env.to_determinate_address('I', source)
+            env.to_determinate_address('I', as_addr(source))
             env.to_determinate_address('J', target)
             vin = env.determinate_address('I').get_value()
             env.determinate_address('J').set_value(func(vin))
         else:
             p.paint(env)
+
+#    def paint(self, da: DeterminateAddress, v: Value) -> None:
+#        # accept Addr, not just DeterminateAddress?
+#        # if canvas is specified, paint to the canvas
+#        # if ws is specified, add to the ws
 
     def choose_painter(
         self,
@@ -387,7 +401,6 @@ class Model:
 
     def to_determinate_address(self, addr: Addr, env: Env) \
     -> DeterminateAddress:
-        #STUB TODO
         if isinstance(addr, int):
             return DeterminateAddress(self.canvas, addr)
         else:

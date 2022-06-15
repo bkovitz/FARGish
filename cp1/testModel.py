@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 
 from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
-    RPainter, FizzleValueNotFound
+    FizzleValueNotFound, OffsetAddr
 from util import short
 
 
@@ -34,7 +34,8 @@ class TestModel(unittest.TestCase):
         self.assertEqual(short(m), 'ab ')
 
     def test_simple_rpainter(self) -> None:
-        p = RPainter.make('a', 1, succ)
+        #p = RPainter.make('a', 1, succ)
+        p = ('a', OffsetAddr('I', +1), succ)
         m = Model.make_from(' a ')
         m.run_painter(p)
         self.assertEqual(short(m), ' ab')
