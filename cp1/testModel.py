@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 
 from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
-    FizzleValueNotFound, OffsetAddr
+    FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr
 from util import short
 
 
@@ -25,7 +25,7 @@ class TestModel(unittest.TestCase):
         c[2] = succ(c[1])
         self.assertEqual(short(c), 'ab ')
 
-        self.assertEqual(c.addr_of('b'), DeterminateAddress(c, 2))
+        self.assertEqual(c.addr_of('b'), CanvasAddress(c, 2))
 
     def test_simple_run_painter(self) -> None:
         p = (1, 2, succ)
@@ -59,3 +59,12 @@ class TestModel(unittest.TestCase):
                 (5, 3, pred)
             ]
         )
+
+    def test_paint_a_painter_to_ws(self) -> None:
+        m = Model.make_from('     ')
+        m.paint(PainterAddr(2, 3), succ)
+        self.assertCountEqual(
+            m.painters_with_target(3),
+            [(2, 3, succ)]
+        )
+        # self.assertEqual(m.clarity((2, 3, succ)), 1)

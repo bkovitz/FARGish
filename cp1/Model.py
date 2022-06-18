@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
-    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
+    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from random import choices
@@ -95,8 +95,27 @@ class Canvas(ABC):
         and y = self[j]. Skips cells that contain None.'''
         pass
 
+class DeterminateAddress(ABC):
+
+    @abstractmethod
+    def get_value(self) -> Value:
+        pass
+
+    @abstractmethod
+    def set_value(self, v: Value) -> None:
+        pass
+
+    @abstractmethod
+    def __add__(self, operand: int) -> DeterminateAddress:
+        pass
+
+    @abstractmethod
+    def clarity(self) -> Numeric:
+        '''Returns normalized clarity: 0.0..1.0.'''
+        pass
+
 @dataclass(frozen=True)
-class DeterminateAddress:
+class CanvasAddress(DeterminateAddress):
     canvas: Canvas
     abs_addr: int  # rename -> index
 
@@ -106,8 +125,11 @@ class DeterminateAddress:
     def set_value(self, v: Value) -> None:
         self.canvas[self.abs_addr] = v
 
-    def __add__(self, operand: int) -> DeterminateAddress:
-        return DeterminateAddress(self.canvas, self.abs_addr + operand)
+    def __add__(self, operand: int) -> CanvasAddress:
+        return CanvasAddress(self.canvas, self.abs_addr + operand)
+
+    def clarity(self) -> float:
+        return self.canvas.clarity(self.abs_addr) / self.canvas.MAX_CLARITY
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -217,10 +239,10 @@ class Canvas1D(Canvas):
             addr -= 1
             self.clarities[addr] = clarity
 
-    def addr_of(self, v: Value) -> DeterminateAddress:
+    def addr_of(self, v: Value) -> CanvasAddress:
         for i, x in enumerate(self.contents):
             if x == v:
-                return DeterminateAddress(self, i + 1)
+                return CanvasAddress(self, i + 1)
         raise FizzleValueNotFound(v)
 
     def __str__(self) -> str:
@@ -254,10 +276,22 @@ class RPainter:
         env.determinate_address('J').set_value(self.func(vin))  # type: ignore[operator]  #mypy bug?
 
 @dataclass(frozen=True)
-class PainterAddr:
+class PainterAddr(DeterminateAddress):
     source: Addr
     target: Addr
 
+    def get_value(self) -> Value:
+        pass  # TODO STUB
+
+    def set_value(self, v: Value) -> None:
+        pass  # TODO STUB
+
+    def __add__(self, operand: int) -> DeterminateAddress:
+        pass  # TODO STUB
+
+    def clarity(self) -> Numeric:
+        return -1  # TODO STUB
+    
 MkFunc = Callable[[Value], Func]
 
 #@dataclass(frozen=True)
@@ -283,12 +317,6 @@ class OffsetAddr:
     def to_determinate_address(self, env: Env) -> DeterminateAddress:
         return env.determinate_address(self.varname) + self.o
 
-def set_value(dtarget: DeterminateAddress) -> None:
-    pass
-
-def get_value(dsource: DeterminateAddress) -> Value:
-    pass
-
 def source_of(p: Painter) -> Addr:
     '''
     if isinstance(p, tuple):
@@ -303,6 +331,9 @@ def as_addr(x: Addr | str) -> Addr:
         return MatchAddr(x)
     else:
         return x
+
+def is_func(x: Any) -> TypeGuard[Func]:
+    return callable(x)
 
 def target_of(p: Painter) -> Addr:
     if isinstance(p, tuple):
@@ -344,7 +375,8 @@ class Env:
 class Model:
     canvas: Canvas
 #    lts: LongTermSoup
-    ws: Set[Painter] = field(default_factory=set)
+    #ws: Set[Painter] = field(default_factory=set)
+    ws: Dict[PainterAddr, Painter] = field(default_factory=dict)
 
     Q = TypeVar('Q', bound='Model')
 
@@ -356,28 +388,34 @@ class Model:
 #        self.run_painter(self.choose_painter())
 #
     def run_painter(self, p: Painter) -> None:
-#        env = self.fresh_env()
-#        env.to_determinate_address('I', source_of(p))
-#        env.to_determinate_address('J', target_of(p))
-#        vin = env.determinate_address('I').get_value()
-#        env.determinate_address('J').set_value(func_of(p)(vin))
-#        # NEXT Model.set_value(DeterminateAddress, Value)
-#        # better: Model.paint(DeterminateAddress, Value)
-
         env = self.fresh_env()
-        if isinstance(p, tuple):
-            source, target, func = p
-            env.to_determinate_address('I', as_addr(source))
-            env.to_determinate_address('J', target)
-            vin = env.determinate_address('I').get_value()
-            env.determinate_address('J').set_value(func(vin))
-        else:
-            p.paint(env)
+        source, target, func = p
+        env.to_determinate_address('I', as_addr(source))
+        env.to_determinate_address('J', target)
+        vin = env.determinate_address('I').get_value()
+        env.determinate_address('J').set_value(func(vin))
+        # NEXT Model.set_value(DeterminateAddress, Value)
+        # better: Model.paint(DeterminateAddress, Value)
+
+#        env = self.fresh_env()
+#        if isinstance(p, tuple):
+#            source, target, func = p
+#            env.to_determinate_address('I', as_addr(source))
+#            env.to_determinate_address('J', target)
+#            vin = env.determinate_address('I').get_value()
+#            env.determinate_address('J').set_value(func(vin))
+#        else:
+#            p.paint(env)
 
 #    def paint(self, da: DeterminateAddress, v: Value) -> None:
 #        # accept Addr, not just DeterminateAddress?
 #        # if canvas is specified, paint to the canvas
 #        # if ws is specified, add to the ws
+
+    def paint(self, da: DeterminateAddress, v: Value) -> None:
+        if isinstance(da, PainterAddr):
+            if is_func(v):
+                self.ws[da] = (da.source, da.target, v)
 
     def choose_painter(
         self,
@@ -390,19 +428,27 @@ class Model:
         # TODO Handle case where there is no painter or no weight
         return choices(ps, weights=weights)[0]
 
+    def painters_with_target(self, target: int) -> Set[Painter]:
+        # TODO Allow any DeterminateAddress for 'target'
+        return set(
+            p for p in self.ws.values() if target_of(p) == target
+        )
+
     def painter_weight(self, p: Painter, env: Env) -> Numeric:
         s_da = self.to_determinate_address(source_of(p), env)
         t_da = self.to_determinate_address(target_of(p), env)
-        s_clarity = self.canvas.clarity(s_da.abs_addr) / self.canvas.MAX_CLARITY
-        t_clarity = 1.0 - (
-            self.canvas.clarity(t_da.abs_addr) / (self.canvas.MAX_CLARITY + 1)
-        )
+#        s_clarity = self.canvas.clarity(s_da.abs_addr) / self.canvas.MAX_CLARITY
+#        t_clarity = 1.0 - (
+#            self.canvas.clarity(t_da.abs_addr) / (self.canvas.MAX_CLARITY + 1)
+#        )
+        s_clarity = s_da.clarity()
+        t_clarity = 1.0 - (t_da.clarity())
         return s_clarity * t_clarity
 
     def to_determinate_address(self, addr: Addr, env: Env) \
     -> DeterminateAddress:
         if isinstance(addr, int):
-            return DeterminateAddress(self.canvas, addr)
+            return CanvasAddress(self.canvas, addr)
         else:
             assert isinstance(addr, MatchAddr) or isinstance(addr, OffsetAddr)
             return addr.to_determinate_address(env)  # TODO  , env ?
