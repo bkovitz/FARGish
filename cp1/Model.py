@@ -258,24 +258,6 @@ class Canvas1D(Canvas):
         )
 
 @dataclass(frozen=True)
-class RPainter:
-    '''A Painter whose source is a value to match, and whose target is
-    specified by spatial relation from where the source was found.'''
-    source: MatchAddr
-    target: OffsetAddr
-    func: Func
-
-    @classmethod
-    def make(cls, v: Value, o: int, fn: Func) -> RPainter:
-        return RPainter(MatchAddr(v), OffsetAddr('I', o), fn)
-
-    def paint(self, env: Env) -> None:
-        env.to_determinate_address('I', self.source)
-        env.to_determinate_address('J', self.target)
-        vin = env.determinate_address('I').get_value()
-        env.determinate_address('J').set_value(self.func(vin))  # type: ignore[operator]  #mypy bug?
-
-@dataclass(frozen=True)
 class PainterAddr(DeterminateAddress):
     source: Addr
     target: Addr
@@ -391,21 +373,9 @@ class Model:
         env = self.fresh_env()
         source, target, func = p
         env.to_determinate_address('I', as_addr(source))
-        env.to_determinate_address('J', target)
+        env.to_determinate_address('J', as_addr(target))
         vin = env.determinate_address('I').get_value()
-        env.determinate_address('J').set_value(func(vin))
-        # NEXT Model.set_value(DeterminateAddress, Value)
-        # better: Model.paint(DeterminateAddress, Value)
-
-#        env = self.fresh_env()
-#        if isinstance(p, tuple):
-#            source, target, func = p
-#            env.to_determinate_address('I', as_addr(source))
-#            env.to_determinate_address('J', target)
-#            vin = env.determinate_address('I').get_value()
-#            env.determinate_address('J').set_value(func(vin))
-#        else:
-#            p.paint(env)
+        self.paint(env.determinate_address('J'), func(vin))
 
 #    def paint(self, da: DeterminateAddress, v: Value) -> None:
 #        # accept Addr, not just DeterminateAddress?
@@ -413,9 +383,15 @@ class Model:
 #        # if ws is specified, add to the ws
 
     def paint(self, da: DeterminateAddress, v: Value) -> None:
-        if isinstance(da, PainterAddr):
+        if isinstance(da, CanvasAddress):
+            da.set_value(v)
+        elif isinstance(da, PainterAddr):
             if is_func(v):
                 self.ws[da] = (da.source, da.target, v)
+            else:
+                self.ws[da] = (da.source, da.target, const(v))
+        else:
+            assert False, f'unrecognized type of DeterminateAddress {da}'
 
     def choose_painter(
         self,
@@ -535,6 +511,15 @@ def pred(v: Value) -> Value:
     elif isinstance(v, int):
         return v - 1
     raise Fizzle
+
+@dataclass(frozen=True)
+class const:
+    '''A constant function: returns .v regardless of argument passed to the
+    function.'''
+    v: Value
+
+    def __call__(self, ignored: Value) -> Value:
+        return self.v
 
 # def cf(v: Value) -> 
 # constant function

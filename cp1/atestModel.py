@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 
 from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
-    RPainter, FizzleValueNotFound
+    FizzleValueNotFound
 from util import short
 
 

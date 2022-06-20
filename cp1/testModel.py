@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 
 from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
-    FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr
+    FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr, const
 from util import short
 
 
@@ -68,3 +68,8 @@ class TestModel(unittest.TestCase):
             [(2, 3, succ)]
         )
         # self.assertEqual(m.clarity((2, 3, succ)), 1)
+
+    def test_const(self) -> None:
+        m = Model.make_from('a    ')
+        m.run_painter((1, 3, const('g')))
+        self.assertEqual(short(m), 'a g  ')
