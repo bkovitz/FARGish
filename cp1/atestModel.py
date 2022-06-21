@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
+from Model import Model, Canvas1D, same, succ, pred, DeterminateAddr, \
     FizzleValueNotFound
 from util import short
 

@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
+from Model import Model, Canvas1D, same, succ, pred, DeterminateAddr, \
     FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr, const, \
     AbsPainterTemplate, Env
 from util import short
@@ -82,7 +82,7 @@ class TestModel(unittest.TestCase):
         got = ma.is_match(env, (1, 3, same))
         if isinstance(got, Env): 
             self.assertEqual(
-                got.determinate_address('X'),
+                got.as_determinate_addr('X'),
                 CanvasAddress(m.canvas, 1)
             )
         else:
@@ -98,7 +98,7 @@ class TestModel(unittest.TestCase):
         got = ma.is_match(env, (5, 3, same))
         if isinstance(got, Env):
             self.assertEqual(
-                got.determinate_address('X'),
+                got.as_determinate_addr('X'),
                 CanvasAddress(m.canvas, 2)
             )
         else:

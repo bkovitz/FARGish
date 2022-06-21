@@ -35,12 +35,12 @@ class FizzleUndefined(Fizzle):
         return f'variable is undefined: {repr(self.varname)}'
 
 @dataclass(frozen=True)
-class FizzleNotADeterminateAddress(Fizzle):
+class FizzleNotADeterminateAddr(Fizzle):
     varname: str
     v: Value
 
     def __str__(self) -> str:
-        return f'value of {repr(self.varname)} is not a DeterminateAddress: {repr(self.v)}'
+        return f'value of {repr(self.varname)} is not a DeterminateAddr: {repr(self.v)}'
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
 class Canvas(ABC):
@@ -84,8 +84,8 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
-    def addr_of(self, v: Value) -> DeterminateAddress:
-        '''Returns the DeterminateAddress of the cell that contains v, or
+    def addr_of(self, v: Value) -> DeterminateAddr:
+        '''Returns the DeterminateAddr of the cell that contains v, or
         raises FizzleValueNotFound if no cell contains v.'''
         pass
 
@@ -96,7 +96,7 @@ class Canvas(ABC):
         and y = self[j]. Skips cells that contain None.'''
         pass
 
-class DeterminateAddress(ABC):
+class DeterminateAddr(ABC):
 
     @abstractmethod
     def get_value(self) -> Value:
@@ -107,10 +107,10 @@ class DeterminateAddress(ABC):
         pass
 
     @abstractmethod
-    def __add__(self, operand: int) -> DeterminateAddress:
+    def __add__(self, operand: int) -> DeterminateAddr:
         pass
 
-    def __sub__(self, operand: int) -> DeterminateAddress:
+    def __sub__(self, operand: int) -> DeterminateAddr:
         return self + -operand
 
     @abstractmethod
@@ -119,7 +119,7 @@ class DeterminateAddress(ABC):
         pass
 
 @dataclass(frozen=True)
-class CanvasAddress(DeterminateAddress):
+class CanvasAddress(DeterminateAddr):
     canvas: Canvas
     abs_addr: int  # rename -> index
 
@@ -141,11 +141,11 @@ class CanvasAddress(DeterminateAddress):
 
 @dataclass(frozen=True)
 class MatchAddr:
-    '''An Addr that matches a value and returns the DeterminateAddress of
+    '''An Addr that matches a value and returns the DeterminateAddr of
     that value.'''
     v: Value    # value to match
 
-    def to_determinate_address(self, env: Env) -> DeterminateAddress:
+    def to_determinate_address(self, env: Env) -> DeterminateAddr:
         # TODO Return an updated env?  Return multiple matches? Choose a match?
         return env.m.canvas.addr_of(self.v)
 
@@ -262,7 +262,7 @@ class Canvas1D(Canvas):
         )
 
 @dataclass(frozen=True)
-class PainterAddr(DeterminateAddress):
+class PainterAddr(DeterminateAddr):
     source: Addr
     target: Addr
 
@@ -272,7 +272,7 @@ class PainterAddr(DeterminateAddress):
     def set_value(self, v: Value) -> None:
         pass  # TODO STUB
 
-    def __add__(self, operand: int) -> DeterminateAddress:
+    def __add__(self, operand: int) -> DeterminateAddr:
         pass  # TODO STUB
 
     def clarity(self) -> Numeric:
@@ -300,8 +300,8 @@ class OffsetAddr:
     varname: str
     o: int = field(default=0)   # the number of cells to skip ahead or back
 
-    def to_determinate_address(self, env: Env) -> DeterminateAddress:
-        return env.determinate_address(self.varname) + self.o
+    def to_determinate_address(self, env: Env) -> DeterminateAddr:
+        return env.as_determinate_addr(self.varname) + self.o
 
 @dataclass(frozen=True)
 class AbsPainterTemplate:
@@ -314,15 +314,19 @@ class AbsPainterTemplate:
         if self.func != func_of(p):
             return None
 
-        # Set variable according to source_template to the DeterminateAddress
+        # Set variable according to source_template to the DeterminateAddr
         # in p.source.
         env = copy(env)
-        env.to_determinate_address(self.source_template.varname, source_of(p))
+        env.set_to_determinate_addr(self.source_template.varname, source_of(p))
         env[self.source_template.varname] = \
-            env.to_da(source_of(p)) - self.source_template.o
+            env.as_determinate_addr(source_of(p)) - self.source_template.o
 
         # Check variable according to target_template against p.target.
-        if env.to_da(target_of(p)) == env.to_da(self.target_template):
+        if (
+            env.as_determinate_addr(target_of(p))
+            ==
+            env.as_determinate_addr(self.target_template)
+        ):
             return env
         else:
             return None
@@ -371,21 +375,27 @@ class Env:
     def __setitem__(self, varname: str, x: Value) -> None:
         self.d[varname] = x
 
-    def to_da(self, addr: Addr) -> DeterminateAddress:
-        return self.m.to_determinate_address(addr, self)
+    # TODO rename to set_to_determinate_address
+    def set_to_determinate_addr(self, varname, addr: Addr) -> None:
+        self.d[varname] = self.as_determinate_addr(addr)
 
-    def to_determinate_address(self, varname, addr: Addr) -> None:
-        self.d[varname] = self.m.to_determinate_address(addr, self)
-
-    def determinate_address(self, varname) -> DeterminateAddress:
-        v = self.d.get(varname, None)
-        if isinstance(v, DeterminateAddress):
-            return v
-        else:
-            if v is None:
-                raise FizzleUndefined(varname)
+    def as_determinate_addr(self, x: str | Addr) -> DeterminateAddr:
+        '''Returns the DeterminateAddr corresponding to x. If x is the
+        name of a variable whose value is a DeterminateAddr, returns
+        that value or Fizzles. Otherwise returns the result of calling
+        .to_determinate_address() on the Model.'''
+        if isinstance(x, str):
+            result = self.d.get(x, None)
+            if isinstance(result, DeterminateAddr):
+                return result
             else:
-                raise FizzleNotADeterminateAddress(varname, v)
+                if result is None:
+                    raise FizzleUndefined(x)
+                else:
+                    raise FizzleNotADeterminateAddr(x, result)
+        else:
+            return self.m.to_determinate_address(x, self)
+
 
 @dataclass
 class Model:
@@ -406,17 +416,17 @@ class Model:
     def run_painter(self, p: Painter) -> None:
         env = self.fresh_env()
         source, target, func = p
-        env.to_determinate_address('I', as_addr(source))
-        env.to_determinate_address('J', as_addr(target))
-        vin = env.determinate_address('I').get_value()
-        self.paint(env.determinate_address('J'), func(vin))
+        env.set_to_determinate_addr('I', as_addr(source))
+        env.set_to_determinate_addr('J', as_addr(target))
+        vin = env.as_determinate_addr('I').get_value()
+        self.paint(env.as_determinate_addr('J'), func(vin))
 
-#    def paint(self, da: DeterminateAddress, v: Value) -> None:
-#        # accept Addr, not just DeterminateAddress?
+#    def paint(self, da: DeterminateAddr, v: Value) -> None:
+#        # accept Addr, not just DeterminateAddr?
 #        # if canvas is specified, paint to the canvas
 #        # if ws is specified, add to the ws
 
-    def paint(self, da: DeterminateAddress, v: Value) -> None:
+    def paint(self, da: DeterminateAddr, v: Value) -> None:
         if isinstance(da, CanvasAddress):
             da.set_value(v)
         elif isinstance(da, PainterAddr):
@@ -425,7 +435,7 @@ class Model:
             else:
                 self.ws[da] = (da.source, da.target, const(v))
         else:
-            assert False, f'unrecognized type of DeterminateAddress {da}'
+            assert False, f'unrecognized type of DeterminateAddr {da}'
 
     def choose_painter(
         self,
@@ -439,7 +449,7 @@ class Model:
         return choices(ps, weights=weights)[0]
 
     def painters_with_target(self, target: int) -> Set[Painter]:
-        # TODO Allow any DeterminateAddress for 'target'
+        # TODO Allow any DeterminateAddr for 'target'
         return set(
             p for p in self.ws.values() if target_of(p) == target
         )
@@ -456,7 +466,7 @@ class Model:
         return s_clarity * t_clarity
 
     def to_determinate_address(self, addr: Addr, env: Env) \
-    -> DeterminateAddress:
+    -> DeterminateAddr:
         if isinstance(addr, int):
             return CanvasAddress(self.canvas, addr)
         else:
