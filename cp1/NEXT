@@ -13,15 +13,19 @@ Painters
 
     Fizzle  DONE
 
-    QPainter: source matches a value, target is an absolute painter.
+    QPainter: source matches a value, target is an absolute painter. DONE
 
-    NEXT Refactor so that all painters are tuples. Different kinds of painters
+    SPainter: source matches an absolute painter, target is an absolute painter.
+
+        NEXT Match an absolute painter.
+
+    Refactor so that all painters are tuples. Different kinds of painters
     should be distinguished by different Python classes for their sources,
     targets, and funcs.
 
         Model.paint()
 
-        Model.get_value()
+        Model.get_value() ?
 
         PainterAddr: Some way to paint a painter in the model.
 

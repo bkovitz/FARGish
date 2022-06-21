@@ -9,7 +9,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 
 from Model import Model, Canvas1D, same, succ, pred, DeterminateAddress, \
-    FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr, const
+    FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr, const, \
+    AbsPainterTemplate, Env
 from util import short
 
 
@@ -33,8 +34,7 @@ class TestModel(unittest.TestCase):
         m.run_painter(p)
         self.assertEqual(short(m), 'ab ')
 
-    def test_simple_rpainter(self) -> None:
-        #p = RPainter.make('a', 1, succ)
+    def test_simple_relative_painter(self) -> None:
         p = ('a', OffsetAddr('I', +1), succ)
         m = Model.make_from(' a ')
         m.run_painter(p)
@@ -73,3 +73,20 @@ class TestModel(unittest.TestCase):
         m = Model.make_from('a    ')
         m.run_painter((1, 3, const('g')))
         self.assertEqual(short(m), 'a g  ')
+
+    def test_match_abs_painter(self) -> None:
+        m = Model.make_from('a    ')
+        env = m.fresh_env()
+
+        ma = AbsPainterTemplate(OffsetAddr('X'), OffsetAddr('X', 2), same)
+        got = ma.is_match(env, (1, 3, same))
+        if isinstance(got, Env): 
+            self.assertEqual(
+                got.determinate_address('X'),
+                CanvasAddress(m.canvas, 1)
+            )
+        else:
+            self.fail('.is_match() failed to match')
+
+        got = ma.is_match(env, (1, 2, same))
+        self.assertIsNone(got)

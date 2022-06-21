@@ -8,6 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from random import choices
+from copy import copy
 
 from util import Numeric, short, as_tuple, pts
 
@@ -108,6 +109,9 @@ class DeterminateAddress(ABC):
     @abstractmethod
     def __add__(self, operand: int) -> DeterminateAddress:
         pass
+
+    def __sub__(self, operand: int) -> DeterminateAddress:
+        return self + -operand
 
     @abstractmethod
     def clarity(self) -> Numeric:
@@ -294,10 +298,30 @@ MkFunc = Callable[[Value], Func]
 class OffsetAddr:
     '''An Addr defined as an offset relative to a variable in an Env.'''
     varname: str
-    o: int   # the number of cells to skip ahead or back
+    o: int = field(default=0)   # the number of cells to skip ahead or back
 
     def to_determinate_address(self, env: Env) -> DeterminateAddress:
         return env.determinate_address(self.varname) + self.o
+
+@dataclass(frozen=True)
+class AbsPainterTemplate:
+    source_template: OffsetAddr
+    target_template: OffsetAddr
+    func: Func
+
+    def is_match(self, env: Env, p: Painter) -> Env | None:
+        # Set variable according to source_template to the DeterminateAddress
+        # in p.source.
+        env = copy(env)
+        env.to_determinate_address(self.source_template.varname, source_of(p))
+        env[self.source_template.varname] = \
+            env.to_da(source_of(p)) - self.source_template.o
+
+        # Check variable according to target_template against p.target.
+        if env.to_da(target_of(p)) == env.to_da(self.target_template):
+            return env
+        else:
+            return None
 
 def source_of(p: Painter) -> Addr:
     '''
@@ -339,6 +363,12 @@ Painter = Union[Tuple[Addr, Addr, Func], Tuple[str, OffsetAddr, Func]]
 class Env:
     m: Model
     d: Dict[str, Value] = field(default_factory=dict)
+
+    def __setitem__(self, varname: str, x: Value) -> None:
+        self.d[varname] = x
+
+    def to_da(self, addr: Addr) -> DeterminateAddress:
+        return self.m.to_determinate_address(addr, self)
 
     def to_determinate_address(self, varname, addr: Addr) -> None:
         self.d[varname] = self.m.to_determinate_address(addr, self)
