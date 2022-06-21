@@ -90,3 +90,16 @@ class TestModel(unittest.TestCase):
 
         got = ma.is_match(env, (1, 2, same))
         self.assertIsNone(got)
+
+        got = ma.is_match(env, (1, 3, succ))
+        self.assertIsNone(got)
+
+        ma = AbsPainterTemplate(OffsetAddr('X', 3), OffsetAddr('X', 1), same)
+        got = ma.is_match(env, (5, 3, same))
+        if isinstance(got, Env):
+            self.assertEqual(
+                got.determinate_address('X'),
+                CanvasAddress(m.canvas, 2)
+            )
+        else:
+            self.fail('.is_match() failed to match')

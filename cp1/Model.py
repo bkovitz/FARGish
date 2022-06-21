@@ -310,6 +310,10 @@ class AbsPainterTemplate:
     func: Func
 
     def is_match(self, env: Env, p: Painter) -> Env | None:
+        # If funcs are not the same, then no match.
+        if self.func != func_of(p):
+            return None
+
         # Set variable according to source_template to the DeterminateAddress
         # in p.source.
         env = copy(env)
