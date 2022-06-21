@@ -103,3 +103,11 @@ class TestModel(unittest.TestCase):
             )
         else:
             self.fail('.is_match() failed to match')
+
+    def test_qpainter(self) -> None:
+        m = Model.make_from('a    ')
+        qpainter = (
+            AbsPainterTemplate(OffsetAddr('X'), OffsetAddr('X', 2), same),
+            workingSoup,
+            MkPainter(OffsetAddr('X'), OffsetAddr('X', 1), const('j'))
+        )
