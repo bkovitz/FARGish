@@ -1,3 +1,5 @@
+NEXT List all the software elements needed to implement ajaqb.
+
 Painters
 
     Absolute painter.  DONE
@@ -17,7 +19,7 @@ Painters
 
     SPainter: source matches an absolute painter, target is an absolute painter.
 
-        NEXT Match an absolute painter.
+        Match an absolute painter.
 
     Refactor so that all painters are tuples. Different kinds of painters
     should be distinguished by different Python classes for their sources,
