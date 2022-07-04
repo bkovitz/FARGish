@@ -61,6 +61,12 @@
 
   ; Are setvar and paint the same thing?
 
+  (let** ([I (eval-as 'det-addr source)]
+          [J (eval-as 'det-addr target)]
+          [F (eval-as 'func func)]
+          [V (apply-func F (eval-as 'value-at I))])
+    (paint J V))
+
 
 (define (same v)
   v)
