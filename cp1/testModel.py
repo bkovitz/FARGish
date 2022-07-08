@@ -10,7 +10,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 
 from Model import Model, Canvas1D, same, succ, pred, DeterminateAddr, \
     FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr, const, \
-    AbsPainterTemplate, Env
+    AbsPainterTemplate, Env, workingSoup
 from util import short
 
 
@@ -109,5 +109,5 @@ class TestModel(unittest.TestCase):
         qpainter = (
             AbsPainterTemplate(OffsetAddr('X'), OffsetAddr('X', 2), same),
             workingSoup,
-            MkPainter(OffsetAddr('X'), OffsetAddr('X', 1), const('j'))
+            (OffsetAddr('X'), OffsetAddr('X', 1), const('j'))
         )
