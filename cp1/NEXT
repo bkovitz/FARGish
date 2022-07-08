@@ -1,4 +1,15 @@
-NEXT List all the software elements needed to implement ajaqb.
+ajaqb
+
+    List all the software elements needed to implement ajaqb.
+
+    NEXT Pare down Model.py so that Env contains the main interesting code:
+    as_determinate_addr, as_func, as_value_at
+
+    eval-as det-addr 1
+
+    eval-as det-addr 'a'
+
+    eval-as det-addr (x, x+2, same)
 
 Painters
 

@@ -21,7 +21,29 @@
 
 ; How do we store containers and evaluators in the env?
 
-(define (default-eval-as-det-addr env x)
+; The default (simplest) way to map an addr to a det-addr.
+(define (eval-as/det-addr/default env x)
   (cond x
     [(det-addr? x) x]
     [(integer? x) (det-addr (default-container env) x)]
+    [(char? x) (matching-cells (default-container env) x)]
+    [(painter-template? x) (matching-painters (default-soup env) x)]
+    [(soup? x) x]
+    [else fizzle(x)]))
+
+(define (default-container env)
+  (env-main-canvas env))  ; No flexibility in this version
+
+(define (default-soup env)
+  (env-working-soup env))  ; No flexibility in this version
+
+; TODO
+; det-addr?
+; det-addr  (ctor)
+; matching-cells
+; matching-painters
+; soup?
+; fizzle
+
+
+    
