@@ -76,6 +76,6 @@
        (when (< clarity *max-clarity*)
              (vector-set! clarities i (add1 clarity)))])))
 
-;(: canvas/get-value (-> Canvas Index (U Value Fizzle)))
-;(define (canvas/get-value c i)
-;  (
+(: canvas/get-value (-> Canvas Index (U Char Fizzle)))
+(define (canvas/get-value c i)
+  (string-ref (Canvas-s c) i))
