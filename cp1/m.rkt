@@ -68,7 +68,7 @@
     [(Det-Addr? x) x]
     [else (Fizzle)]))
 
-(: canvas/paint (-> Canvas Index Char Void))
+(: canvas/paint! (-> Canvas Index Char Void))
 (define (canvas/paint c i v)
   ; Paints character v on canvas c at index i.
   (let* ([s (Canvas-s c)]

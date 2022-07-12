@@ -1,0 +1,47 @@
+Match (i (+ i 2) same).
+
+Fill (i (+ i 1) 'j).
+
+Paint to canvas.
+
+Add new painter to working soup.
+
+Run abs painter.
+
+Funcs:
+
+  same
+
+  succ
+
+  pred
+
+Randomly choose a painter.
+
+  Based on clarities.
+
+Spontaneous generation.
+
+  'a_a' -> (i (+ i 2) same)
+
+  'a___b' -> (i (+ i 4) succ)
+
+Match 'a'.
+
+Run  'a' -> (i (+ i 2) same), (i (+ i 4) succ)
+
+Generate painters for long-term soup.
+
+  All seven of them.
+
+Run the whole process.
+
+Run a same painter backward.
+
+Run a succ painter backward.
+
+
+Affect clarity of painter (?).
+
+
+Write a painter as a little Scheme function (?).
