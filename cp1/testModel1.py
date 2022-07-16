@@ -8,13 +8,13 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from Model import Model, Canvas1D, same, succ, pred, DeterminateAddr, \
+from Model1 import Model, Canvas1D, same, succ, pred, DeterminateAddr, \
     FizzleValueNotFound, OffsetAddr, CanvasAddress, PainterAddr, const, \
     AbsPainterTemplate, Env, workingSoup
 from util import short
 
 
-class TestModel(unittest.TestCase):
+class TestModel1(unittest.TestCase):
 
     def test_canvas1d_basics(self) -> None:
         c = Canvas1D.make_from('a  ')
