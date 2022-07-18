@@ -1,3 +1,7 @@
+Make CRC cards?
+
+
+
 Match (i (+ i 2) same).
 
 Fill (i (+ i 1) 'j).
@@ -18,6 +22,8 @@ Funcs:
 
 Randomly choose a painter.
 
+  Assign weight to painter (or to step?).
+
   Based on clarities.
 
 Spontaneous generation.
@@ -34,7 +40,12 @@ Generate painters for long-term soup.
 
   All seven of them.
 
+  Make (i (+ i 1) 'j)
+
 Run the whole process.
+
+
+--
 
 Run a same painter backward.
 
@@ -44,4 +55,3 @@ Run a succ painter backward.
 Affect clarity of painter (?).
 
 
-Write a painter as a little Scheme function (?).
