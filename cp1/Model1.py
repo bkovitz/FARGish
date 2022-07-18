@@ -15,7 +15,7 @@ from util import Numeric, short, as_tuple, pts
 
 Value = Hashable
 ValueTup = Tuple[Value, ...]
-Func = Callable[[Value], Value]
+Func = Union[Callable[[Value], Value], Value]
 Expr = Hashable   # Restrict this better?
 
 class Fizzle(Exception):
@@ -424,10 +424,17 @@ class Model:
     def run_painter(self, p: Painter) -> None:
         env = self.fresh_env()
         source, target, func = p
+        func = self.as_callable(func)
         env.set_to_determinate_addr('I', as_addr(source))
         env.set_to_determinate_addr('J', as_addr(target))
         vin = env.as_determinate_addr('I').get_value()
         self.paint(env.as_determinate_addr('J'), func(vin))
+
+    def as_callable(self, x: Func) -> Callable[[Value], Value]:
+        if callable(x):
+            return x
+        else:
+            return const(x)
 
 #    def paint(self, da: DeterminateAddr, v: Value) -> None:
 #        # accept Addr, not just DeterminateAddr?

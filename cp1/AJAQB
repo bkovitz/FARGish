@@ -2,6 +2,20 @@ Make CRC cards?
 
 
 
+Run the whole process.
+
+Generate painters for long-term soup.
+
+  All seven of them.
+
+  Make (i (+ i 1) 'j)
+
+Randomly choose a painter.
+
+  Assign weight to painter (or to step?).
+
+  Based on clarities.
+
 Match (i (+ i 2) same).
 
 Fill (i (+ i 1) 'j).
@@ -20,12 +34,6 @@ Funcs:
 
   pred
 
-Randomly choose a painter.
-
-  Assign weight to painter (or to step?).
-
-  Based on clarities.
-
 Spontaneous generation.
 
   'a_a' -> (i (+ i 2) same)
@@ -35,14 +43,6 @@ Spontaneous generation.
 Match 'a'.
 
 Run  'a' -> (i (+ i 2) same), (i (+ i 4) succ)
-
-Generate painters for long-term soup.
-
-  All seven of them.
-
-  Make (i (+ i 1) 'j)
-
-Run the whole process.
 
 
 --

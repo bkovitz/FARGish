@@ -9,7 +9,7 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = Model.py
+SRCFILES = Model1.py
 
 # Plot.py 
 # Log.py 
@@ -59,6 +59,8 @@ mut: mypy ut
 mu: mypy u
 mat: mypy at
 ma: mypy a
+mt: mypy test
+test: ut at
 
 # line counts
 lc: clean
