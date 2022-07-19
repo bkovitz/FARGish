@@ -35,7 +35,8 @@ def run_all() -> None:
     m.absorb('ajaqb')
     #m.regen_from('a    ')
     print(m.canvas)
-    pts(m.lts.painters)
+    for p in m.lts.painters:
+        print(painter_str(p))
 
 class Fizzle(Exception):
     pass
@@ -239,8 +240,11 @@ def pred(v: Value) -> Value:
 class Variable:
     name: str
 
-I = Variable('I')
-J = Variable('J')
+    def __str__(self) -> str:
+        return self.name
+
+I = Variable('i')
+J = Variable('j')
 
 @dataclass(frozen=True)
 class Plus:
@@ -248,6 +252,35 @@ class Plus:
 
     def __init__(self, *args: Expr):
         force_setattr(self, 'args', args)
+
+    def __str__(self) -> str:
+        return '+'.join(str(a) for a in self.args)
+
+def painter_str(p: Painter) -> str:
+    i, j, func = p
+    return f'({addr_str(i)}, {addr_str(j)}, {func_str(func)})'
+
+def addr_str(a: Addr) -> str:
+    if isinstance(a, int):
+        return str(a)
+    elif isinstance(a, str):
+        return repr(a)
+    elif a == WorkingSoup:
+        return 'WorkingSoup'
+    elif isinstance(a, tuple):
+        return painter_str(a)  # type: ignore[arg-type]
+    elif isinstance(a, Variable):
+        return a.name
+    else:
+        return str(a)
+
+def func_str(func: Func) -> str:
+    if callable(func):
+        return short(func)
+    elif isinstance(func, tuple):
+        return painter_str(func)  # type: ignore[arg-type]
+    else:
+        return repr(func)
 
 @dataclass
 class Model:
@@ -259,7 +292,7 @@ class Model:
 
     def absorb(self, s: str) -> None:
         for i, j, func in self.find_related_cells(s):
-            print(i, j, func)
+            #print(i, j, func)
             self.lts.add((s[i-1], WorkingSoup, (I, Plus(I, (j - i)), func)))
             if j - i == 2:  # if need a painter to put a letter between two
                             # letters
