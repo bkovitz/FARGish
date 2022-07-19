@@ -30,7 +30,7 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = Model.py
+CURRENT = ajaqb.py
 
 m:
 	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
