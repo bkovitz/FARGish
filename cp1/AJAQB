@@ -1,5 +1,3 @@
-Make CRC cards?
-
 
 
 Run the whole process.
@@ -9,6 +7,16 @@ Generate painters for long-term soup.
   All seven of them.
 
   Make (i (+ i 1) 'j)
+
+Funcs:
+
+  same
+
+  succ
+
+  pred
+
+---
 
 Randomly choose a painter.
 
@@ -25,14 +33,6 @@ Paint to canvas.
 Add new painter to working soup.
 
 Run abs painter.
-
-Funcs:
-
-  same
-
-  succ
-
-  pred
 
 Spontaneous generation.
 
