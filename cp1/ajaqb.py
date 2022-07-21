@@ -38,7 +38,7 @@ class Soup:
             pj = as_index(p[1])
             pf = p[2]  # TODO Call as_func?
 
-            subst: Dict[Variable, Index] = {}
+            subst: Subst = {}
 
 
             print(xi, xj, xf)
@@ -58,15 +58,35 @@ class HasAsIndex(ABC):
     def as_index(self) -> Index:
         pass
 
+class HasMakeSubst(ABC):
+
+    @abstractmethod
+    def make_subst(self, v: Index, subst: Subst) -> Subst:
+        pass
+
 @dataclass(frozen=True)
-class Variable(HasAsIndex):
+class Variable(HasAsIndex, HasMakeSubst):
     name: str
 
     def __str__(self) -> str:
         return self.name
 
     def as_index(self) -> Index:
-        raise Fizzle   # TODO Look this up in an Env
+        raise NotImplementedError   # TODO Look this up in an Env
+
+    def make_subst(self, v: Index, subst: Subst) -> Subst:
+        # NEXT subst.unify()?
+        got = subst.eval_as_index(self)
+        match got:
+            case int():
+                return subst
+            case BottomSubst():
+                return got
+            case OpenSubst
+        if subset.eval_as_index(self) != v:
+            return empty_subst
+        else:
+            
 
 I = Variable('i')
 J = Variable('j')
@@ -90,6 +110,20 @@ Func = Union[Callable[[Value], Value], Value]
 Expr = Union[Variable, Plus, int, Func]  # TODO Move Func to Painter?
 Addr = Union[Index, str, Type[WorkingSoup], Expr]
 Painter = Tuple[Addr, Addr, Expr]
+
+Subst = Union[Dict[Variable, Index], None]  # a substitution table
+
+@dataclass
+class Subst:
+    d = Dict[Variable, Index]
+
+    def value_of(self, expr: Expr) -> Union[Index, None]:
+        return self.d.get(expr, None)
+
+    def unify(self, var: Variable, rhs: Expr) -> Subst:
+        
+        
+    
 
 def run_all() -> None:
     '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
