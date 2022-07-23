@@ -11,6 +11,9 @@ from random import choice
 import operator
 from functools import reduce
 
+from pyrsistent import pmap
+from pyrsistent.typing import PMap
+
 from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
     reseed
 
@@ -113,17 +116,61 @@ Painter = Tuple[Addr, Addr, Expr]
 
 Subst = Union[Dict[Variable, Index], None]  # a substitution table
 
-@dataclass
+@dataclass(frozen=True)
 class Subst:
-    d = Dict[Variable, Index]
+    '''A mapping from Variables to Exprs.'''
+    d : PMap[Variable, Index] = field(default_factory=lambda: pmap())
 
     def value_of(self, expr: Expr) -> Union[Index, None]:
         return self.d.get(expr, None)
 
     def unify(self, var: Variable, rhs: Expr) -> Subst:
+        if var in self.d:
+            if var == rhs:
+                return self
+            elif 
+                return self.substitute(
+        else:
+            return Subst(self.d.set(var, rhs))
+
+    def substitute(self, var: Variable, rhs: Expr) -> Subst:
+        '''Returns a Subst in which every occurence of 'var' has been replaced
+        by 'rhs'.'''
+        return Subst(
+            pmap(
+                (expr_substitute(v, var, rhs), expr_substitute(e, var, rhs))
+                    for v, e in self.d.items()
+        )
         
-        
-    
+class BottomSubst(Subst):
+    '''A Subst that maps nothing to nothing and can't unify or substitute
+    anything.'''
+
+    def value_of(self, expr: Expr) -> Union[Index, None]:
+        return None
+
+    def unify(self, var: Variable, rhs: Expr) -> Subst:
+        return self
+
+    def substitute(self, var: Variable, rhs: Expr) -> Subst:
+        return self
+
+bottom_subst = BottomSubst()
+
+def expr_substitute(e: Expr, v: Variable, rhs: Expr) -> Expr:
+    '''Returns 'e', with each occurrence of 'v' replaced by 'rhs'.'''
+    match e:
+        case Variable():
+            if e == v:
+                return rhs
+            else:
+                return e
+        case int():
+            return e
+        case Plus(args):  # TODO Change to CompoundExpr()?
+            return Plus(*(expr_substitute(a, v, rhs) for a in e.args))
+        case _:
+            raise NotImplementedError(e)
 
 def run_all() -> None:
     '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
