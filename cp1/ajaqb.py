@@ -33,20 +33,30 @@ class Soup:
         '''Viewing xp as a painter template (possibly with variables that
         need to be filled in), does p match xp?'''
         print(f'ISM xp={xp}  p={p}')
-        if xp == p:
-            return True
-        else:
-            xi, xj, xf = xp
-            pi = as_index(p[0])
-            pj = as_index(p[1])
-            pf = p[2]  # TODO Call as_func?
+#        if xp == p:
+#            return True
+#        else:
+        xi, xj, xf = xp
+        pi = as_index(p[0])
+        pj = as_index(p[1])
+        pf = p[2]  # TODO Call as_func?
 
-            subst: Subst = {}
+        #subst: Subst = {}
+        subst = Subst()
 
 
-            print(xi, xj, xf)
-            print(pi, pj, pf)
-            raise NotImplementedError
+        print(xi, xj, xf)
+        print(pi, pj, pf)
+        subst = subst.unify(xi, pi)
+        subst = subst.unify(xj, pj)
+        print('SUBST', subst)
+        match subst:
+            case BottomSubst():
+                return False
+            case Subst():
+                return True
+            case _:
+                raise NotImplementedError
 
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
@@ -85,11 +95,11 @@ class Variable(HasAsIndex, HasMakeSubst):
                 return subst
             case BottomSubst():
                 return got
-            case OpenSubst
+            #case OpenSubst
         if subset.eval_as_index(self) != v:
             return empty_subst
         else:
-            
+            pass # TODO?
 
 I = Variable('i')
 J = Variable('j')
@@ -114,7 +124,7 @@ Expr = Union[Variable, Plus, int, Func]  # TODO Move Func to Painter?
 Addr = Union[Index, str, Type[WorkingSoup], Expr]
 Painter = Tuple[Addr, Addr, Expr]
 
-Subst = Union[Dict[Variable, Index], None]  # a substitution table
+#Subst = Union[Dict[Variable, Index], None]  # a substitution table
 
 @dataclass(frozen=True)
 class Subst:
@@ -124,23 +134,53 @@ class Subst:
     def value_of(self, expr: Expr) -> Union[Index, None]:
         return self.d.get(expr, None)
 
-    def unify(self, var: Variable, rhs: Expr) -> Subst:
-        if var in self.d:
-            if var == rhs:
-                return self
-            elif 
-                return self.substitute(
-        else:
-            return Subst(self.d.set(var, rhs))
+#    def unify(self, var: Variable, rhs: Expr) -> Subst:
+#        if var in self.d:
+#            if var == rhs:
+#                return self
+#            elif 
+#                return self.substitute(
+#        else:
+#            return Subst(self.d.set(var, rhs))
 
-    def substitute(self, var: Variable, rhs: Expr) -> Subst:
-        '''Returns a Subst in which every occurence of 'var' has been replaced
-        by 'rhs'.'''
-        return Subst(
-            pmap(
-                (expr_substitute(v, var, rhs), expr_substitute(e, var, rhs))
-                    for v, e in self.d.items()
-        )
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        print('HERE', lhs, rhs)
+        match (lhs, rhs):
+            case (int(l), int(r)):
+                if l == r:
+                    return self
+                else:
+                    return bottom_subst
+            case (Variable(), int(r)):
+                print('GOTN', lhs, r)
+                if lhs in self.d:
+                    if self.d[lhs] == r:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, r))
+            case (Plus(args=(Variable() as v, int(n))), int(r)):
+                print('GOTPP', v, n, r)
+                match self.value_of(v):
+                    case int(vv):
+                        if vv + n == r:
+                            return self
+                        else:
+                            return bottom_subst
+                    case None:
+                        return Subst(self.d.set(v, r - n))
+            case _:
+                raise NotImplementedError
+
+#    def substitute(self, var: Variable, rhs: Expr) -> Subst:
+#        '''Returns a Subst in which every occurence of 'var' has been replaced
+#        by 'rhs'.'''
+#        return Subst(
+#            pmap(
+#                (expr_substitute(v, var, rhs), expr_substitute(e, var, rhs))
+#                    for v, e in self.d.items()
+#        )
         
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
@@ -527,8 +567,10 @@ if __name__ == '__main__':
 
     m = Model()
     m.set_canvas('ajaqb')
-    m.add_painter((WorkingSoup, (1, 3, same)))
+    p = (1, 3, same)
+    m.add_painter((WorkingSoup, p))
     pts(m.ws.painters)
     print()
+    #print(m.eval_as_detaddr((1, 4, same)))
     print(m.eval_as_detaddr((I, Plus(I, 2), same)))
 
