@@ -63,6 +63,10 @@ class Soup:
     def union(cls, *soups: Soup) -> Soup:
         return Soup(union(*(soup.painters for soup in soups)))
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return cl
+
 class WorkingSoup(Soup):
     pass
 
@@ -90,7 +94,6 @@ class Variable(HasAsIndex, HasMakeSubst):
         raise NotImplementedError   # TODO Look this up in an Env
 
 #    def make_subst(self, v: Index, subst: Subst) -> Subst:
-#        # NEXT subst.unify()?
 #        got = subst.eval_as_index(self)
 #        match got:
 #            case int():
@@ -132,7 +135,7 @@ class Plus(HasAsIndex):
                 return cls.simplify(
                     subst,
                     more,
-                    cls.try_to_add(init, subst.value_of(expr))
+                    cls.try_to_add(init, subst.eval_as_index(expr))
                 )
 
     @classmethod
@@ -162,6 +165,7 @@ Index = int   # the index of a cell within a Canvas
 Expr = Any
 Addr = Any
 Func = Any
+ProperFunc = Callable[[Value], Value]
 Painter = Tuple[Addr, Addr, Func]
 
 
@@ -170,7 +174,7 @@ class Subst:
     '''A substitution table, i.e. a mapping from Variables to Exprs.'''
     d : PMap[Expr, Index] = field(default_factory=lambda: pmap())
 
-    def value_of(self, expr: Expr) -> Union[Index, None]:
+    def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         match expr:
             case int():
                 return expr
@@ -207,7 +211,7 @@ class Subst:
                     return Subst(self.d.set(lhs, r))
             case (Plus(args=(Variable() as v, int(n))), int(r)):
                 print('GOTPP', v, n, r)
-                match self.value_of(v):
+                match self.eval_as_index(v):
                     case int(vv):
                         if vv + n == r:
                             return self
@@ -220,8 +224,19 @@ class Subst:
                 rvalue = rator.value_of(self)
                 #if lhs in self.
                 return self # TODO
+            case (Variable(), soup) if issubclass(soup, Soup):
+                if lhs in self.d:
+                    if self.d[lhs] == rhs:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, rhs))
             case _:
-                raise NotImplementedError
+                print('WHAT?', type(lhs), type(rhs))
+                raise NotImplementedError((lhs, rhs))
+        assert False, "unify(): should not go past 'match' stmt"
+        return same # Needed only to please mypy; stops [return] error
 
 #    def substitute(self, var: Variable, rhs: Expr) -> Subst:
 #        '''Returns a Subst in which every occurence of 'var' has been replaced
@@ -236,7 +251,7 @@ class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
     anything.'''
 
-    def value_of(self, expr: Expr) -> Union[Index, None]:
+    def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         return None
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
@@ -272,17 +287,17 @@ class FizzleValueNotFound(Fizzle):
     def __str__(self) -> str:
         return f'value not found: {repr(self.v)}'
 
-@dataclass(frozen=True)
-class CanvasAddr:
-    canvas: Canvas
-    index: Index
-
-    def __repr__(self) -> str:
-        return str(self.index)
+#@dataclass(frozen=True)
+#class CanvasAddr:
+#    canvas: Canvas
+#    index: Index
+#
+#    def __repr__(self) -> str:
+#        return str(self.index)
 
 PaintableSoupRef = Type[WorkingSoup]
 PainterRef = Tuple[PaintableSoupRef, Painter]
-DeterminateAddr = Union[CanvasAddr, PaintableSoupRef, PainterRef]
+DeterminateAddr = Union[int, PaintableSoupRef, PainterRef]
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
 class Canvas(ABC):
@@ -425,15 +440,15 @@ class Canvas1D(Canvas):
             addr -= 1
             self.clarities[addr] = clarity
 
-    def addr_of(self, v: Value) -> CanvasAddr:
+    def addr_of(self, v: Value) -> int:
         for i, x in enumerate(self.contents):
             if x == v:
-                return CanvasAddr(self, i + 1)
+                return i + 1
         raise FizzleValueNotFound(v)
 
-    def all_matching(self, v: Value) -> List[CanvasAddr]:
+    def all_matching(self, v: Value) -> List[int]:
         return [
-            CanvasAddr(self, i + 1)
+            i + 1
                 for i, x in enumerate(self.contents)
                     if x == v
         ]
@@ -471,6 +486,10 @@ def pred(v: Value) -> Value:
         return v - 1
     raise Fizzle
 
+### The constant function
+
+def const(v: Value) -> ProperFunc:
+    return lambda _: v
 
 def painter_str(p: Painter) -> str:
     i, j, func = p
@@ -540,7 +559,7 @@ class Model:
     def regen_from(self, s: str) -> None:
         '''Regenerates canvas from 's'.'''
         self.set_canvas(s)
-        for t in range(1, 20):  # TODO replace arbitrary constant
+        for t in range(1, 3):  # TODO replace arbitrary constant
             p = self.choose_painter()
             print(t, painter_str(p))
             try:
@@ -563,17 +582,35 @@ class Model:
 
     def run_painter(self, p: Painter) -> None:
         i, j, func = p
-        print(f'i = {i}')
-        I = self.eval_as_detaddr(i)
-        print(f'I = {I}\n')
-        # NEXT eval_as_detaddr(i)
+        subst = Subst()
+        print(f'i = {i!r}')
+        ii = self.eval_as_detaddr(subst, i)
+        print(f'ii = {ii}\n')
+        subst.unify(I, ii)
+
+        print(f'j = {j!r}')
+        jj = self.eval_as_detaddr(subst, j)
+        print(f'jj = {jj}\n')
+        subst.unify(J, jj)
+
+        print(f'func = {func!r}')
+        FUNC = self.eval_as_func(subst, func)
+        print(f'FUNC = {FUNC}\n')
+
+        # NEXT
+        oldval = self.get_value(ii)
+        #newval = func(oldval)
+
+
+
+        #      eval_as_detaddr(i)
         #      eval_as_detaddr(j)
         # get the value for i
         # pass it through func
         # paint it at j
         
 
-    def eval_as_detaddr(self, a: Addr) -> DeterminateAddr:
+    def eval_as_detaddr(self, subst: Subst, a: Addr) -> DeterminateAddr:
         if isinstance(a, str):
             addrs = self.canvas.all_matching(a)
             if not addrs:
@@ -590,12 +627,35 @@ class Model:
             else:
                 return (WorkingSoup, choice(painters))
         elif is_expr(a):
-            return CanvasAddr(self.canvas, as_index(a))
+            return as_index(a)
 #        elif # Expr
 #            # ?
         else:
             print(f'\na = {a}')
             raise Fizzle
+
+    def eval_as_func(self, subst: Subst, x: Func) -> ProperFunc:
+        print('EAF', x, type(x))
+        match x:
+            case x if callable(x):
+                return x
+            case (i, j, f):
+                return const(self.eval_as_painter(subst, x))
+            case _:
+                raise NotImplementedError(x)
+        assert False, "eval_as_func: should not go past 'match' stmt"
+        return same # Needed only to please mypy; stops [return] error
+
+    def eval_as_painter(self, subst: Subst, x: Painter) -> Painter:
+        match x:
+            case (i, j, f):
+                return (
+                    subst.eval_as_index(i),
+                    subst.eval_as_index(j),
+                    self.eval_as_func(subst, f)
+                )
+            case _:
+                raise NotImplementedError(x)
 
 def as_index(e: Expr) -> Index:
     if isinstance(e, int):
@@ -623,8 +683,8 @@ def run_all() -> None:
     print(f"'{short(m.canvas)}'")
 
 if __name__ == '__main__':
-#    reseed(0)
-#    run_all()
+    reseed(0)
+    run_all()
 
 #    m = Model()
 #    m.set_canvas('ajaqb')
@@ -635,11 +695,11 @@ if __name__ == '__main__':
 #    #print(m.eval_as_detaddr((1, 4, same)))
 #    print(m.eval_as_detaddr((I, Plus(I, 2), same)))
 
-    s0 = Subst()
-    s1 = s0.unify(I, 1)
-    print(s1)
-    print(Plus().value_of(s1))
-    pl = Plus(I)
-    print(pl.value_of(s1))
-    pl = Plus(I, 2)
-    print(pl.value_of(s1))
+#    s0 = Subst()
+#    s1 = s0.unify(I, 1)
+#    print(s1)
+#    print(Plus().value_of(s1))
+#    pl = Plus(I)
+#    print(pl.value_of(s1))
+#    pl = Plus(I, 2)
+#    print(pl.value_of(s1))

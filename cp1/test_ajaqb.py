@@ -15,11 +15,11 @@ class TestAjaqb(unittest.TestCase):
 
     def test_subst_empty(self) -> None:
         su = Subst()
-        self.assertEqual(su.value_of(I), None)
+        self.assertEqual(su.eval_as_index(I), None)
         # TODO Make this next assertion pass
-        #self.assertEqual(su.value_of(Plus(I, 2)), Plus(I, 2))
+        #self.assertEqual(su.eval_as_index(Plus(I, 2)), Plus(I, 2))
 
     def test_subst_I(self) -> None:
         su = Subst().unify(I, 1)
-        self.assertEqual(su.value_of(I), 1)
-        self.assertEqual(su.value_of(Plus(I, 2)), 3)
+        self.assertEqual(su.eval_as_index(I), 1)
+        self.assertEqual(su.eval_as_index(Plus(I, 2)), 3)

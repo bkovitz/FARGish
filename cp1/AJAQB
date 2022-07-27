@@ -28,11 +28,13 @@ Match (i (+ i 2) same).
 
 Fill (i (+ i 1) 'j).
 
-Paint to canvas.
+Run a painter:
 
-Add new painter to working soup.
+   Paint to canvas.
 
-Run abs painter.
+   Add new painter to working soup.
+
+   Run abs painter.
 
 Spontaneous generation.
 

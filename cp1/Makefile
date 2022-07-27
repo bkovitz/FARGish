@@ -36,6 +36,7 @@ m:
 	$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $(CURRENT)
+mi: i
 
 # Run all unit tests.
 ut:

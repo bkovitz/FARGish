@@ -6,7 +6,7 @@ ajaqb
 
     List all the software elements needed to implement ajaqb.  DONE?
 
-    NEXT Rename Subst.value_of() to Subst.
+    NEXT Rename Subst.value_of() to Subst.eval().
 
     ? Pare down Model.py so that Env contains the main interesting code:
     as_determinate_addr, as_func, as_value_at
