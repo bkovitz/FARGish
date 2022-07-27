@@ -4,9 +4,11 @@ Clean-up
 
 ajaqb
 
-    List all the software elements needed to implement ajaqb.
+    List all the software elements needed to implement ajaqb.  DONE?
 
-    NEXT Pare down Model.py so that Env contains the main interesting code:
+    NEXT Rename Subst.value_of() to Subst.
+
+    ? Pare down Model.py so that Env contains the main interesting code:
     as_determinate_addr, as_func, as_value_at
 
     eval-as det-addr 1

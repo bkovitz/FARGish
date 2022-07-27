@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
-    runtime_checkable, TYPE_CHECKING
+    runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from random import choice
@@ -16,6 +16,7 @@ from pyrsistent.typing import PMap
 
 from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
     reseed
+from Log import trace
 
 @dataclass
 class Soup:
@@ -73,9 +74,10 @@ class HasAsIndex(ABC):
 
 class HasMakeSubst(ABC):
 
-    @abstractmethod
-    def make_subst(self, v: Index, subst: Subst) -> Subst:
-        pass
+#    @abstractmethod
+#    def make_subst(self, v: Index, subst: Subst) -> Subst:
+#        pass
+    pass
 
 @dataclass(frozen=True)
 class Variable(HasAsIndex, HasMakeSubst):
@@ -87,19 +89,19 @@ class Variable(HasAsIndex, HasMakeSubst):
     def as_index(self) -> Index:
         raise NotImplementedError   # TODO Look this up in an Env
 
-    def make_subst(self, v: Index, subst: Subst) -> Subst:
-        # NEXT subst.unify()?
-        got = subst.eval_as_index(self)
-        match got:
-            case int():
-                return subst
-            case BottomSubst():
-                return got
-            #case OpenSubst
-        if subset.eval_as_index(self) != v:
-            return empty_subst
-        else:
-            pass # TODO?
+#    def make_subst(self, v: Index, subst: Subst) -> Subst:
+#        # NEXT subst.unify()?
+#        got = subst.eval_as_index(self)
+#        match got:
+#            case int():
+#                return subst
+#            case BottomSubst():
+#                return got
+#            #case OpenSubst
+#        if subset.eval_as_index(self) != v:
+#            return empty_subst
+#        else:
+#            pass # TODO?
 
 I = Variable('i')
 J = Variable('j')
@@ -114,25 +116,68 @@ class Plus(HasAsIndex):
     def __str__(self) -> str:
         return '+'.join(str(a) for a in self.args)
 
+    def value_of(self, subst: Subst) -> Expr:
+        return self.simplify(subst, self.args)
+
+    @classmethod
+    @no_type_check  # mypy 0.971 crashes on '*more' below
+    def simplify(cls, subst: Subst, args: Tuple[Expr], init: int=0) -> Expr:
+        '''Evaluates 'args' as a sum to as simple a form as possible. The
+        simplest form is an int; if a variable in 'args' is undefined, then
+        we return an Expr containing that variable.'''
+        match args:
+            case ():
+                return init
+            case [expr, *more]:
+                return cls.simplify(
+                    subst,
+                    more,
+                    cls.try_to_add(init, subst.value_of(expr))
+                )
+
+    @classmethod
+    def try_to_add(cls, a: Any, b: Any) -> Expr:
+        match (a, b):
+            case (int(), int()):
+                return a + b
+            case (Plus(args_a), Plus(args_b)):
+                return Plus(*(args_a + args_b))
+            case (Plus(args_a), _):
+                return Plus(*(args_a + (b,)))
+            case (_, Plus(args_b)):
+                return Plus(*((a,) + args_b))
+            case _:
+                return Plus(a, b)
+
     def as_index(self) -> Index:
         return reduce(operator.add, (as_index(arg) for arg in self.args), 0)
 
-Value = Hashable
+#Value = Hashable
+#Value = Union[int, str, 'Painter']
+Value = Union[int, str, None]
 Index = int   # the index of a cell within a Canvas
-Func = Union[Callable[[Value], Value], Value]
-Expr = Union[Variable, Plus, int, Func]  # TODO Move Func to Painter?
-Addr = Union[Index, str, Type[WorkingSoup], Expr]
-Painter = Tuple[Addr, Addr, Expr]
 
-#Subst = Union[Dict[Variable, Index], None]  # a substitution table
+# This little group enables everything to type-check, though at much cost
+# to type-safety.
+Expr = Any
+Addr = Any
+Func = Any
+Painter = Tuple[Addr, Addr, Func]
+
 
 @dataclass(frozen=True)
 class Subst:
-    '''A mapping from Variables to Exprs.'''
-    d : PMap[Variable, Index] = field(default_factory=lambda: pmap())
+    '''A substitution table, i.e. a mapping from Variables to Exprs.'''
+    d : PMap[Expr, Index] = field(default_factory=lambda: pmap())
 
     def value_of(self, expr: Expr) -> Union[Index, None]:
-        return self.d.get(expr, None)
+        match expr:
+            case int():
+                return expr
+            case Plus():
+                return expr.value_of(self)
+            case _:
+                return self.d.get(expr, None)
 
 #    def unify(self, var: Variable, rhs: Expr) -> Subst:
 #        if var in self.d:
@@ -170,6 +215,11 @@ class Subst:
                             return bottom_subst
                     case None:
                         return Subst(self.d.set(v, r - n))
+            case (Variable(), Plus() as rator):
+                print('GOTVP')
+                rvalue = rator.value_of(self)
+                #if lhs in self.
+                return self # TODO
             case _:
                 raise NotImplementedError
 
@@ -189,7 +239,7 @@ class BottomSubst(Subst):
     def value_of(self, expr: Expr) -> Union[Index, None]:
         return None
 
-    def unify(self, var: Variable, rhs: Expr) -> Subst:
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         return self
 
     def substitute(self, var: Variable, rhs: Expr) -> Subst:
@@ -211,16 +261,6 @@ def expr_substitute(e: Expr, v: Variable, rhs: Expr) -> Expr:
             return Plus(*(expr_substitute(a, v, rhs) for a in e.args))
         case _:
             raise NotImplementedError(e)
-
-def run_all() -> None:
-    '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
-    'a    '.'''
-    m = Model()
-    m.absorb('ajaqb')
-    for p in m.lts.painters:
-        print(painter_str(p))
-    m.regen_from('a    ')
-    print(f"'{short(m.canvas)}'")
 
 class Fizzle(Exception):
     pass
@@ -471,6 +511,12 @@ class Model:
 
     def absorb(self, s: str) -> None:
         for i, j, func in self.find_related_cells(s):
+#            a1 : Addr = s[i-1]
+#            a2 : Addr = WorkingSoup
+#            a31 : Addr = I
+#            a32 : Addr = Plus(I, (j - i))
+#            a33 : FuncExpr = func
+#            a3 : FuncExpr = (a31, a32, a33)
             self.lts.add((s[i-1], WorkingSoup, (I, Plus(I, (j - i)), func)))
             if j - i == 2:  # if need a painter to put a letter between two
                             # letters
@@ -497,7 +543,10 @@ class Model:
         for t in range(1, 20):  # TODO replace arbitrary constant
             p = self.choose_painter()
             print(t, painter_str(p))
-            self.run_painter(p)
+            try:
+                self.run_painter(p)
+            except Fizzle as exc:
+                print(exc)
 
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
@@ -522,6 +571,7 @@ class Model:
         # get the value for i
         # pass it through func
         # paint it at j
+        
 
     def eval_as_detaddr(self, a: Addr) -> DeterminateAddr:
         if isinstance(a, str):
@@ -561,16 +611,35 @@ def is_paintable_soup(x: Any) -> TypeGuard[PaintableSoupRef]:
 def is_expr(x: Any) -> TypeGuard[Expr]:
     return isinstance(x, int) or hasattr('as_index', x)
 
+def run_all() -> None:
+    '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
+    'a    '.'''
+    m = Model()
+    m.absorb('ajaqb')
+    for p in m.lts.painters:
+        print(painter_str(p))
+    print()
+    m.regen_from('a    ')
+    print(f"'{short(m.canvas)}'")
+
 if __name__ == '__main__':
 #    reseed(0)
 #    run_all()
 
-    m = Model()
-    m.set_canvas('ajaqb')
-    p = (1, 3, same)
-    m.add_painter((WorkingSoup, p))
-    pts(m.ws.painters)
-    print()
-    #print(m.eval_as_detaddr((1, 4, same)))
-    print(m.eval_as_detaddr((I, Plus(I, 2), same)))
+#    m = Model()
+#    m.set_canvas('ajaqb')
+#    p = (1, 3, same)
+#    m.add_painter((WorkingSoup, p))
+#    pts(m.ws.painters)
+#    print()
+#    #print(m.eval_as_detaddr((1, 4, same)))
+#    print(m.eval_as_detaddr((I, Plus(I, 2), same)))
 
+    s0 = Subst()
+    s1 = s0.unify(I, 1)
+    print(s1)
+    print(Plus().value_of(s1))
+    pl = Plus(I)
+    print(pl.value_of(s1))
+    pl = Plus(I, 2)
+    print(pl.value_of(s1))

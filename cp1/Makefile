@@ -33,7 +33,7 @@ mypy:
 CURRENT = ajaqb.py
 
 m:
-	$(MYPY) $(MYPY_FLAGS) $(CURRENT)
+	$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $(CURRENT)
 
