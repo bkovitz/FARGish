@@ -15,7 +15,7 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
-    reseed
+    reseed, safe_issubclass, newline
 from Log import trace
 
 @dataclass
@@ -33,7 +33,7 @@ class Soup:
     def is_match(self, xp: Painter, p: Painter) -> bool:
         '''Viewing xp as a painter template (possibly with variables that
         need to be filled in), does p match xp?'''
-        print(f'ISM xp={xp}  p={p}')
+        #print(f'ISM xp={xp}  p={p}')
 #        if xp == p:
 #            return True
 #        else:
@@ -46,11 +46,11 @@ class Soup:
         subst = Subst()
 
 
-        print(xi, xj, xf)
-        print(pi, pj, pf)
+        #print(xi, xj, xf)
+        #print(pi, pj, pf)
         subst = subst.unify(xi, pi)
         subst = subst.unify(xj, pj)
-        print('SUBST', subst)
+        #print('SUBST', subst)
         match subst:
             case BottomSubst():
                 return False
@@ -193,7 +193,7 @@ class Subst:
 #            return Subst(self.d.set(var, rhs))
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
-        print('HERE', lhs, rhs)
+        #print('HERE', lhs, rhs)
         match (lhs, rhs):
             case (int(l), int(r)):
                 if l == r:
@@ -201,7 +201,7 @@ class Subst:
                 else:
                     return bottom_subst
             case (Variable(), int(r)):
-                print('GOTN', lhs, r)
+                #print('GOTN', lhs, r)
                 if lhs in self.d:
                     if self.d[lhs] == r:
                         return self
@@ -210,7 +210,7 @@ class Subst:
                 else:
                     return Subst(self.d.set(lhs, r))
             case (Plus(args=(Variable() as v, int(n))), int(r)):
-                print('GOTPP', v, n, r)
+                #print('GOTPP', v, n, r)
                 match self.eval_as_index(v):
                     case int(vv):
                         if vv + n == r:
@@ -220,11 +220,11 @@ class Subst:
                     case None:
                         return Subst(self.d.set(v, r - n))
             case (Variable(), Plus() as rator):
-                print('GOTVP')
+                #print('GOTVP')
                 rvalue = rator.value_of(self)
                 #if lhs in self.
                 return self # TODO
-            case (Variable(), soup) if issubclass(soup, Soup):
+            case (Variable(), soup) if safe_issubclass(soup, Soup):
                 if lhs in self.d:
                     if self.d[lhs] == rhs:
                         return self
@@ -232,6 +232,19 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, rhs))
+            case (Variable(), (soup, p)) if (
+                    safe_issubclass(soup, Soup)
+                    and
+                    is_painter(p)  # type: ignore[has-type]
+            ):
+                if lhs in self.d:
+                    if self.d[lhs] == rhs:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, rhs))
+                
             case _:
                 print('WHAT?', type(lhs), type(rhs))
                 raise NotImplementedError((lhs, rhs))
@@ -488,8 +501,17 @@ def pred(v: Value) -> Value:
 
 ### The constant function
 
-def const(v: Value) -> ProperFunc:
-    return lambda _: v
+@dataclass(frozen=True)
+class const:
+    v: Value
+
+    def __call__(self, ignored: Value) -> Value:
+        return self.v
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.v})'
+
 
 def painter_str(p: Painter) -> str:
     i, j, func = p
@@ -559,9 +581,9 @@ class Model:
     def regen_from(self, s: str) -> None:
         '''Regenerates canvas from 's'.'''
         self.set_canvas(s)
-        for t in range(1, 3):  # TODO replace arbitrary constant
+        for t in range(1, 10):  # TODO replace arbitrary constant
             p = self.choose_painter()
-            print(t, painter_str(p))
+            print('{newline}{newline}t={t} {painter_str(p)}')
             try:
                 self.run_painter(p)
             except Fizzle as exc:
@@ -581,25 +603,30 @@ class Model:
         return choice(as_list(Soup.union(self.lts, self.ws).painters))
 
     def run_painter(self, p: Painter) -> None:
+        print('RUN_PAINTER', short(p))
         i, j, func = p
         subst = Subst()
         print(f'i = {i!r}')
         ii = self.eval_as_detaddr(subst, i)
         print(f'ii = {ii}\n')
-        subst.unify(I, ii)
+        subst = subst.unify(I, ii)
 
         print(f'j = {j!r}')
         jj = self.eval_as_detaddr(subst, j)
         print(f'jj = {jj}\n')
-        subst.unify(J, jj)
+        subst = subst.unify(J, jj)
 
         print(f'func = {func!r}')
         FUNC = self.eval_as_func(subst, func)
-        print(f'FUNC = {FUNC}\n')
+        print(f'FUNC = {short(FUNC)}\n')
 
         # NEXT
         oldval = self.get_value(ii)
-        #newval = func(oldval)
+        print(f'oldval = {oldval}')
+        newval = FUNC(oldval)
+        print(f'newval = {newval}')
+
+        self.paint(jj, newval)
 
 
 
@@ -608,7 +635,16 @@ class Model:
         # get the value for i
         # pass it through func
         # paint it at j
-        
+
+    def paint(self, addr: Addr, value: Value) -> None:
+        print('PAINT', short(addr), short(value))
+        match (addr, value):
+            case (int(), _):
+                self.canvas[addr] = value
+            case (ws, p) if ws == WorkingSoup and is_painter(p):
+                self.ws.add(p)
+            case _:
+                raise NotImplementedError(addr)
 
     def eval_as_detaddr(self, subst: Subst, a: Addr) -> DeterminateAddr:
         if isinstance(a, str):
@@ -635,12 +671,15 @@ class Model:
             raise Fizzle
 
     def eval_as_func(self, subst: Subst, x: Func) -> ProperFunc:
-        print('EAF', x, type(x))
+        #print('EAF', x, type(x))
+        #print('EAF SUBST', subst)
         match x:
             case x if callable(x):
                 return x
             case (i, j, f):
                 return const(self.eval_as_painter(subst, x))
+            case str():
+                return const(x)
             case _:
                 raise NotImplementedError(x)
         assert False, "eval_as_func: should not go past 'match' stmt"
@@ -656,6 +695,20 @@ class Model:
                 )
             case _:
                 raise NotImplementedError(x)
+
+    def get_value(self, addr: Addr) -> Value:
+        match addr:
+            case int():
+                return self.canvas[addr]
+            case soup if safe_issubclass(soup, Soup):
+                return soup
+            case (ws, p) if ws == WorkingSoup and is_painter(p):  # type: ignore[has-type]
+                return addr
+            case _:
+                raise NotImplementedError(addr)
+        assert False, "get_value(): should not go past 'match' stmt"
+        return same # Needed only to please mypy; stops [return] error
+                
 
 def as_index(e: Expr) -> Index:
     if isinstance(e, int):
