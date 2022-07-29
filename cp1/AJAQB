@@ -16,14 +16,6 @@ Funcs:
 
   pred
 
----
-
-Randomly choose a painter.
-
-  Assign weight to painter (or to step?).
-
-  Based on clarities.
-
 Match (i (+ i 2) same).
 
 Fill (i (+ i 1) 'j).
@@ -36,13 +28,22 @@ Run a painter:
 
    Run abs painter.
 
+Match 'a'.
+
+---
+NEXT Verify that all of the above is working.
+
+Randomly choose a painter.
+
+  Assign weight to painter (or to step?).
+
+  Based on clarities.
+
 Spontaneous generation.
 
   'a_a' -> (i (+ i 2) same)
 
   'a___b' -> (i (+ i 4) succ)
-
-Match 'a'.
 
 Run  'a' -> (i (+ i 2) same), (i (+ i 4) succ)
 

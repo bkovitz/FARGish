@@ -10,12 +10,13 @@ from abc import ABC, abstractmethod
 from random import choice
 import operator
 from functools import reduce
+from io import StringIO
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
-    reseed, safe_issubclass, newline
+    reseed, safe_issubclass, newline, psa, pr
 from Log import trace
 
 @dataclass
@@ -131,7 +132,9 @@ class Plus(HasAsIndex):
         match args:
             case ():
                 return init
-            case [expr, *more]:
+            case (expr,):
+                return cls.try_to_add(init, subst.eval_as_index(expr))
+            case (expr, *more):
                 return cls.simplify(
                     subst,
                     more,
@@ -141,6 +144,8 @@ class Plus(HasAsIndex):
     @classmethod
     def try_to_add(cls, a: Any, b: Any) -> Expr:
         match (a, b):
+            case (0, _):
+                return b
             case (int(), int()):
                 return a + b
             case (Plus(args_a), Plus(args_b)):
@@ -473,10 +478,11 @@ class Canvas1D(Canvas):
         #return f'[{items}]{newline}[{citems}]'
 
     def short(self) -> str:
-        return ''.join(
+        s = ''.join(
             ' ' if x is None else str(x)
                 for x in self.contents
         )
+        return repr(s)
 
 ### The basic relational functions
 
@@ -489,7 +495,7 @@ def succ(v: Value) -> Value:
         return chr(ord(v) + 1)
     elif isinstance(v, int):
         return v + 1
-    raise Fizzle
+    raise Fizzle("succ: Can't take successor of {v}")
 
 def pred(v: Value) -> Value:
     # TODO Deal with 'a'
@@ -497,7 +503,7 @@ def pred(v: Value) -> Value:
         return chr(ord(v) - 1)
     elif isinstance(v, int):
         return v - 1
-    raise Fizzle
+    raise Fizzle("pred: Can't take predecessor of {v}")
 
 ### The constant function
 
@@ -511,7 +517,6 @@ class const:
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.v})'
-
 
 def painter_str(p: Painter) -> str:
     i, j, func = p
@@ -540,7 +545,12 @@ def func_str(func: Func) -> str:
         return repr(func)
 
 def is_painter(x: Func) -> TypeGuard[Painter]:
-    return isinstance(x, tuple)
+    #return isinstance(x, tuple)
+    match x:
+        case (i, j, func):
+            return True
+        case _:
+            return False
 
 @dataclass
 class Model:
@@ -581,13 +591,22 @@ class Model:
     def regen_from(self, s: str) -> None:
         '''Regenerates canvas from 's'.'''
         self.set_canvas(s)
-        for t in range(1, 10):  # TODO replace arbitrary constant
+        # TODO Add indentation, nicer logging?
+        for t in range(1, 20):  # TODO replace arbitrary constant
             p = self.choose_painter()
-            print('{newline}{newline}t={t} {painter_str(p)}')
+            #print(f'{newline}{newline}t={t} {painter_str(p)}')
+            print(f'{newline}{newline}t={t}')
             try:
                 self.run_painter(p)
             except Fizzle as exc:
-                print(exc)
+                print('FIZZLED!', exc)
+            print(self.state_str())
+
+    def state_str(self) -> str:
+        sio = StringIO()
+        print(short(self.canvas), file=sio)
+        pr(self.ws.painters, file=sio)
+        return sio.getvalue()
 
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
@@ -603,10 +622,11 @@ class Model:
         return choice(as_list(Soup.union(self.lts, self.ws).painters))
 
     def run_painter(self, p: Painter) -> None:
-        print('RUN_PAINTER', short(p))
+        #print('RUN_PAINTER', short(p))
+        print('RUN_PAINTER', painter_str(p))
         i, j, func = p
         subst = Subst()
-        print(f'i = {i!r}')
+        print(f'i = {short(i)}')
         ii = self.eval_as_detaddr(subst, i)
         print(f'ii = {ii}\n')
         subst = subst.unify(I, ii)
@@ -616,25 +636,16 @@ class Model:
         print(f'jj = {jj}\n')
         subst = subst.unify(J, jj)
 
-        print(f'func = {func!r}')
+        print(f'func = {short(func)}')
         FUNC = self.eval_as_func(subst, func)
         print(f'FUNC = {short(FUNC)}\n')
 
-        # NEXT
         oldval = self.get_value(ii)
-        print(f'oldval = {oldval}')
+        print(f'oldval = {short(oldval)}')
         newval = FUNC(oldval)
-        print(f'newval = {newval}')
+        print(f'newval = {short(newval)}')
 
         self.paint(jj, newval)
-
-
-
-        #      eval_as_detaddr(i)
-        #      eval_as_detaddr(j)
-        # get the value for i
-        # pass it through func
-        # paint it at j
 
     def paint(self, addr: Addr, value: Value) -> None:
         print('PAINT', short(addr), short(value))
@@ -642,15 +653,31 @@ class Model:
             case (int(), _):
                 self.canvas[addr] = value
             case (ws, p) if ws == WorkingSoup and is_painter(p):
-                self.ws.add(p)
+                if self.is_valid_painter(p):
+                    self.ws.add(p)
+                else:
+                    raise Fizzle(f'Invalid painter: {p}')
             case _:
                 raise NotImplementedError(addr)
+
+    def is_valid_painter(self, p: Painter) -> bool:
+        match p:
+            case (int(i), int(j), func):
+                return (
+                    self.canvas.has_addr(i)
+                    and
+                    self.canvas.has_addr(j)
+                )
+            case (i, j, k):
+                return True
+            case _:
+                return False
 
     def eval_as_detaddr(self, subst: Subst, a: Addr) -> DeterminateAddr:
         if isinstance(a, str):
             addrs = self.canvas.all_matching(a)
             if not addrs:
-                raise Fizzle
+                raise Fizzle(f'eval_as_detaddr: no match for {a!r}')
             else:
                 return choice(addrs)
         elif is_paintable_soup(a):
@@ -659,16 +686,16 @@ class Model:
             # find painters that match a
             painters = self.ws.matching_painters(a)
             if not painters:
-                raise Fizzle
+                raise Fizzle(
+                    f'eval_as_detaddr: no painters match {painter_str(a)}'
+                )
             else:
                 return (WorkingSoup, choice(painters))
         elif is_expr(a):
             return as_index(a)
-#        elif # Expr
-#            # ?
         else:
             print(f'\na = {a}')
-            raise Fizzle
+            raise Fizzle(f'eval_as_detaddr: unrecognized Addr type {a!r}')
 
     def eval_as_func(self, subst: Subst, x: Func) -> ProperFunc:
         #print('EAF', x, type(x))
@@ -716,7 +743,7 @@ def as_index(e: Expr) -> Index:
     elif isinstance(e, HasAsIndex):
         return e.as_index()
     else:
-        raise Fizzle
+        raise Fizzle(f"as_index: Can't convert {e!r} to index")
 
 def is_paintable_soup(x: Any) -> TypeGuard[PaintableSoupRef]:
     return x == WorkingSoup
@@ -733,11 +760,22 @@ def run_all() -> None:
         print(painter_str(p))
     print()
     m.regen_from('a    ')
-    print(f"'{short(m.canvas)}'")
+    #print(short(m.canvas))
+
+def run_this() -> None:
+    '''Bug of the day, 28-Jul-2022'''
+    m = Model()
+    m.absorb('ajaqb')
+    m.set_canvas('a    ')
+    m.run_painter(('a', WorkingSoup, (I, Plus(I, 2), same)))
+    print(m.state_str())
+
 
 if __name__ == '__main__':
-    reseed(0)
-    run_all()
+#    reseed(0)
+#    run_all()
+
+    run_this()
 
 #    m = Model()
 #    m.set_canvas('ajaqb')
