@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from ajaqb import Subst, Plus, I
+from ajaqb import Model, WorkingSoup, same, Subst, Plus, I
 
 
 class TestAjaqb(unittest.TestCase):
@@ -23,3 +23,12 @@ class TestAjaqb(unittest.TestCase):
         su = Subst().unify(I, 1)
         self.assertEqual(su.eval_as_index(I), 1)
         self.assertEqual(su.eval_as_index(Plus(I, 2)), 3)
+
+    def test_plus_simplify(self) -> None:
+        m = Model()
+        m.absorb('ajaqb')
+        m.set_canvas('a    ')
+        m.run_painter(('a', WorkingSoup, (I, Plus(I, 2), same)))
+        self.assertTrue(m.ws.has_painter((1, 3, same)))
+        print(m.state_str())
+        

@@ -60,6 +60,9 @@ class Soup:
             case _:
                 raise NotImplementedError
 
+    def has_painter(self, p: Painter) -> bool:
+        return p in self.painters
+
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
         return Soup(union(*(soup.painters for soup in soups)))
