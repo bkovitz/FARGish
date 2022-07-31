@@ -46,7 +46,7 @@ ut:
 u:
 	#$(PY) -m unittest -v testRMem.TestRMem.test_weighted_funcs
 	#$(PY) -m unittest -v testNumbo1
-	$(PY) -m unittest -v testGrid2
+	$(PY) -m unittest -v test_ajaqb.TestAjaqb.test_indirect_qpainter
 
 # Acceptance tests
 at:

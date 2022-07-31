@@ -17,7 +17,7 @@ from pyrsistent.typing import PMap
 
 from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
     reseed, safe_issubclass, newline, psa, pr
-from Log import trace
+from Log import trace, lo, logging
 
 @dataclass
 class Soup:
@@ -26,14 +26,23 @@ class Soup:
     def add(self, p: Painter) -> None:
         self.painters.add(p)
 
-    def matching_painters(self, xp: Painter) -> List[Painter]:
-        return [
-            p for p in self.painters if self.is_match(xp, p)
-        ]
+    def matching_painters(self, xp: Painter) -> List[PainterMatch]:
+#        return [
+#            p for p in self.painters if self.is_match(xp, p)
+#        ]
+        result = []
+        for p in self.painters:
+            subst = self.is_match(xp, p)
+            if subst:
+                result.append(PainterMatch(subst, p))
+        return result
 
-    def is_match(self, xp: Painter, p: Painter) -> bool:
+    def is_match(self, xp: Painter, p: Painter) -> Subst:
         '''Viewing xp as a painter template (possibly with variables that
-        need to be filled in), does p match xp?'''
+        need to be filled in), does p match xp?
+
+        Returning a BottomSubst() means no match.
+        '''
         #print(f'ISM xp={xp}  p={p}')
 #        if xp == p:
 #            return True
@@ -51,14 +60,15 @@ class Soup:
         #print(pi, pj, pf)
         subst = subst.unify(xi, pi)
         subst = subst.unify(xj, pj)
+        return subst
         #print('SUBST', subst)
-        match subst:
-            case BottomSubst():
-                return False
-            case Subst():
-                return True
-            case _:
-                raise NotImplementedError
+#        match subst:
+#            case BottomSubst():
+#                return False
+#            case Subst():
+#                return True
+#            case _:
+#                raise NotImplementedError
 
     def has_painter(self, p: Painter) -> bool:
         return p in self.painters
@@ -178,9 +188,17 @@ Painter = Tuple[Addr, Addr, Func]
 
 
 @dataclass(frozen=True)
+class PainterMatch:
+    subst: Subst
+    painter: Painter
+
+@dataclass(frozen=True)
 class Subst:
     '''A substitution table, i.e. a mapping from Variables to Exprs.'''
     d : PMap[Expr, Index] = field(default_factory=lambda: pmap())
+
+    def __bool__(self) -> bool:
+        return True
 
     def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         match expr:
@@ -254,10 +272,17 @@ class Subst:
                     return Subst(self.d.set(lhs, rhs))
                 
             case _:
-                print('WHAT?', type(lhs), type(rhs))
+                lo('WHAT?', type(lhs), type(rhs))
                 raise NotImplementedError((lhs, rhs))
         assert False, "unify(): should not go past 'match' stmt"
         return same # Needed only to please mypy; stops [return] error
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        items = ', '.join(
+            f'{short(k)}={short(v)}' for k, v in self.d.items()
+        )
+        return f'{cl}({items})'
 
 #    def substitute(self, var: Variable, rhs: Expr) -> Subst:
 #        '''Returns a Subst in which every occurence of 'var' has been replaced
@@ -270,7 +295,10 @@ class Subst:
         
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
-    anything.'''
+    anything. As a bool, equivalent to False.'''
+
+    def __bool__(self) -> bool:
+        return False
 
     def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         return None
@@ -317,7 +345,7 @@ class FizzleValueNotFound(Fizzle):
 #        return str(self.index)
 
 PaintableSoupRef = Type[WorkingSoup]
-PainterRef = Tuple[PaintableSoupRef, Painter]
+PainterRef = Tuple[PaintableSoupRef, Union[Painter, PainterMatch]]
 DeterminateAddr = Union[int, PaintableSoupRef, PainterRef]
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
@@ -596,14 +624,15 @@ class Model:
         self.set_canvas(s)
         # TODO Add indentation, nicer logging?
         for t in range(1, 20):  # TODO replace arbitrary constant
-            p = self.choose_painter()
-            #print(f'{newline}{newline}t={t} {painter_str(p)}')
-            print(f'{newline}{newline}t={t}')
-            try:
-                self.run_painter(p)
-            except Fizzle as exc:
-                print('FIZZLED!', exc)
-            print(self.state_str())
+            lo(f'{newline}{newline}t={t}')
+            with logging(None):
+                p = self.choose_painter()
+                #print(f'{newline}{newline}t={t} {painter_str(p)}')
+                try:
+                    self.run_painter(p)
+                except Fizzle as exc:
+                    lo('FIZZLED:', exc)
+                lo('\n' + self.state_str())
 
     def state_str(self) -> str:
         sio = StringIO()
@@ -626,32 +655,37 @@ class Model:
 
     def run_painter(self, p: Painter) -> None:
         #print('RUN_PAINTER', short(p))
-        print('RUN_PAINTER', painter_str(p))
+        lo('RUN_PAINTER', painter_str(p))
         i, j, func = p
         subst = Subst()
-        print(f'i = {short(i)}')
+        lo(f'i = {short(i)}')
         ii = self.eval_as_detaddr(subst, i)
-        print(f'ii = {ii}\n')
+        lo(f'ii = {ii}\n')
+        # NEXT Here we want a PainterMatch (with a Subst).
         subst = subst.unify(I, ii)
 
-        print(f'j = {j!r}')
+        lo(f'j = {j!r}')
         jj = self.eval_as_detaddr(subst, j)
-        print(f'jj = {jj}\n')
+        lo(f'jj = {jj}\n')
         subst = subst.unify(J, jj)
 
-        print(f'func = {short(func)}')
+        lo('subst =', subst)
+
+        lo(f'func = {short(func)}')
         FUNC = self.eval_as_func(subst, func)
-        print(f'FUNC = {short(FUNC)}\n')
+        # NEXT Here we want FUNC to apply the subst from the PainterMatch.
+        # We'll need to overlay the subst from the PainterMatch onto 'subst'.
+        lo(f'FUNC = {short(FUNC)}\n')
 
         oldval = self.get_value(ii)
-        print(f'oldval = {short(oldval)}')
+        lo(f'oldval = {short(oldval)}')
         newval = FUNC(oldval)
-        print(f'newval = {short(newval)}')
+        lo(f'newval = {short(newval)}')
 
         self.paint(jj, newval)
 
     def paint(self, addr: Addr, value: Value) -> None:
-        print('PAINT', short(addr), short(value))
+        lo('PAINT', short(addr), short(value))
         match (addr, value):
             case (int(), _):
                 self.canvas[addr] = value
@@ -693,11 +727,13 @@ class Model:
                     f'eval_as_detaddr: no painters match {painter_str(a)}'
                 )
             else:
+                # NEXT Need to include the Subst?
                 return (WorkingSoup, choice(painters))
+                #return choice(painters)
         elif is_expr(a):
             return as_index(a)
         else:
-            print(f'\na = {a}')
+            lo(f'\na = {a}')
             raise Fizzle(f'eval_as_detaddr: unrecognized Addr type {a!r}')
 
     def eval_as_func(self, subst: Subst, x: Func) -> ProperFunc:
@@ -752,7 +788,7 @@ def is_paintable_soup(x: Any) -> TypeGuard[PaintableSoupRef]:
     return x == WorkingSoup
 
 def is_expr(x: Any) -> TypeGuard[Expr]:
-    return isinstance(x, int) or hasattr('as_index', x)
+    return isinstance(x, int) or hasattr(x, 'as_index')
 
 def run_all() -> None:
     '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
@@ -775,10 +811,10 @@ def run_this() -> None:
 
 
 if __name__ == '__main__':
-#    reseed(0)
-#    run_all()
+    reseed(0)
+    run_all()
 
-    run_this()
+#    run_this()
 
 #    m = Model()
 #    m.set_canvas('ajaqb')

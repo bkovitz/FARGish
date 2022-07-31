@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from ajaqb import Model, WorkingSoup, same, Subst, Plus, I
+from ajaqb import Model, WorkingSoup, same, succ, Subst, Plus, I
 
 
 class TestAjaqb(unittest.TestCase):
@@ -30,5 +30,17 @@ class TestAjaqb(unittest.TestCase):
         m.set_canvas('a    ')
         m.run_painter(('a', WorkingSoup, (I, Plus(I, 2), same)))
         self.assertTrue(m.ws.has_painter((1, 3, same)))
+        #print(m.state_str())
+
+    def test_indirect_qpainter(self) -> None:
+        m = Model()
+        m.paint(WorkingSoup, (1, 3, succ))
+        m.run_painter(
+            ((I, Plus(I, 2), succ), WorkingSoup, (I, Plus(I, 1), 'q'))
+        )
         print(m.state_str())
+        # NEXT The I must be bound to the 1; then evaluate (I, Plus(I, 1), 'q').
+        # eval_as_detaddr() must return a Subst.
+        self.assertTrue(m.ws.has_painter((1, 2, 'q')))
+
         
