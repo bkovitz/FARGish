@@ -200,6 +200,16 @@ class Subst:
     def __bool__(self) -> bool:
         return True
 
+    @classmethod
+    def make_from(cls, *pairs: Tuple[Expr, Index]) -> Subst:
+        e: PMap = pmap().evolver()
+        for k, v in pairs:
+            e[k] = v
+        return cls(e.persistent())
+
+    def merge(self, other: Subst) -> Subst:
+        return Subst(self.d.update(other.d))
+
     def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         match expr:
             case int():
@@ -347,6 +357,26 @@ class FizzleValueNotFound(Fizzle):
 PaintableSoupRef = Type[WorkingSoup]
 PainterRef = Tuple[PaintableSoupRef, Union[Painter, PainterMatch]]
 DeterminateAddr = Union[int, PaintableSoupRef, PainterRef]
+
+def is_soupref(x: Any) -> TypeGuard[PaintableSoupRef]:
+    return safe_issubclass(x, Soup)
+
+def is_painterref(x: Any) -> TypeGuard[PainterRef]:
+    match x:
+        case (soupref, pp):
+            return is_soupref(soupref) and is_painter(pp)
+        case _:
+            return False
+
+def get_painter(p: Union[Painter, PainterMatch, PainterRef]) -> Painter:
+    if is_painter(p):
+        return p
+    elif isinstance(p, PainterMatch):
+        return p.painter
+    elif is_painterref(p):
+        return get_painter(p[1])
+    else:
+        raise NotImplementedError(p)
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
 class Canvas(ABC):
@@ -646,7 +676,7 @@ class Model:
     def add_painter(self, pr: PainterRef) -> None:
         ref, p = pr
         if ref == WorkingSoup:
-            self.ws.add(p)
+            self.ws.add(get_painter(p))
         else:
             raise NotImplementedError
 
@@ -671,6 +701,7 @@ class Model:
 
         lo('subst =', subst)
 
+        # NEXT Merge the substs before calling func
         lo(f'func = {short(func)}')
         FUNC = self.eval_as_func(subst, func)
         # NEXT Here we want FUNC to apply the subst from the PainterMatch.
@@ -684,7 +715,7 @@ class Model:
 
         self.paint(jj, newval)
 
-    def paint(self, addr: Addr, value: Value) -> None:
+    def paint(self, addr: Addr, value: Union[Value, Painter]) -> None:
         lo('PAINT', short(addr), short(value))
         match (addr, value):
             case (int(), _):

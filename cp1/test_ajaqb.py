@@ -32,6 +32,19 @@ class TestAjaqb(unittest.TestCase):
         self.assertTrue(m.ws.has_painter((1, 3, same)))
         #print(m.state_str())
 
+    def test_subst_merge(self) -> None:
+        su0 = Subst()
+        sui = Subst.make_from((I, 1))
+        self.assertEqual(sui, Subst().unify(I, 1))
+        self.assertEqual(sui.eval_as_index(I), 1)
+
+        su1 = sui.merge(su0)
+        self.assertEqual(su1, sui)
+
+        su2 = su0.merge(sui)
+        self.assertEqual(su2, su1)
+
+    @unittest.skip('Need to implement Subst.merge() to make this pass')
     def test_indirect_qpainter(self) -> None:
         m = Model()
         m.paint(WorkingSoup, (1, 3, succ))

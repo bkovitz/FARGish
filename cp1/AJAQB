@@ -31,7 +31,9 @@ Run a painter:
 Match 'a'.
 
 ---
-NEXT Verify that all of the above is working.
+NEXT Propagate Subst() from is_match() to FUNC.
+
+Verify that all of the above is working.
 
 Randomly choose a painter.
 
