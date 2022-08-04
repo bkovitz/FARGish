@@ -175,7 +175,7 @@ class Plus(HasAsIndex):
 
 #Value = Hashable
 #Value = Union[int, str, 'Painter']
-Value = Union[int, str, None]
+CanvasValue = Union[int, str, None]
 Index = int   # the index of a cell within a Canvas
 
 # This little group enables everything to type-check, though at much cost
@@ -183,14 +183,15 @@ Index = int   # the index of a cell within a Canvas
 Expr = Any
 Addr = Any
 Func = Any
-ProperFunc = Callable[[Value], Value]
+ProperFunc = Callable[['Subst', 'Value'], 'Value']
 Painter = Tuple[Addr, Addr, Func]
-
 
 @dataclass(frozen=True)
 class PainterMatch:
     subst: Subst
     painter: Painter
+
+Value = Union[CanvasValue, Painter]
 
 @dataclass(frozen=True)
 class Subst:
@@ -202,7 +203,7 @@ class Subst:
 
     @classmethod
     def make_from(cls, *pairs: Tuple[Expr, Index]) -> Subst:
-        e: PMap = pmap().evolver()
+        e = pmap().evolver()  # type: ignore[var-annotated]
         for k, v in pairs:
             e[k] = v
         return cls(e.persistent())
@@ -302,7 +303,7 @@ class Subst:
 #                (expr_substitute(v, var, rhs), expr_substitute(e, var, rhs))
 #                    for v, e in self.d.items()
 #        )
-        
+
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
     anything. As a bool, equivalent to False.'''
@@ -355,7 +356,7 @@ class FizzleValueNotFound(Fizzle):
 #        return str(self.index)
 
 PaintableSoupRef = Type[WorkingSoup]
-PainterRef = Tuple[PaintableSoupRef, Union[Painter, PainterMatch]]
+PainterRef = Tuple[PaintableSoupRef, Painter]
 DeterminateAddr = Union[int, PaintableSoupRef, PainterRef]
 
 def is_soupref(x: Any) -> TypeGuard[PaintableSoupRef]:
@@ -392,11 +393,11 @@ class Canvas(ABC):
         pass
     
     @abstractmethod
-    def __getitem__(self, addr: Addr) -> Value:
+    def __getitem__(self, addr: Addr) -> CanvasValue:
         pass
 
     @abstractmethod
-    def __setitem__(self, addr: Addr, x: Value) -> None:
+    def __setitem__(self, addr: Addr, x: CanvasValue) -> None:
         pass
 
     @abstractmethod
@@ -416,13 +417,13 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
-    def addr_of(self, v: Value) -> DeterminateAddr:
+    def addr_of(self, v: CanvasValue) -> DeterminateAddr:
         '''Returns the DeterminateAddr of the cell that contains v, or
         raises FizzleValueNotFound if no cell contains v.'''
         pass
 
     @abstractmethod
-    def all_ixjypairs(self) -> Iterable[Tuple[Index, Value, Index, Value]]:
+    def all_ixjypairs(self) -> Iterable[Tuple[Index, CanvasValue, Index, CanvasValue]]:
         '''Returns a generator of all tuples (i, x, j, y) where i and j
         are distinct indices of cells within this Canvas and x = self[i]
         and y = self[j]. Skips cells that contain None.'''
@@ -430,7 +431,7 @@ class Canvas(ABC):
 
 @dataclass
 class Canvas1D(Canvas):
-    contents: List[Value] #= field(default_factory=list)
+    contents: List[CanvasValue] #= field(default_factory=list)
         # Always supply a value for 'contents'! The default is only to
         # avoid an error for following MAX_CLARITY, which has a default.
     clarities: List[Numeric] = field(  # same # of elems as 'contents'
@@ -458,7 +459,7 @@ class Canvas1D(Canvas):
         else:
             return False
 
-    def __getitem__(self, addr: Addr) -> Value:
+    def __getitem__(self, addr: Addr) -> CanvasValue:
         if isinstance(addr, int):
             try:
                 return self.contents[addr - 1]
@@ -467,7 +468,7 @@ class Canvas1D(Canvas):
         else:
             return None
 
-    def __setitem__(self, addr: Addr, x: Value) -> None:
+    def __setitem__(self, addr: Addr, x: CanvasValue) -> None:
         if isinstance(addr, int):
             addr = addr - 1
             if addr < 0:  # off the left edge of the canvas
@@ -491,7 +492,7 @@ class Canvas1D(Canvas):
             pass  # raise an exception?
 
     # TODO UT
-    def all_ixjypairs(self) -> Iterable[Tuple[Index, Value, Index, Value]]:
+    def all_ixjypairs(self) -> Iterable[Tuple[Index, CanvasValue, Index, CanvasValue]]:
         for i in self.all_addrs():
             x = self[i]
             if x is not None:
@@ -519,13 +520,13 @@ class Canvas1D(Canvas):
             addr -= 1
             self.clarities[addr] = clarity
 
-    def addr_of(self, v: Value) -> int:
+    def addr_of(self, v: CanvasValue) -> int:
         for i, x in enumerate(self.contents):
             if x == v:
                 return i + 1
         raise FizzleValueNotFound(v)
 
-    def all_matching(self, v: Value) -> List[int]:
+    def all_matching(self, v: CanvasValue) -> List[int]:
         return [
             i + 1
                 for i, x in enumerate(self.contents)
@@ -547,10 +548,10 @@ class Canvas1D(Canvas):
 
 ### The basic relational functions
 
-def same(v: Value) -> Value:
+def same(subst: Subst, v: Value) -> Value:
     return v
 
-def succ(v: Value) -> Value:
+def succ(subst: Subst, v: Value) -> Value:
     # TODO Deal with 'z'
     if isinstance(v, str):
         return chr(ord(v) + 1)
@@ -558,7 +559,7 @@ def succ(v: Value) -> Value:
         return v + 1
     raise Fizzle("succ: Can't take successor of {v}")
 
-def pred(v: Value) -> Value:
+def pred(subst: Subst, v: Value) -> Value:
     # TODO Deal with 'a'
     if isinstance(v, str):
         return chr(ord(v) - 1)
@@ -572,7 +573,7 @@ def pred(v: Value) -> Value:
 class const:
     v: Value
 
-    def __call__(self, ignored: Value) -> Value:
+    def __call__(self, subst: Subst, ignored: Value) -> Value:
         return self.v
 
     def short(self) -> str:
@@ -689,13 +690,12 @@ class Model:
         i, j, func = p
         subst = Subst()
         lo(f'i = {short(i)}')
-        ii = self.eval_as_detaddr(subst, i)
+        subst, ii = self.eval_as_detaddr(subst, i)
         lo(f'ii = {ii}\n')
-        # NEXT Here we want a PainterMatch (with a Subst).
         subst = subst.unify(I, ii)
 
         lo(f'j = {j!r}')
-        jj = self.eval_as_detaddr(subst, j)
+        subst, jj = self.eval_as_detaddr(subst, j)
         lo(f'jj = {jj}\n')
         subst = subst.unify(J, jj)
 
@@ -710,7 +710,7 @@ class Model:
 
         oldval = self.get_value(ii)
         lo(f'oldval = {short(oldval)}')
-        newval = FUNC(oldval)
+        newval = FUNC(subst, oldval)
         lo(f'newval = {short(newval)}')
 
         self.paint(jj, newval)
@@ -718,7 +718,7 @@ class Model:
     def paint(self, addr: Addr, value: Union[Value, Painter]) -> None:
         lo('PAINT', short(addr), short(value))
         match (addr, value):
-            case (int(), _):
+            case (int(), _) if is_canvasvalue(value):
                 self.canvas[addr] = value
             case (ws, p) if ws == WorkingSoup and is_painter(p):
                 if self.is_valid_painter(p):
@@ -741,28 +741,29 @@ class Model:
             case _:
                 return False
 
-    def eval_as_detaddr(self, subst: Subst, a: Addr) -> DeterminateAddr:
+    def eval_as_detaddr(self, subst: Subst, a: Addr) \
+    -> Tuple[Subst, DeterminateAddr]:
         if isinstance(a, str):
             addrs = self.canvas.all_matching(a)
             if not addrs:
                 raise Fizzle(f'eval_as_detaddr: no match for {a!r}')
             else:
-                return choice(addrs)
+                return (subst, choice(addrs))
         elif is_paintable_soup(a):
-            return a
+            return (subst, a)
         elif is_painter(a):
             # find painters that match a
-            painters = self.ws.matching_painters(a)
-            if not painters:
+            pmatches = self.ws.matching_painters(a)
+            if not pmatches:
                 raise Fizzle(
                     f'eval_as_detaddr: no painters match {painter_str(a)}'
                 )
             else:
-                # NEXT Need to include the Subst?
-                return (WorkingSoup, choice(painters))
-                #return choice(painters)
+                pmatch = choice(pmatches)
+                detaddr = (WorkingSoup, pmatch.painter)
+                return (subst.merge(pmatch.subst), detaddr)
         elif is_expr(a):
-            return as_index(a)
+            return (subst, as_index(a))
         else:
             lo(f'\na = {a}')
             raise Fizzle(f'eval_as_detaddr: unrecognized Addr type {a!r}')
@@ -815,6 +816,14 @@ def as_index(e: Expr) -> Index:
     else:
         raise Fizzle(f"as_index: Can't convert {e!r} to index")
 
+def is_canvasvalue(x: Any) -> TypeGuard[CanvasValue]:
+    return (
+        isinstance(x, int)
+        or
+        isinstance(x, str)
+        or
+        x is None
+    )
 def is_paintable_soup(x: Any) -> TypeGuard[PaintableSoupRef]:
     return x == WorkingSoup
 
