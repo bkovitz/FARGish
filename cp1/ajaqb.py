@@ -202,7 +202,7 @@ class Subst:
         return True
 
     @classmethod
-    def make_from(cls, *pairs: Tuple[Expr, Index]) -> Subst:
+    def make_from(cls, *pairs: Tuple[Expr, Expr]) -> Subst:
         e = pmap().evolver()  # type: ignore[var-annotated]
         for k, v in pairs:
             e[k] = v
@@ -218,7 +218,11 @@ class Subst:
             case Plus():
                 return expr.value_of(self)
             case _:
-                return self.d.get(expr, None)
+                match self.d.get(expr, None):
+                    case None:
+                        return None
+                    case v:
+                        return self.eval_as_index(v)
 
 #    def unify(self, var: Variable, rhs: Expr) -> Subst:
 #        if var in self.d:
@@ -692,12 +696,14 @@ class Model:
         lo(f'i = {short(i)}')
         subst, ii = self.eval_as_detaddr(subst, i)
         lo(f'ii = {ii}\n')
-        subst = subst.unify(I, ii)
+        lo(subst)
+        #subst = subst.unify(I, ii)
+        #lo(subst)
 
         lo(f'j = {j!r}')
         subst, jj = self.eval_as_detaddr(subst, j)
         lo(f'jj = {jj}\n')
-        subst = subst.unify(J, jj)
+        #subst = subst.unify(J, jj)
 
         lo('subst =', subst)
 
@@ -710,6 +716,8 @@ class Model:
 
         oldval = self.get_value(ii)
         lo(f'oldval = {short(oldval)}')
+        # NEXT Call apply_func instead of calling FUNC directly. This way, FUNC
+        # can be a letter.
         newval = FUNC(subst, oldval)
         lo(f'newval = {short(newval)}')
 
@@ -768,7 +776,7 @@ class Model:
             lo(f'\na = {a}')
             raise Fizzle(f'eval_as_detaddr: unrecognized Addr type {a!r}')
 
-    def eval_as_func(self, subst: Subst, x: Func) -> ProperFunc:
+    def eval_as_func(self, subst: Subst, x: Func) -> Func:
         #print('EAF', x, type(x))
         #print('EAF SUBST', subst)
         match x:

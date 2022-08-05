@@ -44,9 +44,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	#$(PY) -m unittest -v testRMem.TestRMem.test_weighted_funcs
-	#$(PY) -m unittest -v testNumbo1
-	$(PY) -m unittest -v test_ajaqb.TestAjaqb.test_indirect_qpainter
+	$(PY) -m unittest -v test_ajaqb.TestAjaqb.test_indirect_painter
 
 # Acceptance tests
 at:

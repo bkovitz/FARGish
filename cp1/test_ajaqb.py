@@ -8,10 +8,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from ajaqb import Model, WorkingSoup, same, succ, Subst, Plus, I
+from ajaqb import Model, WorkingSoup, same, succ, Subst, Plus, I, J
 
 
-class TestAjaqb(unittest.TestCase):
+class TestSubst(unittest.TestCase):
 
     def test_subst_empty(self) -> None:
         su = Subst()
@@ -44,8 +44,16 @@ class TestAjaqb(unittest.TestCase):
         su2 = su0.merge(sui)
         self.assertEqual(su2, su1)
 
+    def test_eval_as_index(self) -> None:
+        su = Subst.make_from((I, 1), (J, I))
+        self.assertEqual(su.eval_as_index(3), 3)
+        self.assertEqual(su.eval_as_index(I), 1)
+        self.assertEqual(su.eval_as_index(J), 1)
+
+class TestAjaqb(unittest.TestCase):
+
     @unittest.skip('Need to implement Subst.merge() to make this pass')
-    def test_indirect_qpainter(self) -> None:
+    def test_indirect_painter(self) -> None:
         m = Model()
         m.paint(WorkingSoup, (1, 3, succ))
         m.run_painter(
