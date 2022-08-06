@@ -1,4 +1,5 @@
-# ajaqb.py -- Just enough model to run the ajaqb test
+# ajaqb1.py -- Just enough model to run the ajaqb test
+# FIRST VERSION, obsolete on 5-Aug-2022
 
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
@@ -19,21 +20,109 @@ from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
     reseed, safe_issubclass, newline, psa, pr
 from Log import trace, lo, logging
 
-@dataclass(frozen=True)
-class Variable:
-    name: str
+@dataclass
+class Soup:
+    painters: Set = field(default_factory=lambda: set())
 
-    def __str__(self) -> str:
-        return self.name
+    def add(self, p: Painter) -> None:
+        self.painters.add(p)
 
-I = Variable('i')
-J = Variable('j')
+    def matching_painters(self, xp: Painter) -> List[PainterMatch]:
+#        return [
+#            p for p in self.painters if self.is_match(xp, p)
+#        ]
+        result = []
+        for p in self.painters:
+            subst = self.is_match(xp, p)
+            if subst:
+                result.append(PainterMatch(subst, p))
+        return result
+
+    def is_match(self, xp: Painter, p: Painter) -> Subst:
+        '''Viewing xp as a painter template (possibly with variables that
+        need to be filled in), does p match xp?
+
+        Returning a BottomSubst() means no match.
+        '''
+        #print(f'ISM xp={xp}  p={p}')
+#        if xp == p:
+#            return True
+#        else:
+        xi, xj, xf = xp
+        pi = as_index(p[0])
+        pj = as_index(p[1])
+        pf = p[2]  # TODO Call as_func?
+
+        #subst: Subst = {}
+        subst = Subst()
+
+
+        #print(xi, xj, xf)
+        #print(pi, pj, pf)
+        subst = subst.unify(xi, pi)
+        subst = subst.unify(xj, pj)
+        return subst
+        #print('SUBST', subst)
+#        match subst:
+#            case BottomSubst():
+#                return False
+#            case Subst():
+#                return True
+#            case _:
+#                raise NotImplementedError
+
+    def has_painter(self, p: Painter) -> bool:
+        return p in self.painters
+
+    @classmethod
+    def union(cls, *soups: Soup) -> Soup:
+        return Soup(union(*(soup.painters for soup in soups)))
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return cl
+
+class WorkingSoup(Soup):
+    pass
 
 class HasAsIndex(ABC):
 
     @abstractmethod
     def as_index(self) -> Index:
         pass
+
+class HasMakeSubst(ABC):
+
+#    @abstractmethod
+#    def make_subst(self, v: Index, subst: Subst) -> Subst:
+#        pass
+    pass
+
+@dataclass(frozen=True)
+class Variable(HasAsIndex, HasMakeSubst):
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+    def as_index(self) -> Index:
+        raise NotImplementedError   # TODO Look this up in an Env
+
+#    def make_subst(self, v: Index, subst: Subst) -> Subst:
+#        got = subst.eval_as_index(self)
+#        match got:
+#            case int():
+#                return subst
+#            case BottomSubst():
+#                return got
+#            #case OpenSubst
+#        if subset.eval_as_index(self) != v:
+#            return empty_subst
+#        else:
+#            pass # TODO?
+
+I = Variable('i')
+J = Variable('j')
 
 @dataclass(frozen=True)
 class Plus(HasAsIndex):
@@ -58,13 +147,12 @@ class Plus(HasAsIndex):
             case ():
                 return init
             case (expr,):
-                return cls.try_to_add(init, subst.simplify(expr))
+                return cls.try_to_add(init, subst.eval_as_index(expr))
             case (expr, *more):
-                lo('init=', init, 'expr=', expr, subst)
                 return cls.simplify(
                     subst,
                     more,
-                    cls.try_to_add(init, subst.simplify(expr))
+                    cls.try_to_add(init, subst.eval_as_index(expr))
                 )
 
     @classmethod
@@ -96,50 +184,15 @@ Index = int   # the index of a cell within a Canvas
 Expr = Any
 Addr = Any
 Func = Any
+ProperFunc = Callable[['Subst', 'Value'], 'Value']
 Painter = Tuple[Addr, Addr, Func]
+
+@dataclass(frozen=True)
+class PainterMatch:
+    subst: Subst
+    painter: Painter
+
 Value = Union[CanvasValue, Painter]
-
-@dataclass
-class Soup:
-    painters: Set = field(default_factory=lambda: set())
-
-    def add(self, p: Painter) -> None:
-        self.painters.add(p)
-
-    def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
-#        return [
-#            p for p in self.painters if self.is_match(xp, p)
-#        ]
-        result = []
-        for p in self.painters:
-            subst = self.is_match(xp, p)
-            if subst:
-                result.append((subst, p))
-        return result
-
-    def is_match(self, xp: Painter, p: Painter) -> Subst:
-        '''Viewing xp as a painter template (possibly with variables that
-        need to be filled in), does p match xp?
-
-        Returning a BottomSubst() means no match.
-        '''
-        xi, xj, xf = xp
-        pi = as_index(p[0])
-        pj = as_index(p[1])
-        pf = p[2]
-
-        return empty_subst.unify(xi, pi).unify(xj, pj)
-
-    def has_painter(self, p: Painter) -> bool:
-        return p in self.painters
-
-    @classmethod
-    def union(cls, *soups: Soup) -> Soup:
-        return Soup(union(*(soup.painters for soup in soups)))
-
-    def short(self) -> str:
-        cl = self.__class__.__name__
-        return cl
 
 @dataclass(frozen=True)
 class Subst:
@@ -159,10 +212,7 @@ class Subst:
     def merge(self, other: Subst) -> Subst:
         return Subst(self.d.update(other.d))
 
-    def __contains__(self, x: Hashable) -> bool:
-        return x in self.d
-
-    def simplify(self, expr: Expr) -> Union[Expr, None]:
+    def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         match expr:
             case int():
                 return expr
@@ -173,7 +223,16 @@ class Subst:
                     case None:
                         return None
                     case v:
-                        return self.simplify(v)
+                        return self.eval_as_index(v)
+
+#    def unify(self, var: Variable, rhs: Expr) -> Subst:
+#        if var in self.d:
+#            if var == rhs:
+#                return self
+#            elif 
+#                return self.substitute(
+#        else:
+#            return Subst(self.d.set(var, rhs))
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         #print('HERE', lhs, rhs)
@@ -194,7 +253,7 @@ class Subst:
                     return Subst(self.d.set(lhs, r))
             case (Plus(args=(Variable() as v, int(n))), int(r)):
                 #print('GOTPP', v, n, r)
-                match self.simplify(v):
+                match self.eval_as_index(v):
                     case int(vv):
                         if vv + n == r:
                             return self
@@ -207,7 +266,7 @@ class Subst:
                 rvalue = rator.value_of(self)
                 #if lhs in self.
                 return self # TODO
-            case (Variable(), SoupRef()):
+            case (Variable(), soup) if safe_issubclass(soup, Soup):
                 if lhs in self.d:
                     if self.d[lhs] == rhs:
                         return self
@@ -215,7 +274,9 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, rhs))
-            case (Variable(), (SoupRef(), p)) if (
+            case (Variable(), (soup, p)) if (
+                    safe_issubclass(soup, Soup)
+                    and
                     is_painter(p)  # type: ignore[has-type]
             ):
                 if lhs in self.d:
@@ -227,7 +288,7 @@ class Subst:
                     return Subst(self.d.set(lhs, rhs))
                 
             case _:
-                lo("Can't unify:", type(lhs), type(rhs))
+                lo('WHAT?', type(lhs), type(rhs))
                 raise NotImplementedError((lhs, rhs))
         assert False, "unify(): should not go past 'match' stmt"
         return same # Needed only to please mypy; stops [return] error
@@ -255,7 +316,7 @@ class BottomSubst(Subst):
     def __bool__(self) -> bool:
         return False
 
-    def simplify(self, expr: Expr) -> Union[Index, None]:
+    def eval_as_index(self, expr: Expr) -> Union[Index, None]:
         return None
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
@@ -264,7 +325,6 @@ class BottomSubst(Subst):
     def substitute(self, var: Variable, rhs: Expr) -> Subst:
         return self
 
-empty_subst = Subst()
 bottom_subst = BottomSubst()
 
 def expr_substitute(e: Expr, v: Variable, rhs: Expr) -> Expr:
@@ -300,31 +360,25 @@ class FizzleValueNotFound(Fizzle):
 #    def __repr__(self) -> str:
 #        return str(self.index)
 
-@dataclass(frozen=True)
-class SoupRef:
-    name: str
+PaintableSoupRef = Type[WorkingSoup]
+PainterRef = Tuple[PaintableSoupRef, Painter]
+DeterminateAddr = Union[int, PaintableSoupRef, PainterRef]
 
-    def __str__(self) -> str:
-        return self.name
-
-WorkingSoup = SoupRef('WorkingSoup')
-
-PainterRef = Tuple[SoupRef, Painter]
-DeterminateAddr = Union[int, SoupRef, PainterRef]
-
-def is_soupref(x: Any) -> TypeGuard[SoupRef]:
+def is_soupref(x: Any) -> TypeGuard[PaintableSoupRef]:
     return safe_issubclass(x, Soup)
 
 def is_painterref(x: Any) -> TypeGuard[PainterRef]:
     match x:
         case (soupref, pp):
-            return isinstance(soupref, SoupRef) and is_painter(pp)
+            return is_soupref(soupref) and is_painter(pp)
         case _:
             return False
 
-def get_painter(p: Union[Painter, PainterRef]) -> Painter:
+def get_painter(p: Union[Painter, PainterMatch, PainterRef]) -> Painter:
     if is_painter(p):
         return p
+    elif isinstance(p, PainterMatch):
+        return p.painter
     elif is_painterref(p):
         return get_painter(p[1])
     else:
@@ -540,8 +594,8 @@ def addr_str(a: Addr) -> str:
         return str(a)
     elif isinstance(a, str):
         return repr(a)
-    elif isinstance(a, SoupRef):
-        return a.name
+    elif a == WorkingSoup:
+        return 'WorkingSoup'
     elif is_painter(a):
         return painter_str(a)
     elif isinstance(a, Variable):
@@ -640,22 +694,25 @@ class Model:
         lo('RUN_PAINTER', painter_str(p))
         i, j, func = p
         subst = Subst()
+        lo(f'i = {short(i)}')
         subst, ii = self.eval_as_detaddr(subst, i)
-        lo(f'ii =', ii)
-        if I not in subst:
-            subst = subst.unify(I, ii)
+        lo(f'ii = {ii}\n')
         lo(subst)
+        #subst = subst.unify(I, ii)
+        #lo(subst)
 
         lo(f'j = {j!r}')
         subst, jj = self.eval_as_detaddr(subst, j)
         lo(f'jj = {jj}\n')
-        if J not in subst:
-            subst = subst.unify(J, jj)
+        #subst = subst.unify(J, jj)
 
         lo('subst =', subst)
 
+        # NEXT Merge the substs before calling func
         lo(f'func = {short(func)}')
         FUNC = self.eval_as_func(subst, func)
+        # NEXT Here we want FUNC to apply the subst from the PainterMatch.
+        # We'll need to overlay the subst from the PainterMatch onto 'subst'.
         lo(f'FUNC = {short(FUNC)}\n')
 
         oldval = self.get_value(ii)
@@ -711,9 +768,9 @@ class Model:
                     f'eval_as_detaddr: no painters match {painter_str(a)}'
                 )
             else:
-                psubst, painter = choice(pmatches)
-                detaddr = (WorkingSoup, painter)
-                return (subst.merge(psubst), detaddr)
+                pmatch = choice(pmatches)
+                detaddr = (WorkingSoup, pmatch.painter)
+                return (subst.merge(pmatch.subst), detaddr)
         elif is_expr(a):
             return (subst, as_index(a))
         else:
@@ -739,8 +796,8 @@ class Model:
         match x:
             case (i, j, f):
                 return (
-                    subst.simplify(i),
-                    subst.simplify(j),
+                    subst.eval_as_index(i),
+                    subst.eval_as_index(j),
                     self.eval_as_func(subst, f)
                 )
             case _:
@@ -776,7 +833,7 @@ def is_canvasvalue(x: Any) -> TypeGuard[CanvasValue]:
         or
         x is None
     )
-def is_paintable_soup(x: Any) -> TypeGuard[SoupRef]:
+def is_paintable_soup(x: Any) -> TypeGuard[PaintableSoupRef]:
     return x == WorkingSoup
 
 def is_expr(x: Any) -> TypeGuard[Expr]:
