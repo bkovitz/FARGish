@@ -60,7 +60,7 @@ class Plus(HasAsIndex):
             case (expr,):
                 return cls.try_to_add(init, subst.simplify(expr))
             case (expr, *more):
-                lo('init=', init, 'expr=', expr, subst)
+                #lo('init=', init, 'expr=', expr, subst)
                 return cls.simplify(
                     subst,
                     more,
@@ -662,7 +662,7 @@ class Model:
         lo(f'oldval = {short(oldval)}')
         # NEXT Call apply_func instead of calling FUNC directly. This way, FUNC
         # can be a letter.
-        newval = FUNC(subst, oldval)
+        newval = self.apply_func(subst, FUNC, oldval)
         lo(f'newval = {short(newval)}')
 
         self.paint(jj, newval)
@@ -745,6 +745,15 @@ class Model:
                 )
             case _:
                 raise NotImplementedError(x)
+
+    def apply_func(self, subst: Subst, f: Func, v: Value) \
+    -> Union[Value, Painter]:
+        if isinstance(f, str) or isinstance(f, int) or is_painter(f):
+            return f
+        elif callable(f):
+            return f(subst, v)
+        else:
+            raise NotImplementedError(f"apply_func: can't apply {f}")
 
     def get_value(self, addr: Addr) -> Value:
         match addr:
