@@ -8,7 +8,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from ajaqb import Model, WorkingSoup, same, succ, Subst, empty_subst, Plus, I, J
+from ajaqb import Model, Soup, WorkingSoup, same, succ, Subst, empty_subst, \
+    Plus, I, J
 from util import pts
 
 
@@ -58,6 +59,19 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(I), 1)
         self.assertEqual(su.simplify(J), 1)
 
+class TestSoup(unittest.TestCase):
+
+    def test_is_match_1(self) -> None:
+        soup = Soup()
+        self.assertEqual(
+            soup.is_match((I, Plus(I, 2), succ), (1, 3, succ)),
+            Subst.make_from((I, 1))
+        )
+
+    def test_is_match_2(self) -> None:
+        soup = Soup()
+        self.assertFalse(soup.is_match((I, Plus(I, 2), succ), (1, 3, same)))
+        
 class TestModel(unittest.TestCase):
 
     @unittest.skip('Need to implement Subst.merge() to make this pass')

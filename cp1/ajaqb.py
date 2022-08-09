@@ -123,12 +123,16 @@ class Soup:
 
         Returning a BottomSubst() means no match.
         '''
+        # NEXT Require match of func, too
         xi, xj, xf = xp
         pi = as_index(p[0])
         pj = as_index(p[1])
         pf = p[2]
 
-        return empty_subst.unify(xi, pi).unify(xj, pj)
+        if xf == pf:
+            return empty_subst.unify(xi, pi).unify(xj, pj)
+        else:
+            return bottom_subst
 
     def has_painter(self, p: Painter) -> bool:
         return p in self.painters
