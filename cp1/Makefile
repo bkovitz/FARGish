@@ -44,7 +44,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v test_ajaqb.TestAjaqb.test_indirect_painter
+	$(PY) -m unittest -v test_ajaqb.TestModel.test_sponts
 
 # Acceptance tests
 at:

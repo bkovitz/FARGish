@@ -7,7 +7,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
-from random import choice
+from random import choice, random
 import operator
 from functools import reduce
 from io import StringIO
@@ -248,6 +248,7 @@ class Subst:
 #                    for v, e in self.d.items()
 #        )
 
+
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
     anything. As a bool, equivalent to False.'''
@@ -308,6 +309,7 @@ class SoupRef:
         return self.name
 
 WorkingSoup = SoupRef('WorkingSoup')
+LongTermSoup = SoupRef('LongTermSoup')
 
 PainterRef = Tuple[SoupRef, Painter]
 DeterminateAddr = Union[int, SoupRef, PainterRef]
@@ -491,11 +493,13 @@ class Canvas1D(Canvas):
         #return f'[{items}]{newline}[{citems}]'
 
     def short(self) -> str:
-        s = ''.join(
+        return repr(self.short_str())
+
+    def short_str(self) -> str:
+        return ''.join(
             ' ' if x is None else str(x)
                 for x in self.contents
         )
-        return repr(s)
 
 ### The basic relational functions
 
@@ -574,26 +578,32 @@ class Model:
     )
 
     def absorb(self, s: str) -> None:
+        for p in self.relative_spont_painters(s):
+            self.lts.add(p)
+
+    def relative_spont_painters(self, s: str) -> Iterable[Painter]:
         for i, j, func in self.find_related_cells(s):
-#            a1 : Addr = s[i-1]
-#            a2 : Addr = WorkingSoup
-#            a31 : Addr = I
-#            a32 : Addr = Plus(I, (j - i))
-#            a33 : FuncExpr = func
-#            a3 : FuncExpr = (a31, a32, a33)
-            self.lts.add((s[i-1], WorkingSoup, (I, Plus(I, (j - i)), func)))
-            if j - i == 2:  # if need a painter to put a letter between two
-                            # letters
-                self.lts.add(
+            yield(s[i-1], WorkingSoup, (I, Plus(I, (j - i)), func))
+            if s[i] != ' ' and j - i == 2:
+                # if need a painter to put a letter between two letters
+                yield(
                     ((I, Plus(I, 2), func),
                      WorkingSoup, 
                      (I, Plus(I, 1), s[i]))
                 )
 
-    def find_related_cells(self, s: str)\
+    def absolute_spont_painters(self, s: str) -> Iterable[Painter]:
+        for i, j, func in self.find_related_cells(s):
+            yield (i, j, func)
+            if s[i] != ' ' and j - i == 2:
+                yield (i, i + 1, s[i])
+
+    def find_related_cells(self, s: str) \
     -> Iterable[Tuple[Index, Index, Func]]:
         for i in range(len(s)):
             for j in range(i + 1, len(s)):
+                if s[i] == ' ' or s[j] == ' ':
+                    continue
                 if s[i] == s[j]:
                     yield (i+1, j+1, same)
                 elif ord(s[i]) == ord(s[j]) - 1:
@@ -601,11 +611,11 @@ class Model:
                 elif ord(s[i]) == ord(s[j]) + 1:
                     yield (i+1, j+1, pred)
 
-    def regen_from(self, s: str) -> None:
+    def regen_from(self, s: str, nsteps=20) -> None:
         '''Regenerates canvas from 's'.'''
         self.set_canvas(s)
         # TODO Add indentation, nicer logging?
-        for t in range(1, 20):  # TODO replace arbitrary constant
+        for t in range(1, nsteps + 1):
             lo(f'{newline}{newline}t={t}')
             with logging(None):
                 p = self.choose_painter()
@@ -618,7 +628,7 @@ class Model:
 
     def state_str(self) -> str:
         sio = StringIO()
-        print(short(self.canvas), file=sio)
+        print('canvas:', short(self.canvas), file=sio)
         pr(self.ws.painters, file=sio)
         return sio.getvalue()
 
@@ -629,11 +639,23 @@ class Model:
         ref, p = pr
         if ref == WorkingSoup:
             self.ws.add(get_painter(p))
+        elif ref == LongTermSoup:
+            self.lts.add(get_painter(p))
         else:
             raise NotImplementedError
 
     def choose_painter(self) -> Painter:
-        return choice(as_list(Soup.union(self.lts, self.ws).painters))
+        current_painters = Soup.union(self.lts, self.ws).painters
+        sponts = (
+            set(self.absolute_spont_painters(self.canvas.short_str()))
+            -
+            current_painters
+        )
+        if sponts and random() <= 0.3:
+            spont = choice(list(sponts))
+            return (1, WorkingSoup, spont)  # The 1 is irrelevant
+        else:
+            return choice(list(current_painters))
 
     def run_painter(self, p: Painter) -> None:
         #print('RUN_PAINTER', short(p))
@@ -660,8 +682,6 @@ class Model:
 
         oldval = self.get_value(ii)
         lo(f'oldval = {short(oldval)}')
-        # NEXT Call apply_func instead of calling FUNC directly. This way, FUNC
-        # can be a letter.
         newval = self.apply_func(subst, FUNC, oldval)
         lo(f'newval = {short(newval)}')
 
@@ -729,7 +749,7 @@ class Model:
             case (i, j, f):
                 return const(self.eval_as_painter(subst, x))
             case str():
-                return const(x)
+                return x
             case _:
                 raise NotImplementedError(x)
         assert False, "eval_as_func: should not go past 'match' stmt"
@@ -791,15 +811,18 @@ def is_paintable_soup(x: Any) -> TypeGuard[SoupRef]:
 def is_expr(x: Any) -> TypeGuard[Expr]:
     return isinstance(x, int) or hasattr(x, 'as_index')
 
+m : Model
+
 def run_all() -> None:
     '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
     'a    '.'''
+    global m
     m = Model()
     m.absorb('ajaqb')
     for p in m.lts.painters:
         print(painter_str(p))
     print()
-    m.regen_from('a    ')
+    m.regen_from('a    ', nsteps=80)
     #print(short(m.canvas))
 
 def run_this() -> None:

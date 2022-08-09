@@ -9,6 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 
 from ajaqb import Model, WorkingSoup, same, succ, Subst, empty_subst, Plus, I, J
+from util import pts
 
 
 class TestSubst(unittest.TestCase):
@@ -57,7 +58,7 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(I), 1)
         self.assertEqual(su.simplify(J), 1)
 
-class TestAjaqb(unittest.TestCase):
+class TestModel(unittest.TestCase):
 
     @unittest.skip('Need to implement Subst.merge() to make this pass')
     def test_indirect_painter(self) -> None:
@@ -72,3 +73,11 @@ class TestAjaqb(unittest.TestCase):
         self.assertTrue(m.ws.has_painter((1, 2, 'q')))
 
         
+    def test_absolute_sponts(self) -> None:
+        m = Model()
+        self.assertCountEqual(
+            m.absolute_spont_painters('a a '),  # blanks should be ignored
+            [
+                (1, 3, same)
+            ]
+        )
