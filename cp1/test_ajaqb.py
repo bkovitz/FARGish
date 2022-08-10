@@ -86,7 +86,6 @@ class TestModel(unittest.TestCase):
         # eval_as_detaddr() must return a Subst.
         self.assertTrue(m.ws.has_painter((1, 2, 'q')))
 
-        
     def test_absolute_sponts(self) -> None:
         m = Model()
         self.assertCountEqual(
@@ -95,3 +94,7 @@ class TestModel(unittest.TestCase):
                 (1, 3, same)
             ]
         )
+
+#    def test_find_related_cells1(self) -> None:
+#        m = Model()
+#        pts(m.absolute_spont_painters('ajbjb'))  # Oops, output was correct

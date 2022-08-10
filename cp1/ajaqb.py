@@ -11,6 +11,7 @@ from random import choice, random
 import operator
 from functools import reduce
 from io import StringIO
+from collections import defaultdict
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -101,15 +102,16 @@ Value = Union[CanvasValue, Painter]
 
 @dataclass
 class Soup:
-    painters: Set = field(default_factory=lambda: set())
+    #painters: Set = field(default_factory=lambda: set())
+    painters: Dict[Painter, Numeric] = field(
+        default_factory=lambda: defaultdict(int)
+    )  # map Painter to clarity
 
     def add(self, p: Painter) -> None:
-        self.painters.add(p)
+        #self.painters.add(p)
+        self.painters[p] += 1
 
     def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
-#        return [
-#            p for p in self.painters if self.is_match(xp, p)
-#        ]
         result = []
         for p in self.painters:
             subst = self.is_match(xp, p)
@@ -139,6 +141,7 @@ class Soup:
 
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
+        # TODO What about clarities?
         return Soup(union(*(soup.painters for soup in soups)))
 
     def short(self) -> str:
@@ -505,6 +508,9 @@ class Canvas1D(Canvas):
                 for x in self.contents
         )
 
+    def state_str(self) -> str:
+        return f"{self.short()}  {' '.join(str(c) for c in self.clarities)}"
+
 ### The basic relational functions
 
 def same(subst: Subst, v: Value) -> Value:
@@ -632,8 +638,9 @@ class Model:
 
     def state_str(self) -> str:
         sio = StringIO()
-        print('canvas:', short(self.canvas), file=sio)
-        pr(self.ws.painters, file=sio)
+        print('canvas:', self.canvas.state_str(), file=sio)
+        for pstr in sorted(painter_str(p) for p in self.ws.painters):
+            print(pstr, file=sio)
         return sio.getvalue()
 
     def set_canvas(self, s: str) -> None:
@@ -657,6 +664,7 @@ class Model:
         )
         if sponts and random() <= 0.3:
             spont = choice(list(sponts))
+            lo('SPONT')
             return (1, WorkingSoup, spont)  # The 1 is irrelevant
         else:
             return choice(list(current_painters))
@@ -826,7 +834,7 @@ def run_all() -> None:
     for p in m.lts.painters:
         print(painter_str(p))
     print()
-    m.regen_from('a    ', nsteps=80)
+    m.regen_from('a    ', nsteps=120)
     #print(short(m.canvas))
 
 def run_this() -> None:
