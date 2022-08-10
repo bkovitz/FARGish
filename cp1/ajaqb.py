@@ -102,14 +102,16 @@ Value = Union[CanvasValue, Painter]
 
 @dataclass
 class Soup:
-    painters: Set = field(default_factory=lambda: set())
+    #painters: Set = field(default_factory=lambda: set())
 #    painters: Dict[Painter, Numeric] = field(
 #        default_factory=lambda: defaultdict(int)
 #    )  # map Painter to clarity
+    painters: List = field(default_factory=list)
 
     def add(self, p: Painter) -> None:
-        self.painters.add(p)
+        #self.painters.add(p)
         #self.painters[p] += 1
+        self.painters.append(p)
 
     def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
         result = []
@@ -142,7 +144,8 @@ class Soup:
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
         # TODO What about clarities?
-        return Soup(union(*(soup.painters for soup in soups)))
+        #return Soup(union(*(soup.painters for soup in soups)))
+        return Soup(reduce(operator.add, (soup.painters for soup in soups), []))
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -660,7 +663,8 @@ class Model:
         sponts = (
             set(self.absolute_spont_painters(self.canvas.short_str()))
             -
-            current_painters
+            #current_painters
+            set(current_painters)
         )
         if sponts and random() <= 0.3:
             spont = choice(list(sponts))
