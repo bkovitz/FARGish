@@ -102,14 +102,14 @@ Value = Union[CanvasValue, Painter]
 
 @dataclass
 class Soup:
-    #painters: Set = field(default_factory=lambda: set())
-    painters: Dict[Painter, Numeric] = field(
-        default_factory=lambda: defaultdict(int)
-    )  # map Painter to clarity
+    painters: Set = field(default_factory=lambda: set())
+#    painters: Dict[Painter, Numeric] = field(
+#        default_factory=lambda: defaultdict(int)
+#    )  # map Painter to clarity
 
     def add(self, p: Painter) -> None:
-        #self.painters.add(p)
-        self.painters[p] += 1
+        self.painters.add(p)
+        #self.painters[p] += 1
 
     def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
         result = []
