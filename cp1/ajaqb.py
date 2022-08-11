@@ -109,6 +109,10 @@ class Soup:
     )  # map Painter to clarity
     #painters: List = field(default_factory=list)
 
+    @classmethod
+    def make_from(cls, painters: Iterable[Painter]) -> Soup:
+        return Soup(defaultdict(int, ((p, 1) for p in painters)))
+
     def add(self, p: Painter) -> None:
         #self.painters.add(p)
         self.painters[p] += 1
@@ -208,6 +212,14 @@ class Subst:
                         return None
                     case v:
                         return self.simplify(v)
+
+    def as_index(self, expr: Expr) -> Index:
+        '''Same as .simplify() but Fizzles if the result is not an Index.'''
+        result = self.simplify(expr)
+        if isinstance(result, int):
+            return result
+        else:
+            raise FizzleNotIndex(expr)
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         #print('HERE', lhs, rhs)
@@ -326,6 +338,13 @@ class FizzleValueNotFound(Fizzle):
 
     def __str__(self) -> str:
         return f'value not found: {repr(self.v)}'
+
+@dataclass(frozen=True)
+class FizzleNotIndex(Fizzle):
+    e: Expr
+
+    def __str__(self) -> str:
+        return f"can't reduce to Index: {repr(self.e)}"
 
 #@dataclass(frozen=True)
 #class CanvasAddr:
@@ -613,6 +632,7 @@ class Model:
     canvas: Canvas1D = field(
         default_factory=lambda: Canvas1D.make_from('     ')
     )
+    do_spont: bool = True
 
     def absorb(self, s: str) -> None:
         for p in self.relative_spont_painters(s):
@@ -686,19 +706,20 @@ class Model:
 
     def choose_painter(self) -> Painter:
         current_painters = Soup.union(self.lts, self.ws)
-        sponts = (
-            set(self.absolute_spont_painters(self.canvas.short_str()))
-            -
-            #current_painters
-            set(current_painters.painters)
-        )
-        if sponts and random() <= 0.3:
-            spont = choice(list(sponts))
-            lo('SPONT')
-            return (1, WorkingSoup, spont)  # The 1 is irrelevant
-        else:
-            #return choice(list(current_painters))
-            return current_painters.choose()
+#        sponts = (
+#            set(self.absolute_spont_painters(self.canvas.short_str()))
+#            -
+#            #current_painters
+#            set(current_painters.painters)
+#        )
+        if self.do_spont:
+            sponts = list(self.absolute_spont_painters(self.canvas.short_str()))
+            if sponts and random() <= 0.3:
+                spont = choice(list(sponts))
+                lo('SPONT')
+                return (1, WorkingSoup, spont)  # The 1 is irrelevant
+        #return choice(list(current_painters))
+        return current_painters.choose()
 
     def run_painter(self, p: Painter) -> None:
         #print('RUN_PAINTER', short(p))
@@ -778,7 +799,7 @@ class Model:
                 detaddr = (WorkingSoup, painter)
                 return (subst.merge(psubst), detaddr)
         elif is_expr(a):
-            return (subst, as_index(a))
+            return (subst, subst.as_index(a))
         else:
             lo(f'\na = {a}')
             raise Fizzle(f'eval_as_detaddr: unrecognized Addr type {a!r}')
@@ -832,6 +853,7 @@ class Model:
         return same # Needed only to please mypy; stops [return] error
                 
 
+# TODO rm; Subst.as_index() does this correctly
 def as_index(e: Expr) -> Index:
     if isinstance(e, int):
         return e
@@ -865,16 +887,31 @@ def run_all() -> None:
     for p in m.lts.painters:
         print(painter_str(p))
     print()
-    m.regen_from('a    ', nsteps=120)
+    m.regen_from('m m  ', nsteps=120)
     #print(short(m.canvas))
 
-def run_this() -> None:
-    '''Bug of the day, 28-Jul-2022'''
-    m = Model()
-    m.absorb('ajaqb')
-    m.set_canvas('a    ')
-    m.run_painter(('a', WorkingSoup, (I, Plus(I, 2), same)))
-    print(m.state_str())
+def run_abs() -> None:
+    global m
+    m = Model(do_spont=False)
+    m.lts = Soup.make_from([
+        (1, 3, same),
+        (3, 5, succ),
+        (1, 2, 'j'),
+        (3, 4, 'q'),
+        (1, 5, succ)
+    ])
+    m.regen_from('a    ', nsteps=120)
+
+def run_rel() -> None:
+    global m
+    m = Model(do_spont=False)
+    m.lts = Soup.make_from([
+        ('a', Plus(I, 1), 'j'),
+        ('j', Plus(I, 1), 'a'),
+        ('a', Plus(I, 1), 'q'),
+        ('q', Plus(I, 1), 'b')
+    ])
+    m.regen_from('a    ', nsteps=120)
 
 
 if __name__ == '__main__':
@@ -886,6 +923,8 @@ if __name__ == '__main__':
     print(f'seed={seed}')
     print()
     run_all()
+    #run_abs()
+    #run_rel()
 
 #    run_this()
 

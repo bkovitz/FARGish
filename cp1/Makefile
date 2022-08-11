@@ -44,7 +44,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v test_ajaqb.TestModel.test_find_related_cells1
+	$(PY) -m unittest -v test_ajaqb.TestModel.test_relative_painter
 
 # Acceptance tests
 at:

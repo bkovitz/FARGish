@@ -95,6 +95,8 @@ class TestModel(unittest.TestCase):
             ]
         )
 
-#    def test_find_related_cells1(self) -> None:
-#        m = Model()
-#        pts(m.absolute_spont_painters('ajbjb'))  # Oops, output was correct
+    def test_relative_painter(self) -> None:
+        m = Model()
+        m.set_canvas('a    ')
+        m.run_painter(('a', Plus(I, 1), 'j'))
+        self.assertEqual(m.canvas.short_str(), 'aj   ')
