@@ -7,17 +7,18 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
-from random import choice, random
+from random import choice, choices, random
 import operator
 from functools import reduce
 from io import StringIO
 from collections import defaultdict
+import sys
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from util import Numeric, short, as_tuple, as_list, pts, force_setattr, union, \
-    reseed, safe_issubclass, newline, psa, pr
+    reseed, safe_issubclass, newline, psa, pr, nf
 from Log import trace, lo, logging
 
 @dataclass(frozen=True)
@@ -103,15 +104,19 @@ Value = Union[CanvasValue, Painter]
 @dataclass
 class Soup:
     #painters: Set = field(default_factory=lambda: set())
-#    painters: Dict[Painter, Numeric] = field(
-#        default_factory=lambda: defaultdict(int)
-#    )  # map Painter to clarity
-    painters: List = field(default_factory=list)
+    painters: Dict[Painter, Numeric] = field(
+        default_factory=lambda: defaultdict(int)
+    )  # map Painter to clarity
+    #painters: List = field(default_factory=list)
 
     def add(self, p: Painter) -> None:
         #self.painters.add(p)
-        #self.painters[p] += 1
-        self.painters.append(p)
+        self.painters[p] += 1
+        #self.painters.append(p)
+
+    def decay(self, factor=0.9) -> None:
+        for p in self.painters:
+            self.painters[p] *= factor
 
     def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
         result = []
@@ -141,15 +146,34 @@ class Soup:
     def has_painter(self, p: Painter) -> bool:
         return p in self.painters
 
+    def choose(self) -> Painter:
+        return choices(
+            list(self.painters.keys()),
+            list(self.painters.values())
+        )[0]
+
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
         # TODO What about clarities?
         #return Soup(union(*(soup.painters for soup in soups)))
-        return Soup(reduce(operator.add, (soup.painters for soup in soups), []))
+        #return Soup(reduce(operator.add, (soup.painters for soup in soups), []))
+        d: Dict[Painter, Numeric] = defaultdict(int)
+        for soup in soups:
+            for painter, clarity in soup.painters.items():
+                d[painter] += clarity
+        return Soup(d)
 
     def short(self) -> str:
         cl = self.__class__.__name__
         return cl
+
+    def state_str(self) -> str:
+        sio = StringIO()
+        for pstr in sorted(
+            f'{painter_str(p)} {nf(cl)}' for p, cl in self.painters.items()
+        ):
+            print(pstr, file=sio)
+        return sio.getvalue()
 
 @dataclass(frozen=True)
 class Subst:
@@ -630,6 +654,7 @@ class Model:
         # TODO Add indentation, nicer logging?
         for t in range(1, nsteps + 1):
             lo(f'{newline}{newline}t={t}')
+            self.ws.decay()
             with logging(None):
                 p = self.choose_painter()
                 #print(f'{newline}{newline}t={t} {painter_str(p)}')
@@ -642,8 +667,9 @@ class Model:
     def state_str(self) -> str:
         sio = StringIO()
         print('canvas:', self.canvas.state_str(), file=sio)
-        for pstr in sorted(painter_str(p) for p in self.ws.painters):
-            print(pstr, file=sio)
+        print(self.ws.state_str(), file=sio)
+#        for pstr in sorted(painter_str(p) for p in self.ws.painters):
+#            print(pstr, file=sio)
         return sio.getvalue()
 
     def set_canvas(self, s: str) -> None:
@@ -659,19 +685,20 @@ class Model:
             raise NotImplementedError
 
     def choose_painter(self) -> Painter:
-        current_painters = Soup.union(self.lts, self.ws).painters
+        current_painters = Soup.union(self.lts, self.ws)
         sponts = (
             set(self.absolute_spont_painters(self.canvas.short_str()))
             -
             #current_painters
-            set(current_painters)
+            set(current_painters.painters)
         )
         if sponts and random() <= 0.3:
             spont = choice(list(sponts))
             lo('SPONT')
             return (1, WorkingSoup, spont)  # The 1 is irrelevant
         else:
-            return choice(list(current_painters))
+            #return choice(list(current_painters))
+            return current_painters.choose()
 
     def run_painter(self, p: Painter) -> None:
         #print('RUN_PAINTER', short(p))
@@ -851,7 +878,13 @@ def run_this() -> None:
 
 
 if __name__ == '__main__':
-    reseed(0)
+    if len(sys.argv) < 2:
+        seed = None
+    else:
+        seed = int(sys.argv[1])
+    seed = reseed(seed)
+    print(f'seed={seed}')
+    print()
     run_all()
 
 #    run_this()
