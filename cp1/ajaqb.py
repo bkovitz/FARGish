@@ -913,6 +913,22 @@ def run_rel() -> None:
     ])
     m.regen_from('a    ', nsteps=120)
 
+def run_extra() -> None:
+    global m
+    m = Model()
+    m.lts = Soup.make_from([
+        ('a', WorkingSoup, (I, Plus(I, 2), same)),
+        ('a', WorkingSoup, (I, Plus(I, 2), succ)),
+        ('a', WorkingSoup, (I, Plus(I, 4), succ)),
+        ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j')),
+        ((I, Plus(I, 2), succ), WorkingSoup, (I, Plus(I, 1), 'q')),
+        # extra:
+        ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 2), succ)),
+        ((I, Plus(I, 2), succ), WorkingSoup, (I, Plus(I, 2), same)),
+        ('j', WorkingSoup, (I, Plus(I, 1), 'a')),
+        ('q', WorkingSoup, (I, Plus(I, 1), 'b')),
+    ])
+    m.regen_from('a    ', nsteps=120)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -922,9 +938,10 @@ if __name__ == '__main__':
     seed = reseed(seed)
     print(f'seed={seed}')
     print()
-    run_all()
+    #run_all()
     #run_abs()
     #run_rel()
+    run_extra()
 
 #    run_this()
 
