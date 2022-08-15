@@ -387,7 +387,7 @@ def get_painter(p: Union[Painter, PainterRef]) -> Painter:
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
 class Canvas(ABC):
-    MAX_CLARITY: Numeric = 6
+    MAX_CLARITY: Numeric = 30  #6
     INITIAL_CLARITY: Numeric = 5
 
     """
@@ -670,6 +670,9 @@ class Model:
 
     def regen_from(self, s: str, nsteps=20) -> None:
         '''Regenerates canvas from 's'.'''
+        for p in m.lts.painters:
+            print(painter_str(p))
+        print()
         self.set_canvas(s)
         # TODO Add indentation, nicer logging?
         for t in range(1, nsteps + 1):
@@ -884,10 +887,7 @@ def run_all() -> None:
     global m
     m = Model()
     m.absorb('ajaqb')
-    for p in m.lts.painters:
-        print(painter_str(p))
-    print()
-    m.regen_from('m m  ', nsteps=120)
+    m.regen_from('a    ', nsteps=120)
     #print(short(m.canvas))
 
 def run_abs() -> None:
@@ -899,6 +899,22 @@ def run_abs() -> None:
         (1, 2, 'j'),
         (3, 4, 'q'),
         (1, 5, succ)
+    ])
+    m.regen_from('a    ', nsteps=120)
+
+def run_absall() -> None:
+    global m
+    m = Model(do_spont=False)
+    m.lts = Soup.make_from([
+        (1, 2, 'j'),
+        (1, 2, 'q'),
+        (1, 3, same),
+        (1, 3, succ),
+        (1, 5, succ),
+        (3, 4, 'j'),
+        (3, 4, 'q'),
+        (3, 5, same),
+        (3, 5, succ),
     ])
     m.regen_from('a    ', nsteps=120)
 
@@ -923,12 +939,12 @@ def run_extra() -> None:
         ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j')),
         ((I, Plus(I, 2), succ), WorkingSoup, (I, Plus(I, 1), 'q')),
         # extra:
-        ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 2), succ)),
-        ((I, Plus(I, 2), succ), WorkingSoup, (I, Plus(I, 2), same)),
+        ((I, Plus(I, 2), same), WorkingSoup, (Plus(I, 2), Plus(I, 4), succ)),
+        ((Plus(I, 2), Plus(I, 4), succ), WorkingSoup, (I, Plus(I, 2), same)),
         ('j', WorkingSoup, (I, Plus(I, 1), 'a')),
         ('q', WorkingSoup, (I, Plus(I, 1), 'b')),
     ])
-    m.regen_from('a    ', nsteps=120)
+    m.regen_from('a    ', nsteps=500)  #120)
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -941,7 +957,8 @@ if __name__ == '__main__':
     #run_all()
     #run_abs()
     #run_rel()
-    run_extra()
+    #run_extra()
+    run_absall()
 
 #    run_this()
 
