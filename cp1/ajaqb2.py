@@ -1,6 +1,5 @@
-# ajaqb.py -- Just enough model to run the ajaqb test
-#             Version 3.
-#             New: annotation cells holding '(' or ')'
+# ajaqb2.py -- Just enough model to run the ajaqb test
+#              Version 2, obsolete on 16-Aug-2022
 
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
@@ -92,17 +91,8 @@ class Plus(HasAsIndex):
 
 #Value = Hashable
 #Value = Union[int, str, 'Painter']
-CanvasValue = Union[str, None]
+CanvasValue = Union[int, str, None]
 Index = int   # the index of a cell within a Canvas
-MaybeIndex = Union[Index, None, List[Index]]  # TODO rename or divide into type types: List[Index] is not always appropriate
-Annotation = str  # the contents of an annotation cell
-
-@dataclass(frozen=True)
-class WithAnn:
-    '''An Expr providing the index of a cell along with an Annotation that
-    that cell should have.'''
-    expr: Expr
-    ann: Annotation
 
 # This little group enables everything to type-check, though at much cost
 # to type-safety.
@@ -110,7 +100,7 @@ Expr = Any
 Addr = Any
 Func = Any
 Painter = Tuple[Addr, Addr, Func]
-Value = Union[CanvasValue, Painter, Func]
+Value = Union[CanvasValue, Painter]
 
 @dataclass
 class Soup:
@@ -543,76 +533,12 @@ class Canvas1D(Canvas):
                 return i + 1
         raise FizzleValueNotFound(v)
 
-#    def all_matching(self, v: CanvasValue) -> List[int]:
-#        return [
-#            i + 1
-#                for i, x in enumerate(self.contents)
-#                    if x == v
-#        ]
-
     def all_matching(self, v: CanvasValue) -> List[int]:
-        target = self.v_to_target(v)
         return [
-            i
-                for i, v in self.all_indices_and_values()
-                    if self.is_match((i, v), target)
+            i + 1
+                for i, x in enumerate(self.contents)
+                    if x == v
         ]
-
-    def is_match(
-        self,
-        candidate: Tuple[MaybeIndex, CanvasValue],
-        target: Tuple[MaybeIndex, CanvasValue]
-    ) -> bool:
-        ci, cv = candidate
-        ti, tv = target
-#        if ci is None or ti is None:
-#            pass
-#        else:
-#            if ci != ti:
-#                return False
-#        return cv == tv
-        match (ci, ti):
-            case (None, _):
-                pass
-            case (_, None):
-                pass
-            case (int(), int()):
-                if ci != ti:
-                    return False
-                else:
-                    pass
-            case (int(), list()):
-                if ci not in ti:  # type: ignore[operator]
-                    return False
-                else:
-                    pass
-        return cv == tv
-
-    def v_to_target(self, v: CanvasValue) \
-    -> Tuple[MaybeIndex, CanvasValue]:
-        ii: MaybeIndex = None
-        vv: CanvasValue = None
-        lo('VTO', v)
-        if v is None:
-            return (None, None)
-        else:
-            for x in v:
-                match x:
-                    case '(':
-                        ii = 1
-                    case ')':
-                        ii = len(self.contents)
-                    case '-':
-                        ii = list(range(2, len(self.contents)))
-                        if not ii:
-                            ii = None
-                    case _:
-                        vv = x
-            return (ii, vv)
-
-    def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
-        for i, x in enumerate(self.contents):
-            yield i + 1, x
 
     def __str__(self) -> str:
         items = ' '.join(short(x) for x in self.contents)
@@ -1021,19 +947,6 @@ def run_extra() -> None:
     ])
     m.regen_from('a    ', nsteps=500)  #120)
 
-def run_with_start_end() -> None:
-    '''Test of annotations '(' and ')' on cells 1 and 5.'''
-    global m
-    m = Model()
-    m.lts = Soup.make_from([
-        ('(a', WorkingSoup, (I, Plus(I, 2), same)),
-        ('-a', WorkingSoup, (I, Plus(I, 2), succ)),
-        ('(a', WorkingSoup, (I, Plus(I, 4), succ)),
-        ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j')),
-        ((I, Plus(I, 2), succ), WorkingSoup, (I, Plus(I, 1), 'q')),
-    ])
-    m.regen_from('a    ', nsteps=120)
-
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         seed = None
@@ -1046,8 +959,7 @@ if __name__ == '__main__':
     #run_abs()
     #run_rel()
     #run_extra()
-    #run_absall()
-    run_with_start_end()
+    run_absall()
 
 #    run_this()
 
@@ -1068,4 +980,3 @@ if __name__ == '__main__':
 #    print(pl.value_of(s1))
 #    pl = Plus(I, 2)
 #    print(pl.value_of(s1))
-

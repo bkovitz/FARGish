@@ -9,7 +9,7 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = Model1.py
+SRCFILES = ajaqb.py
 
 # Plot.py 
 # Log.py 
@@ -44,7 +44,8 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v test_ajaqb.TestModel.test_relative_painter
+	#$(PY) -m unittest -v test_ajaqb.TestModel.test_relative_indirect_painter_with_anchor
+	$(PY) -m unittest -v test_ajaqb.TestCanvas1D.test_letter_match_with_start_end
 
 # Acceptance tests
 at:

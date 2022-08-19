@@ -8,42 +8,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 
-from ajaqb import Model, Soup, WorkingSoup, same, succ, Subst, empty_subst, \
-    Plus, I, J, Canvas1D
+from ajaqb2 import Model, Soup, WorkingSoup, same, succ, Subst, empty_subst, \
+    Plus, I, J
 from util import pts
 
-
-class TestCanvas1D(unittest.TestCase):
-
-    def test_all_indices_and_values(self) -> None:
-        c = Canvas1D.make_from('aja')
-        self.assertCountEqual(
-            c.all_indices_and_values(),
-            [(1, 'a'), (2, 'j'), (3, 'a')]
-        )
-
-    def test_letter_match_with_start_end(self) -> None:
-        c = Canvas1D.make_from('ajaqb')
-        self.assertCountEqual(
-            c.all_matching('a'),
-            [1, 3]
-        )
-        self.assertCountEqual(
-            c.all_matching('(a'),
-            [1]
-        )
-        self.assertCountEqual(
-            c.all_matching('b)'),
-            [5]
-        )
-        self.assertCountEqual(
-            c.all_matching('-a'),  # anchored to middle (not start or end)
-            [3]
-        )
-
-#    def test_withann_start_end(self) -> None:
-#        c = Canvas1D.make_from('ajaqb')
-        
 
 class TestSubst(unittest.TestCase):
 
@@ -106,20 +74,6 @@ class TestSoup(unittest.TestCase):
         
 class TestModel(unittest.TestCase):
 
-    def test_relative_indirect_painter(self) -> None:
-        m = Model()
-        m.set_canvas('a    ')
-        m.run_painter(('a', WorkingSoup, (I, Plus(I, 2), same)))
-        print(m.state_str())
-        self.assertTrue(m.ws.has_painter((1, 3, same)))
-
-    def test_relative_indirect_painter_with_anchor(self) -> None:
-        m = Model()
-        m.set_canvas('a    ')
-        m.run_painter(('(a', WorkingSoup, (I, Plus(I, 2), same)))
-        print(m.state_str())
-        self.assertTrue(m.ws.has_painter((1, 3, same)))
-        
     @unittest.skip('Need to implement Subst.merge() to make this pass')
     def test_indirect_painter(self) -> None:
         m = Model()
