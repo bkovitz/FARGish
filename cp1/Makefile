@@ -9,7 +9,7 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = ajaqb.py
+SRCFILES = majaqb.py  # ajaqb.py
 
 # Plot.py 
 # Log.py 
@@ -30,7 +30,7 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = ajaqb.py
+CURRENT = majaqb.py
 
 m:
 	$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)

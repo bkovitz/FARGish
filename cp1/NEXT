@@ -1,3 +1,14 @@
+majaqb.py
+
+Anchors. Let there be two relative painters for the first cell, one that
+matches 'a' and one that matches 'first cell'.
+
+Painter pheromone trails.
+
+
+
+-----
+
 Clean-up
 
     Move a working Model.py to v1/.

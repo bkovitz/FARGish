@@ -120,6 +120,6 @@ def trace(func):
             )
         with logging(None, f'{func.__name__}({argstring})'):
             result = func(*args, **kwargs)
-        lo(f'-> {result}')
+        lo(f'-> {short(result)}')
         return result
     return wrapper
