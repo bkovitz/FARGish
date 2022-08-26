@@ -477,6 +477,17 @@ class DetPainter:
     prob_weight: Numeric
     basis: Optional[Painter] = None  # what this DetPainter was made from
 
+    def is_valid_for(self, canvas: Canvas) -> bool:
+        match (self.source, self.target):
+            case (int(), int()):
+                return (
+                    canvas.has_addr(self.source)
+                    and
+                    canvas.has_addr(self.target)
+                )
+            case _:
+                return True
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'({addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
@@ -785,7 +796,10 @@ class Model:
             ii = choices(range(len(det_painters)), weights)[0]
             dp = det_painters[ii]
             lo('dp =', dp, '  ', nf(weights[ii]))
-            self.run_detpainter(dp)
+            try:
+                self.run_detpainter(dp)
+            except Fizzle as exc:
+                lo('FIZZLED:', exc)
             lo('\n' + self.state_str())
 
     def detpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
@@ -824,7 +838,9 @@ class Model:
                 # TODO apply the subst to func?
                 #lo('TARGET', target, j)
                 ff = self.eval_as_func(subst, func)
-                yield DetPainter(subst, i, j, ff, prob_weight, p)
+                dp = DetPainter(subst, i, j, ff, prob_weight, p)
+                if dp.is_valid_for(self.canvas):
+                    yield dp
 
     def matching_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[Tuple[Subst, DetAddr]]:
@@ -854,6 +870,7 @@ class Model:
             case x if callable(x):
                 return x
             case (i, j, f):
+                # NEXT TODO Rule out painters that can't run
                 return const(self.eval_as_painter(subst, x))
             case str():
                 return x
@@ -962,7 +979,8 @@ def run_abs() -> None:
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        seed = 4993487641984628738  #None
+        #seed = 4993487641984628738  #None
+        seed = None
     else:
         seed = int(sys.argv[1])
     seed = reseed(seed)
