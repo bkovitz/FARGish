@@ -1,0 +1,23 @@
+Rules for absorption (generation of indirect painters):
+
+[i], [i+n], are(same) -> ([i] -> (i, i+n, same))
+[i], [i+n], are(pred) -> ([i] -> (i, i+n, same))
+[i], [i+n], are(succ) -> ([i] -> (i, i+n, same))
+[i], [i+1], any -> ([i] -> (i, i+1, [i+1]))  # repaint digraph
+
+# "in-between" painters:
+(i, i+2, same) -> ((i, i+2, same) -> (i, i+1, [i+1])
+(i, i+2, pred) -> ((i, i+2, pred) -> (i, i+1, [i+1])
+(i, i+2, succ) -> ((i, i+2, succ) -> (i, i+1, [i+1])
+
+Rules for spontaneous generation of absolute painters:
+
+[i], [i+n], are(same) -> ([i] -> (i, i+n, same))
+[i], [i+n], are(pred) -> ([i] -> (i, i+n, same))
+[i], [i+n], are(succ) -> ([i] -> (i, i+n, same))
+
+"primitive relation": same, pred, succ
+
+Maybe also include painter pheromones.
+
+Maybe model itself can build new primitive relations.
