@@ -1,0 +1,33 @@
+"See something" -> "Paint something"
+
+VARIABLE   constant
+
+source, target
+
+
+absolute: i, j -> f[i]
+
+relative: match([I], letter), I+n -> f[I]
+
+spontaneous: match(F[I], [J]), ws -> (I, J, delay(F[I]))
+
+  (I, J, F)
+
+make-ltm-rel: (I, I+N -> delay(F[I]) -> ([I], I+N, delay(F[I]))
+
+between:  (i, i+2 -> f) -> (i, i+1 -> letter)
+
+make-between: (I, I+2 -> delay(F[I])) -> (I, I+1, letter)
+
+make-make-between: match(F[I], [I+2]), ws -> ( (I, I+2 -> delay(F[I])) -> (I, I+1, letter) )
+
+
+
+Probability is determined by clarity of source, clarity of target, and
+clarity of painter.
+
+To increase specificity of matching and promote cascades, bind source and
+target addresses to annotation cells ('first', 'last', 'neither', 'painted
+by painter X', 'there sure are a lot of these', etc.).
+
+Some rules for long-term and working soups.
