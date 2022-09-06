@@ -962,7 +962,7 @@ def run_all() -> None:
     global m
     m = Model()
     m.absorb('ajaqb')
-    m.regen_from('a    ', nsteps=120)
+    m.regen_from('a    ', nsteps=50) #120)
     #print(short(m.canvas))
 
 def run_abs() -> None:
@@ -1042,12 +1042,12 @@ if __name__ == '__main__':
     seed = reseed(seed)
     print(f'seed={seed}')
     print()
-    #run_all()
+    run_all()
     #run_abs()
     #run_rel()
     #run_extra()
     #run_absall()
-    run_with_start_end()
+    #run_with_start_end()
 
 #    run_this()
 
