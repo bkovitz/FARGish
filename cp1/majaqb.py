@@ -956,14 +956,14 @@ class Model:
 
 m: Model
 
-def run_ajaqb(seed: str='a    ', ltm: List[str]=['ajaqb']) -> None:
+def run_ajaqb(seed: str='a    ', ltm: List[str]=['ajaqb'], nsteps=120) -> None:
     '''Run the whole simulation. Absorb 'ajaqb' and see what regenerates from
     'a    '.'''
     global m
     m = Model()
     for s in ltm:
         m.absorb(s)
-    m.regen_from(seed, nsteps=120)
+    m.regen_from(seed, nsteps=nsteps)
     #print(short(m.canvas))
 
 def run_abs() -> None:
@@ -991,5 +991,6 @@ if __name__ == '__main__':
     print(f'seed={seed}')
     print()
 
-    run_ajaqb()
+    #run_ajaqb()
+    run_ajaqb('a    ', ['wxyaaaa'], 120)
     #run_abs()

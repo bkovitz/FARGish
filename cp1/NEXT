@@ -5,6 +5,34 @@ matches 'a' and one that matches 'first cell'.
 
 Painter pheromone trails.
 
+Save "origin" of a painter (who created it). Print it in state_str().
+
+
+Make a list of all the features remaining to be implemented in code.
+
+    canvas addresses, Mathematica-style
+
+    painter addresses
+
+    unifier
+
+    annotations  (implement the canvas as a dict that maps indices to cell
+                  values, where the indices can lead to annotations)
+
+    overrides
+
+    "evolve" a painter to fit what's there (and/or just vary randomly)
+
+    blank "lowers standards" by causing painters to evolve
+
+    functions on painters
+
+    functions on functions
+
+    conditions on painters
+
+Can these be written and unit-tested separately without risking bugs and confusion when integrating them?
+
 
 
 -----
