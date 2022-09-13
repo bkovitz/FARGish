@@ -21,7 +21,7 @@ Make a list of all the features remaining to be implemented in code.
 
     overrides
 
-    "evolve" a painter to fit what's there (and/or just vary randomly)
+    "mutate" a painter to fit what's there (and/or just vary randomly)
 
     blank "lowers standards" by causing painters to evolve
 
@@ -32,6 +32,12 @@ Make a list of all the features remaining to be implemented in code.
     conditions on painters
 
 Can these be written and unit-tested separately without risking bugs and confusion when integrating them?
+
+
+List of letterstring problems to solve at each stage of development.
+
+abc -> abd
+ijk ->
 
 
 
