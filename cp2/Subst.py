@@ -13,20 +13,11 @@ import operator
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Types import Expr, Index, FizzleNotIndex, SoupRef, as_index, is_painter
+from Types import Expr, Index, FizzleNotIndex, SoupRef, Variable, \
+    as_index, is_painter
 from Log import lo
 from util import force_setattr, short
 
-
-@dataclass(frozen=True)
-class Variable:
-    name: str
-
-    def __str__(self) -> str:
-        return self.name
-
-I = Variable('i')
-J = Variable('j')
 
 class HasAsIndex(ABC):
 

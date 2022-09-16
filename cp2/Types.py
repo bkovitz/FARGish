@@ -9,6 +9,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
+from util import short
+
 
 @dataclass(frozen=True)
 class SoupRef:
@@ -29,6 +31,16 @@ Func = Any
 Painter = Tuple[Addr, Addr, Func]
 DetAddr = Union[Index, Painter, SoupRef]
 Value = Union[CanvasValue, Painter, Func]
+
+@dataclass(frozen=True)
+class Variable:
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+I = Variable('i')
+J = Variable('j')
 
 class HasAsIndex(ABC):
 

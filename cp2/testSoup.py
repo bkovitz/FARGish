@@ -3,8 +3,9 @@
 import unittest
 import inspect
 
+from Types import I
 from Soup import Soup
-from Subst import Subst, I, Plus
+from Subst import Subst, Plus
 from Model import succ, same
 
 class TestSoup(unittest.TestCase):
