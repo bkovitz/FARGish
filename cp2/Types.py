@@ -41,6 +41,7 @@ class Variable:
 
 I = Variable('i')
 J = Variable('j')
+F = Variable('f')
 
 class HasAsIndex(ABC):
 

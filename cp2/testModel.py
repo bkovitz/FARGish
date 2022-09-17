@@ -3,24 +3,28 @@
 import unittest
 import inspect
 
-from Model import Model
+from Types import I, J
+from Model import Model, DetAddrWithSubst
+from Subst import Subst, empty_subst
 
 
 class TestModel(unittest.TestCase):
 
     def test_detaddr_1(self) -> None:
-        model = Model.make_from('a    ')
+        model = Model()
+        model.set_canvas('a    ')
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, 1),
-            [DetAddrWithSubst(Subst(I=1), 1)]
+            [DetAddrWithSubst(Subst.make_from((I, 1)), 1)]
         )
 
     def test_detaddr_a(self) -> None:
-        model = Model.make_from('a a  ')
+        model = Model()
+        model.set_canvas('a a  ')
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, 'a'),
             [
-                DetAddrWithSubst(I=1, 1),
-                DetAddrWithSubst(I=3, 3),
+                DetAddrWithSubst(Subst.make_from((I, 1)), 1),
+                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
             ]
         )

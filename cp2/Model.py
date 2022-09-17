@@ -7,13 +7,15 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
+from itertools import chain, product
 
-from Types import Addr, CanvasValue, DetAddr, FizzleValueNotFound, Index, \
-    MaybeIndex, Value
+from Types import Addr, CanvasValue, DetAddr, F, FizzleValueNotFound, Func, I, \
+    Index, J, MaybeIndex, Painter, SoupRef, Value, Variable, addr_str, func_str
+from Canvas import Canvas, Canvas1D
 from Soup import Soup
-from Subst import Subst
+from Subst import Subst, empty_subst
 from Log import lo
-from util import short, Numeric
+from util import short, nf, Numeric
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,9 @@ class Model:
         default_factory=lambda: Canvas1D.make_from('     ')
     )
 
+    def set_canvas(self, s: str) -> None:
+        self.canvas = Canvas1D.make_from(s)
+
     def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
         source, target, func = p
         det_sources = self.addr_to_detaddrs(empty_subst, I, source)
@@ -63,7 +68,7 @@ class Model:
                 for ds in det_sources
         )
         det_funcs = chain.from_iterable(
-            self.func_to_detfuncs(dt.subst, func)
+            self.func_to_detfuncs(dt.subst, F, func)
                 for dt in det_targets
         )
         # NEED to pair a subst with each DetAddr
@@ -73,7 +78,7 @@ class Model:
                 ds.addr,
                 dt.addr,
                 df.func,
-                # prob_weight,
+                1.0,   # TODO prob_weight,
                 p  # basis, "author"
             ) for ds, dt, df in product(det_sources, det_targets, det_funcs)
         )
@@ -85,5 +90,13 @@ class Model:
             case int():
                 yield DetAddrWithSubst(subst, addr)
             case str():
-                yield from self.canvas.all_matching(addr)
+                yield from (
+                    # NEXT subst needs to unify var with index
+                    DetAddrWithSubst(subst, index)
+                        for index in self.canvas.all_matching(addr)
+                )
             # TODO
+
+    def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
+    -> Iterable[Any]:  # TODO Create an appropriate type
+        pass
