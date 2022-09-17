@@ -109,4 +109,3 @@ class FizzleNotIndex(Fizzle):
 
     def __str__(self) -> str:
         return f"can't reduce to Index: {repr(self.e)}"
-

@@ -9,7 +9,7 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = Canvas.py Subst.py Soup.py Model.py
+SRCFILES = Canvas.py Funcs.py Model.py Subst.py Soup.py
 
 # Plot.py 
 # Log.py 

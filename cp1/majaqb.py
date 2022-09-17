@@ -466,6 +466,7 @@ def is_canvasvalue(x: Any) -> TypeGuard[CanvasValue]:
         or
         x is None
     )
+
 @dataclass(frozen=True)
 class DetPainter:
     '''A determinate painter: it can paint one thing in one place; there is
