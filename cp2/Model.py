@@ -88,11 +88,11 @@ class Model:
     -> Iterable[DetAddrWithSubst]:
         match addr:
             case int():
-                yield DetAddrWithSubst(subst, addr)
+                yield DetAddrWithSubst(subst.unify(var, addr), addr)
             case str():
                 yield from (
                     # NEXT subst needs to unify var with index
-                    DetAddrWithSubst(subst, index)
+                    DetAddrWithSubst(subst.unify(var, index), index)
                         for index in self.canvas.all_matching(addr)
                 )
             # TODO
