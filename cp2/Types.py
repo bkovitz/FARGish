@@ -33,6 +33,16 @@ DetAddr = Union[Index, Painter, SoupRef]
 Value = Union[CanvasValue, Painter, Func]
 
 @dataclass(frozen=True)
+class Annotation:
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+Start = Annotation('Start')
+End = Annotation('End')
+
+@dataclass(frozen=True)
 class Variable:
     name: str
 
