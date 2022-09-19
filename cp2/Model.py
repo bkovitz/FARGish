@@ -13,7 +13,7 @@ from Types import Addr, CanvasValue, DetAddr, F, FizzleValueNotFound, Func, I, \
     Index, J, MaybeIndex, Painter, SoupRef, Value, Variable, addr_str, func_str
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
-from Subst import Subst, empty_subst
+from Subst import Subst, empty_subst, Plus
 from Log import lo
 from util import short, nf, Numeric
 
@@ -108,6 +108,14 @@ class Model:
                         )
                             for index in self.canvas.all_addrs()
                     )
+            case Plus():
+                match subst.as_index(addr):
+                    case None:
+                        return
+                    case int() as index:
+                        yield DetAddrWithSubst(subst.unify(var, index), index)
+                    case _:
+                        raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
             case _:
                 raise NotImplementedError(
                     f'Addr {addr} has unknown type {type(addr)}.'

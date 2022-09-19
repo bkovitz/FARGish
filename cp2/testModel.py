@@ -5,7 +5,7 @@ import inspect
 
 from Types import I, J
 from Model import Model, DetAddrWithSubst
-from Subst import Subst, empty_subst
+from Subst import Subst, empty_subst, Plus
 
 
 class TestModel(unittest.TestCase):
@@ -46,6 +46,8 @@ class TestModel(unittest.TestCase):
         )
 
     def test_detaddr_I_already_defined(self) -> None:
+        # Matching against a defined Variable returns whatever Addr(s)
+        # make up the value of that Variable.
         model = Model()
         model.set_canvas('a a  ')
         self.assertCountEqual(
@@ -55,5 +57,25 @@ class TestModel(unittest.TestCase):
             ]
         )
 
-    # TODO 'I' where 'I' already has a value
-    # TODO 'I+2'
+    def test_detaddr_I_plus_2(self) -> None:
+        # Matching against I+2 when I is undefined returns no determinate
+        # addresses.
+        # TODO Should we return all but indices 1 and 2?
+        model = Model()
+        model.set_canvas('a a  ')
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, J, Plus(I, 2)),
+            []
+        )
+
+    def test_detaddr_I_plus_2_already_defined(self) -> None:
+        # Matching against I+2 when I is defined returns the index I+2
+        # (evaluated).
+        model = Model()
+        model.set_canvas('a a  ')
+        self.assertCountEqual(
+            model.addr_to_detaddrs(Subst.make_from((I, 1)), J, Plus(I, 2)),
+            [
+                DetAddrWithSubst(Subst.make_from((I, 1), (J, 3)), 3),
+            ]
+        )

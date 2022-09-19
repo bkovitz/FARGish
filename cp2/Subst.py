@@ -14,7 +14,7 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Types import Expr, Index, FizzleNotIndex, SoupRef, Variable, \
-    as_index, is_painter
+    as_index, is_index, is_painter
 from Log import lo
 from util import force_setattr, short
 
@@ -110,13 +110,23 @@ class Subst:
                     case v:
                         return self.simplify(v)
 
-    def as_index(self, expr: Expr) -> Index:
+    # TODO rm?
+    def as_index_fizzle(self, expr: Expr) -> Index:
         '''Same as .simplify() but Fizzles if the result is not an Index.'''
         result = self.simplify(expr)
         if isinstance(result, int):
             return result
         else:
             raise FizzleNotIndex(expr)
+
+    def as_index(self, expr: Expr) -> Optional[Index]:
+        '''Same as .simplify() but returns None if the result is not an
+        Index.'''
+        result = self.simplify(expr)
+        if is_index(result):
+            return result
+        else:
+            return None
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         #print('UNIFY', lhs, rhs)

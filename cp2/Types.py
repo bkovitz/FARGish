@@ -49,6 +49,9 @@ class HasAsIndex(ABC):
     def as_index(self) -> Index:
         pass
 
+def is_index(e: Any) -> TypeGuard[Index]:
+    return isinstance(e, int)
+
 # TODO rm; Subst.as_index() does this correctly
 def as_index(e: Expr) -> Index:
     if isinstance(e, int):
