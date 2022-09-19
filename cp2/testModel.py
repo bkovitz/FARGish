@@ -30,6 +30,8 @@ class TestModel(unittest.TestCase):
         )
 
     def test_detaddr_I(self) -> None:
+        '''Matching against an undefined Variable returns all indices
+        in the canvas.'''
         model = Model()
         model.set_canvas('a a  ')
         self.assertCountEqual(
@@ -43,4 +45,15 @@ class TestModel(unittest.TestCase):
             ]
         )
 
+    def test_detaddr_I_already_defined(self) -> None:
+        model = Model()
+        model.set_canvas('a a  ')
+        self.assertCountEqual(
+            model.addr_to_detaddrs(Subst.make_from((I, 2)), I, I),
+            [
+                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
+            ]
+        )
+
     # TODO 'I' where 'I' already has a value
+    # TODO 'I+2'

@@ -97,7 +97,9 @@ class Model:
                 )
             case Variable():
                 if addr in subst:
-                    pass # TODO
+                    yield from (
+                        self.addr_to_detaddrs(subst, var, subst.simplify(addr))
+                    )
                 else:
                     yield from (
                         DetAddrWithSubst(
