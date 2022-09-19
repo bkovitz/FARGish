@@ -95,6 +95,21 @@ class Model:
                     DetAddrWithSubst(subst.unify(var, index), index)
                         for index in self.canvas.all_matching(addr)
                 )
+            case Variable():
+                if addr in subst:
+                    pass # TODO
+                else:
+                    yield from (
+                        DetAddrWithSubst(
+                            subst.unify(var, index).unify(addr, index),
+                            index
+                        )
+                            for index in self.canvas.all_addrs()
+                    )
+            case _:
+                raise NotImplementedError(
+                    f'Addr {addr} has unknown type {type(addr)}.'
+                )
             # TODO
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \

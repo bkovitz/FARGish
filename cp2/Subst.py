@@ -121,11 +121,6 @@ class Subst:
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         #print('UNIFY', lhs, rhs)
         match (lhs, rhs):
-            case (int(l), int(r)):
-                if l == r:
-                    return self
-                else:
-                    return bottom_subst
             case (Variable(), int(r)):
                 #print('GOTN', lhs, r)
                 if lhs in self.d:
@@ -135,6 +130,11 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, r))
+            case (int(l), int(r)):
+                if l == r:
+                    return self
+                else:
+                    return bottom_subst
             case (Plus(args=(Variable() as v, int(n))), int(r)):
                 #print('GOTPP', v, n, r)
                 match self.simplify(v):

@@ -28,3 +28,19 @@ class TestModel(unittest.TestCase):
                 DetAddrWithSubst(Subst.make_from((I, 3)), 3),
             ]
         )
+
+    def test_detaddr_I(self) -> None:
+        model = Model()
+        model.set_canvas('a a  ')
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, I, I),
+            [
+                DetAddrWithSubst(Subst.make_from((I, 1)), 1),
+                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
+                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
+                DetAddrWithSubst(Subst.make_from((I, 4)), 4),
+                DetAddrWithSubst(Subst.make_from((I, 5)), 5),
+            ]
+        )
+
+    # TODO 'I' where 'I' already has a value
