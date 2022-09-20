@@ -60,13 +60,18 @@ class TestCanvas1D(unittest.TestCase):
         )
     '''
 
-    '''
+    def test_all_matching(self) -> None:
+        c = Canvas1D.make_from('ajaqb')
+        self.assertCountEqual(
+            c.all_matching('a'),
+            [1, 3]
+        )
+
     def test_paint_annotation(self) -> None:
         c = Canvas1D.make_from('ajaqb')
         c[2] = MyAnnotation
         self.assertEqual(c[2], 'j')
-    '''
-
+        #self.assertTrue(c.has_annotation(2), MyAnnotation)
 
 
 #    def test_withann_start_end(self) -> None:

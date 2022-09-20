@@ -29,18 +29,70 @@ Expr = Any
 Addr = Any
 Func = Any
 Painter = Tuple[Addr, Addr, Func]
-DetAddr = Union[Index, Painter, SoupRef]
+DetAddr = Union[Index, Painter, SoupRef]  # A determined Addr
 Value = Union[CanvasValue, Painter, Func]
 
 @dataclass(frozen=True)
-class Annotation:
+class AnnotationType:
     name: str
 
     def __str__(self) -> str:
         return self.name
 
-Start = Annotation('Start')
-End = Annotation('End')
+Anchor = AnnotationType('Anchor')
+
+@dataclass(frozen=True)
+class Annotation:
+    type: AnnotationType
+    name: str
+
+    def __str__(self) -> str:
+        return self.name
+
+Start = Annotation(Anchor, 'Start')
+End = Annotation(Anchor, 'End')
+
+@dataclass(frozen=True)
+class Annotations:
+    elems: FrozenSet[Annotation]
+
+    def elems_str(self) -> str:
+        return ', '.join(sorted([short(e) for e in self.elems]))
+
+    def __iter__(self, *args, **kwargs) -> Iterator[Annotation]:
+        return self.elems.__iter__(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f'Annotations({self.elems_str()})'
+
+@dataclass(frozen=True)
+class CellBundle:
+    value: CanvasValue
+    annotations: Annotations
+
+    def __str__(self) -> str:
+        return f'CellBundle({short(self.value)}; {self.annotations.elems_str()})'
+
+CellContent1 = Union[CanvasValue, Annotation]
+CellContent = Union[CanvasValue, Annotation, Annotations, CellBundle]
+
+def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
+    match v:
+        case str():
+            yield v
+        case None:
+            yield None
+        case Annotation():
+            yield v
+        case Annotations():
+            yield from v
+        case CellBundle():
+            yield v.value
+            yield from v.annotations
+
+# A way to refer to a cell's value or an annotation within the cell
+Index2 = Union[Index, Tuple[Index, AnnotationType]]
+
 
 @dataclass(frozen=True)
 class Variable:

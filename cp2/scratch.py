@@ -75,9 +75,9 @@ InternalIndex = Union[Index, Tuple[Index, AnnotationType]]
 
 @dataclass
 class ContentsAndClarities:
-    d: Dict[InternalIndex, ContentAndClarity]
-    min_index: Index
-    max_index: Index
+    d: Dict[InternalIndex, ContentAndClarity] = field(default_factory=dict())
+    min_index: Index = 1
+    max_index: Index = 10
 
     def __setitem__(self, i: InternalIndex, v: CellContent) -> None:
         if is_index(i):  # WRONG: need to extract index from i
