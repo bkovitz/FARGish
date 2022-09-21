@@ -75,10 +75,9 @@ class ContentAndClarity:
     clarity: Numeric
 
     def paint(self, v: CellContent1) -> None:
-        # TODO None
         if v is None:
             pass
-        elif v is ' ':
+        elif v == ' ':
             self.dec_clarity()
         elif v == self.content:
             self.inc_clarity()
@@ -97,7 +96,12 @@ class ContentAndClarity:
         if self.clarity > 0:
             self.clarity -= 1
         if self.clarity == 0:
-            self.content = None
+            self.content = ' '
+
+    def set_clarity(self, clarity: Numeric) -> None:
+        self.clarity = clarity
+        if self.clarity == 0:
+            self.content = ' '
 
 @dataclass
 class ContentsAndClarities:
@@ -137,7 +141,8 @@ class ContentsAndClarities:
 
     def set_clarity(self, i: Index2, clarity: Numeric) -> None:
         if i in self.d:
-            self.d[i].clarity = clarity
+            #self.d[i].clarity = clarity
+            self.d[i].set_clarity(clarity)
 
     def all_indices(self) -> Iterable[Index]:
         '''Returns all the possible indices of cell values, whether anything
@@ -221,6 +226,7 @@ class Canvas1D(Canvas):
         result.contents.max_index = len(s)
         for i, letter in zip(range(1, len(s) + 1), s):
             result[i] = letter
+            result.set_clarity(i, cls.INITIAL_CLARITY)
         return result
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
@@ -310,7 +316,7 @@ class Canvas1D(Canvas):
             case CellBundle():
                 yield (i, v.value)
                 yield from self.as_internal_args(i, v.annotations)
-        assert False, "as_internal_args(): should not go past 'match' stmt"
+        #assert False, f"as_internal_args(): should not go past 'match' stmt; {i}, {v}"
 
     # TODO UT
     def all_ixjypairs(self) -> Iterable[Tuple[Index, CanvasValue, Index, CanvasValue]]:
@@ -362,7 +368,13 @@ class Canvas1D(Canvas):
 #                for i, v in self.all_indices_and_values()
 #                    if self.is_match((i, v), target)
 #        ]
-#
+    def all_matching(self, v: CellContent) -> List[Index]:
+        return [
+            i
+                for i, vv in self.contents.all_indices_and_bundles()
+                    if vv.is_match(v)
+        ]
+
 #    def is_match(
 #        self,
 #        candidate: Tuple[MaybeIndex, CanvasValue],

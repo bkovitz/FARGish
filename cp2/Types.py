@@ -120,7 +120,7 @@ class CellBundle:
                     return self
             case None:
                 if v == self.value:
-                    return replace(self, value=v)
+                    return replace(self, value=None)
                 else:
                     return self
             case Annotation():
@@ -138,6 +138,21 @@ class CellBundle:
                 for vv in v:  # type: ignore[attr-defined]  # mypy bug
                     result = result + vv
         assert False, "CellBundle.__add__(): should not go past 'match' stmt"
+
+    def is_match(self, v: CellContent) -> bool:
+        '''Returns True if 'self' contains all the content within 'v', False
+        if 'v' contains any value or annotation not in 'self'.'''
+        match v:
+            case str():
+                return v == self.value
+            case None:
+                return True
+            case Annotation():
+                return v in self.annotations
+            case Annotations():
+                return self.annotations >= v
+            case CellBundle():
+                return all(self.is_match(vv) for vv in unbundle_cell_content(v))
 
     def __str__(self) -> str:
         return f'CellBundle({short(self.value)}; {self.annotations.elems_str()})'
