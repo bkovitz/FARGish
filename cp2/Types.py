@@ -56,6 +56,7 @@ End = Annotation(Anchor, 'End')
 class Annotations:
     elems: FrozenSet[Annotation]
 
+    #TODO Shouldn't this method allow multiple arguments?
     @classmethod
     def make_from(cls, v: Union[Annotation, Annotations, None]) -> Annotations:
         match v:
@@ -78,6 +79,12 @@ class Annotations:
 
     def __iter__(self, *args, **kwargs) -> Iterator[Annotation]:
         return self.elems.__iter__(*args, **kwargs)
+
+    def __contains__(self, v: Annotation) -> bool:
+        return v in self.elems
+
+    def __ge__(self, other: Annotations) -> bool:
+        return self.elems >= other.elems
 
     def __str__(self) -> str:
         return f'Annotations({self.elems_str()})'

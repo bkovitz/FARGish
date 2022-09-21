@@ -105,7 +105,6 @@ class ContentAndClarity:
 
 @dataclass
 class ContentsAndClarities:
-    # TODO rename d to contents
     d: Dict[Index2, ContentAndClarity] = field(default_factory=dict)
     min_index: Index = 1
     max_index: Index = 10
