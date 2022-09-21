@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
-    runtime_checkable, TYPE_CHECKING
+    runtime_checkable, no_type_check, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from util import short
+from util import empty_set, short
 
 
 @dataclass(frozen=True)
@@ -22,7 +22,7 @@ class SoupRef:
 WorkingSoup = SoupRef('WorkingSoup')
 LongTermSoup = SoupRef('LongTermSoup')
 
-CanvasValue = Union[str, None]
+CanvasValue = str
 Index = int   # the index of a cell within a Canvas
 MaybeIndex = Union[Index, None, List[Index]]  # TODO rename or divide into type types: List[Index] is not always appropriate
 Expr = Any
@@ -56,8 +56,25 @@ End = Annotation(Anchor, 'End')
 class Annotations:
     elems: FrozenSet[Annotation]
 
+    @classmethod
+    def make_from(cls, v: Union[Annotation, Annotations, None]) -> Annotations:
+        match v:
+            case Annotation():
+                return cls(frozenset([v]))
+            case Annotations():
+                return v
+            case None:
+                return empty_annotations
+                
     def elems_str(self) -> str:
         return ', '.join(sorted([short(e) for e in self.elems]))
+
+    def __add__(self, a: Annotation | Annotations) -> Annotations:
+        match a:
+            case Annotation():
+                return Annotations(self.elems | frozenset([a]))
+            case Annotations():
+                return Annotations(self.elems | a.elems)
 
     def __iter__(self, *args, **kwargs) -> Iterator[Annotation]:
         return self.elems.__iter__(*args, **kwargs)
@@ -65,23 +82,75 @@ class Annotations:
     def __str__(self) -> str:
         return f'Annotations({self.elems_str()})'
 
+empty_annotations = Annotations(empty_set)
+
 @dataclass(frozen=True)
 class CellBundle:
-    value: CanvasValue
+    '''Everything that can be held simultaneously in one cell, i.e. up to one
+    value and any number of annotations, all bundled into one convenient
+    object.'''
+    value: Optional[CanvasValue]
     annotations: Annotations
+
+    @classmethod
+    def make_from(cls, v: CellContent) -> CellBundle:
+        match v:
+            case str():
+                return cls(v, empty_annotations)
+            case None:
+                return cls(None, empty_annotations)
+            case Annotation():
+                return cls(None, Annotations.make_from(v))
+            case Annotations():
+                return cls(None, v)
+            case CellBundle():
+                return v
+
+    def __iter__(self) -> Iterable[CellContent1]:
+        if self.value is not None:
+            yield self.value
+        yield from self.annotations
+
+    def __add__(self, v: CellContent) -> CellBundle:
+        match v:
+            case str():
+                if v == self.value:
+                    return replace(self, value=v)
+                else:
+                    return self
+            case None:
+                if v == self.value:
+                    return replace(self, value=v)
+                else:
+                    return self
+            case Annotation():
+                if v in self.annotations:
+                    return self
+                else:
+                    return replace(self, annotations=self.annotations + v)
+            case Annotations():
+                if v == self.annotations:
+                    return self
+                else:
+                    return replace(self, annotations=self.annotations + v)
+            case CellBundle():
+                result = self
+                for vv in v:  # type: ignore[attr-defined]  # mypy bug
+                    result = result + vv
+        assert False, "CellBundle.__add__(): should not go past 'match' stmt"
 
     def __str__(self) -> str:
         return f'CellBundle({short(self.value)}; {self.annotations.elems_str()})'
 
-CellContent1 = Union[CanvasValue, Annotation]
-CellContent = Union[CanvasValue, Annotation, Annotations, CellBundle]
+CellContent1 = Union[CanvasValue, None, Annotation]
+CellContent = Union[CellContent1, Annotations, CellBundle]
 
 def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
     match v:
         case str():
             yield v
         case None:
-            yield None
+            pass
         case Annotation():
             yield v
         case Annotations():
@@ -92,6 +161,15 @@ def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
 
 # A way to refer to a cell's value or an annotation within the cell
 Index2 = Union[Index, Tuple[Index, AnnotationType]]
+
+@no_type_check  # crashes mypy 0.971
+def extract_index(i: Index2) -> Index:
+    match i:
+        case int():
+            return i
+        case (int(ii), _):
+            return ii
+    assert False, f"extract: should not go past 'match' stmt, {i}"
 
 
 @dataclass(frozen=True)

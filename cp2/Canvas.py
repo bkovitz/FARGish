@@ -4,13 +4,14 @@ from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
-    runtime_checkable, TYPE_CHECKING
+    runtime_checkable, no_type_check, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
 from Types import Addr, Annotation, Annotations, AnnotationType, CanvasValue, \
     CellBundle, CellContent1, CellContent, DetAddr, FizzleValueNotFound, \
-    Index, Index2, MaybeIndex, Value, is_index, unbundle_cell_content
+    Index, Index2, MaybeIndex, Value, extract_index, is_index, \
+    unbundle_cell_content
 from Log import lo
 from util import short, Numeric
 
@@ -76,6 +77,8 @@ class ContentAndClarity:
     def paint(self, v: CellContent1) -> None:
         # TODO None
         if v is None:
+            pass
+        elif v is ' ':
             self.dec_clarity()
         elif v == self.content:
             self.inc_clarity()
@@ -98,25 +101,33 @@ class ContentAndClarity:
 
 @dataclass
 class ContentsAndClarities:
+    # TODO rename d to contents
     d: Dict[Index2, ContentAndClarity] = field(default_factory=dict)
     min_index: Index = 1
     max_index: Index = 10
 
-    def __setitem__(self, i: Index2, v: CellContent) -> None:
+    def __setitem__(self, i: Index2, v: CellContent1) -> None:
         if is_index(i):  # WRONG: need to extract index from i
-            pass # check bounds
-#        if i in self.d:
-#            self.d[i].paint(v)  # NEXT Unbundle CellContent, loop through it.
-#        else:
-#            self.d[i] = ContentAndClarity(v, 1)
-        for v1 in unbundle_cell_content(v):
-            ii, vv
+            pass # TODO check bounds
+        if i in self.d:
+            self.d[i].paint(v)
+        else:
+            self.d[i] = ContentAndClarity(v, 1)
 
     def __getitem__(self, i: Index2) -> CellContent:
         try:
             return self.d[i].content
         except KeyError:
             return None
+
+    @no_type_check  # crashes mypy 0.971
+    def __iter__(self) -> Iterator[Tuple[Index, CellContent1]]:
+        for i, v in self.d.items():
+            match i:
+                case int():
+                    yield i, v.content
+                case (int(ii), AnnotationType()):
+                    yield ii, v.content
 
     def clarity(self, i) -> Numeric:
         try:
@@ -138,11 +149,48 @@ class ContentsAndClarities:
         for i in self.all_indices():
             yield (i, self[i])  # type: ignore[misc]
 
+    def all_indices_and_bundles(self) -> Iterable[Tuple[Index, CellBundle]]:
+        results: Dict[Index, CellBundle] = dict()
+        for i, v in self.d.items():
+            ii = extract_index(i)
+            if ii in results:
+                results[ii] = results[ii] + v.content
+            else:
+                results[ii] = CellBundle.make_from(v.content)
+        for ii in sorted(results.keys()):
+            yield ii, results[ii]
+
     # TODO UT
     def all_indices2(self) -> Iterable[Index2]:
         '''Returns the indices of every element stored, both cell values (which
         have an Index) and annotations (which have (Index, AnnotationType)).'''
         return self.d.keys()
+
+    def all_values(self) -> List[CanvasValue]:
+        '''Returns a list of the value of each plain-index cell (i.e. no
+        annotations).'''
+        return [
+            self[i] for i in self.all_indices()  # type: ignore[misc]
+        ]
+
+    def all_clarities(self) -> List[Numeric]:
+        '''Returns a list of the clarity of each plain-index cell (i.e. no
+        annotations).'''
+        return [
+            self.clarity(i) for i in self.all_indices()
+        ]
+
+    def all_matching(self, v: CellContent) -> List[Index]:
+        '''Returns a list of the indices of all cells that match 'v'.
+        A match is one that contains the same value as 'v' and at least all
+        the annotations that 'v' has (and possibly more). If 'v' is only an
+        Annotation or Annotations, then cell values don't affect the match.
+        A value of None matches only None; to specify a value that matches
+        any value, pass Any.'''
+        return [
+            i for i, bundle in self.all_indices_and_bundles()
+                if bundle.is_match(v)
+        ]
 
 # TODO How do you erase an annotation?
 
@@ -178,6 +226,8 @@ class Canvas1D(Canvas):
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
         #return range(1, len(self.contents) + 1)
         return range(self.contents.min_index, self.contents.max_index + 1)
+
+    all_indices = all_addrs
 
     def has_addr(self, addr: Addr) -> bool:
 #        if isinstance(addr, int):
@@ -246,7 +296,7 @@ class Canvas1D(Canvas):
             self.contents[ii] = vv
 
     def as_internal_args(self, i: Index, v: CellContent) \
-    -> Iterable[Tuple[Index2, Union[CanvasValue, Annotation]]]:
+    -> Iterable[Tuple[Index2, CellContent1]]:
         match v:
             case None:
                 yield (i, None)
@@ -259,7 +309,7 @@ class Canvas1D(Canvas):
                     yield ((i, elem.type), elem)
             case CellBundle():
                 yield (i, v.value)
-                yield from as_internal_args(i, v.annotations)
+                yield from self.as_internal_args(i, v.annotations)
         assert False, "as_internal_args(): should not go past 'match' stmt"
 
     # TODO UT
@@ -304,43 +354,44 @@ class Canvas1D(Canvas):
 #                    if x == v
 #        ]
 
-    def all_matching(self, v: CellContent) -> List[Index]:
-        target = self.v_to_target(v)
-        return [
-            i
-                for i, v in self.all_indices_and_values()
-                    if self.is_match((i, v), target)
-        ]
-
-    def is_match(
-        self,
-        candidate: Tuple[MaybeIndex, CanvasValue],
-        target: Tuple[MaybeIndex, CanvasValue]
-    ) -> bool:
-        ci, cv = candidate
-        ti, tv = target
-#        if ci is None or ti is None:
-#            pass
-#        else:
-#            if ci != ti:
-#                return False
+#    def all_matching(self, v: CellContent) -> List[Index]:
+#        # NEXT Compare against ContentsAndClarities.as_bundle()
+#        target = self.v_to_target(v)
+#        return [
+#            i
+#                for i, v in self.all_indices_and_values()
+#                    if self.is_match((i, v), target)
+#        ]
+#
+#    def is_match(
+#        self,
+#        candidate: Tuple[MaybeIndex, CanvasValue],
+#        target: Tuple[MaybeIndex, CanvasValue]
+#    ) -> bool:
+#        ci, cv = candidate
+#        ti, tv = target
+##        if ci is None or ti is None:
+##            pass
+##        else:
+##            if ci != ti:
+##                return False
+##        return cv == tv
+#        match (ci, ti):
+#            case (None, _):
+#                pass
+#            case (_, None):
+#                pass
+#            case (int(), int()):
+#                if ci != ti:
+#                    return False
+#                else:
+#                    pass
+#            case (int(), list()):
+#                if ci not in ti:  # type: ignore[operator]
+#                    return False
+#                else:
+#                    pass
 #        return cv == tv
-        match (ci, ti):
-            case (None, _):
-                pass
-            case (_, None):
-                pass
-            case (int(), int()):
-                if ci != ti:
-                    return False
-                else:
-                    pass
-            case (int(), list()):
-                if ci not in ti:  # type: ignore[operator]
-                    return False
-                else:
-                    pass
-        return cv == tv
 
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
 #        for i, x in enumerate(self.contents):
@@ -348,10 +399,12 @@ class Canvas1D(Canvas):
         return self.contents.all_indices_and_values()
 
     def __str__(self) -> str:
-        items = ' '.join(short(x) for x in self.contents)
-        citems = ' '.join(short(c) for c in self.clarities)
-        return f'[{items}]'
-        #return f'[{items}]{newline}[{citems}]'
+#        items = ' '.join(short(x) for x in self.contents)
+#        citems = ' '.join(short(c) for c in self.clarities)
+#        return f'[{items}]'
+#        #return f'[{items}]{newline}[{citems}]'
+        clarities = ', '.join(str(c) for c in self.contents.all_clarities())
+        return f"'{self.short_str()}'  {clarities}"
 
     def short(self) -> str:
         return repr(self.short_str())
@@ -359,8 +412,8 @@ class Canvas1D(Canvas):
     def short_str(self) -> str:
         return ''.join(
             ' ' if x is None else str(x)
-                for x in self.contents
+                for x in self.contents.all_values()
         )
 
     def state_str(self) -> str:
-        return f"{self.short()}  {' '.join(str(c) for c in self.clarities)}"
+        return f"{self.short()}  {' '.join(str(c) for c in self.contents.all_clarities())}"

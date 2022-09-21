@@ -6,10 +6,11 @@ import inspect
 from Canvas import Canvas1D
 from util import pts
 
-from Types import Annotation
+from Types import Annotation, AnnotationType
 
 
-MyAnnotation = Annotation('MyAnnotation')
+MyAnnotationType = AnnotationType('MyAnnotationType')
+MyAnnotation = Annotation(MyAnnotationType, 'MyAnnotation')
 
 class TestCanvas1D(unittest.TestCase):
 
@@ -26,7 +27,7 @@ class TestCanvas1D(unittest.TestCase):
         c[1] = 'b'
         self.assertEqual(c[1], 'a'); self.assertEqual(c.clarity(1), 1)
         c[1] = 'b'
-        self.assertEqual(c[1], None); self.assertEqual(c.clarity(1), 0)
+        self.assertEqual(c[1], ' '); self.assertEqual(c.clarity(1), 0)
         c[1] = 'b'
         self.assertEqual(c[1], 'b'); self.assertEqual(c.clarity(1), 1)
         c[1] = 'b'
@@ -60,12 +61,12 @@ class TestCanvas1D(unittest.TestCase):
         )
     '''
 
-    def test_all_matching(self) -> None:
-        c = Canvas1D.make_from('ajaqb')
-        self.assertCountEqual(
-            c.all_matching('a'),
-            [1, 3]
-        )
+#    def test_all_matching(self) -> None:
+#        c = Canvas1D.make_from('ajaqb')
+#        self.assertCountEqual(
+#            c.all_matching('a'),
+#            [1, 3]
+#        )
 
     def test_paint_annotation(self) -> None:
         c = Canvas1D.make_from('ajaqb')
