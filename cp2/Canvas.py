@@ -266,6 +266,11 @@ class Canvas1D(Canvas):
         for ii, vv in self.as_internal_args(i, v):
             self.contents[ii] = vv
 
+    # TODO UT
+    def has_letter(self, i: Index) -> bool:
+        v = self.contents[i]
+        return v is not None and v != ' '
+
     def as_internal_args(self, i: Index, v: CellContent) \
     -> Iterable[Tuple[Index2, CellContent1]]:
         match v:

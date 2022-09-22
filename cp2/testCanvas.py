@@ -41,6 +41,12 @@ class TestCanvas1D(unittest.TestCase):
             [(1, 'a'), (2, 'j'), (3, 'a')]
         )
 
+    def test_has_letter(self) -> None:
+        c = Canvas1D.make_from('aja ')
+        self.assertTrue(c.has_letter(1))
+        self.assertFalse(c.has_letter(4))
+        self.assertFalse(c.has_letter(10))
+
     '''
     def test_letter_match_with_start_end(self) -> None:
         c = Canvas1D.make_from('ajaqb')
