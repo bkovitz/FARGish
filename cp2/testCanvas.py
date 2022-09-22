@@ -6,7 +6,8 @@ import inspect
 from Canvas import Canvas1D
 from util import pts
 
-from Types import Annotation, AnnotationType
+from Types import Annotation, AnnotationType, CellBundle, Start, \
+    empty_annotations
 
 
 MyAnnotationType = AnnotationType('MyAnnotationType')
@@ -61,19 +62,30 @@ class TestCanvas1D(unittest.TestCase):
         )
     '''
 
-#    def test_all_matching(self) -> None:
-#        c = Canvas1D.make_from('ajaqb')
-#        self.assertCountEqual(
-#            c.all_matching('a'),
-#            [1, 3]
-#        )
+    def test_as_bundle(self) -> None:
+        c = Canvas1D.make_from('ajaqb')
+        self.assertEqual(c.as_bundle(2), CellBundle('j', empty_annotations))
+
+    def test_all_matching(self) -> None:
+        c = Canvas1D.make_from('ajaqb')
+        self.assertCountEqual(
+            c.all_matching('a'),
+            [1, 3]
+        )
 
     def test_paint_annotation(self) -> None:
         c = Canvas1D.make_from('ajaqb')
         c[2] = MyAnnotation
         self.assertEqual(c[2], 'j')
         #self.assertTrue(c.has_annotation(2), MyAnnotation)
-
+        self.assertTrue(c.is_match(2, 'j'))
+        self.assertFalse(c.is_match(2, 'a'))
+        self.assertTrue(c.is_match(2, MyAnnotation))
+        self.assertFalse(c.is_match(2, Start))
+        self.assertTrue(c.is_match(2, CellBundle.make_from('j', MyAnnotation)))
+        self.assertFalse(c.is_match(2, CellBundle.make_from('k', MyAnnotation)))
+        self.assertFalse(c.is_match(2, CellBundle.make_from('j', Start)))
+        self.assertTrue(c.is_match(2, CellBundle.make_from('j')))
 
 #    def test_withann_start_end(self) -> None:
 #        c = Canvas1D.make_from('ajaqb')

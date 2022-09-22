@@ -100,18 +100,11 @@ class CellBundle:
     annotations: Annotations
 
     @classmethod
-    def make_from(cls, v: CellContent) -> CellBundle:
-        match v:
-            case str():
-                return cls(v, empty_annotations)
-            case None:
-                return cls(None, empty_annotations)
-            case Annotation():
-                return cls(None, Annotations.make_from(v))
-            case Annotations():
-                return cls(None, v)
-            case CellBundle():
-                return v
+    def make_from(cls, *v: CellContent) -> CellBundle:
+        result = cls(None, empty_annotations)
+        for vv in v:
+            result = result + vv
+        return result
 
     def __iter__(self) -> Iterable[CellContent1]:
         if self.value is not None:
@@ -122,9 +115,9 @@ class CellBundle:
         match v:
             case str():
                 if v == self.value:
-                    return replace(self, value=v)
-                else:
                     return self
+                else:
+                    return replace(self, value=v)
             case None:
                 if v == self.value:
                     return replace(self, value=None)
@@ -144,7 +137,8 @@ class CellBundle:
                 result = self
                 for vv in v:  # type: ignore[attr-defined]  # mypy bug
                     result = result + vv
-        assert False, "CellBundle.__add__(): should not go past 'match' stmt"
+                return result
+        assert False, f"CellBundle.__add__(): should not go past 'match' stmt; {v}"
 
     def is_match(self, v: CellContent) -> bool:
         '''Returns True if 'self' contains all the content within 'v', False
@@ -163,6 +157,8 @@ class CellBundle:
 
     def __str__(self) -> str:
         return f'CellBundle({short(self.value)}; {self.annotations.elems_str()})'
+
+empty_cell_bundle = CellBundle(None, empty_annotations)
 
 CellContent1 = Union[CanvasValue, None, Annotation]
 CellContent = Union[CellContent1, Annotations, CellBundle]

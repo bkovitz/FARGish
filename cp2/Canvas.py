@@ -10,8 +10,8 @@ from abc import ABC, abstractmethod
 
 from Types import Addr, Annotation, Annotations, AnnotationType, CanvasValue, \
     CellBundle, CellContent1, CellContent, DetAddr, FizzleValueNotFound, \
-    Index, Index2, MaybeIndex, Value, extract_index, is_index, \
-    unbundle_cell_content
+    Index, Index2, MaybeIndex, Value, empty_cell_bundle, extract_index, \
+    is_index, unbundle_cell_content
 from Log import lo
 from util import short, Numeric
 
@@ -140,7 +140,6 @@ class ContentsAndClarities:
 
     def set_clarity(self, i: Index2, clarity: Numeric) -> None:
         if i in self.d:
-            #self.d[i].clarity = clarity
             self.d[i].set_clarity(clarity)
 
     def all_indices(self) -> Iterable[Index]:
@@ -163,6 +162,14 @@ class ContentsAndClarities:
                 results[ii] = CellBundle.make_from(v.content)
         for ii in sorted(results.keys()):
             yield ii, results[ii]
+
+    def as_bundle(self, i: Index) -> CellBundle:
+        result = empty_cell_bundle
+        for i2, cc in self.d.items():
+            if extract_index(i2) != i:
+                continue
+            result = result + cc.content
+        return result
 
     # TODO UT
     def all_indices2(self) -> Iterable[Index2]:
@@ -248,6 +255,8 @@ class Canvas1D(Canvas):
             )
         else:
             return False
+
+    has_index = has_addr
 
     def __getitem__(self, addr: Addr) -> CellContent:
 #        if isinstance(addr, int):
@@ -373,6 +382,12 @@ class Canvas1D(Canvas):
                 for i, vv in self.contents.all_indices_and_bundles()
                     if vv.is_match(v)
         ]
+
+    def is_match(self, i: Index, v: CellContent) -> bool:
+        return self.as_bundle(i).is_match(v)
+
+    def as_bundle(self, i: Index) -> CellBundle:
+        return self.contents.as_bundle(i)
 
 #    def is_match(
 #        self,
