@@ -8,9 +8,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from Types import Addr, Annotation, Annotations, AnnotationType, CanvasValue, \
-    CellBundle, CellContent1, CellContent, DetAddr, FizzleValueNotFound, \
-    Index, Index2, MaybeIndex, Value, empty_cell_bundle, extract_index, \
+from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
+    CanvasValue, \
+    CellBundle, CellContent1, CellContent, DetAddr, End, FizzleValueNotFound, \
+    Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, extract_index, \
     is_index, unbundle_cell_content
 from Log import lo
 from util import short, Numeric
@@ -233,6 +234,16 @@ class Canvas1D(Canvas):
         for i, letter in zip(range(1, len(s) + 1), s):
             result[i] = letter
             result.set_clarity(i, cls.INITIAL_CLARITY)
+        result[result.contents.min_index] = Start
+        result.set_clarity(
+            (result.contents.min_index, Anchor),
+            cls.INITIAL_CLARITY
+        )
+        result[result.contents.max_index] = End
+        result.set_clarity(
+            (result.contents.max_index, Anchor),
+            cls.INITIAL_CLARITY
+        )
         return result
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
@@ -385,6 +396,9 @@ class Canvas1D(Canvas):
 
     def is_match(self, i: Index, v: CellContent) -> bool:
         return self.as_bundle(i).is_match(v)
+
+    def has_annotation(self, i: Index, ann: Annotation) -> bool:
+        return self.is_match(i, ann)
 
     def as_bundle(self, i: Index) -> CellBundle:
         return self.contents.as_bundle(i)

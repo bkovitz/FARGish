@@ -1,19 +1,27 @@
 UT
 
-    painting an annotation, checking its clarity
+    painting an annotation  DONE
 
-    matching a cell value
+    matching a cell value  DONE
 
-    matching an annotation to a cell
+    matching an annotation to a cell  DONE
 
-    matching a cell value + annotation to a cell
+    matching a cell value + annotation to a cell  DONE
 
-    matching Annotations to a cell
+    matching Annotations to a cell  DONE
 
-    matching a CellBundle to a cell
+    matching a CellBundle to a cell  DONE
+
+    check annotation's clarity
 
 
 matching
 
     CellContent1
 
+Auto-paint Start and End.  DONE
+
+It should be possible for an Index2 to include an Annotation or AnnotationType.
+
+Check for something like Anchor.NoAnnotation. This should match a cell that
+has neither Start nor End.
