@@ -1,8 +1,13 @@
 # Funcs.py -- Functions: objects to fill the third slot of a painter
 
+from __future__ import annotations
+from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
+    Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
+    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
+    runtime_checkable, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 
-from Types import Value, is_painter, painter_str, Fizzle
+from Types import Func, Value, Painter, is_painter, painter_str, Fizzle
 from Subst import Subst
 from util import short
 
@@ -43,3 +48,13 @@ class const:
         else:
             return f'{cl}({short(self.v)})'
 
+### apply_func()
+
+def apply_func(subst: Subst, f: Func, v: Value) \
+-> Union[Value, Painter]:
+    if isinstance(f, str) or isinstance(f, int) or is_painter(f):
+        return f
+    elif callable(f):
+        return f(subst, v)
+    else:
+        raise NotImplementedError(f"apply_func: can't apply {f}")

@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from util import empty_set, short
+from util import empty_set, force_setattr, short
 
 
 @dataclass(frozen=True)
@@ -29,8 +29,8 @@ Expr = Any
 Addr = Any
 Func = Any
 Painter = Tuple[Addr, Addr, Func]
-DetAddr = Union[Index, Painter, SoupRef]  # A determined Addr
 Value = Union[CanvasValue, Painter, Func]
+
 
 @dataclass(frozen=True)
 class AnnotationType:
@@ -189,6 +189,15 @@ def extract_index(i: Index2) -> Index:
             return ii
     assert False, f"extract: should not go past 'match' stmt, {i}"
 
+@dataclass(frozen=True)
+class Indices:
+    '''Zero or more Index2s.'''
+    elems: Tuple[Index2, ...]
+
+    def __init__(self, *i: Index2):
+        force_setattr(self, 'elems', tuple(i))
+
+DetAddr = Union[Index, Indices, Painter, SoupRef]  # A determined Addr
 
 @dataclass(frozen=True)
 class Variable:

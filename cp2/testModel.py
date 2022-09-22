@@ -3,9 +3,10 @@
 import unittest
 import inspect
 
-from Types import I, J
-from Model import Model, DetAddrWithSubst
+from Types import F, I, Indices, J
+from Model import Model, DetAddrWithSubst, RelatedPair
 from Subst import Subst, empty_subst, Plus
+from Funcs import same, succ
 
 
 class TestModel(unittest.TestCase):
@@ -77,5 +78,25 @@ class TestModel(unittest.TestCase):
             model.addr_to_detaddrs(Subst.make_from((I, 1)), J, Plus(I, 2)),
             [
                 DetAddrWithSubst(Subst.make_from((I, 1), (J, 3)), 3),
+            ]
+        )
+
+    def test_detaddr_related_pairs(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, I, RelatedPair(I, J, F)),
+            [
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 3), (F, same)),
+                    Indices(1, 3)
+                ),
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 5), (F, succ)),
+                    Indices(1, 5)
+                ),
+                DetAddrWithSubst(
+                    Subst.make_from((I, 3), (J, 5), (F, succ)),
+                    Indices(3, 5)
+                )
             ]
         )

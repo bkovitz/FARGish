@@ -11,8 +11,10 @@ from abc import ABC, abstractmethod
 from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
     CanvasValue, \
     CellBundle, CellContent1, CellContent, DetAddr, End, FizzleValueNotFound, \
-    Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, extract_index, \
+    Func, Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, extract_index, \
     is_index, unbundle_cell_content
+from Subst import empty_subst
+from Funcs import apply_func
 from Log import lo
 from util import short, Numeric
 
@@ -69,6 +71,10 @@ class Canvas(ABC):
 
     def addrs_containing_value(self, v: Value) -> Iterable[Index]:
         return (a for a in self.all_addrs() if self[a] == v)
+
+    @abstractmethod
+    def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
+        pass
 
 @dataclass
 class ContentAndClarity:
@@ -328,6 +334,12 @@ class Canvas1D(Canvas):
 
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
         return self.contents.all_indices_and_values()
+
+    def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
+        if not (self.has_letter(i) and self.has_letter(j)):
+            return False
+        # TODO take the Subst as an argument to are_related_by
+        return apply_func(empty_subst, f, self[i]) == self[j]
 
     def __str__(self) -> str:
         clarities = ', '.join(str(c) for c in self.contents.all_clarities())

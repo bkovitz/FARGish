@@ -10,10 +10,12 @@ from abc import ABC, abstractmethod
 from itertools import chain, product
 
 from Types import Addr, CanvasValue, DetAddr, F, FizzleValueNotFound, Func, I, \
-    Index, J, MaybeIndex, Painter, SoupRef, Value, Variable, addr_str, func_str
+    Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
+    addr_str, func_str
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
+from Funcs import same, pred, succ
 from Log import lo
 from util import short, nf, Numeric
 
@@ -49,6 +51,41 @@ class DetAddrWithSubst:
     subst: Subst
     addr: DetAddr
 
+@dataclass(frozen=True)
+class RelatedPair:
+    '''A kind of Addr: a RelatedPair matches any pair of canvas cells that
+    are related by a function, like same, pred, or succ.'''
+    i: Addr
+    j: Addr
+    f: Variable   # TODO Should allow some way to restrict or specify a
+                  # list of allowable Funcs, i.e. the allowable relations
+                  # between cells.
+
+    def to_detaddrs(self, canvas: Canvas, funcs: Iterable[Func]) \
+    -> Iterable[DetAddrWithSubst]:
+        match (self.i, self.j):
+            case (Variable(), Variable()):
+                for i in canvas.all_addrs():
+                    for j in canvas.all_addrs():
+                        if i >= j:
+                            continue
+                        for f in funcs:
+                            if canvas.are_related_by(i, j, f):
+                                yield DetAddrWithSubst(
+                                    Subst.make_from(
+                                        (self.i, i), (self.j, j), (self.f, f)
+                                    ),
+                                    Indices(i, j)
+                                )
+            case _:
+                raise NotImplementedError(
+                    f"RelatedPair.to_detaddrs: can't search over ({self.i}, {self.j})"
+                )
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
+
 @dataclass
 class Model:
     lts: Soup = field(default_factory=lambda: Soup())
@@ -56,6 +93,12 @@ class Model:
     canvas: Canvas1D = field(
         default_factory=lambda: Canvas1D.make_from('     ')
     )
+
+    primitive_funcs: FrozenSet = frozenset([same, succ, pred])
+
+    @classmethod
+    def canvas_from(cls, s: str) -> Model:
+        return Model(canvas=Canvas1D.make_from(s))
 
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
@@ -116,6 +159,8 @@ class Model:
                         yield DetAddrWithSubst(subst.unify(var, index), index)
                     case _:
                         raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
+            case RelatedPair():
+                yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
             case _:
                 raise NotImplementedError(
                     f'Addr {addr} has unknown type {type(addr)}.'
