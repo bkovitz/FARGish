@@ -208,26 +208,12 @@ class ContentsAndClarities:
 
 @dataclass
 class Canvas1D(Canvas):
-#    contents: List[CanvasValue] #= field(default_factory=list)
-#        # Always supply a value for 'contents'! The default is only to
-#        # avoid an error for following MAX_CLARITY, which has a default.
-#    clarities: List[Numeric] = field(  # same # of elems as 'contents'
-#        default_factory=list,
-#        init=False
-#    )
     contents: ContentsAndClarities = field(
         default_factory=lambda: ContentsAndClarities()
     )
 
-#    def __post_init__(self) -> None:
-#        self.clarities = [
-#            0 if x is None else int(self.INITIAL_CLARITY)   # - 1  * 0.61
-#                for i, x in enumerate(self.contents)
-#        ]
-
     @classmethod
     def make_from(cls, s: str) -> Canvas1D:
-        #return Canvas1D(contents=list(c if c != ' ' else None for c in s))
         result = cls()
         result.contents.min_index = 1
         result.contents.max_index = len(s)
@@ -247,17 +233,11 @@ class Canvas1D(Canvas):
         return result
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
-        #return range(1, len(self.contents) + 1)
         return range(self.contents.min_index, self.contents.max_index + 1)
 
     all_indices = all_addrs
 
     def has_addr(self, addr: Addr) -> bool:
-#        if isinstance(addr, int):
-#            addr = addr - 1
-#            return addr >= 0 and addr < len(self.contents)
-#        else:
-#            return False
         if is_index(addr):
             return (
                 addr >= self.contents.min_index
@@ -270,13 +250,6 @@ class Canvas1D(Canvas):
     has_index = has_addr
 
     def __getitem__(self, addr: Addr) -> CellContent:
-#        if isinstance(addr, int):
-#            try:
-#                return self.contents[addr - 1]
-#            except IndexError:
-#                return None
-#        else:
-#            return None
         match addr:
             case i if is_index(i):
                 return self.contents[addr]
@@ -288,33 +261,6 @@ class Canvas1D(Canvas):
                 return None
         assert False, "Canvas.__getitem__(): should not go past 'match' stmt"
         return None # Needed only to please mypy; stops [return] error
-
-
-    '''
-    # TODO change Addr to Index
-    def __setitem__(self, addr: Addr, x: CellContent) -> None:
-        if isinstance(addr, int):
-            addr = addr - 1
-            if addr < 0:  # off the left edge of the canvas
-                return
-            if self.clarities[addr] == 0:
-                try:
-                    self.contents[addr] = x
-                except IndexError:
-                    # TODO Stretch the canvas?
-                    return
-                if x is not None:
-                    self.clarities[addr] = 1
-            elif x != self.contents[addr]:  # Trying to overwrite a value
-                self.clarities[addr] -= 1
-                if self.clarities[addr] <= 0:
-                    self.contents[addr] = None
-            else:  # Trying to write the value that is already there
-                if self.clarities[addr] < self.MAX_CLARITY:
-                    self.clarities[addr] += 1
-        else:
-            pass  # raise an exception?
-    '''
 
     def __setitem__(self, i: Index, v: CellContent) -> None:
         for ii, vv in self.as_internal_args(i, v):
@@ -335,7 +281,6 @@ class Canvas1D(Canvas):
             case CellBundle():
                 yield (i, v.value)
                 yield from self.as_internal_args(i, v.annotations)
-        #assert False, f"as_internal_args(): should not go past 'match' stmt; {i}, {v}"
 
     # TODO UT
     def all_ixjypairs(self) -> Iterable[Tuple[Index, CanvasValue, Index, CanvasValue]]:
@@ -349,44 +294,17 @@ class Canvas1D(Canvas):
                             yield i, x, j, y
 
     def clarity(self, i: Index2) -> Numeric:
-#        if isinstance(addr, int):
-#            addr = addr - 1
-#            try:
-#                return self.clarities[addr]
-#            except IndexError:
-#                return self.MAX_CLARITY
-#        else:
-#            return 0  # raise an exception?
         return self.contents.clarity(i)
 
     def set_clarity(self, i: Index2, clarity: Numeric) -> None:
         self.contents.set_clarity(i, clarity)
 
     def addr_of(self, v: CanvasValue) -> int:
-#        for i, x in enumerate(self.contents):
-#            if x == v:
-#                return i + 1
-#        raise FizzleValueNotFound(v)
         for i in self.contents.all_indices():
             if self.contents[i] == v:
                 return i
         raise FizzleValueNotFound(v)
 
-#    def all_matching(self, v: CanvasValue) -> List[int]:
-#        return [
-#            i + 1
-#                for i, x in enumerate(self.contents)
-#                    if x == v
-#        ]
-
-#    def all_matching(self, v: CellContent) -> List[Index]:
-#        # NEXT Compare against ContentsAndClarities.as_bundle()
-#        target = self.v_to_target(v)
-#        return [
-#            i
-#                for i, v in self.all_indices_and_values()
-#                    if self.is_match((i, v), target)
-#        ]
     def all_matching(self, v: CellContent) -> List[Index]:
         return [
             i
@@ -403,46 +321,10 @@ class Canvas1D(Canvas):
     def as_bundle(self, i: Index) -> CellBundle:
         return self.contents.as_bundle(i)
 
-#    def is_match(
-#        self,
-#        candidate: Tuple[MaybeIndex, CanvasValue],
-#        target: Tuple[MaybeIndex, CanvasValue]
-#    ) -> bool:
-#        ci, cv = candidate
-#        ti, tv = target
-##        if ci is None or ti is None:
-##            pass
-##        else:
-##            if ci != ti:
-##                return False
-##        return cv == tv
-#        match (ci, ti):
-#            case (None, _):
-#                pass
-#            case (_, None):
-#                pass
-#            case (int(), int()):
-#                if ci != ti:
-#                    return False
-#                else:
-#                    pass
-#            case (int(), list()):
-#                if ci not in ti:  # type: ignore[operator]
-#                    return False
-#                else:
-#                    pass
-#        return cv == tv
-
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
-#        for i, x in enumerate(self.contents):
-#            yield i + 1, x
         return self.contents.all_indices_and_values()
 
     def __str__(self) -> str:
-#        items = ' '.join(short(x) for x in self.contents)
-#        citems = ' '.join(short(c) for c in self.clarities)
-#        return f'[{items}]'
-#        #return f'[{items}]{newline}[{citems}]'
         clarities = ', '.join(str(c) for c in self.contents.all_clarities())
         return f"'{self.short_str()}'  {clarities}"
 
