@@ -7,7 +7,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 
-from Types import Func, Value, Painter, is_painter, painter_str, Fizzle
+from Types import Expr, Func, Value, Painter, is_painter, painter_str, Fizzle
 from Subst import Subst
 from util import short
 
@@ -47,6 +47,16 @@ class const:
             return f'{cl}({painter_str(self.v)})'
         else:
             return f'{cl}({short(self.v)})'
+
+### Painter-building functions
+
+#@dataclass(frozen=True)
+#class MakeBetweenPainter:
+#    i: Addr
+#    j: Addr
+#    f: Func
+#
+#    def __call__(self, subst: Subst, ignored: Value) -> Value:
 
 ### apply_func()
 

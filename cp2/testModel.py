@@ -100,3 +100,13 @@ class TestModel(unittest.TestCase):
                 )
             ]
         )
+
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, I, RelatedPair(I, J, same)),
+            [
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 3)),
+                    Indices(1, 3)
+                ),
+            ]
+        )

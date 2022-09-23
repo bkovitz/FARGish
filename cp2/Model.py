@@ -57,11 +57,11 @@ class RelatedPair:
     are related by a function, like same, pred, or succ.'''
     i: Addr
     j: Addr
-    f: Variable   # TODO Should allow some way to restrict or specify a
+    f: Func       # NEXT Should allow some way to restrict or specify a
                   # list of allowable Funcs, i.e. the allowable relations
                   # between cells.
 
-    def to_detaddrs(self, canvas: Canvas, funcs: Iterable[Func]) \
+    def to_detaddrs(self, canvas: Canvas, primitive_funcs: Iterable[Func]) \
     -> Iterable[DetAddrWithSubst]:
         match (self.i, self.j):
             case (Variable(), Variable()):
@@ -69,7 +69,7 @@ class RelatedPair:
                     for j in canvas.all_addrs():
                         if i >= j:
                             continue
-                        for f in funcs:
+                        for f in self.func_iter(self.f, primitive_funcs):
                             if canvas.are_related_by(i, j, f):
                                 yield DetAddrWithSubst(
                                     Subst.make_from(
@@ -81,6 +81,15 @@ class RelatedPair:
                 raise NotImplementedError(
                     f"RelatedPair.to_detaddrs: can't search over ({self.i}, {self.j})"
                 )
+
+    def func_iter(self, f: Func, primitive_funcs: Iterable[Func]) \
+    -> Iterable[Func]:
+        match f:
+            case Variable():
+                yield from primitive_funcs
+            case _:
+                yield f
+            # TODO Other cases? Could a Variable be in an expression?
 
     def __str__(self) -> str:
         cl = self.__class__.__name__

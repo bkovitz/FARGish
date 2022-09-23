@@ -86,10 +86,14 @@ class Subst:
 
     @classmethod
     def make_from(cls, *pairs: Tuple[Expr, Expr]) -> Subst:
-        e = pmap().evolver()  # type: ignore[var-annotated]
-        for k, v in pairs:
-            e[k] = v
-        return cls(e.persistent())
+#        e = pmap().evolver()  # type: ignore[var-annotated]
+#        for k, v in pairs:
+#            e[k] = v
+#        return cls(e.persistent())
+        result = cls()
+        for lhs, rhs in pairs:
+            result = result.unify(lhs, rhs)
+        return result
 
     def merge(self, other: Subst) -> Subst:
         return Subst(self.d.update(other.d))
@@ -160,6 +164,11 @@ class Subst:
                 rvalue = rator.value_of(self)
                 #if lhs in self.
                 return self # TODO
+            case (Variable(), Variable()):
+                if lhs in self.d:
+                    return self.unify(lhs, self.d[rhs])
+                else:
+                    return Subst(self.d.set(lhs, rhs))
             case (Variable(), SoupRef()):
                 if lhs in self.d:
                     if self.d[lhs] == rhs:
@@ -178,7 +187,19 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, rhs))
-                
+            case (Variable(), f) if callable(f):
+                if lhs in self.d:
+                    if self.d[lhs] == rhs:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, rhs))
+            case (f, g) if callable(f) and callable(g):
+                if f == g:
+                    return self
+                else:
+                    return bottom_subst
             case _:
                 lo("Can't unify:", lhs, type(lhs), rhs, type(rhs))
                 raise NotImplementedError((lhs, rhs))

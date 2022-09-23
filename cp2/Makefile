@@ -44,7 +44,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testSoup.TestSoup.test_is_match_1
+	$(PY) -m unittest -v testModel.TestModel.test_detaddr_related_pairs
 
 # Acceptance tests
 at:
