@@ -3,7 +3,7 @@
 import unittest
 import inspect
 
-from Types import F, I, Indices, J
+from Types import F, I, Indices, J, Painter, WorkingSoup
 from Model import Model, DetAddrWithSubst, RelatedPair
 from Subst import Subst, empty_subst, Plus
 from Funcs import same, succ
@@ -108,5 +108,17 @@ class TestModel(unittest.TestCase):
                     Subst.make_from((I, 1), (J, 3)),
                     Indices(1, 3)
                 ),
+            ]
+        )
+
+    def test_detpainter_related_pairs(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        p: Painter = (RelatedPair(I, J, F), WorkingSoup, (I, J, F))
+        self.assertCountEqual(
+            model.painter_to_detpainters(p),
+            [
+                (1, 3, same),
+                (3, 5, succ),
+                (1, 5, succ)
             ]
         )

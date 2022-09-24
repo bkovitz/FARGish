@@ -114,6 +114,13 @@ class Subst:
                     case v:
                         return self.simplify(v)
 
+#    # TODO UT
+#    def simplify_as_funcs(self, primitive_funcs: Iterable[Func], func: Func) \
+#    -> Iterable[Func]:
+#        match func:
+#            case Variable():
+#                yield
+        
     # TODO rm?
     def as_index_fizzle(self, expr: Expr) -> Index:
         '''Same as .simplify() but Fizzles if the result is not an Index.'''

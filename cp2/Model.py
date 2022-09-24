@@ -57,9 +57,7 @@ class RelatedPair:
     are related by a function, like same, pred, or succ.'''
     i: Addr
     j: Addr
-    f: Func       # NEXT Should allow some way to restrict or specify a
-                  # list of allowable Funcs, i.e. the allowable relations
-                  # between cells.
+    f: Func
 
     def to_detaddrs(self, canvas: Canvas, primitive_funcs: Iterable[Func]) \
     -> Iterable[DetAddrWithSubst]:
@@ -113,16 +111,20 @@ class Model:
         self.canvas = Canvas1D.make_from(s)
 
     def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
+        print('PAINTER', short(p))
         source, target, func = p
         det_sources = self.addr_to_detaddrs(empty_subst, I, source)
         det_targets = chain.from_iterable(
             self.addr_to_detaddrs(ds.subst, J, target)
                 for ds in det_sources
         )
+        print('PRIMFUNCS', self.primitive_funcs)
         det_funcs = chain.from_iterable(
             self.func_to_detfuncs(dt.subst, F, func)
                 for dt in det_targets
         )
+        det_funcs = list(det_funcs) #DEBUG
+        print('DETFUNCS', det_funcs)
         # NEED to pair a subst with each DetAddr
         return (
             DetPainter(
@@ -135,7 +137,6 @@ class Model:
             ) for ds, dt, df in product(det_sources, det_targets, det_funcs)
         )
 
-    # NEXT Pass variable to assign index to
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
         match addr:
@@ -143,7 +144,6 @@ class Model:
                 yield DetAddrWithSubst(subst.unify(var, addr), addr)
             case str():
                 yield from (
-                    # NEXT subst needs to unify var with index
                     DetAddrWithSubst(subst.unify(var, index), index)
                         for index in self.canvas.all_matching(addr)
                 )
@@ -170,6 +170,8 @@ class Model:
                         raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
             case RelatedPair():
                 yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
+            case SoupRef():
+                yield DetAddrWithSubst(subst, addr)
             case _:
                 raise NotImplementedError(
                     f'Addr {addr} has unknown type {type(addr)}.'
@@ -177,5 +179,17 @@ class Model:
             # TODO
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
-    -> Iterable[Any]:  # TODO Create an appropriate type
-        pass
+    -> Iterable[Func]:  # TODO Create an appropriate type
+        print('FTOD', func)
+        # NEXT simplify_as_funcs()?
+        match func:
+            case Variable():
+                yield from self.primitive_funcs
+            case (i, j, f):
+                yield from product(
+                    subst.as_detaddrs(i), # NEED access to canvas
+                    subst.as_detaddrs(j), # NEED access to canvas
+                    subst.as_detfuncs(f)  # NEED primitive_funcs
+                )
+            case _:
+                yield func
