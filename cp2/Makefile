@@ -44,7 +44,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestModel.test_detpainter_related_pairs
+	$(PY) -m unittest -v testModel.TestModel.test_detpainter_related_pair
 
 # Acceptance tests
 at:

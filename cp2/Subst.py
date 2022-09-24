@@ -101,6 +101,9 @@ class Subst:
     def __contains__(self, x: Hashable) -> bool:
         return x in self.d
 
+    def __getitem__(self, x: Hashable) -> Optional[Index]:
+        return self.d.get(x, None)
+
     def simplify(self, expr: Expr) -> Union[Expr, None]:
         match expr:
             case int():

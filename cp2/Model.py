@@ -9,8 +9,8 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain, product
 
-from Types import Addr, CanvasValue, DetAddr, F, FizzleValueNotFound, Func, I, \
-    Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
+from Types import Addr, CanvasValue, F, FizzleValueNotFound, \
+    Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
     addr_str, func_str
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
@@ -26,8 +26,8 @@ class DetPainter:
     no matching or searching to be done in order to run it.'''
     subst: Subst
     source: DetAddr
-    target: Union[DetAddr, SoupRef]
-    func: Func
+    target: DetAddr
+    func: DetFunc
     prob_weight: Numeric
     basis: Optional[Painter] = None  # what this DetPainter was made from
 
@@ -42,14 +42,27 @@ class DetPainter:
             case _:
                 return True
 
+    def as_painter(self) -> Painter:
+        return (self.source, self.target, self.func)
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'({addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
+
+# A determinate Addr: no variables, no patterns, nothing to match or expand
+DetAddr = Union[Index, Indices, Painter, SoupRef]
+
+# A determinate Func: no variables
+DetFunc = Union[Value, DetPainter, Callable] 
 
 @dataclass(frozen=True)
 class DetAddrWithSubst:
     subst: Subst
     addr: DetAddr
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.subst)}, {short(self.addr)})'
 
 @dataclass(frozen=True)
 class RelatedPair:
@@ -69,6 +82,7 @@ class RelatedPair:
                             continue
                         for f in self.func_iter(self.f, primitive_funcs):
                             if canvas.are_related_by(i, j, f):
+                                #lo('ARER', i, j ,f)
                                 yield DetAddrWithSubst(
                                     Subst.make_from(
                                         (self.i, i), (self.j, j), (self.f, f)
@@ -110,33 +124,73 @@ class Model:
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
 
-    def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
-        print('PAINTER', short(p))
+    def OLDpainter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
+        lo('PAINTER', short(p))
         source, target, func = p
         det_sources = self.addr_to_detaddrs(empty_subst, I, source)
+        det_sources = list(det_sources) #DEBUG
+        lo('DETSRC', det_sources)
         det_targets = chain.from_iterable(
             self.addr_to_detaddrs(ds.subst, J, target)
                 for ds in det_sources
         )
-        print('PRIMFUNCS', self.primitive_funcs)
+        det_targets = list(det_targets) #DEBUG
+        lo('DETTARG', det_targets)
         det_funcs = chain.from_iterable(
             self.func_to_detfuncs(dt.subst, F, func)
                 for dt in det_targets
         )
         det_funcs = list(det_funcs) #DEBUG
-        print('DETFUNCS', det_funcs)
+        lo('DETFUNCS', det_funcs)
         # NEED to pair a subst with each DetAddr
+        # PROBLEM Cartesian product is wrong because some sources may be
+        # pared away due to matching targets; similarly for the funcs.
         return (
             DetPainter(
-                df.subst,
+                dt.subst,
                 ds.addr,
                 dt.addr,
-                df.func,
+                df,
                 1.0,   # TODO prob_weight,
                 p  # basis, "author"
             ) for ds, dt, df in product(det_sources, det_targets, det_funcs)
         )
 
+    def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
+        source, target, func = p
+
+        det_sources = self.addr_to_detaddrs(empty_subst, I, source)
+        det_sources = list(det_sources) #DEBUG
+        #lo('DETSRC', det_sources)
+
+        source_target_pairs = (
+            (ds, dt)
+                for ds in det_sources
+                    for dt in self.addr_to_detaddrs(ds.subst, J, target)
+        )
+        source_target_pairs = list(source_target_pairs) #DEBUG
+        #lo('DETTARG', source_target_pairs[1])
+
+        triples = (
+            (ds, dt, df)
+                for (ds, dt) in source_target_pairs
+                    for df in self.func_to_detfuncs(dt.subst, F, func)
+        )
+        triples = list(triples) #DEBUG
+        #lo('DETFUNCS', triples[2])
+
+        return (
+            DetPainter(
+                dt.subst,
+                ds.addr,
+                dt.addr,
+                df,
+                1.0,   # TODO prob_weight,
+                p  # basis, "author"
+            ) for ds, dt, df in triples
+        )
+
+    # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
         match addr:
@@ -169,7 +223,10 @@ class Model:
                     case _:
                         raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
             case RelatedPair():
-                yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
+                #yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
+                got = list(addr.to_detaddrs(self.canvas, self.primitive_funcs))
+                #lo('RPGOT', got)
+                yield from got
             case SoupRef():
                 yield DetAddrWithSubst(subst, addr)
             case _:
@@ -179,17 +236,21 @@ class Model:
             # TODO
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
-    -> Iterable[Func]:  # TODO Create an appropriate type
-        print('FTOD', func)
+    -> Iterable[DetFunc]:  # TODO Create an appropriate type
+        #print('FTOD', short(subst), '\n', var, '\n', short(func))
         # NEXT simplify_as_funcs()?
         match func:
             case Variable():
-                yield from self.primitive_funcs
+                if func in subst:
+                    yield subst[func]
+                else:
+                    yield from self.primitive_funcs
             case (i, j, f):
-                yield from product(
-                    subst.as_detaddrs(i), # NEED access to canvas
-                    subst.as_detaddrs(j), # NEED access to canvas
-                    subst.as_detfuncs(f)  # NEED primitive_funcs
-                )
+                for ii, jj, ff in product(
+                    self.addr_to_detaddrs(subst, I, i),
+                    self.addr_to_detaddrs(subst, J, j),
+                    self.func_to_detfuncs(subst, F, f)
+                ):
+                    yield (ii.addr, jj.addr, ff)
             case _:
                 yield func

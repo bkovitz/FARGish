@@ -781,6 +781,8 @@ def short(o) -> str:
         return f"({', '.join(short(x) for x in o)})"
     elif isinstance(o, set):
         return f"{{{', '.join(short(x) for x in o)}}}"
+    elif isinstance(o, frozenset):
+        return f"frozenset([{', '.join(short(x) for x in o)}])"
     elif isinstance(o, dict):
         items = [f'{repr(k)}: {short(v)}' for k, v in o.items()]
         return f"{{{', '.join(items)}}}"

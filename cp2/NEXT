@@ -1,6 +1,10 @@
 painter_to_detpainters
 
-    [RelatedPair[I,J,F], ws, [I,J,F]]
+    [RelatedPair[I,J,F], ws, [I,J,F]]  DONE
+
+        UT [RelatedPair[1,J,F], ws, [I,J,F]]
+
+        UT [RelatedPair[I,J,succ], ws, [I,J,F]]
 
     [[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
 

@@ -26,8 +26,11 @@ CanvasValue = str
 Index = int   # the index of a cell within a Canvas
 MaybeIndex = Union[Index, None, List[Index]]  # TODO rename or divide into type types: List[Index] is not always appropriate
 Expr = Any
-Addr = Any
-Func = Any
+Addr = Any  # An address, possibly with variables, patterns, special objects
+            # that search for matches; possibly a Painter.
+Func = Any  # A Value, Painter, or callable 
+# The above are defined as Any only because mypy can't handle recursive type
+# definitions, which would result from defining Painter as containing them.
 Painter = Tuple[Addr, Addr, Func]
 Value = Union[CanvasValue, Painter, Func]
 
@@ -197,7 +200,9 @@ class Indices:
     def __init__(self, *i: Index2):
         force_setattr(self, 'elems', tuple(i))
 
-DetAddr = Union[Index, Indices, Painter, SoupRef]  # A determined Addr
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f"{cl}({', '.join(str(e) for e in self.elems)})"
 
 @dataclass(frozen=True)
 class Variable:

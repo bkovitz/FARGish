@@ -10,12 +10,12 @@ from abc import ABC, abstractmethod
 
 from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
     CanvasValue, \
-    CellBundle, CellContent1, CellContent, DetAddr, End, FizzleValueNotFound, \
-    Func, Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, extract_index, \
-    is_index, unbundle_cell_content
+    CellBundle, CellContent1, CellContent, End, FizzleValueNotFound, \
+    Func, Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, \
+    extract_index, is_index, unbundle_cell_content
 from Subst import empty_subst
 from Funcs import apply_func
-from Log import lo
+from Log import lo, trace
 from util import short, Numeric
 
 
@@ -57,8 +57,8 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
-    def addr_of(self, v: CanvasValue) -> DetAddr:
-        '''Returns the DetAddr of the cell that contains v, or
+    def addr_of(self, v: CanvasValue) -> Index:
+        '''Returns the Index of the cell that contains v, or
         raises FizzleValueNotFound if no cell contains v.'''
         pass
 
@@ -336,6 +336,7 @@ class Canvas1D(Canvas):
         return self.contents.all_indices_and_values()
 
     def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
+        #raise Exception('HERE')
         if not (self.has_letter(i) and self.has_letter(j)):
             return False
         # TODO take the Subst as an argument to are_related_by
