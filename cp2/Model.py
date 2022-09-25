@@ -12,6 +12,7 @@ from itertools import chain, product
 from Types import Addr, CanvasValue, F, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
     addr_str, func_str
+import Types
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
@@ -123,6 +124,16 @@ class Model:
 
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
+
+    def run_detpainter(self, painter: Tuple[DetAddr, DetAddr, DetFunc]) -> None:
+        source, target, func = painter
+        match target:
+            #TODO Painting to canvas
+            case Types.WorkingSoup:
+                self.ws.add(func)  # type: ignore[arg-type]
+            #TODO Painting to long-term soup
+            case _:
+                raise NotImplementedError(f"run_detpainter: can't paint to target; painter={painter}")
 
     def OLDpainter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
         lo('PAINTER', short(p))

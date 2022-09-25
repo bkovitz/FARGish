@@ -38,6 +38,9 @@ class Soup:
         for p in self.painters:
             self.painters[p] *= factor
 
+    def __contains__(self, p: Painter) -> bool:
+        return p in self.painters
+
     def __iter__(self) -> Iterator[Painter]:
         return iter(self.painters)
 

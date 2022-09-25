@@ -82,7 +82,7 @@ class TestModel(unittest.TestCase):
             ]
         )
 
-    def test_detaddr_related_pair(self) -> None:
+    def test_related_pair_detaddrs(self) -> None:
         model = Model.canvas_from('ajaqb')
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, RelatedPair(I, J, F)),
@@ -113,7 +113,7 @@ class TestModel(unittest.TestCase):
         )
 
     maxDiff = None
-    def test_detpainter_related_pair(self) -> None:
+    def test_related_pair_detpainters(self) -> None:
         model = Model.canvas_from('ajaqb')
         p: Painter = (RelatedPair(I, J, F), WorkingSoup, (I, J, F))
 #        lo('RESULT')
@@ -127,3 +127,10 @@ class TestModel(unittest.TestCase):
                 (Indices(1, 5), WorkingSoup, (1, 5, succ))
             ]
         )
+
+    def test_related_pair_painter(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        model.run_detpainter((Indices(1, 3), WorkingSoup, (1, 3, same)))
+        #lo(model.ws.state_str())
+        self.assertTrue((1, 3, same) in model.ws)
+
