@@ -26,10 +26,9 @@ class Soup:
     def make_from(cls, painters: Iterable[Painter]) -> Soup:
         return Soup(defaultdict(int, ((p, 1) for p in painters)))
 
-    def add(self, p: Painter) -> None:
-        #self.painters.add(p)
-        self.painters[p] += 1
-        #self.painters.append(p)
+    def add(self, *painters: Painter) -> None:
+        for p in painters:
+            self.painters[p] += 1
 
     def clarity(self, p: Painter) -> Numeric:
         return self.painters.get(p, 0.0)
@@ -58,7 +57,7 @@ class Soup:
 
         Returning a BottomSubst() means no match.
         '''
-        # NEXT Require match of func, too
+        # TODO Require match of func, too
         xi, xj, xf = xp
         pi = as_index(p[0])
         pj = as_index(p[1])

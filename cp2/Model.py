@@ -9,14 +9,14 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain, product
 
-from Types import Addr, CanvasValue, F, FizzleValueNotFound, \
+from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
-    addr_str, func_str
+    addr_str, func_str, is_painter, painter_str
 import Types
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
-from Funcs import same, pred, succ
+#from Funcs import same, pred, succ
 from Log import lo
 from util import short, nf, Numeric
 
@@ -108,6 +108,67 @@ class RelatedPair:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
 
+### The basic relational functions
+
+def same(subst: Subst, v: Value) -> Value:
+    return v
+
+def succ(subst: Subst, v: Value) -> Value:
+    # TODO Deal with 'z'
+    if isinstance(v, str):
+        return chr(ord(v) + 1)
+    elif isinstance(v, int):
+        return v + 1
+    raise Fizzle("succ: Can't take successor of {v}")
+
+def pred(subst: Subst, v: Value) -> Value:
+    # TODO Deal with 'a'
+    if isinstance(v, str):
+        return chr(ord(v) - 1)
+    elif isinstance(v, int):
+        return v - 1
+    raise Fizzle("pred: Can't take predecessor of {v}")
+
+### The constant function
+
+@dataclass(frozen=True)
+class const:
+    v: Value
+
+    def __call__(self, subst: Subst, ignored: Value) -> Value:
+        return self.v
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        if is_painter(self.v):
+            return f'{cl}({painter_str(self.v)})'
+        else:
+            return f'{cl}({short(self.v)})'
+
+### Painter-building functions
+
+@dataclass(frozen=True)
+class MakeBetweenPainter:
+    i: Addr
+    j: Addr
+    f: Func
+
+    def __call__(self, model: Model, subst: Subst, ignored: Value) -> Value:
+        return (self.i, self.j, model.contents_at(self.j))
+
+### apply_func()
+
+def apply_func(subst: Subst, f: Func, v: Value) \
+-> Union[Value, Painter]:
+    if isinstance(f, str) or isinstance(f, int) or is_painter(f):
+        return f
+    elif callable(f):
+        return f(subst, v)
+    else:
+        raise NotImplementedError(f"apply_func: can't apply {f}")
+
+### The model
+
 @dataclass
 class Model:
     lts: Soup = field(default_factory=lambda: Soup())
@@ -124,6 +185,10 @@ class Model:
 
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
+
+    def contents_at(self, addr: Addr) -> Value:
+        #TODO Look up a painter by addr?
+        return self.canvas[addr]
 
     def run_detpainter(self, painter: Tuple[DetAddr, DetAddr, DetFunc]) -> None:
         source, target, func = painter
@@ -240,16 +305,16 @@ class Model:
                 yield from got
             case SoupRef():
                 yield DetAddrWithSubst(subst, addr)
+            # NEXT: Tuple. Expand Addrs and Func?
+            # Call the existing code that does this
             case _:
                 raise NotImplementedError(
                     f'Addr {addr} has unknown type {type(addr)}.'
                 )
-            # TODO
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
     -> Iterable[DetFunc]:  # TODO Create an appropriate type
         #print('FTOD', short(subst), '\n', var, '\n', short(func))
-        # NEXT simplify_as_funcs()?
         match func:
             case Variable():
                 if func in subst:

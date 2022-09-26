@@ -4,9 +4,9 @@ import unittest
 import inspect
 
 from Types import F, I, Indices, J, Painter, WorkingSoup
-from Model import Model, DetAddrWithSubst, RelatedPair
+from Model import Model, DetAddrWithSubst, RelatedPair, same, succ, \
+    MakeBetweenPainter
 from Subst import Subst, empty_subst, Plus
-from Funcs import same, succ
 from Log import lo
 
 
@@ -133,4 +133,46 @@ class TestModel(unittest.TestCase):
         model.run_detpainter((Indices(1, 3), WorkingSoup, (1, 3, same)))
         #lo(model.ws.state_str())
         self.assertTrue((1, 3, same) in model.ws)
+
+    def test_match_all_abs_painters(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        model.ws.add(
+            (1, 3, same),
+            (3, 5, succ),
+            (1, 5, succ)
+        )
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, I, (I, J, F)),
+            [
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 3), (F, same)),
+                    (1, 3, same)
+                ),
+                DetAddrWithSubst(
+                    Subst.make_from((I, 3), (J, 5), (F, succ)),
+                    (3, 5, succ)
+                ),
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 5), (F, succ)),
+                    (1, 5, succ)
+                )
+            ]
+        )
+
+    @unittest.skip('not yet')
+    def test_make_between_painter_detpainters(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        model.ws.add((Indices(1, 3), WorkingSoup, (1, 3, same)))
+        p: Painter = (
+            (I, Plus(I, 2), F),
+            WorkingSoup,
+            MakeBetweenPainter(I, Plus(I, 1), F)
+        )
+        # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
+        self.assertCountEqual(
+            [dp.as_painter() for dp in model.painter_to_detpainters(p)],
+            [
+                (1, 2, 'j')
+            ]
+        )
 
