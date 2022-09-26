@@ -6,11 +6,12 @@ painter_to_detpainters
 
         UT [RelatedPair[I,J,succ], ws, [I,J,F]]
 
-    [[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
+    #[[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
+    [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]]  DONE
 
 
 
-run_painters
+run_detpainter_with_subst
 
     [1, 3, succ]
 

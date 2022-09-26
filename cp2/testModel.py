@@ -180,20 +180,32 @@ class TestModel(unittest.TestCase):
             ]
         )
 
-    @unittest.skip('not yet')
-    def test_make_between_painter_detpainters(self) -> None:
+#    def test_fill_variables_in_make_between_painter(self) -> None:
+#        model = Model.canvas_from('ajaqb')
+#        subst = Subst.make_from((I, 1), (J, 3), (F, same))
+#        self.assertCountEqual(
+#            model.func_to_detfuncs(
+#                subst, F, MakeBetweenPainter(I, Plus(I, 1), F)
+#            ),
+#            [
+#                DetFunc
+#            ]
+#        )
+        
+    def test_make_between_painter(self) -> None:
         model = Model.canvas_from('ajaqb')
-        model.ws.add((Indices(1, 3), WorkingSoup, (1, 3, same)))
+        #model.ws.add((Indices(1, 3), WorkingSoup, (1, 3, same)))
+        model.ws.add((1, 3, same))
         p: Painter = (
             (I, Plus(I, 2), F),
             WorkingSoup,
             MakeBetweenPainter(I, Plus(I, 1), F)
         )
         # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
-        self.assertCountEqual(
-            [dp.as_painter() for dp in model.painter_to_detpainters(p)],
-            [
-                (1, 2, 'j')
-            ]
-        )
-
+        dpainters = list(model.painter_to_detpainters(p))
+        #lo('DP', dpainters[0])
+        self.assertEqual(len(dpainters), 1)
+        model.run_detpainter(dpainters[0].as_painter(), dpainters[0].subst)
+        #print(model.ws.state_str())
+        self.assertIn((1, 2, (I, Plus(I, 1), 'j')), model.ws)
+        #self.assertIn((1, 2, 'j'), model.ws)

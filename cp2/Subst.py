@@ -221,6 +221,7 @@ class Subst:
             return self.unify(lhs, rhs)
         else:
             return self
+
     def short(self) -> str:
         cl = self.__class__.__name__
         items = ', '.join(

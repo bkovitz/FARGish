@@ -17,7 +17,7 @@ from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 #from Funcs import same, pred, succ
-from Log import lo
+from Log import lo, trace
 from util import short, nf, Numeric
 
 
@@ -48,7 +48,7 @@ class DetPainter:
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'({addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
+        return f'({short(self.subst)}, {addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
 
 # A determinate Addr: no variables, no patterns, nothing to match or expand
 DetAddr = Union[Index, Indices, Painter, SoupRef]
@@ -154,18 +154,18 @@ class MakeBetweenPainter:
     f: Func
 
     def __call__(self, model: Model, subst: Subst, ignored: Value) -> Value:
-        return (self.i, self.j, model.contents_at(self.j))
-
-### apply_func()
-
-def apply_func(subst: Subst, f: Func, v: Value) \
--> Union[Value, Painter]:
-    if isinstance(f, str) or isinstance(f, int) or is_painter(f):
-        return f
-    elif callable(f):
-        return f(subst, v)
-    else:
-        raise NotImplementedError(f"apply_func: can't apply {f}")
+        #return (self.i, self.j, model.contents_at(self.j))
+        result_i = subst.as_index(self.i)
+        if result_i is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_j = subst.as_index(self.j)
+        if result_j is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        value = model.canvas[result_i + 1]
+        if value is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_f = (I, Plus(I, 1), value)
+        return (result_i, result_j, result_f)
 
 ### The model
 
@@ -190,12 +190,24 @@ class Model:
         #TODO Look up a painter by addr?
         return self.canvas[addr]
 
-    def run_detpainter(self, painter: Tuple[DetAddr, DetAddr, DetFunc]) -> None:
+    def run_detpainter(
+        self,
+        painter: Tuple[DetAddr, DetAddr, DetFunc],
+        subst: Subst=empty_subst
+    ) -> None:
+        '''Runs a DetPainter, with caller-supplied Subst. This function does
+        not get called during normal running of the model. It's a convenience
+        for experimentation and unit testing.'''
         source, target, func = painter
+        #lo('RUNDETP', source, target, func)
         match target:
             #TODO Painting to canvas
             case Types.WorkingSoup:
-                self.ws.add(func)  # type: ignore[arg-type]
+                match self.apply_func(subst, func, self.contents_at(source)):
+                    case p if is_painter(p):
+                        self.ws.add(p)
+                    case x:
+                        raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
             #TODO Painting to long-term soup
             case _:
                 raise NotImplementedError(f"run_detpainter: can't paint to target; painter={painter}")
@@ -345,3 +357,13 @@ class Model:
                     yield (ii.addr, jj.addr, ff)
             case _:
                 yield func
+
+    def apply_func(self, subst: Subst, f: Func, v: Value) \
+    -> Union[Value, Painter]:
+        if isinstance(f, str) or isinstance(f, int) or is_painter(f):
+            return f
+        elif callable(f):
+            return f(self, subst, v)
+        else:
+            raise NotImplementedError(f"apply_func: can't apply {f}")
+
