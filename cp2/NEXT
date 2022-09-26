@@ -9,6 +9,15 @@ painter_to_detpainters
     [[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
 
 
+
+run_painters
+
+    [1, 3, succ]
+
+    [RelatedPair[I,J,F], ws, [I,J,F]]
+
+    [[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
+
 UT
 
     painting an annotation  DONE

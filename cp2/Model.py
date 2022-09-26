@@ -305,12 +305,27 @@ class Model:
                 yield from got
             case SoupRef():
                 yield DetAddrWithSubst(subst, addr)
-            # NEXT: Tuple. Expand Addrs and Func?
-            # Call the existing code that does this
+            case (i, j, f):
+                for painter in self.soups():
+                    pi, pj, pf = painter
+                    subst2 = subst. \
+                        unify(i, pi). \
+                        unify_if_undefined(I, pi). \
+                        unify(j, pj). \
+                        unify_if_undefined(J, pj). \
+                        unify(f, pf). \
+                        unify_if_undefined(F, pf)
+                    if subst2:
+                        if I not in subst2:
+                            subst2 = subst2.unify
+                        yield DetAddrWithSubst(subst2, painter)
             case _:
                 raise NotImplementedError(
                     f'Addr {addr} has unknown type {type(addr)}.'
                 )
+
+    def soups(self) -> Soup:
+        return self.lts.union(self.ws)
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
     -> Iterable[DetFunc]:  # TODO Create an appropriate type

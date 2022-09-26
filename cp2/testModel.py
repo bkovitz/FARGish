@@ -159,6 +159,27 @@ class TestModel(unittest.TestCase):
             ]
         )
 
+    def test_match_some_abs_painters(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        model.ws.add(
+            (1, 3, same),
+            (3, 5, succ),
+            (1, 5, succ)
+        )
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, I, (I, Plus(I, 2), F)),
+            [
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 3), (F, same)),
+                    (1, 3, same)
+                ),
+                DetAddrWithSubst(
+                    Subst.make_from((I, 3), (J, 5), (F, succ)),
+                    (3, 5, succ)
+                )
+            ]
+        )
+
     @unittest.skip('not yet')
     def test_make_between_painter_detpainters(self) -> None:
         model = Model.canvas_from('ajaqb')

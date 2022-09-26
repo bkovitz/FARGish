@@ -216,6 +216,11 @@ class Subst:
         assert False, "unify(): should not go past 'match' stmt"
         return self # Needed only to please mypy; stops [return] error
 
+    def unify_if_undefined(self, lhs: Expr, rhs: Expr) -> Subst:
+        if lhs not in self:
+            return self.unify(lhs, rhs)
+        else:
+            return self
     def short(self) -> str:
         cl = self.__class__.__name__
         items = ', '.join(
