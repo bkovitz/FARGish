@@ -32,6 +32,18 @@ class DetPainter:
     prob_weight: Numeric
     basis: Optional[Painter] = None  # what this DetPainter was made from
 
+    @classmethod
+    def make_from(cls, painter: Tuple[DetAddr, DetAddr, DetFunc]) -> DetPainter:
+        source, target, func = painter
+        return cls(
+            empty_subst,
+            source,
+            target,
+            func,
+            1,
+            None
+        )
+
     def is_valid_for(self, canvas: Canvas) -> bool:
         match (self.source, self.target):
             case (int(), int()):
@@ -192,25 +204,20 @@ class Model:
 
     def run_detpainter(
         self,
-        painter: Tuple[DetAddr, DetAddr, DetFunc],
-        subst: Subst=empty_subst
+        dp: DetPainter
     ) -> None:
-        '''Runs a DetPainter, with caller-supplied Subst. This function does
-        not get called during normal running of the model. It's a convenience
-        for experimentation and unit testing.'''
-        source, target, func = painter
-        #lo('RUNDETP', source, target, func)
-        match target:
+        v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
+        match dp.target:
             #TODO Painting to canvas
             case Types.WorkingSoup:
-                match self.apply_func(subst, func, self.contents_at(source)):
+                match v:
                     case p if is_painter(p):
                         self.ws.add(p)
                     case x:
                         raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
             #TODO Painting to long-term soup
             case _:
-                raise NotImplementedError(f"run_detpainter: can't paint to target; painter={painter}")
+                raise NotImplementedError(f"run_detpainter: can't paint to target; dp={dp}")
 
     def OLDpainter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
         lo('PAINTER', short(p))

@@ -4,8 +4,8 @@ import unittest
 import inspect
 
 from Types import F, I, Indices, J, Painter, WorkingSoup
-from Model import Model, DetAddrWithSubst, RelatedPair, same, succ, \
-    MakeBetweenPainter
+from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
+    same, succ, MakeBetweenPainter
 from Subst import Subst, empty_subst, Plus
 from Log import lo
 
@@ -130,7 +130,11 @@ class TestModel(unittest.TestCase):
 
     def test_related_pair_painter(self) -> None:
         model = Model.canvas_from('ajaqb')
-        model.run_detpainter((Indices(1, 3), WorkingSoup, (1, 3, same)))
+        dp = DetPainter.make_from(
+            (Indices(1, 3), WorkingSoup, (1, 3, same))
+        )
+        #model.run_detpainter((Indices(1, 3), WorkingSoup, (1, 3, same)))
+        model.run_detpainter(dp)
         #lo(model.ws.state_str())
         self.assertTrue((1, 3, same) in model.ws)
 
@@ -205,7 +209,7 @@ class TestModel(unittest.TestCase):
         dpainters = list(model.painter_to_detpainters(p))
         #lo('DP', dpainters[0])
         self.assertEqual(len(dpainters), 1)
-        model.run_detpainter(dpainters[0].as_painter(), dpainters[0].subst)
+        model.run_detpainter(dpainters[0])
         #print(model.ws.state_str())
         self.assertIn((1, 2, (I, Plus(I, 1), 'j')), model.ws)
         #self.assertIn((1, 2, 'j'), model.ws)
