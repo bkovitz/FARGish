@@ -1,4 +1,8 @@
 # Log.py
+#
+# The higher the logging level, the more log messages get sent. So, the higher
+# the logging level attached to a particular message (sent via the 'lo()'
+# function), the less likely that message is to be included in the log.
 
 from __future__ import annotations
 from dataclasses import dataclass, replace, field, InitVar
@@ -32,7 +36,7 @@ def lo(*args, **kwargs) -> None:
     '''Prints args to log file, at current indentation level.'''
     global log_level
     if len(args) >= 1 and isinstance(args[0], int):
-        if log_level > args[0]:
+        if log_level < args[0]:
             return
         else:
             args = args[1:]

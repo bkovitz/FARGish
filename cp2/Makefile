@@ -44,8 +44,8 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	#$(PY) -m unittest -v testModel.TestModel.test_rel_indirect_painter
-	$(PY) -m unittest -v testLog
+	$(PY) -m unittest -v testModel.TestModel.test_make_between_painter
+	#$(PY) -m unittest -v testLog
 
 # Acceptance tests
 at:

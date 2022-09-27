@@ -7,7 +7,7 @@ from Types import F, I, Indices, J, Painter, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ, MakeBetweenPainter
 from Subst import Subst, empty_subst, Plus
-from Log import lo
+from Log import lo, set_log_level
 from util import short
 
 
@@ -187,6 +187,7 @@ class TestModel(unittest.TestCase):
 
     def test_make_between_painter(self) -> None:
         '''A cascade of three painters.'''
+        set_log_level(9)
         p1: Painter = (
             (I, Plus(I, 2), F),
                 # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)

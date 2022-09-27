@@ -273,7 +273,6 @@ class Model:
             dp.prob_weight
         )
 
-    @trace
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:
             case int():
@@ -387,61 +386,61 @@ class Model:
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
-        #with logging(None, 'A2DS', addr, addr in subst, subst[addr]):
-        match addr:
-            case int():
-                yield DetAddrWithSubst(subst.unify(var, addr), addr)
-            case str():
-                yield from (
-                    DetAddrWithSubst(subst.unify(var, index), index)
-                        for index in self.canvas.all_matching(addr)
-                )
-            case Variable():
-                if addr in subst:
+        with indent_log(1, 'A2DS', addr, addr in subst, subst[addr]):
+            match addr:
+                case int():
+                    yield DetAddrWithSubst(subst.unify(var, addr), addr)
+                case str():
                     yield from (
-                        self.addr_to_detaddrs(subst, var, subst.simplify(addr))
+                        DetAddrWithSubst(subst.unify(var, index), index)
+                            for index in self.canvas.all_matching(addr)
                     )
-                else:
-                    yield from (
-                        DetAddrWithSubst(
-                            subst.unify(var, index).unify(addr, index),
-                            index
+                case Variable():
+                    if addr in subst:
+                        yield from (
+                            self.addr_to_detaddrs(subst, var, subst.simplify(addr))
                         )
-                            for index in self.canvas.all_addrs()
+                    else:
+                        yield from (
+                            DetAddrWithSubst(
+                                subst.unify(var, index).unify(addr, index),
+                                index
+                            )
+                                for index in self.canvas.all_addrs()
+                        )
+                case Plus():
+                    match subst.as_index(addr):
+                        case None:
+                            return
+                        case int() as index:
+                            yield DetAddrWithSubst(subst.unify(var, index), index)
+                        case _:
+                            raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
+                case RelatedPair():
+                    #yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
+                    got = list(addr.to_detaddrs(
+                        self, self.canvas, self.primitive_funcs)
                     )
-            case Plus():
-                match subst.as_index(addr):
-                    case None:
-                        return
-                    case int() as index:
-                        yield DetAddrWithSubst(subst.unify(var, index), index)
-                    case _:
-                        raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
-            case RelatedPair():
-                #yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
-                got = list(addr.to_detaddrs(
-                    self, self.canvas, self.primitive_funcs)
-                )
-                #lo('RPGOT', got)
-                yield from got
-            case SoupRef():
-                yield DetAddrWithSubst(subst, addr)
-            case (i, j, f):
-                for painter in self.soups():
-                    pi, pj, pf = painter
-                    subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
-                    if not isinstance(pj, SoupRef):  # HACK
-                        subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
-                    # TODO subst2.unify(f, pf). ?
-                    subst2 = subst2.unify_if_undefined(F, pf)
-                    if subst2:
-                        if I not in subst2:
-                            subst2 = subst2.unify(I, pi) #TODO Is this right?
-                        yield DetAddrWithSubst(subst2, painter)
-            case _:
-                raise NotImplementedError(
-                    f'Addr {addr} has unknown type {type(addr)}.'
-                )
+                    lo(5, 'RPGOT', got)
+                    yield from got
+                case SoupRef():
+                    yield DetAddrWithSubst(subst, addr)
+                case (i, j, f):
+                    for painter in self.soups():
+                        pi, pj, pf = painter
+                        subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
+                        if not isinstance(pj, SoupRef):  # HACK
+                            subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
+                        # TODO subst2.unify(f, pf). ?
+                        subst2 = subst2.unify_if_undefined(F, pf)
+                        if subst2:
+                            if I not in subst2:
+                                subst2 = subst2.unify(I, pi) #TODO Is this right?
+                            yield DetAddrWithSubst(subst2, painter)
+                case _:
+                    raise NotImplementedError(
+                        f'Addr {addr} has unknown type {type(addr)}.'
+                    )
 
     def soups(self) -> Soup:
         return Soup.union(self.lts, self.ws)
