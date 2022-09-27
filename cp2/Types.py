@@ -35,6 +35,9 @@ Painter = Tuple[Addr, Addr, Func]
 Value = Union[CanvasValue, Painter, Func]
 
 
+class SpecialAddr:
+    pass
+
 @dataclass(frozen=True)
 class AnnotationType:
     name: str

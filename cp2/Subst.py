@@ -14,7 +14,8 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Types import Addr, Expr, F, Func, I, Index, Indices, J, \
-    FizzleNotIndex, SoupRef, Variable, as_index, is_func, is_index, is_painter
+    FizzleNotIndex, SoupRef, SpecialAddr, Variable, \
+    as_index, is_func, is_index, is_painter
 from Log import lo, trace
 from util import force_setattr, short
 
@@ -213,13 +214,15 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, rhs))
+            case (Variable(), SpecialAddr()):
+                return bottom_subst
             case (f, g) if callable(f) and callable(g):
                 if f == g:
                     return self
                 else:
                     return bottom_subst
             case _:
-                lo("Can't unify:", lhs, type(lhs), ' with ', rhs, type(rhs))
+                lo("Unimplemented unification:", lhs, type(lhs), ' with ', rhs, type(rhs))
                 raise NotImplementedError((lhs, rhs))
         assert False, "unify(): should not go past 'match' stmt"
         return self # Needed only to please mypy; stops [return] error

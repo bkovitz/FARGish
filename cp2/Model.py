@@ -13,8 +13,8 @@ from random import choice, choices, random
 import sys
 
 from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
-    Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
-    WorkingSoup, addr_str, func_str, is_painter, painter_str
+    Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, SpecialAddr, \
+    Value, Variable, WorkingSoup, addr_str, func_str, is_painter, painter_str
 import Types
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
@@ -83,7 +83,7 @@ class DetAddrWithSubst:
         return f'{cl}({short(self.subst)}, {short(self.addr)})'
 
 @dataclass(frozen=True)
-class RelatedPair:
+class RelatedPair(SpecialAddr):
     '''A kind of Addr: a RelatedPair matches any pair of canvas cells that
     are related by a function, like same, pred, or succ.'''
     i: Addr
@@ -386,7 +386,8 @@ class Model:
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
-        with indent_log(1, 'A2DS', addr, addr in subst, subst[addr]):
+        with indent_log(5, 'A2DS', addr, addr in subst, subst[addr]):
+            lo('HERE')
             match addr:
                 case int():
                     yield DetAddrWithSubst(subst.unify(var, addr), addr)
@@ -428,6 +429,7 @@ class Model:
                 case (i, j, f):
                     for painter in self.soups():
                         pi, pj, pf = painter
+                        lo(5, 'MATCHING PAINTERS', (i, j, f), (pi, pj, pf))
                         subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
                         if not isinstance(pj, SoupRef):  # HACK
                             subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
