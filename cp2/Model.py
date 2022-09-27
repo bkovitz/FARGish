@@ -273,6 +273,7 @@ class Model:
             dp.prob_weight
         )
 
+    @trace
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:
             case int():

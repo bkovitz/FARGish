@@ -76,7 +76,7 @@ def trace(func):
             argstring += ', '.join(
                 f'{name}={value}' for name, value in kwargs.items()
             )
-        with logging(None, f'{func.__name__}({argstring})'):
+        with indent_log(f'{func.__name__}({argstring})'):
             result = func(*args, **kwargs)
         lo(f'-> {short(result)}')
         return result
