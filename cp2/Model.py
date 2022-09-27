@@ -215,6 +215,13 @@ class Model:
         #TODO Look up a painter by addr?
         return self.canvas[addr]
 
+    def absorb(self, s: str):
+        self.set_canvas(s)
+        #NEXT  Set up initial painters
+        #      Run them a while
+        #      Save the abstract ones to the lts
+        #      Clear the ws
+
     def run_detpainter(
         self,
         dp: DetPainter

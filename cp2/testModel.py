@@ -244,3 +244,9 @@ class TestModel(unittest.TestCase):
             f'Painter {p} generated multiple DetPainters: {short(dpainters)}'
         )
         return dpainters[0]
+
+    def test_absorb(self) -> None:
+        model = Model()
+        model.absorb('ajaqb')
+        print(model.lts.state_str())
+        # TODO Test the contents of the lts
