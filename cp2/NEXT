@@ -2,9 +2,9 @@ painter_to_detpainters
 
     [RelatedPair[I,J,F], ws, [I,J,F]]  DONE
 
-        UT [RelatedPair[1,J,F], ws, [I,J,F]]
+        UT [RelatedPair[1,J,F], ws, [I,J,F]]  DONE
 
-        UT [RelatedPair[I,J,succ], ws, [I,J,F]]
+        UT [RelatedPair[I,J,succ], ws, [I,J,F]]  DONE
 
     #[[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
     [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]]  DONE
@@ -16,11 +16,11 @@ painter_to_detpainters
 
 run_detpainter
 
-    [1, 3, succ]
+    [1, 3, succ]  DONE
 
-    [RelatedPair[I,J,F], ws, [I,J,F]]
+    [RelatedPair[I,J,F], ws, [I,J,F]]  DONE
 
-    [[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
+    [[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]  DONE
 
 UT
 
@@ -37,6 +37,15 @@ UT
     matching a CellBundle to a cell  DONE
 
     check annotation's clarity
+
+Basics
+
+    UT rel painter  DONE
+
+    UT rel indirect painter   ('a', ws, (I, I+2, same))
+
+    UT create rel indirect painter 
+    (RelatedPair[I,J,F], ws, MakeRelativeIndirectPainter[I,J,F])
 
 
 matching

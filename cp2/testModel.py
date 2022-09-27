@@ -8,6 +8,7 @@ from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ, MakeBetweenPainter
 from Subst import Subst, empty_subst, Plus
 from Log import lo
+from util import short
 
 
 class TestModel(unittest.TestCase):
@@ -198,12 +199,12 @@ class TestModel(unittest.TestCase):
         model = Model.canvas_from('ajaqb')
         model.ws.add((1, 3, same))  # p1 will match this painter
 
-        dpainters = list(model.painter_to_detpainters(p1))
+        dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
         self.assertEqual(len(dpainters), 1)
         model.run_detpainter(dpainters[0])
         self.assertIn(p2, model.ws)
 
-        dp2s = list(model.painter_to_detpainters(p2))
+        dp2s = list(model.painter_to_detpainters(p2))  # TODO OAOO
         self.assertEqual(len(dp2s), 1)
         model.run_detpainter(dp2s[0])
         self.assertIn(p3, model.ws)
@@ -213,3 +214,19 @@ class TestModel(unittest.TestCase):
         model = Model.canvas_from('a    ')
         model.run_detpainter(DetPainter.make_from(p))
         self.assertEqual(model.canvas.short_str(), 'a a  ')
+
+    def test_rel_painter(self) -> None:
+        p = ('a', Plus(I, 2), succ)
+        model = Model.canvas_from('a    ')
+
+        dp = self.painter_to_one_detpainter(model, p)
+        self.assertEqual(dp.as_painter(), (1, 3, succ))
+        model.run_detpainter(dp)
+        self.assertEqual(model.canvas.short_str(), 'a b  ')
+
+    def painter_to_one_detpainter(self, model: Model, p: Painter) -> DetPainter:
+        dpainters = list(model.painter_to_detpainters(p))
+        self.assertEqual(len(dpainters), 1,
+            f'Painter {p} generated multiple DetPainters: {short(dpainters)}'
+        )
+        return dpainters[0]
