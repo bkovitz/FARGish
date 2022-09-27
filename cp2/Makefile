@@ -30,7 +30,7 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py # atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = Canvas.py
+CURRENT = Model.py
 
 m:
 	$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
@@ -44,7 +44,8 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestModel.test_rel_indirect_painter
+	#$(PY) -m unittest -v testModel.TestModel.test_rel_indirect_painter
+	$(PY) -m unittest -v testLog
 
 # Acceptance tests
 at:

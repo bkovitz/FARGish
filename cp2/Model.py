@@ -20,7 +20,7 @@ from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 #from Funcs import same, pred, succ
-from Log import lo, trace, logging
+from Log import lo, trace, indent_log
 from util import short, nf, Numeric, reseed
 
 
@@ -280,7 +280,11 @@ class Model:
             case p if is_painter(p):
                 return 1.0  # TODO: find out painter "clarity"
             case Indices(elems):
-                return sum(self.source_weight(elem) for elem in elems)
+                return sum(
+                    self.source_weight(elem)
+                        for elem in elems
+                            if isinstance(elem, int) #HACK
+                )
         assert False, "source_weight(): should not go past 'match' stmt"
 
     def target_weight(self, a: DetAddr) -> Numeric:
