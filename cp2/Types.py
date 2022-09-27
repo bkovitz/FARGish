@@ -233,7 +233,7 @@ def as_index(e: Expr) -> Index:
     else:
         raise Fizzle(f"as_index: Can't convert {e!r} to index")
 
-def is_painter(x: Func) -> TypeGuard[Painter]:
+def is_painter(x: Any) -> TypeGuard[Painter]:
     #return isinstance(x, tuple)
     match x:
         case (i, j, func):
@@ -241,6 +241,16 @@ def is_painter(x: Func) -> TypeGuard[Painter]:
         case _:
             return False
 
+def is_func(x: Any) -> TypeGuard[Func]:
+    match x:
+        case str():
+            return True
+        case (i, j, func):
+            return True
+        case c if callable(c):
+            return True
+    return False
+            
 def painter_str(p: Painter) -> str:
     i, j, func = p
     return f'({addr_str(i)}, {addr_str(j)}, {func_str(func)})'

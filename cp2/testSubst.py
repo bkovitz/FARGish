@@ -11,9 +11,8 @@ class TestSubst(unittest.TestCase):
 
     def test_subst_empty(self) -> None:
         su = Subst()
-        self.assertEqual(su.simplify(I), None)
-        # TODO Make this next assertion pass
-        #self.assertEqual(su.simplify(Plus(I, 2)), Plus(I, 2))
+        self.assertEqual(su.simplify(I), I)
+        self.assertEqual(su.simplify(Plus(I, 2)), Plus(I, 2))
 
     def test_subst_I(self) -> None:
         su = Subst().unify(I, 1)

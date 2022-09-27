@@ -13,9 +13,9 @@ import operator
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Types import Expr, Index, FizzleNotIndex, SoupRef, Variable, \
-    as_index, is_index, is_painter
-from Log import lo
+from Types import Addr, Expr, F, Func, I, Index, Indices, J, \
+    FizzleNotIndex, SoupRef, Variable, as_index, is_func, is_index, is_painter
+from Log import lo, trace
 from util import force_setattr, short
 
 
@@ -104,7 +104,7 @@ class Subst:
     def __getitem__(self, x: Hashable) -> Optional[Index]:
         return self.d.get(x, None)
 
-    def simplify(self, expr: Expr) -> Union[Expr, None]:
+    def simplify(self, expr: Expr) -> Expr:
         match expr:
             case int():
                 return expr
@@ -113,7 +113,7 @@ class Subst:
             case _:
                 match self.d.get(expr, None):
                     case None:
-                        return None
+                        return expr
                     case v:
                         return self.simplify(v)
 
@@ -154,6 +154,14 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, r))
+            case (Variable(), Indices()):
+                if lhs in self.d:
+                    if self.d[lhs] == rhs:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, rhs))
             case (int(l), int(r)):
                 if l == r:
                     return self
@@ -197,7 +205,7 @@ class Subst:
                         return bottom_subst
                 else:
                     return Subst(self.d.set(lhs, rhs))
-            case (Variable(), f) if callable(f):
+            case (Variable(), f) if is_func(f):
                 if lhs in self.d:
                     if self.d[lhs] == rhs:
                         return self
@@ -211,7 +219,7 @@ class Subst:
                 else:
                     return bottom_subst
             case _:
-                lo("Can't unify:", lhs, type(lhs), rhs, type(rhs))
+                lo("Can't unify:", lhs, type(lhs), ' with ', rhs, type(rhs))
                 raise NotImplementedError((lhs, rhs))
         assert False, "unify(): should not go past 'match' stmt"
         return self # Needed only to please mypy; stops [return] error
@@ -221,6 +229,12 @@ class Subst:
             return self.unify(lhs, rhs)
         else:
             return self
+
+    def unify_ijf(self, source: Addr, target: Addr, func: Func) -> Subst:
+        return self. \
+            unify_if_undefined(I, source). \
+            unify_if_undefined(J, target). \
+            unify_if_undefined(F, func)
 
     def short(self) -> str:
         cl = self.__class__.__name__

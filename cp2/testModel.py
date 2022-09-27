@@ -184,32 +184,28 @@ class TestModel(unittest.TestCase):
             ]
         )
 
-#    def test_fill_variables_in_make_between_painter(self) -> None:
-#        model = Model.canvas_from('ajaqb')
-#        subst = Subst.make_from((I, 1), (J, 3), (F, same))
-#        self.assertCountEqual(
-#            model.func_to_detfuncs(
-#                subst, F, MakeBetweenPainter(I, Plus(I, 1), F)
-#            ),
-#            [
-#                DetFunc
-#            ]
-#        )
-        
     def test_make_between_painter(self) -> None:
-        model = Model.canvas_from('ajaqb')
-        #model.ws.add((Indices(1, 3), WorkingSoup, (1, 3, same)))
-        model.ws.add((1, 3, same))
-        p: Painter = (
+        '''A cascade of three painters.'''
+        p1: Painter = (
             (I, Plus(I, 2), F),
+                # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
             WorkingSoup,
-            MakeBetweenPainter(I, Plus(I, 1), F)
+            MakeBetweenPainter(I, J, F)
         )
-        # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
-        dpainters = list(model.painter_to_detpainters(p))
-        #lo('DP', dpainters[0])
+        p2: Painter = ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j'))
+        p3: Painter = (1, 3, same)
+
+        model = Model.canvas_from('ajaqb')
+        model.ws.add((1, 3, same))  # p1 will match this painter
+
+        dpainters = list(model.painter_to_detpainters(p1))
         self.assertEqual(len(dpainters), 1)
         model.run_detpainter(dpainters[0])
-        #print(model.ws.state_str())
-        self.assertIn((1, 2, (I, Plus(I, 1), 'j')), model.ws)
-        #self.assertIn((1, 2, 'j'), model.ws)
+        self.assertIn(p2, model.ws)
+
+        dp2s = list(model.painter_to_detpainters(p2))
+        self.assertEqual(len(dp2s), 1)
+        model.run_detpainter(dp2s[0])
+        self.assertIn(p3, model.ws)
+
+    #def test_abs

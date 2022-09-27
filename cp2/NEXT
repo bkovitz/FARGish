@@ -9,9 +9,12 @@ painter_to_detpainters
     #[[I, I+2, F], ws, MakeBetweenPainter[I, I+1, ValueAt[I+1]]]
     [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]]  DONE
 
+    Need a way to print out useful debugging information so you can see each
+    stage of creating the DetPainters. We really need to see a trace showing
+    what called what.
 
 
-run_detpainter_with_subst
+run_detpainter
 
     [1, 3, succ]
 

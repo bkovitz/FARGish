@@ -11,13 +11,13 @@ from itertools import chain, product
 
 from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
-    addr_str, func_str, is_painter, painter_str
+    WorkingSoup, addr_str, func_str, is_painter, painter_str
 import Types
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 #from Funcs import same, pred, succ
-from Log import lo, trace
+from Log import lo, trace, logging
 from util import short, nf, Numeric
 
 
@@ -34,9 +34,11 @@ class DetPainter:
 
     @classmethod
     def make_from(cls, painter: Tuple[DetAddr, DetAddr, DetFunc]) -> DetPainter:
+        '''An easy way to construct a DetPainter in a unit test. Not for use
+        in the model proper.'''
         source, target, func = painter
         return cls(
-            empty_subst,
+            empty_subst.unify_ijf(source, target, func),
             source,
             target,
             func,
@@ -60,7 +62,7 @@ class DetPainter:
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'({short(self.subst)}, {addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
+        return f'({short(self.subst)}; {addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
 
 # A determinate Addr: no variables, no patterns, nothing to match or expand
 DetAddr = Union[Index, Indices, Painter, SoupRef]
@@ -161,23 +163,29 @@ class const:
 
 @dataclass(frozen=True)
 class MakeBetweenPainter:
+    '''Makes a painter that paints a value between two others.'''
     i: Addr
     j: Addr
     f: Func
 
     def __call__(self, model: Model, subst: Subst, ignored: Value) -> Value:
-        #return (self.i, self.j, model.contents_at(self.j))
         result_i = subst.as_index(self.i)
         if result_i is None:
-            raise Fizzle  # TODO More-specific Fizzle
-        result_j = subst.as_index(self.j)
-        if result_j is None:
             raise Fizzle  # TODO More-specific Fizzle
         value = model.canvas[result_i + 1]
         if value is None:
             raise Fizzle  # TODO More-specific Fizzle
-        result_f = (I, Plus(I, 1), value)
-        return (result_i, result_j, result_f)
+        result_j = subst.as_index(self.j)
+        if result_j is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_f = subst[self.f]
+        if result_f is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        return (
+            (I, Plus(I, result_j - result_i), result_f),
+            WorkingSoup,
+            (I, Plus(I, 1), value)
+        )
 
 ### The model
 
@@ -288,6 +296,7 @@ class Model:
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
+        #with logging(None, 'A2DS', addr, addr in subst, subst[addr]):
         match addr:
             case int():
                 yield DetAddrWithSubst(subst.unify(var, addr), addr)
@@ -327,16 +336,14 @@ class Model:
             case (i, j, f):
                 for painter in self.soups():
                     pi, pj, pf = painter
-                    subst2 = subst. \
-                        unify(i, pi). \
-                        unify_if_undefined(I, pi). \
-                        unify(j, pj). \
-                        unify_if_undefined(J, pj). \
-                        unify(f, pf). \
-                        unify_if_undefined(F, pf)
+                    subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
+                    if not isinstance(pj, SoupRef):  # HACK
+                        subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
+                    # TODO subst2.unify(f, pf). ?
+                    subst2 = subst2.unify_if_undefined(F, pf)
                     if subst2:
                         if I not in subst2:
-                            subst2 = subst2.unify
+                            subst2 = subst2.unify(I, pi) #TODO Is this right?
                         yield DetAddrWithSubst(subst2, painter)
             case _:
                 raise NotImplementedError(

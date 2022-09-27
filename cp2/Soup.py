@@ -30,6 +30,12 @@ class Soup:
         for p in painters:
             self.painters[p] += 1
 
+    def remove(self, *painters: Painter) -> None:
+        '''It is not an error to remove a painter that does not exist.'''
+        for p in painters:
+            if p in self.painters:
+                del self.painters[p]
+
     def clarity(self, p: Painter) -> Numeric:
         return self.painters.get(p, 0.0)
 
