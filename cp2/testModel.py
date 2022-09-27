@@ -210,19 +210,33 @@ class TestModel(unittest.TestCase):
         self.assertIn(p3, model.ws)
 
     def test_abs_painter(self) -> None:
-        p = (1, 3, same)
+        p: Painter = (1, 3, same)
         model = Model.canvas_from('a    ')
         model.run_detpainter(DetPainter.make_from(p))
         self.assertEqual(model.canvas.short_str(), 'a a  ')
 
     def test_rel_painter(self) -> None:
-        p = ('a', Plus(I, 2), succ)
+        p: Painter = ('a', Plus(I, 2), succ)
         model = Model.canvas_from('a    ')
 
         dp = self.painter_to_one_detpainter(model, p)
         self.assertEqual(dp.as_painter(), (1, 3, succ))
         model.run_detpainter(dp)
         self.assertEqual(model.canvas.short_str(), 'a b  ')
+
+#    # I think this test is wrong in its very conception
+#    def test_rel_indirect_painter(self) -> None:
+#        p1: Painter = ('a', WorkingSoup, (I, Plus(I, 2), succ))
+#        p2: Painter = (3, 5, succ)
+#        model = Model.canvas_from('  a  ')
+#
+#        dp = self.painter_to_one_detpainter(model, p1)
+#        self.assertEqual(
+#            dp.as_painter(),
+#            (3, WorkingSoup, (I, Plus(I, 2), succ))
+#        )
+#        model.run_detpainter(dp)
+#        self.assertIn(p2, model.ws)
 
     def painter_to_one_detpainter(self, model: Model, p: Painter) -> DetPainter:
         dpainters = list(model.painter_to_detpainters(p))

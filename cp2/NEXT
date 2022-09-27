@@ -42,10 +42,18 @@ Basics
 
     UT rel painter  DONE
 
-    UT rel indirect painter   ('a', ws, (I, I+2, same))
+    ? UT rel indirect painter   ('a', ws, (I, I+2, same))
 
-    UT create rel indirect painter 
+    ? UT create rel indirect painter 
     (RelatedPair[I,J,F], ws, MakeRelativeIndirectPainter[I,J,F])
+
+    .absorb()
+
+        Test on 'ajaqb'
+
+    .regenerate()
+
+        Test on 'ajaqb', 'a    '
 
 
 matching
