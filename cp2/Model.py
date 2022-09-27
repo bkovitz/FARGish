@@ -9,6 +9,8 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain, product
 from io import StringIO
+from random import choice, choices, random
+import sys
 
 from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
@@ -19,7 +21,7 @@ from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 #from Funcs import same, pred, succ
 from Log import lo, trace, logging
-from util import short, nf, Numeric
+from util import short, nf, Numeric, reseed
 
 
 @dataclass(frozen=True)
@@ -194,15 +196,23 @@ class MakeBetweenPainter:
 
 ### The model
 
+default_primitive_funcs: FrozenSet[Func] = frozenset([same, succ, pred])
+default_lts_painters: List[Painter] = [
+    (RelatedPair(I, J, F), WorkingSoup, (I, J, F))
+]
+
 @dataclass
 class Model:
-    lts: Soup = field(default_factory=lambda: Soup())
+    lts: Soup = field(default_factory=lambda: Soup.make_from(
+        default_lts_painters
+    ))
     ws: Soup = field(default_factory=lambda: Soup())
     canvas: Canvas1D = field(
         default_factory=lambda: Canvas1D.make_from('     ')
     )
 
-    primitive_funcs: FrozenSet = frozenset([same, succ, pred])
+    primitive_funcs: FrozenSet = default_primitive_funcs
+    t: int = 0   # current timestep
 
     @classmethod
     def canvas_from(cls, s: str) -> Model:
@@ -217,10 +227,71 @@ class Model:
 
     def absorb(self, s: str):
         self.set_canvas(s)
-        #NEXT  Set up initial painters
-        #      Run them a while
+        #NEXT  
+        #      Run from initial painters a while
+        for t in range(2):
+            self.do_timestep()
+            print(self.state_str())
         #      Save the abstract ones to the lts
         #      Clear the ws
+
+    def do_timestep(self) -> None:
+        self.t += 1
+        # decay
+        lo(f't={self.t}')
+        self.run_detpainter(self.choose_detpainter(self.soups()))
+
+    def choose_detpainter(self, soup: Soup) -> DetPainter:
+        det_painters = list(chain.from_iterable(
+            self.painter_to_detpainters(p)  #, soup.clarity(p))
+                for p in soup
+        ))
+        weights = [
+            self.detpainter_to_probability_weight(dp)
+                for dp in det_painters
+        ]
+        # logging
+        if det_painters:
+            for ii in range(len(det_painters)):
+                lo(det_painters[ii], nf(weights[ii]))
+            lo()
+        else:
+            lo('No det_painters!')
+
+        ii = choices(range(len(det_painters)), weights)[0]
+        dp = det_painters[ii]
+        lo('dp =', dp, '  ', nf(weights[ii]))
+
+        return dp
+
+    def detpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
+        return (
+            self.source_weight(dp.source)
+            *
+            self.target_weight(dp.target)
+            *
+            dp.prob_weight
+        )
+
+    def source_weight(self, a: DetAddr) -> Numeric:
+        match a:
+            case int():
+                return self.canvas.clarity(a) / self.canvas.MAX_CLARITY
+            case p if is_painter(p):
+                return 1.0  # TODO: find out painter "clarity"
+            case Indices(elems):
+                return sum(self.source_weight(elem) for elem in elems)
+        assert False, "source_weight(): should not go past 'match' stmt"
+
+    def target_weight(self, a: DetAddr) -> Numeric:
+        match a:
+            case int():
+                return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
+            case SoupRef():
+                return 1.0
+            case p if is_painter(p):
+                return 1.0  # TODO: find out painter "clarity"
+        assert False, "target_weight(): should not go past 'match' stmt"
 
     def run_detpainter(
         self,
@@ -277,7 +348,7 @@ class Model:
 
         det_sources = self.addr_to_detaddrs(empty_subst, I, source)
         det_sources = list(det_sources) #DEBUG
-        #lo('DETSRC', det_sources)
+        lo('DETSRC', det_sources)
 
         source_target_pairs = (
             (ds, dt)
@@ -285,6 +356,7 @@ class Model:
                     for dt in self.addr_to_detaddrs(ds.subst, J, target)
         )
         source_target_pairs = list(source_target_pairs) #DEBUG
+        lo('STPAIRS', list(zip(*source_target_pairs)))
         #lo('DETTARG', source_target_pairs[1])
 
         triples = (
@@ -293,6 +365,7 @@ class Model:
                     for df in self.func_to_detfuncs(dt.subst, F, func)
         )
         triples = list(triples) #DEBUG
+        lo('DETFUNCS', triples)  # we really want the 3rd "column"
         #lo('DETFUNCS', triples[2])
 
         return (
@@ -366,7 +439,7 @@ class Model:
                 )
 
     def soups(self) -> Soup:
-        return self.lts.union(self.ws)
+        return Soup.union(self.lts, self.ws)
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
     -> Iterable[DetFunc]:  # TODO Create an appropriate type
@@ -407,4 +480,29 @@ class Model:
         print('canvas:', self.canvas.state_str(), file=sio)
         print(self.ws.state_str(), file=sio)
         return sio.getvalue()
+
+    def __str__(self) -> str:
+        return self.__class__.__name__
     
+m: Model
+
+def run_test() -> None:
+    global m
+    m = Model.canvas_from('ajaqb')
+    print(m.lts)
+    m.absorb('ajaqb')
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        #seed = 4993487641984628738  #None
+        seed = None
+    else:
+        seed = int(sys.argv[1])
+    seed = reseed(seed)
+    print(f'seed={seed}')
+    print()
+
+    run_test()
+    #run_ajaqb('a    ', ['wxyaaaa'], 120)
+    #run_abs()

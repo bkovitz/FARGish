@@ -12,6 +12,7 @@ from io import StringIO
 
 from Types import Painter, as_index, painter_str
 from Subst import Subst, bottom_subst, empty_subst
+from Log import lo, trace
 from util import Numeric, nf
 
 @dataclass

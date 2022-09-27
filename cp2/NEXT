@@ -49,11 +49,21 @@ Basics
 
     .absorb()
 
+        Initial painters:
+
+            [RelatedPair[I,J,F], ws, [I,J,F]]
+
+            [[I,J,Relation[F]], ws, MakeRelativeIndirectPainter[I,J,F]]
+
+            [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]]
+
         Test on 'ajaqb'
 
     .regenerate()
 
         Test on 'ajaqb', 'a    '
+
+        Match reverse painters: [3,5,succ] should work the same as [5,3,pred].
 
 
 matching
