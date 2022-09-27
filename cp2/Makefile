@@ -44,7 +44,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestModel.test_match_some_abs_painters
+	$(PY) -m unittest -v testModel.TestModel.test_abs_painter
 
 # Acceptance tests
 at:

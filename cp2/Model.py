@@ -8,6 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain, product
+from io import StringIO
 
 from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, Value, Variable, \
@@ -87,8 +88,12 @@ class RelatedPair:
     j: Addr
     f: Func
 
-    def to_detaddrs(self, canvas: Canvas, primitive_funcs: Iterable[Func]) \
-    -> Iterable[DetAddrWithSubst]:
+    def to_detaddrs(
+        self,
+        model: Model,
+        canvas: Canvas,
+        primitive_funcs: Iterable[Func]
+    ) -> Iterable[DetAddrWithSubst]:
         match (self.i, self.j):
             case (Variable(), Variable()):
                 for i in canvas.all_addrs():
@@ -96,7 +101,7 @@ class RelatedPair:
                         if i >= j:
                             continue
                         for f in self.func_iter(self.f, primitive_funcs):
-                            if canvas.are_related_by(i, j, f):
+                            if model.are_related_by(i, j, f):
                                 #lo('ARER', i, j ,f)
                                 yield DetAddrWithSubst(
                                     Subst.make_from(
@@ -124,10 +129,10 @@ class RelatedPair:
 
 ### The basic relational functions
 
-def same(subst: Subst, v: Value) -> Value:
+def same(model: Model, subst: Subst, v: Value) -> Value:
     return v
 
-def succ(subst: Subst, v: Value) -> Value:
+def succ(model: Model, subst: Subst, v: Value) -> Value:
     # TODO Deal with 'z'
     if isinstance(v, str):
         return chr(ord(v) + 1)
@@ -135,7 +140,7 @@ def succ(subst: Subst, v: Value) -> Value:
         return v + 1
     raise Fizzle("succ: Can't take successor of {v}")
 
-def pred(subst: Subst, v: Value) -> Value:
+def pred(model: Model, subst: Subst, v: Value) -> Value:
     # TODO Deal with 'a'
     if isinstance(v, str):
         return chr(ord(v) - 1)
@@ -149,7 +154,7 @@ def pred(subst: Subst, v: Value) -> Value:
 class const:
     v: Value
 
-    def __call__(self, subst: Subst, ignored: Value) -> Value:
+    def __call__(self, model: Model, subst: Subst, ignored: Value) -> Value:
         return self.v
 
     def short(self) -> str:
@@ -216,7 +221,8 @@ class Model:
     ) -> None:
         v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
         match dp.target:
-            #TODO Painting to canvas
+            case int():
+                self.canvas[dp.target] = v  # type: ignore[assignment]
             case Types.WorkingSoup:
                 match v:
                     case p if is_painter(p):
@@ -328,7 +334,9 @@ class Model:
                         raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
             case RelatedPair():
                 #yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
-                got = list(addr.to_detaddrs(self.canvas, self.primitive_funcs))
+                got = list(addr.to_detaddrs(
+                    self, self.canvas, self.primitive_funcs)
+                )
                 #lo('RPGOT', got)
                 yield from got
             case SoupRef():
@@ -372,6 +380,12 @@ class Model:
             case _:
                 yield func
 
+    def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
+        if not (self.canvas.has_letter(i) and self.canvas.has_letter(j)):
+            return False
+        # TODO take the Subst as an argument to are_related_by
+        return self.apply_func(empty_subst, f, self.canvas[i]) == self.canvas[j]
+
     def apply_func(self, subst: Subst, f: Func, v: Value) \
     -> Union[Value, Painter]:
         if isinstance(f, str) or isinstance(f, int) or is_painter(f):
@@ -381,3 +395,9 @@ class Model:
         else:
             raise NotImplementedError(f"apply_func: can't apply {f}")
 
+    def state_str(self) -> str:
+        sio = StringIO()
+        print('canvas:', self.canvas.state_str(), file=sio)
+        print(self.ws.state_str(), file=sio)
+        return sio.getvalue()
+    

@@ -14,7 +14,6 @@ from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
     Func, Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, \
     extract_index, is_index, unbundle_cell_content
 from Subst import empty_subst
-from Funcs import apply_func
 from Log import lo, trace
 from util import short, Numeric
 
@@ -71,10 +70,6 @@ class Canvas(ABC):
 
     def addrs_containing_value(self, v: Value) -> Iterable[Index]:
         return (a for a in self.all_addrs() if self[a] == v)
-
-    @abstractmethod
-    def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
-        pass
 
 @dataclass
 class ContentAndClarity:
@@ -225,7 +220,10 @@ class Canvas1D(Canvas):
         result.contents.max_index = len(s)
         for i, letter in zip(range(1, len(s) + 1), s):
             result[i] = letter
-            result.set_clarity(i, cls.INITIAL_CLARITY)
+            if letter != ' ':
+                result.set_clarity(i, cls.INITIAL_CLARITY)
+            else:
+                result.set_clarity(i, 0)
         result[result.contents.min_index] = Start
         result.set_clarity(
             (result.contents.min_index, Anchor),
@@ -334,13 +332,6 @@ class Canvas1D(Canvas):
 
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
         return self.contents.all_indices_and_values()
-
-    def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
-        #raise Exception('HERE')
-        if not (self.has_letter(i) and self.has_letter(j)):
-            return False
-        # TODO take the Subst as an argument to are_related_by
-        return apply_func(empty_subst, f, self[i]) == self[j]
 
     def __str__(self) -> str:
         clarities = ', '.join(str(c) for c in self.contents.all_clarities())

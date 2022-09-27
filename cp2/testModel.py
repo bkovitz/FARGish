@@ -193,7 +193,7 @@ class TestModel(unittest.TestCase):
             MakeBetweenPainter(I, J, F)
         )
         p2: Painter = ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j'))
-        p3: Painter = (1, 3, same)
+        p3: Painter = (1, 2, 'j')
 
         model = Model.canvas_from('ajaqb')
         model.ws.add((1, 3, same))  # p1 will match this painter
@@ -208,4 +208,8 @@ class TestModel(unittest.TestCase):
         model.run_detpainter(dp2s[0])
         self.assertIn(p3, model.ws)
 
-    #def test_abs
+    def test_abs_painter(self) -> None:
+        p = (1, 3, same)
+        model = Model.canvas_from('a    ')
+        model.run_detpainter(DetPainter.make_from(p))
+        self.assertEqual(model.canvas.short_str(), 'a a  ')
