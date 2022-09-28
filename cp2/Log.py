@@ -16,7 +16,6 @@ import sys
 from contextlib import contextmanager
 import functools
 
-from Pred import Pred, as_pred
 from Indenting import Indenting, indent
 from util import short, dict_str, pr, pts
 
