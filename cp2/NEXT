@@ -51,7 +51,7 @@ Basics
 
         Initial painters:
 
-            [RelatedPair[I,J,F], ws, [I,J,F]]
+            [RelatedPair[I,J,F], ws, [I,J,F]]  DONE
 
             [[I,J,Relation[F]], ws, MakeRelativeIndirectPainter[I,J,F]]
 

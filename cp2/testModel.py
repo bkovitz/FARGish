@@ -3,7 +3,7 @@
 import unittest
 import inspect
 
-from Types import F, I, Indices, J, Painter, WorkingSoup
+from Types import F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ, MakeBetweenPainter
 from Subst import Subst, empty_subst, Plus
@@ -12,6 +12,9 @@ from util import short
 
 
 class TestModel(unittest.TestCase):
+
+    def tearDown(self) -> None:
+        set_log_level(0)
 
     def test_detaddr_1(self) -> None:
         model = Model()
@@ -181,6 +184,24 @@ class TestModel(unittest.TestCase):
                 DetAddrWithSubst(
                     Subst.make_from((I, 3), (J, 5), (F, succ)),
                     (3, 5, succ)
+                )
+            ]
+        )
+
+    def test_match_simplefunc(self) -> None:
+        model = Model.canvas_from('ajaqb')
+        model.ws.add(
+            (1, 3, same),
+            (1, 3, MakeBetweenPainter(I, J, F)) # this painter is invalid
+        )                                       # for actual use because the
+                                                # F can't refer to anything
+                                                # but good enough for this test
+        self.assertCountEqual(
+            model.addr_to_detaddrs(empty_subst, I, (I, J, SimpleFunc(F))),
+            [
+                DetAddrWithSubst(
+                    Subst.make_from((I, 1), (J, 3), (F, same)),
+                    (1, 3, same)
                 )
             ]
         )

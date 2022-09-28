@@ -57,6 +57,8 @@ def logfile() -> Indenting:
 
 @contextmanager
 def indent_log(*args, **kwargs):
+    '''args, kwargs get logged at the current indent level. All messages
+    inside the context get logged one level further indented.'''
     try:
         lo(*args, **kwargs)
         with indent(_logfile):

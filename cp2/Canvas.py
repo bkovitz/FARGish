@@ -13,7 +13,6 @@ from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
     CellBundle, CellContent1, CellContent, End, FizzleValueNotFound, \
     Func, Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, \
     extract_index, is_index, unbundle_cell_content
-from Subst import empty_subst
 from Log import lo, trace
 from util import short, Numeric
 

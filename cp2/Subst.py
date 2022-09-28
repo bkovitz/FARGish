@@ -14,9 +14,11 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Types import Addr, Expr, F, Func, I, Index, Indices, J, \
-    FizzleNotIndex, SoupRef, SpecialAddr, Variable, \
+    FizzleNotIndex, SimpleFunc, SoupRef, SpecialAddr, Variable, \
     as_index, is_func, is_index, is_painter
-from Log import lo, trace
+import Funcs as FM
+import Model as MM
+from Log import lo, trace, indent_log
 from util import force_setattr, short
 
 
@@ -144,88 +146,104 @@ class Subst:
             return None
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
-        #print('UNIFY', lhs, rhs)
-        match (lhs, rhs):
-            case (Variable(), int(r)):
-                #print('GOTN', lhs, r)
-                if lhs in self.d:
-                    if self.d[lhs] == r:
-                        return self
-                    else:
-                        return bottom_subst
-                else:
-                    return Subst(self.d.set(lhs, r))
-            case (Variable(), Indices()):
-                if lhs in self.d:
-                    if self.d[lhs] == rhs:
-                        return self
-                    else:
-                        return bottom_subst
-                else:
-                    return Subst(self.d.set(lhs, rhs))
-            case (int(l), int(r)):
-                if l == r:
-                    return self
-                else:
-                    return bottom_subst
-            case (Plus(args=(Variable() as v, int(n))), int(r)):
-                #print('GOTPP', v, n, r)
-                match self.simplify(v):
-                    case int(vv):
-                        if vv + n == r:
+        with indent_log(8, 'UNIFY', lhs, rhs):
+            match (lhs, rhs):
+                case (Variable(), int(r)):
+                    #print('GOTN', lhs, r)
+                    if lhs in self.d:
+                        if self.d[lhs] == r:
                             return self
                         else:
                             return bottom_subst
-                    case None:
-                        return Subst(self.d.set(v, r - n))
-            case (Variable(), Plus() as rator):
-                #print('GOTVP')
-                rvalue = rator.value_of(self)
-                #if lhs in self.
-                return self # TODO
-            case (Variable(), Variable()):
-                if lhs in self.d:
-                    return self.unify(lhs, self.d[rhs])
-                else:
-                    return Subst(self.d.set(lhs, rhs))
-            case (Variable(), SoupRef()):
-                if lhs in self.d:
-                    if self.d[lhs] == rhs:
+                    else:
+                        return Subst(self.d.set(lhs, r))
+                case (Variable(), Indices()):
+                    if lhs in self.d:
+                        if self.d[lhs] == rhs:
+                            return self
+                        else:
+                            return bottom_subst
+                    else:
+                        return Subst(self.d.set(lhs, rhs))
+                case (int(l), int(r)):
+                    if l == r:
                         return self
                     else:
                         return bottom_subst
-                else:
-                    return Subst(self.d.set(lhs, rhs))
-            case (Variable(), (SoupRef(), p)) if (
-                    is_painter(p)  # type: ignore[has-type]
-            ):
-                if lhs in self.d:
-                    if self.d[lhs] == rhs:
-                        return self
+                case (Plus(args=(Variable() as v, int(n))), int(r)):
+                    #print('GOTPP', v, n, r)
+                    match self.simplify(v):
+                        case int(vv):
+                            if vv + n == r:
+                                return self
+                            else:
+                                return bottom_subst
+                        case None:
+                            return Subst(self.d.set(v, r - n))
+                case (Variable(), Plus() as rator):
+                    #print('GOTVP')
+                    rvalue = rator.value_of(self)
+                    #if lhs in self.
+                    return self # TODO
+                case (Variable(), Variable()):
+                    if lhs in self.d:
+                        return self.unify(lhs, self.d[rhs])
                     else:
-                        return bottom_subst
-                else:
-                    return Subst(self.d.set(lhs, rhs))
-            case (Variable(), f) if is_func(f):
-                if lhs in self.d:
-                    if self.d[lhs] == rhs:
-                        return self
+                        return Subst(self.d.set(lhs, rhs))
+                case (Variable(), SoupRef()):
+                    if lhs in self.d:
+                        if self.d[lhs] == rhs:
+                            return self
+                        else:
+                            return bottom_subst
                     else:
-                        return bottom_subst
-                else:
-                    return Subst(self.d.set(lhs, rhs))
-            case (Variable(), SpecialAddr()):
-                return bottom_subst
-            case (f, g) if callable(f) and callable(g):
-                if f == g:
-                    return self
-                else:
+                        return Subst(self.d.set(lhs, rhs))
+                case (Variable(), (SoupRef(), p)) if (
+                        is_painter(p)  # type: ignore[has-type]
+                ):
+                    if lhs in self.d:
+                        if self.d[lhs] == rhs:
+                            return self
+                        else:
+                            return bottom_subst
+                    else:
+                        return Subst(self.d.set(lhs, rhs))
+                case (Variable(), f) if is_func(f):
+                    if lhs in self.d:
+                        if self.d[lhs] == rhs:
+                            return self
+                        else:
+                            return bottom_subst
+                    else:
+                        return Subst(self.d.set(lhs, rhs))
+                case (Variable(), SpecialAddr()):
                     return bottom_subst
-            case _:
-                lo("Unimplemented unification:", lhs, type(lhs), ' with ', rhs, type(rhs))
-                raise NotImplementedError((lhs, rhs))
-        assert False, "unify(): should not go past 'match' stmt"
-        return self # Needed only to please mypy; stops [return] error
+                case (SimpleFunc(var), rhs):
+                    if isinstance(rhs, FM.SimpleFuncClass):
+                        return self.simple_unify(var, rhs)
+                    else:
+                        return bottom_subst
+                case (f, g) if callable(f) and callable(g):
+                    if f == g:
+                        return self
+                    else:
+                        return bottom_subst
+                case (f, _) if callable(f):  # BUG If _ is var, should unify
+                    return bottom_subst
+                case _:
+                    lo("Unimplemented unification:", lhs, type(lhs), ' with ', rhs, type(rhs))
+                    raise NotImplementedError((lhs, rhs))
+            assert False, "unify(): should not go past 'match' stmt"
+            return self # Needed only to please mypy; stops [return] error
+
+    def simple_unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        if lhs in self.d:
+            if self.d[lhs] == rhs:
+                return self
+            else:
+                return bottom_subst
+        else:
+            return Subst(self.d.set(lhs, rhs))
 
     def unify_if_undefined(self, lhs: Expr, rhs: Expr) -> Subst:
         if lhs not in self:

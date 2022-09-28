@@ -13,13 +13,15 @@ from random import choice, choices, random
 import sys
 
 from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
-    Func, I, Index, Indices, J, MaybeIndex, Painter, SoupRef, SpecialAddr, \
-    Value, Variable, WorkingSoup, addr_str, func_str, is_painter, painter_str
+    Func, I, Index, Indices, J, MaybeIndex, Painter, SimpleFunc, SoupRef, \
+    SpecialAddr, Value, Variable, WorkingSoup, \
+    addr_str, func_str, is_painter, painter_str
 import Types
+#from BaseModel import Model
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
-#from Funcs import same, pred, succ
+from Funcs import same, pred, succ
 from Log import lo, trace, indent_log
 from util import short, nf, Numeric, reseed
 
@@ -82,6 +84,9 @@ class DetAddrWithSubst:
         cl = self.__class__.__name__
         return f'{cl}({short(self.subst)}, {short(self.addr)})'
 
+    __str__ = short
+    __repr__ = short
+
 @dataclass(frozen=True)
 class RelatedPair(SpecialAddr):
     '''A kind of Addr: a RelatedPair matches any pair of canvas cells that
@@ -129,43 +134,6 @@ class RelatedPair(SpecialAddr):
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
 
-### The basic relational functions
-
-def same(model: Model, subst: Subst, v: Value) -> Value:
-    return v
-
-def succ(model: Model, subst: Subst, v: Value) -> Value:
-    # TODO Deal with 'z'
-    if isinstance(v, str):
-        return chr(ord(v) + 1)
-    elif isinstance(v, int):
-        return v + 1
-    raise Fizzle("succ: Can't take successor of {v}")
-
-def pred(model: Model, subst: Subst, v: Value) -> Value:
-    # TODO Deal with 'a'
-    if isinstance(v, str):
-        return chr(ord(v) - 1)
-    elif isinstance(v, int):
-        return v - 1
-    raise Fizzle("pred: Can't take predecessor of {v}")
-
-### The constant function
-
-@dataclass(frozen=True)
-class const:
-    v: Value
-
-    def __call__(self, model: Model, subst: Subst, ignored: Value) -> Value:
-        return self.v
-
-    def short(self) -> str:
-        cl = self.__class__.__name__
-        if is_painter(self.v):
-            return f'{cl}({painter_str(self.v)})'
-        else:
-            return f'{cl}({short(self.v)})'
-
 ### Painter-building functions
 
 @dataclass(frozen=True)
@@ -194,17 +162,22 @@ class MakeBetweenPainter:
             (I, Plus(I, 1), value)
         )
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
+
 ### The model
 
 default_primitive_funcs: FrozenSet[Func] = frozenset([same, succ, pred])
-default_lts_painters: List[Painter] = [
-    (RelatedPair(I, J, F), WorkingSoup, (I, J, F))
+default_initial_painters: List[Painter] = [
+    (RelatedPair(I, J, F), WorkingSoup, (I, J, F)),
+    #((I, J, SimpleFunc(F)), WorkingSoup, MakeRelativeIndirectPainter(I, J, F))
 ]
 
 @dataclass
 class Model:
     lts: Soup = field(default_factory=lambda: Soup.make_from(
-        default_lts_painters
+        default_initial_painters
     ))
     ws: Soup = field(default_factory=lambda: Soup())
     canvas: Canvas1D = field(
@@ -216,7 +189,7 @@ class Model:
 
     @classmethod
     def canvas_from(cls, s: str) -> Model:
-        return Model(canvas=Canvas1D.make_from(s))
+        return cls(canvas=Canvas1D.make_from(s))
 
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
@@ -387,7 +360,6 @@ class Model:
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
         with indent_log(5, 'A2DS', addr, addr in subst, subst[addr]):
-            lo('HERE')
             match addr:
                 case int():
                     yield DetAddrWithSubst(subst.unify(var, addr), addr)
@@ -433,7 +405,7 @@ class Model:
                         subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
                         if not isinstance(pj, SoupRef):  # HACK
                             subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
-                        # TODO subst2.unify(f, pf). ?
+                        subst2 = subst2.unify(f, pf)
                         subst2 = subst2.unify_if_undefined(F, pf)
                         if subst2:
                             if I not in subst2:

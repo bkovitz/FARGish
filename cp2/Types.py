@@ -214,9 +214,17 @@ class Variable:
     def __str__(self) -> str:
         return self.name
 
-I = Variable('i')
-J = Variable('j')
-F = Variable('f')
+I = Variable('I')
+J = Variable('J')
+F = Variable('F')
+
+@dataclass(frozen=True)
+class SimpleFunc:
+    var: Variable
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.var})'
 
 class HasAsIndex(ABC):
 
