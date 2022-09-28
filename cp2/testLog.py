@@ -8,6 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 from io import StringIO
+import sys
 
 from Log import log_to, lo, indent_log, set_log_level
 
@@ -18,6 +19,7 @@ class TestLog(unittest.TestCase):
 
     def tearDown(self) -> None:
         set_log_level(0)
+        log_to(sys.stdout)
 
     def test_lo(self) -> None:
         self.logged = StringIO()

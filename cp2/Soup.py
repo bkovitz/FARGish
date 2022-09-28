@@ -11,7 +11,8 @@ from random import choice, choices, random
 from io import StringIO
 
 from Types import Painter, as_index, painter_str
-from Subst import Subst, bottom_subst, empty_subst
+#from Subst import Subst, bottom_subst, empty_subst
+import Subst as SM
 from Log import lo, trace
 from util import Numeric, nf
 
@@ -50,7 +51,7 @@ class Soup:
     def __iter__(self) -> Iterator[Painter]:
         return iter(self.painters)
 
-    def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
+    def matching_painters(self, xp: Painter) -> List[Tuple[SM.Subst, Painter]]:
         result = []
         for p in self.painters:
             subst = self.is_match(xp, p)
@@ -58,7 +59,7 @@ class Soup:
                 result.append((subst, p))
         return result
 
-    def is_match(self, xp: Painter, p: Painter) -> Subst:
+    def is_match(self, xp: Painter, p: Painter) -> SM.Subst:
         '''Viewing xp as a painter template (possibly with variables that
         need to be filled in), does p match xp?
 
@@ -71,9 +72,9 @@ class Soup:
         pf = p[2]
 
         if xf == pf:
-            return empty_subst.unify(xi, pi).unify(xj, pj)
+            return SM.empty_subst.unify(xi, pi).unify(xj, pj)
         else:
-            return bottom_subst
+            return SM.bottom_subst
 
     def has_painter(self, p: Painter) -> bool:
         return p in self.painters

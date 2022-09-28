@@ -17,7 +17,6 @@ from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
     SpecialAddr, Value, Variable, WorkingSoup, \
     addr_str, func_str, is_painter, painter_str
 import Types
-#from BaseModel import Model
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
@@ -166,6 +165,39 @@ class MakeBetweenPainter:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
 
+    __str__ = short
+
+@dataclass(frozen=True)
+class MakeRelativeIndirectPainter:
+    i: Addr
+    j: Addr
+    f: Func
+
+    def __call__(self, model: Model, subst: Subst, ignored: Value) -> Value:
+        result_i = subst.as_index(self.i)
+        if result_i is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        value = model.canvas[result_i]
+        if value is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_j = subst.as_index(self.j)
+        if result_j is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_f = subst[self.f]
+        if result_f is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        return (
+            value,
+            WorkingSoup,
+            (I, Plus(I, result_j - result_i), result_f)
+        )
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
+
+    __str__ = short
+
 ### The model
 
 default_primitive_funcs: FrozenSet[Func] = frozenset([same, succ, pred])
@@ -211,7 +243,7 @@ class Model:
     def do_timestep(self) -> None:
         self.t += 1
         # decay
-        lo(f't={self.t}')
+        lo(2, f't={self.t}')
         self.run_detpainter(self.choose_detpainter(self.soups()))
 
     def choose_detpainter(self, soup: Soup) -> DetPainter:
@@ -226,14 +258,14 @@ class Model:
         # logging
         if det_painters:
             for ii in range(len(det_painters)):
-                lo(det_painters[ii], nf(weights[ii]))
+                lo(4, det_painters[ii], nf(weights[ii]))
             lo()
         else:
             lo('No det_painters!')
 
         ii = choices(range(len(det_painters)), weights)[0]
         dp = det_painters[ii]
-        lo('dp =', dp, '  ', nf(weights[ii]))
+        lo(4, 'dp =', dp, '  ', nf(weights[ii]))
 
         return dp
 
@@ -325,7 +357,7 @@ class Model:
 
         det_sources = self.addr_to_detaddrs(empty_subst, I, source)
         det_sources = list(det_sources) #DEBUG
-        lo('DETSRC', det_sources)
+        lo(3, 'DETSRC', det_sources)
 
         source_target_pairs = (
             (ds, dt)
@@ -333,8 +365,8 @@ class Model:
                     for dt in self.addr_to_detaddrs(ds.subst, J, target)
         )
         source_target_pairs = list(source_target_pairs) #DEBUG
-        lo('STPAIRS', list(zip(*source_target_pairs)))
-        #lo('DETTARG', source_target_pairs[1])
+        lo(3, 'STPAIRS', list(zip(*source_target_pairs)))
+        #lo(3, 'DETTARG', source_target_pairs[1])
 
         triples = (
             (ds, dt, df)
@@ -342,8 +374,8 @@ class Model:
                     for df in self.func_to_detfuncs(dt.subst, F, func)
         )
         triples = list(triples) #DEBUG
-        lo('DETFUNCS', triples)  # we really want the 3rd "column"
-        #lo('DETFUNCS', triples[2])
+        lo(3, 'DETFUNCS', triples)  # we really want the 3rd "column"
+        #lo(3, 'DETFUNCS', triples[2])
 
         return (
             DetPainter(

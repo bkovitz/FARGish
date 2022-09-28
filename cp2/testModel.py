@@ -5,10 +5,10 @@ import inspect
 
 from Types import F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
-    same, succ, MakeBetweenPainter
+    same, succ, MakeBetweenPainter, MakeRelativeIndirectPainter
 from Subst import Subst, empty_subst, Plus
 from Log import lo, set_log_level
-from util import short
+from util import short, pts
 
 
 class TestModel(unittest.TestCase):
@@ -206,31 +206,6 @@ class TestModel(unittest.TestCase):
             ]
         )
 
-    def test_make_between_painter(self) -> None:
-        '''A cascade of three painters.'''
-        set_log_level(9)
-        p1: Painter = (
-            (I, Plus(I, 2), F),
-                # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
-            WorkingSoup,
-            MakeBetweenPainter(I, J, F)
-        )
-        p2: Painter = ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j'))
-        p3: Painter = (1, 2, 'j')
-
-        model = Model.canvas_from('ajaqb')
-        model.ws.add((1, 3, same))  # p1 will match this painter
-
-        dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
-        self.assertEqual(len(dpainters), 1)
-        model.run_detpainter(dpainters[0])
-        self.assertIn(p2, model.ws)
-
-        dp2s = list(model.painter_to_detpainters(p2))  # TODO OAOO
-        self.assertEqual(len(dp2s), 1)
-        model.run_detpainter(dp2s[0])
-        self.assertIn(p3, model.ws)
-
     def test_abs_painter(self) -> None:
         p: Painter = (1, 3, same)
         model = Model.canvas_from('a    ')
@@ -259,6 +234,60 @@ class TestModel(unittest.TestCase):
 #        )
 #        model.run_detpainter(dp)
 #        self.assertIn(p2, model.ws)
+
+    def test_make_between_painter(self) -> None:
+        '''A cascade of three painters.'''
+        p1: Painter = (
+            (I, Plus(I, 2), F),
+                # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
+            WorkingSoup,
+            MakeBetweenPainter(I, J, F)
+        )
+        p2: Painter = ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j'))
+        p3: Painter = (1, 2, 'j')
+
+        model = Model.canvas_from('ajaqb')
+        model.ws.add((1, 3, same))  # p1 will match this painter
+
+        dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
+        self.assertEqual(len(dpainters), 1)
+        model.run_detpainter(dpainters[0])
+        self.assertIn(p2, model.ws)
+
+        dp2s = list(model.painter_to_detpainters(p2))  # TODO OAOO
+        self.assertEqual(len(dp2s), 1)
+        model.run_detpainter(dp2s[0])
+        self.assertIn(p3, model.ws)
+
+    def test_make_relative_indirect_painter(self) -> None:
+        p1: Painter = (
+            (I, J, SimpleFunc(F)),
+            WorkingSoup,
+            MakeRelativeIndirectPainter(I, J, F)
+        )
+        p2: Painter = ('a', WorkingSoup, (I, Plus(I, 2), same))
+        dp2 = DetPainter(
+            Subst.make_from((I, 1)),
+            1,
+            WorkingSoup,
+            (1, 3, same),
+            1,
+            p2
+        )
+        p3: Painter = (1, 3, same)
+
+        model = Model.canvas_from('ajaqb')
+        model.ws.add((1, 3, same))  # p1 will match this painter
+
+        dp = self.painter_to_one_detpainter(model, p1)
+        model.run_detpainter(dp)
+        self.assertIn(p2, model.ws)
+
+        model.ws.remove((1, 3, same))
+        dp2s = list(model.painter_to_detpainters(p2))
+        self.assertIn(dp2, dp2s)
+        model.run_detpainter(dp2)
+        self.assertIn(p3, model.ws)
 
     def painter_to_one_detpainter(self, model: Model, p: Painter) -> DetPainter:
         dpainters = list(model.painter_to_detpainters(p))
