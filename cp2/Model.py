@@ -22,13 +22,10 @@ from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 from Funcs import same, pred, succ
 from Addrs import DetAddr, DetAddrWithSubst, RelatedPair
-from Painters import DetPainter
+from Painters import DetPainter, DetFunc
 from Log import lo, trace, indent_log
 from util import short, nf, Numeric
 
-
-# A determinate Func: no variables
-DetFunc = Union[Value, DetPainter, Callable] 
 
 ### Painter-building functions
 

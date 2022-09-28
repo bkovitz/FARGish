@@ -7,9 +7,11 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 
-from Types import addr_str, func_str, Painter
+from Types import addr_str, func_str, Painter, Value
+from Canvas import Canvas
+from Addrs import DetAddr
 from Subst import Subst, empty_subst
-from util import short, nf
+from util import short, nf, Numeric
 
 
 @dataclass(frozen=True)
@@ -54,4 +56,7 @@ class DetPainter:
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'({short(self.subst)}; {addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
+
+# A determinate Func: no variables
+DetFunc = Union[Value, DetPainter, Callable] 
 

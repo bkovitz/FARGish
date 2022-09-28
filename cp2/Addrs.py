@@ -8,9 +8,13 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 
-from Types import Func, Index, Indices, Painter, SoupRef, SpecialAddr, Variable
+from Types import Addr, Func, Index, Indices, Painter, SoupRef, \
+    SpecialAddr, Variable
+from Canvas import Canvas
 from Subst import Subst
+import Model as MM
 from util import short
+
 
 # A determinate Addr: no variables, no patterns, nothing to match or expand
 DetAddr = Union[Index, Indices, Painter, SoupRef]
@@ -37,7 +41,7 @@ class RelatedPair(SpecialAddr):
 
     def to_detaddrs(
         self,
-        model: Model,
+        model: MM.Model,
         canvas: Canvas,
         primitive_funcs: Iterable[Func]
     ) -> Iterable[DetAddrWithSubst]:
