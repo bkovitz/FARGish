@@ -21,117 +21,14 @@ from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 from Funcs import same, pred, succ
+from Addrs import DetAddr, DetAddrWithSubst, RelatedPair
+from Painters import DetPainter
 from Log import lo, trace, indent_log
-from util import short, nf, Numeric, reseed
+from util import short, nf, Numeric
 
-
-@dataclass(frozen=True)
-class DetPainter:
-    '''A determinate painter: it can paint one thing in one place; there is
-    no matching or searching to be done in order to run it.'''
-    subst: Subst
-    source: DetAddr
-    target: DetAddr
-    func: DetFunc
-    prob_weight: Numeric
-    basis: Optional[Painter] = None  # what this DetPainter was made from
-
-    @classmethod
-    def make_from(cls, painter: Tuple[DetAddr, DetAddr, DetFunc]) -> DetPainter:
-        '''An easy way to construct a DetPainter in a unit test. Not for use
-        in the model proper.'''
-        source, target, func = painter
-        return cls(
-            empty_subst.unify_ijf(source, target, func),
-            source,
-            target,
-            func,
-            1,
-            None
-        )
-
-    def is_valid_for(self, canvas: Canvas) -> bool:
-        match (self.source, self.target):
-            case (int(), int()):
-                return (
-                    canvas.has_addr(self.source)
-                    and
-                    canvas.has_addr(self.target)
-                )
-            case _:
-                return True
-
-    def as_painter(self) -> Painter:
-        return (self.source, self.target, self.func)
-
-    def short(self) -> str:
-        cl = self.__class__.__name__
-        return f'({short(self.subst)}; {addr_str(self.source)}, {addr_str(self.target)}, {func_str(self.func)}; {nf(self.prob_weight)})'
-
-# A determinate Addr: no variables, no patterns, nothing to match or expand
-DetAddr = Union[Index, Indices, Painter, SoupRef]
 
 # A determinate Func: no variables
 DetFunc = Union[Value, DetPainter, Callable] 
-
-@dataclass(frozen=True)
-class DetAddrWithSubst:
-    subst: Subst
-    addr: DetAddr
-
-    def short(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({short(self.subst)}, {short(self.addr)})'
-
-    __str__ = short
-    __repr__ = short
-
-@dataclass(frozen=True)
-class RelatedPair(SpecialAddr):
-    '''A kind of Addr: a RelatedPair matches any pair of canvas cells that
-    are related by a function, like same, pred, or succ.'''
-    i: Addr
-    j: Addr
-    f: Func
-
-    def to_detaddrs(
-        self,
-        model: Model,
-        canvas: Canvas,
-        primitive_funcs: Iterable[Func]
-    ) -> Iterable[DetAddrWithSubst]:
-        match (self.i, self.j):
-            case (Variable(), Variable()):
-                for i in canvas.all_addrs():
-                    for j in canvas.all_addrs():
-                        if i >= j:
-                            continue
-                        for f in self.func_iter(self.f, primitive_funcs):
-                            if model.are_related_by(i, j, f):
-                                #lo('ARER', i, j ,f)
-                                yield DetAddrWithSubst(
-                                    Subst.make_from(
-                                        (self.i, i), (self.j, j), (self.f, f)
-                                    ),
-                                    Indices(i, j)
-                                )
-            case _:
-                raise NotImplementedError(
-                    f"RelatedPair.to_detaddrs: can't search over ({self.i}, {self.j})"
-                )
-
-    def func_iter(self, f: Func, primitive_funcs: Iterable[Func]) \
-    -> Iterable[Func]:
-        match f:
-            case Variable():
-                yield from primitive_funcs
-            case _:
-                yield f
-            # TODO Other cases? Could a Variable be in an expression?
-
-    def __str__(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
 
 ### Painter-building functions
 
@@ -493,4 +390,3 @@ class Model:
 
     def __str__(self) -> str:
         return self.__class__.__name__
-    
