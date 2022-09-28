@@ -20,7 +20,8 @@ import Types
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
-from Funcs import same, pred, succ
+from Funcs import same, pred, succ, MakeRelativeIndirectPainter, \
+    MakeBetweenPainter
 from Addrs import DetAddr, DetAddrWithSubst, RelatedPair
 from Painters import DetPainter, DetFunc
 from Log import lo, trace, indent_log
@@ -30,7 +31,8 @@ from util import short, nf, Numeric
 default_primitive_funcs: FrozenSet[Func] = frozenset([same, succ, pred])
 default_initial_painters: List[Painter] = [
     (RelatedPair(I, J, F), WorkingSoup, (I, J, F)),
-    #((I, J, SimpleFunc(F)), WorkingSoup, MakeRelativeIndirectPainter(I, J, F))
+    ((I, J, SimpleFunc(F)), WorkingSoup, MakeRelativeIndirectPainter(I, J, F)),
+    ((I, Plus(I, 2), F), WorkingSoup, MakeBetweenPainter(I, J, F))
 ]
 
 @dataclass
@@ -50,6 +52,20 @@ class Model:
     def canvas_from(cls, s: str) -> Model:
         return cls(canvas=Canvas1D.make_from(s))
 
+    @classmethod
+    def make_from(cls, *args, **kwargs) -> Model:
+        match len(args):
+            case 0:
+                pass
+            case 1:
+                if isinstance(args[0], str):
+                    kwargs['canvas'] = Canvas1D.make_from(args[0])
+            case _:
+                raise ValueError(
+                    f'Can only pass a string to Model.make_from(); got {repr(args)}'
+                )
+        return cls(**kwargs)
+
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
 
@@ -61,7 +77,7 @@ class Model:
         self.set_canvas(s)
         #NEXT  
         #      Run from initial painters a while
-        for t in range(2):
+        for t in range(10):
             self.do_timestep()
             print(self.state_str())
         #      Save the abstract ones to the lts
@@ -83,12 +99,12 @@ class Model:
                 for dp in det_painters
         ]
         # logging
-        if det_painters:
-            for ii in range(len(det_painters)):
-                lo(4, det_painters[ii], nf(weights[ii]))
-            lo()
-        else:
-            lo('No det_painters!')
+        with indent_log(4, 'DETPAINTERS'):
+            if det_painters:
+                for k in range(len(det_painters)):
+                    lo(4, nf(weights[k]), det_painters[k])
+            else:
+                lo('No det_painters.')
 
         ii = choices(range(len(det_painters)), weights)[0]
         dp = det_painters[ii]
@@ -180,45 +196,55 @@ class Model:
         )
 
     def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
-        source, target, func = p
+        with indent_log(5, 'PAINTER to DETPAINTERS', p):
+            source, target, func = p
 
-        det_sources = self.addr_to_detaddrs(empty_subst, I, source)
-        det_sources = list(det_sources) #DEBUG
-        lo(3, 'DETSRC', det_sources)
+            det_sources = self.addr_to_detaddrs(empty_subst, I, source)
+            det_sources = list(det_sources) #DEBUG
+            #lo(8, 'DETSRC', det_sources)
+            with indent_log(8, 'DET SOURCES'):
+                for det_source in det_sources:
+                    lo(8, det_source)
 
-        source_target_pairs = (
-            (ds, dt)
-                for ds in det_sources
-                    for dt in self.addr_to_detaddrs(ds.subst, J, target)
-        )
-        source_target_pairs = list(source_target_pairs) #DEBUG
-        lo(3, 'STPAIRS', list(zip(*source_target_pairs)))
-        #lo(3, 'DETTARG', source_target_pairs[1])
+            source_target_pairs = (
+                (ds, dt)
+                    for ds in det_sources
+                        for dt in self.addr_to_detaddrs(ds.subst, J, target)
+            )
+            source_target_pairs = list(source_target_pairs) #DEBUG
+            #lo(8, 'STPAIRS', list(zip(*source_target_pairs)))
+            #lo(8, 'DETTARG', source_target_pairs[1])
+            with indent_log(8, 'DET SOURCES+TARGETS'):
+                for source_target_pair in source_target_pairs:
+                    lo(8, source_target_pair)
 
-        triples = (
-            (ds, dt, df)
-                for (ds, dt) in source_target_pairs
-                    for df in self.func_to_detfuncs(dt.subst, F, func)
-        )
-        triples = list(triples) #DEBUG
-        lo(3, 'DETFUNCS', triples)  # we really want the 3rd "column"
-        #lo(3, 'DETFUNCS', triples[2])
+            triples = (
+                (ds, dt, df)
+                    for (ds, dt) in source_target_pairs
+                        for df in self.func_to_detfuncs(dt.subst, F, func)
+            )
+            triples = list(triples) #DEBUG
+            #lo(7, 'DETFUNCS', triples)  # we really want the 3rd "column"
+            #lo(7, 'DETFUNCS', triples[2])
+            with indent_log(7, 'DET TRIPLES'):
+                for triple in triples:
+                    lo(7, triple)
 
-        return (
-            DetPainter(
-                dt.subst,
-                ds.addr,
-                dt.addr,
-                df,
-                1.0,   # TODO prob_weight,
-                p  # basis, "author"
-            ) for ds, dt, df in triples
-        )
+            return (
+                DetPainter(
+                    dt.subst,
+                    ds.addr,
+                    dt.addr,
+                    df,
+                    1.0,   # TODO prob_weight,
+                    p  # basis, "author"
+                ) for ds, dt, df in triples
+            )
 
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
-        with indent_log(5, 'A2DS', addr, addr in subst, subst[addr]):
+        with indent_log(5, 'ADDR to DETADDRS', addr, addr in subst, subst[addr]):
             match addr:
                 case int():
                     yield DetAddrWithSubst(subst.unify(var, addr), addr)
@@ -260,16 +286,18 @@ class Model:
                 case (i, j, f):
                     for painter in self.soups():
                         pi, pj, pf = painter
-                        lo(5, 'MATCHING PAINTERS', (i, j, f), (pi, pj, pf))
-                        subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
-                        if not isinstance(pj, SoupRef):  # HACK
-                            subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
-                        subst2 = subst2.unify(f, pf)
-                        subst2 = subst2.unify_if_undefined(F, pf)
-                        if subst2:
-                            if I not in subst2:
-                                subst2 = subst2.unify(I, pi) #TODO Is this right?
-                            yield DetAddrWithSubst(subst2, painter)
+                        with indent_log(
+                            5, 'MATCHING PAINTERS', (i, j, f), (pi, pj, pf)
+                        ):
+                            subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
+                            if not isinstance(pj, SoupRef):  # HACK
+                                subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
+                            subst2 = subst2.unify(f, pf)
+                            subst2 = subst2.unify_if_undefined(F, pf)
+                            if subst2:
+                                if I not in subst2:
+                                    subst2 = subst2.unify(I, pi) #TODO Is this right?
+                                yield DetAddrWithSubst(subst2, painter)
                 case _:
                     raise NotImplementedError(
                         f'Addr {addr} has unknown type {type(addr)}.'
@@ -305,12 +333,15 @@ class Model:
 
     def apply_func(self, subst: Subst, f: Func, v: Value) \
     -> Union[Value, Painter]:
-        if isinstance(f, str) or isinstance(f, int) or is_painter(f):
-            return f
-        elif callable(f):
-            return f(self, subst, v)
-        else:
-            raise NotImplementedError(f"apply_func: can't apply {f}")
+        with indent_log(4,
+            f'APPLY FUNC {short(f)}({short(v)})  {short(subst)}'
+        ):
+            if isinstance(f, str) or isinstance(f, int) or is_painter(f):
+                return f
+            elif callable(f):
+                return f(self, subst, v)
+            else:
+                raise NotImplementedError(f"apply_func: can't apply {f}")
 
     def state_str(self) -> str:
         sio = StringIO()

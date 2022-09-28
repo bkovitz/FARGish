@@ -9,7 +9,8 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = Canvas.py Funcs.py Model.py Subst.py Soup.py Types.py
+SRCFILES = Canvas.py Funcs.py Indenting.py Log.py Model.py Subst.py \
+	Soup.py Types.py util.py
 
 # Plot.py 
 # Log.py 
@@ -30,12 +31,13 @@ mypy:
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py # atest*.py
 
 # For type-checking just one file (specified here).
-CURRENT = Model.py
+CURRENT = run.py
+CURRENT_ARGS = 1118343772539054194
 
 m:
 	$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
 i: m   # 'interactive' way to type-check and run current file of interest
-	$(PY) -i $(CURRENT)
+	$(PY) -i $(CURRENT) $(CURRENT_ARGS)
 mi: i
 
 # Run all unit tests.
@@ -44,7 +46,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestModel.test_make_relative_indirect_painter
+	$(PY) -m unittest -v testModel.TestModel.test_make_between_painter
 	#$(PY) -m unittest -v testLog
 
 # Acceptance tests

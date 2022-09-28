@@ -34,11 +34,17 @@ def set_log_level(n: int) -> None:
 def lo(*args, **kwargs) -> None:
     '''Prints args to log file, at current indentation level.'''
     global log_level
-    if len(args) >= 1 and isinstance(args[0], int):
-        if log_level < args[0]:
-            return
-        else:
-            args = args[1:]
+#    if len(args) >= 1 and isinstance(args[0], int):
+#        if log_level < args[0]:
+#            return
+#        else:
+#            args = args[1:]
+    ok, args = ok_to_log(args)
+    if not ok:
+        return
+    print_to_logfile(args, kwargs)
+
+def print_to_logfile(args, kwargs):
     print(
         *(short(a) for a in args),
         dict_str(kwargs, xform=short),
@@ -46,7 +52,7 @@ def lo(*args, **kwargs) -> None:
     )
 
 def log_to(f: IO) -> None:
-    '''Set logfile to f. Wraps f with Indenting.'''
+    '''Sets logfile to f. Wraps f with Indenting.'''
     global _logfile
     _logfile = Indenting(f)
 
@@ -64,6 +70,37 @@ def indent_log(*args, **kwargs):
             yield _logfile
     finally:
         pass
+
+class SkipBlock(Exception):
+    pass
+
+#TODO Untested
+@contextmanager
+def logging_only(*args, **kwargs):
+    '''Like indent_log(), but skips the body of the 'with' statement if the
+    current logging level is too low.'''
+    try:
+        ok, args = ok_to_log(args)
+        if ok:
+            print_to_logfile(*args, **kwargs)
+            with indent(_logfile):
+                yield _logfile
+        else:
+            raise SkipBlock()
+    except SkipBlock:
+        pass
+    finally:
+        pass
+
+def ok_to_log(args) -> tuple[bool, Any]:
+    '''Returns tuple (ok?, new_args).'''
+    if len(args) >= 1 and isinstance(args[0], int):
+        if log_level >= args[0]:
+            return (True, args[1:])
+        else:
+            return (False, args)
+    else:
+        return (True, args)
 
 def trace(func):
     '''Function decorator: prints the name and arguments of the function each

@@ -9,6 +9,7 @@ m: Model
 
 def run_test() -> None:
     global m
+    set_log_level(9)
     m = Model.canvas_from('ajaqb')
     print(m.lts)
     m.absorb('ajaqb')

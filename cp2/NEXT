@@ -1,3 +1,7 @@
+with indent_log -> with logging
+
+with logging_only
+
 painter_to_detpainters
 
     [RelatedPair[I,J,F], ws, [I,J,F]]  DONE

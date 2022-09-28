@@ -14,7 +14,7 @@ from Types import Painter, as_index, painter_str
 #from Subst import Subst, bottom_subst, empty_subst
 import Subst as SM
 from Log import lo, trace
-from util import Numeric, nf
+from util import Numeric, nf, short
 
 @dataclass
 class Soup:
@@ -99,6 +99,11 @@ class Soup:
     def short(self) -> str:
         cl = self.__class__.__name__
         return cl
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        items = ', '.join(short(p) for p in self.painters)
+        return f'{cl}({items})'
 
     def state_str(self) -> str:
         sio = StringIO()

@@ -8,8 +8,9 @@ from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
 from Subst import Subst, empty_subst, Plus
 from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter
+from Soup import Soup
 from Log import lo, set_log_level
-from util import short, pts
+from util import pts, reseed, short
 
 
 class TestModel(unittest.TestCase):
@@ -144,7 +145,7 @@ class TestModel(unittest.TestCase):
         self.assertTrue((1, 3, same) in model.ws)
 
     def test_match_all_abs_painters(self) -> None:
-        model = Model.canvas_from('ajaqb')
+        model = Model.make_from('ajaqb', lts=Soup())
         model.ws.add(
             (1, 3, same),
             (3, 5, succ),
@@ -169,7 +170,7 @@ class TestModel(unittest.TestCase):
         )
 
     def test_match_some_abs_painters(self) -> None:
-        model = Model.canvas_from('ajaqb')
+        model = Model.make_from('ajaqb', lts=Soup())
         model.ws.add(
             (1, 3, same),
             (3, 5, succ),
@@ -238,6 +239,7 @@ class TestModel(unittest.TestCase):
 
     def test_make_between_painter(self) -> None:
         '''A cascade of three painters.'''
+        set_log_level(9)
         p1: Painter = (
             (I, Plus(I, 2), F),
                 # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
@@ -247,11 +249,12 @@ class TestModel(unittest.TestCase):
         p2: Painter = ((I, Plus(I, 2), same), WorkingSoup, (I, Plus(I, 1), 'j'))
         p3: Painter = (1, 2, 'j')
 
-        model = Model.canvas_from('ajaqb')
+        model = Model.make_from('ajaqb', lts=Soup())
         model.ws.add((1, 3, same))  # p1 will match this painter
 
         dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
         self.assertEqual(len(dpainters), 1)
+        lo('GOT', dpainters[0])
         model.run_detpainter(dpainters[0])
         self.assertIn(p2, model.ws)
 
@@ -298,6 +301,7 @@ class TestModel(unittest.TestCase):
         return dpainters[0]
 
     def test_absorb(self) -> None:
+        reseed(0)
         model = Model()
         model.absorb('ajaqb')
         print(model.lts.state_str())
