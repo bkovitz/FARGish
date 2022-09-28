@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from Types import Addr, Expr, Func, Value, Painter, is_painter, \
+from Types import Addr, Expr, Func, I, Value, WorkingSoup, Painter, is_painter, \
     painter_str, Fizzle
 import Subst as SM
 import Model as MM
@@ -80,13 +80,68 @@ class const(SimpleFuncClass):
         else:
             return f'{cl}({short(self.v)})'
 
-### apply_func()
+### Painter-building functions
 
-#def apply_func(subst: SM.Subst, f: Func, v: Value) \
-#-> Union[Value, Painter]:
-#    if isinstance(f, str) or isinstance(f, int) or is_painter(f):
-#        return f
-#    elif callable(f):
-#        return f(subst, v)
-#    else:
-#        raise NotImplementedError(f"apply_func: can't apply {f}")
+@dataclass(frozen=True)
+class MakeBetweenPainter:
+    '''Makes a painter that paints a value between two others.'''
+    i: Addr
+    j: Addr
+    f: Func
+
+    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
+        result_i = subst.as_index(self.i)
+        if result_i is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        value = model.canvas[result_i + 1]
+        if value is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_j = subst.as_index(self.j)
+        if result_j is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_f = subst[self.f]
+        if result_f is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        return (
+            (I, SM.Plus(I, result_j - result_i), result_f),
+            WorkingSoup,
+            (I, SM.Plus(I, 1), value)
+        )
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
+
+    __str__ = short
+
+@dataclass(frozen=True)
+class MakeRelativeIndirectPainter:
+    i: Addr
+    j: Addr
+    f: Func
+
+    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
+        result_i = subst.as_index(self.i)
+        if result_i is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        value = model.canvas[result_i]
+        if value is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_j = subst.as_index(self.j)
+        if result_j is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        result_f = subst[self.f]
+        if result_f is None:
+            raise Fizzle  # TODO More-specific Fizzle
+        return (
+            value,
+            WorkingSoup,
+            (I, SM.Plus(I, result_j - result_i), result_f)
+        )
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
+
+    __str__ = short
+

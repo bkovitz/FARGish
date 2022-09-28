@@ -5,8 +5,9 @@ import inspect
 
 from Types import F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
-    same, succ, MakeBetweenPainter, MakeRelativeIndirectPainter
+    same, succ
 from Subst import Subst, empty_subst, Plus
+from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter
 from Log import lo, set_log_level
 from util import short, pts
 
