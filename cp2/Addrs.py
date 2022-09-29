@@ -11,7 +11,7 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from Types import Addr, Func, Index, Indices, Painter, SoupRef, \
     SpecialAddr, Variable
 from Canvas import Canvas
-from Subst import Subst
+import Subst as SM
 import Model as MM
 from util import short
 
@@ -21,7 +21,7 @@ DetAddr = Union[Index, Indices, Painter, SoupRef]
 
 @dataclass(frozen=True)
 class DetAddrWithSubst:
-    subst: Subst
+    subst: SM.Subst
     addr: DetAddr
 
     def short(self) -> str:
@@ -55,7 +55,7 @@ class RelatedPair(SpecialAddr):
                             if model.are_related_by(i, j, f):
                                 #lo('ARER', i, j ,f)
                                 yield DetAddrWithSubst(
-                                    Subst.make_from(
+                                    SM.Subst.make_from(
                                         (self.i, i), (self.j, j), (self.f, f)
                                     ),
                                     Indices(i, j)

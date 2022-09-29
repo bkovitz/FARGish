@@ -16,8 +16,9 @@ from pyrsistent.typing import PMap
 from Types import Addr, Expr, F, Func, I, Index, Indices, J, \
     FizzleNotIndex, SimpleFunc, SoupRef, SpecialAddr, Variable, \
     as_index, is_func, is_index, is_painter
-import Funcs as FM
 import Model as MM
+import Funcs as FM
+from Addrs import RelatedPair
 from Log import lo, trace, indent_log
 from util import force_setattr, short
 
@@ -30,7 +31,7 @@ class HasAsIndex(ABC):
 
 @dataclass(frozen=True)
 class Plus(HasAsIndex):
-    args: Tuple[Expr]
+    args: Tuple[Expr, ...]
 
     def __init__(self, *args: Expr):
         force_setattr(self, 'args', args)
@@ -148,48 +149,52 @@ class Subst:
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         with indent_log(8, 'UNIFY', lhs, rhs):
             match (lhs, rhs):
+                case (x, y) if x == y:
+                    return self
+                case (x, Plus(args)) | (Plus(args), x) if len(args) == 1:
+                    return self.unify(x, args[0])
                 case (Variable(), int(r)):
-                    #print('GOTN', lhs, r)
-                    if lhs in self.d:
-                        if self.d[lhs] == r:
-                            return self
-                        else:
-                            return bottom_subst
-                    else:
-                        return Subst(self.d.set(lhs, r))
+                    return self.substitute(lhs, rhs).set_lhs_rhs(lhs, rhs)
                 case (Variable(), Indices()):
-                    if lhs in self.d:
-                        if self.d[lhs] == rhs:
-                            return self
-                        else:
-                            return bottom_subst
-                    else:
-                        return Subst(self.d.set(lhs, rhs))
-                case (int(l), int(r)):
-                    if l == r:
-                        return self
-                    else:
-                        return bottom_subst
+                    return self.set_lhs_rhs(lhs, rhs)
+                    # WRONG Need to simplify the elements of Indices
+                    # And need to substitute().
+                case (int(), int()):
+                    return bottom_subst  # we already know they're not equal
+                case (Indices(), Indices()):
+                    return bottom_subst  # we already know they're not equal
+                case (int(), Indices()):
+                    return self if Indices(lhs) == rhs else bottom_subst
+                case (Indices(), int()):
+                    return self if lhs == Indices(rhs) else bottom_subst
+                case (int(), Plus()):
+                    return self.unify(rhs, lhs)
                 case (Plus(args=(Variable() as v, int(n))), int(r)):
-                    #print('GOTPP', v, n, r)
+                    lo(9, 'GOTPP', v, n, r)
                     match self.simplify(v):
                         case int(vv):
-                            if vv + n == r:
-                                return self
-                            else:
-                                return bottom_subst
-                        case None:
-                            return Subst(self.d.set(v, r - n))
+                            return self.unify(vv + n, r)
+                        case Variable() as var:
+                            return self.unify(var, r - n)
+                        case None: # Is this still necessary?
+                            return self.set_lhs_rhs(v, r - n)
+                            #return Subst(self.d.set(v, r - n))
+                        case _:
+                            lo("Unimplemented Plus() unification:", lhs, type(lhs), ' with ', rhs, type(rhs), self.simplify(v))
+                            raise NotImplementedError((lhs, rhs))
                 case (Variable(), Plus() as rator):
                     #print('GOTVP')
                     rvalue = rator.value_of(self)
                     #if lhs in self.
                     return self # TODO
-                case (Variable(), Variable()):
-                    if lhs in self.d:
-                        return self.unify(lhs, self.d[rhs])
+                case (Variable(), Variable()) | (Plus(), Plus()):
+                    lhsimple = self.simplify(lhs)
+                    rhsimple = self.simplify(rhs)
+                    if lhsimple != lhs or rhsimple != rhs:
+                        return self.unify(lhsimple, rhsimple)
+                        # Could this make an infinite loop?
                     else:
-                        return Subst(self.d.set(lhs, rhs))
+                        return self.set_lhs_rhs(lhs, rhs)
                 case (Variable(), SoupRef()):
                     if lhs in self.d:
                         if self.d[lhs] == rhs:
@@ -208,6 +213,24 @@ class Subst:
                             return bottom_subst
                     else:
                         return Subst(self.d.set(lhs, rhs))
+                case (Variable(), (i, j, f)):
+                    (ii, jj, ff) = (
+                        self.simplify(i),
+                        self.simplify(j),
+                        self.simplify(f)
+                    )
+                    if (
+                        occurs_in(lhs, ii)
+                        or
+                        occurs_in(lhs, jj)
+                        or
+                        occurs_in(lhs, ff)
+                    ):
+                        return bottom_subst
+                    else:
+                        return self.set_lhs_rhs(lhs, (ii, jj, ff))
+                        # Is that wrong? What if ii, etc. have an expr that
+                        # needs to be evaluated later?
                 case (Variable(), f) if is_func(f):
                     if lhs in self.d:
                         if self.d[lhs] == rhs:
@@ -220,7 +243,7 @@ class Subst:
                     return bottom_subst
                 case (SimpleFunc(var), rhs):
                     if isinstance(rhs, FM.SimpleFuncClass):
-                        return self.simple_unify(var, rhs)
+                        return self.set_lhs_rhs(var, rhs)
                     else:
                         return bottom_subst
                 case (f, g) if callable(f) and callable(g):
@@ -230,13 +253,32 @@ class Subst:
                         return bottom_subst
                 case (f, _) if callable(f):  # BUG If _ is var, should unify
                     return bottom_subst
+                case ((i1, j1, f1), (i2, j2, f2)): # unify two painters
+                    # We define I, J, F to be i2, j2, f2 unless I, J, F
+                    # get unified in the course of unifying i1 with i2, etc.
+                    result = self.unify(i1, i2)
+                    if I not in result:
+                        result = result.unify(I, i2)
+
+                    result = result.unify(j1, j2)
+                    if J not in result:
+                        result = result.unify(J, j2)
+
+                    result = result.unify(f1, f2)
+                    if F not in result:
+                        result = result.unify(F, f2)
+                    return result
+                case (x, Variable()):
+                    return self.unify(rhs, x)
+                case (x, SoupRef()):
+                    return bottom_subst
                 case _:
                     lo("Unimplemented unification:", lhs, type(lhs), ' with ', rhs, type(rhs))
                     raise NotImplementedError((lhs, rhs))
             assert False, "unify(): should not go past 'match' stmt"
             return self # Needed only to please mypy; stops [return] error
 
-    def simple_unify(self, lhs: Expr, rhs: Expr) -> Subst:
+    def set_lhs_rhs(self, lhs: Expr, rhs: Expr) -> Subst:
         if lhs in self.d:
             if self.d[lhs] == rhs:
                 return self
@@ -264,15 +306,73 @@ class Subst:
         )
         return f'{cl}({items})'
 
-#    def substitute(self, var: Variable, rhs: Expr) -> Subst:
-#        '''Returns a Subst in which every occurence of 'var' has been replaced
-#        by 'rhs'.'''
-#        return Subst(
-#            pmap(
-#                (expr_substitute(v, var, rhs), expr_substitute(e, var, rhs))
-#                    for v, e in self.d.items()
-#        )
+    def substitute(self, lhs: Expr, rhs: Expr) -> Subst:
+        '''Returns a Subst in which every occurence of 'lhs' has been replaced
+        by 'rhs'.'''
+        result = empty_subst
+        for l, r in self.d.items():
+            result = result.unify(
+                expr_substitute(l, lhs, rhs),
+                expr_substitute(r, lhs, rhs)
+            )
+            if not result:
+                return bottom_subst
+        return result
 
+def expr_substitute(e: Expr, lhs: Expr, rhs: Expr) -> Expr:
+    '''Returns a new Expr consisting of e where every occurrence of lhs has
+    been replaced by rhs.'''
+    match e:
+        case x if x == lhs:
+            return rhs
+        case Plus(args):
+            return Plus(*(expr_substitute(a, lhs, rhs) for a in args))
+        case (i, j, f):
+            return (
+                expr_substitute(i, lhs, rhs),
+                expr_substitute(j, lhs, rhs), 
+                expr_substitute(f, lhs, rhs)
+            )
+        # TODO UT
+        case RelatedPair(i, j, f):
+            return RelatedPair(
+                expr_substitute(i, lhs, rhs),
+                expr_substitute(j, lhs, rhs), 
+                expr_substitute(f, lhs, rhs)
+            )
+        # TODO UT
+        case FM.MakeBetweenPainter(i, j, f):
+            return FM.MakeBetweenPainter(
+                expr_substitute(i, lhs, rhs),
+                expr_substitute(j, lhs, rhs), 
+                expr_substitute(f, lhs, rhs)
+            )
+        # TODO UT
+        case FM.MakeRelativeIndirectPainter(i, j, f):
+            return FM.MakeRelativeIndirectPainter(
+                expr_substitute(i, lhs, rhs),
+                expr_substitute(j, lhs, rhs), 
+                expr_substitute(f, lhs, rhs)
+            )
+        case _:  # no match; nothing to substitute
+            return e
+
+def occurs_in(var: Variable, expr: Expr) -> bool:
+    match expr:
+        case Variable():
+            return var == expr
+        case (i, j, f):
+            return occurs_in(var, i) or occurs_in(var, j) or occurs_in(var, f)
+        case Plus(args):
+            return any(occurs_in(var, a) for a in args)
+        case RelatedPair(i, j, f):
+            return occurs_in(var, i) or occurs_in(var, j) or occurs_in(var, f)
+        case FM.MakeBetweenPainter(i, j, f):
+            return occurs_in(var, i) or occurs_in(var, j) or occurs_in(var, f)
+        case FM.MakeRelativeIndirectPainter(i, j, f):
+            return occurs_in(var, i) or occurs_in(var, j) or occurs_in(var, f)
+        case _:
+            return False
 
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
@@ -285,6 +385,9 @@ class BottomSubst(Subst):
         return None
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        return self
+
+    def set_lhs_rhs(self, lhs: Expr, rhs: Expr) -> Subst:
         return self
 
     def substitute(self, var: Variable, rhs: Expr) -> Subst:

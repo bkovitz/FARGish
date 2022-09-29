@@ -239,7 +239,6 @@ class TestModel(unittest.TestCase):
 
     def test_make_between_painter(self) -> None:
         '''A cascade of three painters.'''
-        set_log_level(9)
         p1: Painter = (
             (I, Plus(I, 2), F),
                 # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
@@ -254,7 +253,7 @@ class TestModel(unittest.TestCase):
 
         dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
         self.assertEqual(len(dpainters), 1)
-        lo('GOT', dpainters[0])
+        #lo('GOT', dpainters[0])
         model.run_detpainter(dpainters[0])
         self.assertIn(p2, model.ws)
 

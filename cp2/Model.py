@@ -98,17 +98,16 @@ class Model:
             self.detpainter_to_probability_weight(dp)
                 for dp in det_painters
         ]
-        # logging
-        with indent_log(4, 'DETPAINTERS'):
+        with indent_log(5, 'DETPAINTERS'):
             if det_painters:
                 for k in range(len(det_painters)):
-                    lo(4, nf(weights[k]), det_painters[k])
+                    lo(5, nf(weights[k]), det_painters[k])
             else:
-                lo('No det_painters.')
+                lo(5, 'No det_painters.')
 
         ii = choices(range(len(det_painters)), weights)[0]
         dp = det_painters[ii]
-        lo(4, 'dp =', dp, '  ', nf(weights[ii]))
+        lo(4, 'CHOSE DETPAINTER', dp, '  ', nf(weights[ii]))
 
         return dp
 
@@ -230,21 +229,25 @@ class Model:
                 for triple in triples:
                     lo(7, triple)
 
-            return (
-                DetPainter(
+            for ds, dt, df in triples:
+                yield DetPainter(
                     dt.subst,
                     ds.addr,
                     dt.addr,
                     df,
                     1.0,   # TODO prob_weight,
                     p  # basis, "author"
-                ) for ds, dt, df in triples
-            )
+                )
 
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
-        with indent_log(5, 'ADDR to DETADDRS', addr, addr in subst, subst[addr]):
+        with indent_log(5,
+            'ADDR to DETADDRS',
+            addr,
+            f'(in Subst: {subst[addr]})' if addr in subst else '(not in Subst)',
+            subst
+        ):
             match addr:
                 case int():
                     yield DetAddrWithSubst(subst.unify(var, addr), addr)
@@ -286,18 +289,9 @@ class Model:
                 case (i, j, f):
                     for painter in self.soups():
                         pi, pj, pf = painter
-                        with indent_log(
-                            5, 'MATCHING PAINTERS', (i, j, f), (pi, pj, pf)
-                        ):
-                            subst2 = subst.unify(i, pi).unify_if_undefined(I, pi)
-                            if not isinstance(pj, SoupRef):  # HACK
-                                subst2 = subst2.unify(j, pj).unify_if_undefined(J, pj)
-                            subst2 = subst2.unify(f, pf)
-                            subst2 = subst2.unify_if_undefined(F, pf)
-                            if subst2:
-                                if I not in subst2:
-                                    subst2 = subst2.unify(I, pi) #TODO Is this right?
-                                yield DetAddrWithSubst(subst2, painter)
+                        subst2 = subst.unify(addr, painter)
+                        if subst2:
+                            yield DetAddrWithSubst(subst2, painter)
                 case _:
                     raise NotImplementedError(
                         f'Addr {addr} has unknown type {type(addr)}.'
@@ -308,22 +302,22 @@ class Model:
 
     def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
     -> Iterable[DetFunc]:  # TODO Create an appropriate type
-        #print('FTOD', short(subst), '\n', var, '\n', short(func))
-        match func:
-            case Variable():
-                if func in subst:
-                    yield subst[func]
-                else:
-                    yield from self.primitive_funcs
-            case (i, j, f):
-                for ii, jj, ff in product(
-                    self.addr_to_detaddrs(subst, I, i),
-                    self.addr_to_detaddrs(subst, J, j),
-                    self.func_to_detfuncs(subst, F, f)
-                ):
-                    yield (ii.addr, jj.addr, ff)
-            case _:
-                yield func
+        with indent_log(6, 'FUNC to DETFUNCS', func, subst):
+            match func:
+                case Variable():
+                    if func in subst:
+                        yield subst[func]
+                    else:
+                        yield from self.primitive_funcs
+                case (i, j, f):
+                    for ii, jj, ff in product(
+                        self.addr_to_detaddrs(subst, I, i),
+                        self.addr_to_detaddrs(subst, J, j),
+                        self.func_to_detfuncs(subst, F, f)
+                    ):
+                        yield (ii.addr, jj.addr, ff)
+                case _:
+                    yield func
 
     def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
         if not (self.canvas.has_letter(i) and self.canvas.has_letter(j)):

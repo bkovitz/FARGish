@@ -198,10 +198,10 @@ def extract_index(i: Index2) -> Index:
 @dataclass(frozen=True)
 class Indices:
     '''Zero or more Index2s.'''
-    elems: Tuple[Index2, ...]
+    elems: FrozenSet[Index2]
 
     def __init__(self, *i: Index2):
-        force_setattr(self, 'elems', tuple(i))
+        force_setattr(self, 'elems', frozenset(i))
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
