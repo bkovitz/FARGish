@@ -18,106 +18,6 @@ class TestModel(unittest.TestCase):
     def tearDown(self) -> None:
         set_log_level(0)
 
-    def test_detaddr_1(self) -> None:
-        model = Model()
-        model.set_canvas('a    ')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, 1),
-            [DetAddrWithSubst(Subst.make_from((I, 1)), 1)]
-        )
-
-    def test_detaddr_a(self) -> None:
-        model = Model()
-        model.set_canvas('a a  ')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, 'a'),
-            [
-                DetAddrWithSubst(Subst.make_from((I, 1)), 1),
-                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
-            ]
-        )
-
-    def test_detaddr_I(self) -> None:
-        '''Matching against an undefined Variable returns all indices
-        in the canvas.'''
-        model = Model()
-        model.set_canvas('a a  ')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, I),
-            [
-                DetAddrWithSubst(Subst.make_from((I, 1)), 1),
-                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
-                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
-                DetAddrWithSubst(Subst.make_from((I, 4)), 4),
-                DetAddrWithSubst(Subst.make_from((I, 5)), 5),
-            ]
-        )
-
-    def test_detaddr_I_already_defined(self) -> None:
-        # Matching against a defined Variable returns whatever Addr(s)
-        # make up the value of that Variable.
-        model = Model()
-        model.set_canvas('a a  ')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(Subst.make_from((I, 2)), I, I),
-            [
-                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
-            ]
-        )
-
-    def test_detaddr_I_plus_2(self) -> None:
-        # Matching against I+2 when I is undefined returns no determinate
-        # addresses.
-        # TODO Should we return all but indices 1 and 2?
-        model = Model()
-        model.set_canvas('a a  ')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, J, Plus(I, 2)),
-            []
-        )
-
-    def test_detaddr_I_plus_2_already_defined(self) -> None:
-        # Matching against I+2 when I is defined returns the index I+2
-        # (evaluated).
-        model = Model()
-        model.set_canvas('a a  ')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(Subst.make_from((I, 1)), J, Plus(I, 2)),
-            [
-                DetAddrWithSubst(Subst.make_from((I, 1), (J, 3)), 3),
-            ]
-        )
-
-    def test_related_pair_detaddrs(self) -> None:
-        model = Model.canvas_from('ajaqb')
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, RelatedPair(I, J, F)),
-            [
-                DetAddrWithSubst(
-                    Subst.make_from((I, 1), (J, 3), (F, same)),
-                    Indices(1, 3)
-                ),
-                DetAddrWithSubst(
-                    Subst.make_from((I, 1), (J, 5), (F, succ)),
-                    Indices(1, 5)
-                ),
-                DetAddrWithSubst(
-                    Subst.make_from((I, 3), (J, 5), (F, succ)),
-                    Indices(3, 5)
-                )
-            ]
-        )
-
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, RelatedPair(I, J, same)),
-            [
-                DetAddrWithSubst(
-                    Subst.make_from((I, 1), (J, 3)),
-                    Indices(1, 3)
-                ),
-            ]
-        )
-
     maxDiff = None
     def test_related_pair_detpainters(self) -> None:
         model = Model.canvas_from('ajaqb')
@@ -160,6 +60,7 @@ class TestModel(unittest.TestCase):
         )
 
     def test_match_some_abs_painters(self) -> None:
+        '''Tests (I, Plus(I, 2), F).'''
         model = Model.make_from('ajaqb', lts=Soup())
         model.ws.add(
             (1, 3, same),
@@ -176,24 +77,6 @@ class TestModel(unittest.TestCase):
                 DetAddrWithSubst(
                     Subst.make_from((I, 3), (J, 5), (F, succ)),
                     (3, 5, succ)
-                )
-            ]
-        )
-
-    def test_match_simplefunc(self) -> None:
-        model = Model.canvas_from('ajaqb')
-        model.ws.add(
-            (1, 3, same),
-            (1, 3, MakeBetweenPainter(I, J, F)) # this painter is invalid
-        )                                       # for actual use because the
-                                                # F can't refer to anything
-                                                # but good enough for this test
-        self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, (I, J, SimpleFunc(F))),
-            [
-                DetAddrWithSubst(
-                    Subst.make_from((I, 1), (J, 3), (F, same)),
-                    (1, 3, same)
                 )
             ]
         )

@@ -14,11 +14,11 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Types import Addr, Expr, F, Func, I, Index, Indices, J, \
-    FizzleNotIndex, SimpleFunc, SoupRef, SpecialAddr, Variable, \
+    FizzleNotIndex, SimpleFunc, SoupRef, Variable, \
     as_index, is_func, is_index, is_painter
 import Model as MM
 import Funcs as FM
-from Addrs import RelatedPair
+from Addrs import RelatedPair, SpecialAddr
 from Log import lo, trace, indent_log
 from util import force_setattr, short
 

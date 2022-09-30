@@ -13,9 +13,10 @@ from random import choice, choices, random
 import sys
 from operator import itemgetter
 
-from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
+from Types import Addr, CanvasValue, CellContent, F, \
+    Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SimpleFunc, SoupRef, \
-    SpecialAddr, Value, Variable, WorkingSoup, \
+    Value, Variable, WorkingSoup, \
     addr_str, func_str, is_painter, painter_str
 import Types
 from Canvas import Canvas, Canvas1D
@@ -23,7 +24,7 @@ from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 from Funcs import same, pred, succ, MakeRelativeIndirectPainter, \
     MakeBetweenPainter
-from Addrs import DetAddr, DetAddrWithSubst, RelatedPair
+from Addrs import DetAddr, DetAddrWithSubst, RelatedPair, SpecialAddr
 from Painters import DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log
 from util import short, nf, Numeric
@@ -77,6 +78,9 @@ class Model:
     def contents_at(self, addr: Addr) -> Value:
         #TODO Look up a painter by addr?
         return self.canvas[addr]
+
+    def paint(self, a: Index, x: CellContent) -> None:
+        self.canvas[a] = x
 
     def absorb(self, s: str, timesteps: int=20):
         self.set_canvas(s)
@@ -317,7 +321,7 @@ class Model:
                             yield DetAddrWithSubst(subst.unify(var, index), index)
                         case _:
                             raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
-                case RelatedPair():
+                case SpecialAddr():
                     #yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
                     got = list(addr.to_detaddrs(
                         self, self.canvas, self.primitive_funcs)

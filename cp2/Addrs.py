@@ -7,9 +7,10 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
+from abc import ABC, abstractmethod
 
-from Types import Addr, Func, Index, Indices, Painter, SoupRef, \
-    SpecialAddr, Variable
+from Types import Addr, CellContent, Func, Index, Indices, Painter, SoupRef, \
+    Variable
 from Canvas import Canvas
 import Subst as SM
 import Model as MM
@@ -30,6 +31,17 @@ class DetAddrWithSubst:
 
     __str__ = short
     __repr__ = short
+
+class SpecialAddr(ABC):
+
+    @abstractmethod
+    def to_detaddrs(
+        self,
+        model: MM.Model,
+        canvas: Canvas,
+        primitive_funcs: Iterable[Func]
+    ) -> Iterable[DetAddrWithSubst]:
+        pass
 
 @dataclass(frozen=True)
 class RelatedPair(SpecialAddr):
@@ -77,3 +89,17 @@ class RelatedPair(SpecialAddr):
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
+
+# NEXT
+@dataclass(frozen=True)
+class MatchContent(SpecialAddr):
+    content: CellContent
+
+    def to_detaddrs(
+        self,
+        model: MM.Model,
+        canvas: Canvas,
+        primitive_funcs: Iterable[Func]
+    ) -> Iterable[DetAddrWithSubst]:
+        pass
+

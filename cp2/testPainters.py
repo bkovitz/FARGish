@@ -103,4 +103,3 @@ class TestPainters(unittest.TestCase):
         self.assertIn(dp2, dp2s)
         model.run_detpainter(dp2)
         self.assertIn(p3, model.ws)
-

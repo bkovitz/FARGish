@@ -12,7 +12,6 @@ from io import StringIO
 
 from Types import Painter, as_index, painter_str
 #from Subst import Subst, bottom_subst, empty_subst
-import Subst as SM
 from Log import lo, trace
 from util import Numeric, nf, short
 
@@ -51,30 +50,32 @@ class Soup:
     def __iter__(self) -> Iterator[Painter]:
         return iter(self.painters)
 
-    def matching_painters(self, xp: Painter) -> List[Tuple[SM.Subst, Painter]]:
-        result = []
-        for p in self.painters:
-            subst = self.is_match(xp, p)
-            if subst:
-                result.append((subst, p))
-        return result
-
-    def is_match(self, xp: Painter, p: Painter) -> SM.Subst:
-        '''Viewing xp as a painter template (possibly with variables that
-        need to be filled in), does p match xp?
-
-        Returning a BottomSubst() means no match.
-        '''
-        # TODO Require match of func, too
-        xi, xj, xf = xp
-        pi = as_index(p[0])
-        pj = as_index(p[1])
-        pf = p[2]
-
-        if xf == pf:
-            return SM.empty_subst.unify(xi, pi).unify(xj, pj)
-        else:
-            return SM.bottom_subst
+# Commented out to prevent circular import (of Subst), and since nothing else
+# seems to call these functions.
+#    def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
+#        result = []
+#        for p in self.painters:
+#            subst = self.is_match(xp, p)
+#            if subst:
+#                result.append((subst, p))
+#        return result
+#
+#    def is_match(self, xp: Painter, p: Painter) -> Subst:
+#        '''Viewing xp as a painter template (possibly with variables that
+#        need to be filled in), does p match xp?
+#
+#        Returning a BottomSubst() means no match.
+#        '''
+#        # TODO Require match of func, too
+#        xi, xj, xf = xp
+#        pi = as_index(p[0])
+#        pj = as_index(p[1])
+#        pf = p[2]
+#
+#        if xf == pf:
+#            return empty_subst.unify(xi, pi).unify(xj, pj)
+#        else:
+#            return bottom_subst
 
     def has_painter(self, p: Painter) -> bool:
         return p in self.painters
