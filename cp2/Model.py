@@ -24,7 +24,8 @@ from Soup import Soup
 from Subst import Subst, empty_subst, Plus
 from Funcs import same, pred, succ, MakeRelativeIndirectPainter, \
     MakeBetweenPainter
-from Addrs import DetAddr, DetAddrWithSubst, RelatedPair, SpecialAddr
+from Addrs import DetAddr, DetAddrWithSubst, RelatedPair, SpecialAddr, \
+    MatchContent
 from Painters import DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log
 from util import short, nf, Numeric
@@ -300,6 +301,11 @@ class Model:
                         DetAddrWithSubst(subst.unify(var, index), index)
                             for index in self.canvas.all_matching(addr)
                     )
+                case MatchContent():
+                    yield from (
+                        DetAddrWithSubst(subst.unify(var, index), index)
+                            for index in self.canvas.all_matching(addr.content)
+                    )
                 case Variable():
                     if addr in subst:
                         yield from (
@@ -323,11 +329,9 @@ class Model:
                             raise NotImplementedError(f"Can't match Plus that simplifies to {addr}, {type(addr)}")
                 case SpecialAddr():
                     #yield from addr.to_detaddrs(self.canvas, self.primitive_funcs)
-                    got = list(addr.to_detaddrs(
-                        self, self.canvas, self.primitive_funcs)
+                    yield from addr.to_detaddrs(
+                        self, self.canvas, self.primitive_funcs
                     )
-                    lo(5, 'RPGOT', got)
-                    yield from got
                 case SoupRef():
                     yield DetAddrWithSubst(subst, addr)
                 case (i, j, f):

@@ -3,7 +3,7 @@
 import unittest
 import inspect
 
-from Types import F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
+from Types import CellBundle, F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
 from Subst import Subst, empty_subst, Plus
@@ -36,12 +36,26 @@ class TestAddrs(unittest.TestCase):
         )
 
 
-    @unittest.skip('not ready')
-    def test_detaddr_with_annotations(self) -> None:
+    def test_detaddr_annotation(self) -> None:
         model = Model.make_from('aaaaa')
         model.paint(2, MyAnnotation)
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, MatchContent(MyAnnotation)),
+            [
+                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
+            ]
+        )
+
+    def test_detaddr_letter_and_annotation(self) -> None:
+        model = Model.make_from('abbc')
+        model.paint(1, MyAnnotation)
+        model.paint(3, MyAnnotation)
+        self.assertCountEqual(
+            model.addr_to_detaddrs(
+                empty_subst,
+                I,
+                MatchContent(CellBundle.make_from('b', MyAnnotation))
+            ),
             [
                 DetAddrWithSubst(Subst.make_from((I, 3)), 3),
             ]

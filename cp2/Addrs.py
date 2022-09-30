@@ -65,7 +65,6 @@ class RelatedPair(SpecialAddr):
                             continue
                         for f in self.func_iter(self.f, primitive_funcs):
                             if model.are_related_by(i, j, f):
-                                #lo('ARER', i, j ,f)
                                 yield DetAddrWithSubst(
                                     SM.Subst.make_from(
                                         (self.i, i), (self.j, j), (self.f, f)
@@ -92,14 +91,5 @@ class RelatedPair(SpecialAddr):
 
 # NEXT
 @dataclass(frozen=True)
-class MatchContent(SpecialAddr):
+class MatchContent:
     content: CellContent
-
-    def to_detaddrs(
-        self,
-        model: MM.Model,
-        canvas: Canvas,
-        primitive_funcs: Iterable[Func]
-    ) -> Iterable[DetAddrWithSubst]:
-        pass
-
