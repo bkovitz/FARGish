@@ -772,26 +772,29 @@ def hsb_to_rgb(h: int, s: int, b: int) -> Tuple[int, int, int]:
 
 ### Debugging and reporting
 
-def short(o) -> str:
+def short(o, inside: bool=False) -> str:
     '''Returns a short string representation of o. If o has a .short() method
-    defined, we call it and return its result. Otherwise we return str(o).'''
+    defined, we call it and return its result. Otherwise we return str(o).
+    If 'inside' is True, we return the repr of strings; if False, the string
+    itself. This enables strings inside lists, tuples, etc. to print with
+    quotes.'''
     if isinstance(o, list):
-        return f"[{', '.join(short(x) for x in o)}]"
+        return f"[{', '.join(short(x, inside=True) for x in o)}]"
     elif isinstance(o, tuple):
-        return f"({', '.join(short(x) for x in o)})"
+        return f"({', '.join(short(x, inside=True) for x in o)})"
     elif isinstance(o, set):
-        return f"{{{', '.join(short(x) for x in o)}}}"
+        return f"{{{', '.join(short(x, inside=True) for x in o)}}}"
     elif isinstance(o, frozenset):
-        return f"frozenset([{', '.join(short(x) for x in o)}])"
+        return f"frozenset([{', '.join(short(x, inside=True) for x in o)}])"
     elif isinstance(o, dict):
-        items = [f'{repr(k)}: {short(v)}' for k, v in o.items()]
+        items = [f'{repr(k)}: {short(v, inside=True)}' for k, v in o.items()]
         return f"{{{', '.join(items)}}}"
     elif isinstance(o, float):
         return f'{o:1.3}'
     elif isclass(o):
         return o.__name__
-#    elif isinstance(o, str):
-#        return repr(o)
+    elif inside and isinstance(o, str):
+        return repr(o)
     elif isinstance(o, MethodType):
         return f'{short(o.__self__)}.{o.__name__}()'
     elif isinstance(o, FunctionType):

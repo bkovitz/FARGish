@@ -9,8 +9,8 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = Canvas.py Funcs.py Indenting.py Log.py Model.py Subst.py \
-	Soup.py Types.py util.py
+SRCFILES = Addrs.py Canvas.py Funcs.py Indenting.py Log.py Model.py \
+	Painters.py Soup.py Subst.py Types.py util.py
 
 # Plot.py 
 # Log.py 
@@ -32,10 +32,11 @@ mypy:
 
 # For type-checking just one file (specified here).
 CURRENT = run.py
-CURRENT_ARGS = 1118343772539054194
+CURRENT_ARGS = 3572413201058895229  #1118343772539054194
 
 m:
-	$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
+	#$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
+	$(MYPY) $(MYPY_FLAGS) $(SRCFILES)
 i: m   # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $(CURRENT) $(CURRENT_ARGS)
 mi: i

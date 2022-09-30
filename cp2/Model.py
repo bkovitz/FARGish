@@ -11,6 +11,7 @@ from itertools import chain, product
 from io import StringIO
 from random import choice, choices, random
 import sys
+from operator import itemgetter
 
 from Types import Addr, CanvasValue, F, Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SimpleFunc, SoupRef, \
@@ -23,7 +24,7 @@ from Subst import Subst, empty_subst, Plus
 from Funcs import same, pred, succ, MakeRelativeIndirectPainter, \
     MakeBetweenPainter
 from Addrs import DetAddr, DetAddrWithSubst, RelatedPair
-from Painters import DetPainter, DetFunc
+from Painters import DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log
 from util import short, nf, Numeric
 
@@ -47,6 +48,10 @@ class Model:
 
     primitive_funcs: FrozenSet = default_primitive_funcs
     t: int = 0   # current timestep
+    suppressions: Dict[DetPainter0, float] = field(default_factory=dict)
+    dps_run: Dict[int, DetPainter] = field(default_factory=dict)
+        # DetPainters run: a record of all the DetPainters that this model
+        # has run, and in what timestep.
 
     @classmethod
     def canvas_from(cls, s: str) -> Model:
@@ -73,11 +78,11 @@ class Model:
         #TODO Look up a painter by addr?
         return self.canvas[addr]
 
-    def absorb(self, s: str):
+    def absorb(self, s: str, timesteps: int=20):
         self.set_canvas(s)
         #NEXT  
         #      Run from initial painters a while
-        for t in range(10):
+        for t in range(timesteps):
             self.do_timestep()
             print(self.state_str())
         #      Save the abstract ones to the lts
@@ -85,9 +90,12 @@ class Model:
 
     def do_timestep(self) -> None:
         self.t += 1
-        # decay
+        self.ws.decay()
+        self.decay_suppressions()
         lo(2, f't={self.t}')
-        self.run_detpainter(self.choose_detpainter(self.soups()))
+        dp = self.choose_detpainter(self.soups())
+        self.run_detpainter(dp)
+        self.suppress(dp.as_painter())
 
     def choose_detpainter(self, soup: Soup) -> DetPainter:
         det_painters = list(chain.from_iterable(
@@ -100,8 +108,12 @@ class Model:
         ]
         with indent_log(5, 'DETPAINTERS'):
             if det_painters:
-                for k in range(len(det_painters)):
-                    lo(5, nf(weights[k]), det_painters[k])
+                for w, dp in sorted(
+                    zip(weights, det_painters), key=itemgetter(0)
+                ):
+                    lo(5, nf(w), dp)
+#                for k in range(len(det_painters)):
+#                    lo(5, nf(weights[k]), det_painters[k])
             else:
                 lo(5, 'No det_painters.')
 
@@ -119,6 +131,23 @@ class Model:
             *
             dp.prob_weight
         )
+
+    def suppress(self, dp0: DetPainter0) -> None:
+        if dp0 in self.suppressions:
+            self.suppressions[dp0] *= 0.5
+        else:
+            self.suppressions[dp0] = 0.1
+
+    def suppression(self, dp0: DetPainter0) -> float:
+        return self.suppressions.get(dp0, 1.0)
+
+    def decay_suppressions(self) -> None:
+        new_suppressions: Dict[Painter, float] = {}
+        for dp0, sup in self.suppressions.items():
+            new_sup = sup * 1.1
+            if new_sup < 1.0:
+                new_suppressions[dp0] = new_sup
+        self.suppressions = new_suppressions
 
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:
@@ -148,6 +177,7 @@ class Model:
         self,
         dp: DetPainter
     ) -> None:
+        self.dps_run[self.t] = dp
         v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
         match dp.target:
             case int():
@@ -161,6 +191,15 @@ class Model:
             #TODO Painting to long-term soup
             case _:
                 raise NotImplementedError(f"run_detpainter: can't paint to target; dp={dp}")
+
+    def ldp(self) -> Optional[DetPainter]:
+        '''The last DetPainter run (if any).'''
+        return self.dps_run.get(self.t, None)
+
+    def see_ldps(self) -> None:
+        '''Prints all the DetPainters and their timesteps.'''
+        for t in sorted(self.dps_run.keys()):
+            print(f't={t}\n{self.dps_run[t]}')
 
     def OLDpainter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
         lo('PAINTER', short(p))
@@ -235,7 +274,8 @@ class Model:
                     ds.addr,
                     dt.addr,
                     df,
-                    1.0,   # TODO prob_weight,
+                    self.suppression((ds.addr, dt.addr, df)),
+                        # TODO figure painter clarity into prob_weight?
                     p  # basis, "author"
                 )
 
@@ -327,7 +367,7 @@ class Model:
 
     def apply_func(self, subst: Subst, f: Func, v: Value) \
     -> Union[Value, Painter]:
-        with indent_log(4,
+        with indent_log(6,
             f'APPLY FUNC {short(f)}({short(v)})  {short(subst)}'
         ):
             if isinstance(f, str) or isinstance(f, int) or is_painter(f):

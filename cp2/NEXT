@@ -57,9 +57,13 @@ Basics
 
             [RelatedPair[I,J,F], ws, [I,J,F]]  DONE
 
-            [[I,J,Relation[F]], ws, MakeRelativeIndirectPainter[I,J,F]]
+            [[I,J,Relation[F]], ws, MakeRelativeIndirectPainter[I,J,F]] DONE
 
-            [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]]
+            [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]] DONE
+
+        NEXT Suppress recently-run DetPainters.
+
+        Put appropriate painters into long-term soup.
 
         Test on 'ajaqb'
 

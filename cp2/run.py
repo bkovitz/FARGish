@@ -9,10 +9,10 @@ m: Model
 
 def run_test() -> None:
     global m
-    set_log_level(9)
+    set_log_level(5)
     m = Model.canvas_from('ajaqb')
     print(m.lts)
-    m.absorb('ajaqb')
+    m.absorb('ajaqb', timesteps=40)
 
 
 if __name__ == '__main__':
