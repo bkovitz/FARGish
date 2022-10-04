@@ -1,3 +1,5 @@
+NEXT test_make_relative_indirect_painter_with_annotation
+
 with indent_log -> with logging
 
 with logging_only
@@ -61,7 +63,7 @@ Basics
 
             [[I, I+2, F], ws, MakeBetweenPainter[I, J, F]] DONE
 
-        NEXT Suppress recently-run DetPainters.
+        Suppress recently-run DetPainters. DONE
 
         Put appropriate painters into long-term soup.
 

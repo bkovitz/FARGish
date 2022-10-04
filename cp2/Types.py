@@ -89,6 +89,9 @@ class Annotations:
     def __ge__(self, other: Annotations) -> bool:
         return self.elems >= other.elems
 
+    def __bool__(self) -> bool:
+        return bool(self.elems)
+
     def __str__(self) -> str:
         return f'Annotations({self.elems_str()})'
 
@@ -108,6 +111,10 @@ class CellBundle:
         for vv in v:
             result = result + vv
         return result
+
+    def value_only(self) -> bool:
+        '''Does this CellBundle contain only a value and no annotations?'''
+        return bool(self.annotations)
 
     def __iter__(self) -> Iterable[CellContent1]:
         if self.value is not None:

@@ -124,8 +124,9 @@ class MakeRelativeIndirectPainter:
         result_i = subst.as_index(self.i)
         if result_i is None:
             raise Fizzle  # TODO More-specific Fizzle
-        value = model.canvas[result_i]
-        if value is None:
+        #value = model.canvas[result_i]
+        bundle = model.canvas.as_bundle(result_i)
+        if bundle is None:
             raise Fizzle  # TODO More-specific Fizzle
         result_j = subst.as_index(self.j)
         if result_j is None:
@@ -134,7 +135,7 @@ class MakeRelativeIndirectPainter:
         if result_f is None:
             raise Fizzle  # TODO More-specific Fizzle
         return (
-            value,
+            bundle.value if bundle.value_only() else bundle,
             WorkingSoup,
             (I, SM.Plus(I, result_j - result_i), result_f)
         )

@@ -13,10 +13,10 @@ from random import choice, choices, random
 import sys
 from operator import itemgetter
 
-from Types import Addr, CanvasValue, CellContent, F, \
+from Types import Addr, CanvasValue, CellContent, End, F, \
     Fizzle, FizzleValueNotFound, \
     Func, I, Index, Indices, J, MaybeIndex, Painter, SimpleFunc, SoupRef, \
-    Value, Variable, WorkingSoup, \
+    Start, Value, Variable, WorkingSoup, \
     addr_str, func_str, is_painter, painter_str
 import Types
 from Canvas import Canvas, Canvas1D
@@ -54,19 +54,26 @@ class Model:
     dps_run: Dict[int, DetPainter] = field(default_factory=dict)
         # DetPainters run: a record of all the DetPainters that this model
         # has run, and in what timestep.
+    auto_annotate: bool = True
+        # Should the Model automatically annotate the first and last canvas
+        # calls with Start and End?
 
     @classmethod
     def canvas_from(cls, s: str) -> Model:
         return cls(canvas=Canvas1D.make_from(s))
 
     @classmethod
-    def make_from(cls, *args, **kwargs) -> Model:
+    def make_from(cls, *args, auto_annotate: bool=True, **kwargs) -> Model:
         match len(args):
             case 0:
                 pass
             case 1:
                 if isinstance(args[0], str):
-                    kwargs['canvas'] = Canvas1D.make_from(args[0])
+                    canvas = Canvas1D.make_from(args[0])
+                    if auto_annotate:
+                        canvas[canvas.min_index()] = Start
+                        canvas[canvas.max_index()] = End
+                    kwargs['canvas'] = canvas
             case _:
                 raise ValueError(
                     f'Can only pass a string to Model.make_from(); got {repr(args)}'

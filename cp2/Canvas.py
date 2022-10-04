@@ -70,6 +70,14 @@ class Canvas(ABC):
     def addrs_containing_value(self, v: Value) -> Iterable[Index]:
         return (a for a in self.all_addrs() if self[a] == v)
 
+    @abstractmethod
+    def min_index(self) -> int:
+        pass
+
+    @abstractmethod
+    def max_index(self) -> int:
+        pass
+
 @dataclass
 class ContentAndClarity:
     content: CellContent1
@@ -239,6 +247,12 @@ class Canvas1D(Canvas):
         return range(self.contents.min_index, self.contents.max_index + 1)
 
     all_indices = all_addrs
+
+    def min_index(self) -> int:
+        return self.contents.min_index
+
+    def max_index(self) -> int:
+        return self.contents.max_index
 
     def has_addr(self, addr: Addr) -> bool:
         if is_index(addr):

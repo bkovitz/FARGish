@@ -91,7 +91,7 @@ class TestPainters(unittest.TestCase):
         )
         p3: Painter = (1, 3, same)
 
-        model = Model.canvas_from('ajaqb')
+        model = Model.make_from('ajaqb', auto_annotate=False)
         model.ws.add((1, 3, same))  # p1 will match this painter
 
         dp = self.painter_to_one_detpainter(model, p1)
@@ -103,3 +103,8 @@ class TestPainters(unittest.TestCase):
         self.assertIn(dp2, dp2s)
         model.run_detpainter(dp2)
         self.assertIn(p3, model.ws)
+
+# NEXT
+#    def test_make_relative_indirect_painter_with_annotation(self) -> None:
+#        model = Model.canvas_from('ajaqb')
+
