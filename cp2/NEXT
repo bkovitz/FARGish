@@ -1,5 +1,7 @@
 NEXT test_make_relative_indirect_painter_with_annotation
 
+    CellBundle.simplest(): Return value or Annotation(s) if possible
+
 with indent_log -> with logging
 
 with logging_only

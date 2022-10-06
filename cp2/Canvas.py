@@ -221,7 +221,7 @@ class Canvas1D(Canvas):
     )
 
     @classmethod
-    def make_from(cls, s: str) -> Canvas1D:
+    def make_from(cls, s: str, auto_annotate: bool=True) -> Canvas1D:
         result = cls()
         result.contents.min_index = 1
         result.contents.max_index = len(s)
@@ -231,16 +231,17 @@ class Canvas1D(Canvas):
                 result.set_clarity(i, cls.INITIAL_CLARITY)
             else:
                 result.set_clarity(i, 0)
-        result[result.contents.min_index] = Start
-        result.set_clarity(
-            (result.contents.min_index, Anchor),
-            cls.INITIAL_CLARITY
-        )
-        result[result.contents.max_index] = End
-        result.set_clarity(
-            (result.contents.max_index, Anchor),
-            cls.INITIAL_CLARITY
-        )
+        if auto_annotate:
+            result[result.contents.min_index] = Start
+            result.set_clarity(
+                (result.contents.min_index, Anchor),
+                cls.INITIAL_CLARITY
+            )
+            result[result.contents.max_index] = End
+            result.set_clarity(
+                (result.contents.max_index, Anchor),
+                cls.INITIAL_CLARITY
+            )
         return result
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices

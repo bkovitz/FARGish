@@ -31,7 +31,7 @@ class Same(SimpleFuncClass):
     def __call__(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
         return v
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return 'same'
 
 class Succ(SimpleFuncClass):
@@ -44,7 +44,7 @@ class Succ(SimpleFuncClass):
             return v + 1
         raise Fizzle("succ: Can't take successor of {v}")
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return 'succ'
 
 class Pred(SimpleFuncClass):
@@ -57,7 +57,7 @@ class Pred(SimpleFuncClass):
             return v - 1
         raise Fizzle("pred: Can't take predecessor of {v}")
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return 'pred'
 
 same = Same()

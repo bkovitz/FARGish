@@ -17,11 +17,31 @@ class TestTypes(unittest.TestCase):
     def test_cell_bundle_make_from(self) -> None:
         got = CellBundle.make_from()
         self.assertEqual(got, CellBundle(None, empty_annotations))
+
         got = CellBundle.make_from('j')
         self.assertEqual(got, CellBundle('j', empty_annotations))
+
         got = CellBundle.make_from('j', Start)
         self.assertEqual(got, CellBundle('j', Annotations.make_from(Start)))
+
         got = CellBundle.make_from('j', Annotations.make_from(Start))
         self.assertEqual(got, CellBundle('j', Annotations.make_from(Start)))
+
         got2 = CellBundle.make_from(got)
         self.assertEqual(got, got2)
+
+    def test_cell_bundle_value_only(self) -> None:
+        got = CellBundle.make_from()
+        self.assertTrue(got.value_only())
+
+        got = CellBundle.make_from('j')
+        self.assertTrue(got.value_only())
+
+        got = CellBundle.make_from('j', Start)
+        self.assertFalse(got.value_only())
+
+        got = CellBundle.make_from('j', Annotations.make_from(Start))
+        self.assertFalse(got.value_only())
+
+        got2 = CellBundle.make_from(got)
+        self.assertFalse(got.value_only())

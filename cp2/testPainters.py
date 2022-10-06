@@ -3,11 +3,12 @@
 import unittest
 import inspect
 
-from Types import F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
+from Types import Annotations, CellBundle, F, I, Indices, J, Painter, \
+    SimpleFunc, Start, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
 from Subst import Subst, empty_subst, Plus
-from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter
+from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, same
 from Soup import Soup
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -92,6 +93,7 @@ class TestPainters(unittest.TestCase):
         p3: Painter = (1, 3, same)
 
         model = Model.make_from('ajaqb', auto_annotate=False)
+        lo(model.canvas.as_bundle(1))
         model.ws.add((1, 3, same))  # p1 will match this painter
 
         dp = self.painter_to_one_detpainter(model, p1)
@@ -105,6 +107,21 @@ class TestPainters(unittest.TestCase):
         self.assertIn(p3, model.ws)
 
 # NEXT
-#    def test_make_relative_indirect_painter_with_annotation(self) -> None:
-#        model = Model.canvas_from('ajaqb')
-
+    def test_make_relative_indirect_painter_with_annotation(self) -> None:
+        p1: Painter = (
+            (I, J, SimpleFunc(F)),
+            WorkingSoup,
+            MakeRelativeIndirectPainter(I, J, F)
+        )
+        # Can we call MakeRelativeIndirectPainter directly by feeding it
+        # a Subst?
+        model = Model.canvas_from('ajaqb')
+        func = MakeRelativeIndirectPainter(I, J, F)
+        subst = Subst.make_from((I, 1), (J, 3), (F, same))
+        self.assertEqual(
+            model.apply_func(subst, func, None),
+            (CellBundle('a', Annotations.make_from(Start)),
+             WorkingSoup,
+             (I, Plus(I, 2), same)
+            )
+        )

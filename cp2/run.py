@@ -1,6 +1,9 @@
 import sys
 
 from Model import Model
+from Funcs import *
+from Subst import *
+from Painters import *
 from Log import lo, trace, indent_log, set_log_level
 from util import reseed, short, pts, nf
 

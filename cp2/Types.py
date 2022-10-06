@@ -16,7 +16,7 @@ from util import empty_set, force_setattr, short
 class SoupRef:
     name: str
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return self.name
 
 WorkingSoup = SoupRef('WorkingSoup')
@@ -114,7 +114,7 @@ class CellBundle:
 
     def value_only(self) -> bool:
         '''Does this CellBundle contain only a value and no annotations?'''
-        return bool(self.annotations)
+        return not bool(self.annotations)
 
     def __iter__(self) -> Iterable[CellContent1]:
         if self.value is not None:
@@ -165,8 +165,8 @@ class CellBundle:
             case CellBundle():
                 return all(self.is_match(vv) for vv in unbundle_cell_content(v))
 
-    def __str__(self) -> str:
-        return f'CellBundle({short(self.value)}; {self.annotations.elems_str()})'
+    def __repr__(self) -> str:
+        return f'CellBundle({short(self.value, inside=True)}; {self.annotations.elems_str()})'
 
 empty_cell_bundle = CellBundle(None, empty_annotations)
 
@@ -215,7 +215,7 @@ class Indices:
 class Variable:
     name: str
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return self.name
 
 I = Variable('I')

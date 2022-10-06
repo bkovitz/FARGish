@@ -36,7 +36,7 @@ class Plus(HasAsIndex):
     def __init__(self, *args: Expr):
         force_setattr(self, 'args', args)
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         return '+'.join(str(a) for a in self.args)
 
     def value_of(self, subst: Subst) -> Expr:

@@ -69,10 +69,10 @@ class Model:
                 pass
             case 1:
                 if isinstance(args[0], str):
-                    canvas = Canvas1D.make_from(args[0])
-                    if auto_annotate:
-                        canvas[canvas.min_index()] = Start
-                        canvas[canvas.max_index()] = End
+                    canvas = Canvas1D.make_from(
+                        args[0],
+                        auto_annotate=auto_annotate
+                    )
                     kwargs['canvas'] = canvas
             case _:
                 raise ValueError(
@@ -400,3 +400,5 @@ class Model:
 
     def __str__(self) -> str:
         return self.__class__.__name__
+
+    __repr__ = state_str
