@@ -9,7 +9,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from util import empty_set, force_setattr, short
+from util import empty_set, first, force_setattr, short
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,15 @@ class Annotations:
     def elems_str(self) -> str:
         return ', '.join(sorted([short(e) for e in self.elems]))
 
+    def simplest(self) -> Union[None, Annotation, Annotations]:
+        match len(self.elems):
+            case 0:
+                return None
+            case 1:
+                return first(self.elems)
+            case _:
+                return self
+
     def __add__(self, a: Annotation | Annotations) -> Annotations:
         match a:
             case Annotation():
@@ -114,7 +123,15 @@ class CellBundle:
 
     def value_only(self) -> bool:
         '''Does this CellBundle contain only a value and no annotations?'''
-        return not bool(self.annotations)
+        return not self.annotations
+
+    def simplest(self) -> Union[Value, Annotation, Annotations, CellBundle]:
+        if self.value_only():
+            return self.value
+        elif self.value is None:
+            return self.annotations.simplest()
+        else:
+            return self
 
     def __iter__(self) -> Iterable[CellContent1]:
         if self.value is not None:

@@ -108,13 +108,6 @@ class TestPainters(unittest.TestCase):
 
 # NEXT
     def test_make_relative_indirect_painter_with_annotation(self) -> None:
-        p1: Painter = (
-            (I, J, SimpleFunc(F)),
-            WorkingSoup,
-            MakeRelativeIndirectPainter(I, J, F)
-        )
-        # Can we call MakeRelativeIndirectPainter directly by feeding it
-        # a Subst?
         model = Model.canvas_from('ajaqb')
         func = MakeRelativeIndirectPainter(I, J, F)
         subst = Subst.make_from((I, 1), (J, 3), (F, same))

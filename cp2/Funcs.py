@@ -135,7 +135,8 @@ class MakeRelativeIndirectPainter:
         if result_f is None:
             raise Fizzle  # TODO More-specific Fizzle
         return (
-            bundle.value if bundle.value_only() else bundle,
+            #bundle.value if bundle.value_only() else bundle,
+            bundle.simplest(),
             WorkingSoup,
             (I, SM.Plus(I, result_j - result_i), result_f)
         )

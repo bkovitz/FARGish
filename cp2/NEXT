@@ -1,6 +1,6 @@
-NEXT test_make_relative_indirect_painter_with_annotation
+test_make_relative_indirect_painter_with_annotation  DONE
 
-    CellBundle.simplest(): Return value or Annotation(s) if possible
+    CellBundle.simplest(): Return value or Annotation(s) if possible  DONE
 
 with indent_log -> with logging
 
@@ -67,7 +67,7 @@ Basics
 
         Suppress recently-run DetPainters. DONE
 
-        Put appropriate painters into long-term soup.
+        NEXT Put appropriate painters into long-term soup.
 
         Test on 'ajaqb'
 
