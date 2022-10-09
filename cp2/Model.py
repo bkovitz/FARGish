@@ -15,7 +15,8 @@ from operator import itemgetter
 
 from Types import Addr, CanvasValue, CellContent, End, F, \
     Fizzle, FizzleValueNotFound, \
-    Func, I, Index, Indices, J, MaybeIndex, Painter, SimpleFunc, SoupRef, \
+    Func, I, Index, Indices, is_cell_content, J, \
+    MaybeIndex, Painter, SimpleFunc, SoupRef, \
     Start, Value, Variable, WorkingSoup, \
     addr_str, func_str, is_painter, painter_str
 import Types
@@ -92,13 +93,14 @@ class Model:
 
     def absorb(self, s: str, timesteps: int=20):
         self.set_canvas(s)
-        #NEXT  
-        #      Run from initial painters a while
         set_log_level(9) #DEBUG
+        # TODO Set a mode where painters get penalized for painting the
+        # wrong things
+        # Run a little while, let some painters develop
         for t in range(timesteps):
             self.do_timestep()
             print(self.state_str())
-        #      Save the abstract ones to the lts
+        # Save the abstract painters to the lts
         for p in self.ws:
             if self.is_absorbable(p):
                 self.lts.add(p)
@@ -316,13 +318,11 @@ class Model:
             match addr:
                 case int():
                     yield DetAddrWithSubst(subst.unify(var, addr), addr)
-                case str():
+                case _ if is_cell_content(addr):
                     yield from (
                         DetAddrWithSubst(subst.unify(var, index), index)
                             for index in self.canvas.all_matching(addr)
                     )
-                #NEXT CellBundle or Annotation or Annotations:
-                # modify Canvas.all_matching() to work with CellContent
                 case MatchContent():
                     yield from (
                         DetAddrWithSubst(subst.unify(var, index), index)

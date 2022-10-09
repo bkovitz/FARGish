@@ -106,7 +106,6 @@ class TestPainters(unittest.TestCase):
         model.run_detpainter(dp2)
         self.assertIn(p3, model.ws)
 
-# NEXT
     def test_make_relative_indirect_painter_with_annotation(self) -> None:
         model = Model.canvas_from('ajaqb')
         func = MakeRelativeIndirectPainter(I, J, F)

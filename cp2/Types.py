@@ -190,6 +190,19 @@ empty_cell_bundle = CellBundle(None, empty_annotations)
 CellContent1 = Union[CanvasValue, None, Annotation]
 CellContent = Union[CellContent1, Annotations, CellBundle]
 
+def is_cell_content(x: Any) -> TypeGuard[CellContent]:
+    return (
+        isinstance(x, str)
+        or
+        isinstance(x, CellBundle)
+        or
+        isinstance(x, Annotation)
+        or
+        isinstance(x, Annotations)
+        or
+        x is None
+    )
+
 def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
     match v:
         case str():
