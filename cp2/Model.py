@@ -27,7 +27,7 @@ from Funcs import same, pred, succ, MakeRelativeIndirectPainter, \
 from Addrs import DetAddr, DetAddrWithSubst, RelatedPair, SpecialAddr, \
     MatchContent
 from Painters import DetPainter0, DetPainter, DetFunc
-from Log import lo, trace, indent_log
+from Log import lo, trace, indent_log, set_log_level
 from util import short, nf, Numeric
 
 
@@ -94,11 +94,24 @@ class Model:
         self.set_canvas(s)
         #NEXT  
         #      Run from initial painters a while
+        set_log_level(9) #DEBUG
         for t in range(timesteps):
             self.do_timestep()
             print(self.state_str())
         #      Save the abstract ones to the lts
-        #      Clear the ws
+        for p in self.ws:
+            if self.is_absorbable(p):
+                self.lts.add(p)
+        self.ws.clear()
+
+    def is_absorbable(self, painter: Painter) -> bool:
+        match painter:
+            case (_, SoupRef(), _):
+                return True
+            case (str(), _, _):
+                return True
+            case _:
+                return False
 
     def do_timestep(self) -> None:
         self.t += 1
@@ -308,6 +321,8 @@ class Model:
                         DetAddrWithSubst(subst.unify(var, index), index)
                             for index in self.canvas.all_matching(addr)
                     )
+                #NEXT CellBundle or Annotation or Annotations:
+                # modify Canvas.all_matching() to work with CellContent
                 case MatchContent():
                     yield from (
                         DetAddrWithSubst(subst.unify(var, index), index)

@@ -146,6 +146,7 @@ class Subst:
         else:
             return None
 
+    @trace
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         with indent_log(8, 'UNIFY', lhs, rhs):
             match (lhs, rhs):
@@ -240,6 +241,8 @@ class Subst:
                     else:
                         return Subst(self.d.set(lhs, rhs))
                 case (Variable(), SpecialAddr()):
+                    return bottom_subst
+                case (Variable(), _):
                     return bottom_subst
                 case (SimpleFunc(var), rhs):
                     if isinstance(rhs, FM.SimpleFuncClass):

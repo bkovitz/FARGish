@@ -50,6 +50,9 @@ class Soup:
     def __iter__(self) -> Iterator[Painter]:
         return iter(self.painters)
 
+    def clear(self) -> None:
+        self.painters.clear()
+
 # Commented out to prevent circular import (of Subst), and since nothing else
 # seems to call these functions.
 #    def matching_painters(self, xp: Painter) -> List[Tuple[Subst, Painter]]:
