@@ -118,6 +118,7 @@ class Model:
         '''Regenerates canvas starting from 's'.'''
         with indent_log(2, 'REGENERATE from', repr(s)):
             self.ws.clear()
+            self.clear_suppressions()
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
@@ -180,6 +181,7 @@ class Model:
             self.suppressions[dp0] *= 0.5
         else:
             self.suppressions[dp0] = 0.1
+        lo(7, 'SUPPRESS', dp0, self.suppressions[dp0])
 
     def suppression(self, dp0: DetPainter0) -> float:
         return self.suppressions.get(dp0, 1.0)
@@ -191,6 +193,9 @@ class Model:
             if new_sup < 1.0:
                 new_suppressions[dp0] = new_sup
         self.suppressions = new_suppressions
+
+    def clear_suppressions(self) -> None:
+        self.suppressions.clear()
 
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:
@@ -315,7 +320,7 @@ class Model:
                     lo(7, triple)
 
             for ds, dt, df in triples:
-                yield DetPainter(
+                dp = DetPainter(
                     dt.subst,
                     ds.addr,
                     dt.addr,
@@ -324,6 +329,8 @@ class Model:
                         # TODO figure painter clarity into prob_weight?
                     p  # basis, "author"
                 )
+                lo(5, dp)
+                yield dp
 
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
@@ -424,7 +431,7 @@ class Model:
     def apply_func(self, subst: Subst, f: Func, v: Value) \
     -> Union[Value, Painter]:
         with indent_log(6,
-            f'APPLY FUNC {short(f)}({short(v)})  {short(subst)}'
+            f'APPLY FUNC {short(f)}({short(v, inside=True)})  {short(subst)}'
         ):
             if isinstance(f, str) or isinstance(f, int) or is_painter(f):
                 return f

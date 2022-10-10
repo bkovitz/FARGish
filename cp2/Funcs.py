@@ -90,7 +90,8 @@ class MakeBetweenPainter:
     j: Addr
     f: Func
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
+    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) \
+    -> Value:
         result_i = subst.as_index(self.i)
         if result_i is None:
             raise FizzleGotNone(self, f'i={self.i}')

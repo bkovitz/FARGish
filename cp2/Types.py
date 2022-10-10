@@ -22,6 +22,9 @@ class Letter:
         if self.c < 'a' or self.c > 'z':
             raise ValueError(f"Letter {self.c!r}: must be in range 'a'..'z'.")
 
+    def short(self) -> str:
+        return repr(self.c)
+
 def as_optional_letter(c: Union[str, None]):
     match c:
         case str():
