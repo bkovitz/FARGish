@@ -14,6 +14,7 @@ from Types import Addr, Expr, Func, I, Value, WorkingSoup, Painter, is_painter, 
 import Subst as SM
 import Model as MM
 
+from Log import trace, lo, set_log_level
 from util import short
 
 
@@ -108,6 +109,35 @@ class MakeBetweenPainter:
             (I, SM.Plus(I, 1), value)
         )
 
+    # TODO UT
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        result_i = subst.as_index(self.i)
+        if (
+            result_i is None
+            or
+            model.canvas[result_i] is None
+            or
+            model.canvas[result_i] == ' '
+            or
+            model.canvas[result_i + 1] is None
+            or
+            model.canvas[result_i + 1] == ' '
+        ):
+            return False
+        result_j = subst.as_index(self.j)
+        if (
+            result_j is None
+            or
+            model.canvas[result_j] is None
+            or
+            model.canvas[result_j] == ' '
+        ):
+            return False
+        result_f = subst[self.f]
+        if result_f is None:
+            return False
+        return True
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
@@ -140,6 +170,34 @@ class MakeRelativeIndirectPainter:
             WorkingSoup,
             (I, SM.Plus(I, result_j - result_i), result_f)
         )
+
+    # TODO UT
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        result_i = subst.as_index(self.i)
+        if (
+            result_i is None
+            or
+            model.canvas[result_i] is None
+            or
+            model.canvas[result_i] == ' '
+        ):
+            return False
+        bundle = model.canvas.as_bundle(result_i)
+        if bundle is None:
+            return False
+        result_j = subst.as_index(self.j)
+        if (
+            result_j is None
+            or
+            model.canvas[result_j] is None
+            or
+            model.canvas[result_j] == ' '
+        ):
+            return False
+        result_f = subst[self.f]
+        if result_f is None:
+            return False
+        return True
 
     def short(self) -> str:
         cl = self.__class__.__name__

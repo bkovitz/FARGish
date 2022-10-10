@@ -107,7 +107,7 @@ def trace(func):
         argstring = ''
         if args:
             #argstring += ', '.join(repr(a) for a in args)
-            argstring += ', '.join(short(a) for a in args)
+            argstring += ', '.join(short(a, inside=True) for a in args)
         if kwargs:
             if argstring:
                 argstring += ', '
@@ -116,6 +116,6 @@ def trace(func):
             )
         with indent_log(f'{func.__name__}({argstring})'):
             result = func(*args, **kwargs)
-        lo(f'-> {short(result)}')
+        lo(f'-> {short(result, inside=True)}')
         return result
     return wrapper

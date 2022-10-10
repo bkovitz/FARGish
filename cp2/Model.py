@@ -121,6 +121,7 @@ class Model:
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
+            lo(1, list(self.canvas.all_indices_and_values())) #DEBUG
             self.t = 0
             for t in range(nsteps):
                 self.do_timestep()
@@ -136,6 +137,7 @@ class Model:
             self.run_detpainter(dp)
         except Fizzle as exc:
             lo(1, 'FIZZLE', exc)
+            self.suppress(dp.as_painter())
         self.suppress(dp.as_painter())
 
     def choose_detpainter(self, soup: Soup) -> DetPainter:
@@ -223,10 +225,12 @@ class Model:
             v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
             match dp.target:
                 case int():
+                    lo(3, 'PAINT', v, 'in cell', dp.target)
                     self.canvas[dp.target] = v  # type: ignore[assignment]
                 case Types.WorkingSoup:
                     match v:
                         case p if is_painter(p):
+                            lo(3, 'MAKE PAINTER', p)
                             self.ws.add(p)
                         case x:
                             raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
@@ -402,7 +406,14 @@ class Model:
                     ):
                         yield (ii.addr, jj.addr, ff)
                 case _:
-                    yield func
+                    if self.can_make_func(func, subst):
+                        yield func
+
+    def can_make_func(self, func: Func, subst: Subst) -> bool:
+        if hasattr(func, 'can_make'):
+            return func.can_make(self, subst)
+        else:
+            return True
 
     def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
         if not (self.canvas.has_letter(i) and self.canvas.has_letter(j)):

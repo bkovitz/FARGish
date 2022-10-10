@@ -15,7 +15,7 @@ def run_test() -> None:
     m = Model.canvas_from('ajaqb')
     print(m.lts)
     m.absorb('ajaqb', timesteps=40)
-    set_log_level(9)
+    set_log_level(7)
     m.regen_from('a    ', nsteps=120)
 
 

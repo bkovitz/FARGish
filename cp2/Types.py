@@ -9,8 +9,32 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
+from Log import trace, lo, set_log_level
 from util import empty_set, first, force_setattr, short
 
+
+@dataclass(frozen=True)
+class Letter:
+    '''A letter in the range a..z.'''
+    c: str
+
+    def __post_init__(self):
+        if self.c < 'a' or self.c > 'z':
+            raise ValueError(f"Letter {self.c!r}: must be in range 'a'..'z'.")
+
+def as_optional_letter(c: Union[str, None]):
+    match c:
+        case str():
+            if c == ' ':
+                return None
+            elif c >= 'a' and c <= 'z':
+                return c
+            else:
+                raise ValueError(
+                    f"letter {c!r}: must be in range 'a'..'z'."
+                )
+        case None:
+            return None
 
 @dataclass(frozen=True)
 class SoupRef:
@@ -22,7 +46,7 @@ class SoupRef:
 WorkingSoup = SoupRef('WorkingSoup')
 LongTermSoup = SoupRef('LongTermSoup')
 
-CanvasValue = str
+CanvasValue = str  # TODO change str to Letter
 Index = int   # the index of a cell within a Canvas
 MaybeIndex = Union[Index, None, List[Index]]  # TODO rename or divide into type types: List[Index] is not always appropriate
 Expr = Any
@@ -113,6 +137,9 @@ class CellBundle:
     object.'''
     value: Optional[CanvasValue]
     annotations: Annotations
+
+    # TODO During __post_init__, check if value is a space; if so, change
+    # it to None
 
     @classmethod
     def make_from(cls, *v: CellContent) -> CellBundle:
@@ -296,6 +323,18 @@ def is_func(x: Any) -> TypeGuard[Func]:
             return True
     return False
             
+@trace
+def is_space(cc: CellContent) -> bool:
+    match cc:
+        case str():
+            return cc == ' '
+        case None:
+            return False
+        case CellBundle():
+            return cc.simplest() == ' '
+        case _:
+            return False
+
 def painter_str(p: Painter) -> str:
     i, j, func = p
     return f'({addr_str(i)}, {addr_str(j)}, {func_str(func)})'
