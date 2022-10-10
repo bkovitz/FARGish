@@ -117,3 +117,4 @@ class Soup:
             print(pstr, file=sio)
         return sio.getvalue()
 
+    __repr__ = state_str

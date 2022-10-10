@@ -59,12 +59,16 @@ class DetPainter:
         return f'{cl}({painter_str(self.as_painter()):80s}; {short(self.subst):30s}; {nf(self.prob_weight)})'
 
     def __str__(self) -> str:
-        sio = StringIO()
-        print(short(self.as_painter()), file=sio)
-        print(short(self.subst), file=sio)
-        print(nf(self.prob_weight), file=sio)
-        print(f'basis={short(self.basis)}', file=sio)
-        return sio.getvalue()
+#        sio = StringIO()
+#        print(short(self.as_painter()), file=sio)
+#        print(short(self.subst), file=sio)
+#        print(nf(self.prob_weight), file=sio)
+#        print(f'basis={short(self.basis)}', file=sio)
+#        return sio.getvalue()
+        pstr = short(self.as_painter())
+        sstr = short(self.subst)
+        bstr = f'basis={short(self.basis)}'
+        return f'{pstr}; {sstr}; {nf(self.prob_weight)}; {bstr}'
 
 # A determinate Func: no variables
 DetFunc = Union[Value, DetPainter, Callable] 

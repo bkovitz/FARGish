@@ -12,16 +12,18 @@ m: Model
 
 def run_test() -> None:
     global m
-    set_log_level(5)
     m = Model.canvas_from('ajaqb')
     print(m.lts)
     m.absorb('ajaqb', timesteps=40)
+    set_log_level(9)
+    m.regen_from('a    ', nsteps=120)
 
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        #seed = 4993487641984628738  #None
-        seed = None
+        #seed = 1  # never fills in cell 4
+        seed = 3  # Fizzle
+        #seed = None
     else:
         seed = int(sys.argv[1])
     seed = reseed(seed)

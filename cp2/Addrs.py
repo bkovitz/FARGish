@@ -92,4 +92,6 @@ class RelatedPair(SpecialAddr):
 # NEXT
 @dataclass(frozen=True)
 class MatchContent:
+    '''An Addr to match any sort of content in canvas cells: letters and/or
+    annotations.'''
     content: CellContent

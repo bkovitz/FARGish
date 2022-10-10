@@ -146,7 +146,6 @@ class Subst:
         else:
             return None
 
-    @trace
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         with indent_log(8, 'UNIFY', lhs, rhs):
             match (lhs, rhs):

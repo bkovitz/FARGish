@@ -32,13 +32,9 @@ def set_log_level(n: int) -> None:
     log_level = n
 
 def lo(*args, **kwargs) -> None:
-    '''Prints args to log file, at current indentation level.'''
-    global log_level
-#    if len(args) >= 1 and isinstance(args[0], int):
-#        if log_level < args[0]:
-#            return
-#        else:
-#            args = args[1:]
+    '''Prints args to log file. If first arg is an int, it means the minimum
+    log_level needed to print this log message, and is not included in the
+    log message. See ok_to_log().'''
     ok, args = ok_to_log(args)
     if not ok:
         return

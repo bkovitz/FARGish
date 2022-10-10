@@ -10,7 +10,7 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
 from Types import Addr, Expr, Func, I, Value, WorkingSoup, Painter, is_painter, \
-    painter_str, Fizzle
+    painter_str, Fizzle, FizzleGotNone
 import Subst as SM
 import Model as MM
 
@@ -92,16 +92,16 @@ class MakeBetweenPainter:
     def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
         result_i = subst.as_index(self.i)
         if result_i is None:
-            raise Fizzle  # TODO More-specific Fizzle
+            raise FizzleGotNone(self, f'i={self.i}')
         value = model.canvas[result_i + 1]
         if value is None:
-            raise Fizzle  # TODO More-specific Fizzle
+            raise FizzleGotNone(self, f'canvas[{result_i + 1}]')
         result_j = subst.as_index(self.j)
         if result_j is None:
-            raise Fizzle  # TODO More-specific Fizzle
+            raise FizzleGotNone(self, f'j={self.j}')
         result_f = subst[self.f]
         if result_f is None:
-            raise Fizzle  # TODO More-specific Fizzle
+            raise FizzleGotNone(self, f'f={self.f}')
         return (
             (I, SM.Plus(I, result_j - result_i), result_f),
             WorkingSoup,

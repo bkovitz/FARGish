@@ -340,3 +340,11 @@ class FizzleNotIndex(Fizzle):
 
     def __str__(self) -> str:
         return f"can't reduce to Index: {repr(self.e)}"
+
+@dataclass(frozen=True)
+class FizzleGotNone(Fizzle):
+    o: Any   # Whatever painter or func or whatever fizzled
+    e: Any   # Whatever evaluated to None and shouldn't have
+    
+    def __str__(self) -> str:
+        return f'{short(self.o)}: {short(self.e)} evaluated to None'

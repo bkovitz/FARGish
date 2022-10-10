@@ -92,19 +92,18 @@ class Model:
         self.canvas[a] = x
 
     def absorb(self, s: str, timesteps: int=20):
-        self.set_canvas(s)
-        set_log_level(9) #DEBUG
-        # TODO Set a mode where painters get penalized for painting the
-        # wrong things
-        # Run a little while, let some painters develop
-        for t in range(timesteps):
-            self.do_timestep()
-            print(self.state_str())
-        # Save the abstract painters to the lts
-        for p in self.ws:
-            if self.is_absorbable(p):
-                self.lts.add(p)
-        self.ws.clear()
+        with indent_log('ABSORB', repr(s)):
+            self.set_canvas(s)
+            # TODO Set a mode where painters get penalized for painting the
+            # wrong things
+            # Run a little while, let some painters develop
+            for t in range(timesteps):
+                self.do_timestep()
+                lo(3, self.state_str())
+            # Save the abstract painters to the lts
+            for p in self.ws:
+                if self.is_absorbable(p):
+                    self.lts.add(p)
 
     def is_absorbable(self, painter: Painter) -> bool:
         match painter:
@@ -115,13 +114,28 @@ class Model:
             case _:
                 return False
 
+    def regen_from(self, s: str, nsteps: int=40) -> None:
+        '''Regenerates canvas starting from 's'.'''
+        with indent_log(2, 'REGENERATE from', repr(s)):
+            self.ws.clear()
+            with indent_log(3, 'LONG-TERM SOUP'):
+                lo(3, self.lts.state_str())
+            self.set_canvas(s)
+            self.t = 0
+            for t in range(nsteps):
+                self.do_timestep()
+                lo(3, self.state_str())
+
     def do_timestep(self) -> None:
         self.t += 1
         self.ws.decay()
         self.decay_suppressions()
         lo(2, f't={self.t}')
         dp = self.choose_detpainter(self.soups())
-        self.run_detpainter(dp)
+        try:
+            self.run_detpainter(dp)
+        except Fizzle as exc:
+            lo(1, 'FIZZLE', exc)
         self.suppress(dp.as_painter())
 
     def choose_detpainter(self, soup: Soup) -> DetPainter:
@@ -133,16 +147,16 @@ class Model:
             self.detpainter_to_probability_weight(dp)
                 for dp in det_painters
         ]
-        with indent_log(5, 'DETPAINTERS'):
+        with indent_log(4, 'DETPAINTERS'):
             if det_painters:
                 for w, dp in sorted(
                     zip(weights, det_painters), key=itemgetter(0)
                 ):
-                    lo(5, nf(w), dp)
+                    lo(4, nf(w), dp)
 #                for k in range(len(det_painters)):
-#                    lo(5, nf(weights[k]), det_painters[k])
+#                    lo(4, nf(weights[k]), det_painters[k])
             else:
-                lo(5, 'No det_painters.')
+                lo(4, 'No det_painters.')
 
         ii = choices(range(len(det_painters)), weights)[0]
         dp = det_painters[ii]
@@ -204,20 +218,21 @@ class Model:
         self,
         dp: DetPainter
     ) -> None:
-        self.dps_run[self.t] = dp
-        v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
-        match dp.target:
-            case int():
-                self.canvas[dp.target] = v  # type: ignore[assignment]
-            case Types.WorkingSoup:
-                match v:
-                    case p if is_painter(p):
-                        self.ws.add(p)
-                    case x:
-                        raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
-            #TODO Painting to long-term soup
-            case _:
-                raise NotImplementedError(f"run_detpainter: can't paint to target; dp={dp}")
+        with indent_log(2, 'RUN_DETPAINTER', str(dp)):
+            self.dps_run[self.t] = dp
+            v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
+            match dp.target:
+                case int():
+                    self.canvas[dp.target] = v  # type: ignore[assignment]
+                case Types.WorkingSoup:
+                    match v:
+                        case p if is_painter(p):
+                            self.ws.add(p)
+                        case x:
+                            raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
+                #TODO Painting to long-term soup
+                case _:
+                    raise NotImplementedError(f"run_detpainter: can't paint to target; dp={dp}")
 
     def ldp(self) -> Optional[DetPainter]:
         '''The last DetPainter run (if any).'''
@@ -309,7 +324,7 @@ class Model:
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
     -> Iterable[DetAddrWithSubst]:
-        with indent_log(5,
+        with indent_log(6,
             'ADDR to DETADDRS',
             addr,
             f'(in Subst: {subst[addr]})' if addr in subst else '(not in Subst)',
