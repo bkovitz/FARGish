@@ -1,116 +1,163 @@
+# Pass a Canvas to to_detaddrs() instead of a Model? Or maybe pass a new
+# kind of object: a Context (holds Model, Canvas, primitive_funcs, whatever,
+# and is capable of providing overrides to narrow a search). Maybe call it
+# a SearchableContext.
+
+class Addr(ABC):
+
+    @abstractmethod
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        pass
+
+class DetAddr(Addr, ABC):
+    pass
+
+class Func(ABC):
+
+    @abstractmethod
+    def apply(self, model: MM.Model, subst: SM.Subst, value: Value) \
+    -> Value:
+        pass
+
+    @abstractmethod
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        pass
 
 @dataclass(frozen=True)
-class AnnotationType:
-    name: str
+class Letter(Func)
+    c: str
 
-    def __str__(self) -> str:
-        return self.name
+    def apply(self, model: MM.Model, subst: SM.Subst, value: Value) \
+    -> Value:
+        return c
 
-Anchor = AnnotationType('Anchor')
-
-@dataclass(frozen=True)
-class Annotation:
-    type: AnnotationType
-    name: str
-
-    def __str__(self) -> str:
-        return self.name
-
-Start = Annotation(Anchor, 'Start')
-End = Annotation(Anchor, 'End')
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        return True
 
 @dataclass(frozen=True)
-class Annotations:
-    elems: FrozenSet[Annotation]
+class Index(DetAddr, Func):
 
-    def elems_str(self) -> str:
-        return ', '.join(sorted([short(e) for e in self.elems]))
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        yield self
 
-    def __str__(self) -> str:
-        return f'Annotations({self.elems_str()})'
+    def apply(self, model: MM.Model, subst: SM.Subst, value: Value) \
+    -> Value:
+        return self
+
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        return True
 
 @dataclass(frozen=True)
-class CellBundle:
-    value: CanvasValue
-    annotations: Annotations
+class Indices(DetAddr):
 
-    def __str__(self) -> str:
-        return f'CellBundle({short(self.value)}; {self.annotations.elems_str()})'
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        yield self
 
+    def apply(self, model: MM.Model, subst: SM.Subst, value: Value) \
+    -> Value:
+        return self
 
-CellContent = Union[CanvasValue, Annotation, Annotations, CellBundle]
-CellAddr = Union[Index, CellContent]
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        return True
 
+@dataclass(frozen=True)
+class Variable(Addr):
 
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        (copy)
 
-@dataclass
-class ContentAndClarity:
+@dataclass(frozen=True)
+class RelatedPair(Addr):
+    i: Addr
+    j: Addr
+    f: Func
+
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        (copy but need primitive funcs; might need to unify var)
+
+@dataclass(frozen=True)
+class MatchContent(Addr):
     content: CellContent
-    clarity: Numeric
 
-    def paint(self, v: CellContent) -> None:
-        # TODO None
-        if v is None:
-            self.dec_clarity()
-        elif v == self.content:
-            self.inc_clarity()
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        yield from (
+            DetAddrWithSubst(subst.unify(var, index), index)
+                for index in model.canvas.add_matching_indices(self.content)
+        )
+
+@dataclass(frozen=True)
+class Variable(Addr):
+    name: str
+
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        if self in subst:
+            yield from (
+                self.addr_to_detaddrs(subst, var, subst.simplify(self))
+            )
         else:
-            if self.clarity == 0:
-                self.content = v
-                self.clarity = 1
-            else:
-                self.dec_clarity()
+            yield from (
+                DetAddrWithSubst(
+                    subst.unify(var, index).unify(self, index),
+                    index
+                )
+                    for index in model.canvas.all_addrs()
+            )
 
-    def inc_clarity(self) -> None:
-        if self.clarity < MAX_CLARITY:
-            self.clarity += 1
+@dataclass(frozen=True)
+class Plus(Addr):
+    args: Tuple[Expr, ...]
 
-    def dec_clarity(self) -> None:
-        if self.clarity > 0:
-            self.clarity -= 1
-        if self.clarity == 0:
-            self.content = None
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        match subst.as_index(self):
+            case None:
+                return
+            case Index() as i | Indices() as i:
+                yield DetAddrWithSubst(subst.unify(var, i), i)
+            case x:
+                raise NotImplementedError(f"Can't match Plus that simplifies to {x}, {type(x)}")
 
-InternalIndex = Union[Index, Tuple[Index, AnnotationType]]
+@dataclass(frozen=True)
+class SoupRef(Addr):
+    name: str
 
-@dataclass
-class ContentsAndClarities:
-    d: Dict[InternalIndex, ContentAndClarity] = field(default_factory=dict())
-    min_index: Index = 1
-    max_index: Index = 10
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        yield DetAddrWithSubst(subst, addr)  # Don't unify var with anything
 
-    def __setitem__(self, i: InternalIndex, v: CellContent) -> None:
-        if is_index(i):  # WRONG: need to extract index from i
-            # check bounds
-        if i in self.d:
-            self.d[i].paint(v)
-        else:
-            self.d[i] = ContentAndClarity(v, 1)
+@dataclass(frozen=True)
+class Painter(Addr, Func):
 
-    def clarity(self, i) -> Numeric:
-        pass # TODO
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        for painter in model.soups():
+            subst2 = subst.unify(self, painter)
+            if subst2:
+                yield DetAddrWithSubst(subst2, painter)
 
-    def set_clarity(self, i: InternalIndex, clarity: Numeric) -> None:
-        pass # TODO
+    def to_detpainters(self, model: Model) -> Iterable[DetPainter]:
+        (copy this)
 
-# TODO How do you erase an annotation?
+    def apply(self, model: MM.Model, subst: SM.Subst, value: Value) \
+    -> Value:
+        return self
 
+@dataclass(frozen=True)
+class CPainter(Painter):
+    '''A canvas-painter.'''
+    pass
 
+@dataclass(frozen=True)
+class PPainter(Painter):
+    '''A painter-painter.'''
+    pass
 
-# In Canvas1D:
-    def __setitem__(self, i: Index, v: CellContent) -> None:
-        for ii, vv in self.as_internal_args(i, v):
-            self.d[ii] = vv
-
-    def as_internal_args(self, i: Index, v: CellContent) \
-    -> Iterable[Tuple[InternalIndex, Union[CanvasValue, Annotation]]:
-        match v:
-            case str():
-                yield (i, v)
-            case Annotation():
-                yield ((i, v.type), v)
-            case Annotations():
-                for elem in v:
-                    yield ((i, elem.type), elem)
-
-contents: Dict[Index, ContentsAndClarities]
+Value = Union[Letter, Painter, Func]
+Expr = Union[Addr, Func, None]  # what about (SoupRef, Painter)?
