@@ -92,7 +92,7 @@ class Model:
         self.canvas[a] = x
 
     def absorb(self, s: str, timesteps: int=20):
-        with indent_log('ABSORB', repr(s)):
+        with indent_log(3, 'ABSORB', repr(s)):
             self.set_canvas(s)
             # TODO Set a mode where painters get penalized for painting the
             # wrong things
@@ -116,28 +116,28 @@ class Model:
 
     def regen_from(self, s: str, nsteps: int=40) -> None:
         '''Regenerates canvas starting from 's'.'''
-        with indent_log(2, 'REGENERATE from', repr(s)):
+        with indent_log(1, 'REGENERATE from', repr(s)):
             self.ws.clear()
             self.clear_suppressions()
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
-            lo(1, list(self.canvas.all_indices_and_values())) #DEBUG
+            #lo(1, list(self.canvas.all_indices_and_values())) #DEBUG
             self.t = 0
             for t in range(nsteps):
                 self.do_timestep()
-                lo(3, self.state_str())
+                lo(1, self.state_str())
 
     def do_timestep(self) -> None:
         self.t += 1
         self.ws.decay()
         self.decay_suppressions()
-        lo(2, f't={self.t}')
+        lo(1, f't={self.t}')
         dp = self.choose_detpainter(self.soups())
         try:
             self.run_detpainter(dp)
         except Fizzle as exc:
-            lo(1, 'FIZZLE', exc)
+            lo(2, 'FIZZLE', exc)
             self.suppress(dp.as_painter())
         self.suppress(dp.as_painter())
 

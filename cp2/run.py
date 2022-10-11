@@ -5,7 +5,7 @@ from Funcs import *
 from Subst import *
 from Painters import *
 from Log import lo, trace, indent_log, set_log_level
-from util import reseed, short, pts, nf
+from util import newline, nf, reseed, pts, short
 
 
 m: Model
@@ -13,9 +13,9 @@ m: Model
 def run_test() -> None:
     global m
     m = Model.canvas_from('ajaqb')
-    print(m.lts)
+    #print(m.lts)
     m.absorb('ajaqb', timesteps=40)
-    set_log_level(6)
+    set_log_level(1)
     m.regen_from('a    ', nsteps=120)
 
 
@@ -27,8 +27,7 @@ if __name__ == '__main__':
     else:
         seed = int(sys.argv[1])
     seed = reseed(seed)
-    print(f'seed={seed}')
-    print()
+    lo(1, f'seed={seed}{newline}')
 
     run_test()
     #run_ajaqb('a    ', ['wxyaaaa'], 120)

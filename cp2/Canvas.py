@@ -11,7 +11,8 @@ from abc import ABC, abstractmethod
 from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
     CanvasValue, \
     CellBundle, CellContent1, CellContent, End, FizzleValueNotFound, \
-    Func, Index, Index2, MaybeIndex, Start, Value, empty_cell_bundle, \
+    Func, Index, Index2, Inextreme, MaybeIndex, Start, Value, \
+    empty_cell_bundle, \
     extract_index, is_index, unbundle_cell_content
 from Log import lo, trace
 from util import short, Numeric
@@ -232,16 +233,22 @@ class Canvas1D(Canvas):
             else:
                 result.set_clarity(i, 0)
         if auto_annotate:
-            result[result.contents.min_index] = Start
-            result.set_clarity(
-                (result.contents.min_index, Anchor),
-                cls.INITIAL_CLARITY
-            )
-            result[result.contents.max_index] = End
-            result.set_clarity(
-                (result.contents.max_index, Anchor),
-                cls.INITIAL_CLARITY
-            )
+            for i in range(
+                result.contents.min_index, result.contents.max_index + 1
+            ):
+                ann: Annotation
+                match i:
+                    case result.contents.min_index:
+                        ann = Start
+                    case result.contents.max_index:
+                        ann = End
+                    case _:
+                        ann = Inextreme
+                result[i] = ann
+                result.set_clarity(
+                    (i, Anchor),
+                    cls.INITIAL_CLARITY
+                )
         return result
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices

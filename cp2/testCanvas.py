@@ -6,8 +6,8 @@ import inspect
 from Canvas import Canvas1D
 from util import pts
 
-from Types import Anchor, Annotation, AnnotationType, CellBundle, End, Start, \
-    empty_annotations
+from Types import Anchor, Annotation, Annotations, AnnotationType, \
+    CellBundle, End, Inextreme, Start, empty_annotations
 
 
 MyAnnotationType = AnnotationType('MyAnnotationType')
@@ -68,9 +68,16 @@ class TestCanvas1D(unittest.TestCase):
         )
     '''
 
-    def test_as_bundle(self) -> None:
-        c = Canvas1D.make_from('ajaqb')
+    def test_as_bundle_empty_annotations(self) -> None:
+        c = Canvas1D.make_from('ajaqb', auto_annotate=False)
         self.assertEqual(c.as_bundle(2), CellBundle('j', empty_annotations))
+
+    def test_as_bundle_inextreme(self) -> None:
+        c = Canvas1D.make_from('ajaqb')
+        self.assertEqual(
+            c.as_bundle(2),
+            CellBundle('j', Annotations.make_from(Inextreme))
+        )
 
     def test_all_matching(self) -> None:
         c = Canvas1D.make_from('ajaqb')

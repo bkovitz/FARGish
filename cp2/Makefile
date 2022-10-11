@@ -47,7 +47,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestModel.test_absorb
+	$(PY) -m unittest -v testCanvas.TestCanvas1D.test_withann_start_end
 	#$(PY) -m unittest -v testSubst
 
 # Acceptance tests

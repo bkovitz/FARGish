@@ -81,6 +81,7 @@ class Annotation:
 
 Start = Annotation(Anchor, 'Start')
 End = Annotation(Anchor, 'End')
+Inextreme = Annotation(Anchor, 'Inextreme')
 
 @dataclass(frozen=True)
 class Annotations:
