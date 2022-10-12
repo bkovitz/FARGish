@@ -1,8 +1,8 @@
 Logging levels:
 
 1  t=, canvas: and working soup, REGENERATE from
-2  RUN_DETPAINTER, FIZZLE
-3  ABSORB, canvas: and working soup during absorption
+2  ABSORB, canvas: and working soup during absorption
+3  RUN_DETPAINTER, FIZZLE
 4  DETPAINTERS, CHOSE DETPAINTER
 5  PAINTER to DETPAINTERS
 6  ADDR to DETADDRS, FUNC to DETFUNCS, APPLY FUNC

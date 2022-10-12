@@ -19,13 +19,17 @@ class TestTypes(unittest.TestCase):
         self.assertEqual(got, CellBundle(None, empty_annotations))
 
         got = CellBundle.make_from('j')
-        self.assertEqual(got, CellBundle('j', empty_annotations))
+        self.assertEqual(got, CellBundle.make_from('j', empty_annotations))
 
         got = CellBundle.make_from('j', Start)
-        self.assertEqual(got, CellBundle('j', Annotations.make_from(Start)))
+        self.assertEqual(got, CellBundle.make_from(
+            'j', Annotations.make_from(Start))
+        )
 
         got = CellBundle.make_from('j', Annotations.make_from(Start))
-        self.assertEqual(got, CellBundle('j', Annotations.make_from(Start)))
+        self.assertEqual(got, CellBundle.make_from(
+            'j', Annotations.make_from(Start))
+        )
 
         got2 = CellBundle.make_from(got)
         self.assertEqual(got, got2)

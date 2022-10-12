@@ -3,7 +3,7 @@
 import unittest
 import inspect
 
-from Types import Annotations, CellBundle, F, I, Indices, J, Painter, \
+from Types import Annotations, CellBundle, F, I, Indices, J, Letter, Painter, \
     SimpleFunc, Start, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
@@ -112,7 +112,7 @@ class TestPainters(unittest.TestCase):
         subst = Subst.make_from((I, 1), (J, 3), (F, same))
         self.assertEqual(
             model.apply_func(subst, func, None),
-            (CellBundle('a', Annotations.make_from(Start)),
+            (CellBundle(Letter('a'), Annotations.make_from(Start)),
              WorkingSoup,
              (I, Plus(I, 2), same)
             )

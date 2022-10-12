@@ -9,9 +9,9 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
 from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
-    CanvasValue, \
+    Blank, CanvasValue, \
     CellBundle, CellContent1, CellContent, End, FizzleValueNotFound, \
-    Func, Index, Index2, Inextreme, MaybeIndex, Start, Value, \
+    Func, Index, Index2, Inextreme, Letter, MaybeIndex, Start, Value, \
     empty_cell_bundle, \
     extract_index, is_index, unbundle_cell_content
 from Log import lo, trace
@@ -32,7 +32,7 @@ class Canvas(ABC):
         pass
     
     @abstractmethod
-    def __getitem__(self, addr: Addr) -> CellContent:
+    def __getitem__(self, addr: Addr) -> Optional[CellContent]:
         pass
 
     @abstractmethod
@@ -85,9 +85,11 @@ class ContentAndClarity:
     clarity: Numeric
 
     def paint(self, v: CellContent1) -> None:
+#        if v is None:
+#            pass
+#        elif v == ' ':
+#            self.dec_clarity()
         if v is None:
-            pass
-        elif v == ' ':
             self.dec_clarity()
         elif v == self.content:
             self.inc_clarity()
@@ -106,12 +108,12 @@ class ContentAndClarity:
         if self.clarity > 0:
             self.clarity -= 1
         if self.clarity == 0:
-            self.content = ' '
+            self.content = Blank()
 
     def set_clarity(self, clarity: Numeric) -> None:
         self.clarity = clarity
         if self.clarity == 0:
-            self.content = ' '
+            self.content = Blank()
 
 @dataclass
 class ContentsAndClarities:
@@ -127,7 +129,7 @@ class ContentsAndClarities:
         else:
             self.d[i] = ContentAndClarity(v, 1)
 
-    def __getitem__(self, i: Index2) -> CellContent:
+    def __getitem__(self, i: Index2) -> Optional[CellContent]:
         try:
             return self.d[i].content
         except KeyError:
@@ -226,9 +228,9 @@ class Canvas1D(Canvas):
         result = cls()
         result.contents.min_index = 1
         result.contents.max_index = len(s)
-        for i, letter in zip(range(1, len(s) + 1), s):
-            result[i] = letter
-            if letter != ' ':
+        for i, c in zip(range(1, len(s) + 1), s):
+            result[i] = Letter.from_str(c)
+            if c != ' ':
                 result.set_clarity(i, cls.INITIAL_CLARITY)
             else:
                 result.set_clarity(i, 0)
@@ -274,7 +276,7 @@ class Canvas1D(Canvas):
 
     has_index = has_addr
 
-    def __getitem__(self, addr: Addr) -> CellContent:
+    def __getitem__(self, addr: Addr) -> Optional[CellContent]:
         match addr:
             case i if is_index(i):
                 return self.contents[addr]
@@ -309,7 +311,8 @@ class Canvas1D(Canvas):
                 for elem in v:
                     yield ((i, elem.type), elem)
             case CellBundle():
-                yield (i, v.value)
+                if v.value is not None:
+                    yield (i, v.value)
                 yield from self.as_internal_args(i, v.annotations)
 
     # TODO UT

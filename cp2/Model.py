@@ -92,14 +92,14 @@ class Model:
         self.canvas[a] = x
 
     def absorb(self, s: str, timesteps: int=20):
-        with indent_log(3, 'ABSORB', repr(s)):
+        with indent_log(2, 'ABSORB', repr(s)):
             self.set_canvas(s)
             # TODO Set a mode where painters get penalized for painting the
             # wrong things
             # Run a little while, let some painters develop
             for t in range(timesteps):
                 self.do_timestep()
-                lo(3, self.state_str())
+                lo(2, self.state_str())
             # Save the abstract painters to the lts
             for p in self.ws:
                 if self.is_absorbable(p):
@@ -137,7 +137,7 @@ class Model:
         try:
             self.run_detpainter(dp)
         except Fizzle as exc:
-            lo(2, 'FIZZLE', exc)
+            lo(3, 'FIZZLE', exc)
             self.suppress(dp.as_painter())
         self.suppress(dp.as_painter())
 
@@ -225,7 +225,7 @@ class Model:
         self,
         dp: DetPainter
     ) -> None:
-        with indent_log(2, 'RUN_DETPAINTER', str(dp)):
+        with indent_log(3, 'RUN_DETPAINTER', str(dp)):
             self.dps_run[self.t] = dp
             v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
             match dp.target:

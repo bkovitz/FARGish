@@ -7,7 +7,7 @@ from Canvas import Canvas1D
 from util import pts
 
 from Types import Anchor, Annotation, Annotations, AnnotationType, \
-    CellBundle, End, Inextreme, Start, empty_annotations
+    Blank, CellBundle, End, Inextreme, Letter, Start, empty_annotations
 
 
 MyAnnotationType = AnnotationType('MyAnnotationType')
@@ -19,20 +19,20 @@ class TestCanvas1D(unittest.TestCase):
         c = Canvas1D.make_from('aja')
         self.assertEqual(c[1], 'a')  # 1-based indexing
         self.assertEqual(c.clarity(1), 5)
-        c[1] = 'b'
-        self.assertEqual(c[1], 'a'); self.assertEqual(c.clarity(1), 4)
-        c[1] = 'b'
-        self.assertEqual(c[1], 'a'); self.assertEqual(c.clarity(1), 3)
-        c[1] = 'b'
-        self.assertEqual(c[1], 'a'); self.assertEqual(c.clarity(1), 2)
-        c[1] = 'b'
-        self.assertEqual(c[1], 'a'); self.assertEqual(c.clarity(1), 1)
-        c[1] = 'b'
-        self.assertEqual(c[1], ' '); self.assertEqual(c.clarity(1), 0)
-        c[1] = 'b'
-        self.assertEqual(c[1], 'b'); self.assertEqual(c.clarity(1), 1)
-        c[1] = 'b'
-        self.assertEqual(c[1], 'b'); self.assertEqual(c.clarity(1), 2)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Letter('a')); self.assertEqual(c.clarity(1), 4)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Letter('a')); self.assertEqual(c.clarity(1), 3)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Letter('a')); self.assertEqual(c.clarity(1), 2)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Letter('a')); self.assertEqual(c.clarity(1), 1)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Blank()); self.assertEqual(c.clarity(1), 0)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Letter('b')); self.assertEqual(c.clarity(1), 1)
+        c[1] = Letter('b')
+        self.assertEqual(c[1], Letter('b')); self.assertEqual(c.clarity(1), 2)
         
     def test_all_indices_and_values(self) -> None:
         c = Canvas1D.make_from('aja')
@@ -70,19 +70,22 @@ class TestCanvas1D(unittest.TestCase):
 
     def test_as_bundle_empty_annotations(self) -> None:
         c = Canvas1D.make_from('ajaqb', auto_annotate=False)
-        self.assertEqual(c.as_bundle(2), CellBundle('j', empty_annotations))
+        self.assertEqual(
+            c.as_bundle(2),
+            CellBundle(Letter('j'), empty_annotations)
+        )
 
     def test_as_bundle_inextreme(self) -> None:
         c = Canvas1D.make_from('ajaqb')
         self.assertEqual(
             c.as_bundle(2),
-            CellBundle('j', Annotations.make_from(Inextreme))
+            CellBundle(Letter('j'), Annotations.make_from(Inextreme))
         )
 
     def test_all_matching(self) -> None:
         c = Canvas1D.make_from('ajaqb')
         self.assertCountEqual(
-            c.all_matching('a'),
+            c.all_matching(Letter('a')),
             [1, 3]
         )
 
@@ -92,8 +95,8 @@ class TestCanvas1D(unittest.TestCase):
         self.assertEqual(c[2], 'j')
         self.assertFalse(c.has_annotation(2, Start))
         self.assertTrue(c.has_annotation(2, MyAnnotation))
-        self.assertTrue(c.is_match(2, 'j'))
-        self.assertFalse(c.is_match(2, 'a'))
+        self.assertTrue(c.is_match(2, Letter('j')))
+        self.assertFalse(c.is_match(2, Letter('a')))
         self.assertTrue(c.is_match(2, MyAnnotation))
         self.assertFalse(c.is_match(2, Start))
         self.assertTrue(c.is_match(2, CellBundle.make_from('j', MyAnnotation)))

@@ -22,8 +22,26 @@ class Letter:
         if self.c < 'a' or self.c > 'z':
             raise ValueError(f"Letter {self.c!r}: must be in range 'a'..'z'.")
 
+    @classmethod
+    def from_str(self, c: str) -> Union[Letter, Blank]:
+        if len(c) != 1:
+            raise ValueError('Letter.from_str(): {c!r} must have len==1')
+        if c == ' ':
+            return Blank()
+        else:
+            return Letter(c)
+
     def short(self) -> str:
         return repr(self.c)
+
+@dataclass(frozen=True)
+class Blank:
+
+    def short(self) -> str:
+        return 'Blank'
+
+    __str__ = short
+    __repr__ = short
 
 def as_optional_letter(c: Union[str, None]):
     match c:
@@ -139,15 +157,15 @@ class CellBundle:
     '''Everything that can be held simultaneously in one cell, i.e. up to one
     value and any number of annotations, all bundled into one convenient
     object.'''
-    value: Optional[CanvasValue]
+    value: Union[None, Letter, Blank]
     annotations: Annotations
 
     # TODO During __post_init__, check if value is a space; if so, change
     # it to None
 
     @classmethod
-    def make_from(cls, *v: CellContent) -> CellBundle:
-        result = cls(None, empty_annotations)
+    def make_from(cls, *v: Union[CellContent, str]) -> CellBundle:
+        result = cls(Blank(), empty_annotations)
         for vv in v:
             result = result + vv
         return result
@@ -169,14 +187,20 @@ class CellBundle:
             yield self.value
         yield from self.annotations
 
-    def __add__(self, v: CellContent) -> CellBundle:
+    def __add__(self, v: CellContent | str) -> CellBundle:
         match v:
             case str():
+                l = Letter.from_str(v)
+                if l == self.value:
+                    return self
+                else:
+                    return replace(self, value=l)
+            case Letter():
                 if v == self.value:
                     return self
                 else:
                     return replace(self, value=v)
-            case None:
+            case Blank():
                 if v == self.value:
                     return replace(self, value=None)
                 else:
@@ -202,10 +226,14 @@ class CellBundle:
         '''Returns True if 'self' contains all the content within 'v', False
         if 'v' contains any value or annotation not in 'self'.'''
         match v:
-            case str():
-                return v == self.value
-            case None:
-                return True
+#            case str():
+#                return v == self.value
+#            case None:
+#                return True
+            case Letter(c):
+                return c == self.value
+            case Blank():
+                return c == self.value
             case Annotation():
                 return v in self.annotations
             case Annotations():
@@ -218,7 +246,8 @@ class CellBundle:
 
 empty_cell_bundle = CellBundle(None, empty_annotations)
 
-CellContent1 = Union[CanvasValue, None, Annotation]
+#CellContent1 = Union[CanvasValue, None, Annotation]
+CellContent1 = Union[Letter, Blank, Annotation]
 CellContent = Union[CellContent1, Annotations, CellBundle]
 
 def is_cell_content(x: Any) -> TypeGuard[CellContent]:
@@ -238,14 +267,15 @@ def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
     match v:
         case str():
             yield v
-        case None:
-            pass
+#        case None:
+#            pass
         case Annotation():
             yield v
         case Annotations():
             yield from v
         case CellBundle():
-            yield v.value
+            if v.value is not None:
+                yield v.value
             yield from v.annotations
 
 # A way to refer to a cell's value or an annotation within the cell
