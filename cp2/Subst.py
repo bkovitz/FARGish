@@ -13,12 +13,12 @@ import operator
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Types import Addr, Expr, F, Func, I, Index, Indices, J, \
-    FizzleNotIndex, SimpleFunc, SoupRef, Variable, \
-    as_index, is_func, is_index, is_painter
+from Types import Expr, FizzleNotIndex
 import Model as MM
 import Funcs as FM
-from Addrs import RelatedPair, SpecialAddr
+from Painters import Painter
+from Addrs import as_index, Addr, DetAddrWithSubst, F, I, J, \
+    Index, Indices, RelatedPair, SpecialAddr, SoupRef, Variable
 from Log import lo, trace, indent_log
 from util import force_setattr, short
 
@@ -30,7 +30,7 @@ class HasAsIndex(ABC):
         pass
 
 @dataclass(frozen=True)
-class Plus(HasAsIndex):
+class Plus(Addr, HasAsIndex):
     args: Tuple[Expr, ...]
 
     def __init__(self, *args: Expr):
@@ -41,6 +41,16 @@ class Plus(HasAsIndex):
 
     def value_of(self, subst: Subst) -> Expr:
         return self.simplify(subst, self.args)
+
+    def to_detaddrs(self, model: MM.Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        match subst.as_index(self):
+            case None:
+                return
+            case Index() | Indices() as i:
+                yield DetAddrWithSubst(subst.unify(var, i), i)
+            case x:
+                raise NotImplementedError(f"Can't match Plus that simplifies to {x}, {type(x)}")
 
     @classmethod
     @no_type_check  # mypy 0.971 crashes on '*more' below
@@ -78,7 +88,9 @@ class Plus(HasAsIndex):
                 return Plus(a, b)
 
     def as_index(self) -> Index:
-        return reduce(operator.add, (as_index(arg) for arg in self.args), 0)
+        return Index(
+            reduce(operator.add, (as_index(arg) for arg in self.args), 0)
+        )
 
 @dataclass(frozen=True)
 class Subst:
@@ -105,7 +117,7 @@ class Subst:
     def __contains__(self, x: Hashable) -> bool:
         return x in self.d
 
-    def __getitem__(self, x: Hashable) -> Optional[Index]:
+    def __getitem__(self, x: Hashable) -> Optional[Any]:  #TODO proper type hint
         return self.d.get(x, None)
 
     def simplify(self, expr: Expr) -> Expr:
@@ -133,7 +145,7 @@ class Subst:
         '''Same as .simplify() but Fizzles if the result is not an Index.'''
         result = self.simplify(expr)
         if isinstance(result, int):
-            return result
+            return Index(result)
         else:
             raise FizzleNotIndex(expr)
 
@@ -141,8 +153,8 @@ class Subst:
         '''Same as .simplify() but returns None if the result is not an
         Index.'''
         result = self.simplify(expr)
-        if is_index(result):
-            return result
+        if isinstance(result, int):
+            return Index(result)
         else:
             return None
 
@@ -153,7 +165,8 @@ class Subst:
                     return self
                 case (x, Plus(args)) | (Plus(args), x) if len(args) == 1:
                     return self.unify(x, args[0])
-                case (Variable(), int(r)):
+                #case (Variable(), int(r)):
+                case (Variable(), Index()):
                     return self.substitute(lhs, rhs).set_lhs_rhs(lhs, rhs)
                 case (Variable(), Indices()):
                     return self.set_lhs_rhs(lhs, rhs)
@@ -204,7 +217,7 @@ class Subst:
                     else:
                         return Subst(self.d.set(lhs, rhs))
                 case (Variable(), (SoupRef(), p)) if (
-                        is_painter(p)  # type: ignore[has-type]
+                        isinstance(p, Painter)  # type: ignore[has-type]
                 ):
                     if lhs in self.d:
                         if self.d[lhs] == rhs:
@@ -231,7 +244,7 @@ class Subst:
                         return self.set_lhs_rhs(lhs, (ii, jj, ff))
                         # Is that wrong? What if ii, etc. have an expr that
                         # needs to be evaluated later?
-                case (Variable(), f) if is_func(f):
+                case (Variable(), f) if FM.is_func(f):
                     if lhs in self.d:
                         if self.d[lhs] == rhs:
                             return self
@@ -243,7 +256,7 @@ class Subst:
                     return bottom_subst
                 case (Variable(), _):
                     return bottom_subst
-                case (SimpleFunc(var), rhs):
+                case (FM.SimpleFunc(var), rhs):
                     if isinstance(rhs, FM.SimpleFuncClass):
                         return self.set_lhs_rhs(var, rhs)
                     else:
@@ -295,7 +308,7 @@ class Subst:
         else:
             return self
 
-    def unify_ijf(self, source: Addr, target: Addr, func: Func) -> Subst:
+    def unify_ijf(self, source: Addr, target: Addr, func: FM.Func) -> Subst:
         return self. \
             unify_if_undefined(I, source). \
             unify_if_undefined(J, target). \

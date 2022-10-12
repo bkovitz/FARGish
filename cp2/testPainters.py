@@ -3,8 +3,10 @@
 import unittest
 import inspect
 
-from Types import Annotations, CellBundle, F, I, Indices, J, Letter, Painter, \
-    SimpleFunc, Start, WorkingSoup
+from Types import Annotations, CellBundle, Letter, Start
+from Addrs import F, I, Index, Indices, J, MatchContent, WorkingSoup
+from Painters import Painter
+from Funcs import SimpleFunc
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
 from Subst import Subst, empty_subst, Plus
@@ -26,13 +28,13 @@ class TestPainters(unittest.TestCase):
         return dpainters[0]
 
     def test_abs_painter(self) -> None:
-        p: Painter = (1, 3, same)
+        p = (1, 3, same)
         model = Model.canvas_from('a    ')
         model.run_detpainter(DetPainter.make_from(p))
         self.assertEqual(model.canvas.short_str(), 'a a  ')
 
     def test_rel_painter(self) -> None:
-        p: Painter = ('a', Plus(I, 2), succ)
+        p = Painter.make_from('a', Plus(I, 2), succ)
         model = Model.canvas_from('a    ')
 
         dp = self.painter_to_one_detpainter(model, p)

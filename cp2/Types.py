@@ -31,6 +31,18 @@ class Letter:
         else:
             return Letter(c)
 
+    def succ(self) -> Letter:
+        if self.c >= 'z':
+            raise FizzleNoSucc
+        else:
+            return Letter(chr(ord(self.c) + 1))
+
+    def pred(self) -> Letter:
+        if self.c <= 'a':
+            raise FizzleNoPred
+        else:
+            return Letter(chr(ord(self.c) - 1))
+
     def short(self) -> str:
         return repr(self.c)
 
@@ -43,41 +55,18 @@ class Blank:
     __str__ = short
     __repr__ = short
 
-def as_optional_letter(c: Union[str, None]):
-    match c:
-        case str():
-            if c == ' ':
-                return None
-            elif c >= 'a' and c <= 'z':
-                return c
-            else:
-                raise ValueError(
-                    f"letter {c!r}: must be in range 'a'..'z'."
-                )
-        case None:
-            return None
-
-@dataclass(frozen=True)
-class SoupRef:
-    name: str
-
-    def __repr__(self) -> str:
-        return self.name
-
-WorkingSoup = SoupRef('WorkingSoup')
-LongTermSoup = SoupRef('LongTermSoup')
-
-CanvasValue = str  # TODO change str to Letter
-Index = int   # the index of a cell within a Canvas
-MaybeIndex = Union[Index, None, List[Index]]  # TODO rename or divide into type types: List[Index] is not always appropriate
+CanvasValue = Union[Letter, Blank]  # TODO change str to Letter
+#Index = int   # the index of a cell within a Canvas
+#MaybeIndex = Union[Index, None, List[Index]]  # TODO rename or divide into type types: List[Index] is not always appropriate
 Expr = Any
-Addr = Any  # An address, possibly with variables, patterns, special objects
-            # that search for matches; possibly a Painter.
-Func = Any  # A Value, Painter, or callable 
+#Addr = Any  # An address, possibly with variables, patterns, special objects
+#            # that search for matches; possibly a Painter.
+
+#Func = Any  # A Value, Painter, or callable 
 # The above are defined as Any only because mypy can't handle recursive type
 # definitions, which would result from defining Painter as containing them.
-Painter = Tuple[Addr, Addr, Func]
-Value = Union[CanvasValue, Painter, Func]
+#Painter = Tuple[Addr, Addr, Func]
+#Value = Union[CanvasValue, Painter, Func]
 
 
 @dataclass(frozen=True)
@@ -174,7 +163,7 @@ class CellBundle:
         '''Does this CellBundle contain only a value and no annotations?'''
         return not self.annotations
 
-    def simplest(self) -> Union[Value, Annotation, Annotations, CellBundle]:
+    def simplest(self) -> Any:  # TODO restore type hint: Union[Value, Annotation, Annotations, CellBundle]:
         if self.value_only():
             return self.value
         elif self.value is None:
@@ -278,86 +267,24 @@ def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
                 yield v.value
             yield from v.annotations
 
-# A way to refer to a cell's value or an annotation within the cell
-Index2 = Union[Index, Tuple[Index, AnnotationType]]
+#def is_painter(x: Any) -> TypeGuard[Painter]:
+#    #return isinstance(x, tuple)
+#    match x:
+#        case (i, j, func):
+#            return True
+#        case _:
+#            return False
 
-@no_type_check  # crashes mypy 0.971
-def extract_index(i: Index2) -> Index:
-    match i:
-        case int():
-            return i
-        case (int(ii), _):
-            return ii
-    assert False, f"extract: should not go past 'match' stmt, {i}"
-
-@dataclass(frozen=True)
-class Indices:
-    '''Zero or more Index2s.'''
-    elems: FrozenSet[Index2]
-
-    def __init__(self, *i: Index2):
-        force_setattr(self, 'elems', frozenset(i))
-
-    def __str__(self) -> str:
-        cl = self.__class__.__name__
-        return f"{cl}({', '.join(str(e) for e in self.elems)})"
-
-@dataclass(frozen=True)
-class Variable:
-    name: str
-
-    def __repr__(self) -> str:
-        return self.name
-
-I = Variable('I')
-J = Variable('J')
-F = Variable('F')
-
-@dataclass(frozen=True)
-class SimpleFunc:
-    var: Variable
-
-    def __str__(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({self.var})'
-
-class HasAsIndex(ABC):
-
-    @abstractmethod
-    def as_index(self) -> Index:
-        pass
-
-def is_index(e: Any) -> TypeGuard[Index]:
-    return isinstance(e, int)
-
-# TODO rm; Subst.as_index() does this correctly
-def as_index(e: Expr) -> Index:
-    if isinstance(e, int):
-        return e
-    elif isinstance(e, HasAsIndex):
-        return e.as_index()
-    else:
-        raise Fizzle(f"as_index: Can't convert {e!r} to index")
-
-def is_painter(x: Any) -> TypeGuard[Painter]:
-    #return isinstance(x, tuple)
-    match x:
-        case (i, j, func):
-            return True
-        case _:
-            return False
-
-def is_func(x: Any) -> TypeGuard[Func]:
-    match x:
-        case str():
-            return True
-        case (i, j, func):
-            return True
-        case c if callable(c):
-            return True
-    return False
+#def is_func(x: Any) -> TypeGuard[Func]:
+#    match x:
+#        case str():
+#            return True
+#        case (i, j, func):
+#            return True
+#        case c if callable(c):
+#            return True
+#    return False
             
-@trace
 def is_space(cc: CellContent) -> bool:
     match cc:
         case str():
@@ -369,31 +296,17 @@ def is_space(cc: CellContent) -> bool:
         case _:
             return False
 
-def painter_str(p: Painter) -> str:
-    i, j, func = p
-    return f'({addr_str(i)}, {addr_str(j)}, {func_str(func)})'
+#def painter_str(p: Painter) -> str:
+#    i, j, func = p
+#    return f'({addr_str(i)}, {addr_str(j)}, {func_str(func)})'
 
-def addr_str(a: Addr) -> str:
-    if isinstance(a, int):
-        return str(a)
-    elif isinstance(a, str):
-        return repr(a)
-    elif isinstance(a, SoupRef):
-        return a.name
-    elif is_painter(a):
-        return painter_str(a)
-    elif isinstance(a, Variable):
-        return a.name
-    else:
-        return str(a)
-
-def func_str(func: Func) -> str:
-    if callable(func):
-        return short(func)
-    elif is_painter(func):
-        return painter_str(func)
-    else:
-        return repr(func)
+#def func_str(func: Func) -> str:
+#    if callable(func):
+#        return short(func)
+#    elif is_painter(func):
+#        return painter_str(func)
+#    else:
+#        return repr(func)
 
 ### Exceptions ###
 
@@ -402,7 +315,7 @@ class Fizzle(Exception):
 
 @dataclass(frozen=True)
 class FizzleValueNotFound(Fizzle):
-    v: Value
+    v: Any  # TODO restore type hint: Value
 
     def __str__(self) -> str:
         return f'value not found: {repr(self.v)}'
@@ -421,3 +334,21 @@ class FizzleGotNone(Fizzle):
     
     def __str__(self) -> str:
         return f'{short(self.o)}: {short(self.e)} evaluated to None'
+
+@dataclass(frozen=True)
+class FizzleNoDetPainters(Fizzle):
+
+    def __str__(self) -> str:
+        return 'No determinate painters'
+
+@dataclass(frozen=True)
+class FizzleNoSucc(Fizzle):
+
+    def __str__(self) -> str:
+        return 'No successor'
+
+@dataclass(frozen=True)
+class FizzleNoPred(Fizzle):
+
+    def __str__(self) -> str:
+        return 'No predecessor'

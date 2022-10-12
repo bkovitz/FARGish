@@ -3,7 +3,7 @@
 import unittest
 import inspect
 
-from Types import I
+from Addrs import I
 #from Subst import Subst, Plus
 from Soup import Soup
 from Funcs import succ, same

@@ -5,31 +5,86 @@ from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
-    runtime_checkable, TYPE_CHECKING
+    runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from Types import Addr, Expr, Func, I, Value, WorkingSoup, Painter, is_painter, \
-    painter_str, Fizzle, FizzleGotNone
+from Types import CanvasValue, CellContent, Expr, Fizzle, FizzleGotNone, \
+    is_cell_content, Letter
+from Addrs import Addr, I, make_addr, ToAddr, Variable, WorkingSoup
 import Subst as SM
 import Model as MM
-
+from Painters import Painter
 from Log import trace, lo, set_log_level
 from util import short
 
 
-class SimpleFuncClass:
+class CallableFunc(ABC):
+
+    @abstractmethod
+    def apply(self, model: MM.Model, subst: SM.Subst, value: Value) \
+    -> Value:
+        pass
+
+    @abstractmethod
+    def to_detfuncs(self, model: MM.Model, subst: SM.Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        pass
+
+    def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
+        '''Will this be a valid function given the substitutions in 'subst'?'''
+        return True
+
+@dataclass(frozen=True)
+class SimpleFunc:
+    var: Variable
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.var})'
+
+Func = Union[CallableFunc, CellContent, Variable, SimpleFunc]
+Value = Union[CellContent, Painter, Func, None]
+
+def is_func(x: Any) -> TypeGuard[Func]:
+    if isinstance(x, CallableFunc):
+        return True
+    elif is_cell_content(x):
+        return True
+    else:
+        return False
+
+# A determinate Func: no variables
+#DetFunc = Union[Value, DetPainter, Callable] 
+DetFunc = Union[CallableFunc, CellContent, SimpleFunc] # TODO Allow SimpleFunc?
+
+# A convenience type for DetPainter.make_from()
+ToDetFunc = Union[DetFunc, Tuple[ToAddr, ToAddr, DetFunc]]
+
+@no_type_check  # causes mypy 0.971 to crash
+def make_detfunc(f: ToDetFunc) -> DetFunc:
+    match f:
+        case (i, j, ff):
+            return Painter(make_addr(i), make_addr(j), ff)
+        case _:
+            return f
+
+class SimpleFuncClass(CallableFunc):
     '''A Func that gets counted as a SimpleFunc during unification.'''
 
     @abstractmethod
-    def __call__(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
         pass
+
+    def to_detfuncs(self, model: MM.Model, subst: SM.Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        yield self
 
 ### The basic relational functions
 
 class Same(SimpleFuncClass):
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
         return v
 
     def __repr__(self) -> str:
@@ -37,12 +92,13 @@ class Same(SimpleFuncClass):
 
 class Succ(SimpleFuncClass):
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
         # TODO Deal with 'z'
-        if isinstance(v, str):
-            return chr(ord(v) + 1)
-        elif isinstance(v, int):
-            return v + 1
+        if isinstance(v, Letter):
+            return v.succ()
+# TODO succ(Index)
+#        elif isinstance(v, int):
+#            return v + 1
         raise Fizzle("succ: Can't take successor of {v}")
 
     def __repr__(self) -> str:
@@ -50,12 +106,13 @@ class Succ(SimpleFuncClass):
 
 class Pred(SimpleFuncClass):
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, v: Value) -> Value:
         # TODO Deal with 'a'
-        if isinstance(v, str):
-            return chr(ord(v) - 1)
-        elif isinstance(v, int):
-            return v - 1
+        if isinstance(v, Letter):
+            return v.pred()
+# TODO pred(Index)
+#        elif isinstance(v, int):
+#            return v - 1
         raise Fizzle("pred: Can't take predecessor of {v}")
 
     def __repr__(self) -> str:
@@ -69,29 +126,26 @@ pred = Pred()
 
 @dataclass(frozen=True)
 class const(SimpleFuncClass):
-    v: Value
+    v: Any  # TODO restore type hint: Value
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
         return self.v
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        if is_painter(self.v):
-            return f'{cl}({painter_str(self.v)})'
-        else:
-            return f'{cl}({short(self.v)})'
+        return f'{cl}({short(self.v)})'
 
 ### Painter-building functions
 
 @dataclass(frozen=True)
-class MakeBetweenPainter:
+class MakeBetweenPainter(CallableFunc):
     '''Makes a painter that paints a value between two others.'''
     i: Addr
     j: Addr
     f: Func
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) \
-    -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, ignored: Value) \
+    -> Painter:
         result_i = subst.as_index(self.i)
         if result_i is None:
             raise FizzleGotNone(self, f'i={self.i}')
@@ -104,11 +158,17 @@ class MakeBetweenPainter:
         result_f = subst[self.f]
         if result_f is None:
             raise FizzleGotNone(self, f'f={self.f}')
-        return (
-            (I, SM.Plus(I, result_j - result_i), result_f),
+        assert is_func(result_f)
+        return Painter(
+            Painter(I, SM.Plus(I, result_j - result_i), result_f),
             WorkingSoup,
-            (I, SM.Plus(I, 1), value)
+            Painter(I, SM.Plus(I, 1), value)
         )
+
+    def to_detfuncs(self, model: MM.Model, subst: SM.Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        if self.can_make(model, subst):
+            yield self
 
     # TODO UT
     def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
@@ -146,12 +206,13 @@ class MakeBetweenPainter:
     __str__ = short
 
 @dataclass(frozen=True)
-class MakeRelativeIndirectPainter:
+class MakeRelativeIndirectPainter(CallableFunc):
     i: Addr
     j: Addr
     f: Func
 
-    def __call__(self, model: MM.Model, subst: SM.Subst, ignored: Value) -> Value:
+    def apply(self, model: MM.Model, subst: SM.Subst, ignored: Value) \
+    -> Painter:
         result_i = subst.as_index(self.i)
         if result_i is None:
             raise Fizzle  # TODO More-specific Fizzle
@@ -163,14 +224,20 @@ class MakeRelativeIndirectPainter:
         if result_j is None:
             raise Fizzle  # TODO More-specific Fizzle
         result_f = subst[self.f]
+        assert is_func(result_f)
         if result_f is None:
             raise Fizzle  # TODO More-specific Fizzle
-        return (
+        return Painter(
             #bundle.value if bundle.value_only() else bundle,
             bundle.simplest(),
             WorkingSoup,
-            (I, SM.Plus(I, result_j - result_i), result_f)
+            Painter(I, SM.Plus(I, result_j - result_i), result_f)
         )
+
+    def to_detfuncs(self, model: MM.Model, subst: SM.Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        if self.can_make(model, subst):
+            yield self
 
     # TODO UT
     def can_make(self, model: MM.Model, subst: SM.Subst) -> bool:
@@ -205,4 +272,3 @@ class MakeRelativeIndirectPainter:
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
 
     __str__ = short
-

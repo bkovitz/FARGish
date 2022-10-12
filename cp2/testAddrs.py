@@ -3,7 +3,8 @@
 import unittest
 import inspect
 
-from Types import CellBundle, F, I, Indices, J, Painter, SimpleFunc, WorkingSoup
+from Types import CellBundle, F, I, Indices, J, Letter, Painter, \
+    SimpleFunc, WorkingSoup
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
 from Subst import Subst, empty_subst, Plus
@@ -28,7 +29,7 @@ class TestAddrs(unittest.TestCase):
         model = Model()
         model.set_canvas('a a  ')
         self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, 'a'),
+            model.addr_to_detaddrs(empty_subst, I, Letter('a')),
             [
                 DetAddrWithSubst(Subst.make_from((I, 1)), 1),
                 DetAddrWithSubst(Subst.make_from((I, 3)), 3),

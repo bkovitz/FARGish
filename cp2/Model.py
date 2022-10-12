@@ -13,30 +13,28 @@ from random import choice, choices, random
 import sys
 from operator import itemgetter
 
-from Types import Addr, CanvasValue, CellContent, End, F, \
-    Fizzle, FizzleValueNotFound, \
-    Func, I, Index, Indices, is_cell_content, J, \
-    MaybeIndex, Painter, SimpleFunc, SoupRef, \
-    Start, Value, Variable, WorkingSoup, \
-    addr_str, func_str, is_painter, painter_str
-import Types
+from Types import CanvasValue, CellContent, End, \
+    Fizzle, FizzleNoDetPainters, FizzleValueNotFound, \
+    is_cell_content, \
+    Start
+import Addrs
 from Canvas import Canvas, Canvas1D
 from Soup import Soup
 from Subst import Subst, empty_subst, Plus
-from Funcs import same, pred, succ, MakeRelativeIndirectPainter, \
-    MakeBetweenPainter
-from Addrs import DetAddr, DetAddrWithSubst, RelatedPair, SpecialAddr, \
-    MatchContent
-from Painters import DetPainter0, DetPainter, DetFunc
+from Funcs import CallableFunc, Func, same, pred, succ, MakeRelativeIndirectPainter, \
+    MakeBetweenPainter, SimpleFunc, Value
+from Addrs import Addr, DetAddr, DetAddrWithSubst, F, I, Index, Indices, J, RelatedPair, SpecialAddr, \
+    MatchContent, SoupRef, Variable, WorkingSoup
+from Painters import Painter, DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log, set_log_level
 from util import short, nf, Numeric
 
 
-default_primitive_funcs: FrozenSet[Func] = frozenset([same, succ, pred])
+default_primitive_funcs: FrozenSet[DetFunc] = frozenset([same, succ, pred])
 default_initial_painters: List[Painter] = [
-    (RelatedPair(I, J, F), WorkingSoup, (I, J, F)),
-    ((I, J, SimpleFunc(F)), WorkingSoup, MakeRelativeIndirectPainter(I, J, F)),
-    ((I, Plus(I, 2), F), WorkingSoup, MakeBetweenPainter(I, J, F))
+    Painter(RelatedPair(I, J, F), WorkingSoup, Painter(I, J, F)),
+    Painter(Painter(I, J, SimpleFunc(F)), WorkingSoup, MakeRelativeIndirectPainter(I, J, F)),
+    Painter(Painter(I, Plus(I, 2), F), WorkingSoup, MakeBetweenPainter(I, J, F))
 ]
 
 @dataclass
@@ -84,9 +82,12 @@ class Model:
     def set_canvas(self, s: str) -> None:
         self.canvas = Canvas1D.make_from(s)
 
-    def contents_at(self, addr: Addr) -> Value:
+    def contents_at(self, addr: Addr) -> Optional[Value]:
         #TODO Look up a painter by addr?
-        return self.canvas[addr]
+        if isinstance(addr, Index):
+            return self.canvas[addr]
+        else:
+            return None
 
     def paint(self, a: Index, x: CellContent) -> None:
         self.canvas[a] = x
@@ -161,11 +162,13 @@ class Model:
             else:
                 lo(4, 'No det_painters.')
 
-        ii = choices(range(len(det_painters)), weights)[0]
-        dp = det_painters[ii]
-        lo(4, 'CHOSE DETPAINTER', dp, '  ', nf(weights[ii]))
-
-        return dp
+        if det_painters:
+            ii = choices(range(len(det_painters)), weights)[0]
+            dp = det_painters[ii]
+            lo(4, 'CHOSE DETPAINTER', dp, '  ', nf(weights[ii]))
+            return dp
+        else:
+            raise FizzleNoDetPainters
 
     def detpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
         return (
@@ -187,7 +190,7 @@ class Model:
         return self.suppressions.get(dp0, 1.0)
 
     def decay_suppressions(self) -> None:
-        new_suppressions: Dict[Painter, float] = {}
+        new_suppressions: Dict[DetPainter0, float] = {}
         for dp0, sup in self.suppressions.items():
             new_sup = sup * 1.1
             if new_sup < 1.0:
@@ -199,25 +202,25 @@ class Model:
 
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:
-            case int():
+            case Index():
                 return self.canvas.clarity(a) / self.canvas.MAX_CLARITY
-            case p if is_painter(p):
+            case Painter(): #p if is_painter(p):
                 return 1.0  # TODO: find out painter "clarity"
             case Indices(elems):
                 return sum(
                     self.source_weight(elem)
                         for elem in elems
-                            if isinstance(elem, int) #HACK
+                            if isinstance(elem, Index) #HACK
                 )
         assert False, "source_weight(): should not go past 'match' stmt"
 
     def target_weight(self, a: DetAddr) -> Numeric:
         match a:
-            case int():
+            case Index():
                 return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
             case SoupRef():
                 return 1.0
-            case p if is_painter(p):
+            case Painter(): #p if is_painter(p):
                 return 1.0  # TODO: find out painter "clarity"
         assert False, "target_weight(): should not go past 'match' stmt"
 
@@ -229,14 +232,14 @@ class Model:
             self.dps_run[self.t] = dp
             v = self.apply_func(dp.subst, dp.func, self.contents_at(dp.source))
             match dp.target:
-                case int():
+                case Index():
                     lo(3, 'PAINT', v, 'in cell', dp.target)
                     self.canvas[dp.target] = v  # type: ignore[assignment]
-                case Types.WorkingSoup:
+                case Addrs.WorkingSoup:
                     match v:
-                        case p if is_painter(p):
-                            lo(3, 'MAKE PAINTER', p)
-                            self.ws.add(p)
+                        case Painter():
+                            lo(3, 'MAKE PAINTER', v)
+                            self.ws.add(v)
                         case x:
                             raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
                 #TODO Painting to long-term soup
@@ -252,85 +255,54 @@ class Model:
         for t in sorted(self.dps_run.keys()):
             print(f't={t}\n{self.dps_run[t]}')
 
-    def OLDpainter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
-        lo('PAINTER', short(p))
-        source, target, func = p
-        det_sources = self.addr_to_detaddrs(empty_subst, I, source)
-        det_sources = list(det_sources) #DEBUG
-        lo('DETSRC', det_sources)
-        det_targets = chain.from_iterable(
-            self.addr_to_detaddrs(ds.subst, J, target)
-                for ds in det_sources
-        )
-        det_targets = list(det_targets) #DEBUG
-        lo('DETTARG', det_targets)
-        det_funcs = chain.from_iterable(
-            self.func_to_detfuncs(dt.subst, F, func)
-                for dt in det_targets
-        )
-        det_funcs = list(det_funcs) #DEBUG
-        lo('DETFUNCS', det_funcs)
-        # NEED to pair a subst with each DetAddr
-        # PROBLEM Cartesian product is wrong because some sources may be
-        # pared away due to matching targets; similarly for the funcs.
-        return (
-            DetPainter(
-                dt.subst,
-                ds.addr,
-                dt.addr,
-                df,
-                1.0,   # TODO prob_weight,
-                p  # basis, "author"
-            ) for ds, dt, df in product(det_sources, det_targets, det_funcs)
-        )
-
     def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
-        with indent_log(5, 'PAINTER to DETPAINTERS', p):
-            source, target, func = p
-
-            det_sources = self.addr_to_detaddrs(empty_subst, I, source)
-            det_sources = list(det_sources) #DEBUG
-            #lo(8, 'DETSRC', det_sources)
-            with indent_log(8, 'DET SOURCES'):
-                for det_source in det_sources:
-                    lo(8, det_source)
-
-            source_target_pairs = (
-                (ds, dt)
-                    for ds in det_sources
-                        for dt in self.addr_to_detaddrs(ds.subst, J, target)
-            )
-            source_target_pairs = list(source_target_pairs) #DEBUG
-            #lo(8, 'STPAIRS', list(zip(*source_target_pairs)))
-            #lo(8, 'DETTARG', source_target_pairs[1])
-            with indent_log(8, 'DET SOURCES+TARGETS'):
-                for source_target_pair in source_target_pairs:
-                    lo(8, source_target_pair)
-
-            triples = (
-                (ds, dt, df)
-                    for (ds, dt) in source_target_pairs
-                        for df in self.func_to_detfuncs(dt.subst, F, func)
-            )
-            triples = list(triples) #DEBUG
-            #lo(7, 'DETFUNCS', triples)  # we really want the 3rd "column"
-            #lo(7, 'DETFUNCS', triples[2])
-            with indent_log(7, 'DET TRIPLES'):
-                for triple in triples:
-                    lo(7, triple)
-
-            for ds, dt, df in triples:
-                dp = DetPainter(
-                    dt.subst,
-                    ds.addr,
-                    dt.addr,
-                    df,
-                    self.suppression((ds.addr, dt.addr, df)),
-                        # TODO figure painter clarity into prob_weight?
-                    p  # basis, "author"
-                )
-                lo(5, dp)
-                yield dp
+        yield from p.to_detpainters(self)
+#        with indent_log(5, 'PAINTER to DETPAINTERS', p):
+#            source, target, func = p
+#
+#            det_sources = self.addr_to_detaddrs(empty_subst, I, source)
+#            det_sources = list(det_sources) #DEBUG
+#            #lo(8, 'DETSRC', det_sources)
+#            with indent_log(8, 'DET SOURCES'):
+#                for det_source in det_sources:
+#                    lo(8, det_source)
+#
+#            source_target_pairs = (
+#                (ds, dt)
+#                    for ds in det_sources
+#                        for dt in self.addr_to_detaddrs(ds.subst, J, target)
+#            )
+#            source_target_pairs = list(source_target_pairs) #DEBUG
+#            #lo(8, 'STPAIRS', list(zip(*source_target_pairs)))
+#            #lo(8, 'DETTARG', source_target_pairs[1])
+#            with indent_log(8, 'DET SOURCES+TARGETS'):
+#                for source_target_pair in source_target_pairs:
+#                    lo(8, source_target_pair)
+#
+#            triples = (
+#                (ds, dt, df)
+#                    for (ds, dt) in source_target_pairs
+#                        for df in self.func_to_detfuncs(dt.subst, F, func)
+#            )
+#            triples = list(triples) #DEBUG
+#            #lo(7, 'DETFUNCS', triples)  # we really want the 3rd "column"
+#            #lo(7, 'DETFUNCS', triples[2])
+#            with indent_log(7, 'DET TRIPLES'):
+#                for triple in triples:
+#                    lo(7, triple)
+#
+#            for ds, dt, df in triples:
+#                dp = DetPainter(
+#                    dt.subst,
+#                    ds.addr,
+#                    dt.addr,
+#                    df,
+#                    self.suppression((ds.addr, dt.addr, df)),
+#                        # TODO figure painter clarity into prob_weight?
+#                    p  # basis, "author"
+#                )
+#                lo(5, dp)
+#                yield dp
 
     # TODO Rename to addr_to_detaddrs_with_subst
     def addr_to_detaddrs(self, subst: Subst, var: Variable, addr: Addr) \
@@ -402,41 +374,43 @@ class Model:
             match func:
                 case Variable():
                     if func in subst:
-                        yield subst[func]
+                        yield subst[func]  # type: ignore[misc]
                     else:
                         yield from self.primitive_funcs
-                case (i, j, f):
-                    for ii, jj, ff in product(
-                        self.addr_to_detaddrs(subst, I, i),
-                        self.addr_to_detaddrs(subst, J, j),
-                        self.func_to_detfuncs(subst, F, f)
-                    ):
-                        yield (ii.addr, jj.addr, ff)
-                case _:
+                case x if is_cell_content(x):
+                    yield x
+                case CallableFunc():
+                    yield from func.to_detfuncs(self, subst, var)
                     if self.can_make_func(func, subst):
                         yield func
+                case SimpleFunc():
+                    raise NotImplementedError
 
+    # TODO rm? Funcs that need to test this can do it themselves inside their
+    # own .to_detfuncs() method.
     def can_make_func(self, func: Func, subst: Subst) -> bool:
         if hasattr(func, 'can_make'):
-            return func.can_make(self, subst)
+            return func.can_make(self, subst)  # type: ignore[union-attr]
         else:
             return True
 
-    def are_related_by(self, i: Index, j: Index, f: Func) -> bool:
+    def are_related_by(self, i: Index, j: Index, f: DetFunc) -> bool:
         if not (self.canvas.has_letter(i) and self.canvas.has_letter(j)):
             return False
         # TODO take the Subst as an argument to are_related_by
         return self.apply_func(empty_subst, f, self.canvas[i]) == self.canvas[j]
 
-    def apply_func(self, subst: Subst, f: Func, v: Value) \
-    -> Union[Value, Painter]:
+    def apply_func(self, subst: Subst, f: DetFunc, v: Value) \
+    -> Union[Value]:
         with indent_log(6,
             f'APPLY FUNC {short(f)}({short(v, inside=True)})  {short(subst)}'
         ):
-            if isinstance(f, str) or isinstance(f, int) or is_painter(f):
+            if isinstance(f, CallableFunc):
+                return f.apply(self, subst, v)
+            elif is_cell_content(f):
                 return f
-            elif callable(f):
-                return f(self, subst, v)
+#            elif isinstance(f, str) or isinstance(f, int) or is_painter(f):
+#                return f
             else:
                 raise NotImplementedError(f"apply_func: can't apply {f}")
 

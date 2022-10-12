@@ -10,7 +10,8 @@ from collections import defaultdict
 from random import choice, choices, random
 from io import StringIO
 
-from Types import Painter, as_index, painter_str
+from Addrs import as_index
+from Painters import Painter
 #from Subst import Subst, bottom_subst, empty_subst
 from Log import lo, trace
 from util import Numeric, nf, short
@@ -112,7 +113,7 @@ class Soup:
     def state_str(self) -> str:
         sio = StringIO()
         for pstr in sorted(
-            f'{painter_str(p)} {nf(cl)}' for p, cl in self.painters.items()
+            f'{short(p)} {nf(cl)}' for p, cl in self.painters.items()
         ):
             print(pstr, file=sio)
         return sio.getvalue()

@@ -3,7 +3,7 @@
 import unittest
 import inspect
 
-from Types import F, I, Indices, J, WorkingSoup
+from Addrs import F, I, Indices, J, WorkingSoup
 from Model import Model
 from Subst import Subst, Plus, bottom_subst, empty_subst
 from Funcs import succ

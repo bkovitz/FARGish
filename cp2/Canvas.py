@@ -8,12 +8,14 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from Types import Addr, Anchor, Annotation, Annotations, AnnotationType, \
+from Types import Anchor, Annotation, Annotations, AnnotationType, \
     Blank, CanvasValue, \
     CellBundle, CellContent1, CellContent, End, FizzleValueNotFound, \
-    Func, Index, Index2, Inextreme, Letter, MaybeIndex, Start, Value, \
+    Inextreme, Letter, Start, \
     empty_cell_bundle, \
-    extract_index, is_index, unbundle_cell_content
+    unbundle_cell_content
+from Addrs import Addr, as_int, extract_index, Index, Index2, is_index
+from Funcs import Func, Value
 from Log import lo, trace
 from util import short, Numeric
 
@@ -28,15 +30,15 @@ class Canvas(ABC):
                                         # maybe to RMem
     """
     @abstractmethod
-    def all_addrs(self) -> Iterable[Addr]:
+    def all_addrs(self) -> Iterable[Index]:
         pass
     
     @abstractmethod
-    def __getitem__(self, addr: Addr) -> Optional[CellContent]:
+    def __getitem__(self, addr: Index) -> Optional[CellContent]:
         pass
 
     @abstractmethod
-    def __setitem__(self, addr: Addr, x: CellContent) -> None:
+    def __setitem__(self, addr: Index, x: CellContent) -> None:
         pass
 
     @abstractmethod
@@ -44,7 +46,7 @@ class Canvas(ABC):
         pass
 
     @abstractmethod
-    def clarity(self, addr: Addr) -> Numeric:
+    def clarity(self, addr: Index2) -> Numeric:
         pass
 
     def all_clarities(self) -> Iterable[Numeric]:
@@ -52,7 +54,7 @@ class Canvas(ABC):
             yield self.clarity(addr)
 
     @abstractmethod
-    def set_clarity(self, addr: Addr, clarity: Numeric) -> None:
+    def set_clarity(self, addr: Index2, clarity: Numeric) -> None:
         pass
 
     @abstractmethod
@@ -61,22 +63,15 @@ class Canvas(ABC):
         raises FizzleValueNotFound if no cell contains v.'''
         pass
 
-    @abstractmethod
-    def all_ixjypairs(self) -> Iterable[Tuple[Index, CanvasValue, Index, CanvasValue]]:
-        '''Returns a generator of all tuples (i, x, j, y) where i and j
-        are distinct indices of cells within this Canvas and x = self[i]
-        and y = self[j]. Skips cells that contain None.'''
-        pass
-
     def addrs_containing_value(self, v: Value) -> Iterable[Index]:
         return (a for a in self.all_addrs() if self[a] == v)
 
     @abstractmethod
-    def min_index(self) -> int:
+    def min_index(self) -> Index:
         pass
 
     @abstractmethod
-    def max_index(self) -> int:
+    def max_index(self) -> Index:
         pass
 
 @dataclass
@@ -118,8 +113,8 @@ class ContentAndClarity:
 @dataclass
 class ContentsAndClarities:
     d: Dict[Index2, ContentAndClarity] = field(default_factory=dict)
-    min_index: Index = 1
-    max_index: Index = 10
+    min_index: Index = Index(1)
+    max_index: Index = Index(10)  # TODO Why 10??
 
     def __setitem__(self, i: Index2, v: CellContent1) -> None:
         if is_index(i):  # WRONG: need to extract index from i
@@ -158,7 +153,8 @@ class ContentsAndClarities:
         '''Returns all the possible indices of cell values, whether anything
         has been stored there or not. Does not include indices for
         Annotations.'''
-        return range(self.min_index, self.max_index + 1)
+        #return range(self.min_index, self.max_index + 1)
+        return Index.from_to(self.min_index, self.max_index)
 
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
         for i in self.all_indices():
@@ -172,7 +168,7 @@ class ContentsAndClarities:
                 results[ii] = results[ii] + v.content
             else:
                 results[ii] = CellBundle.make_from(v.content)
-        for ii in sorted(results.keys()):
+        for ii in sorted(results.keys(), key=as_int):
             yield ii, results[ii]
 
     def as_bundle(self, i: Index) -> CellBundle:
@@ -226,17 +222,22 @@ class Canvas1D(Canvas):
     @classmethod
     def make_from(cls, s: str, auto_annotate: bool=True) -> Canvas1D:
         result = cls()
-        result.contents.min_index = 1
-        result.contents.max_index = len(s)
-        for i, c in zip(range(1, len(s) + 1), s):
+        result.contents.min_index = Index(1)
+        result.contents.max_index = Index(len(s))
+        for ii, c in zip(range(1, len(s) + 1), s):
+            i = Index(ii)
             result[i] = Letter.from_str(c)
             if c != ' ':
                 result.set_clarity(i, cls.INITIAL_CLARITY)
             else:
                 result.set_clarity(i, 0)
         if auto_annotate:
-            for i in range(
-                result.contents.min_index, result.contents.max_index + 1
+#            for i in range(
+#                result.contents.min_index, result.contents.max_index + 1
+#            ):
+            for i in Index.from_to(
+                result.contents.min_index,
+                result.contents.max_index
             ):
                 ann: Annotation
                 match i:
@@ -254,14 +255,18 @@ class Canvas1D(Canvas):
         return result
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
-        return range(self.contents.min_index, self.contents.max_index + 1)
+        #return range(self.contents.min_index, self.contents.max_index + 1)
+        return Index.from_to(
+            self.contents.min_index,
+            self.contents.max_index
+        )
 
     all_indices = all_addrs
 
-    def min_index(self) -> int:
+    def min_index(self) -> Index:
         return self.contents.min_index
 
-    def max_index(self) -> int:
+    def max_index(self) -> Index:
         return self.contents.max_index
 
     def has_addr(self, addr: Addr) -> bool:
@@ -276,7 +281,7 @@ class Canvas1D(Canvas):
 
     has_index = has_addr
 
-    def __getitem__(self, addr: Addr) -> Optional[CellContent]:
+    def __getitem__(self, addr: Index) -> Optional[CellContent]:
         match addr:
             case i if is_index(i):
                 return self.contents[addr]
@@ -315,29 +320,19 @@ class Canvas1D(Canvas):
                     yield (i, v.value)
                 yield from self.as_internal_args(i, v.annotations)
 
-    # TODO UT
-    def all_ixjypairs(self) -> Iterable[Tuple[Index, CanvasValue, Index, CanvasValue]]:
-        for i in self.all_addrs():
-            x: str = self[i]  # type: ignore[assignment]
-            if x is not None:
-                for j in self.all_addrs():
-                    if i != j:
-                        y: str = self[j]  # type: ignore[assignment]
-                        if y is not None:
-                            yield i, x, j, y
-
     def clarity(self, i: Index2) -> Numeric:
         return self.contents.clarity(i)
 
     def set_clarity(self, i: Index2, clarity: Numeric) -> None:
         self.contents.set_clarity(i, clarity)
 
-    def addr_of(self, v: CanvasValue) -> int:
+    def addr_of(self, v: CanvasValue) -> Index:
         for i in self.contents.all_indices():
             if self.contents[i] == v:
                 return i
         raise FizzleValueNotFound(v)
 
+    # rename to all_matching_indices
     def all_matching(self, v: CellContent) -> List[Index]:
         return [
             i
