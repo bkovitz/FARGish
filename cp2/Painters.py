@@ -27,10 +27,10 @@ class Painter(Addr, CallableFunc):
     func: Func
 
     @classmethod
-    def make_from(cls, i: ToAddr, j: ToAddr, f: Func) -> Painter:
+    def make_from(cls, i: ToAddr, j: ToAddr, f: ToDetFunc) -> Painter:
         '''An easy way to construct a Painter in a unit test. Not for use
         in the model proper.'''
-        return Painter(make_addr(i), make_addr(j), f)
+        return Painter(make_addr(i), make_addr(j), make_detfunc(f))
 
     def to_detaddrs(self, model: MM.Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:

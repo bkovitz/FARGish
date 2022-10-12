@@ -59,13 +59,15 @@ def is_func(x: Any) -> TypeGuard[Func]:
 DetFunc = Union[CallableFunc, CellContent, SimpleFunc] # TODO Allow SimpleFunc?
 
 # A convenience type for DetPainter.make_from()
-ToDetFunc = Union[DetFunc, Tuple[ToAddr, ToAddr, DetFunc]]
+ToDetFunc = Union[DetFunc | str, Tuple[ToAddr, ToAddr, DetFunc | str]]
 
 @no_type_check  # causes mypy 0.971 to crash
 def make_detfunc(f: ToDetFunc) -> DetFunc:
     match f:
         case (i, j, ff):
-            return Painter(make_addr(i), make_addr(j), ff)
+            return Painter(make_addr(i), make_addr(j), make_detfunc(ff))
+        case str():
+            return Letter.from_str(f)
         case _:
             return f
 
