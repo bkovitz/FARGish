@@ -109,6 +109,9 @@ def as_int(x: Index | int) -> int:
     else:
         return x.i
 
+def to_index(i: Index | int) -> Index:
+    return Index(i) if isinstance(i, int) else i
+
 Index2 = Union[Index, Tuple[Index, AnnotationType]]
 
 def as_index2(x: Union[int, Index2]):

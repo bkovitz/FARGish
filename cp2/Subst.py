@@ -108,7 +108,10 @@ class Subst:
 #        return cls(e.persistent())
         result = cls()
         for lhs, rhs in pairs:
-            result = result.unify(lhs, rhs)
+            if isinstance(rhs, int): # HACK for convenience in UTs and the REPL
+                result = result.unify(lhs, Index(rhs))
+            else:
+                result = result.unify(lhs, rhs)
         return result
 
     def merge(self, other: Subst) -> Subst:

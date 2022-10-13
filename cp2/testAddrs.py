@@ -3,13 +3,13 @@
 import unittest
 import inspect
 
-from Types import CellBundle, F, I, Indices, J, Letter, Painter, \
-    SimpleFunc, WorkingSoup
+from Types import CellBundle, Letter
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ
 from Subst import Subst, empty_subst, Plus
-from Addrs import MatchContent
-from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter
+from Addrs import F, I, Index, Indices, J, MatchContent, WorkingSoup
+from Painters import Painter
+from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
 from Log import lo, set_log_level
 from testCanvas import MyAnnotation
 from util import pts, reseed, short
@@ -21,36 +21,36 @@ class TestAddrs(unittest.TestCase):
         model = Model()
         model.set_canvas('a    ')
         self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, 1),
-            [DetAddrWithSubst(Subst.make_from((I, 1)), 1)]
+            model.addr_to_detaddrs(empty_subst, I, Index(1)),
+            [DetAddrWithSubst(Subst.make_from((I, 1)), Index(1))]
         )
 
     def test_detaddr_a(self) -> None:
         model = Model()
         model.set_canvas('a a  ')
         self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, Letter('a')),
+            model.addr_to_detaddrs(empty_subst, I, MatchContent(Letter('a'))),
             [
-                DetAddrWithSubst(Subst.make_from((I, 1)), 1),
-                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
+                DetAddrWithSubst(Subst.make_from((I, 1)), Index(1)),
+                DetAddrWithSubst(Subst.make_from((I, 3)), Index(3)),
             ]
         )
 
 
     def test_detaddr_annotation(self) -> None:
         model = Model.make_from('aaaaa')
-        model.paint(2, MyAnnotation)
+        model.paint(Index(2), MyAnnotation)
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, MatchContent(MyAnnotation)),
             [
-                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
+                DetAddrWithSubst(Subst.make_from((I, 2)), Index(2)),
             ]
         )
 
     def test_detaddr_letter_and_annotation(self) -> None:
         model = Model.make_from('abbc')
-        model.paint(1, MyAnnotation)
-        model.paint(3, MyAnnotation)
+        model.paint(Index(1), MyAnnotation)
+        model.paint(Index(3), MyAnnotation)
         self.assertCountEqual(
             model.addr_to_detaddrs(
                 empty_subst,
@@ -58,7 +58,7 @@ class TestAddrs(unittest.TestCase):
                 MatchContent(CellBundle.make_from('b', MyAnnotation))
             ),
             [
-                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
+                DetAddrWithSubst(Subst.make_from((I, 3)), Index(3)),
             ]
         )
 
@@ -70,11 +70,11 @@ class TestAddrs(unittest.TestCase):
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, I),
             [
-                DetAddrWithSubst(Subst.make_from((I, 1)), 1),
-                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
-                DetAddrWithSubst(Subst.make_from((I, 3)), 3),
-                DetAddrWithSubst(Subst.make_from((I, 4)), 4),
-                DetAddrWithSubst(Subst.make_from((I, 5)), 5),
+                DetAddrWithSubst(Subst.make_from((I, 1)), Index(1)),
+                DetAddrWithSubst(Subst.make_from((I, 2)), Index(2)),
+                DetAddrWithSubst(Subst.make_from((I, 3)), Index(3)),
+                DetAddrWithSubst(Subst.make_from((I, 4)), Index(4)),
+                DetAddrWithSubst(Subst.make_from((I, 5)), Index(5)),
             ]
         )
 
@@ -86,7 +86,7 @@ class TestAddrs(unittest.TestCase):
         self.assertCountEqual(
             model.addr_to_detaddrs(Subst.make_from((I, 2)), I, I),
             [
-                DetAddrWithSubst(Subst.make_from((I, 2)), 2),
+                DetAddrWithSubst(Subst.make_from((I, 2)), Index(2)),
             ]
         )
 
@@ -109,7 +109,7 @@ class TestAddrs(unittest.TestCase):
         self.assertCountEqual(
             model.addr_to_detaddrs(Subst.make_from((I, 1)), J, Plus(I, 2)),
             [
-                DetAddrWithSubst(Subst.make_from((I, 1), (J, 3)), 3),
+                DetAddrWithSubst(Subst.make_from((I, 1), (J, 3)), Index(3)),
             ]
         )
 
@@ -146,17 +146,17 @@ class TestAddrs(unittest.TestCase):
     def test_match_simplefunc(self) -> None:
         model = Model.canvas_from('ajaqb')
         model.ws.add(
-            (1, 3, same),
-            (1, 3, MakeBetweenPainter(I, J, F)) # this painter is invalid
+            Painter.make_from(1, 3, same),
+            Painter.make_from(1, 3, MakeBetweenPainter(I, J, F)) # this painter is invalid
         )                                       # for actual use because the
                                                 # F can't refer to anything
                                                 # but good enough for this test
         self.assertCountEqual(
-            model.addr_to_detaddrs(empty_subst, I, (I, J, SimpleFunc(F))),
+            model.addr_to_detaddrs(empty_subst, I, Painter(I, J, SimpleFunc(F))),
             [
                 DetAddrWithSubst(
                     Subst.make_from((I, 1), (J, 3), (F, same)),
-                    (1, 3, same)
+                    Painter.make_from(1, 3, same)
                 )
             ]
         )
