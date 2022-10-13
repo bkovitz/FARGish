@@ -4,6 +4,7 @@ import unittest
 import inspect
 
 from Canvas import Canvas1D
+from Addrs import Index
 from util import pts
 
 from Types import Anchor, Annotation, Annotations, AnnotationType, \
@@ -17,7 +18,7 @@ class TestCanvas1D(unittest.TestCase):
 
     def test_set_and_get(self) -> None:
         c = Canvas1D.make_from('aja')
-        self.assertEqual(c[1], 'a')  # 1-based indexing
+        self.assertEqual(c[1], Letter('a'))  # 1-based indexing
         self.assertEqual(c.clarity(1), 5)
         c[1] = Letter('b')
         self.assertEqual(c[1], Letter('a')); self.assertEqual(c.clarity(1), 4)
@@ -111,5 +112,5 @@ class TestCanvas1D(unittest.TestCase):
         c = Canvas1D.make_from('ajaqb')
         self.assertTrue(c.has_annotation(1, Start))
         self.assertTrue(c.has_annotation(5, End))
-        self.assertEqual(c.clarity((1, Anchor)), 5)
-        self.assertEqual(c.clarity((5, Anchor)), 5)
+        self.assertEqual(c.clarity((Index(1), Anchor)), 5)
+        self.assertEqual(c.clarity((Index(5), Anchor)), 5)

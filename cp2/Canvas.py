@@ -34,11 +34,11 @@ class Canvas(ABC):
         pass
     
     @abstractmethod
-    def __getitem__(self, addr: Index) -> Optional[CellContent]:
+    def __getitem__(self, addr: Index | int) -> Optional[CellContent]:
         pass
 
     @abstractmethod
-    def __setitem__(self, addr: Index, x: CellContent) -> None:
+    def __setitem__(self, addr: Index | int, x: CellContent) -> None:
         pass
 
     @abstractmethod
@@ -281,8 +281,12 @@ class Canvas1D(Canvas):
 
     has_index = has_addr
 
-    def __getitem__(self, addr: Index) -> Optional[CellContent]:
+    def __getitem__(self, addr: Index | int) -> Optional[CellContent]:
+        '''Allowing 'int' is strictly a convenience for unit testing and
+        debugging.'''
         match addr:
+            case int():
+                return self.contents[Index(addr)]
             case i if is_index(i):
                 return self.contents[addr]
             case (i, AnnotationType()) if is_index(i):
@@ -294,12 +298,14 @@ class Canvas1D(Canvas):
         assert False, "Canvas.__getitem__(): should not go past 'match' stmt"
         return None # Needed only to please mypy; stops [return] error
 
-    def __setitem__(self, i: Index, v: CellContent) -> None:
+    def __setitem__(self, i: Index | int, v: CellContent) -> None:
+        i: Index = Index(i) if isinstance(i, int) else i
         for ii, vv in self.as_internal_args(i, v):
             self.contents[ii] = vv
 
     # TODO UT
-    def has_letter(self, i: Index) -> bool:
+    def has_letter(self, i: Index | int) -> bool:
+        i: Index = Index(i) if isinstance(i, int) else i
         v = self.contents[i]
         return v is not None and v != ' '
 
@@ -320,8 +326,12 @@ class Canvas1D(Canvas):
                     yield (i, v.value)
                 yield from self.as_internal_args(i, v.annotations)
 
-    def clarity(self, i: Index2) -> Numeric:
-        return self.contents.clarity(i)
+    def clarity(self, i: Index2 | int) -> Numeric:
+        match i:
+            case int():
+                return self.contents.clarity(Index(i))
+            case _:
+                return self.contents.clarity(i)
 
     def set_clarity(self, i: Index2, clarity: Numeric) -> None:
         self.contents.set_clarity(i, clarity)
@@ -340,13 +350,16 @@ class Canvas1D(Canvas):
                     if vv.is_match(v)
         ]
 
-    def is_match(self, i: Index, v: CellContent) -> bool:
+    def is_match(self, i: Index | int, v: CellContent) -> bool:
+        i: Index = Index(i) if isinstance(i, int) else i
         return self.as_bundle(i).is_match(v)
 
-    def has_annotation(self, i: Index, ann: Annotation) -> bool:
+    def has_annotation(self, i: Index | int, ann: Annotation) -> bool:
+        i: Index = Index(i) if isinstance(i, int) else i
         return self.is_match(i, ann)
 
-    def as_bundle(self, i: Index) -> CellBundle:
+    def as_bundle(self, i: Index | int) -> CellBundle:
+        i: Index = Index(i) if isinstance(i, int) else i
         return self.contents.as_bundle(i)
 
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
