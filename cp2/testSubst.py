@@ -55,9 +55,9 @@ class TestSubst(unittest.TestCase):
 
     def test_simplify(self) -> None:
         su = Subst.make_from((I, 1), (J, I))
-        self.assertEqual(su.simplify(3), 3)
-        self.assertEqual(su.simplify(I), 1)
-        self.assertEqual(su.simplify(J), 1)
+        self.assertEqual(su.simplify(Index(3)), Index(3))
+        self.assertEqual(su.simplify(I), Index(1))
+        self.assertEqual(su.simplify(J), Index(1))
 
     def test_unify_integers(self) -> None:
         su = Subst().unify(1, 1)

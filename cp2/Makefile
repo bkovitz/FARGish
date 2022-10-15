@@ -48,7 +48,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testAddrs.TestAddrs.test_detaddr_I_plus_2_already_defined
+	$(PY) -m unittest -v testPainters.TestPainters.test_make_between_painter
 	#$(PY) -m unittest -v testSubst
 
 # Acceptance tests

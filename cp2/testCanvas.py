@@ -40,7 +40,11 @@ class TestCanvas1D(unittest.TestCase):
         c = Canvas1D.make_from('aja')
         self.assertCountEqual(
             c.all_indices_and_values(),
-            [(1, 'a'), (2, 'j'), (3, 'a')]
+            [
+                (Index(1), Letter('a')),
+                (Index(2), Letter('j')),
+                (Index(3), Letter('a'))
+            ]
         )
 
     def test_has_letter(self) -> None:
@@ -88,13 +92,13 @@ class TestCanvas1D(unittest.TestCase):
         c = Canvas1D.make_from('ajaqb')
         self.assertCountEqual(
             c.all_matching(Letter('a')),
-            [1, 3]
+            [Index(1), Index(3)]
         )
 
     def test_paint_annotation(self) -> None:
         c = Canvas1D.make_from('ajaqb')
         c[2] = MyAnnotation
-        self.assertEqual(c[2], 'j')
+        self.assertEqual(c[2], Letter('j'))
         self.assertFalse(c.has_annotation(2, Start))
         self.assertTrue(c.has_annotation(2, MyAnnotation))
         self.assertTrue(c.is_match(2, Letter('j')))

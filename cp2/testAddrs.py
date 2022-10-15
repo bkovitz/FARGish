@@ -46,7 +46,6 @@ class TestAddrs(unittest.TestCase):
             ]
         )
 
-
     def test_detaddr_annotation(self) -> None:
         model = Model.make_from('aaaaa')
         model.paint(Index(2), MyAnnotation)

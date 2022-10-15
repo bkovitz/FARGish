@@ -78,8 +78,8 @@ class TestPainters(unittest.TestCase):
         model.ws.add(Painter.make_from(1, 3, same))  # p1 will match this painter
 
         dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
-        self.assertEqual(len(dpainters), 1)
         #lo('GOT', dpainters[0])
+        self.assertEqual(len(dpainters), 1)
         model.run_detpainter(dpainters[0])
         self.assertIn(p2, model.ws)
 
@@ -119,14 +119,19 @@ class TestPainters(unittest.TestCase):
         model.run_detpainter(dp2)
         self.assertIn(p3, model.ws)
 
+    maxDiff = None
     def test_make_relative_indirect_painter_with_annotation(self) -> None:
         model = Model.canvas_from('ajaqb')
         func = MakeRelativeIndirectPainter(I, J, F)
         subst = Subst.make_from((I, 1), (J, 3), (F, same))
         self.assertEqual(
             model.apply_func(subst, func, None),
-            (CellBundle(Letter('a'), Annotations.make_from(Start)),
-             SR.WorkingSoup,
-             (I, Plus(I, 2), same)
+            Painter(
+                MatchContent(
+                    CellBundle(Letter('a'),
+                    Annotations.make_from(Start))
+                ),
+                SR.WorkingSoup,
+                Painter(I, Plus(I, 2), same)
             )
         )

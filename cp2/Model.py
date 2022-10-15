@@ -73,6 +73,10 @@ class Letter:
     def __str__(self) -> str:
         return self.c
 
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.c!r})'
+
 
 @dataclass(frozen=True)
 class Blank:
@@ -234,6 +238,7 @@ class CellBundle:
                 return result
         assert False, f"CellBundle.__add__(): should not go past 'match' stmt; {v}"
 
+    @trace
     def is_match(self, v: CellContent) -> bool:
         '''Returns True if 'self' contains all the content within 'v', False
         if 'v' contains any value or annotation not in 'self'.'''
@@ -399,7 +404,7 @@ def extract_index(i: Index2) -> Index:
     match i:
         case Index():
             return i
-        case (Index(ii), _):
+        case (Index() as ii, _):
             return ii
     assert False, f"extract: should not go past 'match' stmt, {i}"
 
@@ -504,6 +509,7 @@ class Plus(Addr, HasAsIndex):
 
     @classmethod
     @no_type_check  # mypy 0.971 crashes on '*more' below
+    @trace
     def simplify(cls, subst: Subst, args: Tuple[Expr], init: int=0) -> Expr:
         '''Evaluates 'args' as a sum to as simple a form as possible. The
         simplest form is an int; if a variable in 'args' is undefined, then
@@ -513,6 +519,7 @@ class Plus(Addr, HasAsIndex):
             case ():
                 return init
             case (expr,):
+                lo('PLUS-HERE', expr)
                 return cls.try_to_add(init, subst.simplify(expr))
             case (expr, *more):
                 #lo('init=', init, 'expr=', expr, subst)
@@ -523,12 +530,15 @@ class Plus(Addr, HasAsIndex):
                 )
 
     @classmethod
+    @trace
     def try_to_add(cls, a: Any, b: Any) -> Expr:
         match (a, b):
             case (0, _):
                 return b
             case (int(), int()):
                 return a + b
+            case (Index(i), int()):
+                return i + b
             case (Plus(args_a), Plus(args_b)):
                 return Plus(*(args_a + args_b))
             case (Plus(args_a), _):
@@ -803,6 +813,7 @@ class ContentsAndClarities:
         results: Dict[Index, CellBundle] = dict()
         for i, v in self.d.items():
             ii = extract_index(i)
+            lo('AIB', i, v, ii)
             if ii in results:
                 results[ii] = results[ii] + v.content
             else:
@@ -1229,14 +1240,18 @@ class Subst:
         else:
             raise FizzleNotIndex(expr)
 
+    @trace
     def as_index(self, expr: Expr) -> Optional[Index]:
         '''Same as .simplify() but returns None if the result is not an
         Index.'''
         result = self.simplify(expr)
-        if isinstance(result, Index):
-            return result
-        else:
-            return None
+        match result:
+            case int():
+                return Index(result)
+            case Index():
+                return result
+            case _:
+                return None
 
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         with indent_log(8, 'UNIFY', lhs, rhs):
@@ -1703,7 +1718,7 @@ class MakeRelativeIndirectPainter(CallableFunc):
             raise Fizzle  # TODO More-specific Fizzle
         return Painter(
             #bundle.value if bundle.value_only() else bundle,
-            bundle.simplest(),
+            MatchContent(bundle.simplest()),
             SR.WorkingSoup,
             Painter(I, Plus(I, result_j - result_i), result_f)
         )
