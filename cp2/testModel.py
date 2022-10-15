@@ -3,16 +3,23 @@
 import unittest
 import inspect
 
-from Addrs import F, I, Indices, J, WorkingSoup 
+#from Addrs import F, I, Indices, J, WorkingSoup 
+#from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
+#    same, succ
+#from Subst import Subst, empty_subst, Plus
+#from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
+#from Painters import Painter
+#from Soup import Soup
+
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
-    same, succ
-from Subst import Subst, empty_subst, Plus
-from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
-from Painters import Painter
-from Soup import Soup
+    same, succ, \
+    F, I, Indices, J, SR, \
+    Subst, empty_subst, Plus, \
+    MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc, \
+    Painter, \
+    Soup
 from Log import lo, set_log_level
 from util import pts, reseed, short
-
 
 class TestModel(unittest.TestCase):
 
@@ -22,16 +29,16 @@ class TestModel(unittest.TestCase):
     maxDiff = None
     def test_related_pair_detpainters(self) -> None:
         model = Model.canvas_from('ajaqb')
-        p = Painter(RelatedPair(I, J, F), WorkingSoup, Painter(I, J, F))
+        p = Painter(RelatedPair(I, J, F), SR.WorkingSoup, Painter(I, J, F))
 #        lo('RESULT')
 #        for dp in model.painter_to_detpainters(p):
 #            lo(type(dp), dp)
         self.assertCountEqual(
             [dp.as_painter() for dp in model.painter_to_detpainters(p)],
             [
-                (Indices(1, 3), WorkingSoup, (1, 3, same)),
-                (Indices(3, 5), WorkingSoup, (3, 5, succ)),
-                (Indices(1, 5), WorkingSoup, (1, 5, succ))
+                (Indices(1, 3), SR.WorkingSoup, (1, 3, same)),
+                (Indices(3, 5), SR.WorkingSoup, (3, 5, succ)),
+                (Indices(1, 5), SR.WorkingSoup, (1, 5, succ))
             ]
         )
 

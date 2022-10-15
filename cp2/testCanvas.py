@@ -3,12 +3,13 @@
 import unittest
 import inspect
 
-from Canvas import Canvas1D
-from Addrs import Index
+#from Canvas import Canvas1D
+#from Addrs import Index
+from Model import Canvas1D, Index, \
+    Anchor, Annotation, Annotations, AnnotationType, \
+    Blank, CellBundle, End, Inextreme, Letter, Start, empty_annotations
 from util import pts
 
-from Types import Anchor, Annotation, Annotations, AnnotationType, \
-    Blank, CellBundle, End, Inextreme, Letter, Start, empty_annotations
 
 
 MyAnnotationType = AnnotationType('MyAnnotationType')

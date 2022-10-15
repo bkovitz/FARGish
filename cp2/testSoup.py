@@ -3,10 +3,12 @@
 import unittest
 import inspect
 
-from Addrs import I
-#from Subst import Subst, Plus
-from Soup import Soup
-from Funcs import succ, same
+#from Addrs import I
+##from Subst import Subst, Plus
+#from Soup import Soup
+#from Funcs import succ, same
+
+from Model import I, Soup, succ, same
 
 
 class TestSoup(unittest.TestCase):

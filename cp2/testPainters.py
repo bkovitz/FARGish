@@ -3,15 +3,26 @@
 import unittest
 import inspect
 
-from Types import Annotations, CellBundle, Letter, Start
-from Addrs import F, I, Index, Indices, J, MatchContent, WorkingSoup
-from Painters import Painter
-from Funcs import SimpleFunc
-from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
-    same, succ
-from Subst import Subst, empty_subst, Plus
-from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, same
-from Soup import Soup
+#from Types import Annotations, CellBundle, Letter, Start
+#from Addrs import F, I, Index, Indices, J, MatchContent, WorkingSoup
+#from Painters import Painter
+#from Funcs import SimpleFunc
+#from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
+#    same, succ
+#from Subst import Subst, empty_subst, Plus
+#from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, same
+#from Soup import Soup
+
+from Model import Annotations, CellBundle, Letter, Start, \
+    F, I, Index, Indices, J, MatchContent, SR, \
+    Painter, \
+    SimpleFunc, \
+    Model, DetAddrWithSubst, DetPainter, RelatedPair, \
+    same, succ, \
+    Subst, empty_subst, Plus, \
+    MakeBetweenPainter, MakeRelativeIndirectPainter, same, \
+    Soup
+    
 from Log import lo, set_log_level
 from util import pts, reseed, short
 
@@ -45,7 +56,7 @@ class TestPainters(unittest.TestCase):
     def test_related_pair_painter(self) -> None:
         model = Model.canvas_from('ajaqb')
         dp = DetPainter.make_from(
-            (Indices(1, 3), WorkingSoup, (1, 3, same))
+            (Indices(1, 3), SR.WorkingSoup, (1, 3, same))
         )
         #model.run_detpainter((Indices(1, 3), WorkingSoup, (1, 3, same)))
         model.run_detpainter(dp)
@@ -57,10 +68,10 @@ class TestPainters(unittest.TestCase):
         p1: Painter = Painter(
             Painter(I, Plus(I, 2), F),
                 # TODO Better:  (Filled(I), Filled(Plus(I, 2), F)
-            WorkingSoup,
+            SR.WorkingSoup,
             MakeBetweenPainter(I, J, F)
         )
-        p2: Painter = Painter(Painter(I, Plus(I, 2), same), WorkingSoup, Painter(I, Plus(I, 1), Letter('j')))
+        p2: Painter = Painter(Painter(I, Plus(I, 2), same), SR.WorkingSoup, Painter(I, Plus(I, 1), Letter('j')))
         p3: Painter = Painter.make_from(1, 2, 'j')
 
         model = Model.make_from('ajaqb', lts=Soup())
@@ -80,14 +91,14 @@ class TestPainters(unittest.TestCase):
     def test_make_relative_indirect_painter(self) -> None:
         p1 = Painter(
             Painter(I, J, SimpleFunc(F)),
-            WorkingSoup,
+            SR.WorkingSoup,
             MakeRelativeIndirectPainter(I, J, F)
         )
-        p2 = Painter.make_from('a', WorkingSoup, Painter(I, Plus(I, 2), same))
+        p2 = Painter.make_from('a', SR.WorkingSoup, Painter(I, Plus(I, 2), same))
         dp2 = DetPainter(
             Subst.make_from((I, 1)),
             Index(1),
-            WorkingSoup,
+            SR.WorkingSoup,
             Painter.make_from(1, 3, same),
             1,
             p2
@@ -115,7 +126,7 @@ class TestPainters(unittest.TestCase):
         self.assertEqual(
             model.apply_func(subst, func, None),
             (CellBundle(Letter('a'), Annotations.make_from(Start)),
-             WorkingSoup,
+             SR.WorkingSoup,
              (I, Plus(I, 2), same)
             )
         )

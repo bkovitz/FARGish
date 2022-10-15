@@ -9,8 +9,9 @@ endif
 MYPY = mypy --python-version 3.10 #--version
 MYPY_FLAGS = --show-error-codes --allow-redefinition
 
-SRCFILES = Addrs.py Canvas.py Funcs.py Indenting.py Log.py Model.py \
-	Painters.py Soup.py Subst.py Types.py util.py
+#SRCFILES = Addrs.py Canvas.py Funcs.py Indenting.py Log.py Model.py \
+#	Painters.py Soup.py Subst.py Types.py util.py
+SRCFILES = Indenting.py Log.py Model.py util.py
 
 # Plot.py 
 # Log.py 
@@ -47,7 +48,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testCanvas.TestCanvas1D.test_withann_start_end
+	$(PY) -m unittest -v testAddrs.TestAddrs.test_detaddr_I_plus_2_already_defined
 	#$(PY) -m unittest -v testSubst
 
 # Acceptance tests

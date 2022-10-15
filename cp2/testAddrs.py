@@ -3,13 +3,21 @@
 import unittest
 import inspect
 
-from Types import CellBundle, Letter
+#from Types import CellBundle, Letter
+#from Subst import Subst, empty_subst, Plus
+#from Addrs import F, I, Index, Indices, J, MatchContent, WorkingSoup
+#from Painters import Painter
+#from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
+
+
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
-    same, succ
-from Subst import Subst, empty_subst, Plus
-from Addrs import F, I, Index, Indices, J, MatchContent, WorkingSoup
-from Painters import Painter
-from Funcs import MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
+    same, succ, \
+    CellBundle, Letter, \
+    Subst, empty_subst, Plus, \
+    F, I, Index, Indices, J, MatchContent, \
+    Painter, \
+    MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
+
 from Log import lo, set_log_level
 from testCanvas import MyAnnotation
 from util import pts, reseed, short
@@ -28,6 +36,8 @@ class TestAddrs(unittest.TestCase):
     def test_detaddr_a(self) -> None:
         model = Model()
         model.set_canvas('a a  ')
+        lo('CANVAS', model.canvas)
+        set_log_level(6) #DEBUG
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, MatchContent(Letter('a'))),
             [
@@ -106,6 +116,7 @@ class TestAddrs(unittest.TestCase):
         # (evaluated).
         model = Model()
         model.set_canvas('a a  ')
+        set_log_level(8)  #DEBUG
         self.assertCountEqual(
             model.addr_to_detaddrs(Subst.make_from((I, 1)), J, Plus(I, 2)),
             [
@@ -113,6 +124,7 @@ class TestAddrs(unittest.TestCase):
             ]
         )
 
+    maxDiff = None
     def test_related_pair_detaddrs(self) -> None:
         model = Model.canvas_from('ajaqb')
         self.assertCountEqual(

@@ -3,10 +3,10 @@
 import unittest
 import inspect
 
-from Addrs import F, I, Indices, J, WorkingSoup
-from Model import Model
-from Subst import Subst, Plus, bottom_subst, empty_subst
-from Funcs import succ
+from Model import Model, Index, Painter, \
+    F, I, Indices, J, SR, \
+    Subst, Plus, bottom_subst, empty_subst, \
+    succ
 from Log import lo, set_log_level
 
 class TestSubst(unittest.TestCase):
@@ -36,7 +36,7 @@ class TestSubst(unittest.TestCase):
         m = Model()
         m.absorb('ajaqb')
         m.set_canvas('a    ')
-        m.run_painter(('a', WorkingSoup, (I, Plus(I, 2), same)))
+        m.run_painter(('a', SR.WorkingSoup, (I, Plus(I, 2), same)))
         print(m.state_str())
         self.assertTrue(m.ws.has_painter((1, 3, same)))
     '''
@@ -91,7 +91,7 @@ class TestSubst(unittest.TestCase):
         #self.assertEqual(su.simplify(I, Indices(5, 7)))
 
     def test_unify_painters(self) -> None:
-        su = Subst().unify((I, J, F), (3, 5, succ))
+        su = Subst().unify(Painter(I, J, F), Painter(Index(3), Index(5), succ))
         self.assertEqual(su.simplify(I), 3)
         self.assertEqual(su.simplify(J), 5)
         self.assertEqual(su.simplify(F), succ)
@@ -133,13 +133,16 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(J), 7)
 
     def test_unify_painters_with_forward_reference(self) -> None:
-        su = Subst().unify((Plus(J, -2), J, F), (3, 5, succ))
+        su = Subst().unify(
+            Painter(Plus(J, -2), J, F),
+            Painter(Index(3), Index(5), succ)
+        )
         self.assertEqual(su.simplify(I), 3)
         self.assertEqual(su.simplify(J), 5)
         self.assertEqual(su.simplify(F), succ)
 
     def test_unify_plus_with_soup(self) -> None:
-        su = Subst().unify(Plus(I, 2), WorkingSoup) # You can't do that
+        su = Subst().unify(Plus(I, 2), SR.WorkingSoup) # You can't do that
         self.assertEqual(su, bottom_subst)
 
     def test_unify_i_with_painter(self) -> None:

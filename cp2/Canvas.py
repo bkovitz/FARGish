@@ -124,6 +124,7 @@ class ContentsAndClarities:
         else:
             self.d[i] = ContentAndClarity(v, 1)
 
+    @trace
     def __getitem__(self, i: Index2) -> Optional[CellContent]:
         try:
             return self.d[i].content
