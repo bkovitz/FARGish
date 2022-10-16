@@ -35,10 +35,26 @@ from pyrsistent.typing import PMap
 from Log import lo, trace, indent_log, set_log_level
 from util import first, force_setattr, short, nf, Numeric, empty_set
 
+class CallableFunc(ABC):
+
+    @abstractmethod
+    def apply(self, model: Model, subst: Subst, value: Value) \
+    -> Value:
+        pass
+
+    @abstractmethod
+    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        pass
+
+    def can_make(self, model: Model, subst: Subst) -> bool:
+        '''Will this be a valid function given the substitutions in 'subst'?'''
+        return True
+
 ########## Canvas-cell contents ##########
 
 @dataclass(frozen=True)
-class Letter:
+class Letter(CallableFunc):
     '''A letter in the range a..z.'''
     c: str
 
@@ -66,6 +82,14 @@ class Letter:
             raise FizzleNoPred
         else:
             return Letter(chr(ord(self.c) - 1))
+
+    def apply(self, model: Model, subst: Subst, value: Value) \
+    -> Value:
+        return self
+
+    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        yield self
 
     def short(self) -> str:
         return repr(self.c)
@@ -173,7 +197,8 @@ class CellBundle:
     '''Everything that can be held simultaneously in one cell, i.e. up to one
     value and any number of annotations, all bundled into one convenient
     object.'''
-    value: Union[None, Letter, Blank]
+    #value: Union[None, Letter, Blank]
+    value: Union[Letter, Blank]
     annotations: Annotations
 
     # TODO During __post_init__, check if value is a space; if so, change
@@ -182,7 +207,9 @@ class CellBundle:
     @classmethod
     def make_from(cls, *v: Union[CellContent, str]) -> CellBundle:
         result = cls(Blank(), empty_annotations)
+        lo('CBMF1', result)
         for vv in v:
+            lo('CBMF2', result, vv)
             result = result + vv
         return result
 
@@ -261,7 +288,7 @@ class CellBundle:
     def __repr__(self) -> str:
         return f'CellBundle({short(self.value, inside=True)}; {self.annotations.elems_str()})'
 
-empty_cell_bundle = CellBundle(None, empty_annotations)
+empty_cell_bundle = CellBundle(Blank(), empty_annotations)
 
 #CellContent1 = Union[CanvasValue, None, Annotation]
 CellContent1 = Union[Letter, Blank, Annotation]
@@ -358,9 +385,9 @@ class Index(DetAddr):
     def __add__(self, offset: int) -> Index:
         return Index(self.i + offset)
 
-    def __sub__(self, other: Index | int) -> Index:
+    def __sub__(self, other: Index | int) -> int:
         o: int = other if isinstance(other, int) else other.i
-        return Index(self.i - o)
+        return self.i - o
 
     def __lt__(self, other: Index) -> bool:
         return self.i < other.i
@@ -381,6 +408,8 @@ class Index(DetAddr):
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.i})'
+
+    __repr__ = short
 
 def as_int(x: Index | int) -> int:
     if isinstance(x, int):
@@ -538,7 +567,7 @@ class Plus(Addr, HasAsIndex):
             case (int(), int()):
                 return a + b
             case (Index(i), int()):
-                return i + b
+                return Index(i + b)
             case (Plus(args_a), Plus(args_b)):
                 return Plus(*(args_a + args_b))
             case (Plus(args_a), _):
@@ -667,6 +696,10 @@ class MatchContent(Addr):
             DetAddrWithSubst(subst.unify(var, index), index)
                 for index in model.canvas.all_matching(self.content)
         )
+
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.content)})'
 
 ########## The Canvas ##########
 
@@ -1218,6 +1251,7 @@ class Subst:
     def __getitem__(self, x: Hashable) -> Optional[Any]:  #TODO proper type hint
         return self.d.get(x, None)
 
+    @trace
     def simplify(self, expr: Expr) -> Expr:
         match expr:
             case int():
@@ -1225,6 +1259,7 @@ class Subst:
             case Plus():
                 return expr.value_of(self)
             case _:
+                lo('SSIM', expr, self.d)
                 match self.d.get(expr, None):
                     case None:
                         return expr
@@ -1253,7 +1288,12 @@ class Subst:
             case _:
                 return None
 
+    @trace
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        if isinstance(lhs, int):
+            self.raise_int_error(lhs)
+        if isinstance(rhs, int):
+            self.raise_int_error(rhs)
         with indent_log(8, 'UNIFY', lhs, rhs):
             match (lhs, rhs):
                 case (x, y) if x == y:
@@ -1266,25 +1306,27 @@ class Subst:
                     return self.set_lhs_rhs(lhs, rhs)
                     # WRONG Need to simplify the elements of Indices
                     # And need to substitute().
-                case (int(), int()):
+                case (Index(), Index()):
                     return bottom_subst  # we already know they're not equal
                 case (Indices(), Indices()):
                     return bottom_subst  # we already know they're not equal
-                case (int(), Indices()):
+                case (Index(), Indices()):
                     return self if Indices(lhs) == rhs else bottom_subst
-                case (Indices(), int()):
+                case (Indices(), Index()):
                     return self if lhs == Indices(rhs) else bottom_subst
-                case (int(), Plus()):
+                case (Index(), Plus()):
+                    return self.unify(rhs, lhs)
+                case (Index(), Plus()):
                     return self.unify(rhs, lhs)
                 case (Plus(args=(Variable() as v, int(n))), Index(r)):
                     lo(9, 'GOTPP', v, n, r)
                     match self.simplify(v):
                         case Index(vv):
-                            return self.unify(vv + n, r)
+                            return self.unify(Index(vv + n), Index(r))
                         case Variable() as var:
-                            return self.unify(var, r - n)
+                            return self.unify(var, Index(r - n))
                         case None: # Is this still necessary?
-                            return self.set_lhs_rhs(v, r - n)
+                            return self.set_lhs_rhs(v, Index(r - n))
                             #return Subst(self.d.set(v, r - n))
                         case _:
                             lo("Unimplemented Plus() unification:", lhs, type(lhs), ' with ', rhs, type(rhs), self.simplify(v))
@@ -1366,14 +1408,17 @@ class Subst:
                     # We define I, J, F to be i2, j2, f2 unless I, J, F
                     # get unified in the course of unifying i1 with i2, etc.
                     result = self.unify(i1, i2)
+                    lo('UP1', result)
                     if I not in result:
                         result = result.unify(I, i2)
 
                     result = result.unify(j1, j2)
+                    lo('UP2', result)
                     if J not in result:
                         result = result.unify(J, j2)
 
                     result = result.unify(f1, f2)
+                    lo('UP3', result)
                     if F not in result:
                         result = result.unify(F, f2)
                     return result
@@ -1381,11 +1426,16 @@ class Subst:
                     return self.unify(rhs, x)
                 case (x, SoupRef()):
                     return bottom_subst
+                case (CallableFunc(), CallableFunc()):
+                    return bottom_subst  # we already know they're not equal
                 case _:
                     lo("Unimplemented unification:", lhs, type(lhs), ' with ', rhs, type(rhs))
                     raise NotImplementedError((lhs, rhs))
             assert False, "unify(): should not go past 'match' stmt"
             return self # Needed only to please mypy; stops [return] error
+
+    def raise_int_error(self, x: Any) -> None:
+        raise ValueError(f'tried to unify with integer ({x}); should be Index()')
 
     def set_lhs_rhs(self, lhs: Expr, rhs: Expr) -> Subst:
         if lhs in self.d:
@@ -1428,6 +1478,7 @@ class Subst:
                 return bottom_subst
         return result
 
+@trace
 def expr_substitute(e: Expr, lhs: Expr, rhs: Expr) -> Expr:
     '''Returns a new Expr consisting of e where every occurrence of lhs has
     been replaced by rhs.'''
@@ -1506,22 +1557,6 @@ empty_subst = Subst()
 bottom_subst = BottomSubst()
 
 ########## Functions ##########
-
-class CallableFunc(ABC):
-
-    @abstractmethod
-    def apply(self, model: Model, subst: Subst, value: Value) \
-    -> Value:
-        pass
-
-    @abstractmethod
-    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
-    -> Iterable[DetFunc]:
-        pass
-
-    def can_make(self, model: Model, subst: Subst) -> bool:
-        '''Will this be a valid function given the substitutions in 'subst'?'''
-        return True
 
 @dataclass(frozen=True)
 class SimpleFunc:
@@ -1782,15 +1817,17 @@ class Painter(Addr, CallableFunc):
     def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:
         for painter in model.soups():
-            lo('TODET', painter)
+            lo('TODETA', self, painter)
             subst2 = subst.unify(self, painter)
             if subst2:
+                lo('GOTA', DetAddrWithSubst(subst2, painter))
                 yield DetAddrWithSubst(subst2, painter)
 
     def to_detpainters(self, model: Model) -> Iterable[DetPainter]:
         #source, target, func = p
 
-        det_sources = list(self.source.to_detaddrs(model, empty_subst, I))
+        #det_sources = list(self.source.to_detaddrs(model, empty_subst, I))
+        det_sources = list(model.addr_to_detaddrs(empty_subst, I, self.source))
         with indent_log(8, 'DET SOURCES'):
             for det_source in det_sources:
                 lo(8, det_source)
@@ -1813,7 +1850,7 @@ class Painter(Addr, CallableFunc):
                 for (ds, dt) in source_target_pairs
                     #for df in self.func_to_detfuncs(dt.subst, F, self.func)
                     #for df in self.func.to_detfuncs(model, dt.subst, F)
-                    for df in model.func_to_detfuncs(dt.subst, F, self)
+                    for df in model.func_to_detfuncs(dt.subst, F, self.func)
         )
         triples = list(triples) #DEBUG
         #lo(7, 'DETFUNCS', triples)  # we really want the 3rd "column"
@@ -1838,8 +1875,10 @@ class Painter(Addr, CallableFunc):
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
         for i, j, f in product(
-            self.source.to_detaddrs(model, subst, I),
-            self.target.to_detaddrs(model, subst, J),
+            #self.source.to_detaddrs(model, subst, I),
+            #self.target.to_detaddrs(model, subst, J),
+            model.addr_to_detaddrs(subst, I, self.source),
+            model.addr_to_detaddrs(subst, J, self.target),
             model.func_to_detfuncs(subst, F, self.func),
         ):
             yield Painter(i.addr, j.addr, f)
@@ -1902,6 +1941,7 @@ class DetPainter:
             case _:
                 return True
 
+    # TODO rename to as_triple()
     def as_painter(self) -> DetPainter0:
         return (self.source, self.target, self.func)
 
@@ -2283,11 +2323,15 @@ class Model:
                 case x if is_cell_content(x):
                     yield x
                 case CallableFunc():
-                    yield from func.to_detfuncs(self, subst, var)
-                    if self.can_make_func(func, subst):
-                        yield func
-                case SimpleFunc():
-                    raise NotImplementedError
+#                    yield from func.to_detfuncs(self, subst, var)
+#                    if self.can_make_func(func, subst):
+#                        yield func
+                    for f in func.to_detfuncs(self, subst, var):
+                        lo('F2D', f)
+                        if self.can_make_func(f, subst):
+                            yield f
+                case _:  #SimpleFunc():
+                    raise NotImplementedError(func)
 
     # TODO rm? Funcs that need to test this can do it themselves inside their
     # own .to_detfuncs() method.

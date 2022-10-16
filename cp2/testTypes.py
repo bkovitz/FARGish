@@ -3,8 +3,8 @@
 import unittest
 import inspect
 
-from Types import Annotation, Annotations, AnnotationType, CellBundle, Start, \
-    empty_annotations
+from Model import Annotation, Annotations, AnnotationType, CellBundle, Start, \
+    empty_annotations, Blank
 
 
 class TestTypes(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestTypes(unittest.TestCase):
 
     def test_cell_bundle_make_from(self) -> None:
         got = CellBundle.make_from()
-        self.assertEqual(got, CellBundle(None, empty_annotations))
+        self.assertEqual(got, CellBundle(Blank(), empty_annotations))
 
         got = CellBundle.make_from('j')
         self.assertEqual(got, CellBundle.make_from('j', empty_annotations))

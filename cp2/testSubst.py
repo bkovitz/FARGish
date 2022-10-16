@@ -20,9 +20,9 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(Plus(I, 2)), Plus(I, 2))
 
     def test_subst_I(self) -> None:
-        su = Subst().unify(I, 1)
-        self.assertEqual(su.simplify(I), 1)
-        self.assertEqual(su.simplify(Plus(I, 2)), 3)
+        su = Subst().unify(I, Index(1))
+        self.assertEqual(su.simplify(I), Index(1))
+        self.assertEqual(su.simplify(Plus(I, 2)), Index(3))
 
     '''
     def test_match_a(self) -> None:
@@ -44,8 +44,8 @@ class TestSubst(unittest.TestCase):
     def test_subst_merge(self) -> None:
         su0 = Subst()
         sui = Subst.make_from((I, 1))
-        self.assertEqual(sui, Subst().unify(I, 1))
-        self.assertEqual(sui.simplify(I), 1)
+        self.assertEqual(sui, Subst().unify(I, Index(1)))
+        self.assertEqual(sui.simplify(I), Index(1))
 
         su1 = sui.merge(su0)
         self.assertEqual(su1, sui)
@@ -60,10 +60,10 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(J), Index(1))
 
     def test_unify_integers(self) -> None:
-        su = Subst().unify(1, 1)
+        su = Subst().unify(Index(1), Index(1))
         self.assertEqual(su, empty_subst)
 
-        su = Subst().unify(1, 2)
+        su = Subst().unify(Index(1), Index(2))
         self.assertEqual(su, bottom_subst)
 
     def test_unify_indices(self) -> None:
@@ -76,10 +76,10 @@ class TestSubst(unittest.TestCase):
         su = Subst().unify(Indices(1, 2), Indices(1, 3))
         self.assertEqual(su, bottom_subst)
 
-        su = Subst().unify(1, Indices(1))
+        su = Subst().unify(Index(1), Indices(1))
         self.assertEqual(su, empty_subst)
 
-        su = Subst().unify(Indices(1), 1)
+        su = Subst().unify(Indices(1), Index(1))
         self.assertEqual(su, empty_subst)
 
         su = Subst().unify(I, Indices(1, 2))
@@ -92,21 +92,21 @@ class TestSubst(unittest.TestCase):
 
     def test_unify_painters(self) -> None:
         su = Subst().unify(Painter(I, J, F), Painter(Index(3), Index(5), succ))
-        self.assertEqual(su.simplify(I), 3)
-        self.assertEqual(su.simplify(J), 5)
+        self.assertEqual(su.simplify(I), Index(3))
+        self.assertEqual(su.simplify(J), Index(5))
         self.assertEqual(su.simplify(F), succ)
         
     def test_unify_variables(self) -> None:
         su = Subst().unify(I, J)
         self.assertEqual(su.simplify(I), J)
 
-        su = Subst().unify(I, J).unify(J, 1)
-        self.assertEqual(su.simplify(I), 1)
+        su = Subst().unify(I, J).unify(J, Index(1))
+        self.assertEqual(su.simplify(I), Index(1))
 
-        su = Subst().unify(I, 1).unify(J, 2).unify(I, J)
+        su = Subst().unify(I, Index(1)).unify(J, Index(2)).unify(I, J)
         self.assertEqual(su, bottom_subst)
 
-        su = Subst().unify(I, J).unify(I, 1).unify(J, 2)
+        su = Subst().unify(I, J).unify(I, Index(1)).unify(J, Index(2))
         self.assertEqual(su, bottom_subst)
 
     def test_unify_gratuitous_plus(self) -> None:
@@ -114,12 +114,12 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(I), I)
         self.assertEqual(su.simplify(Plus(I)), I)
 
-        su = Subst().unify(Plus(I), 8)
-        self.assertEqual(su.simplify(I), 8)
+        su = Subst().unify(Plus(I), Index(8))
+        self.assertEqual(su.simplify(I), Index(8))
 
-        su = Subst().unify(I, 2).unify(I, Plus(I))
-        self.assertEqual(su.simplify(I), 2)
-        self.assertEqual(su.simplify(Plus(I)), 2)
+        su = Subst().unify(I, Index(2)).unify(I, Plus(I))
+        self.assertEqual(su.simplify(I), Index(2))
+        self.assertEqual(su.simplify(Plus(I)), Index(2))
 
     def test_unify_plus_plus(self) -> None:
         su = Subst().unify(Plus(I, 2), Plus(J, -2))
@@ -128,17 +128,17 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.simplify(Plus(I, 2)), Plus(I, 2))
         self.assertEqual(su.simplify(Plus(J, -2)), Plus(J, -2))
 
-        su = su.unify(I, 3)
-        self.assertEqual(su.simplify(Plus(I, 2)), 5)
-        self.assertEqual(su.simplify(J), 7)
+        su = su.unify(I, Index(3))
+        self.assertEqual(su.simplify(Plus(I, 2)), Index(5))
+        self.assertEqual(su.simplify(J), Index(7))
 
     def test_unify_painters_with_forward_reference(self) -> None:
         su = Subst().unify(
             Painter(Plus(J, -2), J, F),
             Painter(Index(3), Index(5), succ)
         )
-        self.assertEqual(su.simplify(I), 3)
-        self.assertEqual(su.simplify(J), 5)
+        self.assertEqual(su.simplify(I), Index(3))
+        self.assertEqual(su.simplify(J), Index(5))
         self.assertEqual(su.simplify(F), succ)
 
     def test_unify_plus_with_soup(self) -> None:

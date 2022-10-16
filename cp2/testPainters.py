@@ -49,7 +49,7 @@ class TestPainters(unittest.TestCase):
         model = Model.canvas_from('a    ')
 
         dp = self.painter_to_one_detpainter(model, p)
-        self.assertEqual(dp.as_painter(), (1, 3, succ))
+        self.assertEqual(dp.as_painter(), (Index(1), Index(3), succ))
         model.run_detpainter(dp)
         self.assertEqual(model.canvas.short_str(), 'a b  ')
 
@@ -71,11 +71,15 @@ class TestPainters(unittest.TestCase):
             SR.WorkingSoup,
             MakeBetweenPainter(I, J, F)
         )
-        p2: Painter = Painter(Painter(I, Plus(I, 2), same), SR.WorkingSoup, Painter(I, Plus(I, 1), Letter('j')))
+        p2: Painter = Painter(
+            Painter(I, Plus(I, 2), same),
+            SR.WorkingSoup,
+            Painter(I, Plus(I, 1), Letter('j'))
+        )
         p3: Painter = Painter.make_from(1, 2, 'j')
 
         model = Model.make_from('ajaqb', lts=Soup())
-        model.ws.add(Painter.make_from(1, 3, same))  # p1 will match this painter
+        model.ws.add(Painter.make_from(1, 3, same)) # p1 will match this painter
 
         dpainters = list(model.painter_to_detpainters(p1))  # TODO OAOO
         #lo('GOT', dpainters[0])
@@ -83,6 +87,7 @@ class TestPainters(unittest.TestCase):
         model.run_detpainter(dpainters[0])
         self.assertIn(p2, model.ws)
 
+        set_log_level(8)
         dp2s = list(model.painter_to_detpainters(p2))  # TODO OAOO
         self.assertEqual(len(dp2s), 1)
         model.run_detpainter(dp2s[0])

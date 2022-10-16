@@ -16,7 +16,8 @@ from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     Subst, empty_subst, Plus, \
     F, I, Index, Indices, J, MatchContent, \
     Painter, \
-    MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc
+    MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc, \
+    Soup, SR
 
 from Log import lo, set_log_level
 from testCanvas import MyAnnotation
@@ -171,3 +172,19 @@ class TestAddrs(unittest.TestCase):
                 )
             ]
         )
+
+    def test_match_relative_painter(self) -> None:
+        p1 = Painter.make_from(1, 3, same)
+        p2 = Painter(I, Plus(I, 2), same)
+#        p2 = Painter(
+#            Painter(I, Plus(I, 2), same),
+#            SR.WorkingSoup,
+#            Painter(I, Plus(I, 1), Letter('j'))
+#        )
+        model = Model.make_from('ajaqb', lts=Soup())
+        model.ws.add(p1)
+
+        set_log_level(8)
+        for a in p2.to_detaddrs(model, empty_subst, I):
+            print(short(a))
+        
