@@ -87,7 +87,6 @@ class TestPainters(unittest.TestCase):
         model.run_detpainter(dpainters[0])
         self.assertIn(p2, model.ws)
 
-        set_log_level(8)
         dp2s = list(model.painter_to_detpainters(p2))  # TODO OAOO
         self.assertEqual(len(dp2s), 1)
         model.run_detpainter(dp2s[0])
@@ -111,7 +110,7 @@ class TestPainters(unittest.TestCase):
         p3: Painter = Painter.make_from(1, 3, same)
 
         model = Model.make_from('ajaqb', auto_annotate=False)
-        lo(model.canvas.as_bundle(Index(1)))
+        #lo(model.canvas.as_bundle(Index(1)))
         model.ws.add(Painter.make_from(1, 3, same))  # p1 will match this painter
 
         dp = self.painter_to_one_detpainter(model, p1)

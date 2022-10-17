@@ -207,9 +207,7 @@ class CellBundle:
     @classmethod
     def make_from(cls, *v: Union[CellContent, str]) -> CellBundle:
         result = cls(Blank(), empty_annotations)
-        lo('CBMF1', result)
         for vv in v:
-            lo('CBMF2', result, vv)
             result = result + vv
         return result
 
@@ -265,7 +263,6 @@ class CellBundle:
                 return result
         assert False, f"CellBundle.__add__(): should not go past 'match' stmt; {v}"
 
-    @trace
     def is_match(self, v: CellContent) -> bool:
         '''Returns True if 'self' contains all the content within 'v', False
         if 'v' contains any value or annotation not in 'self'.'''
@@ -538,17 +535,14 @@ class Plus(Addr, HasAsIndex):
 
     @classmethod
     @no_type_check  # mypy 0.971 crashes on '*more' below
-    @trace
     def simplify(cls, subst: Subst, args: Tuple[Expr], init: int=0) -> Expr:
         '''Evaluates 'args' as a sum to as simple a form as possible. The
         simplest form is an int; if a variable in 'args' is undefined, then
         we return an Expr containing that variable.'''
-        lo('PLUSSIMP', args)
         match args:
             case ():
                 return init
             case (expr,):
-                lo('PLUS-HERE', expr)
                 return cls.try_to_add(init, subst.simplify(expr))
             case (expr, *more):
                 #lo('init=', init, 'expr=', expr, subst)
@@ -559,7 +553,6 @@ class Plus(Addr, HasAsIndex):
                 )
 
     @classmethod
-    @trace
     def try_to_add(cls, a: Any, b: Any) -> Expr:
         match (a, b):
             case (0, _):
@@ -691,7 +684,6 @@ class MatchContent(Addr):
 
     def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:
-        lo('HERE')
         yield from (
             DetAddrWithSubst(subst.unify(var, index), index)
                 for index in model.canvas.all_matching(self.content)
@@ -846,7 +838,6 @@ class ContentsAndClarities:
         results: Dict[Index, CellBundle] = dict()
         for i, v in self.d.items():
             ii = extract_index(i)
-            lo('AIB', i, v, ii)
             if ii in results:
                 results[ii] = results[ii] + v.content
             else:
@@ -960,11 +951,9 @@ class Canvas1D(Canvas):
 
     has_index = has_addr
 
-    @trace
     def __getitem__(self, addr: Index | int) -> Optional[CellContent]:
         '''Allowing 'int' is strictly a convenience for unit testing and
         debugging.'''
-        lo('GII', addr, is_index(addr))
         match addr:
             case int():
                 return self.contents[Index(addr)]
@@ -982,7 +971,6 @@ class Canvas1D(Canvas):
     def __setitem__(self, i: Index | int, v: CellContent) -> None:
         i: Index = Index(i) if isinstance(i, int) else i
         for ii, vv in self.as_internal_args(i, v):
-            lo('SETI', ii, vv)
             self.contents[ii] = vv
 
     # TODO UT
@@ -1025,7 +1013,6 @@ class Canvas1D(Canvas):
         raise FizzleValueNotFound(v)
 
     # rename to all_matching_indices
-    @trace
     def all_matching(self, v: CellContent) -> List[Index]:
         return [
             i
@@ -1033,7 +1020,6 @@ class Canvas1D(Canvas):
                     if vv.is_match(v)
         ]
 
-    @trace
     def is_match(self, i: Index | int, v: CellContent) -> bool:
         i: Index = Index(i) if isinstance(i, int) else i
         return self.as_bundle(i).is_match(v)
@@ -1251,7 +1237,6 @@ class Subst:
     def __getitem__(self, x: Hashable) -> Optional[Any]:  #TODO proper type hint
         return self.d.get(x, None)
 
-    @trace
     def simplify(self, expr: Expr) -> Expr:
         match expr:
             case int():
@@ -1259,7 +1244,6 @@ class Subst:
             case Plus():
                 return expr.value_of(self)
             case _:
-                lo('SSIM', expr, self.d)
                 match self.d.get(expr, None):
                     case None:
                         return expr
@@ -1275,7 +1259,6 @@ class Subst:
         else:
             raise FizzleNotIndex(expr)
 
-    @trace
     def as_index(self, expr: Expr) -> Optional[Index]:
         '''Same as .simplify() but returns None if the result is not an
         Index.'''
@@ -1288,7 +1271,6 @@ class Subst:
             case _:
                 return None
 
-    @trace
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         if isinstance(lhs, int):
             self.raise_int_error(lhs)
@@ -1408,17 +1390,14 @@ class Subst:
                     # We define I, J, F to be i2, j2, f2 unless I, J, F
                     # get unified in the course of unifying i1 with i2, etc.
                     result = self.unify(i1, i2)
-                    lo('UP1', result)
                     if I not in result:
                         result = result.unify(I, i2)
 
                     result = result.unify(j1, j2)
-                    lo('UP2', result)
                     if J not in result:
                         result = result.unify(J, j2)
 
                     result = result.unify(f1, f2)
-                    lo('UP3', result)
                     if F not in result:
                         result = result.unify(F, f2)
                     return result
@@ -1478,7 +1457,6 @@ class Subst:
                 return bottom_subst
         return result
 
-@trace
 def expr_substitute(e: Expr, lhs: Expr, rhs: Expr) -> Expr:
     '''Returns a new Expr consisting of e where every occurrence of lhs has
     been replaced by rhs.'''
@@ -1817,10 +1795,10 @@ class Painter(Addr, CallableFunc):
     def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:
         for painter in model.soups():
-            lo('TODETA', self, painter)
+            #lo('TODETA', self, painter)
             subst2 = subst.unify(self, painter)
             if subst2:
-                lo('GOTA', DetAddrWithSubst(subst2, painter))
+                #lo('GOTA', DetAddrWithSubst(subst2, painter))
                 yield DetAddrWithSubst(subst2, painter)
 
     def to_detpainters(self, model: Model) -> Iterable[DetPainter]:
@@ -2046,9 +2024,9 @@ class Model:
 
     def is_absorbable(self, painter: Painter) -> bool:
         match painter:
-            case (_, SoupRef(), _):
+            case Painter(_, SoupRef(), _):
                 return True
-            case (str(), _, _):
+            case Painter(MatchContent(), _, _):
                 return True
             case _:
                 return False
@@ -2327,7 +2305,6 @@ class Model:
 #                    if self.can_make_func(func, subst):
 #                        yield func
                     for f in func.to_detfuncs(self, subst, var):
-                        lo('F2D', f)
                         if self.can_make_func(f, subst):
                             yield f
                 case _:  #SimpleFunc():
@@ -2341,18 +2318,15 @@ class Model:
         else:
             return True
 
-    @trace
     def are_related_by(self, i: Index, j: Index, f: DetFunc) -> bool:
         if not (self.canvas.has_letter(i) and self.canvas.has_letter(j)):
             return False
         # TODO take the Subst as an argument to are_related_by
-        lo('ARB', i, j, self.canvas[i], self.canvas[j])
         try:
             return self.apply_func(empty_subst, f, self.canvas[i]) == self.canvas[j]
         except FizzleCantGoThere:
             return False
 
-    @trace
     def apply_func(self, subst: Subst, f: DetFunc, v: Value) \
     -> Union[Value]:
         with indent_log(6,

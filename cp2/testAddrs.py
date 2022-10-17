@@ -37,8 +37,7 @@ class TestAddrs(unittest.TestCase):
     def test_detaddr_a(self) -> None:
         model = Model()
         model.set_canvas('a a  ')
-        lo('CANVAS', model.canvas)
-        set_log_level(6) #DEBUG
+        #lo('CANVAS', model.canvas)
         self.assertCountEqual(
             model.addr_to_detaddrs(empty_subst, I, MatchContent(Letter('a'))),
             [
@@ -116,7 +115,6 @@ class TestAddrs(unittest.TestCase):
         # (evaluated).
         model = Model()
         model.set_canvas('a a  ')
-        set_log_level(8)  #DEBUG
         self.assertCountEqual(
             model.addr_to_detaddrs(Subst.make_from((I, 1)), J, Plus(I, 2)),
             [
@@ -173,18 +171,17 @@ class TestAddrs(unittest.TestCase):
             ]
         )
 
-    def test_match_relative_painter(self) -> None:
-        p1 = Painter.make_from(1, 3, same)
-        p2 = Painter(I, Plus(I, 2), same)
-#        p2 = Painter(
-#            Painter(I, Plus(I, 2), same),
-#            SR.WorkingSoup,
-#            Painter(I, Plus(I, 1), Letter('j'))
-#        )
-        model = Model.make_from('ajaqb', lts=Soup())
-        model.ws.add(p1)
-
-        set_log_level(8)
-        for a in p2.to_detaddrs(model, empty_subst, I):
-            print(short(a))
+#    def test_match_relative_painter(self) -> None:
+#        p1 = Painter.make_from(1, 3, same)
+#        p2 = Painter(I, Plus(I, 2), same)
+##        p2 = Painter(
+##            Painter(I, Plus(I, 2), same),
+##            SR.WorkingSoup,
+##            Painter(I, Plus(I, 1), Letter('j'))
+##        )
+#        model = Model.make_from('ajaqb', lts=Soup())
+#        model.ws.add(p1)
+#
+#        for a in p2.to_detaddrs(model, empty_subst, I):
+#            print(short(a))
         

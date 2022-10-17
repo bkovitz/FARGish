@@ -16,7 +16,9 @@ def run_ajaqb(
     global m
     m = Model.canvas_from('ajaqb')
     #print(m.lts)
+    #set_log_level(9)
     m.absorb('ajaqb', timesteps=asteps)
+    lo('LTS', m.lts.state_str())
     set_log_level(2)
     m.regen_from(seed, nsteps=rsteps)
     print(m.canvas)

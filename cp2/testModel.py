@@ -17,7 +17,8 @@ from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     Subst, empty_subst, Plus, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc, \
     Painter, \
-    Soup
+    Soup, default_initial_painters, Letter, MatchContent, CellBundle, \
+    Start, Inextreme
 from Log import lo, set_log_level
 from util import pts, reseed, short
 
@@ -93,5 +94,36 @@ class TestModel(unittest.TestCase):
         reseed(0)
         model = Model()
         model.absorb('ajaqb')
-        print(model.lts.state_str())
+        #print(model.lts.state_str())
         # TODO Test the contents of the lts
+        self.assertCountEqual(
+            model.lts,
+            default_initial_painters +
+            [
+                Painter(
+                    Painter(I, Plus(I, 2), same),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, 1), Letter('j'))
+                ),
+                Painter(
+                    Painter(I, Plus(I, 2), succ),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, 1), Letter('q'))
+                ),
+                Painter(
+                    MatchContent(CellBundle.make_from('a', Inextreme)),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, 2), succ)
+                ),
+                Painter(
+                    MatchContent(CellBundle.make_from('a', Start)),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, 2), same)
+                ),
+                Painter(
+                    MatchContent(CellBundle.make_from('a', Start)),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, 4), succ)
+                )
+            ]
+        )
