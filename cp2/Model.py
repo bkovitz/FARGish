@@ -402,9 +402,12 @@ class Index(DetAddr):
     def from_to(cls, lb: Index | int, ub: Index | int) -> Iterable[Index]:
         return (Index(i) for i in range(as_int(lb), as_int(ub) + 1))
 
+#    def short(self) -> str:
+#        cl = self.__class__.__name__
+#        return f'{cl}({self.i})'
+
     def short(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({self.i})'
+        return str(self.i)
 
     __repr__ = short
 
@@ -1111,6 +1114,9 @@ class Soup:
         default_factory=lambda: defaultdict(int)
     )  # map Painter to clarity
     #painters: List = field(default_factory=list)
+    authors: Dict[Painter, Set[Painter]] = field(
+        default_factory=lambda: defaultdict(set)
+    )  # value is all who painted the key
 
     @classmethod
     def make_from(cls, painters: Iterable[Painter]) -> Soup:
@@ -1120,6 +1126,16 @@ class Soup:
         for p in painters:
             self.painters[p] += 1
 
+    def add_author(self, painter: Painter, author: Painter) -> None:
+        self.authors[painter].add(author)
+
+    # TODO UT author
+    def paint(self, painter: Painter, author: Optional[Painter]=None) -> None:
+        self.add(painter)
+        if author is not None:
+            self.add_author(painter, author)
+
+    # TODO rm all references to painter in self.authors
     def remove(self, *painters: Painter) -> None:
         '''It is not an error to remove a painter that does not exist.'''
         for p in painters:
@@ -1201,9 +1217,18 @@ class Soup:
     def state_str(self) -> str:
         sio = StringIO()
         for pstr in sorted(
-            f'{short(p)} {nf(cl)}' for p, cl in self.painters.items()
+            f'{short(p)} cl={nf(cl)}' for p, cl in self.painters.items()
         ):
             print(pstr, file=sio)
+        return sio.getvalue()
+
+    def state_str_with_authors(self) -> str:
+        sio = StringIO()
+        for p in sorted(self, key=short):
+            print(f'{short(p)}, cl={nf(self.clarity(p))}', file=sio)
+            author_set = self.authors.get(p, None)
+            if author_set:
+                print(f'  by: {short(author_set)}', file=sio)
         return sio.getvalue()
 
     __repr__ = state_str
@@ -1869,6 +1894,9 @@ class Painter(Addr, CallableFunc):
         cl = self.__class__.__name__
         return f'{cl}({short(self.source)}, {short(self.target)}, {short(self.func)})'
 
+    def short(self) -> str:
+        return f'({short(self.source)}, {short(self.target)}, {short(self.func)})'
+
 @dataclass(frozen=True)
 class CPainter(Painter):
     '''A canvas-painter.'''
@@ -2155,7 +2183,7 @@ class Model:
                     match v:
                         case Painter():
                             lo(3, 'MAKE PAINTER', v)
-                            self.ws.add(v)
+                            self.ws.paint(v, author=dp.basis)
                         case x:
                             raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
                 #TODO Painting to long-term soup

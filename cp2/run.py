@@ -22,6 +22,8 @@ def run_ajaqb(
     set_log_level(2)
     m.regen_from(seed, nsteps=rsteps)
     print(m.canvas)
+    print()
+    print(m.ws.state_str_with_authors())
 
 
 if __name__ == '__main__':
