@@ -1,3 +1,7 @@
+from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
+    Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
+    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
+    runtime_checkable, TYPE_CHECKING, no_type_check
 import sys
 
 from Model import *
@@ -34,7 +38,8 @@ def run(
     rsteps: int=60,
     fresh: bool=True,  # Create a new Model in global variable 'm'?
     lla: int=0,  # logging level during absorption
-    llr: int=2   # logging level during regeneration
+    llr: int=2,   # logging level during regeneration
+    auto_annotate: Iterable[Annotation]=default_auto_annotations
 ) -> None:
     global m, last_args
     last_args = dict(
@@ -42,11 +47,12 @@ def run(
         asteps=asteps,
         rsteps=rsteps,
         lla=lla,
-        llr=llr
+        llr=llr,
+        auto_annotate=auto_annotate
     )
     if fresh:
         set_log_level(lla)
-        m = Model()
+        m = Model(auto_annotate=auto_annotate)
         for s in lts:
             m.absorb(s, timesteps=asteps)
     set_log_level(llr)

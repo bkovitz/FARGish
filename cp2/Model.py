@@ -2058,9 +2058,7 @@ class Model:
         # DetPainters run: a record of all the DetPainters that this model
         # has run, and in what timestep.
     canvas_history: Dict[int, Canvas1D] = field(default_factory=dict)
-    auto_annotate: bool = True  # TODO Update this and use it in set_canvas
-        # Should the Model automatically annotate the first and last canvas
-        # calls with Start and End?
+    auto_annotate: Iterable[Annotation] = default_auto_annotations
 
     @classmethod
     def canvas_from(cls, s: str) -> Model:
@@ -2087,10 +2085,10 @@ class Model:
                 raise ValueError(
                     f'Can only pass a string to Model.make_from(); got {repr(args)}'
                 )
-        return cls(**kwargs)
+        return cls(auto_annotate=auto_annotate, **kwargs)
 
     def set_canvas(self, s: str) -> None:
-        self.canvas = Canvas1D.make_from(s)
+        self.canvas = Canvas1D.make_from(s, auto_annotate=self.auto_annotate)
 
     def contents_at(self, addr: Addr) -> Optional[Value]:
         #TODO Look up a painter by addr?
