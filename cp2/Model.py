@@ -1619,6 +1619,7 @@ bottom_subst = BottomSubst()
 
 @dataclass(frozen=True)
 class SimpleFunc:
+    '''A function like succ, pred, or same.'''
     var: Variable
 
     def __str__(self) -> str:
@@ -2013,7 +2014,7 @@ class DetPainter:
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.as_painter()):80s}; {short(self.subst):30s}; {nf(self.prob_weight)})'
+        return f'{cl}({short(self.as_painter()):80s}; {short(self.subst):30s}; pw={nf(self.prob_weight)})'
 
     def __str__(self) -> str:
 #        sio = StringIO()
@@ -2025,7 +2026,7 @@ class DetPainter:
         pstr = short(self.as_painter())
         sstr = short(self.subst)
         bstr = f'basis={short(self.basis)}'
-        return f'{pstr}; {sstr}; {nf(self.prob_weight)}; {bstr}'
+        return f'{pstr}; {sstr}; pw={nf(self.prob_weight)}; {bstr}'
 
 # A determinate painter. Unlike DetPainter, a DetPainter0 includes only the
 # minimal painter info, not additional information like a Subst.

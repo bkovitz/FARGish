@@ -56,8 +56,9 @@ def run(
         for s in lts:
             m.absorb(s, timesteps=asteps)
     set_log_level(llr)
-    lo(1, 'LTS', m.lts.state_str())
-    m.regen_from(seed, nsteps=rsteps)
+    lo(1, 'LTS', '\n' + m.lts.state_str())
+    if rsteps:
+        m.regen_from(seed, nsteps=rsteps)
     print(m.canvas)
     print()
     print(m.ws.state_str_with_authors())
@@ -65,6 +66,14 @@ def run(
 def again(**kwargs):
     global last_args
     run(fresh=False, **(last_args | kwargs))
+
+def run_bad(**kwargs) -> None:
+    d = dict(
+        auto_annotate=[Start, End],
+        rsteps=0,
+        lla=3
+    )
+    run(**(d | kwargs))
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
@@ -79,4 +88,5 @@ if __name__ == '__main__':
     #run_ajaqb()
     #run_ajaqb('a    ', ['wxyaaaa'], 120)
     #run('abc   ')
-    run()
+    #run()
+    run_bad()
