@@ -84,7 +84,7 @@ class ContentAndClarity:
 #            pass
 #        elif v == ' ':
 #            self.dec_clarity()
-        if v is None:
+        if isinstance(v, Blank):
             self.dec_clarity()
         elif v == self.content:
             self.inc_clarity()

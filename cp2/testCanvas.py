@@ -119,3 +119,10 @@ class TestCanvas1D(unittest.TestCase):
         self.assertTrue(c.has_annotation(5, End))
         self.assertEqual(c.clarity((Index(1), Anchor)), 5)
         self.assertEqual(c.clarity((Index(5), Anchor)), 5)
+
+    def test_default_to_blank(self) -> None:
+        c = Canvas1D.make_from('a ')
+        self.assertEqual(c[1], Letter('a'))
+        self.assertEqual(c[2], Blank())
+        self.assertEqual(c.clarity(1), 5)
+        self.assertEqual(c.clarity(2), 0)

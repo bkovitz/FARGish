@@ -35,12 +35,16 @@ mypy:
 CURRENT = run.py
 CURRENT_ARGS = 3572413201058895229  #1118343772539054194
 
+R = $(CURRENT) $(CURRENT_ARGS)
+r:   
+	$(PY) $R
 m:
 	#$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES)
-i: m   # 'interactive' way to type-check and run current file of interest
-	$(PY) -i $(CURRENT) $(CURRENT_ARGS)
+i: m  # 'interactive' way to type-check and run current file of interest
+	$(PY) -i $R
 mi: i
+
 
 # Run all unit tests.
 ut:
@@ -48,7 +52,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testPainters.TestPainters.test_make_between_painter
+	$(PY) -m unittest -v testPainters.TestPainters.test_mbt_fizzle_if_blank
 	#$(PY) -m unittest -v testAddrs.TestAddrs.test_match_relative_painter
 	#$(PY) -m unittest -v testSubst
 

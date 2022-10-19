@@ -105,10 +105,10 @@ class Letter(CallableFunc):
 @dataclass(frozen=True)
 class Blank:
 
-    def short(self) -> str:
-        return 'Blank'
+    def __repr__(self) -> str:
+        return self.__class__.__name__
 
-    __repr__ = short
+    short = __repr__
 
     def __str__(self) -> str:
         return ' '
@@ -904,29 +904,33 @@ class Canvas1D(Canvas):
         for ii, c in zip(range(1, len(s) + 1), s):
             i = Index(ii)
             result[i] = Letter.from_str(c)
-            if not is_blank(c):
+            if not is_blank(result[i]):
                 result.set_clarity(i, cls.INITIAL_CLARITY)
             else:
                 result.set_clarity(i, 0)
         if auto_annotate:
-            for i in Index.from_to(
-                result.contents.min_index,
-                result.contents.max_index
-            ):
-                ann: Annotation
-                match i:
-                    case result.contents.min_index:
-                        ann = Start
-                    case result.contents.max_index:
-                        ann = End
-                    case _:
-                        ann = Inextreme
-                result[i] = ann
-                result.set_clarity(
-                    (i, Anchor),
-                    cls.INITIAL_CLARITY
-                )
+            result.auto_annotate()
         return result
+
+    def auto_annotate(self) -> None:
+        for i in Index.from_to(
+            self.contents.min_index,
+            self.contents.max_index
+        ):
+            ann: Annotation
+            match i:
+                case self.contents.min_index:
+                    ann = Start
+                case self.contents.max_index:
+                    ann = End
+                case _:
+                    ann = Inextreme
+                    pass
+            self[i] = ann
+            self.set_clarity(
+                (i, Anchor),
+                self.INITIAL_CLARITY
+            )
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
         return Index.from_to(
@@ -980,14 +984,14 @@ class Canvas1D(Canvas):
     def has_letter(self, i: Index | int) -> bool:
         i: Index = Index(i) if isinstance(i, int) else i
         v = self.contents[i]
-        return v is not None and v != ' '
+        return isinstance(v, Letter)
 
     def as_internal_args(self, i: Index, v: CellContent) \
     -> Iterable[Tuple[Index2, CellContent1]]:
         match v:
             case None:
                 yield (i, None)
-            case Letter():
+            case Letter() | Blank():
                 yield (i, v)
             case Annotation():
                 yield ((i, v.type), v)
@@ -998,6 +1002,8 @@ class Canvas1D(Canvas):
                 if v.value is not None:
                     yield (i, v.value)
                 yield from self.as_internal_args(i, v.annotations)
+            case _:
+                raise ValueError(f'as_internal_args({i!r}, {v!r}): unrecognized cell content type ({type(v)})')
 
     def clarity(self, i: Index2 | int) -> Numeric:
         match i:
@@ -1047,7 +1053,7 @@ class Canvas1D(Canvas):
 
     def short_str(self) -> str:
         return ''.join(
-            ' ' if x is None else str(x)
+            'N' if x is None else str(x)
                 for x in self.contents.all_values()
         )
 
@@ -1072,6 +1078,14 @@ class FizzleNotIndex(Fizzle):
 
     def __str__(self) -> str:
         return f"can't reduce to Index: {repr(self.e)}"
+
+@dataclass(frozen=True)
+class FizzleGotBlank(Fizzle):
+    o: Any   # Whatever painter or func or whatever fizzled
+    e: Any   # Whatever evaluated to Blank and shouldn't have
+    
+    def __str__(self) -> str:
+        return f'{short(self.o)}: {short(self.e)} evaluated to Blank'
 
 @dataclass(frozen=True)
 class FizzleGotNone(Fizzle):
@@ -1104,6 +1118,14 @@ class FizzleNoPred(FizzleCantGoThere):
 
     def __str__(self) -> str:
         return 'No predecessor'
+
+def fizzle_if_none(x: Any, o: Any, e: str) -> None:
+    if x is None:
+        raise FizzleGotNone(o, e)
+
+def fizzle_if_blank(x: Any, o: Any, e: str) -> None:
+    if is_blank(x):
+        raise FizzleGotBlank(o, e)
 
 ########## Soups ##########
 
@@ -1626,7 +1648,7 @@ class Succ(SimpleFuncClass):
 # TODO succ(Index)
 #        elif isinstance(v, int):
 #            return v + 1
-        raise Fizzle("succ: Can't take successor of {v}")
+        raise Fizzle(f"succ: Can't take successor of {v}")
 
     def __repr__(self) -> str:
         return 'succ'
@@ -1640,7 +1662,7 @@ class Pred(SimpleFuncClass):
 # TODO pred(Index)
 #        elif isinstance(v, int):
 #            return v - 1
-        raise Fizzle("pred: Can't take predecessor of {v}")
+        raise Fizzle(f"pred: Can't take predecessor of {v}")
 
     def __repr__(self) -> str:
         return 'pred'
@@ -1671,21 +1693,25 @@ class MakeBetweenPainter(CallableFunc):
     j: Addr
     f: Func
 
+    @no_type_check
     def apply(self, model: Model, subst: Subst, ignored: Value) \
     -> Painter:
         result_i = subst.as_index(self.i)
-        if result_i is None:
-            raise FizzleGotNone(self, f'i={self.i}')
+        fizzle_if_none(result_i, self, f'i={self.i}')
+        fizzle_if_blank(model.canvas[result_i], self, f'canvas[{result_i}]')
+
         value = model.canvas[result_i + 1]
-        if value is None:
-            raise FizzleGotNone(self, f'canvas[{result_i + 1}]')
+        fizzle_if_none(value, self, f'canvas[{result_i + 1}]')
+        fizzle_if_blank(value, self, f'canvas[{result_i + 1}]')
+
         result_j = subst.as_index(self.j)
-        if result_j is None:
-            raise FizzleGotNone(self, f'j={self.j}')
+        fizzle_if_none(result_j, self, f'j={self.j}')
+        fizzle_if_blank(model.canvas[result_j], self, f'canvas[{result_j}]')
+
         result_f = subst[self.f]
-        if result_f is None:
-            raise FizzleGotNone(self, f'f={self.f}')
+        fizzle_if_none(result_f, self, f'f={self.f}')
         assert is_func(result_f)
+
         return Painter(
             Painter(I, Plus(I, result_j - result_i), result_f),
             SR.WorkingSoup,

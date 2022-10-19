@@ -21,7 +21,8 @@ from Model import Annotations, CellBundle, Letter, Start, \
     same, succ, \
     Subst, empty_subst, Plus, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, same, \
-    Soup
+    Soup, \
+    FizzleGotBlank
     
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -91,6 +92,22 @@ class TestPainters(unittest.TestCase):
         self.assertEqual(len(dp2s), 1)
         model.run_detpainter(dp2s[0])
         self.assertIn(p3, model.ws)
+
+    def test_mbt_fizzle_if_blank(self) -> None:
+        model = Model.make_from('ab ')
+        self.helper_mbt_fizzle(model)
+
+        model = Model.make_from('a a')
+        self.helper_mbt_fizzle(model)
+
+        model = Model.make_from(' ba')
+        self.helper_mbt_fizzle(model)
+
+    def helper_mbt_fizzle(self, model: Model) -> None:
+        f = MakeBetweenPainter(I, J, F)
+        su = Subst.make_from((I, Index(1)), (J, Index(3)), (F, same))
+        with self.assertRaises(FizzleGotBlank):
+            got = model.apply_func(su, f, Letter('x'))
 
     def test_make_relative_indirect_painter(self) -> None:
         p1 = Painter(
