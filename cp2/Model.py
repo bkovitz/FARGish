@@ -34,7 +34,8 @@ from pyrsistent.typing import PMap
 #    MatchContent, SoupRef, Variable, WorkingSoup
 #from Painters import Painter, DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log, set_log_level
-from util import first, force_setattr, short, nf, Numeric, empty_set, rescale
+from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
+    filter_none
 
 class CallableFunc(ABC):
 
@@ -124,21 +125,27 @@ Expr = Any  # TODO restrict
 @dataclass(frozen=True)
 class AnnotationType:
     name: str
+    matchable: bool = True
+    # Should MatchContent match this AnnotationType?
 
     def __str__(self) -> str:
         return self.name
 
 Anchor = AnnotationType('Anchor')
+ImmutableType = AnnotationType('ImmutableType', matchable=False)
 
-def applies_here_yes(c: Canvas, i: int | Index) -> bool:
-    return True
+def applies_here_no(c: Canvas, i: int | Index) -> bool:
+    return False
 
 @dataclass(frozen=True)
 class Annotation:
     type: AnnotationType
     name: str
-    applies_here: Callable[[Canvas, int | Index], bool] = applies_here_yes
+    applies_here: Callable[[Canvas, int | Index], bool] = applies_here_no
     # Should cell i in canvas c get this annotation?
+
+    def is_matchable(self) -> bool:
+        return self.type.matchable
 
     def __str__(self) -> str:
         return self.name
@@ -157,6 +164,7 @@ def inextreme_applies_here(c: Canvas, i: int | Index) -> bool:
 Start = Annotation(Anchor, 'Start', start_applies_here)
 End = Annotation(Anchor, 'End', end_applies_here)
 Inextreme = Annotation(Anchor, 'Inextreme', inextreme_applies_here)
+Immutable = Annotation(ImmutableType, 'Immutable')
 
 @dataclass(frozen=True)
 class Annotations:
@@ -184,6 +192,19 @@ class Annotations:
                 return first(self.elems)
             case _:
                 return self
+
+    def exclude_unmatchable(self) -> Union[Annotation, Annotations]:
+        new_elems = [
+            elem
+                for elem in self.elems
+                    if elem.is_matchable()
+        ]
+        if len(new_elems) == 0:
+            return empty_annotations
+        elif len(new_elems) == len(self.elems):
+            return self
+        else:
+            return Annotations(frozenset(new_elems))
 
     def __add__(self, a: Annotation | Annotations) -> Annotations:
         match a:
@@ -239,6 +260,12 @@ class CellBundle:
             return self.annotations.simplest()
         else:
             return self
+
+    def exclude_unmatchable(self) -> CellBundle:
+        return self.make_from(
+            self.value,
+            self.annotations.exclude_unmatchable()
+        ).simplest()
 
     def __iter__(self) -> Iterable[CellContent1]:
         if self.value is not None:
@@ -335,6 +362,19 @@ def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
             if v.value is not None:
                 yield v.value
             yield from v.annotations
+
+def exclude_unmatchable(x: CellContent) -> CellContent:
+    match x:
+        case Annotation():
+            if x.is_matchable():
+                return x
+            else:
+                return empty_annotations
+        case Annotations() | CellBundle():
+            return x.exclude_unmatchable()
+        case _:
+            return x
+    raise ValueError(f'exclude_unmatchable: invalid argument: {x!r}')
 
 #def is_painter(x: Any) -> TypeGuard[Painter]:
 #    #return isinstance(x, tuple)
@@ -1815,9 +1855,13 @@ class MakeRelativeIndirectPainter(CallableFunc):
         assert is_func(result_f)
         if result_f is None:
             raise Fizzle  # TODO More-specific Fizzle
+        content = exclude_unmatchable(bundle.simplest())
+        if not content:
+            raise Fizzle  # TODO more-specific Fizzle
         return Painter(
             #bundle.value if bundle.value_only() else bundle,
-            MatchContent(bundle.simplest()),
+            #MatchContent(bundle.simplest()),
+            MatchContent(content),
             SR.WorkingSoup,
             Painter(I, Plus(I, result_j - result_i), result_f)
         )
@@ -2109,6 +2153,8 @@ class Model:
     def absorb(self, s: str, timesteps: int=20):
         with indent_log(2, 'ABSORB', repr(s)):
             self.set_canvas(s)
+            for i in self.canvas.all_indices():
+                self.canvas[i] = Immutable
             # TODO Set a mode where painters get penalized for painting the
             # wrong things
             # Run a little while, let some painters develop

@@ -13,12 +13,12 @@ import inspect
 
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     same, succ, \
-    F, I, Indices, J, SR, \
+    F, I, Index, Indices, J, SR, \
     Subst, empty_subst, Plus, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc, \
     Painter, \
     Soup, default_initial_painters, Letter, MatchContent, CellBundle, \
-    Start, Inextreme
+    Start, Inextreme, Immutable
 from Log import lo, set_log_level
 from util import pts, reseed, short
 
@@ -96,6 +96,8 @@ class TestModel(unittest.TestCase):
         model.absorb('ajaqb')
         #print(model.lts.state_str())
         # TODO Test the contents of the lts
+        for i in Index.from_to(1, 5):
+            self.assertTrue(model.canvas.has_annotation(i, Immutable))
         self.assertCountEqual(
             model.lts,
             default_initial_painters +
