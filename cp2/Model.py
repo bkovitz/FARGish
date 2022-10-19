@@ -11,6 +11,7 @@ from itertools import chain, product
 from functools import reduce
 from collections import defaultdict
 from io import StringIO
+from copy import deepcopy
 from random import choice, choices, random
 import sys
 from operator import itemgetter
@@ -2056,7 +2057,8 @@ class Model:
     dps_run: Dict[int, DetPainter] = field(default_factory=dict)
         # DetPainters run: a record of all the DetPainters that this model
         # has run, and in what timestep.
-    auto_annotate: bool = True
+    canvas_history: Dict[int, Canvas1D] = field(default_factory=dict)
+    auto_annotate: bool = True  # TODO Update this and use it in set_canvas
         # Should the Model automatically annotate the first and last canvas
         # calls with Start and End?
 
@@ -2128,13 +2130,17 @@ class Model:
         with indent_log(1, 'REGENERATE from', repr(s)):
             self.ws.clear()
             self.clear_suppressions()
+            self.dps_run.clear()
+            self.canvas_history.clear()
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
             #lo(1, list(self.canvas.all_indices_and_values())) #DEBUG
             self.t = 0
+            self.canvas_history[self.t] = deepcopy(self.canvas)
             for t in range(nsteps):
                 self.do_timestep()
+                self.canvas_history[self.t] = deepcopy(self.canvas)
                 lo(1, self.state_str())
 
     def do_timestep(self) -> None:
@@ -2262,6 +2268,11 @@ class Model:
         '''Prints all the DetPainters and their timesteps.'''
         for t in sorted(self.dps_run.keys()):
             print(f't={t}\n{self.dps_run[t]}')
+
+    def see_canvas_history(self) -> None:
+        '''Prints the canvas history.'''
+        for t in sorted(self.canvas_history.keys()):
+            print(f't={t:4}  {self.canvas_history[t].state_str()}')
 
     def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
         yield from p.to_detpainters(self)
