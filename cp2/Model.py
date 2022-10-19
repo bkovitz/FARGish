@@ -34,7 +34,7 @@ from pyrsistent.typing import PMap
 #    MatchContent, SoupRef, Variable, WorkingSoup
 #from Painters import Painter, DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log, set_log_level
-from util import first, force_setattr, short, nf, Numeric, empty_set
+from util import first, force_setattr, short, nf, Numeric, empty_set, rescale
 
 class CallableFunc(ABC):
 
@@ -2059,6 +2059,11 @@ class Model:
         # has run, and in what timestep.
     canvas_history: Dict[int, Canvas1D] = field(default_factory=dict)
     auto_annotate: Iterable[Annotation] = default_auto_annotations
+    high_weight_favoritism: Numeric = 0.6 
+        # For adjusting probability weights # to favor the highest weights.
+        # 0 => all weights become (nearly) 1.0
+        # 0.5 => weights are unchanged
+        # 1.0 => all weights except the highest become 0.0
 
     @classmethod
     def canvas_from(cls, s: str) -> Model:
@@ -2159,16 +2164,17 @@ class Model:
             self.painter_to_detpainters(p)  #, soup.clarity(p))
                 for p in soup
         ))
-        weights = [
+        weights = self.adjusted_weights([
             self.detpainter_to_probability_weight(dp)
                 for dp in det_painters
-        ]
+        ])
         with indent_log(4, 'DETPAINTERS'):
             if det_painters:
                 for w, dp in sorted(
                     zip(weights, det_painters), key=itemgetter(0)
                 ):
-                    lo(4, nf(w), dp)
+                    #lo(4, nf(w), dp)
+                    lo(4, f'{w:0.8f}', dp)
 #                for k in range(len(det_painters)):
 #                    lo(4, nf(weights[k]), det_painters[k])
             else:
@@ -2190,6 +2196,12 @@ class Model:
             *
             dp.prob_weight
         )
+
+    def adjusted_weights(self, weights: List[Numeric]) -> List[Numeric]:
+        return [
+            w ** (2 ** (10 * (2 * self.high_weight_favoritism - 1)))
+                for w in rescale(weights)
+        ]
 
     def suppress(self, dp0: DetPainter0) -> None:
         if dp0 in self.suppressions:
@@ -2214,10 +2226,10 @@ class Model:
 
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:
-            case Index():
+            case Index() | int():
                 return self.canvas.clarity(a) / self.canvas.MAX_CLARITY
-            case Painter(): #p if is_painter(p):
-                return 1.0  # TODO: find out painter "clarity"
+            case Painter():
+                return 0.5
             case Indices(elems):
                 return sum(
                     self.source_weight(elem)
@@ -2228,12 +2240,12 @@ class Model:
 
     def target_weight(self, a: DetAddr) -> Numeric:
         match a:
-            case Index():
+            case Index() | int():
                 return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
             case SoupRef():
-                return 1.0
-            case Painter(): #p if is_painter(p):
-                return 1.0  # TODO: find out painter "clarity"
+                return 0.5
+            case Painter():
+                return 0.5
         assert False, "target_weight(): should not go past 'match' stmt"
 
     def run_detpainter(
