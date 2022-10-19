@@ -129,17 +129,33 @@ class AnnotationType:
 
 Anchor = AnnotationType('Anchor')
 
+def applies_here_yes(c: Canvas, i: int | Index) -> bool:
+    return True
+
 @dataclass(frozen=True)
 class Annotation:
     type: AnnotationType
     name: str
+    applies_here: Callable[[Canvas, int | Index], bool] = applies_here_yes
+    # Should cell i in canvas c get this annotation?
 
     def __str__(self) -> str:
         return self.name
 
-Start = Annotation(Anchor, 'Start')
-End = Annotation(Anchor, 'End')
-Inextreme = Annotation(Anchor, 'Inextreme')
+def start_applies_here(c: Canvas, i: int | Index) -> bool:
+    return to_index(i) == c.min_index()
+
+def end_applies_here(c: Canvas, i: int | Index) -> bool:
+    return to_index(i) == c.max_index()
+
+def inextreme_applies_here(c: Canvas, i: int | Index) -> bool:
+    return not(
+        start_applies_here(c, i) or end_applies_here(c, i)
+    )
+
+Start = Annotation(Anchor, 'Start', start_applies_here)
+End = Annotation(Anchor, 'End', end_applies_here)
+Inextreme = Annotation(Anchor, 'Inextreme', inextreme_applies_here)
 
 @dataclass(frozen=True)
 class Annotations:
@@ -890,6 +906,8 @@ class ContentsAndClarities:
 
 # TODO How do you erase an annotation?
 
+default_auto_annotations = (Start, End, Inextreme)
+
 @dataclass
 class Canvas1D(Canvas):
     contents: ContentsAndClarities = field(
@@ -897,7 +915,11 @@ class Canvas1D(Canvas):
     )
 
     @classmethod
-    def make_from(cls, s: str, auto_annotate: bool=True) -> Canvas1D:
+    def make_from(
+        cls,
+        s: str, 
+        auto_annotate: Iterable[Annotation]=default_auto_annotations
+    ) -> Canvas1D:
         result = cls()
         result.contents.min_index = Index(1)
         result.contents.max_index = Index(len(s))
@@ -908,8 +930,19 @@ class Canvas1D(Canvas):
                 result.set_clarity(i, cls.INITIAL_CLARITY)
             else:
                 result.set_clarity(i, 0)
-        if auto_annotate:
-            result.auto_annotate()
+#        if auto_annotate:
+#            result.auto_annotate()
+        for ann in auto_annotate:
+            for i in Index.from_to(   # Should be .all_indices(); move to Canvas
+                result.contents.min_index,
+                result.contents.max_index
+            ):
+                if ann.applies_here(result, i):
+                    result[i] = ann
+                    result.set_clarity(
+                        (i, ann.type),
+                        result.INITIAL_CLARITY
+                    )
         return result
 
     def auto_annotate(self) -> None:
@@ -2032,7 +2065,12 @@ class Model:
         return cls(canvas=Canvas1D.make_from(s))
 
     @classmethod
-    def make_from(cls, *args, auto_annotate: bool=True, **kwargs) -> Model:
+    def make_from(
+        cls,
+        *args,
+        auto_annotate: Iterable[Annotation]=default_auto_annotations,
+        **kwargs
+    ) -> Model:
         match len(args):
             case 0:
                 pass

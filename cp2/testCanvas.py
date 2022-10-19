@@ -5,7 +5,7 @@ import inspect
 
 #from Canvas import Canvas1D
 #from Addrs import Index
-from Model import Canvas1D, Index, \
+from Model import Canvas, Canvas1D, Index, \
     Anchor, Annotation, Annotations, AnnotationType, \
     Blank, CellBundle, End, Inextreme, Letter, Start, empty_annotations
 from util import pts
@@ -14,6 +14,11 @@ from util import pts
 
 MyAnnotationType = AnnotationType('MyAnnotationType')
 MyAnnotation = Annotation(MyAnnotationType, 'MyAnnotation')
+
+def jhere(c: Canvas, i: int | Index) -> bool:
+    return c[i] == Letter('j')
+
+JHere = Annotation(MyAnnotationType, 'JHere', jhere)
 
 class TestCanvas1D(unittest.TestCase):
 
@@ -75,7 +80,7 @@ class TestCanvas1D(unittest.TestCase):
     '''
 
     def test_as_bundle_empty_annotations(self) -> None:
-        c = Canvas1D.make_from('ajaqb', auto_annotate=False)
+        c = Canvas1D.make_from('ajaqb', auto_annotate=[])
         self.assertEqual(
             c.as_bundle(2),
             CellBundle(Letter('j'), empty_annotations)
@@ -87,6 +92,13 @@ class TestCanvas1D(unittest.TestCase):
             c.as_bundle(2),
             CellBundle(Letter('j'), Annotations.make_from(Inextreme))
         )
+
+    def test_specify_auto_annotations(self) -> None:
+        c = Canvas1D.make_from('ajaqb', auto_annotate=[JHere, End])
+        self.assertFalse(c.has_annotation(1, Start))
+        self.assertFalse(c.has_annotation(1, JHere))
+        self.assertTrue(c.has_annotation(2, JHere))
+        self.assertTrue(c.has_annotation(5, End))
 
     def test_all_matching(self) -> None:
         c = Canvas1D.make_from('ajaqb')
@@ -113,7 +125,7 @@ class TestCanvas1D(unittest.TestCase):
         #self.assertTrue(c.is_match(2, MyAnnotationType))
         # TODO Check clarity of annotation
 
-    def test_withann_start_end(self) -> None:
+    def test_with_annotation_start_end(self) -> None:
         c = Canvas1D.make_from('ajaqb')
         self.assertTrue(c.has_annotation(1, Start))
         self.assertTrue(c.has_annotation(5, End))

@@ -72,4 +72,5 @@ if __name__ == '__main__':
 
     #run_ajaqb()
     #run_ajaqb('a    ', ['wxyaaaa'], 120)
-    run('abc   ')
+    #run('abc   ')
+    run()

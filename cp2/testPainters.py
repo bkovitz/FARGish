@@ -126,7 +126,7 @@ class TestPainters(unittest.TestCase):
         )
         p3: Painter = Painter.make_from(1, 3, same)
 
-        model = Model.make_from('ajaqb', auto_annotate=False)
+        model = Model.make_from('ajaqb', auto_annotate=[])
         #lo(model.canvas.as_bundle(Index(1)))
         model.ws.add(Painter.make_from(1, 3, same))  # p1 will match this painter
 
