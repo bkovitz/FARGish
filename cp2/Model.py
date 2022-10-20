@@ -120,6 +120,13 @@ def is_blank(x: Any) -> TypeGuard[Blank]:
 
 CanvasValue = Union[Letter, Blank]  # TODO change str to Letter
 
+def is_canvas_value(x: Any) -> TypeGuard[CanvasValue]:
+    return (
+        isinstance(x, Letter)
+        or
+        isinstance(x, Blank)
+    )
+
 Expr = Any  # TODO restrict
 
 @dataclass(frozen=True)
@@ -253,15 +260,29 @@ class CellBundle:
         '''Does this CellBundle contain only a value and no annotations?'''
         return not self.annotations
 
-    def simplest(self) -> Any:  # TODO restore type hint: Union[Value, Annotation, Annotations, CellBundle]:
-        if self.value_only():
+    #def simplest(self) -> Any:  # TODO restore type hint: Union[Value, Annotation, Annotations, CellBundle]:
+    # TODO UT
+    def simplest(self) -> Union[None, CellContent]:
+        match (not is_blank(self.value), bool(self.annotations)):
+            case (False, False):
+                return None
+            case (False, True):
+                return self.annotations.simplest()
+            case (True, False):
+                return self.value
+            case (True, True):
+                return self
+
+        if is_blank(self.value):
+            return None
+        elif self.value_only():
             return self.value
         elif self.value is None:
             return self.annotations.simplest()
         else:
             return self
 
-    def exclude_unmatchable(self) -> CellBundle:
+    def exclude_unmatchable(self) -> Optional[CellContent]:
         return self.make_from(
             self.value,
             self.annotations.exclude_unmatchable()
@@ -332,7 +353,7 @@ class CellBundle:
 empty_cell_bundle = CellBundle(Blank(), empty_annotations)
 
 #CellContent1 = Union[CanvasValue, None, Annotation]
-CellContent1 = Union[Letter, Blank, Annotation]
+CellContent1 = Union[CanvasValue, Annotation]
 CellContent = Union[CellContent1, Annotations, CellBundle]
 
 def is_cell_content(x: Any) -> TypeGuard[CellContent]:
@@ -363,7 +384,7 @@ def unbundle_cell_content(v: CellContent) -> Iterable[CellContent1]:
                 yield v.value
             yield from v.annotations
 
-def exclude_unmatchable(x: CellContent) -> CellContent:
+def exclude_unmatchable(x: Optional[CellContent]) -> Optional[CellContent]:
     match x:
         case Annotation():
             if x.is_matchable():
@@ -1052,6 +1073,9 @@ class Canvas1D(Canvas):
     def __setitem__(self, i: Index | int, v: CellContent) -> None:
         i: Index = Index(i) if isinstance(i, int) else i
         for ii, vv in self.as_internal_args(i, v):
+            if self.has_annotation(i, Immutable) and is_canvas_value(vv):
+                if vv != self[i]:
+                    raise FizzleImmutable(i, self[i], vv)
             self.contents[ii] = vv
 
     # TODO UT
@@ -1065,8 +1089,8 @@ class Canvas1D(Canvas):
         match v:
             case None:
                 yield (i, None)
-            case Letter() | Blank():
-                yield (i, v)
+            case c if is_canvas_value(c):
+                yield (i, c)
             case Annotation():
                 yield ((i, v.type), v)
             case Annotations():
@@ -1201,6 +1225,15 @@ def fizzle_if_blank(x: Any, o: Any, e: str) -> None:
     if is_blank(x):
         raise FizzleGotBlank(o, e)
 
+@dataclass(frozen=True)
+class FizzleImmutable(Fizzle):
+    i: Index
+    old: Optional[CellContent]
+    new: Optional[CellContent]
+
+    def __str__(self) -> str:
+        return f'Tried to overwrite Immutable cell {self.i}: old={self.old!r}, new={self.new!r}'
+
 ########## Soups ##########
 
 @dataclass
@@ -1244,6 +1277,12 @@ class Soup:
     def decay(self, factor=0.9) -> None:
         for p in self.painters:
             self.painters[p] *= factor
+
+    def punish(self, painter: Painter, factor=0.6) -> None:
+        if painter in self.painters:
+            self.painters[painter] *= factor
+            for author in self.authors[painter]:
+                self.punish(author, 1.0 - (1.0 - factor) * 0.8)
 
     def __contains__(self, p: Painter) -> bool:
         return p in self.painters
@@ -1859,8 +1898,6 @@ class MakeRelativeIndirectPainter(CallableFunc):
         if not content:
             raise Fizzle  # TODO more-specific Fizzle
         return Painter(
-            #bundle.value if bundle.value_only() else bundle,
-            #MatchContent(bundle.simplest()),
             MatchContent(content),
             SR.WorkingSoup,
             Painter(I, Plus(I, result_j - result_i), result_f)
@@ -2154,7 +2191,9 @@ class Model:
         with indent_log(2, 'ABSORB', repr(s)):
             self.set_canvas(s)
             for i in self.canvas.all_indices():
-                self.canvas[i] = Immutable
+                if not is_blank(self.canvas[i]):
+                    self.canvas[i] = Immutable
+                    #self.canvas.set_clarity(i, 3) # TODO should be 1
             # TODO Set a mode where painters get penalized for painting the
             # wrong things
             # Run a little while, let some painters develop
@@ -2204,6 +2243,8 @@ class Model:
         except Fizzle as exc:
             lo(3, 'FIZZLE', exc)
             self.suppress(dp.as_painter())
+            if dp.basis is not None:
+                self.ws.punish(dp.basis)
         self.suppress(dp.as_painter())
 
     def choose_detpainter(self, soup: Soup) -> DetPainter:

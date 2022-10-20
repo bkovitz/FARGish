@@ -7,7 +7,8 @@ import inspect
 #from Addrs import Index
 from Model import Canvas, Canvas1D, Index, \
     Anchor, Annotation, Annotations, AnnotationType, \
-    Blank, CellBundle, End, Inextreme, Letter, Start, empty_annotations
+    Blank, CellBundle, End, Inextreme, Letter, Start, empty_annotations, \
+    Immutable, FizzleImmutable
 from util import pts
 
 
@@ -138,3 +139,10 @@ class TestCanvas1D(unittest.TestCase):
         self.assertEqual(c[2], Blank())
         self.assertEqual(c.clarity(1), 5)
         self.assertEqual(c.clarity(2), 0)
+
+    def test_overwrite_immutable(self) -> None:
+        c = Canvas1D.make_from('a')
+        c[1] = Immutable
+        c[1] = Letter('a')
+        with self.assertRaises(FizzleImmutable):
+            c[1] = Letter('b')

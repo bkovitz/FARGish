@@ -70,8 +70,9 @@ def again(**kwargs):
 def run_bad(**kwargs) -> None:
     d = dict(
         auto_annotate=[Start, End],
+        asteps=100,
         rsteps=0,
-        lla=3
+        lla=4
     )
     run(**(d | kwargs))
 
