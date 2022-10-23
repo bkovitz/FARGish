@@ -1256,12 +1256,15 @@ class Soup:
 
     def add(self, *painters: Painter) -> None:
         for p in painters:
-            if p not in self.pids:
-                pid = self.nextpid
-                self.nextpid += 1
-                self.pids[p] = pid
-                self.pids[pid] = p
-            self.painters[p] += 1
+            self.add_(p)
+
+    def add_(self, p: Painter, clarity: Numeric=1) -> None:
+        if p not in self.pids:
+            pid = self.nextpid
+            self.nextpid += 1
+            self.pids[p] = pid
+            self.pids[pid] = p
+        self.painters[p] += clarity
 
     def add_author(self, painter: Painter, author: Painter) -> None:
         self.authors[painter].add(author)
@@ -1287,6 +1290,7 @@ class Soup:
             self.painters[p] *= factor
 
     def punish(self, painter: Painter, factor=0.6) -> None:
+        lo(4, 'PUNISH', factor, painter)
         if painter in self.painters:
             self.painters[painter] *= factor
             for author in self.authors[painter]:
@@ -2216,7 +2220,7 @@ class Model:
             for i in self.canvas.all_indices():
                 if not is_blank(self.canvas[i]):
                     self.canvas[i] = Immutable
-                    #self.canvas.set_clarity(i, 3) # TODO should be 1
+                    self.canvas.set_clarity(i, 1) # TODO should be 1
             # TODO Set a mode where painters get penalized for painting the
             # wrong things
             # Run a little while, let some painters develop
@@ -2226,7 +2230,7 @@ class Model:
             # Save the abstract painters to the lts
             for p in self.ws:
                 if self.is_absorbable(p):
-                    self.lts.add(p)
+                    self.lts.add_(p, self.painter_clarity(p))
 
     def is_absorbable(self, painter: Painter) -> bool:
         match painter:
@@ -2301,10 +2305,27 @@ class Model:
             self.painter_to_detpainters(p)  #, soup.clarity(p))
                 for p in soup
         ))
-        weights = self.adjusted_weights([
+#        weights = self.adjusted_weights([
+#            self.detpainter_to_probability_weight(dp)
+#                for dp in det_painters
+#        ])
+        weights = [
             self.detpainter_to_probability_weight(dp)
                 for dp in det_painters
-        ])
+        ]
+        with indent_log(4, 'PREADJUSTED DETPAINTERS'):
+            if det_painters:
+                for w, dp in sorted(
+                    zip(weights, det_painters), key=itemgetter(0)
+                ):
+                    #lo(4, nf(w), dp)
+                    lo(4, f'{w:0.8f}', dp)
+#                for k in range(len(det_painters)):
+#                    lo(4, nf(weights[k]), det_painters[k])
+            else:
+                lo(4, 'No det_painters.')
+
+        weights = rescale(self.adjusted_weights(weights))
         with indent_log(4, 'DETPAINTERS'):
             if det_painters:
                 for w, dp in sorted(
@@ -2366,13 +2387,14 @@ class Model:
             case Index() | int():
                 return self.canvas.clarity(a) / self.canvas.MAX_CLARITY
             case Painter():
-                return 0.5
+                #return 0.5
+                return self.painter_clarity(a)
             case Indices(elems):
                 return sum(
                     self.source_weight(elem)
                         for elem in elems
                             if isinstance(elem, Index) #HACK
-                )
+                ) / len(elems)
         assert False, "source_weight(): should not go past 'match' stmt"
 
     def target_weight(self, a: DetAddr) -> Numeric:
@@ -2380,10 +2402,19 @@ class Model:
             case Index() | int():
                 return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
             case SoupRef():
-                return 0.5
+                return 0.2  # 0.5
             case Painter():
-                return 0.5
+                #return 0.5
+                return self.painter_clarity(a)
         assert False, "target_weight(): should not go past 'match' stmt"
+
+    def painter_clarity(self, p: Painter) -> Numeric:
+        if p in self.ws:
+            return self.ws.clarity(p)
+        elif p in self.lts:
+            return self.lts.clarity(p)
+        else:
+            return 0
 
     def run_detpainter(
         self,

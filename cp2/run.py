@@ -78,6 +78,15 @@ def run_bad(**kwargs) -> None:
     )
     run(**(d | kwargs))
 
+def run_test(**kwargs) -> None:
+    d = dict(
+        auto_annotate=[Start, End],
+        asteps=100,
+        rsteps=60,
+        lla=1
+    )
+    run(**(d | kwargs))
+
 def h(*ids):
     '''Plot history of painters with given ids.'''
     global m
@@ -104,4 +113,5 @@ if __name__ == '__main__':
     #run_ajaqb('a    ', ['wxyaaaa'], 120)
     #run('abc   ')
     #run()
-    run_bad()
+    #run_bad()
+    run_test()
