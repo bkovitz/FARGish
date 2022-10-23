@@ -22,7 +22,7 @@ from Model import Annotations, CellBundle, Letter, Start, \
     Subst, empty_subst, Plus, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, same, \
     Soup, \
-    FizzleGotBlank
+    FizzleGotBlank, Succ
     
 from Log import lo, set_log_level
 from util import pts, reseed, short

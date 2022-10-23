@@ -1246,6 +1246,9 @@ class Soup:
     authors: Dict[Painter, Set[Painter]] = field(
         default_factory=lambda: defaultdict(set)
     )  # value is all who painted the key
+    pids: Dict[Painter|int, int|Painter] = field(default_factory=dict)
+    # dict of id numbers to painters and back
+    nextpid: int = 1
 
     @classmethod
     def make_from(cls, painters: Iterable[Painter]) -> Soup:
@@ -1253,6 +1256,11 @@ class Soup:
 
     def add(self, *painters: Painter) -> None:
         for p in painters:
+            if p not in self.pids:
+                pid = self.nextpid
+                self.nextpid += 1
+                self.pids[p] = pid
+                self.pids[pid] = p
             self.painters[p] += 1
 
     def add_author(self, painter: Painter, author: Painter) -> None:
@@ -1328,6 +1336,13 @@ class Soup:
             list(self.painters.keys()),
             list(self.painters.values())
         )[0]
+
+    def id_to_painter(self, i: int) -> Optional[Painter]:
+        result = self.pids.get(i, None)
+        if isinstance(result, Painter):
+            return result
+        else:
+            return None
 
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
@@ -1743,6 +1758,12 @@ class SimpleFuncClass(CallableFunc):
     -> Iterable[DetFunc]:
         yield self
 
+    def __eq__(self, other: Any) -> bool:
+        return self.__class__ == other.__class__
+
+    def __hash__(self):
+        return hash(self.__class__)
+
 ### The basic relational functions
 
 class Same(SimpleFuncClass):
@@ -2140,6 +2161,7 @@ class Model:
         # DetPainters run: a record of all the DetPainters that this model
         # has run, and in what timestep.
     canvas_history: Dict[int, Canvas1D] = field(default_factory=dict)
+    ws_history: Dict[int, Soup] = field(default_factory=dict)
     auto_annotate: Iterable[Annotation] = default_auto_annotations
     high_weight_favoritism: Numeric = 0.6 
         # For adjusting probability weights # to favor the highest weights.
@@ -2189,6 +2211,7 @@ class Model:
 
     def absorb(self, s: str, timesteps: int=20):
         with indent_log(2, 'ABSORB', repr(s)):
+            self.clear_history()
             self.set_canvas(s)
             for i in self.canvas.all_indices():
                 if not is_blank(self.canvas[i]):
@@ -2216,20 +2239,21 @@ class Model:
 
     def regen_from(self, s: str, nsteps: int=40) -> None:
         '''Regenerates canvas starting from 's'.'''
+        if nsteps <= 0:
+            return
         with indent_log(1, 'REGENERATE from', repr(s)):
             self.ws.clear()
             self.clear_suppressions()
             self.dps_run.clear()
-            self.canvas_history.clear()
+            self.clear_history()
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
             #lo(1, list(self.canvas.all_indices_and_values())) #DEBUG
             self.t = 0
-            self.canvas_history[self.t] = deepcopy(self.canvas)
+            self.save_into_history()
             for t in range(nsteps):
                 self.do_timestep()
-                self.canvas_history[self.t] = deepcopy(self.canvas)
                 lo(1, self.state_str())
 
     def do_timestep(self) -> None:
@@ -2246,6 +2270,31 @@ class Model:
             if dp.basis is not None:
                 self.ws.punish(dp.basis)
         self.suppress(dp.as_painter())
+        self.save_into_history()
+
+    def save_into_history(self) -> None:
+        '''Saves the current canvas and working soup into the history.'''
+        self.canvas_history[self.t] = deepcopy(self.canvas)
+        self.ws_history[self.t] = deepcopy(self.ws)
+
+    def clear_history(self) -> None:
+        self.canvas_history.clear()
+        self.ws_history.clear()
+
+    def history_of(self, pid: int) -> List[Tuple[int, Numeric]]:
+        '''Returns the history of the painter in the working soup with id
+        'pid'. Each item in the history is an ordered pair (t, cl) where t is
+        the timestep and cl is the painter's clarity at the end of that
+        timestep.'''
+        painter = self.ws.id_to_painter(pid)
+        lo('HOP', painter)
+        if painter is not None:
+            result: List[Tuple[int, Numeric]] = []
+            for t, hws in self.ws_history.items():
+                result.append((t, hws.clarity(painter)))
+            return result
+        else:
+            raise ValueError(f'no painter has id {pid}')
 
     def choose_detpainter(self, soup: Soup) -> DetPainter:
         det_painters = list(chain.from_iterable(

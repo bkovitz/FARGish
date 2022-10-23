@@ -1,3 +1,7 @@
+# Modules to install:
+# matplotlib
+# pyrsistent
+
 ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
 PY = python3.10
 BROWSER = open

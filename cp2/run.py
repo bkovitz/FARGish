@@ -4,6 +4,8 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 import sys
 
+import matplotlib.pyplot as plt
+
 from Model import *
 from Log import lo, trace, indent_log, set_log_level
 from util import newline, nf, reseed, pts, short
@@ -75,6 +77,18 @@ def run_bad(**kwargs) -> None:
         lla=4
     )
     run(**(d | kwargs))
+
+def h(*ids):
+    '''Plot history of painters with given ids.'''
+    global m
+    for i in ids:
+        #plt.plot(range(1, m.t + 1), m.history_of(i))
+        #plt.plot(*zip(m.history_of(i)))
+        hs = list(zip(*m.history_of(i)))
+        pts(hs)
+        print(len(hs))
+        plt.plot(*hs)
+    plt.show()
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
