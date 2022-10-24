@@ -99,19 +99,76 @@ def h(*ids):
         plt.plot(*hs)
     plt.show()
 
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        #seed = 1  # never fills in cell 4
-        #seed = 3  # Fizzle
-        seed = None
+def as_lts(s: str) -> List[str]:
+    if ',' not in s:
+        return [s]
     else:
-        seed = int(sys.argv[1])
-    seed = reseed(seed)
-    lo(0, f'seed={seed}{newline}')
+        return s.split(',')
 
-    #run_ajaqb()
-    #run_ajaqb('a    ', ['wxyaaaa'], 120)
-    #run('abc   ')
-    #run()
-    #run_bad()
-    run_test()
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-r",
+        "--rngseed",
+        help="random-number seed",
+        type=int
+    )
+    parser.add_argument("--lts", help="the long-term soup", default='ajaqb')
+    parser.add_argument(
+        "seed",
+        help="the seed string",
+        default='a    ',
+        nargs='?'
+    )
+    parser.add_argument(
+        "--asteps",
+        help="number of timesteps to absorb each LTS string",
+        type=int,
+        default=40
+    )
+    parser.add_argument(
+        "--rsteps",
+        help="number of timesteps to regenerate",
+        type=int,
+        default=60
+    )
+    parser.add_argument(
+        "--lla",
+        help="logging level during absorption",
+        type=int,
+        default=0
+    )
+    parser.add_argument(
+        "--llr",
+        help="logging level during regeneration",
+        type=int,
+        default=2
+    )
+    args = parser.parse_args()
+
+    rngseed = reseed(args.rngseed)
+    lo(0, f'rngseed={rngseed}{newline}')
+    run(
+        seed=args.seed, 
+        lts=as_lts(args.lts),
+        asteps=args.asteps,
+        rsteps=args.rsteps,
+        lla=args.lla,
+        llr=args.llr
+    )
+#    if len(sys.argv) < 2:
+#        #seed = 1  # never fills in cell 4
+#        #seed = 3  # Fizzle
+#        seed = None
+#    else:
+#        seed = int(sys.argv[1])
+#    seed = reseed(seed)
+#    lo(0, f'seed={seed}{newline}')
+#
+#    #run_ajaqb()
+#    #run_ajaqb('a    ', ['wxyaaaa'], 120)
+#    #run('abc   ')
+#    #run()
+#    #run_bad()
+#    run_test()
