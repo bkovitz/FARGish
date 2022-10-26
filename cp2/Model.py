@@ -2040,7 +2040,8 @@ class Painter(Addr, CallableFunc):
                 self  # basis, "author"
             )
             lo(5, dp)
-            yield dp
+            if dp.is_valid_for(model.canvas):
+                yield dp
 
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
@@ -2103,13 +2104,20 @@ class DetPainter:
             None
         )
 
+    # TODO UT
     def is_valid_for(self, canvas: Canvas) -> bool:
-        match (self.source, self.target):
-            case (int(), int()):
+        match (self.source, self.target, self.func):
+            case (Index(), Index(), _):
                 return (
                     canvas.has_addr(self.source)
                     and
                     canvas.has_addr(self.target)
+                )
+            case (_, _, Painter(Index() as i, Index() as j, _)):
+                return (
+                    canvas.has_addr(i)
+                    and
+                    canvas.has_addr(j)
                 )
             case _:
                 return True
@@ -2143,9 +2151,21 @@ Value = Union[CellContent, Painter, Func, None]
 
 default_primitive_funcs: FrozenSet[DetFunc] = frozenset([same, succ, pred])
 default_initial_painters: List[Painter] = [
-    Painter(RelatedPair(I, J, F), SR.WorkingSoup, Painter(I, J, F)),
-    Painter(Painter(I, J, SimpleFunc(F)), SR.WorkingSoup, MakeRelativeIndirectPainter(I, J, F)),
-    Painter(Painter(I, Plus(I, 2), F), SR.WorkingSoup, MakeBetweenPainter(I, J, F))
+    Painter(
+        RelatedPair(I, J, F),
+        SR.WorkingSoup,
+        Painter(I, J, F)
+    ),
+    Painter(
+        Painter(I, J, SimpleFunc(F)),
+        SR.WorkingSoup,
+        MakeRelativeIndirectPainter(I, J, F)
+    ),
+    Painter(
+        Painter(I, Plus(I, 2), F),
+        SR.WorkingSoup,
+        MakeBetweenPainter(I, J, F)
+    )
 ]
 
 @dataclass
