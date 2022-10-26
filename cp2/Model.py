@@ -2463,6 +2463,15 @@ class Model:
                 case _:
                     raise NotImplementedError(f"run_detpainter: can't paint to target; dp={dp}")
 
+    def run_painter(self, p: Painter) -> None:
+        '''Runs 'p', by passing it to self.choose_detpainter() and running
+        one of the resulting DetPainters, if any. Only for experimentation
+        and debugging. Normally, program code should put painters in the
+        working soup or long-term soup and allow do_timestep() to choose
+        a DetPainter from among all that are generated.'''
+        detp = self.choose_detpainter(Soup.make_from([p]))
+        self.run_detpainter(detp)
+
     def ldp(self) -> Optional[DetPainter]:
         '''The last DetPainter run (if any).'''
         return self.dps_run.get(self.t, None)

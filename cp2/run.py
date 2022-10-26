@@ -161,13 +161,13 @@ def set_rngseed(rngseed: Optional[int]=None) -> None:
     lo(0, f'rngseed={rngseed}{newline}')
 
 if __name__ == '__main__':
-    #parse_and_run()
-    set_rngseed(1)
+    parse_and_run()
+    #set_rngseed(1)
     #run_ajaqb()
     #run_ajaqb('a    ', ['wxyaaaa'], 120)
     #run('abc   ')
     #run()
     #run_bad()
     #run_test()
-    run_pons()
+    #run_pons()
     #run(lts=['abc'], asteps=100, lla=6, rsteps=0)

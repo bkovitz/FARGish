@@ -37,7 +37,7 @@ mypy:
 
 # For type-checking just one file (specified here).
 CURRENT = run.py
-CURRENT_ARGS = 3572413201058895229  #1118343772539054194
+CURRENT_ARGS = --rngseed=3572413201058895229  #1118343772539054194
 
 R = $(CURRENT) $(CURRENT_ARGS)
 r:   

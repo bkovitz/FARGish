@@ -156,3 +156,8 @@ class TestPainters(unittest.TestCase):
                 Painter(I, Plus(I, 2), same)
             )
         )
+
+    def test_digraph_painter(self) -> None:
+        m = Model.canvas_from(' a  ')
+        m.run_painter(Painter.make_from('a', Plus(I, 1), 'j'))
+        self.assertEqual(m.canvas.short_str(), ' aj ')
