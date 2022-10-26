@@ -17,7 +17,7 @@ from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
     F, I, Index, Indices, J, MatchContent, \
     Painter, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc, \
-    Soup, SR
+    Soup, SR, TwoAdjacentLetters
 
 from Log import lo, set_log_level
 from testCanvas import MyAnnotation
@@ -167,6 +167,22 @@ class TestAddrs(unittest.TestCase):
                 DetAddrWithSubst(
                     Subst.make_from((I, 1), (J, 3), (F, same)),
                     Painter.make_from(1, 3, same)
+                )
+            ]
+        )
+
+    def test_two_adjacent_letters(self) -> None:
+        m = Model.canvas_from(' aja b')
+        self.assertCountEqual(
+            m.addr_to_detaddrs(empty_subst, I, TwoAdjacentLetters()),
+            [
+                DetAddrWithSubst(
+                    Subst.make_from((I, 2)),
+                    Index(2),
+                ),
+                DetAddrWithSubst(
+                    Subst.make_from((I, 3)),
+                    Index(3)
                 )
             ]
         )

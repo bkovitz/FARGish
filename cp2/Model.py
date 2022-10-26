@@ -774,6 +774,20 @@ class MatchContent(Addr):
         cl = self.__class__.__name__
         return f'{cl}({short(self.content)})'
 
+class TwoAdjacentLetters(Addr):
+
+    def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetAddrWithSubst]:
+        yield from (
+            DetAddrWithSubst(subst.unify(var, index), index)
+                for index in model.canvas.all_indices()
+                    if (
+                        model.canvas.has_letter(index)
+                        and
+                        model.canvas.has_letter(index + 1)
+                    )
+        )
+
 ########## The Canvas ##########
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
