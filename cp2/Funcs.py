@@ -209,6 +209,8 @@ class MakeBetweenPainter(CallableFunc):
 
 @dataclass(frozen=True)
 class MakeRelativeIndirectPainter(CallableFunc):
+    '''Makes a painter to match the contents of cell 'i' and recreate both
+    its spatial and value relations to cell 'j'.'''
     i: Addr
     j: Addr
     f: Func

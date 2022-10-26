@@ -2207,13 +2207,18 @@ class Model:
         #TODO Look up a painter by addr?
         if isinstance(addr, Index):
             return self.canvas[addr]
+        elif isinstance(addr, Painter):
+            if addr in self.ws:
+                return addr
+            else:
+                return None
         else:
             return None
 
     def paint(self, a: Index, x: CellContent) -> None:
         self.canvas[a] = x
 
-    def absorb(self, s: str, timesteps: int=20):
+    def absorb(self, s: str, timesteps: int=30):
         with indent_log(2, 'ABSORB', repr(s)):
             self.clear_history()
             self.set_canvas(s)

@@ -3,6 +3,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 import sys
+import argparse
 
 import matplotlib.pyplot as plt
 
@@ -13,25 +14,6 @@ from util import newline, nf, reseed, pts, short
 
 m: Model
 last_args: Dict[str, Any] = {}
-
-#def run_ajaqb(
-#    seed: str='a    ',
-#    lts: List[str]=['ajaqb'],
-#    asteps: int=40,
-#    rsteps: int=60
-#) -> None:
-#    global m
-#    m = Model.canvas_from('ajaqb')
-#    #print(m.lts)
-#    set_log_level(6)
-#    m.absorb('ajaqb', timesteps=asteps)
-#    return
-#    lo('LTS', m.lts.state_str())
-#    set_log_level(2)
-#    m.regen_from(seed, nsteps=rsteps)
-#    print(m.canvas)
-#    print()
-#    print(m.ws.state_str_with_authors())
 
 def run(
     seed: str='a    ',
@@ -55,8 +37,9 @@ def run(
     if fresh:
         set_log_level(lla)
         m = Model(auto_annotate=auto_annotate)
-        for s in lts:
-            m.absorb(s, timesteps=asteps)
+        if asteps:
+            for s in lts:
+                m.absorb(s, timesteps=asteps)
     set_log_level(llr)
     lo(1, 'LTS', '\n' + m.lts.state_str())
     if rsteps:
@@ -83,7 +66,21 @@ def run_test(**kwargs) -> None:
         auto_annotate=[Start, End],
         asteps=100,
         rsteps=60,
-        lla=1
+        lla=6,
+        llr=6,
+        seed='m    '
+    )
+    run(**(d | kwargs))
+
+def run_pons(**kwargs) -> None:
+    '''Runs the pons asinorum.'''
+    d = dict(
+        lts=[],
+        asteps=0,
+        seed='abcabdijk   ',
+        rsteps=500,
+        llr=4,
+        auto_annotate=[]
     )
     run(**(d | kwargs))
 
@@ -100,13 +97,14 @@ def h(*ids):
     plt.show()
 
 def as_lts(s: str) -> List[str]:
-    if ',' not in s:
+    if not s:
+        return []
+    elif ',' not in s:
         return [s]
     else:
         return s.split(',')
 
-if __name__ == '__main__':
-    import argparse
+def parse_and_run() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-r",
@@ -147,8 +145,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    rngseed = reseed(args.rngseed)
-    lo(0, f'rngseed={rngseed}{newline}')
+    set_rngseed(args.rngseed)
     run(
         seed=args.seed, 
         lts=as_lts(args.lts),
@@ -157,18 +154,18 @@ if __name__ == '__main__':
         lla=args.lla,
         llr=args.llr
     )
-#    if len(sys.argv) < 2:
-#        #seed = 1  # never fills in cell 4
-#        #seed = 3  # Fizzle
-#        seed = None
-#    else:
-#        seed = int(sys.argv[1])
-#    seed = reseed(seed)
-#    lo(0, f'seed={seed}{newline}')
-#
-#    #run_ajaqb()
-#    #run_ajaqb('a    ', ['wxyaaaa'], 120)
-#    #run('abc   ')
-#    #run()
-#    #run_bad()
-#    run_test()
+
+def set_rngseed(rngseed: Optional[int]=None) -> None:
+    rngseed = reseed(rngseed)
+    lo(0, f'rngseed={rngseed}{newline}')
+
+if __name__ == '__main__':
+    parse_and_run()
+    #set_rngseed(1)
+    #run_ajaqb()
+    #run_ajaqb('a    ', ['wxyaaaa'], 120)
+    #run('abc   ')
+    #run()
+    #run_bad()
+    #run_test()
+    #run_pons()
