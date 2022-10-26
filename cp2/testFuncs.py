@@ -32,5 +32,3 @@ class TestFuncs(unittest.TestCase):
         self.assertEqual(const1a, const1b)
         const2 = const(2)
         self.assertNotEqual(const1a, const2)
-
-

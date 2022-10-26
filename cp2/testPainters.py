@@ -22,7 +22,7 @@ from Model import Annotations, CellBundle, Letter, Start, \
     Subst, empty_subst, Plus, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, same, \
     Soup, \
-    FizzleGotBlank, Succ
+    FizzleGotBlank, Succ, TwoAdjacentLetters, MakeDigraphPainter
     
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -161,3 +161,14 @@ class TestPainters(unittest.TestCase):
         m = Model.canvas_from(' a  ')
         m.run_painter(Painter.make_from('a', Plus(I, 1), 'j'))
         self.assertEqual(m.canvas.short_str(), ' aj ')
+
+    def test_make_digraph_painter(self) -> None:
+        m = Model.make_from(' aj b')
+        m.run_painter(
+            Painter(TwoAdjacentLetters(), SR.WorkingSoup, MakeDigraphPainter())
+        )
+        self.assertIn(
+            Painter(MatchContent(Letter('a')), Plus(I, 1), Letter('j')),
+            m.ws
+        )
+

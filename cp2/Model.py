@@ -1200,6 +1200,14 @@ class FizzleGotBlank(Fizzle):
         return f'{short(self.o)}: {short(self.e)} evaluated to Blank'
 
 @dataclass(frozen=True)
+class FizzleNotLetter(Fizzle):
+    e: Any   # Whatever was supposed to be a letter
+    a: Optional[Addr]  # Wherever it was found
+
+    def __str__(self) -> str:
+        return f'{short(self.a)}: {self.e!r} is not a Letter'
+
+@dataclass(frozen=True)
 class FizzleGotNone(Fizzle):
     o: Any   # Whatever painter or func or whatever fizzled
     e: Any   # Whatever evaluated to None and shouldn't have
@@ -1980,6 +1988,30 @@ class MakeRelativeIndirectPainter(CallableFunc):
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
 
     __str__ = short
+
+class MakeDigraphPainter(CallableFunc):
+    '''Makes a painter of the form ('a', I+1, 'j') where 'a' and 'j' are
+    taken from I and I+1.'''
+
+    def apply(self, model: Model, subst: Subst, ignored: Value) \
+    -> Painter:
+        index1 = subst.as_index(I)
+        if index1 is None:
+            raise FizzleNotIndex(subst[I])
+        value1 = model.contents_at(index1)
+        if not isinstance(value1, Letter):
+            raise FizzleNotLetter(value1, index1)
+
+        index2 = index1 + 1
+        value2 = model.contents_at(index2)
+        if not isinstance(value2, Letter):
+            raise FizzleNotLetter(value2, index2)
+
+        return Painter(MatchContent(value1), Plus(I, 1), value2)
+    
+    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        yield self
 
 ########## Painters ##########
 
