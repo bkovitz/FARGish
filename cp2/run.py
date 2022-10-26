@@ -37,6 +37,7 @@ def run(
     if fresh:
         set_log_level(lla)
         m = Model(auto_annotate=auto_annotate)
+        lo('INITS', '\n' + m.lts.state_str())
         if asteps:
             for s in lts:
                 m.absorb(s, timesteps=asteps)
@@ -145,6 +146,7 @@ def parse_and_run() -> None:
         default=2
     )
     args = parser.parse_args()
+    lo('ARGS', args)
 
     set_rngseed(args.rngseed)
     run(

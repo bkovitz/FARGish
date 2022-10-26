@@ -126,6 +126,27 @@ class TestModel(unittest.TestCase):
                     MatchContent(CellBundle.make_from('a', Start)),
                     SR.WorkingSoup,
                     Painter(I, Plus(I, 4), succ)
+                ),
+                # digraph painters
+                Painter(
+                    MatchContent(Letter('a')),
+                    Plus(I, 1),
+                    Letter('q')
+                ),
+                Painter(
+                    MatchContent(Letter('a')),
+                    Plus(I, 1),
+                    Letter('j')
+                ),
+                Painter(
+                    MatchContent(Letter('j')),
+                    Plus(I, 1),
+                    Letter('a')
+                ),
+                Painter(
+                    MatchContent(Letter('q')),
+                    Plus(I, 1),
+                    Letter('b')
                 )
             ]
         )

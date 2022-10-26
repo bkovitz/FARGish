@@ -788,6 +788,9 @@ class TwoAdjacentLetters(Addr):
                     )
         )
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
 ########## The Canvas ##########
 
 @dataclass(kw_only=True)  # type: ignore[call-overload, misc]
@@ -2013,6 +2016,9 @@ class MakeDigraphPainter(CallableFunc):
     -> Iterable[DetFunc]:
         yield self
 
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
 ########## Painters ##########
 
 @dataclass(frozen=True)
@@ -2211,6 +2217,11 @@ default_initial_painters: List[Painter] = [
         Painter(I, Plus(I, 2), F),
         SR.WorkingSoup,
         MakeBetweenPainter(I, J, F)
+    ),
+    Painter(
+        TwoAdjacentLetters(),
+        SR.WorkingSoup,
+        MakeDigraphPainter()
     )
 ]
 
@@ -2284,7 +2295,7 @@ class Model:
     def paint(self, a: Index, x: CellContent) -> None:
         self.canvas[a] = x
 
-    def absorb(self, s: str, timesteps: int=30):
+    def absorb(self, s: str, timesteps: int=50):
         with indent_log(2, 'ABSORB', repr(s)):
             self.clear_history()
             self.set_canvas(s)
