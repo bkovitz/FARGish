@@ -14,6 +14,7 @@ from util import newline, nf, reseed, pts, short
 
 m: Model
 last_args: Dict[str, Any] = {}
+rngseed: int
 
 def run(
     seed: str='a    ',
@@ -37,12 +38,12 @@ def run(
     if fresh:
         set_log_level(lla)
         m = Model(auto_annotate=auto_annotate)
-        lo('INITS', '\n' + m.lts.state_str())
+        lo(1, 'INITS', '\n' + m.lts.state_str())
         if asteps:
             for s in lts:
                 m.absorb(s, timesteps=asteps)
     set_log_level(llr)
-    lo(1, 'LTS', '\n' + m.lts.state_str())
+    lo(1, 'LTS\n' + m.lts.state_str())
     if rsteps:
         m.regen_from(seed, nsteps=rsteps)
     print(m.canvas)
@@ -107,6 +108,7 @@ def as_lts(s: str) -> List[str]:
         return s.split(',')
 
 def parse_and_run() -> None:
+    global rngseed
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "-r",
@@ -157,9 +159,11 @@ def parse_and_run() -> None:
         lla=args.lla,
         llr=args.llr
     )
+    lo(0, f'rngseed={rngseed}{newline}')
 
-def set_rngseed(rngseed: Optional[int]=None) -> None:
-    rngseed = reseed(rngseed)
+def set_rngseed(r: Optional[int]=None) -> None:
+    global rngseed
+    rngseed = reseed(r)
     lo(0, f'rngseed={rngseed}{newline}')
 
 if __name__ == '__main__':

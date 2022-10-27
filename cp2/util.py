@@ -805,6 +805,12 @@ def short(o, inside: bool=False) -> str:
         except AttributeError:
             return str(o)
 
+def veryshort(o, inside: bool=False) -> str:
+    if hasattr(o, 'veryshort'):
+        return o.veryshort()
+    else:
+        return short(o, inside)
+
 def csep(xs) -> str:
     '''Comma-separated string for whatever you pass it.'''
     return ', '.join(str(x) for x in as_iter(xs))

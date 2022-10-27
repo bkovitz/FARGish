@@ -35,7 +35,7 @@ from pyrsistent.typing import PMap
 #from Painters import Painter, DetPainter0, DetPainter, DetFunc
 from Log import lo, trace, indent_log, set_log_level
 from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
-    filter_none
+    filter_none, veryshort
 
 class CallableFunc(ABC):
 
@@ -1296,6 +1296,7 @@ class Soup:
 
     # TODO UT author
     def paint(self, painter: Painter, author: Optional[Painter]=None) -> None:
+        #lo('SPAINT', painter, f'author={short(author)}')
         self.add(painter)
         if author is not None:
             self.add_author(painter, author)
@@ -2174,22 +2175,24 @@ class DetPainter:
             case _:
                 return True
 
-    # TODO rename to as_triple()
-    def as_painter(self) -> DetPainter0:
+    def as_triple(self) -> DetPainter0:
         return (self.source, self.target, self.func)
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.as_painter()):80s}; {short(self.subst):30s}; pw={nf(self.prob_weight)})'
+        return f'{cl}({short(self.as_triple()):80s}; {short(self.subst):30s}; pw={nf(self.prob_weight)})'
+
+    def veryshort(self) -> str:
+        return short(self.as_triple())
 
     def __str__(self) -> str:
 #        sio = StringIO()
-#        print(short(self.as_painter()), file=sio)
+#        print(short(self.as_triple()), file=sio)
 #        print(short(self.subst), file=sio)
 #        print(nf(self.prob_weight), file=sio)
 #        print(f'basis={short(self.basis)}', file=sio)
 #        return sio.getvalue()
-        pstr = short(self.as_painter())
+        pstr = short(self.as_triple())
         sstr = short(self.subst)
         bstr = f'basis={short(self.basis)}'
         return f'{pstr}; {sstr}; pw={nf(self.prob_weight)}; {bstr}'
@@ -2310,6 +2313,10 @@ class Model:
                 self.do_timestep()
                 lo(2, self.state_str())
             # Save the abstract painters to the lts
+            with indent_log(2, 'WS AFTER ABSORPTION'):
+                lo(2, self.ws.state_str_with_authors())
+                lo(2)
+                lo(2, self.lts.state_str_with_authors())
             for p in self.ws:
                 if self.is_absorbable(p):
                     self.lts.add_(p, self.painter_clarity(p))
@@ -2352,10 +2359,9 @@ class Model:
             self.run_detpainter(dp)
         except Fizzle as exc:
             lo(3, 'FIZZLE', exc)
-            self.suppress(dp.as_painter())
             if dp.basis is not None:
                 self.ws.punish(dp.basis)
-        self.suppress(dp.as_painter())
+        self.suppress(dp.as_triple())
         self.save_into_history()
 
     def save_into_history(self) -> None:
@@ -2392,7 +2398,7 @@ class Model:
 #                for dp in det_painters
 #        ])
         weights = [
-            self.detpainter_to_probability_weight(dp)
+            self.detpainter_to_probability_weight(dp, soup)
                 for dp in det_painters
         ]
         with indent_log(4, 'PREADJUSTED DETPAINTERS'):
@@ -2428,7 +2434,7 @@ class Model:
         else:
             raise FizzleNoDetPainters
 
-    def detpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
+    def OLDdetpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
         return (
             self.source_weight(dp.source)
             *
@@ -2436,6 +2442,17 @@ class Model:
             *
             dp.prob_weight
         )
+
+    def detpainter_to_probability_weight(self, dp: DetPainter, soup: Soup) \
+    -> Numeric:
+        with indent_log(5, 'DETPAINTER to PROBABILITY WEIGHT', veryshort(dp)):
+            sw = self.source_weight(dp.source)
+            tw = self.target_weight(dp.target)
+            suppression = self.suppression(dp.as_triple())
+            pclarity = soup.clarity(dp.basis) if dp.basis else 1
+            result = sw * tw * suppression * pclarity
+            lo(5, f'sw={nf(sw)} tw={nf(tw)} suppression={nf(suppression)} pclarity={nf(pclarity)}  result={nf(result)}    basis={veryshort(dp.basis)}')
+            return result
 
     def adjusted_weights(self, weights: List[Numeric]) -> List[Numeric]:
         return [
@@ -2451,6 +2468,10 @@ class Model:
         lo(7, 'SUPPRESS', dp0, self.suppressions[dp0])
 
     def suppression(self, dp0: DetPainter0) -> float:
+        ''''suppression' is somewhat confusingly named. It's the number to
+        multiply a painter's clarity by, to reflect how much the painter
+        is suppressed. The more the painter is suppressed, the *lower* the
+        value of 'suppression'.'''
         return self.suppressions.get(dp0, 1.0)
 
     def decay_suppressions(self) -> None:
@@ -2544,7 +2565,8 @@ class Model:
             print(f't={t:4}  {self.canvas_history[t].state_str()}')
 
     def painter_to_detpainters(self, p: Painter) -> Iterable[DetPainter]:
-        yield from p.to_detpainters(self)
+        with indent_log(5, 'PAINTER to DETPAINTERS', p):
+            yield from p.to_detpainters(self)
 #        with indent_log(5, 'PAINTER to DETPAINTERS', p):
 #            source, target, func = p
 #

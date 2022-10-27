@@ -50,7 +50,7 @@ class TestPainters(unittest.TestCase):
         model = Model.canvas_from('a    ')
 
         dp = self.painter_to_one_detpainter(model, p)
-        self.assertEqual(dp.as_painter(), (Index(1), Index(3), succ))
+        self.assertEqual(dp.as_triple(), (Index(1), Index(3), succ))
         model.run_detpainter(dp)
         self.assertEqual(model.canvas.short_str(), 'a b  ')
 

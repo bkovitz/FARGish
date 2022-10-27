@@ -35,7 +35,7 @@ class TestModel(unittest.TestCase):
 #        for dp in model.painter_to_detpainters(p):
 #            lo(type(dp), dp)
         self.assertCountEqual(
-            [dp.as_painter() for dp in model.painter_to_detpainters(p)],
+            [dp.as_triple() for dp in model.painter_to_detpainters(p)],
             [
                 (Indices(1, 3), SR.WorkingSoup, Painter.make_from(1, 3, same)),
                 (Indices(3, 5), SR.WorkingSoup, Painter.make_from(3, 5, succ)),
