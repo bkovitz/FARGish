@@ -1311,7 +1311,7 @@ class Soup:
     def clarity(self, p: Painter) -> Numeric:
         return self.painters.get(p, 0.0)
 
-    def decay(self, factor=0.9) -> None:
+    def decay(self, factor=0.98) -> None:
         for p in self.painters:
             self.painters[p] *= factor
 
@@ -2500,10 +2500,13 @@ class Model:
                 ) / len(elems)
         assert False, "source_weight(): should not go past 'match' stmt"
 
+    target_weights = [10.0, 9.0, 7.0, 4.0, 2.0, 1.0, 0.5]
+
     def target_weight(self, a: DetAddr) -> Numeric:
         match a:
             case Index() | int():
-                return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
+                #return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
+                return self.target_weights[int(self.canvas.clarity(a))]
             case SoupRef():
                 return 0.2  # 0.5
             case Painter():
