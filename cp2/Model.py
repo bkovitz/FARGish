@@ -1020,7 +1020,6 @@ class Canvas1D(Canvas):
                 result.set_clarity(i, 0)
 #        if auto_annotate:
 #            result.auto_annotate()
-        lo('GLO', global_params.auto_annotations)
         if global_params.auto_annotations:
             for ann in auto_annotate:
                 for i in Index.from_to(   # Should be .all_indices(); move to Canvas
@@ -1335,10 +1334,18 @@ class Soup:
 #            for author in self.authors[painter]:
 #                self.punish(author, 1.0 - (1.0 - factor) * 0.8)
 
-    def punish(self, dp: DetPainter) -> None:
-        lo(4, 'PUNISH', dp.basis, dp.target)
-        if not isinstance(dp.target, SoupRef) and dp.basis is not None:
-            self.aversion_tags[dp.basis].add(dp.target)
+    def make_averse_to(self, p: Optional[Painter], target: Addr) -> None:
+        lo(4, 'PUNISH', p, target)
+        if p is None:
+            return
+        if isinstance(target, SoupRef):
+            return
+        self.aversion_tags[p].add(target)
+        for author in self.authors[p]:
+            self.make_averse_to(author, target)
+                
+#        if not isinstance(dp.target, SoupRef) and dp.basis is not None:
+#            self.aversion_tags[dp.basis].add(dp.target)
 
     def __contains__(self, p: Painter) -> bool:
         return p in self.painters
@@ -2106,8 +2113,8 @@ class Painter(Addr, CallableFunc):
                 ds.addr,
                 dt.addr,
                 df,
-                model.suppression((ds.addr, dt.addr, df)),
-                    # TODO figure painter clarity into prob_weight?
+#                model.suppression((ds.addr, dt.addr, df)),
+#                    # TODO figure painter clarity into prob_weight?
                 self  # basis, "author"
             )
             lo(5, dp)
@@ -2155,7 +2162,7 @@ class DetPainter:
     source: DetAddr
     target: DetAddr
     func: DetFunc
-    prob_weight: Numeric
+    #prob_weight: Numeric
     basis: Optional[Painter] = None  # what this DetPainter was made from
 
     @classmethod
@@ -2171,7 +2178,7 @@ class DetPainter:
             source,
             target,
             func,
-            1,
+            #1,
             None
         )
 
@@ -2196,9 +2203,22 @@ class DetPainter:
     def as_triple(self) -> DetPainter0:
         return (self.source, self.target, self.func)
 
+    def relevant_target(self) -> DetAddr:
+        #lo('RELT', self.func, type(self.func))
+        match self.target:
+            case SoupRef():
+                match self.func:
+                    case Painter(_, Index() as t, _):
+                        return t
+                    case _:
+                        return self.target
+            case _:
+                return self.target
+
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.as_triple()):80s}; {short(self.subst):30s}; pw={nf(self.prob_weight)})'
+        #return f'{cl}({short(self.as_triple()):80s}; {short(self.subst):30s}; pw={nf(self.prob_weight)})'
+        return f'{cl}({short(self.as_triple()):80s}; {short(self.subst):30s})'
 
     def veryshort(self) -> str:
         return short(self.as_triple())
@@ -2213,7 +2233,8 @@ class DetPainter:
         pstr = short(self.as_triple())
         sstr = short(self.subst)
         bstr = f'basis={short(self.basis)}'
-        return f'{pstr}; {sstr}; pw={nf(self.prob_weight)}; {bstr}'
+        #return f'{pstr}; {sstr}; pw={nf(self.prob_weight)}; {bstr}'
+        return f'{pstr}; {sstr}; {bstr}'
 
 # A determinate painter. Unlike DetPainter, a DetPainter0 includes only the
 # minimal painter info, not additional information like a Subst.
@@ -2258,7 +2279,7 @@ class Model:
 
     primitive_funcs: FrozenSet = default_primitive_funcs
     t: int = 0   # current timestep
-    suppressions: Dict[DetPainter0, float] = field(default_factory=dict)
+    activations: Dict[DetPainter0, float] = field(default_factory=dict)
     dps_run: Dict[int, DetPainter] = field(default_factory=dict)
         # DetPainters run: a record of all the DetPainters that this model
         # has run, and in what timestep.
@@ -2354,7 +2375,7 @@ class Model:
             return
         with indent_log(1, 'REGENERATE from', repr(s)):
             self.ws.clear()
-            self.clear_suppressions()
+            self.clear_activations()
             self.dps_run.clear()
             self.clear_history()
             with indent_log(3, 'LONG-TERM SOUP'):
@@ -2370,7 +2391,7 @@ class Model:
     def do_timestep(self) -> None:
         self.t += 1
         self.ws.decay()
-        self.decay_suppressions()
+        self.decay_activations()
         lo(1, f't={self.t}')
         dp = self.choose_detpainter(self.soups())
         try:
@@ -2378,8 +2399,7 @@ class Model:
         except Fizzle as exc:
             lo(3, 'FIZZLE', exc)
             if dp.basis is not None:
-                #self.ws.punish(dp.basis)
-                self.ws.punish(dp)
+                self.ws.make_averse_to(dp.basis, dp.target)
         self.suppress(dp.as_triple())
         self.save_into_history()
 
@@ -2416,30 +2436,30 @@ class Model:
 #            self.detpainter_to_probability_weight(dp)
 #                for dp in det_painters
 #        ])
-        weights = [
+        pre_weights = [
             self.detpainter_to_probability_weight(dp, soup)
                 for dp in det_painters
         ]
-        with indent_log(4, 'PREADJUSTED DETPAINTERS'):
-            if det_painters:
-                for w, dp in sorted(
-                    zip(weights, det_painters), key=itemgetter(0)
-                ):
-                    #lo(4, nf(w), dp)
-                    lo(4, f'{w:0.8f}', dp)
-#                for k in range(len(det_painters)):
-#                    lo(4, nf(weights[k]), det_painters[k])
-            else:
-                lo(4, 'No det_painters.')
+#        with indent_log(4, 'PREADJUSTED DETPAINTERS'):
+#            if det_painters:
+#                for w, dp in sorted(
+#                    zip(weights, det_painters), key=itemgetter(0)
+#                ):
+#                    #lo(4, nf(w), dp)
+#                    lo(4, f'{w:0.8f}', dp)
+##                for k in range(len(det_painters)):
+##                    lo(4, nf(weights[k]), det_painters[k])
+#            else:
+#                lo(4, 'No det_painters.')
 
-        weights = rescale(self.adjusted_weights(weights))
+        weights = rescale(self.adjusted_weights(pre_weights))
         with indent_log(4, 'DETPAINTERS'):
             if det_painters:
-                for w, dp in sorted(
-                    zip(weights, det_painters), key=itemgetter(0)
+                for w, pre, dp in sorted(
+                    zip(weights, pre_weights, det_painters), key=itemgetter(0)
                 ):
                     #lo(4, nf(w), dp)
-                    lo(4, f'{w:0.8f}', dp)
+                    lo(4, f'{w:0.8f} {pre:0.8f}', dp)
 #                for k in range(len(det_painters)):
 #                    lo(4, nf(weights[k]), det_painters[k])
             else:
@@ -2453,25 +2473,26 @@ class Model:
         else:
             raise FizzleNoDetPainters
 
-    def OLDdetpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
-        return (
-            self.source_weight(dp.source)
-            *
-            self.target_weight(dp.target)
-            *
-            dp.prob_weight
-        )
+#    def OLDdetpainter_to_probability_weight(self, dp: DetPainter) -> Numeric:
+#        return (
+#            self.source_weight(dp.source)
+#            *
+#            self.target_weight(dp.target)
+#            *
+#            dp.prob_weight
+#        )
 
     def detpainter_to_probability_weight(self, dp: DetPainter, soup: Soup) \
     -> Numeric:
         with indent_log(5, 'DETPAINTER to PROBABILITY WEIGHT', veryshort(dp)):
             sw = self.source_weight(dp.source)
-            tw = self.target_weight(dp.target)
-            suppression = self.suppression(dp.as_triple())
+            tw = self.target_weight(dp.relevant_target())
+            activation = self.activation(dp.as_triple())
             pclarity = soup.clarity(dp.basis) if dp.basis else 1
             aff = self.affinity(dp.basis, dp.target)
-            result = sw * tw * suppression * pclarity
-            lo(5, f'sw={nf(sw)} tw={nf(tw)} suppression={nf(suppression)} pclarity={nf(pclarity)} aff={nf(aff)}  result={nf(result)}    basis={veryshort(dp.basis)}')
+            #result = sw * tw * suppression * pclarity
+            result = sw * tw * activation * aff
+            lo(5, f'sw={nf(sw)} tw={nf(tw)} a={nf(activation)} pclarity={nf(pclarity)} aff={nf(aff)}  result={nf(result)}    basis={veryshort(dp.basis)}')
             return result
 
     def affinity(self, p: Optional[Painter], target: Addr) -> Numeric:
@@ -2487,29 +2508,25 @@ class Model:
         ]
 
     def suppress(self, dp0: DetPainter0) -> None:
-        if dp0 in self.suppressions:
-            self.suppressions[dp0] *= 0.5
+        if dp0 in self.activations:
+            self.activations[dp0] *= 0.5
         else:
-            self.suppressions[dp0] = 0.1
-        lo(7, 'SUPPRESS', dp0, self.suppressions[dp0])
+            self.activations[dp0] = 0.1
+        lo(7, 'SUPPRESS', dp0, self.activations[dp0])
 
-    def suppression(self, dp0: DetPainter0) -> float:
-        ''''suppression' is somewhat confusingly named. It's the number to
-        multiply a painter's clarity by, to reflect how much the painter
-        is suppressed. The more the painter is suppressed, the *lower* the
-        value of 'suppression'.'''
-        return self.suppressions.get(dp0, 1.0)
+    def activation(self, dp0: DetPainter0) -> float:
+        return self.activations.get(dp0, 1.0)
 
-    def decay_suppressions(self) -> None:
-        new_suppressions: Dict[DetPainter0, float] = {}
-        for dp0, sup in self.suppressions.items():
+    def decay_activations(self) -> None:
+        new_activations: Dict[DetPainter0, float] = {}
+        for dp0, sup in self.activations.items():
             new_sup = sup * 1.1
             if new_sup < 1.0:
-                new_suppressions[dp0] = new_sup
-        self.suppressions = new_suppressions
+                new_activations[dp0] = new_sup
+        self.activations = new_activations
 
-    def clear_suppressions(self) -> None:
-        self.suppressions.clear()
+    def clear_activations(self) -> None:
+        self.activations.clear()
 
     def source_weight(self, a: DetAddr) -> Numeric:
         match a:

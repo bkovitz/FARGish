@@ -121,7 +121,6 @@ class TestPainters(unittest.TestCase):
             Index(1),
             SR.WorkingSoup,
             Painter.make_from(1, 3, same),
-            1,
             p2
         )
         p3: Painter = Painter.make_from(1, 3, same)
@@ -172,3 +171,20 @@ class TestPainters(unittest.TestCase):
             m.ws
         )
 
+    def test_relevant_target1(self) -> None:
+        dp = DetPainter.make_from((1, 2, same))
+        self.assertEqual(dp.relevant_target(), Index(2))
+
+    def test_relevant_target2(self) -> None:
+        dp = DetPainter(
+            Subst.make_from((I, Index(1))),
+            Index(1),
+            SR.WorkingSoup,
+            Painter.make_from(1, 3, succ),
+            None
+        )
+        # The relevant target should be the target inside the function
+        # to be created, not WorkingSoup.
+        self.assertEqual(dp.relevant_target(), Index(3))
+
+        # TODO test easier DetPainters

@@ -37,7 +37,7 @@ mypy:
 
 # For type-checking just one file (specified here).
 CURRENT = run.py
-CURRENT_ARGS = --asteps=100 --lla=6 --rsteps=0 --au=0 --rngseed=3572413201058895229  #1118343772539054194
+CURRENT_ARGS = --asteps=100 --lla=6 --llr=6 --au=0 #--rngseed=3572413201058895229  #1118343772539054194
 
 R = $(CURRENT) $(CURRENT_ARGS)
 r:   
@@ -58,8 +58,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testCanvas.TestCanvas1D.test_specify_auto_annotations
-	#$(PY) -m unittest -v testAddrs.TestAddrs.test_match_relative_painter
+	$(PY) -m unittest -v testPainters.TestPainters.test_relevant_target
 	#$(PY) -m unittest -v testSubst
 
 # Acceptance tests

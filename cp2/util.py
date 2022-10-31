@@ -586,7 +586,8 @@ class NiceRepr:
 
 ### Utilities for scaling and clipping
 
-def rescale(xs, new_total=1.0):
+NUM = TypeVar('NUM', bound=Numeric)
+def rescale(xs: Sequence[NUM], new_total=1.0) -> Sequence[NUM]:
     '''Returns list of xs, rescaled to sum to new_total.'''
     if not xs:
         return xs
