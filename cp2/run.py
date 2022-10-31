@@ -43,7 +43,8 @@ def run(
             for s in lts:
                 m.absorb(s, timesteps=asteps)
     set_log_level(llr)
-    lo(1, 'LTS\n' + m.lts.state_str())
+    #lo(1, 'LTS\n' + m.lts.state_str())
+    lo(1, 'LTS\n' + m.lts.state_str_with_authors())
     if rsteps:
         m.regen_from(seed, nsteps=rsteps)
     print(m.canvas)

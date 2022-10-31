@@ -1399,16 +1399,35 @@ class Soup:
         else:
             return None
 
+    # TODO UT
     @classmethod
     def union(cls, *soups: Soup) -> Soup:
         # TODO What about clarities?
         #return Soup(union(*(soup.painters for soup in soups)))
         #return Soup(reduce(operator.add, (soup.painters for soup in soups), []))
-        d: Dict[Painter, Numeric] = defaultdict(int)
+#        d: Dict[Painter, Numeric] = defaultdict(int)
+#        for soup in soups:
+#            for painter, clarity in soup.painters.items():
+#                d[painter] += clarity
+#
+#        return Soup(d)
+        #lo('UNION-HERE')
+
+        result = Soup()
         for soup in soups:
-            for painter, clarity in soup.painters.items():
-                d[painter] += clarity
-        return Soup(d)
+            for p in soup:
+                result.copy_painter_from(soup, p)
+#                result.add_(p, clarity)
+#                lo('UNION', soup.aversion_tags.get(p, empty_set))
+#                for aversion in soup.aversion_tags.get(p, empty_set):
+#                    result.make_averse_to(p, aversion)
+        return result
+
+    def copy_painter_from(self, other: Soup, p: Painter) -> None:
+        # TODO Copy all of p's authors first?
+        self.add_(p, other.clarity(p))
+        for aversion in other.aversion_tags.get(p, empty_set):
+            self.make_averse_to(p, aversion)
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -1434,6 +1453,10 @@ class Soup:
             author_set = self.authors.get(p, None)
             if author_set:
                 print(f'  by: {short(author_set)}', file=sio)
+            aversions = self.aversion_tags.get(p, None)
+            if aversions:
+                avs = [short(a) for a in aversions]
+                print(f'  averse to: {sorted(avs)}', file=sio)
         return sio.getvalue()
 
     __repr__ = state_str
@@ -2234,7 +2257,7 @@ class DetPainter:
         sstr = short(self.subst)
         bstr = f'basis={short(self.basis)}'
         #return f'{pstr}; {sstr}; pw={nf(self.prob_weight)}; {bstr}'
-        return f'{pstr}; {sstr}; {bstr}'
+        return f'{pstr};   {sstr};   {bstr}'
 
 # A determinate painter. Unlike DetPainter, a DetPainter0 includes only the
 # minimal painter info, not additional information like a Subst.
@@ -2358,7 +2381,8 @@ class Model:
                 lo(2, self.lts.state_str_with_authors())
             for p in self.ws:
                 if self.is_absorbable(p):
-                    self.lts.add_(p, self.painter_clarity(p))
+                    #self.lts.add_(p, self.painter_clarity(p))
+                    self.lts.copy_painter_from(self.ws, p)
 
     def is_absorbable(self, painter: Painter) -> bool:
         match painter:
