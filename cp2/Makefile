@@ -37,7 +37,7 @@ mypy:
 
 # For type-checking just one file (specified here).
 CURRENT = run.py
-CURRENT_ARGS = --rngseed=3572413201058895229  #1118343772539054194
+CURRENT_ARGS = --asteps=100 --lla=6 --rsteps=0 --au=0 --rngseed=3572413201058895229  #1118343772539054194
 
 R = $(CURRENT) $(CURRENT_ARGS)
 r:   
@@ -45,6 +45,8 @@ r:
 m:
 	#$(MYPY) $(MYPY_FLAGS) --pdb --show-traceback $(CURRENT)
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES)
+mr: m r
+
 i: m  # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $R
 mi: i

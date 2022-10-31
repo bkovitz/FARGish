@@ -16,6 +16,7 @@ from random import choice, choices, random
 import sys
 from operator import itemgetter
 import operator
+from argparse import Namespace
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -36,6 +37,14 @@ from pyrsistent.typing import PMap
 from Log import lo, trace, indent_log, set_log_level
 from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
     filter_none, veryshort
+
+@dataclass
+class GlobalParams:
+    auto_annotations: int = 1
+    rng_seed: int = 0
+
+global_params = GlobalParams()
+
 
 class CallableFunc(ABC):
 
@@ -1011,17 +1020,19 @@ class Canvas1D(Canvas):
                 result.set_clarity(i, 0)
 #        if auto_annotate:
 #            result.auto_annotate()
-        for ann in auto_annotate:
-            for i in Index.from_to(   # Should be .all_indices(); move to Canvas
-                result.contents.min_index,
-                result.contents.max_index
-            ):
-                if ann.applies_here(result, i):
-                    result[i] = ann
-                    result.set_clarity(
-                        (i, ann.type),
-                        result.INITIAL_CLARITY
-                    )
+        lo('GLO', global_params.auto_annotations)
+        if global_params.auto_annotations:
+            for ann in auto_annotate:
+                for i in Index.from_to(   # Should be .all_indices(); move to Canvas
+                    result.contents.min_index,
+                    result.contents.max_index
+                ):
+                    if ann.applies_here(result, i):
+                        result[i] = ann
+                        result.set_clarity(
+                            (i, ann.type),
+                            result.INITIAL_CLARITY
+                        )
         return result
 
     def auto_annotate(self) -> None:
@@ -1029,20 +1040,20 @@ class Canvas1D(Canvas):
             self.contents.min_index,
             self.contents.max_index
         ):
-            ann: Annotation
-            match i:
-                case self.contents.min_index:
-                    ann = Start
-                case self.contents.max_index:
-                    ann = End
-                case _:
-                    ann = Inextreme
-                    pass
-            self[i] = ann
-            self.set_clarity(
-                (i, Anchor),
-                self.INITIAL_CLARITY
-            )
+                ann: Annotation
+                match i:
+                    case self.contents.min_index:
+                        ann = Start
+                    case self.contents.max_index:
+                        ann = End
+                    case _:
+                        ann = Inextreme
+                        pass
+                self[i] = ann
+                self.set_clarity(
+                    (i, Anchor),
+                    self.INITIAL_CLARITY
+                )
 
     def all_addrs(self) -> Iterable[Index]:  # TODO rename to all_indices
         return Index.from_to(
@@ -1274,6 +1285,8 @@ class Soup:
     pids: Dict[Painter|int, int|Painter] = field(default_factory=dict)
     # dict of id numbers to painters and back
     nextpid: int = 1
+    aversion_tags: Dict[Painter, Set[Addr]] = \
+        field(default_factory=lambda: defaultdict(set))
 
     @classmethod
     def make_from(cls, painters: Iterable[Painter]) -> Soup:
@@ -1315,12 +1328,17 @@ class Soup:
         for p in self.painters:
             self.painters[p] *= factor
 
-    def punish(self, painter: Painter, factor=0.6) -> None:
-        lo(4, 'PUNISH', factor, painter)
-        if painter in self.painters:
-            self.painters[painter] *= factor
-            for author in self.authors[painter]:
-                self.punish(author, 1.0 - (1.0 - factor) * 0.8)
+#    def OLDpunish(self, painter: Painter, factor=0.6) -> None:
+#        lo(4, 'PUNISH', factor, painter)
+#        if painter in self.painters:
+#            self.painters[painter] *= factor
+#            for author in self.authors[painter]:
+#                self.punish(author, 1.0 - (1.0 - factor) * 0.8)
+
+    def punish(self, dp: DetPainter) -> None:
+        lo(4, 'PUNISH', dp.basis, dp.target)
+        if not isinstance(dp.target, SoupRef) and dp.basis is not None:
+            self.aversion_tags[dp.basis].add(dp.target)
 
     def __contains__(self, p: Painter) -> bool:
         return p in self.painters
@@ -2360,7 +2378,8 @@ class Model:
         except Fizzle as exc:
             lo(3, 'FIZZLE', exc)
             if dp.basis is not None:
-                self.ws.punish(dp.basis)
+                #self.ws.punish(dp.basis)
+                self.ws.punish(dp)
         self.suppress(dp.as_triple())
         self.save_into_history()
 
@@ -2450,9 +2469,16 @@ class Model:
             tw = self.target_weight(dp.target)
             suppression = self.suppression(dp.as_triple())
             pclarity = soup.clarity(dp.basis) if dp.basis else 1
+            aff = self.affinity(dp.basis, dp.target)
             result = sw * tw * suppression * pclarity
-            lo(5, f'sw={nf(sw)} tw={nf(tw)} suppression={nf(suppression)} pclarity={nf(pclarity)}  result={nf(result)}    basis={veryshort(dp.basis)}')
+            lo(5, f'sw={nf(sw)} tw={nf(tw)} suppression={nf(suppression)} pclarity={nf(pclarity)} aff={nf(aff)}  result={nf(result)}    basis={veryshort(dp.basis)}')
             return result
+
+    def affinity(self, p: Optional[Painter], target: Addr) -> Numeric:
+        if p in self.ws.aversion_tags and target in self.ws.aversion_tags[p]:
+            return 0.1
+        else:
+            return 1.0
 
     def adjusted_weights(self, weights: List[Numeric]) -> List[Numeric]:
         return [

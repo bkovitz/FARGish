@@ -147,10 +147,17 @@ def parse_and_run() -> None:
         type=int,
         default=2
     )
+    parser.add_argument(
+        "--au",
+        help="which set of cell attributes to auto-annotate",
+        type=int,
+        choices=[0, 1],
+        default=global_params.auto_annotations
+    )
     args = parser.parse_args()
-    lo('ARGS', args)
 
     set_rngseed(args.rngseed)
+    global_params.auto_annotations = args.au
     run(
         seed=args.seed, 
         lts=as_lts(args.lts),
@@ -176,4 +183,4 @@ if __name__ == '__main__':
     #run_bad()
     #run_test()
     #run_pons()
-    #run(lts=['abc'], asteps=100, lla=6, rsteps=0)
+    #run(lts=['ajaqb'], asteps=100, lla=6, rsteps=0)
