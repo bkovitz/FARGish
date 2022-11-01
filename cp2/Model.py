@@ -1182,6 +1182,12 @@ class Canvas1D(Canvas):
                 for x in self.contents.all_values()
         )
 
+    def long(self) -> str:
+        sio = StringIO()
+        for i, v in self.all_indices_and_values():  # TODO Rewrite
+            print(f'{i} {repr(self.as_bundle(i))}', file=sio)
+        return sio.getvalue()
+        
     def state_str(self) -> str:
         return f"{self.short()}  {' '.join(str(c) for c in self.contents.all_clarities())}"
 
@@ -2385,6 +2391,7 @@ class Model:
                     self.lts.copy_painter_from(self.ws, p)
 
     def is_absorbable(self, painter: Painter) -> bool:
+        return True
         match painter:
             case Painter(_, SoupRef(), _):
                 return True
@@ -2405,7 +2412,7 @@ class Model:
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
-            #lo(1, list(self.canvas.all_indices_and_values())) #DEBUG
+            #lo(4, self.canvas.long())  #DEBUG
             self.t = 0
             self.save_into_history()
             for t in range(nsteps):
