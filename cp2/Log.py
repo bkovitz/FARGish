@@ -17,7 +17,7 @@ from contextlib import contextmanager
 import functools
 
 from Indenting import Indenting, indent
-from util import short, dict_str, pr, pts
+from util import short, dict_str, pr, pts, T
 
 
 _logfile = Indenting(sys.stdout)
@@ -40,12 +40,31 @@ def lo(*args, **kwargs) -> None:
         return
     print_to_logfile(args, kwargs)
 
+def loyield(ll: int, arg: T, **kwargs) -> Iterable[T]:
+    if log_level >= ll:
+        print_to_logfile([arg], kwargs)
+    yield arg
+
+def loyield_from(ll: int, arg: Iterable[T], **kwargs) -> Iterable[T]:
+    if log_level >= ll:
+        for a in arg:
+            print_to_logfile([a], kwargs)
+            yield a
+    else:
+        yield from arg
+
 def print_to_logfile(args, kwargs):
-    print(
-        *(short(a) for a in args),
-        dict_str(kwargs, xform=short),
-        file=logfile()
-    )
+    if kwargs:
+        print(
+            *(short(a) for a in args),
+            dict_str(kwargs, xform=short),
+            file=logfile()
+        )
+    else:
+        print(
+            *(short(a) for a in args),
+            file=logfile()
+        )
 
 def log_to(f: IO) -> None:
     '''Sets logfile to f. Wraps f with Indenting.'''

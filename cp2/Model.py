@@ -34,7 +34,7 @@ from pyrsistent.typing import PMap
 #from Addrs import Addr, DetAddr, DetAddrWithSubst, F, I, Index, Indices, J, RelatedPair, SpecialAddr, \
 #    MatchContent, SoupRef, Variable, WorkingSoup
 #from Painters import Painter, DetPainter0, DetPainter, DetFunc
-from Log import lo, trace, indent_log, set_log_level
+from Log import lo, trace, indent_log, set_log_level, loyield, loyield_from
 from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
     filter_none, veryshort
 
@@ -50,7 +50,7 @@ class CallableFunc(ABC):
 
     @abstractmethod
     def apply(self, model: Model, subst: Subst, value: Value) \
-    -> Value:
+    -> Value | Painters:
         pass
 
     @abstractmethod
@@ -788,7 +788,7 @@ class TwoAdjacentLetters(Addr):
     def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:
         yield from (
-            DetAddrWithSubst(subst.unify(var, index), index)
+            DetAddrWithSubst(subst.unify(var, index), Indices(index, index + 1))
                 for index in model.canvas.all_indices()
                     if (
                         model.canvas.has_letter(index)
@@ -1340,8 +1340,11 @@ class Soup:
 #            for author in self.authors[painter]:
 #                self.punish(author, 1.0 - (1.0 - factor) * 0.8)
 
-    def make_averse_to(self, p: Optional[Painter], target: Addr) -> None:
+    def punish(self, p: Optional[Painter], target: Addr) -> None:
         lo(4, 'PUNISH', p, target)
+        self.make_averse_to(p, target)
+
+    def make_averse_to(self, p: Optional[Painter], target: Addr) -> None:
         if p is None:
             return
         if isinstance(target, SoupRef):
@@ -2052,7 +2055,7 @@ class MakeDigraphPainter(CallableFunc):
     taken from I and I+1.'''
 
     def apply(self, model: Model, subst: Subst, ignored: Value) \
-    -> Painter:
+    -> Painters:
         index1 = subst.as_index(I)
         if index1 is None:
             raise FizzleNotIndex(subst[I])
@@ -2065,7 +2068,11 @@ class MakeDigraphPainter(CallableFunc):
         if not isinstance(value2, Letter):
             raise FizzleNotLetter(value2, index2)
 
-        return Painter(MatchContent(value1), Plus(I, 1), value2)
+        #return Painter(MatchContent(value1), Plus(I, 1), value2)
+        return Painters(
+            Painter(MatchContent(value1), Plus(I, 1), value2),
+            Painter(MatchContent(value2), Plus(I, -1), value1)
+        )
     
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
@@ -2171,6 +2178,17 @@ class Painter(Addr, CallableFunc):
 
     def short(self) -> str:
         return f'({short(self.source)}, {short(self.target)}, {short(self.func)})'
+
+@dataclass(frozen=True)
+class Painters:
+    '''One or more Painter objects.'''
+    ps: Tuple[Painter, ...]
+
+    def __init__(self, *ps: Painter):
+        force_setattr(self, 'ps', tuple(ps))
+
+    def __iter__(self) -> Iterator[Painter]:
+        return iter(self.ps)
 
 @dataclass(frozen=True)
 class CPainter(Painter):
@@ -2430,7 +2448,7 @@ class Model:
         except Fizzle as exc:
             lo(3, 'FIZZLE', exc)
             if dp.basis is not None:
-                self.ws.make_averse_to(dp.basis, dp.target)
+                self.ws.punish(dp.basis, dp.target)
         self.suppress(dp.as_triple())
         self.save_into_history()
 
@@ -2574,13 +2592,14 @@ class Model:
                 ) / len(elems)
         assert False, "source_weight(): should not go past 'match' stmt"
 
-    target_weights = [10.0, 9.0, 7.0, 4.0, 2.0, 1.0, 0.5]
+    target_weights = [10.0, 9.0, 7.0, 4.0, 1.0, 0.5, 0.3]
 
     def target_weight(self, a: DetAddr) -> Numeric:
         match a:
             case Index() | int():
                 #return 1.0 - self.canvas.clarity(a) / self.canvas.MAX_CLARITY
-                return self.target_weights[int(self.canvas.clarity(a))]
+                #return self.target_weights[int(self.canvas.clarity(a))]
+                return self.target_weights[int(self.canvas.clarity(a))] / 2.0 #HACK
             case SoupRef():
                 return 0.2  # 0.5
             case Painter():
@@ -2610,14 +2629,20 @@ class Model:
                 case SR.WorkingSoup:
                     match v:
                         case Painter():
-                            lo(3, 'MAKE PAINTER', v)
-                            self.ws.paint(v, author=dp.basis)
+                            self.make_painter(v, author=dp.basis)
+                        case Painters(ps):
+                            for p in ps:
+                                self.make_painter(p, author=dp.basis)
                         case x:
                             raise ValueError(f'run_detpainter: try to paint {x} (type {type(x)}) to the workspace.')
                 #TODO Painting to long-term soup
                 case _:
                     raise NotImplementedError(f"run_detpainter: can't paint to target; dp={dp}")
 
+    def make_painter(self, p: Painter, author: Optional[Painter]=None) -> None:
+        lo(3, 'MAKE PAINTER', p)
+        self.ws.paint(p, author=author)
+        
     def run_painter(self, p: Painter) -> None:
         '''Runs 'p', by passing it to self.choose_detpainter() and running
         one of the resulting DetPainters, if any. Only for experimentation
@@ -2700,7 +2725,10 @@ class Model:
             f'(in Subst: {subst[addr]})' if addr in subst else '(not in Subst)',
             subst
         ):
-            yield from addr.to_detaddrs(self, subst, var)
+            #yield from addr.to_detaddrs(self, subst, var)
+            for daws in addr.to_detaddrs(self, subst, var):
+                lo(6, daws)
+                yield daws
 #            match addr:
 #                case Index():
 #                    yield DetAddrWithSubst(subst.unify(var, addr), addr)
@@ -2766,7 +2794,8 @@ class Model:
             match func:
                 case Variable():
                     if func in subst:
-                        yield subst[func]  # type: ignore[misc]
+                        #yield subst[func]  # type: ignore[misc]
+                        yield from loyield(6, subst[func])  # type: ignore[misc]
                     else:
                         yield from self.primitive_funcs
                 case x if is_cell_content(x):
@@ -2794,12 +2823,16 @@ class Model:
             return False
         # TODO take the Subst as an argument to are_related_by
         try:
-            return self.apply_func(empty_subst, f, self.canvas[i]) == self.canvas[j]
+            return (
+                self.apply_func(empty_subst, f, self.canvas[i])
+                ==
+                self.canvas[j]
+            )
         except FizzleCantGoThere:
             return False
 
     def apply_func(self, subst: Subst, f: DetFunc, v: Value) \
-    -> Union[Value]:
+    -> Union[Value, Painters]:
         with indent_log(6,
             f'APPLY FUNC {short(f)}({short(v, inside=True)})  {short(subst)}'
         ):

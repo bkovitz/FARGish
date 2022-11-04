@@ -178,11 +178,11 @@ class TestAddrs(unittest.TestCase):
             [
                 DetAddrWithSubst(
                     Subst.make_from((I, 2)),
-                    Index(2),
+                    Indices(2, 3),
                 ),
                 DetAddrWithSubst(
                     Subst.make_from((I, 3)),
-                    Index(3)
+                    Indices(3, 4)
                 )
             ]
         )
