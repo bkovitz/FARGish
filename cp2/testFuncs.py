@@ -7,7 +7,7 @@ from copy import deepcopy
 
 from Model import Model, Painter, Succ, succ, F, I, J, Plus, pred, same, \
     const, Index, \
-    Subst, MakeBetweenPainter # ,MirrorOf
+    Subst, MakeBetweenPainter, MakeRelativeIndirectPainter # ,MirrorOf
 
 class TestFuncs(unittest.TestCase):
 
@@ -50,6 +50,16 @@ class TestFuncs(unittest.TestCase):
         self.assertEqual(mbp2, MakeBetweenPainter(Index(1), Index(3), succ))
         # TODO Call apply_func
         self.assertEqual(su.simplify(mbp1), mbp2)
+
+    def test_simplify_make_relative_indirect_painter(self) -> None:
+        mrip1 = MakeRelativeIndirectPainter(I, J, F)
+        su = Subst.make_from((I, Index(3)), (J, Index(5)), (F, succ))
+        mrip2 = mrip1.simplify(su)
+        self.assertEqual(
+            mrip2,
+            MakeRelativeIndirectPainter(Index(3), Index(5), succ)
+        )
+        self.assertEqual(su.simplify(mrip1), mrip2)
 
 #    def test_Mirror_of(self) -> None:
 #        m = Model.make_from('ajaqb')

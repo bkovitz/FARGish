@@ -2021,7 +2021,7 @@ class MakeBetweenPainter(CallableFunc, HasSimplify):
     __str__ = short
 
 @dataclass(frozen=True)
-class MakeRelativeIndirectPainter(CallableFunc):
+class MakeRelativeIndirectPainter(CallableFunc, HasSimplify):
     '''Returns a painter that matches on the value at cell 'i' and creates
     a painter that reproduces both its spatial and value relationships
     with the value at cell 'j'; the value relationship is specified by 'f'.
@@ -2089,6 +2089,15 @@ class MakeRelativeIndirectPainter(CallableFunc):
         if result_f is None:
             return False
         return True
+
+    def simplify(self, su: Subst) -> MakeRelativeIndirectPainter:
+        i = su.simplify(self.i)
+        j = su.simplify(self.j)
+        f = su.simplify(self.f)
+        if i == self.i and j == self.j and f == self.f:
+            return self
+        else:
+            return MakeRelativeIndirectPainter(i, j, f)
 
     def short(self) -> str:
         cl = self.__class__.__name__
