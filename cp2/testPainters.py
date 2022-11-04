@@ -35,7 +35,7 @@ class TestPainters(unittest.TestCase):
     def painter_to_one_detpainter(self, model: Model, p: Painter) -> DetPainter:
         dpainters = list(model.painter_to_detpainters(p))
         self.assertEqual(len(dpainters), 1,
-            f'Painter {p} generated multiple DetPainters: {short(dpainters)}'
+            f'Painter {p} did not generated exactly one DetPainter; generated {short(dpainters)}.'
         )
         return dpainters[0]
 
@@ -127,7 +127,7 @@ class TestPainters(unittest.TestCase):
 
         model = Model.make_from('ajaqb', auto_annotate=[])
         #lo(model.canvas.as_bundle(Index(1)))
-        model.ws.add(Painter.make_from(1, 3, same))  # p1 will match this painter
+        model.ws.add(Painter.make_from(1, 3, same)) # p1 will match this painter
 
         dp = self.painter_to_one_detpainter(model, p1)
         model.run_detpainter(dp)
@@ -142,8 +142,8 @@ class TestPainters(unittest.TestCase):
     maxDiff = None
     def test_make_relative_indirect_painter_with_annotation(self) -> None:
         model = Model.canvas_from('ajaqb')
-        func = MakeRelativeIndirectPainter(I, J, F)
         subst = Subst.make_from((I, 1), (J, 3), (F, same))
+        func = MakeRelativeIndirectPainter(I, J, F).simplify(subst)
         self.assertEqual(
             model.apply_func(subst, func, None),
             Painter(

@@ -112,6 +112,7 @@ class TestModel(unittest.TestCase):
                     SR.WorkingSoup,
                     Painter(I, Plus(I, 1), Letter('q'))
                 ),
+                # relative indirect painters
                 Painter(
                     MatchContent(CellBundle.make_from('a', Inextreme)),
                     SR.WorkingSoup,
@@ -126,6 +127,32 @@ class TestModel(unittest.TestCase):
                     MatchContent(CellBundle.make_from('a', Start)),
                     SR.WorkingSoup,
                     Painter(I, Plus(I, 4), succ)
+                ),
+                # absolute painters
+                Painter(
+                    Index(1),
+                    Index(3),
+                    same
+                ),
+                Painter(
+                    Index(1),
+                    Index(5),
+                    succ
+                ),
+                Painter(
+                    Index(3),
+                    Index(5),
+                    succ
+                ),
+                Painter(
+                    Index(1),
+                    Index(2),
+                    Letter('j')
+                ),
+                Painter(
+                    Index(3),
+                    Index(4),
+                    Letter('q')
                 ),
                 # digraph painters
                 Painter(
@@ -147,6 +174,27 @@ class TestModel(unittest.TestCase):
                     MatchContent(Letter('q')),
                     Plus(I, 1),
                     Letter('b')
+                ),
+                # mirrors of digraph painters
+                Painter(
+                    MatchContent(Letter('q')),
+                    Plus(I, -1),
+                    Letter('a')
+                ),
+                Painter(
+                    MatchContent(Letter('a')),
+                    Plus(I, -1),
+                    Letter('j')
+                ),
+                Painter(
+                    MatchContent(Letter('b')),
+                    Plus(I, -1),
+                    Letter('q')
+                ),
+                Painter(
+                    MatchContent(Letter('j')),
+                    Plus(I, -1),
+                    Letter('a')
                 )
             ]
         )

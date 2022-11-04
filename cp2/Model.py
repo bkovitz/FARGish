@@ -51,6 +51,9 @@ class CallableFunc(ABC):
     @abstractmethod
     def apply(self, model: Model, subst: Subst, value: Value) \
     -> Value | Painters:
+        '''Runs the function and returns its result. Must only be called if
+        this object ('self') is a DetFunc, e.g. it holds no variables that
+        need to be filled in from a Subst.'''
         pass
 
     @abstractmethod
@@ -2026,69 +2029,97 @@ class MakeRelativeIndirectPainter(CallableFunc, HasSimplify):
     a painter that reproduces both its spatial and value relationships
     with the value at cell 'j'; the value relationship is specified by 'f'.
 
-    For example, in the canvas 'ajaqb', MakeRelativeIndirectPainter(I, J, F)
-    with I=1, J=3, F=succ will create MatchContent('a', Plus(I, 2), succ).'''
+    For example, in the canvas 'ajaqb', MakeRelativeIndirectPainter(1, 3, succ)
+    will create MatchContent('a', Plus(I, 2), succ).
+
+    You can make MakeRelativeIndirectPainter(I, J, F), that is, with Variables
+    in place of indices. .to_detfuncs() creates determinate versions of
+    MakeRelativeIndirectPainter, which can then be called via .apply().'''
     i: Addr
     j: Addr
     f: Func
 
     def apply(self, model: Model, subst: Subst, ignored: Value) \
     -> Painter:
-        result_i = subst.as_index(self.i)
-        if result_i is None:
-            raise Fizzle  # TODO More-specific Fizzle
-        #value = model.canvas[result_i]
-        bundle = model.canvas.as_bundle(result_i)
-        if bundle is None:
-            raise Fizzle  # TODO More-specific Fizzle
-        result_j = subst.as_index(self.j)
-        if result_j is None:
-            raise Fizzle  # TODO More-specific Fizzle
-        result_f = subst[self.f]
-        assert is_func(result_f)
-        if result_f is None:
-            raise Fizzle  # TODO More-specific Fizzle
+#        result_i = subst.as_index(self.i)
+#        if result_i is None:
+#            raise Fizzle  # TODO More-specific Fizzle
+#        #value = model.canvas[result_i]
+#        bundle = model.canvas.as_bundle(result_i)
+#        if bundle is None:
+#            raise Fizzle  # TODO More-specific Fizzle
+#        result_j = subst.as_index(self.j)
+#        if result_j is None:
+#            raise Fizzle  # TODO More-specific Fizzle
+#        result_f = subst[self.f]
+#        assert is_func(result_f)
+#        if result_f is None:
+#            raise Fizzle  # TODO More-specific Fizzle
+#        content = exclude_unmatchable(bundle.simplest())
+#        if not content:
+#            raise Fizzle  # TODO more-specific Fizzle
+#        return Painter(
+#            MatchContent(content),
+#            SR.WorkingSoup,
+#            Painter(I, Plus(I, result_j - result_i), result_f)
+#        )
+        assert is_index(self.i)
+        assert is_index(self.j)
+        bundle = model.canvas.as_bundle(self.i)
         content = exclude_unmatchable(bundle.simplest())
         if not content:
             raise Fizzle  # TODO more-specific Fizzle
         return Painter(
             MatchContent(content),
             SR.WorkingSoup,
-            Painter(I, Plus(I, result_j - result_i), result_f)
+            Painter(I, Plus(I, self.j - self.i), self.f)
         )
 
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
-        if self.can_make(model, subst):
-            yield self
+#        if self.can_make(model, subst):
+#            yield self
+        df = self.simplify(subst)
+        if df.is_detfunc():
+            yield df
+
+    def is_detfunc(self) -> TypeGuard[DetFunc]:
+        return is_index(self.i) and is_index(self.j) and is_detfunc(self.f)
 
     # TODO UT
     def can_make(self, model: Model, subst: Subst) -> bool:
-        result_i = subst.as_index(self.i)
-        if (
-            result_i is None
-            or
-            model.canvas[result_i] is None
-            or
-            model.canvas[result_i] == ' '
-        ):
-            return False
-        bundle = model.canvas.as_bundle(result_i)
-        if bundle is None:
-            return False
-        result_j = subst.as_index(self.j)
-        if (
-            result_j is None
-            or
-            model.canvas[result_j] is None
-            or
-            model.canvas[result_j] == ' '
-        ):
-            return False
-        result_f = subst[self.f]
-        if result_f is None:
-            return False
-        return True
+        return (
+            self.is_detfunc()
+            and
+            model.canvas.has_letter(self.i) # type: ignore[arg-type]
+            and
+            model.canvas.has_letter(self.j) # type: ignore[arg-type]
+        )
+#        result_i = subst.as_index(self.i)
+#        if (
+#            result_i is None
+#            or
+#            model.canvas[result_i] is None
+#            or
+#            model.canvas[result_i] == ' '
+#        ):
+#            return False
+#        bundle = model.canvas.as_bundle(result_i)
+#        if bundle is None:
+#            return False
+#        result_j = subst.as_index(self.j)
+#        if (
+#            result_j is None
+#            or
+#            model.canvas[result_j] is None
+#            or
+#            model.canvas[result_j] == ' '
+#        ):
+#            return False
+#        result_f = subst[self.f]
+#        if result_f is None:
+#            return False
+#        return True
 
     def simplify(self, su: Subst) -> MakeRelativeIndirectPainter:
         i = su.simplify(self.i)
@@ -2487,7 +2518,7 @@ class Model:
     def paint(self, a: Index, x: CellContent) -> None:
         self.canvas[a] = x
 
-    def absorb(self, s: str, timesteps: int=50):
+    def absorb(self, s: str, timesteps: int=100):
         with indent_log(2, 'ABSORB', repr(s)):
             self.clear_history()
             self.set_canvas(s)
@@ -2900,8 +2931,10 @@ class Model:
                         #yield subst[func]  # type: ignore[misc]
                         yield from loyield(6, subst[func])  # type: ignore[misc]
                     else:
-                        yield from self.primitive_funcs
+                        #yield from self.primitive_funcs
+                        yield from loyield_from(6, self.primitive_funcs)
                 case x if is_cell_content(x):
+                    lo(6, x)
                     yield x
                 case CallableFunc():
 #                    yield from func.to_detfuncs(self, subst, var)
@@ -2909,6 +2942,7 @@ class Model:
 #                        yield func
                     for f in func.to_detfuncs(self, subst, var):
                         if self.can_make_func(f, subst):
+                            lo(6, f)
                             yield f
                 case _:  #SimpleFunc():
                     raise NotImplementedError(func)
