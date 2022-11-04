@@ -5,8 +5,9 @@ import inspect
 
 from copy import deepcopy
 
-from Model import Model, Painter, Succ, succ, F, I, Plus, pred, same, const, \
-    MirrorOf, Subst
+from Model import Model, Painter, Succ, succ, F, I, J, Plus, pred, same, \
+    const, Index, \
+    Subst, MakeBetweenPainter # ,MirrorOf
 
 class TestFuncs(unittest.TestCase):
 
@@ -42,12 +43,20 @@ class TestFuncs(unittest.TestCase):
         # TODO Mirrors of other kinds of functions. What is the mirror of
         # (I, I+1, 'j')?
 
-    def test_Mirror_of(self) -> None:
-        m = Model.make_from('ajaqb')
-        mf = MirrorOf(F)
-        got = m.apply_func(
-            Subst.make_from((F, succ)),
-            mf,
-            'b'
-        )
-        self.assertEqual(got, 'a')
+    def test_simplify_make_between_painter(self) -> None:
+        mbp1 = MakeBetweenPainter(I, J, F)
+        su = Subst.make_from((I, Index(1)), (J, Index(3)), (F, succ))
+        mbp2 = mbp1.simplify(su)
+        self.assertEqual(mbp2, MakeBetweenPainter(Index(1), Index(3), succ))
+        # TODO Call apply_func
+        self.assertEqual(su.simplify(mbp1), mbp2)
+
+#    def test_Mirror_of(self) -> None:
+#        m = Model.make_from('ajaqb')
+#        mf = MirrorOf(F)
+#        got = m.apply_func(
+#            Subst.make_from((F, succ)),
+#            mf,
+#            'b'
+#        )
+#        self.assertEqual(got, 'a')

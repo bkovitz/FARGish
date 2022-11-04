@@ -598,6 +598,12 @@ class HasAsIndex(ABC):
     def as_index(self) -> Index:
         pass
 
+class HasSimplify(ABC):
+
+    @abstractmethod
+    def simplify(self, su: Subst) -> Func:
+        pass
+
 # TODO Should move this somewhere else in the file; it's needed only in
 # substitutions, as an Expr. It's here only to be defined before ToAddr.
 @dataclass(frozen=True)
@@ -1501,6 +1507,8 @@ class Subst:
 
     def simplify(self, expr: Expr) -> Expr:
         match expr:
+            case HasSimplify():
+                return expr.simplify(self)
             case int():
                 return expr
             case Plus():
@@ -1929,11 +1937,20 @@ class const(SimpleFuncClass):
 ### Painter-building functions
 
 @dataclass(frozen=True)
-class MakeBetweenPainter(CallableFunc):
-    '''Makes a painter that paints a value between two others.'''
+class MakeBetweenPainter(CallableFunc, HasSimplify):
+    '''Makes a painter that paints a value between two Addrs.'''
     i: Addr
     j: Addr
     f: Func
+
+    def simplify(self, su: Subst) -> MakeBetweenPainter:
+        i = su.simplify(self.i)
+        j = su.simplify(self.j)
+        f = su.simplify(self.f)
+        if i == self.i and j == self.j and f == self.f:
+            return self
+        else:
+            return MakeBetweenPainter(i, j, f)
 
     @no_type_check
     def apply(self, model: Model, subst: Subst, ignored: Value) \
@@ -2257,20 +2274,20 @@ class PFuncs(CallableFunc):
         for f in self.funcs:
             yield from model.func_to_detfuncs(subst, var, f)
 
-@dataclass(frozen=True)
-class MirrorOf(CallableFunc):
-    func: Func
-
-    def apply(self, model: Model, subst: Subst, value: Value) \
-    -> Value | Painters:
-        f = model.mirror_of(subst.simplify(self.func))
-        # make sure it's a DetFunc
-        return model.apply_func(subst, f, value)
-    
-    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
-    -> Iterable[DetFunc]:
-        # NEXT: First must simplify self.func
-        yield from model.func_to_detfuncs(subst, var, model.mirror_of(self.func))
+#@dataclass(frozen=True)
+#class MirrorOf(CallableFunc):
+#    func: Func
+#
+#    def apply(self, model: Model, subst: Subst, value: Value) \
+#    -> Value | Painters:
+#        f = model.mirror_of(subst.simplify(self.func))
+#        # make sure it's a DetFunc
+#        return model.apply_func(subst, f, value)
+#    
+#    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+#    -> Iterable[DetFunc]:
+#        # NEXT: First must simplify self.func
+#        yield from model.func_to_detfuncs(subst, var, model.mirror_of(self.func))
 
 @dataclass(frozen=True)
 class DetPainter:
