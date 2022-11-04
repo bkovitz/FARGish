@@ -1824,6 +1824,14 @@ DetFunc = Union[CallableFunc, CellContent, SimpleFunc] # TODO Allow SimpleFunc?
 # A convenience type for DetPainter.make_from()
 ToDetFunc = Union[DetFunc | str, Tuple[ToAddr, ToAddr, DetFunc | str]]
 
+def is_detfunc(x: Any) -> TypeGuard[DetFunc]:
+    return (
+        isinstance(x, CallableFunc)
+        or
+        is_cell_content(x)
+        # TODO Allow SimpleFunc?
+    )
+
 @no_type_check  # causes mypy 0.971 to crash
 def make_detfunc(f: ToDetFunc) -> DetFunc:
     match f:
@@ -1833,6 +1841,12 @@ def make_detfunc(f: ToDetFunc) -> DetFunc:
             return Letter.from_str(f)
         case _:
             return f
+
+class HasMirrorFunc(ABC):
+
+    @abstractmethod
+    def mirror_func(self) -> Func:
+        pass
 
 class SimpleFuncClass(CallableFunc):
     '''A Func that gets counted as a SimpleFunc during unification.'''
@@ -1861,7 +1875,7 @@ class Same(SimpleFuncClass):
     def __repr__(self) -> str:
         return 'same'
 
-class Succ(SimpleFuncClass):
+class Succ(SimpleFuncClass, HasMirrorFunc):
 
     def apply(self, model: Model, subst: Subst, v: Value) -> Value:
         # TODO Deal with 'z'
@@ -1872,10 +1886,13 @@ class Succ(SimpleFuncClass):
 #            return v + 1
         raise Fizzle(f"succ: Can't take successor of {v}")
 
+    def mirror_func(self) -> Func:
+        return pred
+
     def __repr__(self) -> str:
         return 'succ'
 
-class Pred(SimpleFuncClass):
+class Pred(SimpleFuncClass, HasMirrorFunc):
 
     def apply(self, model: Model, subst: Subst, v: Value) -> Value:
         # TODO Deal with 'a'
@@ -1885,6 +1902,9 @@ class Pred(SimpleFuncClass):
 #        elif isinstance(v, int):
 #            return v - 1
         raise Fizzle(f"pred: Can't take predecessor of {v}")
+
+    def mirror_func(self) -> Func:
+        return succ
 
     def __repr__(self) -> str:
         return 'pred'
@@ -1984,7 +2004,10 @@ class MakeBetweenPainter(CallableFunc):
 class MakeRelativeIndirectPainter(CallableFunc):
     '''Returns a painter that matches on the value at cell 'i' and creates
     a painter that reproduces both its spatial and value relationships
-    with the value at cell 'j'; the value relationship is specified by 'f'.'''
+    with the value at cell 'j'; the value relationship is specified by 'f'.
+
+    For example, in the canvas 'ajaqb', MakeRelativeIndirectPainter(I, J, F)
+    with I=1, J=3, F=succ will create MatchContent('a', Plus(I, 2), succ).'''
     i: Addr
     j: Addr
     f: Func
@@ -2053,7 +2076,7 @@ class MakeRelativeIndirectPainter(CallableFunc):
 
     __str__ = short
 
-class MakeDigraphPainter(CallableFunc):
+class MakeDigraphPainters(CallableFunc):
     '''Makes a painter of the form ('a', I+1, 'j') where 'a' and 'j' are
     taken from I and I+1.'''
 
@@ -2203,6 +2226,51 @@ class PPainter(Painter):
     '''A painter-painter.'''
     pass
 
+@dataclass(frozen=True)
+class PFuncs(CallableFunc):
+    '''A Func that returns multiple Painters. Always returns a Painters
+    object.'''
+    funcs: Tuple[DetFunc, ...]  # TODO This is slightly messed up: the type
+                                # should be Tuple[Func], not Tuple[DetFunc].
+                                # But then how do we call Model.apply_func()?
+
+    def __init__(self, *fs: DetFunc):
+        force_setattr(self, 'funcs', tuple(fs))
+
+    def apply(self, model: Model, subst: Subst, value: Value) \
+    -> Painters:
+        result: List[Painter]
+        for f in self.funcs:
+            got = model.apply_func(subst, f, value)
+            match got:
+                case Painter():
+                    result.append(got)
+                case Painters(ps):
+                    for p in ps:
+                        result.append(p)
+                case _:
+                    raise ValueError(f'PFuncs.apply(): {short(f)}({short(value)}) returned {short(got)}: must return Painter or Painters.')
+        return Painters(*result)
+
+    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        for f in self.funcs:
+            yield from model.func_to_detfuncs(subst, var, f)
+
+@dataclass(frozen=True)
+class MirrorOf(CallableFunc):
+    func: Func
+
+    def apply(self, model: Model, subst: Subst, value: Value) \
+    -> Value | Painters:
+        f = model.mirror_of(subst.simplify(self.func))
+        # make sure it's a DetFunc
+        return model.apply_func(subst, f, value)
+    
+    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        # NEXT: First must simplify self.func
+        yield from model.func_to_detfuncs(subst, var, model.mirror_of(self.func))
 
 @dataclass(frozen=True)
 class DetPainter:
@@ -2303,7 +2371,10 @@ default_initial_painters: List[Painter] = [
     Painter(
         Painter(I, J, SimpleFunc(F)),
         SR.WorkingSoup,
-        MakeRelativeIndirectPainter(I, J, F)
+        PFuncs(
+            MakeRelativeIndirectPainter(I, J, F),
+            #MakeRelativeIndirectPainter(J, I, MirrorOf(F))  # TODO WRONG: F
+        )
     ),
     Painter(
         Painter(I, Plus(I, 2), F),
@@ -2313,7 +2384,7 @@ default_initial_painters: List[Painter] = [
     Painter(
         TwoAdjacentLetters(),
         SR.WorkingSoup,
-        MakeDigraphPainter()
+        MakeDigraphPainters()
     )
 ]
 
@@ -2847,6 +2918,13 @@ class Model:
 #                return f
             else:
                 raise NotImplementedError(f"apply_func: can't apply {f}")
+
+    def mirror_of(self, f: Func) -> Func:
+        if isinstance(f, HasMirrorFunc):
+            return f.mirror_func()
+        else:
+            return f  # TODO Is this correct? Is everything else the mirror
+                      # of itself?
 
     def state_str(self) -> str:
         sio = StringIO()

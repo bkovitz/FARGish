@@ -5,7 +5,8 @@ import inspect
 
 from copy import deepcopy
 
-from Model import Painter, Succ, succ, I, Plus, pred, same, const
+from Model import Model, Painter, Succ, succ, F, I, Plus, pred, same, const, \
+    MirrorOf, Subst
 
 class TestFuncs(unittest.TestCase):
 
@@ -32,3 +33,21 @@ class TestFuncs(unittest.TestCase):
         self.assertEqual(const1a, const1b)
         const2 = const(2)
         self.assertNotEqual(const1a, const2)
+
+    def test_mirror_of(self) -> None:
+        m = Model.make_from('ajaqb')
+        self.assertEqual(m.mirror_of(succ), pred)
+        self.assertEqual(m.mirror_of(pred), succ)
+        self.assertEqual(m.mirror_of(same), same)
+        # TODO Mirrors of other kinds of functions. What is the mirror of
+        # (I, I+1, 'j')?
+
+    def test_Mirror_of(self) -> None:
+        m = Model.make_from('ajaqb')
+        mf = MirrorOf(F)
+        got = m.apply_func(
+            Subst.make_from((F, succ)),
+            mf,
+            'b'
+        )
+        self.assertEqual(got, 'a')
