@@ -601,13 +601,13 @@ class HasAsIndex(ABC):
 class HasSimplify(ABC):
 
     @abstractmethod
-    def simplify(self, su: Subst) -> Func:
+    def simplify(self, su: Subst) -> Expr:
         pass
 
 # TODO Should move this somewhere else in the file; it's needed only in
 # substitutions, as an Expr. It's here only to be defined before ToAddr.
 @dataclass(frozen=True)
-class Plus(Addr, HasAsIndex):
+class Plus(Addr, HasAsIndex, HasSimplify):
     args: Tuple[Expr, ...]
 
     def __init__(self, *args: Expr):
@@ -616,8 +616,9 @@ class Plus(Addr, HasAsIndex):
     def __repr__(self) -> str:
         return '+'.join(str(a) for a in self.args)
 
+    # TODO rm? Superseded by .simplify()?
     def value_of(self, subst: Subst) -> Expr:
-        return self.simplify(subst, self.args)
+        return self.OLDsimplify(subst, self.args)
 
     def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:
@@ -631,7 +632,7 @@ class Plus(Addr, HasAsIndex):
 
     @classmethod
     @no_type_check  # mypy 0.971 crashes on '*more' below
-    def simplify(cls, subst: Subst, args: Tuple[Expr], init: int=0) -> Expr:
+    def OLDsimplify(cls, subst: Subst, args: Tuple[Expr], init: int=0) -> Expr:
         '''Evaluates 'args' as a sum to as simple a form as possible. The
         simplest form is an int; if a variable in 'args' is undefined, then
         we return an Expr containing that variable.'''
@@ -642,11 +643,14 @@ class Plus(Addr, HasAsIndex):
                 return cls.try_to_add(init, subst.simplify(expr))
             case (expr, *more):
                 #lo('init=', init, 'expr=', expr, subst)
-                return cls.simplify(
+                return cls.OLDsimplify(
                     subst,
                     more,
                     cls.try_to_add(init, subst.simplify(expr))
                 )
+
+    def simplify(self, su: Subst) -> Expr:
+        return self.OLDsimplify(su, self.args)
 
     @classmethod
     def try_to_add(cls, a: Any, b: Any) -> Expr:
@@ -1511,8 +1515,6 @@ class Subst:
                 return expr.simplify(self)
             case int():
                 return expr
-            case Plus():
-                return expr.value_of(self)
             case _:
                 match self.d.get(expr, None):
                     case None:
@@ -1585,9 +1587,10 @@ class Subst:
                             raise NotImplementedError((lhs, rhs))
                 case (Variable(), Plus() as rator):
                     #print('GOTVP')
-                    rvalue = rator.value_of(self)
+                    #rvalue = rator.value_of(self)
+                    rvalue = rator.simplify(self)
                     #if lhs in self.
-                    return self # TODO
+                    return self # TODO  We didn't unify anything! Why do UTs pass?
                 case (Variable(), Variable()) | (Plus(), Plus()):
                     lhsimple = self.simplify(lhs)
                     rhsimple = self.simplify(rhs)
