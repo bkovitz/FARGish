@@ -6,8 +6,8 @@ import inspect
 from copy import deepcopy
 
 from Model import Model, Painter, Succ, succ, F, I, J, Plus, pred, same, \
-    const, Index, \
-    Subst, MakeBetweenPainter, MakeRelativeIndirectPainter # ,MirrorOf
+    const, Index, Letter, mirror_of, \
+    Subst, MakeBetweenPainter, MakeRelativeIndirectPainter, MirrorOf
 
 class TestFuncs(unittest.TestCase):
 
@@ -36,10 +36,9 @@ class TestFuncs(unittest.TestCase):
         self.assertNotEqual(const1a, const2)
 
     def test_mirror_of(self) -> None:
-        m = Model.make_from('ajaqb')
-        self.assertEqual(m.mirror_of(succ), pred)
-        self.assertEqual(m.mirror_of(pred), succ)
-        self.assertEqual(m.mirror_of(same), same)
+        self.assertEqual(mirror_of(succ), pred)
+        self.assertEqual(mirror_of(pred), succ)
+        self.assertEqual(mirror_of(same), same)
         # TODO Mirrors of other kinds of functions. What is the mirror of
         # (I, I+1, 'j')?
 
@@ -61,12 +60,29 @@ class TestFuncs(unittest.TestCase):
         )
         self.assertEqual(su.simplify(mrip1), mrip2)
 
-#    def test_Mirror_of(self) -> None:
-#        m = Model.make_from('ajaqb')
-#        mf = MirrorOf(F)
-#        got = m.apply_func(
-#            Subst.make_from((F, succ)),
-#            mf,
-#            'b'
-#        )
-#        self.assertEqual(got, 'a')
+    def test_call_mirror_of(self) -> None:
+        # Is this test necessary? We should never call MirrorOf directly;
+        # it should always be simplified into some other function before
+        # being called.
+        m = Model.make_from('ajaqb')
+        mf = MirrorOf(F)
+        got = m.apply_func(
+            Subst.make_from((F, succ)),
+            mf,
+            Letter('b')
+        )
+        self.assertEqual(got, Letter('a'))
+
+    def test_simplify_mirror_of(self) -> None:
+        mf = MirrorOf(F)
+        su = Subst.make_from((F, pred))
+        self.assertEqual(mf.simplify(su), succ)
+
+    def test_mirror_of_to_detfuncs(self) -> None:
+        m = Model.make_from('ajaqb')
+        mf = MirrorOf(F)
+        su = Subst.make_from((F, succ))
+        self.assertCountEqual(
+            m.func_to_detfuncs(su, F, mf),
+            [pred]
+        )

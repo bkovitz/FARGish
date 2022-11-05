@@ -1927,6 +1927,13 @@ same = Same()
 succ = Succ()
 pred = Pred()
 
+def mirror_of(f: Func) -> Func:
+    if isinstance(f, HasMirrorFunc):
+        return f.mirror_func()
+    else:
+        return f  # TODO Is this correct? Is everything else the mirror
+                  # of itself?
+
 ### The constant function
 
 @dataclass(frozen=True)
@@ -2317,20 +2324,28 @@ class PFuncs(CallableFunc):
         for f in self.funcs:
             yield from model.func_to_detfuncs(subst, var, f)
 
-#@dataclass(frozen=True)
-#class MirrorOf(CallableFunc):
-#    func: Func
-#
-#    def apply(self, model: Model, subst: Subst, value: Value) \
-#    -> Value | Painters:
-#        f = model.mirror_of(subst.simplify(self.func))
-#        # make sure it's a DetFunc
-#        return model.apply_func(subst, f, value)
-#    
-#    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
-#    -> Iterable[DetFunc]:
-#        # NEXT: First must simplify self.func
-#        yield from model.func_to_detfuncs(subst, var, model.mirror_of(self.func))
+@dataclass(frozen=True)
+class MirrorOf(CallableFunc, HasSimplify):
+    func: Func
+
+    # TODO .apply() shouldn't be necessary, because .to_detfuncs() will
+    # always return something other than a MirrorOf object.
+    def apply(self, model: Model, subst: Subst, value: Value) \
+    -> Value | Painters:
+        f = mirror_of(subst.simplify(self.func))
+        # make sure it's a DetFunc
+        assert is_detfunc(f)
+        return model.apply_func(subst, f, value)
+    
+    def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
+    -> Iterable[DetFunc]:
+        yield from model.func_to_detfuncs(
+            subst, var, self.simplify(subst)
+        )
+
+    def simplify(self, su: Subst) -> Expr:
+        func = su.simplify(self.func)
+        return mirror_of(func)
 
 @dataclass(frozen=True)
 class DetPainter:
@@ -2981,13 +2996,6 @@ class Model:
 #                return f
             else:
                 raise NotImplementedError(f"apply_func: can't apply {f}")
-
-    def mirror_of(self, f: Func) -> Func:
-        if isinstance(f, HasMirrorFunc):
-            return f.mirror_func()
-        else:
-            return f  # TODO Is this correct? Is everything else the mirror
-                      # of itself?
 
     def state_str(self) -> str:
         sio = StringIO()
