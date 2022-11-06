@@ -53,6 +53,12 @@ i: m  # 'interactive' way to type-check and run current file of interest
 	$(PY) -i $R
 mi: i
 
+# NEXT Why does ((1, 3, same), WorkingSoup, (1, 2, 'j')) get run?
+# There is no painter (1, 3, same), so the source should not match anything.
+# It happens at t=1, so this should be relatively easy to debug.
+bad:
+	$(PY) run.py --asteps=100 --lla=6 --llr=6 --au=0 --rngseed=6360465893744549081 
+
 
 # Run all unit tests.
 ut:

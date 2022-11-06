@@ -2983,9 +2983,9 @@ class Model:
 #                    if self.can_make_func(func, subst):
 #                        yield func
                     for f in func.to_detfuncs(self, subst, var):
-                        lo(6, 'HERE1-F2', func, f)
+                        #lo(6, 'HERE1-F2', func, f)
                         if self.can_make_func(f, subst):
-                            lo(6, 'HERE-F2DF', f)
+                            #lo(6, 'HERE-F2DF', f)
                             yield f
                 case _:  #SimpleFunc():
                     raise NotImplementedError(func)
