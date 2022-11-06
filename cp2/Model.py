@@ -1968,61 +1968,84 @@ class MakeBetweenPainter(CallableFunc, HasSimplify):
     @no_type_check
     def apply(self, model: Model, subst: Subst, ignored: Value) \
     -> Painter:
-        result_i = subst.as_index(self.i)
-        fizzle_if_none(result_i, self, f'i={self.i}')
-        fizzle_if_blank(model.canvas[result_i], self, f'canvas[{result_i}]')
-
-        value = model.canvas[result_i + 1]
-        fizzle_if_none(value, self, f'canvas[{result_i + 1}]')
-        fizzle_if_blank(value, self, f'canvas[{result_i + 1}]')
-
-        result_j = subst.as_index(self.j)
-        fizzle_if_none(result_j, self, f'j={self.j}')
-        fizzle_if_blank(model.canvas[result_j], self, f'canvas[{result_j}]')
-
-        result_f = subst[self.f]
-        fizzle_if_none(result_f, self, f'f={self.f}')
-        assert is_func(result_f)
-
+        assert is_index(self.i)
+        assert is_index(self.j)
+        # TODO fizzle if i or j is blank
+        value = model.canvas[self.i + 1]
+        fizzle_if_blank(value, self, f'canvas[{self.i + 1}]')
         return Painter(
-            Painter(I, Plus(I, result_j - result_i), result_f),
+            Painter(I, Plus(I, self.j - self.i), self.f),
             SR.WorkingSoup,
             Painter(I, Plus(I, 1), value)
         )
+
+#        result_i = subst.as_index(self.i)
+#        fizzle_if_none(result_i, self, f'i={self.i}')
+#        fizzle_if_blank(model.canvas[result_i], self, f'canvas[{result_i}]')
+#
+#        value = model.canvas[result_i + 1]
+#        fizzle_if_none(value, self, f'canvas[{result_i + 1}]')
+#        fizzle_if_blank(value, self, f'canvas[{result_i + 1}]')
+#
+#        result_j = subst.as_index(self.j)
+#        fizzle_if_none(result_j, self, f'j={self.j}')
+#        fizzle_if_blank(model.canvas[result_j], self, f'canvas[{result_j}]')
+#
+#        result_f = subst[self.f]
+#        fizzle_if_none(result_f, self, f'f={self.f}')
+#        assert is_func(result_f)
+#
+#        return Painter(
+#            Painter(I, Plus(I, result_j - result_i), result_f),
+#            SR.WorkingSoup,
+#            Painter(I, Plus(I, 1), value)
+#        )
 
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
         if self.can_make(model, subst):
             yield self
 
+    def is_detfunc(self) -> TypeGuard[DetFunc]:
+        return is_index(self.i) and is_index(self.j) and is_detfunc(self.f)
+
     # TODO UT
     def can_make(self, model: Model, subst: Subst) -> bool:
-        result_i = subst.as_index(self.i)
-        if (
-            result_i is None
-            or
-            model.canvas[result_i] is None
-            or
-            model.canvas[result_i] == ' '
-            or
-            model.canvas[result_i + 1] is None
-            or
-            model.canvas[result_i + 1] == ' '
-        ):
-            return False
-        result_j = subst.as_index(self.j)
-        if (
-            result_j is None
-            or
-            model.canvas[result_j] is None
-            or
-            model.canvas[result_j] == ' '
-        ):
-            return False
-        result_f = subst[self.f]
-        if result_f is None:
-            return False
-        return True
+        return (
+            self.is_detfunc()
+            and
+            model.canvas.has_letter(self.i) # type: ignore[arg-type]
+            and
+            model.canvas.has_letter(self.j) # type: ignore[arg-type]
+            and
+            is_index(self.i) and model.canvas.has_letter(self.i + 1)
+        )
+#        result_i = subst.as_index(self.i)
+#        if (
+#            result_i is None
+#            or
+#            model.canvas[result_i] is None
+#            or
+#            model.canvas[result_i] == ' '
+#            or
+#            model.canvas[result_i + 1] is None
+#            or
+#            model.canvas[result_i + 1] == ' '
+#        ):
+#            return False
+#        result_j = subst.as_index(self.j)
+#        if (
+#            result_j is None
+#            or
+#            model.canvas[result_j] is None
+#            or
+#            model.canvas[result_j] == ' '
+#        ):
+#            return False
+#        result_f = subst[self.f]
+#        if result_f is None:
+#            return False
+#        return True
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -2088,6 +2111,7 @@ class MakeRelativeIndirectPainter(CallableFunc, HasSimplify):
 #            yield self
         df = self.simplify(subst)
         if df.is_detfunc():
+            #lo('MRIP-2DF', df)
             yield df
 
     def is_detfunc(self) -> TypeGuard[DetFunc]:
@@ -2339,6 +2363,7 @@ class MirrorOf(CallableFunc, HasSimplify):
     
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
+        #lo('MIRR2DF', self.simplify(subst))
         yield from model.func_to_detfuncs(
             subst, var, self.simplify(subst)
         )
@@ -2448,7 +2473,7 @@ default_initial_painters: List[Painter] = [
         SR.WorkingSoup,
         PFuncs(
             MakeRelativeIndirectPainter(I, J, F),
-            #MakeRelativeIndirectPainter(J, I, MirrorOf(F))  # TODO WRONG: F
+            MakeRelativeIndirectPainter(J, I, MirrorOf(F))
         )
     ),
     Painter(
@@ -2937,9 +2962,11 @@ class Model:
     def soups(self) -> Soup:
         return Soup.union(self.lts, self.ws)
 
-    def func_to_detfuncs(self, subst: Subst, var: Variable, func: Func) \
+    def func_to_detfuncs(self, subst: Subst, var: Variable, func0: Func) \
     -> Iterable[DetFunc]:  # TODO Create an appropriate type
-        with indent_log(6, 'FUNC to DETFUNCS', func, subst):
+        with indent_log(6, 'FUNC to DETFUNCS', func0, subst):
+            func: Func = subst.simplify(func0)
+            lo(6, 'SIMPLIFIED FUNC', func)
             match func:
                 case Variable():
                     if func in subst:
@@ -2956,8 +2983,9 @@ class Model:
 #                    if self.can_make_func(func, subst):
 #                        yield func
                     for f in func.to_detfuncs(self, subst, var):
+                        lo(6, 'HERE1-F2', func, f)
                         if self.can_make_func(f, subst):
-                            lo(6, f)
+                            lo(6, 'HERE-F2DF', f)
                             yield f
                 case _:  #SimpleFunc():
                     raise NotImplementedError(func)

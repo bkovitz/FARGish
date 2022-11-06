@@ -25,7 +25,7 @@ from Model import Annotations, CellBundle, Letter, Start, \
     FizzleGotBlank, Succ, TwoAdjacentLetters, MakeDigraphPainters
     
 from Log import lo, set_log_level
-from util import pts, reseed, short
+from util import first, pts, reseed, short
 
 class TestPainters(unittest.TestCase):
 
@@ -104,10 +104,14 @@ class TestPainters(unittest.TestCase):
         self.helper_mbt_fizzle(model)
 
     def helper_mbt_fizzle(self, model: Model) -> None:
-        f = MakeBetweenPainter(I, J, F)
+        f1 = MakeBetweenPainter(I, J, F)
         su = Subst.make_from((I, Index(1)), (J, Index(3)), (F, same))
-        with self.assertRaises(FizzleGotBlank):
-            got = model.apply_func(su, f, Letter('x'))
+        f = first(f1.simplify(su))
+        self.assertFalse(f.can_make(model, su))
+        # OBSOLETE Now can_make() should prevent .apply() from being called
+        # if there's a blank.
+#        with self.assertRaises(FizzleGotBlank):
+#            got = model.apply_func(su, f, Letter('x'))
 
     def test_make_relative_indirect_painter(self) -> None:
         p1 = Painter(

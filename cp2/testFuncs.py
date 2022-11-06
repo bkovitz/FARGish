@@ -8,8 +8,12 @@ from copy import deepcopy
 from Model import Model, Painter, Succ, succ, F, I, J, Plus, pred, same, \
     const, Index, Letter, mirror_of, \
     Subst, MakeBetweenPainter, MakeRelativeIndirectPainter, MirrorOf
+from Log import lo, trace, set_log_level
 
 class TestFuncs(unittest.TestCase):
+
+    def tearDown(self) -> None:
+        set_log_level(0)
 
     def test_succ_eq(self) -> None:
         succ2 = deepcopy(succ)
@@ -59,6 +63,11 @@ class TestFuncs(unittest.TestCase):
             MakeRelativeIndirectPainter(Index(3), Index(5), succ)
         )
         self.assertEqual(su.simplify(mrip1), mrip2)
+
+    def test_make_relative_indirect_painter_to_detfuncs(self) -> None:
+        m = Model.make_from('ajaqb')
+        mrip = MakeRelativeIndirectPainter(I, J, F)
+        su = Subst.make_from((I, Index(1)), (J, Index(3)), (F, same))
 
     def test_call_mirror_of(self) -> None:
         # Is this test necessary? We should never call MirrorOf directly;

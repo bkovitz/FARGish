@@ -12,13 +12,13 @@ import inspect
 #from Soup import Soup
 
 from Model import Model, DetAddrWithSubst, DetPainter, RelatedPair, \
-    same, succ, \
+    same, succ, pred, \
     F, I, Index, Indices, J, SR, \
     Subst, empty_subst, Plus, \
     MakeBetweenPainter, MakeRelativeIndirectPainter, SimpleFunc, \
     Painter, \
     Soup, default_initial_painters, Letter, MatchContent, CellBundle, \
-    Start, Inextreme, Immutable
+    Start, Inextreme, End, Immutable
 from Log import lo, set_log_level
 from util import pts, reseed, short
 
@@ -128,6 +128,22 @@ class TestModel(unittest.TestCase):
                     SR.WorkingSoup,
                     Painter(I, Plus(I, 4), succ)
                 ),
+                # mirrors of relative indirect painters
+                Painter(
+                    MatchContent(CellBundle.make_from('a', Inextreme)),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, -2), same)
+                ),
+                Painter(
+                    MatchContent(CellBundle.make_from('b', End)),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, -2), pred)
+                ),
+                Painter(
+                    MatchContent(CellBundle.make_from('b', End)),
+                    SR.WorkingSoup,
+                    Painter(I, Plus(I, -4), pred)
+                ),
                 # absolute painters
                 Painter(
                     Index(1),
@@ -153,6 +169,22 @@ class TestModel(unittest.TestCase):
                     Index(3),
                     Index(4),
                     Letter('q')
+                ),
+                # mirrors of absolute painters
+                Painter(
+                    Index(3),
+                    Index(1),
+                    same
+                ),
+                Painter(
+                    Index(5),
+                    Index(1),
+                    pred
+                ),
+                Painter(
+                    Index(5),
+                    Index(3),
+                    pred
                 ),
                 # digraph painters
                 Painter(
