@@ -1,7 +1,7 @@
 1. bbbb -> bbbbb; bbb -> ?
 2. bbbb -> bbbbb; eee -> ?
 3. abcd -> abcde; pqr -> ?
-4. edbc -> edcba; wxy -> ?
+4. edcb -> edcba; wxy -> ?
 5. aaaxa -> aaaaa; qmmmmm -> ?
 6. abc -> abd; pqrs -> ?
 7. abc -> zyx; def -> ?
@@ -27,7 +27,7 @@
 27. uvw -> uuuvvvwww; mn -> ?
 28. aaaaabccdddde -> aabbccddee; uvvvwwxxxxz -> ?
 29. ekqztm -> efghijklm; xraolpt -> ?
-30. muc -> mnopuvwxcdef -> eetk -> ?
+30. muc -> mnopuvwxcdef; eetk -> ?
 31. ey -> efghyxwv; rh -> ?
 32. eeeeqee -> eeeeree; sosss -> ?
 33. eeeeqee -> qqqqeqq; sosss -> ?
@@ -45,7 +45,7 @@
 45. grb -> grd; puf -> ?
 46. abc -> pqr; abd -> ?
 47. pqr -> z; rqp -> ?
-48. pqrsssrqpo -> aaakkzzzz; kjijkllmnopoponmmmm -> ?  % I don't know
+48. pqrsssrqpo -> aaakkzzzz; kjijkllmnopoponmmmm -> ?
 49. beq -> bqe; abcdefpqr -> ?
 50. aqc -> abc; pqc -> ?
 51. abc -> qbc; ijk -> ?
@@ -55,15 +55,15 @@
 55. efghi -> fghij; mno -> ?
 56. efghi -> fghij; aaa -> ?
 57. efghi -> fghij; pqrpqrspqrst -> ?
-58. efghi -> fghij; tuvwtuv -> ?
+58. efghi -> fghij; tuvwtuv -> ?  % I don't know
 59. aaqqmmmm -> zaazqqzmmzmmz; abcdefstu -> ?
 60. mnohijrst -> mhrnisojt; eeffgghh -> ?
 61. ckt -> bdjlsu; nmxa -> ?
 62. aaakkkkk -> akakakkk; llllrr -> ?
 63. aaakkkkk -> akakakkk; mmmgggoooo -> ?
 64. aammmmmeeqqkk -> aaaaammmmmeeeeeqqqqqkkkkk; vvvzzzkggg -> ?
-65. ehl -> efghijklhijkl; acfg -> ?
-66. ehl -> efghijklhijkl; agd -> ?
+65. ehl -> efghijklhijkl; acfg -> ?  % I don't know
+66. ehl -> efghijklhijkl; agd -> ?  % I don't know
 67. pqzvuzjizbazefz -> pqzuvzijzabzefz; apqavuajiabaaef -> ?
 68. abcde -> abcd; pqr -> ?
 69. abcdde -> abcde; pqstu -> ?
