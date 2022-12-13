@@ -15,7 +15,7 @@ from Model import Canvas, empty_subst, I, \
 from Log import lo, set_log_level
 from util import pts, reseed, short
 
-class TestBody(LoopBody):
+class ExcludeA(LoopBody):
 
     def run(self, subst: Subst, us: UState) -> Iterable[Tuple[Subst, Any]]:
         letter = us.value_at(subst.as_addr(I))
@@ -30,7 +30,7 @@ class TestLoop(unittest.TestCase):
     def test_simple_loop(self) -> None:
         loop = LoopOverCanvas(I)
         us = make_test_us('ajaqb')
-        body = TestBody()
+        body = ExcludeA()
         got = list(loop.run(empty_subst, us, body))
         self.assertCountEqual(
             got,
@@ -41,3 +41,6 @@ class TestLoop(unittest.TestCase):
             ]
         )
 
+#    def test_restricted_loop(self) -> None:
+#        loop = LoopOverCanvas(I).feed_through
+        
