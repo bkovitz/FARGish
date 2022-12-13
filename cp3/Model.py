@@ -16,6 +16,25 @@ from util import short
 
 
 @dataclass(frozen=True)
+class Variable:
+    name: str
+
+    def __repr__(self) -> str:
+        return self.name
+
+@dataclass(frozen=True)
+class IndexVariable(Variable):
+    pass
+
+I = IndexVariable('I')
+J = IndexVariable('J')
+
+@dataclass(frozen=True)
+class VarSpec:
+
+VarSpec = Union[Variable
+
+@dataclass(frozen=True)
 class Painter:
     arguments: Tuple[VarSpec, VarSpec]
     predicates: List[Predicate]
@@ -88,6 +107,21 @@ class UState:
     def loop_through_targetvar_second(
         self, sourcevar: VarSpec, targetvar: VarSpec
     ) -> Iterable[UState]:
+        match vs_type(targetvar):
+            case VT.IndexVar:
+                source_canvas, source_index = self.as_canvas_and_index(
+                    sourcevar
+                )
+                return (
+                    self.unify(
+                        targetvar, FullIndex(source_canvas, target_index)
+                    )
+                        for target_index in source_canvas.all_indices_right_of(
+                            source_index
+                        )
+                )
+            case _:
+                raise NotImplementedError(targetvar)
 
     def exists(self, var: VarSpec) -> bool:
         match vs_type(var):
@@ -108,8 +142,8 @@ class Apart(Predicate):
 
     def target_ok(self, us: UState, sourcevar: VarSpec, targetvar: VarSpec) \
     -> bool:
-        source_snippet, source_index = us.as_snippet_and_index(sourcevar)
-        target_snippet, target_index = us.as_snippet_and_index(targetvar)
+        source_snippet, source_index = us.as_canvas_and_index(sourcevar)
+        target_snippet, target_index = us.as_canvas_and_index(targetvar)
         return (
             source_snippet == target_snippet
             and
@@ -121,7 +155,7 @@ class Apart(Predicate):
     ) -> Iterable[ActionSpec]:
         match vs_type(sourcevar):
             case VT.IndexVar:
-                snippet, index = us.as_snippet_and_index(sourcevar)
+                snippet, index = us.as_canvas_and_index(sourcevar)
                 new_index = index + self.distance
                 yield PaintAt(FullIndex(snippet, new_index))
             case _:
@@ -132,7 +166,7 @@ class Apart(Predicate):
     ) -> Iterable[ActionSpec]:
         match vs_type(sourcevar):
             case VT.IndexVar:
-                snippet, index = us.as_snippet_and_index(sourcevar)
+                snippet, index = us.as_canvas_and_index(sourcevar)
                 new_index = index - self.distance
                 yield PaintAt(FullIndex(snippet, new_index))
             case _:
