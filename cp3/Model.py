@@ -17,6 +17,7 @@ from util import short
 
 @dataclass(frozen=True)
 class Variable:
+    # Don't instantiate this. Instantiate only subclasses.
     name: str
 
     def __repr__(self) -> str:
@@ -29,10 +30,8 @@ class IndexVariable(Variable):
 I = IndexVariable('I')
 J = IndexVariable('J')
 
-@dataclass(frozen=True)
-class VarSpec:
-
-VarSpec = Union[Variable
+VarSpec = IndexVariable   # TODO Union with PainterVariable, CanvasVariable,
+                          # CompoundVariable
 
 @dataclass(frozen=True)
 class Painter:
@@ -79,36 +78,75 @@ class Painter:
         return us.spec_to_action(spec)
             
 @dataclass(frozen=True)
+class Subst:
+    '''A set of substitutions, i.e. mappings from variables to values.
+    bottom_subst indicates a failed substitution.'''
+    d: PMap[VarSpec, Value] = field(default_factory=lambda: pmap())
+
+    def __bool__(self) -> bool:
+        # Returns True if valid Subst, False if BottomSubst (i.e. failed).
+        return True
+
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        # Is this all the unification we need? No need to store expressions
+        # like I->J+2 and then set I to 5 if J gets unified with 3?
+        match (lhs, rhs):
+            case (x, y) if x == y:
+                return self
+            case (IndexVariable(), int()):
+                if lhs in self.d:
+                    if self.d[lhs] == rhs:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, rhs))
+            case _:
+                raise NotImplementedError((lhs, rhs))
+
+class BottomSubst(Subst):
+    '''A Subst that maps nothing to nothing and can't unify or substitute
+    anything. As a bool, equivalent to False.'''
+
+    def __bool__(self) -> bool:
+        return False
+
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        return self
+
+@dataclass(frozen=True)
 class UState:
     ws: Workspace
-    d: Dict[Variable, Value]
     canvas_in_focus: Canvas
+    subst: Subst = field(default_factory=lambda: Subst())
+
+    # NEXT .value_at()
 
     def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
-        match vs_type(sourcevar):
-            case VT.IndexVar:
+        match sourcevar:
+            case IndexVariable():
                 return (
                     self.unify(sourcevar, FullIndex(self.canvas_in_focus, i))
                         for i in self.canvas_in_focus.all_filled_indices()
                 )
 
-            case VT.CompoundIndexVar:
-                # Need to step through possibly many nested loops, one for
-                # each snippet level in sourcevar
-#                return (
-#                    self.unify(sourcevar, FullIndex(c, i))
-#                        for c in ws.all_canvases():
-#                            for i in 
-#                )
-                raise NotImplementedError(sourcevar)
+#            case VT.CompoundIndexVar:
+#                # Need to step through possibly many nested loops, one for
+#                # each snippet level in sourcevar
+##                return (
+##                    self.unify(sourcevar, FullIndex(c, i))
+##                        for c in ws.all_canvases():
+##                            for i in 
+##                )
+#                raise NotImplementedError(sourcevar)
             case _:
                 raise NotImplementedError(sourcevar)
 
     def loop_through_targetvar_second(
         self, sourcevar: VarSpec, targetvar: VarSpec
     ) -> Iterable[UState]:
-        match vs_type(targetvar):
-            case VT.IndexVar:
+        match targetvar:
+            case IndexVariable():
                 source_canvas, source_index = self.as_canvas_and_index(
                     sourcevar
                 )
@@ -124,12 +162,18 @@ class UState:
                 raise NotImplementedError(targetvar)
 
     def exists(self, var: VarSpec) -> bool:
-        match vs_type(var):
-            case VT.IndexVar:
+        match var:
+            case IndexVariable():
                 return self.canvas_in_focus.index_exists(var)
             case _:  # TODO
                 raise NotImplementedError(var)
 
+    def unify(self, lhs: Expr, rhs: Expr) -> UState:
+        subst = self.subst.unify(lhs, rhs)
+        if subst is self.subst:
+            return self
+        else:
+            return replace(self, subst=subst)
 
 @dataclass(frozen=True)
 class Apart(Predicate):
@@ -153,8 +197,8 @@ class Apart(Predicate):
     def spec_left_to_right(
         self, us: UState, sourcevar: VarSpec, targetvar: VarSpec
     ) -> Iterable[ActionSpec]:
-        match vs_type(sourcevar):
-            case VT.IndexVar:
+        match sourcevar:
+            case IndexVariable():
                 snippet, index = us.as_canvas_and_index(sourcevar)
                 new_index = index + self.distance
                 yield PaintAt(FullIndex(snippet, new_index))
@@ -164,8 +208,8 @@ class Apart(Predicate):
     def spec_right_to_left(
         self, us: UState, targetvar: VarSpec, sourcevar: VarSpec
     ) -> Iterable[ActionSpec]:
-        match vs_type(sourcevar):
-            case VT.IndexVar:
+        match sourcevar:
+            case IndexVariable():
                 snippet, index = us.as_canvas_and_index(sourcevar)
                 new_index = index - self.distance
                 yield PaintAt(FullIndex(snippet, new_index))
