@@ -1,4 +1,7 @@
 # testLoop.py -- Unit tests for Loop objects
+# renamed xtestLoop.py to omit from 'make ut', 15-Dec-2022. This file will
+# be deleted if the 'hand-coded loops' approach works, making 'Loop objects'
+# unnecessary.
 
 import unittest
 import inspect

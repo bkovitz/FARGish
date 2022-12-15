@@ -202,7 +202,6 @@ def is_canvas_value(x: Any) -> TypeGuard[CanvasValue]:
         isinstance(x, Blank)
     )
 
-
 ########## The canvas ##########
 
 @dataclass
