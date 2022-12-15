@@ -87,6 +87,15 @@ class Subst:
         # Returns True if valid Subst, False if BottomSubst (i.e. failed).
         return True
 
+    def as_index(self, e: VarSpec) -> Optional[Index]:
+        match g.get(e, None):
+            case None:
+                return None
+            case int() as i:
+                return i
+            case _:
+                raise NotImplementedError((e, type(e)))
+
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         # Is this all the unification we need? No need to store expressions
         # like I->J+2 and then set I to 5 if J gets unified with 3?
@@ -120,7 +129,17 @@ class UState:
     canvas_in_focus: Canvas
     subst: Subst = field(default_factory=lambda: Subst())
 
-    # NEXT .value_at()
+    def value_at(self, i: IndexVariable | Index) -> CanvasValue:
+        match i:
+            case int():
+                return self.canvas_in_focus.value_at(i)
+            case IndexVariable():
+                return self.canvas_in_focus.value_at(
+                    self.subst.value_of(i)
+                )
+
+    def as_canvas_and_index(self, e: VarSpec) -> Tuple[Canvas, Index]:
+        #NEXT
 
     def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
         match sourcevar:
