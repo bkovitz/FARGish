@@ -166,8 +166,6 @@ class Subst:
 
     __repr__ = short
 
-
-
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
     anything. As a bool, equivalent to False.'''
@@ -218,6 +216,17 @@ class Canvas:
                 return None
             case int():
                 return self[i]
+
+    def value_at_or_fizzle(self, i: Optional[Index]) -> CanvasValue:
+        match i:
+            case None:
+                raise FizzleNoValueThere(i)
+            case int():
+                result = self.d.get(i, None)
+                if result is None:
+                    raise FizzleNoValueThere(i)
+                else:
+                    return result
 
     def all_indices(self) -> Iterable[Index]:
         if self.min_index is None:
@@ -291,6 +300,15 @@ class UState:
             case IndexVariable():
                 return self.canvas_in_focus.value_at(self.subst.value_of(i))
 
+    def value_at_or_fizzle(self, i: IndexVariable | Index) -> CanvasValue:
+        match i:
+            case int():
+                return self.canvas_in_focus.value_at_or_fizzle(i)
+            case IndexVariable():
+                return self.canvas_in_focus.value_at_or_fizzle(
+                    self.subst.value_of_or_fizzle(i)
+                )
+
     #def as_index(self, i: 
 
     def as_canvas_and_index(self, e: VarSpec | Index) -> Tuple[Canvas, Index]:
@@ -363,6 +381,121 @@ class UState:
 
 #    #def spec_to_action(self, 
 
+########## Predicates ##########
+
+class Predicate(ABC):
+
+    @abstractmethod
+    def source_ok(self, us: UState, sourcevar: VarSpec) -> bool:
+        pass
+
+    @abstractmethod
+    def target_ok(self, us: UState, sourcevar: VarSpec, targetvar: VarSpec) \
+    -> bool:
+        pass
+
+    @abstractmethod
+    def spec_left_to_right(
+        self, us: UState, sourcevar: VarSpec, targetvar: VarSpec
+    ) -> Iterable[ActionSpec]:
+        pass
+
+    @abstractmethod
+    def spec_right_to_left(
+        self, us: UState, targetvar: VarSpec, sourcevar: VarSpec
+    ) -> Iterable[ActionSpec]:
+        pass
+
+@dataclass(frozen=True)
+class Apart(Predicate):
+    distance: int
+    arg1: VarSpec
+    arg2: VarSpec
+
+    def source_ok(self, us: UState, sourcevar: VarSpec) -> bool:
+        return True
+
+    def target_ok(self, us: UState, sourcevar: VarSpec, targetvar: VarSpec) \
+    -> bool:
+        source_snippet, source_index = us.as_canvas_and_index(sourcevar)
+        target_snippet, target_index = us.as_canvas_and_index(targetvar)
+        return (
+            source_snippet == target_snippet
+            and
+            abs(source_index - target_index) == self.distance
+        )
+
+    def spec_left_to_right(
+        self, us: UState, sourcevar: VarSpec, targetvar: VarSpec
+    ) -> Iterable[ActionSpec]:
+        match sourcevar:
+            case IndexVariable():
+                snippet, index = us.as_canvas_and_index(sourcevar)
+                new_index = index + self.distance
+                yield PaintAt(FullIndex(snippet, new_index))
+            case _:
+                raise NotImplementedError(sourcevar)
+
+    def spec_right_to_left(
+        self, us: UState, targetvar: VarSpec, sourcevar: VarSpec
+    ) -> Iterable[ActionSpec]:
+        match sourcevar:
+            case IndexVariable():
+                snippet, index = us.as_canvas_and_index(sourcevar)
+                new_index = index - self.distance
+                yield PaintAt(FullIndex(snippet, new_index))
+            case _:
+                raise NotImplementedError(sourcevar)
+
+@dataclass(frozen=True)
+class Succ(Predicate):
+    arg1: VarSpec
+    arg2: VarSpec
+
+    def source_ok(self, us: UState, sourcevar: VarSpec) -> bool:
+        return True
+
+    def target_ok(self, us: UState, sourcevar: VarSpec, targetvar: VarSpec) \
+    -> bool:
+        return True
+
+    def spec_left_to_right(
+        self, us: UState, sourcevar: VarSpec, targetvar: VarSpec
+    ) -> Iterable[ActionSpec]:
+        yield PaintValue(succ_of(us.value_at_or_fizzle(sourcevar)))
+
+    def spec_right_to_left(
+        self, us: UState, targetvar: VarSpec, sourcevar: VarSpec
+    ) -> Iterable[ActionSpec]:
+        yield PaintValue(pred_of(us.value_at_or_fizzle(sourcevar)))
+
+def succ_of(v: CanvasValue) -> CanvasValue:
+    match v:
+        case Letter():
+            return v.succ()
+        case _:
+            raise FizzleNoSucc
+
+def pred_of(v: CanvasValue) -> CanvasValue:
+    match v:
+        case Letter():
+            return v.pred()
+        case _:
+            raise FizzleNoPred
+
+########## Actions ##########
+
+class ActionSpec:
+    pass
+
+@dataclass(frozen=True)
+class PaintAt(ActionSpec):
+    fi: FullIndex
+
+@dataclass(frozen=True)
+class PaintValue(ActionSpec):
+    v: CanvasValue
+
 ########## Exceptions ##########
 
 class Fizzle(Exception):
@@ -392,3 +525,10 @@ class FizzleNoValue(Fizzle):
 
     def __str__(self) -> str:
         return f'No value defined for {self.v}'
+
+@dataclass(frozen=True)
+class FizzleNoValueThere(Fizzle):
+    i: Union[FullIndex, Index, None]
+
+    def __str__(self) -> str:
+        return f'No value at {self.i}'
