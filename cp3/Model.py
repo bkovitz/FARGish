@@ -73,8 +73,7 @@ class Letter:
         return repr(self.c)
 
     def __str__(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({self.c!r})'
+        return self.c
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
@@ -124,6 +123,16 @@ class Subst:
             case _:
                 raise NotImplementedError((e, type(e)))
 
+    def value_of(self, e: VarSpec) -> Optional[Value]:
+        return self.d.get(e, None)
+
+    def value_of_or_fizzle(self, e: VarSpec) -> Value:
+        result = self.value_of(e)
+        if result is None:
+            raise FizzleNoValue(e)
+        else:
+            return result
+
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         # Is this all the unification we need? No need to store expressions
         # like I->J+2 and then set I to 5 if J gets unified with 3?
@@ -131,17 +140,33 @@ class Subst:
             case (x, y) if x == y:
                 return self
             case (IndexVariable(), int()):
-                if lhs in self.d:
-                    if self.d[lhs] == rhs:
-                        return self
-                    else:
-                        return bottom_subst
-                else:
-                    return Subst(self.d.set(lhs, rhs))
+                return self.set_lhs_rhs(lhs, rhs)
+            case (IndexVariable(), FullIndex()):
+                return self.set_lhs_rhs(lhs, rhs)
             case _:
                 raise NotImplementedError((lhs, rhs))
         assert False, "shouldn't get here"  # MYPY bug?
         return bottom_subst
+
+    def set_lhs_rhs(self, lhs: Expr, rhs: Expr) -> Subst:
+        if lhs in self.d:
+            if self.d[lhs] == rhs:
+                return self
+            else:
+                return bottom_subst
+        else:
+            return Subst(self.d.set(lhs, rhs))
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        items = ', '.join(
+            f'{short(k)}={short(v)}' for k, v in self.d.items()
+        )
+        return f'{cl}({items})'
+
+    __repr__ = short
+
+
 
 class BottomSubst(Subst):
     '''A Subst that maps nothing to nothing and can't unify or substitute
@@ -187,17 +212,49 @@ class Canvas:
             self.min_index = min(a, self.min_index)
             self.max_index = max(a, self.max_index)
 
+    def value_at(self, i: Optional[Index]) -> Optional[CanvasValue]:
+        match i:
+            case None:
+                return None
+            case int():
+                return self[i]
+
     def all_indices(self) -> Iterable[Index]:
         if self.min_index is None:
             return
-        else:
-            assert self.max_index is not None
-            yield from range(self.min_index, self.max_index + 1)
+        assert self.max_index is not None
+        yield from range(self.min_index, self.max_index + 1)
 
     def all_filled_indices(self) -> Iterable[Index]:
         for k, v in self.d.items():
             if not is_blank(v):
                 yield k
+
+    def all_indices_right_of(self, i: Index) -> Iterable[Index]:
+        if self.min_index is None:
+            return
+        if i < self.min_index:
+            yield from self.all_indices()
+        else:
+            assert self.max_index is not None
+            yield from range(i + 1, self.max_index + 1)
+        
+    def __str__(self) -> str:
+        return ''.join(str(self[i]) for i in self.all_indices())
+
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f"{cl}({str(self)!r})"
+
+
+@dataclass(frozen=True)
+class FullIndex:
+    canvas: Canvas
+    i: Index
+
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({str(self.canvas)!r}, {self.i})'
 
 ########## Workspace ##########
 
@@ -213,77 +270,83 @@ class Workspace:
 
 ########## UState ##########
 
-#@dataclass(frozen=True)
-#class UState:
-#    '''"Unification state": a stage in the process of assigning values to
-#    variables when running a Painter to produce Actions.'''
-#
-#    ws: Workspace
-#    canvas_in_focus: Canvas
-#    subst: Subst = field(default_factory=lambda: Subst())
-#
-#    @classmethod
-#    def make_from(cls, s: str) -> UState:
-#        canvas = Canvas.make_from(s)
-#        return cls(Workspace.make_from(canvas), canvas, Subst())
-#
-#    def value_at(self, i: IndexVariable | Index) -> CanvasValue:
-#        match i:
-#            case int():
-#                return self.canvas_in_focus.value_at(i)
-#            case IndexVariable():
-#                return self.canvas_in_focus.value_at(
-#                    self.subst.value_of(i)
-#                )
-#
-#    def as_canvas_and_index(self, e: VarSpec) -> Tuple[Canvas, Index]:
-#        match e:
-#            case IndexVariable():
-#                return (self.canvas_in_focus, self.subst.value_of(e))
-#            # TODO CompoundVariable
-#            # TODO int
-#            case _:
-#                raise NotImplementedError(e, type(e))
-#
-#    def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
-#        match sourcevar:
-#            case IndexVariable():
-#                return (
-#                    self.unify(sourcevar, FullIndex(self.canvas_in_focus, i))
-#                        for i in self.canvas_in_focus.all_filled_indices()
-#                )
-#
-##            case VT.CompoundIndexVar:
-##                # Need to step through possibly many nested loops, one for
-##                # each snippet level in sourcevar
-###                return (
-###                    self.unify(sourcevar, FullIndex(c, i))
-###                        for c in ws.all_canvases():
-###                            for i in 
-###                )
-##                raise NotImplementedError(sourcevar)
-#            case _:
+@dataclass(frozen=True)
+class UState:
+    '''"Unification state": a stage in the process of assigning values to
+    variables when running a Painter to produce Actions.'''
+
+    ws: Workspace
+    canvas_in_focus: Canvas
+    subst: Subst = field(default_factory=lambda: Subst())
+
+    @classmethod
+    def make_from(cls, s: str) -> UState:
+        canvas = Canvas.make_from(s)
+        return cls(Workspace.make_from(canvas), canvas, Subst())
+
+    def value_at(self, i: IndexVariable | Index) -> Optional[CanvasValue]:
+        match i:
+            case int():
+                return self.canvas_in_focus[i]
+            case IndexVariable():
+                return self.canvas_in_focus.value_at(self.subst.value_of(i))
+
+    #def as_index(self, i: 
+
+    def as_canvas_and_index(self, e: VarSpec | Index) -> Tuple[Canvas, Index]:
+        match e:
+            case int():
+                return (self.canvas_in_focus, e)
+            case IndexVariable():
+                v = self.subst.value_of_or_fizzle(e)
+                match v:
+                    case int():
+                        return (self.canvas_in_focus, v)
+                    case FullIndex(c, i):
+                        return (c, i)
+            # TODO CompoundVariable
+            # TODO int
+            case _:
+                raise NotImplementedError(e, type(e))
+
+    def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
+        match sourcevar:
+            case IndexVariable():
+                return (
+                    self.unify(sourcevar, FullIndex(self.canvas_in_focus, i))
+                        for i in self.canvas_in_focus.all_filled_indices()
+                )
+#            case VT.CompoundIndexVar:
+#                # Need to step through possibly many nested loops, one for
+#                # each snippet level in sourcevar
+##                return (
+##                    self.unify(sourcevar, FullIndex(c, i))
+##                        for c in ws.all_canvases():
+##                            for i in 
+##                )
 #                raise NotImplementedError(sourcevar)
-#
-#    def loop_through_targetvar_second(
-#        self, sourcevar: VarSpec, targetvar: VarSpec
-#    ) -> Iterable[UState]:
-#        match targetvar:
-#            case IndexVariable():
-#                source_canvas, source_index = self.as_canvas_and_index(
-#                    sourcevar
-#                )
-#                return (
-#                    self.unify(
-#                        targetvar, FullIndex(source_canvas, target_index)
-#                    )
-#                        for target_index in source_canvas.all_indices_right_of(
-#                            source_index
-#                        )
-#                )
-#            case _:
-#                raise NotImplementedError(targetvar)
-#
+            case _:
+                raise NotImplementedError(sourcevar)
+
+    def loop_through_targetvar_second(
+        self, sourcevar: VarSpec, targetvar: VarSpec
+    ) -> Iterable[UState]:
+        match targetvar:
+            case IndexVariable():
+                source_canvas, source_index = self.as_canvas_and_index(
+                    sourcevar
+                )
+                return (
+                    self.unify(
+                        targetvar, FullIndex(source_canvas, target_index)
+                    )
+                        for target_index in source_canvas.all_indices_right_of(
+                            source_index
+                        )
+                )
+            case _:
+                raise NotImplementedError(targetvar)
+
 #    def exists(self, var: VarSpec) -> bool:
 #        match var:
 #            case IndexVariable():
@@ -291,13 +354,13 @@ class Workspace:
 #            case _:  # TODO
 #                raise NotImplementedError(var)
 #
-#    def unify(self, lhs: Expr, rhs: Expr) -> UState:
-#        subst = self.subst.unify(lhs, rhs)
-#        if subst is self.subst:
-#            return self
-#        else:
-#            return replace(self, subst=subst)
-#
+    def unify(self, lhs: Expr, rhs: Expr) -> UState:
+        subst = self.subst.unify(lhs, rhs)
+        if subst is self.subst:
+            return self
+        else:
+            return replace(self, subst=subst)
+
 #    #def spec_to_action(self, 
 
 ########## Exceptions ##########
@@ -323,3 +386,9 @@ class FizzleNoPred(FizzleCantGoThere):
     def __str__(self) -> str:
         return 'No predecessor'
 
+@dataclass(frozen=True)
+class FizzleNoValue(Fizzle):
+    v: VarSpec
+
+    def __str__(self) -> str:
+        return f'No value defined for {self.v}'
