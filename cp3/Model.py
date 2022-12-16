@@ -16,6 +16,8 @@ from util import short
 
 
 Index = int
+Value = Index  # TODO Union[Index, Painter, Canvas]?
+Expr = Any
 
 @dataclass(frozen=True)
 class Variable:
@@ -101,6 +103,59 @@ def is_canvas_value(x: Any) -> TypeGuard[CanvasValue]:
         isinstance(x, Blank)
     )
 
+########## Substitutions ##########
+
+@dataclass(frozen=True)
+class Subst:
+    '''A set of substitutions, i.e. mappings from variables to values.
+    bottom_subst indicates a failed substitution.'''
+    d: PMap[VarSpec, Value] = field(default_factory=lambda: pmap())
+
+    def __bool__(self) -> bool:
+        # Returns True if valid Subst, False if BottomSubst (i.e. failed).
+        return True
+
+    def as_index(self, e: VarSpec) -> Optional[Index]:
+        match self.d.get(e, None):
+            case None:
+                return None
+            case int() as i:
+                return i
+            case _:
+                raise NotImplementedError((e, type(e)))
+
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        # Is this all the unification we need? No need to store expressions
+        # like I->J+2 and then set I to 5 if J gets unified with 3?
+        match (lhs, rhs):
+            case (x, y) if x == y:
+                return self
+            case (IndexVariable(), int()):
+                if lhs in self.d:
+                    if self.d[lhs] == rhs:
+                        return self
+                    else:
+                        return bottom_subst
+                else:
+                    return Subst(self.d.set(lhs, rhs))
+            case _:
+                raise NotImplementedError((lhs, rhs))
+        assert False, "shouldn't get here"  # MYPY bug?
+        return bottom_subst
+
+class BottomSubst(Subst):
+    '''A Subst that maps nothing to nothing and can't unify or substitute
+    anything. As a bool, equivalent to False.'''
+
+    def __bool__(self) -> bool:
+        return False
+
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        return self
+
+empty_subst = Subst()
+bottom_subst = BottomSubst()
+
 ########## The canvas ##########
 
 @dataclass
@@ -138,6 +193,112 @@ class Canvas:
         else:
             assert self.max_index is not None
             yield from range(self.min_index, self.max_index + 1)
+
+    def all_filled_indices(self) -> Iterable[Index]:
+        for k, v in self.d.items():
+            if not is_blank(v):
+                yield k
+
+########## Workspace ##########
+
+@dataclass(frozen=True)
+class Workspace:
+    canvases: Dict[str, Canvas]   # name -> Canvas
+    #painters: Dict[str, Painter]  # name -> Painter
+
+    @classmethod
+    def make_from(cls, c: Canvas) -> Workspace:
+        return Workspace({'C0': c})
+
+
+########## UState ##########
+
+#@dataclass(frozen=True)
+#class UState:
+#    '''"Unification state": a stage in the process of assigning values to
+#    variables when running a Painter to produce Actions.'''
+#
+#    ws: Workspace
+#    canvas_in_focus: Canvas
+#    subst: Subst = field(default_factory=lambda: Subst())
+#
+#    @classmethod
+#    def make_from(cls, s: str) -> UState:
+#        canvas = Canvas.make_from(s)
+#        return cls(Workspace.make_from(canvas), canvas, Subst())
+#
+#    def value_at(self, i: IndexVariable | Index) -> CanvasValue:
+#        match i:
+#            case int():
+#                return self.canvas_in_focus.value_at(i)
+#            case IndexVariable():
+#                return self.canvas_in_focus.value_at(
+#                    self.subst.value_of(i)
+#                )
+#
+#    def as_canvas_and_index(self, e: VarSpec) -> Tuple[Canvas, Index]:
+#        match e:
+#            case IndexVariable():
+#                return (self.canvas_in_focus, self.subst.value_of(e))
+#            # TODO CompoundVariable
+#            # TODO int
+#            case _:
+#                raise NotImplementedError(e, type(e))
+#
+#    def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
+#        match sourcevar:
+#            case IndexVariable():
+#                return (
+#                    self.unify(sourcevar, FullIndex(self.canvas_in_focus, i))
+#                        for i in self.canvas_in_focus.all_filled_indices()
+#                )
+#
+##            case VT.CompoundIndexVar:
+##                # Need to step through possibly many nested loops, one for
+##                # each snippet level in sourcevar
+###                return (
+###                    self.unify(sourcevar, FullIndex(c, i))
+###                        for c in ws.all_canvases():
+###                            for i in 
+###                )
+##                raise NotImplementedError(sourcevar)
+#            case _:
+#                raise NotImplementedError(sourcevar)
+#
+#    def loop_through_targetvar_second(
+#        self, sourcevar: VarSpec, targetvar: VarSpec
+#    ) -> Iterable[UState]:
+#        match targetvar:
+#            case IndexVariable():
+#                source_canvas, source_index = self.as_canvas_and_index(
+#                    sourcevar
+#                )
+#                return (
+#                    self.unify(
+#                        targetvar, FullIndex(source_canvas, target_index)
+#                    )
+#                        for target_index in source_canvas.all_indices_right_of(
+#                            source_index
+#                        )
+#                )
+#            case _:
+#                raise NotImplementedError(targetvar)
+#
+#    def exists(self, var: VarSpec) -> bool:
+#        match var:
+#            case IndexVariable():
+#                return self.canvas_in_focus.index_exists(var)
+#            case _:  # TODO
+#                raise NotImplementedError(var)
+#
+#    def unify(self, lhs: Expr, rhs: Expr) -> UState:
+#        subst = self.subst.unify(lhs, rhs)
+#        if subst is self.subst:
+#            return self
+#        else:
+#            return replace(self, subst=subst)
+#
+#    #def spec_to_action(self, 
 
 ########## Exceptions ##########
 

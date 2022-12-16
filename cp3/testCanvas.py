@@ -21,3 +21,7 @@ class TestCanvas(unittest.TestCase):
         self.assertEqual(c.min_index, 1)
         self.assertEqual(c.max_index, 4)
         self.assertCountEqual(list(c.all_indices()), [1, 2, 3, 4])
+
+    def test_all_filled_indices(self) -> None:
+        c = Canvas.make_from('aj a')
+        self.assertCountEqual(list(c.all_filled_indices()), [1, 2, 4])
