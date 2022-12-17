@@ -314,7 +314,7 @@ class UState:
         else:
             return replace(self, subst=subst)
 
-    def spec_to_action(self, 
+    def spec_to_actions(self, 
 
 @dataclass(frozen=True)
 class Apart(Predicate):

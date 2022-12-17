@@ -7,6 +7,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
+from itertools import chain
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -25,6 +26,9 @@ class Variable:
     name: str
 
     def __repr__(self) -> str:
+        return self.name
+
+    def short(self) -> str:
         return self.name
 
 @dataclass(frozen=True)
@@ -228,6 +232,14 @@ class Canvas:
                 else:
                     return result
 
+    def exists(self, i: Optional[Index]) -> bool:
+        '''Does a Letter exist with index 'i'?'''
+        match i:
+            case None:
+                return False
+            case _:
+                return isinstance(self.value_at(i), Letter)
+
     def all_indices(self) -> Iterable[Index]:
         if self.min_index is None:
             return
@@ -298,18 +310,31 @@ class UState:
             case int():
                 return self.canvas_in_focus[i]
             case IndexVariable():
-                return self.canvas_in_focus.value_at(self.subst.value_of(i))
+                #return self.canvas_in_focus.value_at(self.subst.value_of(i))
+                c, ii = self.as_canvas_and_index(i)
+                return c.value_at(ii)
 
     def value_at_or_fizzle(self, i: IndexVariable | Index) -> CanvasValue:
         match i:
             case int():
                 return self.canvas_in_focus.value_at_or_fizzle(i)
             case IndexVariable():
-                return self.canvas_in_focus.value_at_or_fizzle(
-                    self.subst.value_of_or_fizzle(i)
-                )
+                c, ii = self.as_canvas_and_index(i)
+                return c.value_at_or_fizzle(ii)
 
     #def as_index(self, i: 
+
+    @no_type_check
+    def exists(self, e: Index | VarSpec | Tuple[Canvas, Index]) -> bool:
+        match e:
+            case int():
+                return self.canvas_in_focus.exists(e)
+            case IndexVariable():
+                return self.exists(self.as_canvas_and_index(e))
+            case (Canvas() as c, int(i)):
+                return c.exists(i)
+            case _:
+                raise NotImplementedError(e, type(e))
 
     def as_canvas_and_index(self, e: VarSpec | Index) -> Tuple[Canvas, Index]:
         match e:
@@ -326,6 +351,8 @@ class UState:
             # TODO int
             case _:
                 raise NotImplementedError(e, type(e))
+        raise ValueError  # This should never be reached; only needed to
+                          # placate mypy 0.971
 
     def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
         match sourcevar:
@@ -379,7 +406,82 @@ class UState:
         else:
             return replace(self, subst=subst)
 
-#    #def spec_to_action(self, 
+    def spec_to_actions(self, spec: Tuple[ActionSpec, ...]) -> Iterable[Action]:
+        fi: Optional[FullIndex] = None
+        v: Optional[CanvasValue] = None
+
+        for sp in spec:
+            match sp:
+                case PaintAt(spec_fi):
+                    fi = spec_fi
+                case PaintValue(spec_v):
+                    v = spec_v
+                case _:
+                    raise NotImplementedError(sp)
+        if fi is not None and v is not None:
+            yield Paint(fi, v)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.subst)})'
+
+########## Painter ##########
+
+@dataclass(frozen=True)
+class Painter:
+    arguments: Tuple[VarSpec, VarSpec]
+    predicates: Tuple[Predicate, ...]
+
+    def generate_actions_left_to_right(self, ustate: UState) \
+    -> Iterable[Action]:
+        sourcevar, targetvar = self.arguments
+        for outer_us in ustate.loop_through_sourcevar(sourcevar):
+            try:
+                if not self.source_ok(outer_us, sourcevar):
+                    continue
+                for inner_us in outer_us.loop_through_targetvar_second(
+                    sourcevar, targetvar
+                ):
+                    try:
+                        if not self.target_ok(inner_us, sourcevar, targetvar):
+                            continue
+                        yield from self.make_actions_left_to_right(
+                            inner_us, sourcevar, targetvar
+                        )
+                    except Fizzle as exc:
+                        lo(9, 'FIZZ1', exc)
+                        continue
+            except Fizzle as exc:
+                lo(9, 'FIZZ2', exc)
+                continue
+
+    def source_ok(self, us: UState, sourcevar) -> bool:
+        if not us.exists(sourcevar):
+            return False
+        return all(
+            predicate.source_ok(us, sourcevar)
+                for predicate in self.predicates
+        )
+            
+    def target_ok(self, us: UState, sourcevar, targetvar) -> bool:
+        # check if targetvar location is blank?
+        return all(
+            predicate.target_ok(us, sourcevar, targetvar)
+                for predicate in self.predicates
+        )
+
+    def make_actions_left_to_right(
+        self, us: UState, sourcevar: VarSpec, targetvar: VarSpec
+    ) -> Iterable[Action]:
+        spec = tuple(chain.from_iterable(
+            predicate.spec_left_to_right(us, sourcevar, targetvar)
+                for predicate in self.predicates
+        ))
+        yield from us.spec_to_actions(spec)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.arguments)}, {short(self.predicates)}'
 
 ########## Predicates ##########
 
@@ -447,6 +549,10 @@ class Apart(Predicate):
             case _:
                 raise NotImplementedError(sourcevar)
 
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.distance)}, {short(self.arg1)}, {short(self.arg2)})'
+
 @dataclass(frozen=True)
 class Succ(Predicate):
     arg1: VarSpec
@@ -468,6 +574,10 @@ class Succ(Predicate):
         self, us: UState, targetvar: VarSpec, sourcevar: VarSpec
     ) -> Iterable[ActionSpec]:
         yield PaintValue(pred_of(us.value_at_or_fizzle(sourcevar)))
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.arg1)}, {short(self.arg2)}'
 
 def succ_of(v: CanvasValue) -> CanvasValue:
     match v:
@@ -495,6 +605,24 @@ class PaintAt(ActionSpec):
 @dataclass(frozen=True)
 class PaintValue(ActionSpec):
     v: CanvasValue
+
+class Action(ABC):
+
+    @abstractmethod
+    def go(self, ws: Workspace):
+        pass
+
+@dataclass(frozen=True)
+class Paint(Action):
+    fi: FullIndex
+    v: CanvasValue
+
+    def go(self, ws: Workspace):
+        print(self)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.fi)}, {short(self.v)})'
 
 ########## Exceptions ##########
 

@@ -125,7 +125,6 @@ def trace(func):
     def wrapper(*args, **kwargs) -> None:
         argstring = ''
         if args:
-            #argstring += ', '.join(repr(a) for a in args)
             argstring += ', '.join(short(a, inside=True) for a in args)
         if kwargs:
             if argstring:
