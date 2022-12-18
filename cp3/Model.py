@@ -18,7 +18,6 @@ from util import short
 
 Index = int
 Value = Index  # TODO Union[Index, Painter, Canvas]?
-Expr = Any
 
 @dataclass(frozen=True)
 class Variable:
@@ -40,6 +39,7 @@ J = IndexVariable('J')
 
 VarSpec = IndexVariable   # TODO Union with PainterVariable, CanvasVariable,
                           # CompoundVariable
+Expr = Any
 
 ########## Canvas-cell contents ##########
 
@@ -117,6 +117,10 @@ class Subst:
     def __bool__(self) -> bool:
         # Returns True if valid Subst, False if BottomSubst (i.e. failed).
         return True
+
+    def __contains__(self, e: Optional[VarSpec]) -> bool:
+        '''Does this Subst have a value defined for 'e'?'''
+        return e in self.d
 
     def as_index(self, e: VarSpec) -> Optional[Index]:
         match self.d.get(e, None):
@@ -260,6 +264,10 @@ class Canvas:
             assert self.max_index is not None
             yield from range(i + 1, self.max_index + 1)
         
+    def is_filled(self, i: Optional[Index]) -> bool:
+        '''A filled cell is one that contains a Letter.'''
+        return isinstance(self.value_at(i), Letter)
+
     def __str__(self) -> str:
         return ''.join(str(self[i]) for i in self.all_indices())
 
@@ -357,10 +365,19 @@ class UState:
     def loop_through_sourcevar(self, sourcevar: VarSpec) -> Iterable[UState]:
         match sourcevar:
             case IndexVariable():
-                return (
-                    self.unify(sourcevar, FullIndex(self.canvas_in_focus, i))
-                        for i in self.canvas_in_focus.all_filled_indices()
-                )
+                if sourcevar in self.subst:
+                    c, i = self.as_canvas_and_index(sourcevar)
+                    if c.is_filled(i):
+                        yield self
+                else:
+                    for i in self.canvas_in_focus.all_filled_indices():
+                        u = self.unify(
+                            sourcevar,
+                            FullIndex(self.canvas_in_focus, i)
+                        )
+                        if u.is_valid():
+                            yield u
+
 #            case VT.CompoundIndexVar:
 #                # Need to step through possibly many nested loops, one for
 #                # each snippet level in sourcevar
@@ -405,6 +422,11 @@ class UState:
             return self
         else:
             return replace(self, subst=subst)
+
+    def is_valid(self) -> bool:
+        '''False iff self.subst is BottomSubst, i.e. if self is the result of
+        a failed attempt to unify.'''
+        return bool(self.subst)
 
     def spec_to_actions(self, spec: Tuple[ActionSpec, ...]) -> Iterable[Action]:
         fi: Optional[FullIndex] = None

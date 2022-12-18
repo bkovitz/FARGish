@@ -28,6 +28,17 @@ class TestUState(unittest.TestCase):
             ]
         )
 
+    def test_loop_through_sourcevar_constant(self) -> None:
+        us = UState.make_from('aj a')
+        c = us.canvas_in_focus
+        us = us.unify(I, FullIndex(c, 2))
+        self.assertCountEqual(
+            list(us.loop_through_sourcevar(I)),
+            [
+                us.unify(I, FullIndex(c, 2)),
+            ]
+        )
+
     def test_as_canvas_and_index(self) -> None:
         us = UState.make_from('aj a')
         c = us.canvas_in_focus
