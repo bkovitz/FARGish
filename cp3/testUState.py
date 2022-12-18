@@ -20,7 +20,7 @@ class TestUState(unittest.TestCase):
         us = UState.make_from('aj a')
         c = us.canvas_in_focus
         self.assertCountEqual(
-            list(us.loop_through_sourcevar(I)),
+            us.loop_through_sourcevar(I),
             [
                 us.unify(I, FullIndex(c, 1)),
                 us.unify(I, FullIndex(c, 2)),
@@ -33,7 +33,7 @@ class TestUState(unittest.TestCase):
         c = us.canvas_in_focus
         us = us.unify(I, FullIndex(c, 2))
         self.assertCountEqual(
-            list(us.loop_through_sourcevar(I)),
+            us.loop_through_sourcevar(I),
             [
                 us.unify(I, FullIndex(c, 2)),
             ]

@@ -450,7 +450,6 @@ class UState:
             case _:
                 raise NotImplementedError(targetvar)
 
-
 #    def exists(self, var: VarSpec) -> bool:
 #        match var:
 #            case IndexVariable():
@@ -519,6 +518,31 @@ class Painter:
                 lo(9, 'FIZZ2', exc)
                 continue
 
+    def generate_actions_right_to_left(self, ustate: UState) \
+    -> Iterable[Action]:
+        targetvar, sourcevar = self.arguments
+        for outer_us in ustate.loop_through_sourcevar(sourcevar):
+            #lo('OUTER', outer_us)
+            try:
+                if not self.source_ok(outer_us, sourcevar):
+                    continue
+                for inner_us in outer_us.loop_through_targetvar_first(
+                    targetvar, sourcevar
+                ):
+                    #lo('INNER', inner_us)
+                    try:
+                        if not self.target_ok(inner_us, sourcevar, targetvar):
+                            continue
+                        yield from self.make_actions_right_to_left(
+                            inner_us, targetvar, sourcevar
+                        )
+                    except Fizzle as exc:
+                        lo(9, 'FIZZ3', exc)
+                        continue
+            except Fizzle as exc:
+                lo(9, 'FIZZ4', exc)
+                continue
+
     def source_ok(self, us: UState, sourcevar) -> bool:
         if not us.exists(sourcevar):
             return False
@@ -539,6 +563,15 @@ class Painter:
     ) -> Iterable[Action]:
         spec = tuple(chain.from_iterable(
             predicate.spec_left_to_right(us, sourcevar, targetvar)
+                for predicate in self.predicates
+        ))
+        yield from us.spec_to_actions(spec)
+
+    def make_actions_right_to_left(
+        self, us: UState, targetvar: VarSpec, sourcevar: VarSpec
+    ) -> Iterable[Action]:
+        spec = tuple(chain.from_iterable(
+            predicate.spec_right_to_left(us, targetvar, sourcevar)
                 for predicate in self.predicates
         ))
         yield from us.spec_to_actions(spec)

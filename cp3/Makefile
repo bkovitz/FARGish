@@ -71,8 +71,8 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	#$(PY) -m unittest -v testPainters.TestPainters.test_make_between_painter
-	$(PY) -m unittest -v testPainter
+	$(PY) -m unittest -v testPainter.TestPainter.test_p3_right_to_left
+	#$(PY) -m unittest -v testPainter
 
 # Acceptance tests
 at:
