@@ -61,10 +61,27 @@ class TestUState(unittest.TestCase):
         us = UState.make_from('aj a').unify(I, 1)
         c = us.canvas_in_focus
         self.assertCountEqual(
-            list(us.loop_through_targetvar_second(I, J)),
+            us.loop_through_targetvar_second(I, J),
             [
                 us.unify(J, FullIndex(c, 2)),
                 us.unify(J, FullIndex(c, 3)),
                 us.unify(J, FullIndex(c, 4)),
             ]
         )
+
+    def test_loop_through_targetvar_first(self) -> None:
+        us = UState.make_from('a j a b').unify(J, 6)
+        # J=6 means that I should look through 1..5, not including the
+        # blank at cell 6.
+        c = us.canvas_in_focus
+        self.assertCountEqual(
+            us.loop_through_targetvar_first(I, J),
+            [
+                us.unify(I, FullIndex(c, 1)),
+                us.unify(I, FullIndex(c, 2)),
+                us.unify(I, FullIndex(c, 3)),
+                us.unify(I, FullIndex(c, 4)),
+                us.unify(I, FullIndex(c, 5))
+            ]
+        )
+

@@ -255,6 +255,7 @@ class Canvas:
             if not is_blank(v):
                 yield k
 
+    # TODO
     def all_indices_right_of(self, i: Index) -> Iterable[Index]:
         if self.min_index is None:
             return
@@ -264,6 +265,16 @@ class Canvas:
             assert self.max_index is not None
             yield from range(i + 1, self.max_index + 1)
         
+    # TODO
+    def all_indices_left_of(self, i: Index) -> Iterable[Index]:
+        if self.max_index is None:
+            return
+        if i > self.max_index:
+            yield from self.all_indices()
+        else:
+            assert self.min_index is not None
+            yield from range(self.min_index, i)
+
     def is_filled(self, i: Optional[Index]) -> bool:
         '''A filled cell is one that contains a Letter.'''
         return isinstance(self.value_at(i), Letter)
@@ -408,6 +419,37 @@ class UState:
                 )
             case _:
                 raise NotImplementedError(targetvar)
+
+    def loop_through_targetvar_first(
+        self, targetvar: VarSpec, sourcevar: VarSpec
+    ) -> Iterable[UState]:
+        '''Looping through the targetvar first means running the inner loop
+        (the "second" loop) but the targetvar is the first argument.
+        Consequently, the sourcevar (the second argument) is fixed to a
+        constant and the targetvar loops through all other available values.
+        If both the targetvar and sourcevar are IndexVariables, the targetvar
+        moves only through indices to the left of sourcevar, at least when
+        both refer to the same canvas.
+
+        Unlike .loop_through_sourcevar(), this method loops through all
+        cell indices with an appropriate index, regardless of their contents,
+        i.e. including both filled and unfilled cells.'''
+        match targetvar:
+            case IndexVariable():
+                source_canvas, source_index = self.as_canvas_and_index(
+                    sourcevar
+                )
+                return (
+                    self.unify(
+                        targetvar, FullIndex(source_canvas, target_index)
+                    )
+                        for target_index in source_canvas.all_indices_left_of(
+                            source_index
+                        )
+                )
+            case _:
+                raise NotImplementedError(targetvar)
+
 
 #    def exists(self, var: VarSpec) -> bool:
 #        match var:
