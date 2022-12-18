@@ -495,6 +495,10 @@ class Painter:
     arguments: Tuple[VarSpec, VarSpec]
     predicates: Tuple[Predicate, ...]
 
+    def generate_actions(self, us: UState) -> Iterable[Action]:
+        yield from self.generate_actions_left_to_right(us)
+        yield from self.generate_actions_right_to_left(us)
+
     def generate_actions_left_to_right(self, ustate: UState) \
     -> Iterable[Action]:
         sourcevar, targetvar = self.arguments
