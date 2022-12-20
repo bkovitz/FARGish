@@ -52,3 +52,28 @@ class TestPainter(unittest.TestCase):
                 Paint(FullIndex(c, 5), Letter('k'))
             ]
         )
+
+    #def test_p1(self) -> None:
+        
+
+#    def test_see_related_pair(self) -> None:
+#        us = UState.make_from('ajaqb')
+#        c = us.canvas_in_focus
+#
+#        self.assertCountEqual(
+#            self.ip1.generate_actions(us),
+#            [
+#                MakePainter(
+#                    Painter((I, J), (Apart(2, I, J), Same(I, J))),
+#                    anchored_at=((FullIndex(c, 1), FullIndex(c, 3)))
+#                ),
+#                MakePainter(
+#                    Painter((I, J), (Apart(2, I, J), Succ(I, J)))),
+#                    anchored_at=((FullIndex(c, 3), FullIndex(c, 5)))
+#                ),
+#                MakePainter(
+#                    Painter((I, J), (Apart(2, I, J), Succ(I, J)))),
+#                    anchored_at=((FullIndex(c, 1), FullIndex(c, 5)))
+#                ),
+#            ]
+#        )
