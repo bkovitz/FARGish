@@ -205,6 +205,11 @@ class Canvas:
                 d[i] = Letter.from_str(c)
             return cls(d, min_index=1, max_index=len(s))
 
+    @classmethod
+    def make_from_width(cls, width: int) -> Canvas:
+        assert width > 0
+        return cls(min_index=1, max_index=width)
+
     def __getitem__(self, a: Index) -> Optional[CanvasValue]:
         return self.d.get(a, None)
 
@@ -255,7 +260,7 @@ class Canvas:
             if not is_blank(v):
                 yield k
 
-    # TODO
+    # TODO UT
     def all_indices_right_of(self, i: Index) -> Iterable[Index]:
         if self.min_index is None:
             return
@@ -265,7 +270,7 @@ class Canvas:
             assert self.max_index is not None
             yield from range(i + 1, self.max_index + 1)
         
-    # TODO
+    # TODO UT
     def all_indices_left_of(self, i: Index) -> Iterable[Index]:
         if self.max_index is None:
             return
@@ -275,9 +280,23 @@ class Canvas:
             assert self.min_index is not None
             yield from range(self.min_index, i)
 
+    # TODO UT
+    def all_index_steps(self) -> Iterable[Tuple[Index, Index]]:
+        if self.min_index is None:
+            return
+        assert self.max_index is not None
+        for i in range(self.min_index, self.max_index):
+            yield (i, i + 1)
+
     def is_filled(self, i: Optional[Index]) -> bool:
         '''A filled cell is one that contains a Letter.'''
         return isinstance(self.value_at(i), Letter)
+
+    # TODO UT
+    def width(self) -> Optional[int]:
+        if self.min_index is None or self.max_index is None:
+            return None
+        return self.max_index - self.min_index + 1
 
     def __str__(self) -> str:
         return ''.join(str(self[i]) for i in self.all_indices())
@@ -584,6 +603,22 @@ class Painter:
         cl = self.__class__.__name__
         return f'{cl}({short(self.arguments)}, {short(self.predicates)}'
 
+#class Painter:
+#    spatial_relation: SRelation
+#    value_relation: VRelation
+#
+#    Apart[2, I, J]
+#    Succ[I, J]
+
+# NEXT
+#@dataclass(frozen=True)
+#class AnchoredPainter:
+#    painter: Painter
+#    arguments: Tuple[Index, Index]  # TODO allow other types
+#
+#    def generate_actions(self, us: UState) -> Iterable[Action]:
+        
+
 ########## Predicates ##########
 
 class Predicate(ABC):
@@ -680,14 +715,14 @@ class Succ(Predicate):
         cl = self.__class__.__name__
         return f'{cl}({short(self.arg1)}, {short(self.arg2)}'
 
-def succ_of(v: CanvasValue) -> CanvasValue:
+def succ_of(v: CanvasValue) -> Letter:
     match v:
         case Letter():
             return v.succ()
         case _:
             raise FizzleNoSucc
 
-def pred_of(v: CanvasValue) -> CanvasValue:
+def pred_of(v: CanvasValue) -> Letter:
     match v:
         case Letter():
             return v.pred()

@@ -53,7 +53,9 @@ class TestPainter(unittest.TestCase):
             ]
         )
 
-    #def test_p1(self) -> None:
+    def test_p1(self) -> None:
+        us = UState.make_from('  j  ')
+        c = us.canvas_in_focus
         
 
 #    def test_see_related_pair(self) -> None:

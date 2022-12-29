@@ -1,0 +1,53 @@
+1. letterstring analogies  DONE
+2. canvas and painters
+3. current programming
+
+
+succ pred same
+
+
+abc -> abd;   ijk -> ijl
+abc -> abd;   xyz -> wyz
+
+abc -> aabbcc;  ijkl -> iijjkkll
+abc -> aabbcc;  ijkl -> _
+
+
+
+Spatial relationships and value relationships
+
+ajaqb
+
+a____
+ajaqb
+
+m____
+mjmqn
+
+
+
+    workspace
+canvas & painters
+
+a____   __a__
+a_a__   a_a__
+
+a_a   p1 (1, 3)
+_j_   p2 (p1, 2)
+a_b   p3 (3, 5)
+_q_   p4 (p4, 4)
+p2p4  p5 (p2, p4)
+
+
+ajaqb
+
+ddd_vvvq
+dddjvvvq
+
+
+(source, target, function)
+(1, 3, same)
+('a', I+2, same)
+((I, I+2, same), ws, (I, I+1, 'j'))
+
+Painter relationships
