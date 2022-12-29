@@ -7,7 +7,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 
-from Model import Blank, Canvas, CanvasValue, FizzleNoSucc, Letter, \
+from Model import Blank, Canvas, CanvasValue, FizzleNoSucc, Index, Letter, \
     Predicate, Succ, succ_of
 
 
@@ -69,6 +69,24 @@ def detect_repetition(
                 return None
     return Repeater(first_letter, next_succ)
 
+def detect_flaw(
+    canvas: Canvas,
+    repeater: Repeater
+) -> Optional[Index]:
+    '''Returns the index of "the" flaw, or None if there is no flaw. It can
+    only detect one flaw.'''
+    width = canvas.width()
+    if width is None:
+        return None
+    perfect_canvas = Canvas.make_from_width(width)
+    repeater.fill_canvas(perfect_canvas)
+
+    for i in canvas.all_indices():
+        if canvas[i] != perfect_canvas[i]:
+            return i
+    return None
+
+
 def make_letter_sequence(
     first_letter: Letter,
     next_: Callable[[Letter], Letter],
@@ -89,3 +107,5 @@ print(r)
 c2 = Canvas.make_from_width(5)
 r.fill_canvas(c2)
 print(c2)
+
+print(detect_flaw(c, r))
