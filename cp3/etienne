@@ -1,0 +1,188 @@
+abc  Repeat(Succ)
+abd  Repeat(Succ) + 3rd element is succ(3rd elem of another canvas)
+
+abcef
+abccd
+
+axxxx -> abcde
+
+
+ajaqb
+
+Detector(repetition, same, limit=1, startc='a', flawtype=?)  10
+Detector(repetition, succ, limit=1)   6
+ .
+ .
+ .
+Detector(Apart, I=3, D=2)   yes: i found {I=3,J=5}
+  given one cell, another cell exists with a certain spatial relation to it
+Detector(Succ, I=3, J=5)    yes: i found {I=3,J=5}
+  the two given cells have a certain value relation
+Detector(Apart, I=3)        need argument: J or D
+
+=> create a painter with Apart[D=2, I=3, J=5]
+
+
+{I=3,J=5} still don't combine nicely => no painter
+{I=3,J=5}
+
+abc -> abd; ijk ->  ctopp
+
+
+Detector[RepetitionFlaw, snippet] => mark the flaw
+
+Detector[Flaw, where to look for where to fix it]
+
+
+p3
+Apart[2,I,J]
+Succ[I,J]
+
+  Give the painter an address, i.e. an index for I or J.
+  The painter figures out J or I, and what to paint there.
+
+
+ajaqb
+
+Apart[1,1,2]
+Apart[1,2,3]
+Apart[1,3,4]
+Apart[1,4,5]
+Apart[2,1,3]
+Apart[2,2,4]
+Apart[2,3,5]
+Apart[3,1,4]
+Apart[3,2,5]
+Apart[4,1,5]
+
+
+1. What should detectors detect?
+2. When should a detector be created?
+3. What should a detector do when it detects its thing?
+     make a painter
+
+
+See something, do something.
+1. See I, paint J
+2. See J, paint I
+3. See the relationship, make the painter  <-- must have detector
+
+
+
+Painters: Given one, I can create the other, in my relationship
+
+
+Ask a painter to make a detector?
+
+
+Detector = painter + substitution
+p1(I=2, J=3)  -> no
+
+
+I=2, J=3, D=2   10      I=2, D=3
+I=3, J=5         2
+I=1, J=2        10
+
+
+
+Argument types:
+I, J   canvas indices
+P, Q   painters
+
+
+Detector returns:
+"where I found it"   if detector searches multiple places
+yes/no               if detector is limited to looking at one place only
+  need another argument
+
+Apart[D,I,J]  {I=2,J=4}  need D
+
+
+Reasons why cp2 not good enough
+1. Variable-length blanks
+2. Bad at "larger entities": no "chunks"  abc   aa_____ aabbcc
+
+Solutions:
+1. indirection in painters
+2. snippets & repeaters  aa __ __   aa bb __
+
+
+----------------------------
+
+Absorbed:  abc
+  pr: Repeater[Succ, startc='a', len=3]
+
+Seed canvas: aa____
+  Repeater[Same, startc='a', len=2] -- Snippet#1[1..2]
+  ? Repeater[breaking-into-similar-snippets]
+    => Snippet#2[3..4], Snippet#3[5..6]  (Snippet #1.1)
+    aa __ __
+  ? pr: run Succ on #1,#2 and #2,#3
+    aa bb cc
+
+Why break the string into smaller snippets?
+  1. Every Repeater fills a Snippet; creating a Repeater creates a Snippet.
+  2. Since we made a len=2 Snippet, make more len=2 Snippets
+
+# of snippets = 3
+
+How does Snippet#1 trigger breaking-into-similar-snippets?
+How does Succ['aa'] = 'bb'?
+
+
+Seed canvas: aa______
+  Repeater[Same, startc='a', len=2] -- Snippet#1[1..2]
+  Repeater[breaking-into-similar-snippets]
+    => Snippet#2[3..4], Snippet#3[5..6], Snippet#4[7..8]  (Snippet #1.1)
+  pr: run Succ on #1,#2 and #2,#3, #3,#4
+    aa bb cc dd
+
+------------------------------
+
+No abstract painters. All painters have only constants (all variables are
+specified).
+
+Each timestep, the available painters generate Detector objects, each of
+which can only look in one place for one thing.
+
+Each timestep, the available painters generate variants of themselves. Turn
+the knobs. Sometimes set a knob to fit what's there in the canvas. Sometimes
+just turn a knob randomly a little bit.
+
+  pr:  Repeater[Succ, startc='a', len=3, Snippet#A1]
+  pr2: Repeater[Succ, startc='a', len=fill, Snippet#1.1]
+
+
+Initial painters:
+  DetectRepetition[Same, limit=0] => tell me a snippet!
+
+New detector(s):
+  DetectRepetition[Same, limit=0, Snippet#0] => failed, but saw 2
+  DetectRepetition[Same, limit=0, Snippet#0, len=2] => yes, startc='a'
+    Paint[Repeater[Snippet#0, startc='a', len=2]] => Snippet#1
+
+
+Each detector yields some information.
+
+
+Painters generate two kinds of things:
+
+1. Detectors
+
+2. PaintActions
+
+Each Detector looks in only one place.
+  Therefore: we never see a lot of one thing? No, there can be detectors
+  that look at the whole canvas as one place, and return a whole-canvas
+  result.
+
+Detectors return different kinds of result:
+
+- Failed, maybe with arguments for variant detector, possibly loosening
+  criteria
+
+- ISeeIt, and arguments for painter (i.e. a painter to make)
+
+
+Pretty much everything takes a substitution as an argument and returns a
+substitution as a result.

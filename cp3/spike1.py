@@ -109,3 +109,7 @@ r.fill_canvas(c2)
 print(c2)
 
 print(detect_flaw(c, r))
+
+c1 = Canvas.make_from('abc')
+c2 = Canvas.make_from('abd')
+
