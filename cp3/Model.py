@@ -34,11 +34,12 @@ class Variable:
 class IndexVariable(Variable):
     pass
 
+D = Variable('D')  # "distance", in Apart
 I = IndexVariable('I')
 J = IndexVariable('J')
 
-VarSpec = IndexVariable   # TODO Union with PainterVariable, CanvasVariable,
-                          # CompoundVariable
+VarSpec = Variable   # TODO Union with IndexVariable, PainterVariable,
+                     # CanvasVariable, CompoundVariable
 Expr = Any
 
 ########## Canvas-cell contents ##########
@@ -138,6 +139,9 @@ class Subst:
             case _:
                 raise NotImplementedError((e, type(e)))
 
+    def __getitem__(self, e: VarSpec) -> Optional[Value]:
+        return self.d.get(e, None)
+
     def value_of(self, e: VarSpec) -> Optional[Value]:
         return self.d.get(e, None)
 
@@ -158,6 +162,8 @@ class Subst:
                 return self.set_lhs_rhs(lhs, rhs)
             case (IndexVariable(), FullIndex()):
                 return self.set_lhs_rhs(lhs, rhs)
+            case (VarSpec(), int()):
+                return self.set_lhs_rhs(lhs, rhs)
             case _:
                 raise NotImplementedError((lhs, rhs))
         assert False, "shouldn't get here"  # MYPY bug?
@@ -172,12 +178,19 @@ class Subst:
         else:
             return Subst(self.d.set(lhs, rhs))
 
+    # TODO UT
+    def merge(self, other: Subst) -> Subst:
+        return Subst(self.d.update(other.d))
+
     def short(self) -> str:
         cl = self.__class__.__name__
         items = ', '.join(
             f'{short(k)}={short(v)}' for k, v in self.d.items()
         )
         return f'{cl}({items})'
+
+    def veryshort(self) -> str:
+        return ', '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
 
     __repr__ = short
 
@@ -255,6 +268,15 @@ class Canvas:
                 return False
             case _:
                 return isinstance(self.value_at(i), Letter)
+
+    def has_index(self, i: Optional[Index]) -> bool:
+        if i is None:
+            return False
+        if self.min_index is None:
+            return i in self.d
+        else:
+            assert self.max_index is not None
+            return i >= self.min_index and i <= self.max_index
 
     def all_indices(self) -> Iterable[Index]:
         if self.min_index is None:
