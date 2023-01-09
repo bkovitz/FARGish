@@ -1,6 +1,10 @@
 # ABANDONED 13-Dec-2022
 # Model.py -- The canvas-and-painters model
 
+# This version was an attempt to make Loop objects to dynamically construct
+# loops nested to any depth. I gave this up when I realized that painters
+# could search for places to paint with one loop nested to a depth of two.
+
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \

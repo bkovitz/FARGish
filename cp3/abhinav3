@@ -1,0 +1,210 @@
+AnchorAttributes
+----------------
+
+Holds(indexvar, letter)
+  Holds(I, 'a')
+  Holds(J, 'a')
+
+LeftmostIndex(indexvar)   leftmost in snippet
+  LeftmostIndex(I)
+
+RightmostIndex(indexvar)
+  RightmostIndex(J)
+
+MiddleIndex(indexvar)
+  MiddleIndex(J)
+
+InextremeIndex(index)     not rightmost or leftmost
+  InextremeIndex(J)
+
+IsPainter(paintervar, painter)
+  IsPainter(P, p1)
+
+
+p1(D=2, I=1, J=3, Holds(I, 'a'), Holds(J, 'a'), LeftmostIndex(I),
+   InextremeIndex(J))
+  Apart[D, I, J]
+  Same[D, I, J]
+
+p3(D=2, I=3, J=5, Holds(I, 'a'), Holds(J, 'b'), InextremeIndex(I),
+   RightmostIndex(J))
+I holds 'a', J holds 'b', I is middle of snippet, J is last in snippet
+  Apart[D, I, J]
+  Succ[D, I, J]
+
+
+Seed canvas:  a____
+
+>>> To run a painter, strip its principal arguments and cycle those through
+>>> every value available. For p1 and p3, the principal arguments are I, J.
+
+>>> Given new principal arguments, the painter returns a collection of
+>>> action specs (PaintAt, Paint) and a count of how many AnchorAttributes
+>>> match the principal arguments.
+
+p1(D=2)
+  Given I, what should J be?
+    I=1  J=3 (3)='a'   matchcount = 3
+    I=2  J=4 NO
+    I=3  J=5 NO
+    I=4  NO
+    I=5  NO
+
+  Given J, what should I be?
+    J=1  NO
+    J=2  NO
+    J=3  I=1, NO
+    J=4  I=2, NO
+    J=5  I=3, NO
+
+p3(D=2)
+  Given I, what should J be?
+    I=1  J=3 (3)='b'   matchcount = 1
+    I=2  J=4 NO
+    I=3  J=5 NO
+    I=4  NO
+    I=5  NO
+
+  Given J, what should I be?
+    J=1  NO
+    J=2  NO
+    J=3  J=1 NO
+    J=4  J=2 NO
+    J=5  J=3 NO
+
+------------------------------------------------------------------------
+
+p2(P=p1, K=2, L='j', Holds(K, 'j'), InextremeIndex(K), IsPainter(P, p1))
+  Inside[P, K]
+  FilledWith[K, L]
+
+p4(P=p3, K=4, L='q', Holds(K, 'q'), InextremeIndex(K), IsPainter(P, p3))
+  Inside[P, K]
+  FilledWith[K, L]
+
+
+
+Seed canvas:  _j___
+
+p2(L='j')   after stripping off P and K to step through them
+  Given K, what should P be?
+    K=1  NO
+    K=2  P=p1(I=1,J=3,D=2)  matchcount = 2
+    K=3  NO
+    K=4  NO
+    K=5  NO
+
+  Given P, what should K be?
+    (No painters in workspace yet, so no results.)
+
+p4(L='q')   after stripping off P and K to step through them
+  Given K, what should P be?
+    K=1  NO
+    K=2  NO
+    K=3  NO
+    K=4  NO
+    K=5  NO
+
+  Given P, what should K be?
+    (No painters in workspace yet, so no results.)
+
+WANT: Produce a painter identical to p1.
+
+Inside[P, K=2].make_action_spec() ->  {I=1,J=3,D=2}, Apart[D, I, J]
+
+How Inside creates a painter:
+
+  Start with IsPainter attribute of p2. (I.e. p1.)
+  Copy p1 but change the Subst and AnchorAttributes.
+    ?? Set I, J according to special Python code to go outside 2.
+       This sounds hard because Inside must know about Apart and D.
+    Cycle I,J through all possible values and see which ones are acceptable
+    for p1. Because Inside is a spatial predicate, it is concerned only that
+    the values for I,J have the right spatial relation.
+
+{I, J | I < K, K < J, p1 says I,J are OK}
+The special code for Inside supplies "I < K, K < J".
+    
+Cycling through all I,J to create a variant of p1:
+
+  I=1 J=2  NO
+  I=1 J=3  Yes. matchcount = 2
+  I=1 J=4  NO (fails Apart)
+  I=1 J=5  NO
+  I=2 J=3  NO
+  I=2 J=4  NO
+  I=2 J=5  NO
+  I=3 J=4  NO
+  I=3 J=5  NO
+  I=4 J=5  NO
+
+Only the Apart predicate in p1 matters, because Apart is a spatial
+predicate.  Same is a value predicate, so we don't query it. Same describes
+the value relation to be created.
+
+
+------------------------------------------------------------------------
+
+Absorb:  ajoarvb
+
+q1(D=3, I=1, J=4, Holds(I, 'a'), Holds(J, 'a'), LeftmostIndex(I),
+   InextremeIndex(J))
+  Apart[D, I, J]
+  Same[I, J]
+
+q2a(P=q1, K=2, L='j', Holds(K, 'j'), InextremeIndex(K), IsPainter(P, q1))
+  Inside[P, K]
+  FilledWith[K, L]
+
+q2b(P=q1, K=3, L='o', Holds(K, 'o'), InextremeIndex(K), IsPainter(P, q1))
+  Inside[P, K]
+  FilledWith[K, L]
+
+
+Idea #1: Make multiple Inside painters
+     #1a: Also have digraph painters.  aj  jo  oa
+Idea #2: Repeater with snippet
+
+q1 makes a new snippet, spanning 1..4. Then q2 refers only to that snippet.
+
+
+What information is needed to construct a painter?
+  Variables
+  Predicates
+  AnchorAttributes
+
+
+Seed canvas:   ____j_____
+
+q2a:
+  Given K, what should P be?
+    K=5  P should be a variant of q1
+
+Running q2a. Cycling through all I,J to create a variant of q1:
+  Must have I<5, 5<J, Apart[3, I, J]
+
+  I=3 J=6  matchcount = 1
+  I=4 J=7  matchcount = 1
+
+Unanswered question: When we create the q1, do we include the AnchorAttributes
+that did not match?
+
+
+------------------------------------------------------------------------
+
+ajaqb
+
+p1 and p2 capture  aja
+p3 and p4 capture  aqb
+p5 captures  p2 and p4
+
+aja__   p1, p2
+
+
+Next things to figure out:
+1. How to make p5 from p2 and p4?
+2. How to make p5 detect a p2 or p4 in a new canvas?
+3. How to make p5 paint a p4 or p2?
+   How to paint from SameSpatialRelation?
+   How to paint from ConsecutiveLocations?
+   How to paint from Paints?

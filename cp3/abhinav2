@@ -1,0 +1,302 @@
+pool of predicates
+------------------
+Apart(D=2)
+Same
+Succ
+Pred
+
+>>> Ask all predicates:
+>>> Answers to question #1 ("Given I and J, do they meet your criterion?")
+
+ajaqb
+
+Apart(D=2)                    spatial relation
+  I=1 J=2  No
+  I=1 J=3  Yes                returns {I=1, J=3}
+  I=1 J=4  No
+  I=1 J=5  No
+  I=2 J=3  No
+  I=2 J=4  Yes
+  I=2 J=5  No
+  I=3 J=4  No
+  I=3 J=5  Yes
+  I=4 J=5  No
+
+Same                          value relation
+  I=1 J=2  No
+  I=1 J=3  Yes                returns {I=1, J=3}
+  I=1 J=4  No
+  I=1 J=5  No
+  I=2 J=3  No
+  I=2 J=4  No
+  I=2 J=5  No
+  I=3 J=4  No
+  I=3 J=5  No
+  I=4 J=5  No
+
+Succ                          value relation
+  I=1 J=2  No
+  I=1 J=3  No
+  I=1 J=4  No
+  I=1 J=5  Yes                returns {I=1, J=5}
+  I=2 J=3  No
+  I=2 J=4  No
+  I=2 J=5  No
+  I=3 J=4  No
+  I=3 J=5  Yes                returns {I=3, J=5}
+  I=4 J=5  No
+
+Pred                          value relation
+  I=1 J=2  No
+  I=1 J=3  No
+  I=1 J=4  No
+  I=1 J=5  No
+  I=2 J=3  No
+  I=2 J=4  No
+  I=2 J=5  No
+  I=3 J=4  No
+  I=3 J=5  No
+  I=4 J=5  No
+
+
+p1(D=2, I=1, J=3)
+I holds 'a', J holds 'a', I is first in snippet, J is middle of snippet
+  Apart[D, I, J]
+  Same[D, I, J]
+
+p3(D=2, I=3, J=5)
+I holds 'a', J holds 'b', I is middle of snippet, J is last in snippet
+  Apart[D, I, J]
+  Succ[D, I, J]
+
+
+more predicates in pool
+-----------------------
+DerivedFrom
+Inside
+FilledWith
+
+Inside                     spatial relationship (with painter)
+  P=p1 J=1  No
+  P=p1 J=2  Yes            return {P=p1, J=2}
+  P=p1 J=3  No
+  P=p1 J=4  No
+  P=p1 J=5  No
+  P=p3 J=1  No
+  P=p3 J=2  No
+  P=p3 J=3  No
+  P=p3 J=4  Yes            returns {P=p3, J=4}
+  P=p3 J=5  No
+
+FilledWith                 value relationship (the simplest one)
+  J=1   Yes    (i.e. "J is filled with something")
+  J=2   Yes                return {J=2, L='j'}
+  J=3   Yes
+  J=4   Yes
+  J=5   Yes
+
+>>> When going from a predicate that returned Yes to Question #1, there must
+>>> be a way of going from the Yes to a specific predicate with a substitution
+>>> that goes into a painter.
+
+
+FilledWith[J, 'a']
+FilledWith[J, 'b']
+FilledWith[J, 'c']
+ . . .
+FilledWith[J, 'z']
+
+
+>>> We ask each painter, later, "Where could you paint yourself in this
+>>> situation?"
+
+Maybe: Instead of Yes or No, maybe the predicate should return a Subst.
+If you have all the Substs from all the predicates, you can just add them
+to the painter.
+
+Doubt: What about name clashes between Substs?
+
+
+The rule for creating a new painter now seems to be: when there is an overlap
+between Substs returned by a spatial predicate and a value predicate. The
+painter's Subst is the union of all the predicates' Substs and all the
+predicates.
+
+p2(P=p1, J=2, L='j')
+  Inside[P, J]
+  FilledWith[J, L]
+
+p4(P=p3, J=4, L='q')
+  Inside[P, J]
+  FilledWith[J, L]
+
+
+Seed canvas:  a____
+
+p1(D=2)
+  Given I, what should J be?
+    I=1  J=3 (3)='a'
+    I=2  J=4 NO
+    I=3  J=5 NO
+    I=4  NO
+    I=5  NO
+
+  Given J, what should I be?
+    J=1  NO
+    J=2  NO
+    J=3  I=1, NO
+    J=4  I=2, NO
+    J=5  I=3, NO
+
+p3(D=2)
+  Given I, what should J be?
+    I=1  J=3 (3)='b'
+    I=2  J=4 NO
+    I=3  J=5 NO
+    I=4  NO
+    I=5  NO
+
+  Given J, what should I be?
+    J=1  NO
+    J=2  NO
+    J=3  J=1 NO
+    J=4  J=2 NO
+    J=5  J=3 NO
+
+p1 should win at (I=1, J=3) because I=1, J=3, (I)='a' matches p1's original
+anchor.
+
+>>> Add weight to the match according to the number of cell attributes matched
+>>> from painter's original location.
+Maybe run the number of matches through a sigmoid function.
+Maybe weight the kinds of matches by activation levels for those matches.
+
+>>> When a painter from the long-term memory activates, it gets put into the
+>>> workspace with a new Subst, fitting where it painted.
+
+Which variables from a painter do we step through and which do we hold
+constant?
+
+Maybe: Just try the Cartesian product of all the variables.
+
+Maybe: Just designate two variables as arguments, and step through all possible
+values of those.
+
+a____
+
+a_a__
+a_b__   <-- got painted by p3 (and it's a bad value)
+
+p2(P=p1, J=2, L='j')
+p2(L='j')   after stripping off P and J to step through them
+  Given P, what should J be?
+    P=p1(I=1,J=3)  J=2 (J)='j'
+    P=p3(I=1,J=3)  J=2 (J)='j'
+
+  Given J, what should P be?
+    J=1  NO
+    J=2  NO    because J is blank
+    J=3  NO
+    J=4  NO
+    J=5  NO
+
+p4(P=p3, J=4, L='q')
+p4(L='q')   after stripping off P and J
+  Given P, what should J be?
+    P=p1(I=1,J=3)  J=2 (J)='q'
+    P=p3(I=1,J=3)  J=2 (J)='q'
+
+  Given J, what should P be?
+    J=1  NO
+    J=2  NO    because J is blank
+    J=3  NO
+    J=4  NO
+    J=5  NO
+
+How do p2 and p4 come up with p1 and p3 as values for P?
+1. They must search the workspace for painters that match.
+2. They must create p1 and p3 anew.
+
+
+
+>>> When p4 paints a 'q' in response to p3, it should paint on the same
+>>> canvas that p3 painted on.
+
+
+How should p4 have favoritism for matching p3?
+    
+
+Seed canvas:  m____
+
+
+Seed canvas:  _j___
+
+p2(L='j')   after stripping off P and J to step through them
+  Given J, what should P be?
+    J=1  NO
+    J=2  P=p1(I=1,J=3,D=2)
+    J=3  NO
+    J=4  NO
+    J=5  NO
+
+How does p2 retain and apply information from the Subst when it was first
+created to re-create p1 in the new place.
+
+
+Seed canvas:  ___j_____   Needs p1 to paint in a different place.
+              __aja____
+              __ajaqb__   Maybe get stuck here. Nothing is strong enough
+                          to fill cells and get reinforced.
+              aaajaqbbb   OK but not satisfactory.
+              aqajaqbaj
+
+Seed canvas:  __jj______
+              aajjaaqqbb
+
+              __ jj __ __ __
+
+              Now p2 makes a customized version of p1, which paints 'aa' and
+              'aa' in the surrounding cells.
+
+
+Seed canvas:  _q___     bqaja
+
+
+----------
+1. See how p2 and p4 get created.
+2. Run p1 and p3 against a seed canvas. Then slightly harder seed canvas.
+
+----------
+
+aaaaaaaagaaa   The 'g' stands out.
+ahdltcepgfwa   The 'g' does not stand out.
+We need the ability to refer to "what stands out here".
+
+
+
+THE
+common moderate most-common
+
+most-common moderate common
+
+
+A lesson learned from cryptograms:
+A blank canvas gives you no ideas. A canvas with a few scattered letters
+gives you a bunch of conflicting, uncertain ideas--"maybe this, maybe that".
+Once you've gotten some good ideas and you're on the right track, you get many
+ideas but only one at each place: high certainty, no conflicts. Once you're
+done, you have no ideas again; you're stuck.
+
+
+Something to think about soon:
+How to deal with multiple canvases?
+
+
+--------------------
+
+What to work out next?
+
+Exactly how the biases work, to make p1 favor the left side, p3 favor the
+right side, p2 favor linking with p1, and p4 favor linking with p2.
+
+Exactly how p2 constructs a new p1.  _j___

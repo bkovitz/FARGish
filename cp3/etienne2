@@ -1,0 +1,11 @@
+Absorption:
+   See relation, make painter
+
+
+Getting attractors:
+
+1. Repeated updates propagating through the painters and canvas, should
+eventually settle down on some recurring cascade of updates.
+
+2. Examine the "authorship graph" and infer that there is an attractor
+where there is a cycle. So don't simulate, just build a structure.

@@ -114,6 +114,13 @@ class Subst:
     bottom_subst indicates a failed substitution.'''
     d: PMap[VarSpec, Value] = field(default_factory=lambda: pmap())
 
+    @classmethod
+    def make_from(cls, *pairs: Tuple[VarSpec, Value]) -> Subst:
+        result = cls()
+        for lhs, rhs in pairs:
+            result = result.unify(lhs, rhs)
+        return result
+
     def __bool__(self) -> bool:
         # Returns True if valid Subst, False if BottomSubst (i.e. failed).
         return True
@@ -287,6 +294,13 @@ class Canvas:
         assert self.max_index is not None
         for i in range(self.min_index, self.max_index):
             yield (i, i + 1)
+
+    def all_index_pairs(self) -> Iterable[Tuple[Index, Index]]:
+        '''Returns all pairs (i, j) where i and j are indices into the canvas
+        and j > i.'''
+        for i in self.all_indices():
+            for j in self.all_indices_right_of(i):
+                yield (i, j)
 
     def is_filled(self, i: Optional[Index]) -> bool:
         '''A filled cell is one that contains a Letter.'''
