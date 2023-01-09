@@ -11,7 +11,9 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 
-from Model import Canvas, D, I, J, Subst, Variable   # from Model2.py
+from Model import Canvas, D, Fizzle, I, J, Letter, pred_of, Subst, \
+    succ_of, Variable
+    # from Model2.py
 from Log import lo
 from util import Numeric, short, veryshort
 
@@ -25,7 +27,7 @@ class Predicate(ABC):
         pass
 
 
-def safe_eq(a: Optional[Numeric], b: Optional[Numeric]) -> bool:
+def safe_eq(a: Any, b: Any) -> bool:
     if a is None or b is None:
         return False
     else:
@@ -58,14 +60,34 @@ class Apart(Predicate):
         cl = self.__class__.__name__
         return f'{cl}({veryshort(self.default_subst)})'
 
-# NEXT Where do we store Apart's parameters? In the class definition or
-# in each object?
-predicates = [Apart()]
+@dataclass(frozen=True)
+class Same(Predicate):
+
+    def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+        if safe_eq(c[su[I]], c[su[J]]):
+            return su
+        else:
+            return None
+
+@dataclass(frozen=True)
+class Succ(Predicate):
+
+    def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+        try:
+            if safe_eq(succ_of(c[su[I]]), c[su[J]]):
+                return su
+            else:
+                return None
+        except Fizzle:
+            return None
+
+
+predicates = [Apart(), Same(), Succ()]
 
 if __name__ == '__main__':
     c = Canvas.make_from('ajaqb')
-    for i, j in c.all_index_pairs():
-        su = Subst.make_from((I, i), (J, j))
-        for predicate in predicates:
+    for predicate in predicates:
+        for i, j in c.all_index_pairs():
+            su = Subst.make_from((I, i), (J, j))
             if (tu := predicate.args_ok(c, su)):
                 lo(predicate, tu)

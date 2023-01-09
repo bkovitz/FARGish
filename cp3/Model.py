@@ -230,8 +230,11 @@ class Canvas:
         assert width > 0
         return cls(min_index=1, max_index=width)
 
-    def __getitem__(self, a: Index) -> Optional[CanvasValue]:
-        return self.d.get(a, None)
+    def __getitem__(self, a: Optional[Index]) -> Optional[CanvasValue]:
+        if a is None:
+            return None
+        else:
+            return self.d.get(a, None)
 
     def __setitem__(self, a: Index, v: CanvasValue) -> None:
         self.d[a] = v
@@ -751,14 +754,14 @@ class Succ(Predicate):
         cl = self.__class__.__name__
         return f'{cl}({short(self.arg1)}, {short(self.arg2)}'
 
-def succ_of(v: CanvasValue) -> Letter:
+def succ_of(v: Optional[CanvasValue]) -> Letter:
     match v:
         case Letter():
             return v.succ()
         case _:
             raise FizzleNoSucc
 
-def pred_of(v: CanvasValue) -> Letter:
+def pred_of(v: Optional[CanvasValue]) -> Letter:
     match v:
         case Letter():
             return v.pred()
