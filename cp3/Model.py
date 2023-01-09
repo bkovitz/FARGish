@@ -32,7 +32,10 @@ class Variable:
 
 @dataclass(frozen=True)
 class IndexVariable(Variable):
-    pass
+
+    def __repr__(self) -> str:
+        return self.name
+
 
 D = Variable('D')  # "distance", in Apart
 I = IndexVariable('I')
@@ -177,6 +180,12 @@ class Subst:
                 return bottom_subst
         else:
             return Subst(self.d.set(lhs, rhs))
+
+    def pairs(self) -> Iterable[Tuple[VarSpec, Value]]:
+        yield from self.d.items()
+
+    def vars(self) -> Sequence[VarSpec]:
+        return list(self.d.keys())
 
     # TODO UT
     def merge(self, other: Subst) -> Subst:
@@ -360,6 +369,12 @@ class FullIndex:
 class Workspace:
     canvases: Dict[str, Canvas]   # name -> Canvas
     #painters: Dict[str, Painter]  # name -> Painter
+
+#    def __getitem__(self, i: Union[Index, FullIndex, None]) \
+#    -> Union[Value, None]:  # TODO also can return Painter?
+#        match i:
+#            case int():
+#                return self[
 
     @classmethod
     def make_from(cls, c: Canvas) -> Workspace:
