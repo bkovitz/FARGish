@@ -406,13 +406,15 @@ class UState:
                 c, ii = self.as_canvas_and_index(i)
                 return c.value_at(ii)
 
-    def value_at_or_fizzle(self, i: IndexVariable | Index) -> CanvasValue:
+    def value_at_or_fizzle(self, i: VarSpec | Index) -> CanvasValue:
         match i:
             case int():
                 return self.canvas_in_focus.value_at_or_fizzle(i)
             case IndexVariable():
                 c, ii = self.as_canvas_and_index(i)
                 return c.value_at_or_fizzle(ii)
+            case _:
+                raise NotImplementedError(f'value_at_or_fizzle: {i}')
 
     #def as_index(self, i: 
 

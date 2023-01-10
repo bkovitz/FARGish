@@ -72,6 +72,14 @@ p3(D=2)
     J=4  J=2 NO
     J=5  J=3 NO
 
+aaaaaaaataaaa    1 of 1 thing, many of another thing
+
+graph with edges
+
+
+  mutual reinforcement: multiple links feed the same node
+  Pressures from multiple sources should add together.
+
 ------------------------------------------------------------------------
 
 p2(P=p1, K=2, L='j', Holds(K, 'j'), InextremeIndex(K), IsPainter(P, p1))
