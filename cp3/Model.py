@@ -182,6 +182,7 @@ class Subst:
             return Subst(self.d.set(lhs, rhs))
 
     def pairs(self) -> Iterable[Tuple[VarSpec, Value]]:
+        '''Returns all of the associations between variables and values.'''
         yield from self.d.items()
 
     def vars(self) -> Sequence[VarSpec]:
@@ -189,13 +190,23 @@ class Subst:
 
     # TODO UT
     def merge(self, other: Subst) -> Subst:
+        '''Other's pairs override self's pairs.'''
         return Subst(self.d.update(other.d))
+
+    # TODO UT
+    def merge_with_unify(self, other: Subst) -> Subst:
+        '''If any pair in 'other' contradicts a pair in 'self', we return
+        BottomSubst.'''
+        result = self
+        for lhs, rhs in other.pairs():
+            result = result.unify(lhs, rhs)
+        return result
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        items = ', '.join(
+        items = ', '.join(sorted(
             f'{short(k)}={short(v)}' for k, v in self.d.items()
-        )
+        ))
         return f'{cl}({items})'
 
     def veryshort(self) -> str:
@@ -220,6 +231,8 @@ bottom_subst = BottomSubst()
 
 @dataclass
 class Canvas:
+    '''Canvas cells have 1-based indexing.'''
+
     d: Dict[Index, CanvasValue] = field(default_factory=lambda: {})
     min_index: Optional[Index] = None
     max_index: Optional[Index] = None

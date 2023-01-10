@@ -10,14 +10,14 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
-from itertools import chain
+from itertools import chain, combinations
 from collections import defaultdict
 
 from Model import Canvas, D, Fizzle, I, Index, IndexVariable, J, Letter, \
     pred_of, Subst, succ_of, Value, Variable, VarSpec, Workspace
     # from Model2.py
 from Log import lo
-from util import Numeric, pr, short, veryshort
+from util import intersection, Numeric, pr, short, veryshort
 
 # TODO Pass Workspace, not Canvas. Or maybe pass UState.
 
@@ -173,7 +173,7 @@ class InextremeIndex(AnchorAttribute):
         for k, v in su.pairs():
             match k:
                 case IndexVariable():
-                    if not cls.is_inextreme(c, v):
+                    if cls.is_inextreme(c, v):
                         yield InextremeIndex(k)
                 case _:
                     pass
@@ -243,6 +243,7 @@ def var_value_pairs(detections: Sequence[Detection]) \
                     if can_be_principal_argument(var)
     )
 
+# OBSOLETE?
 def overlaps_to_painters(detections: Sequence[Detection]) -> FrozenSet[Painter]:
     d: Dict[Tuple[VarSpec, Value], Set[Detection]] = defaultdict(
         set,
@@ -265,6 +266,39 @@ def overlaps_to_painters(detections: Sequence[Detection]) -> FrozenSet[Painter]:
                 if len(detections) >= 2
     )
 
+def detections_to_painters(detections: Sequence[Detection]) \
+-> Iterable[Painter]:
+    for d1, d2 in combinations(detections, 2):
+        if can_be_painter(d1, d2):
+            yield Painter.from_detections(frozenset([d1, d2]))
+
+def can_be_painter(d1: Detection, d2: Detection) -> bool:
+    # TODO Check that both spatial and value predicates are detected?
+    # TODO Check that the AnchorAttributes don't contradict each other?
+    _, su1, _ = d1
+    _, su2, _ = d2
+    d1pairs = [
+        (k, v)
+            for k, v in su1.pairs()
+                if can_be_principal_argument(k)
+    ]
+    d2pairs = [
+        (k, v)
+            for k, v in su2.pairs()
+                if can_be_principal_argument(k)
+    ]
+    return bool(
+        intersection(d1pairs, d2pairs) and su1.merge_with_unify(su2)
+    )
+
+
+'''
+WANT:
+Painter({Apart(1, 3), Same(1, 3)}, Subst(I=1, J=3), AnchorAttributes...)
+Painter({Apart(3, 5), Succ(3, 5)}, Subst(I=3, J=5), AnchorAttributes...)
+
+'''
+
 if __name__ == '__main__':
     c = Canvas.make_from('ajaqb')
     found: List[Detection] = []
@@ -279,8 +313,6 @@ if __name__ == '__main__':
                 if aas:
                     lo(' ', aas)
                 found.append((predicate, tu, frozenset(aas)))
-    painters = overlaps_to_painters(found)
-    pr(painters)
-
     print()
-    pr(var_value_pairs(found))
+    painters = detections_to_painters(found)
+    pr(painters)
