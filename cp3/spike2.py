@@ -13,11 +13,14 @@ from abc import ABC, abstractmethod
 from itertools import chain, combinations
 from collections import defaultdict
 
-from Model import Canvas, D, Fizzle, I, Index, IndexVariable, J, Letter, \
-    pred_of, Subst, succ_of, Value, Variable, VarSpec, Workspace
+from Model import Canvas, CanvasValue, D, Fizzle, FizzleNoPred, FizzleNoSucc, \
+    I, Index, IndexVariable, \
+    J, Letter, pred_of, Subst, succ_of, Value, Variable, VarSpec, Workspace
     # from Model2.py
-from Log import lo
+from Log import lo, trace
 from util import intersection, Numeric, pr, short, veryshort
+
+# NEXT Rewrite succ_of to return None if it fails.
 
 # TODO Pass Workspace, not Canvas. Or maybe pass UState.
 
@@ -31,6 +34,10 @@ class Predicate(ABC):
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         pass
 
+    @abstractmethod
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        pass
 
 def safe_eq(a: Any, b: Any) -> bool:
     if a is None or b is None:
@@ -38,14 +45,22 @@ def safe_eq(a: Any, b: Any) -> bool:
     else:
         return a == b
 
-def safe_sub(a: Optional[Numeric], b: Optional[Numeric]) -> Optional[Numeric]:
+def safe_sub(a: Optional[int], b: Optional[int]) -> Optional[int]:
     if a is None or b is None:
         return None
     else:
         return a - b
 
+def safe_add(a: Optional[int], b: Optional[int]) -> Optional[int]:
+    if a is None or b is None:
+        return None
+    else:
+        return a + b
+
+
 @dataclass(frozen=True)
 class Apart(Predicate):
+    '''Apart[D, I, J]'''
     default_subst: ClassVar[Subst] = Subst.make_from((D, 2))
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
@@ -61,12 +76,22 @@ class Apart(Predicate):
         else:
             return None
 
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        j = safe_add(su[I], su[D])
+        if not c.has_index(j):
+            return None
+        else:
+            assert j is not None
+            return (su.unify(J, j), PaintAt(j))
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({veryshort(self.default_subst)})'
 
 @dataclass(frozen=True)
 class Same(Predicate):
+    '''Same[I, J]'''
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         if safe_eq(c[su[I]], c[su[J]]):
@@ -74,8 +99,16 @@ class Same(Predicate):
         else:
             return None
 
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        if isinstance(letter := c[su[I]], Letter):
+            return (su, PaintValue(letter))
+        else:
+            return None
+
 @dataclass(frozen=True)
 class Succ(Predicate):
+    '''Succ[I, J]'''
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         try:
@@ -86,9 +119,20 @@ class Succ(Predicate):
         except Fizzle:
             return None
 
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        try:
+            if isinstance(letter := succ_of(c[su[I]]), Letter):
+                return (su, PaintValue(letter))
+            else:
+                return None
+        except FizzleNoSucc:
+            return None
+
 @dataclass(frozen=True)
 class Pred(Predicate):
-    '''Predicate for 'predecessor'.'''
+    '''Pred[I, J], i.e. the value at I must be the predecessor of the value
+    at J.'''
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         try:
@@ -97,6 +141,16 @@ class Pred(Predicate):
             else:
                 return None
         except Fizzle:
+            return None
+
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        try:
+            if isinstance(letter := pred_of(c[su[I]]), Letter):
+                return (su, PaintValue(letter))
+            else:
+                return None
+        except FizzleNoPred:
             return None
 
 ##### AnchorAttributes #####
@@ -212,6 +266,35 @@ class Painter:
             frozenset(anchor_attributes)
         )
 
+    def left_substs(self, c: Canvas) -> Iterable[Subst]:
+        '''Clears J and steps I through all indices in canvas.'''
+        su = self.subst.remove(I, J)
+        for i in c.all_indices():
+            yield su.unify(I, i)
+
+    def right_substs(self, c: Canvas) -> Iterable[Subst]:
+        su = self.subst.remove(I, J)
+        for j in c.all_indices():
+            yield su.unify(J, j)
+
+    def result_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[PainterResult]:
+        specs: List[ActionSpec] = []
+        for predicate in self.predicates:
+            tup = predicate.spec_left_to_right(c, su)
+            if tup is None:
+                return None
+            else:
+                su = tup[0]
+                specs.append(tup[1])
+        action = PainterAction.from_specs(specs)
+        if action is None:
+            return None
+        return PainterResult(self, su, action)
+            
+#WANT:
+#PainterResult(self, {D=2, I=1, J=3}, PainterAction(PaintAt(3), PaintValue('a')))
+
     def short(self) -> str:
         cl = self.__class__.__name__
         ps = ', '.join(sorted(short(p) for p in self.predicates))
@@ -231,40 +314,6 @@ def can_be_principal_argument(x: Any) -> bool:
             return True
         # TODO PainterVariable
     return False
-
-def var_value_pairs(detections: Sequence[Detection]) \
--> FrozenSet[Tuple[VarSpec, Value]]:
-    '''Includes only variables that can be principal arguments, i.e.
-    IndexVariables and Painters.'''
-    return frozenset(
-        (var, val)
-            for d in detections
-                for var, val in d[1].pairs()
-                    if can_be_principal_argument(var)
-    )
-
-# OBSOLETE?
-def overlaps_to_painters(detections: Sequence[Detection]) -> FrozenSet[Painter]:
-    d: Dict[Tuple[VarSpec, Value], Set[Detection]] = defaultdict(
-        set,
-        ((var, set()) for var in var_value_pairs(detections))
-    )
-    for detection in detections:
-        for k, v in detection[1].pairs():
-            if can_be_principal_argument(k):
-                d[(k, v)].add(detection)
-    print()
-    for kk, vv in d.items():
-        lo(f'{kk}: {len(vv)}  {vv}')
-    print()
-    # NEXT Reject combinations of Detections with incompatible values for
-    # the same variable or incompatible AnchorAttributes.
-    # Subst.merge_and_unify()
-    return frozenset(
-        Painter.from_detections(frozenset(detections))
-            for detections in d.values()
-                if len(detections) >= 2
-    )
 
 def detections_to_painters(detections: Sequence[Detection]) \
 -> Iterable[Painter]:
@@ -292,14 +341,55 @@ def can_be_painter(d1: Detection, d2: Detection) -> bool:
     )
 
 
-'''
-WANT:
-Painter({Apart(1, 3), Same(1, 3)}, Subst(I=1, J=3), AnchorAttributes...)
-Painter({Apart(3, 5), Succ(3, 5)}, Subst(I=3, J=5), AnchorAttributes...)
+class ActionSpec(ABC):
+    pass
 
-'''
+@dataclass(frozen=True)
+class PaintAt(ActionSpec):
+    index: Index
+
+@dataclass(frozen=True)
+class PaintValue(ActionSpec):
+    value: CanvasValue
+
+@dataclass(frozen=True)
+class PainterAction:
+    index: Index
+    value: CanvasValue
+    
+    @classmethod
+    def from_specs(cls, specs: Sequence[ActionSpec]) \
+    -> Optional[PainterAction]:
+        index: Optional[Index] = None
+        value: Optional[CanvasValue] = None
+
+        for spec in specs:
+            match spec:
+                case PaintAt(i):
+                    index = i  # TODO What if there already is an index?
+                case PaintValue(v):
+                    value = v  # TODO What if there already is a value?
+                case _:
+                    raise NotImplementedError(spec)
+        if index is None or value is None:
+            return None
+        else:
+            return PainterAction(index, value)
+    
+@dataclass(frozen=True)
+class PainterResult:
+    painter: Painter
+    subst: Subst
+    action: PainterAction
+    #matchcount: int
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({veryshort(self.painter)}; {veryshort(self.subst)}, {veryshort(self.action)})'
+
 
 if __name__ == '__main__':
+    # Make painters
     c = Canvas.make_from('ajaqb')
     found: List[Detection] = []
     for predicate in predicates:
@@ -314,5 +404,22 @@ if __name__ == '__main__':
                     lo(' ', aas)
                 found.append((predicate, tu, frozenset(aas)))
     print()
-    painters = detections_to_painters(found)
+    painters = list(detections_to_painters(found))
     pr(painters)
+
+
+    # Run painters
+    c = Canvas.make_from('a    ')
+    results: List[PainterResult] = []
+    for p in painters:
+        for su in p.left_substs(c):
+            if (result := p.result_left_to_right(c, su)):
+                results.append(result)
+#        for su in p.right_substs(c):
+#            if (result := p.result_right_to_left(c, su)):
+#                results.append(result)
+    print()
+    pr(results)
+
+# When creating a painter, how do we decide which arguments are the principal
+# ones, and how do we decide which is right and which is left?

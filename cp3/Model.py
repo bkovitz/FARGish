@@ -202,6 +202,14 @@ class Subst:
             result = result.unify(lhs, rhs)
         return result
 
+    def remove(self, *vars: VarSpec) -> Subst:
+        '''Returns Subst with vars undefined. It is not an error to remove a
+        variable that does not exist.'''
+        d = self.d
+        for var in vars:
+            d = d.discard(var)
+        return Subst(d)
+
     def short(self) -> str:
         cl = self.__class__.__name__
         items = ', '.join(sorted(
