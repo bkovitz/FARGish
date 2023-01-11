@@ -39,6 +39,11 @@ class Predicate(ABC):
     -> Optional[Tuple[Subst, ActionSpec]]:
         pass
 
+    @abstractmethod
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        pass
+
 def safe_eq(a: Any, b: Any) -> bool:
     if a is None or b is None:
         return False
@@ -85,6 +90,15 @@ class Apart(Predicate):
             assert j is not None
             return (su.unify(J, j), PaintAt(j))
 
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        i = safe_sub(su[J], su[D])
+        if not c.has_index(i):
+            return None
+        else:
+            assert i is not None
+            return (su.unify(I, i), PaintAt(i))
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({veryshort(self.default_subst)})'
@@ -102,6 +116,13 @@ class Same(Predicate):
     def spec_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
         if isinstance(letter := c[su[I]], Letter):
+            return (su, PaintValue(letter))
+        else:
+            return None
+
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        if isinstance(letter := c[su[J]], Letter):
             return (su, PaintValue(letter))
         else:
             return None
@@ -129,6 +150,16 @@ class Succ(Predicate):
         except FizzleNoSucc:
             return None
 
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        try:
+            if isinstance(letter := pred_of(c[su[J]]), Letter):
+                return (su, PaintValue(letter))
+            else:
+                return None
+        except FizzleNoPred:
+            return None
+
 @dataclass(frozen=True)
 class Pred(Predicate):
     '''Pred[I, J], i.e. the value at I must be the predecessor of the value
@@ -151,6 +182,16 @@ class Pred(Predicate):
             else:
                 return None
         except FizzleNoPred:
+            return None
+
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        try:
+            if isinstance(letter := succ_of(c[su[J]]), Letter):
+                return (su, PaintValue(letter))
+            else:
+                return None
+        except FizzleNoSucc:
             return None
 
 ##### AnchorAttributes #####
@@ -292,6 +333,21 @@ class Painter:
             return None
         return PainterResult(self, su, action)
             
+    def result_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[PainterResult]:
+        specs: List[ActionSpec] = []
+        for predicate in self.predicates:
+            tup = predicate.spec_right_to_left(c, su)
+            if tup is None:
+                return None
+            else:
+                su = tup[0]
+                specs.append(tup[1])
+        action = PainterAction.from_specs(specs)
+        if action is None:
+            return None
+        return PainterResult(self, su, action)
+            
 #WANT:
 #PainterResult(self, {D=2, I=1, J=3}, PainterAction(PaintAt(3), PaintValue('a')))
 
@@ -415,9 +471,9 @@ if __name__ == '__main__':
         for su in p.left_substs(c):
             if (result := p.result_left_to_right(c, su)):
                 results.append(result)
-#        for su in p.right_substs(c):
-#            if (result := p.result_right_to_left(c, su)):
-#                results.append(result)
+        for su in p.right_substs(c):
+            if (result := p.result_right_to_left(c, su)):
+                results.append(result)
     print()
     pr(results)
 
