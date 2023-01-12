@@ -1,3 +1,4 @@
+# OBSOLETE 12-Jan-2023. Radical refactoring of Painter class.
 # Model.py -- The canvas-and-painters model
 
 from __future__ import annotations
@@ -41,18 +42,11 @@ class PainterVariable(Variable):
     def __repr__(self) -> str:
         return self.name
 
-@dataclass(frozen=True)
-class LetterVariable(Variable):
-
-    def __repr__(self) -> str:
-        return self.name
-
 D = Variable('D')  # "distance", in Apart
 I = IndexVariable('I')
 J = IndexVariable('J')
 K = IndexVariable('K')
 P = PainterVariable('P')
-L = LetterVariable('L')
 
 VarSpec = Variable   # TODO Union with IndexVariable, PainterVariable,
                      # CanvasVariable, CompoundVariable

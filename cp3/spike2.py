@@ -16,7 +16,8 @@ from collections import defaultdict
 from Model import Canvas, CanvasValue, D, Expr, \
     Fizzle, FizzleNoPred, FizzleNoSucc, FizzleNoValue, FullIndex, \
     I, Index, IndexVariable, \
-    J, K, Letter, PainterVariable, P, PMap, pmap, pred_of, succ_of, \
+    J, K, L, Letter, LetterVariable, PainterVariable, P, \
+    PMap, pmap, pred_of, succ_of, \
     Value, Variable, VarSpec, Workspace
     # from Model2.py
 from Log import lo, trace
@@ -84,6 +85,8 @@ class Subst:
             case (VarSpec(), int()):
                 return self.set_lhs_rhs(lhs, rhs)
             case (PainterVariable(), Painter()):
+                return self.set_lhs_rhs(lhs, rhs)
+            case (LetterVariable(), Letter()):
                 return self.set_lhs_rhs(lhs, rhs)
             case _:
                 raise NotImplementedError((lhs, rhs))
@@ -378,11 +381,39 @@ class Inside(Predicate):
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
-        pass
+        pass  # TODO
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
-        pass
+        pass  # TODO
+
+@dataclass(frozen=True)
+class FilledWith(Predicate):
+    '''FilledWith[K, L]'''
+
+    def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+        match su.as_index(K):
+            case int(k):
+                match letter := c[k]:
+                    case Letter():
+                        return su.unify(L, letter)
+                    case _:
+                        return None
+            case _:
+                return None
+
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        for k in c.all_indices():
+            yield Subst.make_from((K, k))
+
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        pass  # TODO
+
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        pass  # TODO
 
 ##### AnchorAttributes #####
 
@@ -514,11 +545,14 @@ class Painter:
         subst = Subst()
         anchor_attributes: Set[AnchorAttribute] = set()
 
-        for detection in detections:
-            predicate, su, aas = detection
-            predicates.add(predicate)
-            subst = subst.merge(su)
-            anchor_attributes |= aas
+        for d in detections:
+            #predicate, su, aas = detection
+            #predicates.add(predicate)
+            #subst = subst.merge(su)
+            #anchor_attributes |= aas
+            predicates.add(d.predicate)
+            subst = subst.merge(d.subst)
+            anchor_attributes |= d.anchor_attributes
         return Painter(
             frozenset(predicates),
             subst,
@@ -582,7 +616,13 @@ class Painter:
         aa = ', '.join(sorted(short(a) for a in self.anchor_attributes))
         return f'{cl}({ps}; {ss}; {aa})'
 
-Detection = Tuple[Predicate, Subst, FrozenSet[AnchorAttribute]]
+#Detection = Tuple[Predicate, Subst, FrozenSet[AnchorAttribute]]
+@dataclass(frozen=True)
+class Detection:
+    predicate: Predicate
+    subst: Subst
+    anchor_attributes: FrozenSet[AnchorAttribute]
+
 DetectionResult = Union[None, Subst]
 
 def can_be_principal_argument(x: Any) -> bool:
@@ -601,20 +641,29 @@ def detections_to_painters(detections: Sequence[Detection]) \
 def can_be_painter(d1: Detection, d2: Detection) -> bool:
     # TODO Check that both spatial and value predicates are detected?
     # TODO Check that the AnchorAttributes don't contradict each other?
-    _, su1, _ = d1
-    _, su2, _ = d2
+#    _, su1, _ = d1
+#    _, su2, _ = d2
+#    d1pairs = [
+#        (k, v)
+#            for k, v in su1.pairs()
+#                if can_be_principal_argument(k)
+#    ]
+#    d2pairs = [
+#        (k, v)
+#            for k, v in su2.pairs()
+#                if can_be_principal_argument(k)
+#    ]
+#    return bool(
+#        intersection(d1pairs, d2pairs) and su1.merge_with_unify(su2)
+#    )
     d1pairs = [
-        (k, v)
-            for k, v in su1.pairs()
-                if can_be_principal_argument(k)
+        (k, v) for k, v in d1.subst.pairs() if can_be_principal_argument(k)
     ]
     d2pairs = [
-        (k, v)
-            for k, v in su2.pairs()
-                if can_be_principal_argument(k)
+        (k, v) for k, v in d2.subst.pairs() if can_be_principal_argument(k)
     ]
     return bool(
-        intersection(d1pairs, d2pairs) and su1.merge_with_unify(su2)
+        intersection(d1pairs, d2pairs) and d1.subst.merge_with_unify(d2.subst)
     )
 
 
@@ -665,12 +714,12 @@ class PainterResult:
         return f'{cl}({veryshort(self.painter)}; {veryshort(self.subst)}, {veryshort(self.action)}; matchcount={self.matchcount})'
 
 
-predicates = [Apart(), Same(), Succ(), Pred(), Inside()]
+predicates = [Apart(), Same(), Succ(), Pred(), Inside(), FilledWith()]
 anchor_attributes: List[Type[AnchorAttribute]] = \
     [Holds, LeftmostIndex, RightmostIndex, InextremeIndex]
 
-def make_painters(c: Canvas, painters: Collection[Painter]) -> Set[Painter]:
-    found: List[Detection] = []
+def make_detections(c: Canvas, painters: FrozenSet[Painter]) \
+-> Iterable[Detection]:
     for predicate in predicates:
         for su in predicate.all_substs(c, painters):
             if (tu := predicate.args_ok(c, su)):
@@ -680,8 +729,11 @@ def make_painters(c: Canvas, painters: Collection[Painter]) -> Set[Painter]:
                 ))
                 if aas:
                     lo(' ', aas)
-                found.append((predicate, tu, frozenset(aas)))
-    return set(detections_to_painters(found))
+                yield Detection(predicate, tu, frozenset(aas))
+
+def make_painters(c: Canvas, painters: FrozenSet[Painter]) \
+-> FrozenSet[Painter]:
+    return frozenset(detections_to_painters(list(make_detections(c, painters))))
 
 def get_painter_results(c: Canvas, painters: Iterable[Painter]) \
 -> Set[PainterResult]:
@@ -694,17 +746,17 @@ def get_painter_results(c: Canvas, painters: Iterable[Painter]) \
             if (result := p.result_right_to_left(c, su)):
                 results.add(result)
     return results
-    
 
 if __name__ == '__main__':
     # Make painters
 
     c = Canvas.make_from('ajaqb')
-    painters = make_painters(c, [])
+    painters = make_painters(c, frozenset())
     print()
     pr(painters)
 
     #NEXT Make p2 and p4 by cycling P and K.
+    print()
     painters = make_painters(c, painters)
     print()
     pr(painters)
