@@ -17,7 +17,6 @@ from util import short
 
 
 Index = int
-Value = Index  # TODO Union[Index, Painter, Canvas]?
 
 @dataclass(frozen=True)
 class Variable:
@@ -36,10 +35,17 @@ class IndexVariable(Variable):
     def __repr__(self) -> str:
         return self.name
 
+@dataclass(frozen=True)
+class PainterVariable(Variable):
+
+    def __repr__(self) -> str:
+        return self.name
 
 D = Variable('D')  # "distance", in Apart
 I = IndexVariable('I')
 J = IndexVariable('J')
+K = IndexVariable('K')
+P = PainterVariable('P')
 
 VarSpec = Variable   # TODO Union with IndexVariable, PainterVariable,
                      # CanvasVariable, CompoundVariable
@@ -158,6 +164,9 @@ class Subst:
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         # Is this all the unification we need? No need to store expressions
         # like I->J+2 and then set I to 5 if J gets unified with 3?
+        lo(lhs, type(lhs), rhs, type(rhs))
+        print(isinstance(lhs, PainterVariable), isinstance(rhs, Painter))
+        print('HERE')
         match (lhs, rhs):
             case (x, y) if x == y:
                 return self
@@ -166,6 +175,8 @@ class Subst:
             case (IndexVariable(), FullIndex()):
                 return self.set_lhs_rhs(lhs, rhs)
             case (VarSpec(), int()):
+                return self.set_lhs_rhs(lhs, rhs)
+            case (PainterVariable(), Painter()):
                 return self.set_lhs_rhs(lhs, rhs)
             case _:
                 raise NotImplementedError((lhs, rhs))
@@ -302,14 +313,16 @@ class Canvas:
             case _:
                 return isinstance(self.value_at(i), Letter)
 
-    def has_index(self, i: Optional[Index]) -> bool:
-        if i is None:
-            return False
-        if self.min_index is None:
-            return i in self.d
-        else:
-            assert self.max_index is not None
-            return i >= self.min_index and i <= self.max_index
+    def has_index(self, x: Any) -> bool:
+        match x:
+            case int(i):
+                if self.min_index is None:
+                    return i in self.d
+                else:
+                    assert self.max_index is not None
+                    return i >= self.min_index and i <= self.max_index
+            case _:
+                return False
 
     def all_indices(self) -> Iterable[Index]:
         if self.min_index is None:
@@ -695,6 +708,7 @@ class Painter:
 #
 #    def generate_actions(self, us: UState) -> Iterable[Action]:
         
+Value = Union[Index, Painter]  # TODO Union[Index, Painter, Canvas]?
 
 ########## Predicates ##########
 

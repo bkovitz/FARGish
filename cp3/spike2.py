@@ -13,9 +13,11 @@ from abc import ABC, abstractmethod
 from itertools import chain, combinations
 from collections import defaultdict
 
-from Model import Canvas, CanvasValue, D, Fizzle, FizzleNoPred, FizzleNoSucc, \
+from Model import Canvas, CanvasValue, D, Expr, \
+    Fizzle, FizzleNoPred, FizzleNoSucc, FizzleNoValue, FullIndex, \
     I, Index, IndexVariable, \
-    J, Letter, pred_of, Subst, succ_of, Value, Variable, VarSpec, Workspace
+    J, K, Letter, PainterVariable, P, PMap, pmap, pred_of, succ_of, \
+    Value, Variable, VarSpec, Workspace
     # from Model2.py
 from Log import lo, trace
 from util import intersection, Numeric, pr, short, veryshort
@@ -24,14 +26,146 @@ from util import intersection, Numeric, pr, short, veryshort
 
 # TODO Pass Workspace, not Canvas. Or maybe pass UState.
 
-##### Predicates #####
+########## Substitutions ##########
 
-DetectionResult = Union[None, Subst]
+@dataclass(frozen=True)
+class Subst:
+    '''A set of substitutions, i.e. mappings from variables to values.
+    bottom_subst indicates a failed substitution.'''
+    d: PMap[VarSpec, Value] = field(default_factory=lambda: pmap())
+
+    @classmethod
+    def make_from(cls, *pairs: Tuple[VarSpec, Value]) -> Subst:
+        result = cls()
+        for lhs, rhs in pairs:
+            result = result.unify(lhs, rhs)
+        return result
+
+    def __bool__(self) -> bool:
+        # Returns True if valid Subst, False if BottomSubst (i.e. failed).
+        return True
+
+    def __contains__(self, e: Optional[VarSpec]) -> bool:
+        '''Does this Subst have a value defined for 'e'?'''
+        return e in self.d
+
+    def as_index(self, e: VarSpec) -> Optional[Index]:
+        match self.d.get(e, None):
+            case None:
+                return None
+            case int() as i:
+                return i
+            case _:
+                raise NotImplementedError((e, type(e)))
+
+    def __getitem__(self, e: VarSpec) -> Optional[Value]:
+        return self.d.get(e, None)
+
+    def value_of(self, e: VarSpec) -> Optional[Value]:
+        return self.d.get(e, None)
+
+    def value_of_or_fizzle(self, e: VarSpec) -> Value:
+        result = self.value_of(e)
+        if result is None:
+            raise FizzleNoValue(e)
+        else:
+            return result
+
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        # Is this all the unification we need? No need to store expressions
+        # like I->J+2 and then set I to 5 if J gets unified with 3?
+        match (lhs, rhs):
+            case (x, y) if x == y:
+                return self
+            case (IndexVariable(), int()):
+                return self.set_lhs_rhs(lhs, rhs)
+            case (IndexVariable(), FullIndex()):
+                return self.set_lhs_rhs(lhs, rhs)
+            case (VarSpec(), int()):
+                return self.set_lhs_rhs(lhs, rhs)
+            case (PainterVariable(), Painter()):
+                return self.set_lhs_rhs(lhs, rhs)
+            case _:
+                raise NotImplementedError((lhs, rhs))
+        assert False, "shouldn't get here"  # MYPY bug?
+        return bottom_subst
+
+    def set_lhs_rhs(self, lhs: Expr, rhs: Expr) -> Subst:
+        if lhs in self.d:
+            if self.d[lhs] == rhs:
+                return self
+            else:
+                return bottom_subst
+        else:
+            return Subst(self.d.set(lhs, rhs))
+
+    def pairs(self) -> Iterable[Tuple[VarSpec, Value]]:
+        '''Returns all of the associations between variables and values.'''
+        yield from self.d.items()
+
+    def vars(self) -> Sequence[VarSpec]:
+        return list(self.d.keys())
+
+    # TODO UT
+    def merge(self, other: Subst) -> Subst:
+        '''Other's pairs override self's pairs.'''
+        return Subst(self.d.update(other.d))
+
+    # TODO UT
+    def merge_with_unify(self, other: Subst) -> Subst:
+        '''If any pair in 'other' contradicts a pair in 'self', we return
+        BottomSubst.'''
+        result = self
+        for lhs, rhs in other.pairs():
+            result = result.unify(lhs, rhs)
+        return result
+
+    def remove(self, *vars: VarSpec) -> Subst:
+        '''Returns Subst with vars undefined. It is not an error to remove a
+        variable that does not exist.'''
+        d = self.d
+        for var in vars:
+            d = d.discard(var)
+        return Subst(d)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        items = ', '.join(sorted(
+            f'{short(k)}={short(v)}' for k, v in self.d.items()
+        ))
+        return f'{cl}({items})'
+
+    def veryshort(self) -> str:
+        return ', '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
+
+    __repr__ = short
+
+class BottomSubst(Subst):
+    '''A Subst that maps nothing to nothing and can't unify or substitute
+    anything. As a bool, equivalent to False.'''
+
+    def __bool__(self) -> bool:
+        return False
+
+    def unify(self, lhs: Expr, rhs: Expr) -> Subst:
+        return self
+
+empty_subst = Subst()
+bottom_subst = BottomSubst()
+
+##### Predicates #####
 
 class Predicate(ABC):
 
     @abstractmethod
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+        pass
+
+    @abstractmethod
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        '''Steps through all values for both principal variables of the
+        Predicate.'''
         pass
 
     @abstractmethod
@@ -75,15 +209,20 @@ class Apart(Predicate):
             and
             c.has_index(su[J])
             and
-            safe_eq(su[D], safe_sub(su[J], su[I]))
+            safe_eq(su[D], safe_sub(su.as_index(J), su.as_index(I)))
         ):
             return su
         else:
             return None
 
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        for i, j in c.all_index_pairs():
+            yield Subst.make_from((I, i), (J, j))
+
     def spec_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
-        j = safe_add(su[I], su[D])
+        j = safe_add(su.as_index(I), su.as_index(D))
         if not c.has_index(j):
             return None
         else:
@@ -92,7 +231,7 @@ class Apart(Predicate):
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
-        i = safe_sub(su[J], su[D])
+        i = safe_sub(su.as_index(J), su.as_index(D))
         if not c.has_index(i):
             return None
         else:
@@ -108,21 +247,26 @@ class Same(Predicate):
     '''Same[I, J]'''
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
-        if safe_eq(c[su[I]], c[su[J]]):
+        if safe_eq(c[su.as_index(I)], c[su.as_index(J)]):
             return su
         else:
             return None
 
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        for i, j in c.all_index_pairs():
+            yield Subst.make_from((I, i), (J, j))
+
     def spec_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
-        if isinstance(letter := c[su[I]], Letter):
+        if isinstance(letter := c[su.as_index(I)], Letter):
             return (su, PaintValue(letter))
         else:
             return None
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
-        if isinstance(letter := c[su[J]], Letter):
+        if isinstance(letter := c[su.as_index(J)], Letter):
             return (su, PaintValue(letter))
         else:
             return None
@@ -133,17 +277,22 @@ class Succ(Predicate):
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         try:
-            if safe_eq(succ_of(c[su[I]]), c[su[J]]):
+            if safe_eq(succ_of(c[su.as_index(I)]), c[su.as_index(J)]):
                 return su
             else:
                 return None
         except Fizzle:
             return None
 
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        for i, j in c.all_index_pairs():
+            yield Subst.make_from((I, i), (J, j))
+
     def spec_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
         try:
-            if isinstance(letter := succ_of(c[su[I]]), Letter):
+            if isinstance(letter := succ_of(c[su.as_index(I)]), Letter):
                 return (su, PaintValue(letter))
             else:
                 return None
@@ -153,7 +302,7 @@ class Succ(Predicate):
     def spec_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
         try:
-            if isinstance(letter := pred_of(c[su[J]]), Letter):
+            if isinstance(letter := pred_of(c[su.as_index(J)]), Letter):
                 return (su, PaintValue(letter))
             else:
                 return None
@@ -167,17 +316,22 @@ class Pred(Predicate):
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         try:
-            if safe_eq(pred_of(c[su[I]]), c[su[J]]):
+            if safe_eq(pred_of(c[su.as_index(I)]), c[su.as_index(J)]):
                 return su
             else:
                 return None
         except Fizzle:
             return None
 
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        for i, j in c.all_index_pairs():
+            yield Subst.make_from((I, i), (J, j))
+
     def spec_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
         try:
-            if isinstance(letter := pred_of(c[su[I]]), Letter):
+            if isinstance(letter := pred_of(c[su.as_index(I)]), Letter):
                 return (su, PaintValue(letter))
             else:
                 return None
@@ -187,39 +341,48 @@ class Pred(Predicate):
     def spec_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[Tuple[Subst, ActionSpec]]:
         try:
-            if isinstance(letter := succ_of(c[su[J]]), Letter):
+            if isinstance(letter := succ_of(c[su.as_index(J)]), Letter):
                 return (su, PaintValue(letter))
             else:
                 return None
         except FizzleNoSucc:
             return None
 
-#@dataclass(frozen=True)
-#class Inside(Predicate):
-#    '''Inside[P, K]'''
-#    
-#    def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
-#        match (su[P], su[K]):
-#            case (Painter(_, psubst, _), int(k)):
-#                match (psubst[I], psubst[J]):
-#                    case (int(i), int(j)):
-#                        return (
-#                            i < k and k < j
-#                            and
-#                            c.has_index(i) and c.has_index(j)
-#                        )
-#                    case _:
-#                        return None
-#            case _:
-#                return None
-#
-#    def spec_left_to_right(self, c: Canvas, su: Subst) \
-#    -> Optional[Tuple[Subst, ActionSpec]]:
-#        pass
-#
-#    def spec_right_to_left(self, c: Canvas, su: Subst) \
-#    -> Optional[Tuple[Subst, ActionSpec]]:
-#        pass
+@dataclass(frozen=True)
+class Inside(Predicate):
+    '''Inside[P, K]'''
+    
+    def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+        match (su[P], su[K]):
+            case (Painter(_, psubst, _), int(k)):
+                match (psubst[I], psubst[J]):
+                    case (int(i), int(j)):
+                        if (
+                            i < k and k < j
+                            and
+                            c.has_index(i) and c.has_index(j)
+                        ):
+                            return su  # TODO Should we add I and J to su?
+                        else:
+                            return None
+                    case _:
+                        return None
+            case _:
+                return None
+
+    def all_substs(self, c: Canvas, painters: Collection[Painter]) \
+    -> Iterable[Subst]:
+        for p in painters:
+            for k in c.all_indices():
+                yield Subst.make_from((P, p), (K, k)) # type: ignore[arg-type]
+
+    def spec_left_to_right(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        pass
+
+    def spec_right_to_left(self, c: Canvas, su: Subst) \
+    -> Optional[Tuple[Subst, ActionSpec]]:
+        pass
 
 ##### AnchorAttributes #####
 
@@ -246,13 +409,13 @@ class Holds(AnchorAttribute):
         for k, v in su.pairs():
             match k:
                 case IndexVariable():
-                    if isinstance(letter := c[su[k]], Letter):
+                    if isinstance(letter := c[su.as_index(k)], Letter):
                         yield Holds(k, letter)
                 case _:
                     pass
 
     def is_match(self, c: Canvas, su: Subst) -> bool:
-        return c[su[self.var]] == self.letter
+        return c[su.as_index(self.var)] == self.letter
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -316,10 +479,14 @@ class InextremeIndex(AnchorAttribute):
                     pass
 
     @classmethod
-    def is_inextreme(cls, c: Canvas, i: Index) -> bool:
-        if c.max_index is None:
-            return False
-        return i != 1 and i != c.max_index
+    def is_inextreme(cls, c: Canvas, x: Any) -> bool:
+        match x:
+            case int(i):
+                if c.max_index is None:
+                    return False
+                return i != 1 and i != c.max_index
+            case _:
+                return False
 
     def is_match(self, c: Canvas, su: Subst) -> bool:
         return (
@@ -416,6 +583,7 @@ class Painter:
         return f'{cl}({ps}; {ss}; {aa})'
 
 Detection = Tuple[Predicate, Subst, FrozenSet[AnchorAttribute]]
+DetectionResult = Union[None, Subst]
 
 def can_be_principal_argument(x: Any) -> bool:
     match x:
@@ -497,17 +665,14 @@ class PainterResult:
         return f'{cl}({veryshort(self.painter)}; {veryshort(self.subst)}, {veryshort(self.action)}; matchcount={self.matchcount})'
 
 
-predicates = [Apart(), Same(), Succ(), Pred()]
+predicates = [Apart(), Same(), Succ(), Pred(), Inside()]
 anchor_attributes: List[Type[AnchorAttribute]] = \
     [Holds, LeftmostIndex, RightmostIndex, InextremeIndex]
 
-if __name__ == '__main__':
-    # Make painters
-    c = Canvas.make_from('ajaqb')
+def make_painters(c: Canvas, painters: Collection[Painter]) -> Set[Painter]:
     found: List[Detection] = []
     for predicate in predicates:
-        for i, j in c.all_index_pairs():
-            su = Subst.make_from((I, i), (J, j))
+        for su in predicate.all_substs(c, painters):
             if (tu := predicate.args_ok(c, su)):
                 lo(predicate, tu)
                 aas = list(chain.from_iterable(
@@ -516,29 +681,39 @@ if __name__ == '__main__':
                 if aas:
                     lo(' ', aas)
                 found.append((predicate, tu, frozenset(aas)))
-    print()
-    painters = list(detections_to_painters(found))
-    pr(painters)
+    return set(detections_to_painters(found))
 
-
-    # Find painters that can run
-    c = Canvas.make_from('a    ')
-    results: List[PainterResult] = []
+def get_painter_results(c: Canvas, painters: Iterable[Painter]) \
+-> Set[PainterResult]:
+    results: Set[PainterResult] = set()
     for p in painters:
         for su in p.left_substs(c):
             if (result := p.result_left_to_right(c, su)):
-                results.append(result)
+                results.add(result)
         for su in p.right_substs(c):
             if (result := p.result_right_to_left(c, su)):
-                results.append(result)
+                results.add(result)
+    return results
+    
+
+if __name__ == '__main__':
+    # Make painters
+
+    c = Canvas.make_from('ajaqb')
+    painters = make_painters(c, [])
     print()
-    pr(results)
-    # WANT  p1's matchcount should be 3
-    #       p3's matchcount should be 1
+    pr(painters)
 
     #NEXT Make p2 and p4 by cycling P and K.
-    # How do we get P and K?
-    # 
+    painters = make_painters(c, painters)
+    print()
+    pr(painters)
+
+    # Find painters that can run
+    c = Canvas.make_from('a    ')
+    results = get_painter_results(c, painters)
+    print()
+    pr(results)
 
 # When creating a painter, how do we decide which arguments are the principal
 # ones, and how do we decide which is right and which is left?
