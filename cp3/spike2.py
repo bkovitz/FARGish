@@ -194,6 +194,33 @@ class Pred(Predicate):
         except FizzleNoSucc:
             return None
 
+#@dataclass(frozen=True)
+#class Inside(Predicate):
+#    '''Inside[P, K]'''
+#    
+#    def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+#        match (su[P], su[K]):
+#            case (Painter(_, psubst, _), int(k)):
+#                match (psubst[I], psubst[J]):
+#                    case (int(i), int(j)):
+#                        return (
+#                            i < k and k < j
+#                            and
+#                            c.has_index(i) and c.has_index(j)
+#                        )
+#                    case _:
+#                        return None
+#            case _:
+#                return None
+#
+#    def spec_left_to_right(self, c: Canvas, su: Subst) \
+#    -> Optional[Tuple[Subst, ActionSpec]]:
+#        pass
+#
+#    def spec_right_to_left(self, c: Canvas, su: Subst) \
+#    -> Optional[Tuple[Subst, ActionSpec]]:
+#        pass
+
 ##### AnchorAttributes #####
 
 class AnchorAttribute(ABC):
@@ -203,9 +230,15 @@ class AnchorAttribute(ABC):
     def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
         pass
 
+    @abstractmethod
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        '''Do the Canvas and Subst match the condition of this
+        AnchorAttribute?'''
+        pass
+
 @dataclass(frozen=True)
 class Holds(AnchorAttribute):
-    i: IndexVariable
+    var: IndexVariable
     letter: Letter
 
     @classmethod
@@ -218,13 +251,16 @@ class Holds(AnchorAttribute):
                 case _:
                     pass
 
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return c[su[self.var]] == self.letter
+
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.i)}, {short(self.letter)})'
+        return f'{cl}({short(self.var)}, {short(self.letter)})'
 
 @dataclass(frozen=True)
 class LeftmostIndex(AnchorAttribute):
-    i: IndexVariable
+    var: IndexVariable
 
     @classmethod
     def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
@@ -236,13 +272,16 @@ class LeftmostIndex(AnchorAttribute):
                 case _:
                     pass
 
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return safe_eq(c.min_index, su[self.var])
+        
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.i)})'
+        return f'{cl}({short(self.var)})'
 
 @dataclass(frozen=True)
 class RightmostIndex(AnchorAttribute):
-    i: IndexVariable
+    var: IndexVariable
 
     @classmethod
     def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
@@ -254,14 +293,17 @@ class RightmostIndex(AnchorAttribute):
                 case _:
                     pass
 
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return safe_eq(c.max_index, su[self.var])
+
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.i)})'
+        return f'{cl}({short(self.var)})'
 
 
 @dataclass(frozen=True)
 class InextremeIndex(AnchorAttribute):
-    i: IndexVariable
+    var: IndexVariable
 
     @classmethod
     def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
@@ -279,9 +321,18 @@ class InextremeIndex(AnchorAttribute):
             return False
         return i != 1 and i != c.max_index
 
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return (
+            c.has_index(su[self.var])
+            and
+            not safe_eq(c.min_index, su[self.var])
+            and
+            not safe_eq(c.max_index, su[self.var])
+        )
+
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.i)})'
+        return f'{cl}({short(self.var)})'
 
 @dataclass(frozen=True)
 class Painter:
@@ -331,7 +382,10 @@ class Painter:
         action = PainterAction.from_specs(specs)
         if action is None:
             return None
-        return PainterResult(self, su, action)
+        matchcount = sum(
+            1 for aa in self.anchor_attributes if aa.is_match(c, su)
+        )
+        return PainterResult(self, su, action, matchcount)
             
     def result_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[PainterResult]:
@@ -346,7 +400,10 @@ class Painter:
         action = PainterAction.from_specs(specs)
         if action is None:
             return None
-        return PainterResult(self, su, action)
+        matchcount = sum(
+            1 for aa in self.anchor_attributes if aa.is_match(c, su)
+        )
+        return PainterResult(self, su, action, matchcount)
             
 #WANT:
 #PainterResult(self, {D=2, I=1, J=3}, PainterAction(PaintAt(3), PaintValue('a')))
@@ -357,10 +414,6 @@ class Painter:
         ss = veryshort(self.subst)
         aa = ', '.join(sorted(short(a) for a in self.anchor_attributes))
         return f'{cl}({ps}; {ss}; {aa})'
-
-predicates = [Apart(), Same(), Succ(), Pred()]
-anchor_attributes: List[Type[AnchorAttribute]] = \
-    [Holds, LeftmostIndex, RightmostIndex, InextremeIndex]
 
 Detection = Tuple[Predicate, Subst, FrozenSet[AnchorAttribute]]
 
@@ -437,12 +490,16 @@ class PainterResult:
     painter: Painter
     subst: Subst
     action: PainterAction
-    #matchcount: int
+    matchcount: int
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({veryshort(self.painter)}; {veryshort(self.subst)}, {veryshort(self.action)})'
+        return f'{cl}({veryshort(self.painter)}; {veryshort(self.subst)}, {veryshort(self.action)}; matchcount={self.matchcount})'
 
+
+predicates = [Apart(), Same(), Succ(), Pred()]
+anchor_attributes: List[Type[AnchorAttribute]] = \
+    [Holds, LeftmostIndex, RightmostIndex, InextremeIndex]
 
 if __name__ == '__main__':
     # Make painters
@@ -464,7 +521,7 @@ if __name__ == '__main__':
     pr(painters)
 
 
-    # Run painters
+    # Find painters that can run
     c = Canvas.make_from('a    ')
     results: List[PainterResult] = []
     for p in painters:
@@ -476,6 +533,12 @@ if __name__ == '__main__':
                 results.append(result)
     print()
     pr(results)
+    # WANT  p1's matchcount should be 3
+    #       p3's matchcount should be 1
+
+    #NEXT Make p2 and p4 by cycling P and K.
+    # How do we get P and K?
+    # 
 
 # When creating a painter, how do we decide which arguments are the principal
 # ones, and how do we decide which is right and which is left?
