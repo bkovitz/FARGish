@@ -1,5 +1,8 @@
 permaculture
 
+
+Bjarne Stroustrup's recommended languages: Java, C++, Python, Scheme, ??
+
 unify(I, J)
 unify(J, 2)
 what is I? 2
@@ -20,3 +23,56 @@ What to do today?
 1. Ask the Predicate to step through left_substs and right_substs.
 2. Make the Painter know its principal arguments, and have code that steps
 differently according to the type of the principal argument.
+
+------------------------------------------------------------------------
+
+'____a___a___'
+
+p1a
+  Apart[D=4, I=5, J=9]
+  Same[I, J]
+
+  Apart.spec_left_to_right(c, {D=2, I=1}) -> {D=2, I=1, J=3})
+
+p2   must hold some record that P=p1a in the original situation
+  Inside[P, K]
+  FilledWith[K, 'j']
+
+Running p2 yields:
+
+  Inside[P=p1a] spec_left_to_right yields:
+
+    K=6   
+    K=7
+    K=8
+
+
+'___j__'
+
+Running p2 yields:
+
+    Given K=4, what should P be? Must return an ActionSpec indicating:
+        
+        P=p1a I=2 J=6
+        P=p1a I=1 J=5
+
+NEXT problem to solve:
+
+Two ways to find all the values of K:
+1. spec_left_to_right() loops through K, and returns multiple ActionSpecs.
+2. The caller of spec_left_to_right() loops through all values of K, and
+   spec_left_to_right() only checks the values in the current Subst.
+
+
+Hypothetically:
+Apart  returns specA, specB
+Succ   returns specSA, specSB
+
+Should we get 4 PainterActions?
+    specA specSA
+    specA specSB
+    specB specSA
+    specB specSB
+Or should we get 2 PainterActionss?
+    specA specSA
+    specB specSB
