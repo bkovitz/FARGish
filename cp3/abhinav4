@@ -1,0 +1,22 @@
+permaculture
+
+unify(I, J)
+unify(J, 2)
+what is I? 2
+
+unify(f[I, J], f[4, 6])
+what is I? 4
+what is J? 6
+
+
+What to do today?
+1. Fix bug in painter-creation.  DONE
+2. Implement matchcount.  DONE
+3. Implement Inside and FilledWith; generate p2 and p4. DONE
+4. Run p2 and p4.
+5. Figure out how to make p5
+
+
+1. Ask the Predicate to step through left_substs and right_substs.
+2. Make the Painter know its principal arguments, and have code that steps
+differently according to the type of the principal argument.

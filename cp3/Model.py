@@ -17,11 +17,13 @@ from util import short
 
 
 Index = int
+ArgumentPlace = Literal['LeftArgument', 'RightArgument', 'NotPrincipal']
 
 @dataclass(frozen=True)
 class Variable:
     # Don't instantiate this. Instantiate only subclasses.
     name: str
+    place: ArgumentPlace
 
     def __repr__(self) -> str:
         return self.name
@@ -47,12 +49,12 @@ class LetterVariable(Variable):
     def __repr__(self) -> str:
         return self.name
 
-D = Variable('D')  # "distance", in Apart
-I = IndexVariable('I')
-J = IndexVariable('J')
-K = IndexVariable('K')
-P = PainterVariable('P')
-L = LetterVariable('L')
+D = Variable('D', 'NotPrincipal')  # "distance", in Apart
+I = IndexVariable('I', 'LeftArgument')
+J = IndexVariable('J', 'RightArgument')
+K = IndexVariable('K', 'RightArgument')
+P = PainterVariable('P', 'LeftArgument')
+L = LetterVariable('L', 'NotPrincipal')
 
 VarSpec = Variable   # TODO Union with IndexVariable, PainterVariable,
                      # CanvasVariable, CompoundVariable
@@ -258,7 +260,6 @@ bottom_subst = BottomSubst()
 @dataclass
 class Canvas:
     '''Canvas cells have 1-based indexing.'''
-
     d: Dict[Index, CanvasValue] = field(default_factory=lambda: {})
     min_index: Optional[Index] = None
     max_index: Optional[Index] = None

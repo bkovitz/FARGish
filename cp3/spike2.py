@@ -12,13 +12,15 @@ from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain, combinations
 from collections import defaultdict
+import operator
+from io import StringIO
 
 from Model import Canvas, CanvasValue, D, Expr, \
     Fizzle, FizzleNoPred, FizzleNoSucc, FizzleNoValue, FullIndex, \
     I, Index, IndexVariable, \
     J, K, L, Letter, LetterVariable, PainterVariable, P, \
     PMap, pmap, pred_of, succ_of, \
-    Value, Variable, VarSpec, Workspace
+    Value, Variable, VarSpec
     # from Model2.py
 from Log import lo, trace
 from util import intersection, Numeric, pr, short, veryshort
@@ -181,6 +183,10 @@ class Predicate(ABC):
     -> Optional[Tuple[Subst, ActionSpec]]:
         pass
 
+    @abstractmethod
+    def principal_arguments(self) -> Collection[Variable]:
+        pass
+
 def safe_eq(a: Any, b: Any) -> bool:
     if a is None or b is None:
         return False
@@ -204,6 +210,9 @@ def safe_add(a: Optional[int], b: Optional[int]) -> Optional[int]:
 class Apart(Predicate):
     '''Apart[D, I, J]'''
     default_subst: ClassVar[Subst] = Subst.make_from((D, 2))
+
+    def principal_arguments(self) -> Collection[Variable]:
+        return (I, J)
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         su = self.default_subst.merge(su)
@@ -249,6 +258,9 @@ class Apart(Predicate):
 class Same(Predicate):
     '''Same[I, J]'''
 
+    def principal_arguments(self) -> Collection[Variable]:
+        return (I, J)
+
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         if safe_eq(c[su.as_index(I)], c[su.as_index(J)]):
             return su
@@ -277,6 +289,9 @@ class Same(Predicate):
 @dataclass(frozen=True)
 class Succ(Predicate):
     '''Succ[I, J]'''
+
+    def principal_arguments(self) -> Collection[Variable]:
+        return (I, J)
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         try:
@@ -317,6 +332,9 @@ class Pred(Predicate):
     '''Pred[I, J], i.e. the value at I must be the predecessor of the value
     at J.'''
 
+    def principal_arguments(self) -> Collection[Variable]:
+        return (I, J)
+
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         try:
             if safe_eq(pred_of(c[su.as_index(I)]), c[su.as_index(J)]):
@@ -355,6 +373,9 @@ class Pred(Predicate):
 class Inside(Predicate):
     '''Inside[P, K]'''
     
+    def principal_arguments(self) -> Collection[Variable]:
+        return (P, K)
+
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         match (su[P], su[K]):
             case (Painter(_, psubst, _), int(k)):
@@ -390,6 +411,9 @@ class Inside(Predicate):
 @dataclass(frozen=True)
 class FilledWith(Predicate):
     '''FilledWith[K, L]'''
+
+    def principal_arguments(self) -> Collection[Variable]:
+        return (K,)
 
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
         match su.as_index(K):
@@ -534,16 +558,18 @@ class InextremeIndex(AnchorAttribute):
 
 @dataclass(frozen=True)
 class Painter:
-    #principal_arguments: Tuple[VarSpec, VarSpec]
     predicates: FrozenSet[Predicate]
     subst: Subst
     anchor_attributes: FrozenSet[AnchorAttribute]
+    left_argument: Variable
+    right_argument: Variable
 
     @classmethod
     def from_detections(cls, detections: FrozenSet[Detection]) -> Painter:
         predicates: Set[Predicate] = set()
         subst = Subst()
         anchor_attributes: Set[AnchorAttribute] = set()
+        principal_arguments: Set[Variable] = set()
 
         for d in detections:
             #predicate, su, aas = detection
@@ -553,22 +579,68 @@ class Painter:
             predicates.add(d.predicate)
             subst = subst.merge(d.subst)
             anchor_attributes |= d.anchor_attributes
-        return Painter(
+            principal_arguments.update(d.predicate.principal_arguments())
+        assert len(principal_arguments) == 2
+        return cls(
             frozenset(predicates),
             subst,
-            frozenset(anchor_attributes)
+            frozenset(anchor_attributes),
+            cls.get_left_arg(principal_arguments),
+            cls.get_right_arg(principal_arguments)
         )
 
-    def left_substs(self, c: Canvas) -> Iterable[Subst]:
-        '''Clears J and steps I through all indices in canvas.'''
-        su = self.subst.remove(I, J)
-        for i in c.all_indices():
-            yield su.unify(I, i)
+    @classmethod
+    def get_left_arg(cls, principal_arguments: Iterable[Variable]) \
+    -> Variable:
+        # TODO What if there is no left arg?
+        for var in principal_arguments:
+            if var.place == 'LeftArgument':
+                return var
+        raise NotImplementedError(f'no left arg: {principal_arguments}')
 
-    def right_substs(self, c: Canvas) -> Iterable[Subst]:
-        su = self.subst.remove(I, J)
-        for j in c.all_indices():
-            yield su.unify(J, j)
+    @classmethod
+    def get_right_arg(cls, principal_arguments: Iterable[Variable]) \
+    -> Variable:
+        # TODO What if there is no right arg?
+        for var in principal_arguments:
+            if var.place == 'RightArgument':
+                return var
+        raise NotImplementedError(f'no right arg: {principal_arguments}')
+
+#    def left_substs(self, c: Canvas) -> Iterable[Subst]:
+#        '''Clears J and steps I through all indices in canvas.'''
+#        su = self.subst.remove(I, J)
+#        for i in c.all_indices():
+#            yield su.unify(I, i)
+#
+#    def right_substs(self, c: Canvas) -> Iterable[Subst]:
+#        su = self.subst.remove(I, J)
+#        for j in c.all_indices():
+#            yield su.unify(J, j)
+
+    def left_substs(self, ws: Workspace) -> Iterable[Subst]:
+        '''Clears both principal arguments and steps the left argument
+        through all its possible values.'''
+        su = self.subst.remove(self.left_argument, self.right_argument)
+        match self.left_argument:
+            case IndexVariable():
+                for ix in ws.all_indices():
+                    yield su.unify(self.left_argument, ix)
+            case PainterVariable():
+                for px in ws.all_painters():
+                    yield su.unify(self.left_argument, px)
+
+    def right_substs(self, ws: Workspace) -> Iterable[Subst]:
+        '''Clears both principal arguments and steps the right argument
+        through all its possible values.'''
+        su = self.subst.remove(self.left_argument, self.right_argument)
+        match self.right_argument:
+            case IndexVariable():
+                for ix in ws.all_indices():
+                    yield su.unify(self.right_argument, ix)
+            case PainterVariable():
+                for px in ws.all_painters():
+                    yield su.unify(self.right_argument, px)
 
     def result_left_to_right(self, c: Canvas, su: Subst) \
     -> Optional[PainterResult]:
@@ -583,10 +655,12 @@ class Painter:
         action = PainterAction.from_specs(specs)
         if action is None:
             return None
-        matchcount = sum(
-            1 for aa in self.anchor_attributes if aa.is_match(c, su)
+        #TODO Should we make a fresh set of anchor_attributes?
+        new_aas = frozenset(
+            aa for aa in self.anchor_attributes if aa.is_match(c, su)
         )
-        return PainterResult(self, su, action, matchcount)
+        matchcount = len(new_aas)
+        return PainterResult(self, su, action, new_aas, matchcount)
             
     def result_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[PainterResult]:
@@ -601,10 +675,12 @@ class Painter:
         action = PainterAction.from_specs(specs)
         if action is None:
             return None
-        matchcount = sum(
-            1 for aa in self.anchor_attributes if aa.is_match(c, su)
+        #TODO Should we make a fresh set of anchor_attributes?
+        new_aas = frozenset(
+            aa for aa in self.anchor_attributes if aa.is_match(c, su)
         )
-        return PainterResult(self, su, action, matchcount)
+        matchcount = len(new_aas)
+        return PainterResult(self, su, action, new_aas, matchcount)
             
 #WANT:
 #PainterResult(self, {D=2, I=1, J=3}, PainterAction(PaintAt(3), PaintValue('a')))
@@ -701,18 +777,75 @@ class PainterAction:
             return None
         else:
             return PainterAction(index, value)
+
+    def run(self, ws: Workspace) -> None:
+        ws.set_value(self.index, self.value)
     
 @dataclass(frozen=True)
 class PainterResult:
     painter: Painter
     subst: Subst
     action: PainterAction
+    anchor_attributes: FrozenSet[AnchorAttribute]
     matchcount: int
 
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({veryshort(self.painter)}; {veryshort(self.subst)}, {veryshort(self.action)}; matchcount={self.matchcount})'
 
+    def run(self, ws: Workspace) -> None:
+        self.action.run(ws)
+
+    def add_to_workspace(self, ws: Workspace) -> None:
+        # TODO Update anchor_attributes
+        new_painter = replace(
+            self.painter,
+            subst=self.subst,
+            anchor_attributes=self.anchor_attributes
+        )
+        ws.add_painter(new_painter)
+
+@dataclass(frozen=True)
+class Workspace:
+    canvas: Canvas
+    painters: Set[Painter]
+
+    @classmethod
+    def make_from(cls, s: str) -> Workspace:
+        return Workspace(Canvas.make_from(s), set())
+
+    def all_indices(self) -> Iterable[Index]:
+        yield from self.canvas.all_indices()
+
+    def all_painters(self) -> Iterable[Painter]:
+        yield from self.painters
+
+    def set_value(self, i: Index, v: Optional[CanvasValue]) -> None:
+        if v is None:
+            pass
+        else:
+            self.canvas[i] = v
+
+    def get_painter_results(self, painters: Iterable[Painter]) \
+    -> Set[PainterResult]:
+        results: Set[PainterResult] = set()
+        for p in painters:
+            for su in p.left_substs(self):
+                if (result := p.result_left_to_right(self.canvas, su)):
+                    results.add(result)
+            for su in p.right_substs(self):
+                if (result := p.result_right_to_left(self.canvas, su)):
+                    results.add(result)
+        return results
+
+    def add_painter(self, painter: Painter) -> None:
+        self.painters.add(painter)
+
+    def short(self) -> str:
+        result = StringIO()
+        print(short(self.canvas), file=result)
+        pr(self.painters, file=result)
+        return result.getvalue()
 
 predicates = [Apart(), Same(), Succ(), Pred(), Inside(), FilledWith()]
 anchor_attributes: List[Type[AnchorAttribute]] = \
@@ -735,21 +868,12 @@ def make_painters(c: Canvas, painters: FrozenSet[Painter]) \
 -> FrozenSet[Painter]:
     return frozenset(detections_to_painters(list(make_detections(c, painters))))
 
-def get_painter_results(c: Canvas, painters: Iterable[Painter]) \
--> Set[PainterResult]:
-    results: Set[PainterResult] = set()
-    for p in painters:
-        for su in p.left_substs(c):
-            if (result := p.result_left_to_right(c, su)):
-                results.add(result)
-        for su in p.right_substs(c):
-            if (result := p.result_right_to_left(c, su)):
-                results.add(result)
-    return results
+def choose_result(results: Set[PainterResult]) -> PainterResult:
+    # TODO Handle empty results
+    return max(results, key=operator.attrgetter('matchcount'))
 
 if __name__ == '__main__':
     # Make painters
-
     c = Canvas.make_from('ajaqb')
     painters = make_painters(c, frozenset())
     print()
@@ -762,10 +886,28 @@ if __name__ == '__main__':
     pr(painters)
 
     # Find painters that can run
-    c = Canvas.make_from('a    ')
-    results = get_painter_results(c, painters)
+    #c = Canvas.make_from('a    ')
+    ws = Workspace.make_from('a    ')
+    results = ws.get_painter_results(painters)
     print()
     pr(results)
 
-# When creating a painter, how do we decide which arguments are the principal
-# ones, and how do we decide which is right and which is left?
+    # Run the painters
+    # 0. Choose the painter.
+    result = choose_result(results)
+    print()
+    pr(result)
+
+    # 1. Actually run the painter in the new place.
+    result.run(ws)
+
+    # 2. Add the painter to the workspace.
+    result.add_to_workspace(ws)
+    print()
+    pr(ws)
+
+    # Find painters that can run; should find p2
+    results = ws.get_painter_results(painters)
+    print()
+    pr(results)
+
