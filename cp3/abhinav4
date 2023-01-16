@@ -94,11 +94,223 @@ WANT
             for tu, spec in predicate.spec_left_to_right(ws, su):
                 specs.add(spec)
 
-    for su in all_substs(ws, all_predicates):  # <-- new idea, look at all
-                                               # predicates at once
+    for su in cycle_through_all_variables(ws, all_predicates):
         for predicate in predicates:
             match spec_left_to_right(ws, su):
                 case ActionSpec():
 
     (all_predicates, su) -> ActionSpecs
                     
+------------------------------------------------------------------------
+
+NEW VERSION, where caller to predicate cycles through all variables
+
+'____a___a___'
+
+p1a                 In the workspace.
+  Apart[D=4, I=5, J=9]
+  Same[I, J]
+
+  Apart.spec_left_to_right(c, {D=2, I=1}) -> {D=2, I=1, J=3})
+
+p2  L='j'   must hold some record that P=p1a in the original situation
+  Inside[P, K]
+  FilledWith[K, L]
+
+
+Asking p2: Given P=p1a, what should K be?
+Really: is this (P, K) combination OK?
+
+  cycle_through_all_variables()   principal_arguments: P, K
+
+    Inside.left_to_right():      FilledWith.left_to_right()
+
+      P=p1a K=1   None
+      P=p1a K=2   None
+      P=p1a K=3   None
+      P=p1a K=4   None
+      P=p1a K=5   None
+      P=p1a K=6   PaintAt(6)     PaintValue('j')
+      P=p1a K=7   PaintAt(7)     PaintValue('j')
+      P=p1a K=8   PaintAt(8)     PaintValue('j')
+      P=p1a K=9   None
+      P=p1a K=10  None
+      P=p1a K=11  None
+      P=p1a K=12  None
+
+
+Or, let Inside.left_to_right() return an Iterable of (Subst, ActionElem):
+
+  cycle through left principal argument (P)
+
+            Inside.left_to_right():             FilledWith.left_to_right()
+
+    P=p1a   (K=need_to_cycle(f), PaintAt(K))    PaintValue('j')
+
+  When the loop that goes through all values of P finishes, we have this
+  ActionSpec:
+
+    need_to_cycle(K, such that f), PaintAt(K), PaintValue('j')
+
+  We convert this ActionSpec into ActionProposals. The function f will
+  reject most of them. We have to evaluate PaintAt(K) and PaintValue('j')
+  for each possible value of K:
+
+          f     PaintAt(K)  PaintValue('j')
+
+    K=1   No 
+    K=2   No
+    K=3   No
+    K=4   No
+    K=5   No
+    K=6   Yes   PaintAt(6)  PaintValue('j')
+    K=7   Yes   PaintAt(7)  PaintValue('j')
+    K=8   Yes   PaintAt(8)  PaintValue('j')
+    K=9   No
+    K=10  No
+    K=11  No
+    K=12  No
+
+Each pair of PaintAt and PaintValue objects will become part of an
+ActionProposal.
+
+
+--------------------
+
+'_j___'   K=2   There are currently no painters in the workspace.
+
+Asking p2: Given K=2, what should P be?
+
+  cycle through left principal variable, K:
+
+    Inside.left_to_right():                FilledWith.left_to_right()
+
+      K=1    MakePainter(P based on p1)    None
+      K=2    MakePainter(P based on p1)    OK
+      K=3    MakePainter(P based on p1)    None
+      K=4    MakePainter(P based on p1)    None
+      K=5    MakePainter(P based on p1)    None
+
+
+      K=1   LoopVariable(I), LoopVariable(J), condition="K inside I,J", MaybeMakePainter(p1, I, J)    None
+      K=2   LoopVariable(I), LoopVariable(J), condition="K inside I,J", MaybeMakePainter(p1, I, J)    OK
+      K=3   LoopVariable(I), LoopVariable(J), condition="K inside I,J", MaybeMakePainter(p1, I, J)    None
+      K=4   LoopVariable(I), LoopVariable(J), condition="K inside I,J", MaybeMakePainter(p1, I, J)    None
+      K=5   LoopVariable(I), LoopVariable(J), condition="K inside I,J", MaybeMakePainter(p1, I, J)    None
+
+  When the loop that walks through K is done, we have one ActionPrepoposal
+  object (though in other situations we might get many). Now we extract its
+  LoopVariables, cycle through their Cartesian product, evaluate the other
+  elements:
+
+              condition(I<K<J)  MaybeMakePainter(p1(D=2), D, I, J)
+    I=1 J=2     False             
+    I=1 J=3     True              MakePainter(D=2, I=1, J=3)
+    I=1 J=4     True              None
+    I=1 J=5     True              None
+    I=2 J=3     False
+    I=2 J=4     False
+    I=2 J=5     False
+    I=3 J=4     False
+    I=3 J=5     False
+    I=4 J=5     False
+    
+  
+The new idea from this conversation: There are two loops. In the first loop,
+each Predicate returns up to *one* PreproposalElem. We then coalesce those
+PreproposalElems into a Prepoposal. Then we loop through all the Prepoposals,
+and for each Prepoposal, we loop through the Cartesian product of all the
+LoopVariables. In that inner loop, we evaluate the Prepoposal elements and
+come up with Proposals.
+
+Another idea: Let ActionPrepoposals sit in the workspace. The other processes
+can look into converting them into Actions, i.e. painting cells and creating
+painters. This means that an ActionPrepoposal is a full citizen of the
+workspace.
+
+IncompleteProposal
+
+
+'____j__'  K=5    Want p1a(I=4, J=6)
+    
+--------------------
+
+
+'aja__'
+
+p1 and p2 are in the workspace. Now p5 needs to see it and create p4.
+
+Want at end of this process:
+  p4(P=p3, K=4)
+  'q' at cell 4
+  p3(I=3, J=5)
+  'b' at cell 5
+
+Asking p5, given P=p2, what should Q be?
+
+        SameSpatialRelation              ConsecutiveLocations                Paints[P, 'j']  Paints[Q, 'q']
+
+  P=p2  ProposedPredicate(Inside[P, K])  ProposedAnchors(Consecutive[P, Q])  True            ProposedPredicate(FilledWith(K, L)), ProposedPainterVar(L, 'q')
+
+When the loop that walks through P is done, we have one ActionPrepoposal
+object (thought in other situations we might get many). 
+
+Maybe make an IncompletePainter(p4, ProposedAnchors=Consecutive[P, Q]).
+
+Next step: We need a Q. Q will be another IncompletePainter:
+IncompletePainter(p3, I=?, J=?, Consecutive
+
+
+How, when we choose anchors for p3, do we deduce that I=3? How do we know
+that I=3 is "consecutive" with p2?
+
+
+Idea: Loop through all possible values of n for Overlap[n].
+
+Idea: Consecutive: limited to snippets. p4 and p3 will occupy a new snippet.
+p1 and p2 will occupy one snippet. Then in response to ConsecutiveLocations,
+we create a new snippet to hold the new p4 (and p3). From then on, we are
+only concerned with moving the snippet around and filling it.
+
+Associate the Incomplete p4 with a new snippet:
+
+[a j a]_ _
+      [_ _]
+    [a _ _]   <-- assume this is the new snippet (how the model figures
+                  this out is still murky)
+
+If the model is unable to fill the snippet using the IncompletePainter,
+then the IncompletePainter gets rejected.
+
+Our solution to most problems seem to be: loop a variable through all
+possible values, and see which ones meet some condition. Our other
+solution is to create an Incomplete object, to delay that loop.
+
+Ask Incomplete p4, what could your P and K be in this new snippet?
+
+  some predicate method must "complete me", "fill the incomplete part"
+
+  P=? K=3    
+  P=? K=4
+  P=? K=5
+
+
+Idea: Combine p3 and p4 into a single painter, for some purposes.
+
+
+
+---
+
+How does a p5 get "detected" (created from scratch)?
+
+
+--------------------
+
+Three main acts involving painters:
+
+1. See a relation between two things in the workspace, make a painter that
+recreates it.
+2. See the left anchor of a painter (plus a little more), paint the right
+anchor.
+3. See the right anchor of a painter (plus a little more), paint the left
+anchor.
