@@ -40,11 +40,19 @@ p2   must hold some record that P=p1a in the original situation
 
 Running p2 yields:
 
+  Given P=p1a(I=5, J=9), what should K be?
+
   Inside[P=p1a] spec_left_to_right yields:
 
     K=6   
     K=7
     K=8
+
+  FilledWith, for each of those values of K, yields:
+
+    K=6   PaintAt(6), PaintValue('j')
+    K=7   PaintAt(7), PaintValue('j')
+    K=8   PaintAt(8), PaintValue('j')
 
 
 '___j__'
@@ -65,14 +73,32 @@ Two ways to find all the values of K:
 
 
 Hypothetically:
-Apart  returns specA, specB
-Succ   returns specSA, specSB
+Inside      returns specA, specB       
+FilledWith  returns specFA, specFB
 
-Should we get 4 PainterActions?
-    specA specSA
-    specA specSB
-    specB specSA
-    specB specSB
-Or should we get 2 PainterActionss?
-    specA specSA
-    specB specSB
+Fhould we get 4 PainterActions?
+    specA specFA
+    specA specFB
+    specB specFA
+    specB specFB
+Or should we get 2 PainterActions?
+    specA specFA
+    specB specFB
+
+WANT
+
+    for su in all_substs(ws, all_predicates):
+        for predicate in predicates:
+            tu = su
+            specs = set()
+            for tu, spec in predicate.spec_left_to_right(ws, su):
+                specs.add(spec)
+
+    for su in all_substs(ws, all_predicates):  # <-- new idea, look at all
+                                               # predicates at once
+        for predicate in predicates:
+            match spec_left_to_right(ws, su):
+                case ActionSpec():
+
+    (all_predicates, su) -> ActionSpecs
+                    
