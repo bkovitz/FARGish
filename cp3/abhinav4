@@ -282,7 +282,7 @@ Associate the Incomplete p4 with a new snippet:
 If the model is unable to fill the snippet using the IncompletePainter,
 then the IncompletePainter gets rejected.
 
-Our solution to most problems seem to be: loop a variable through all
+Our solution to most problems seems to be: loop a variable through all
 possible values, and see which ones meet some condition. Our other
 solution is to create an Incomplete object, to delay that loop.
 
@@ -309,8 +309,55 @@ How does a p5 get "detected" (created from scratch)?
 Three main acts involving painters:
 
 1. See a relation between two things in the workspace, make a painter that
-recreates it.
+recreates it.  See a complete configuration, make a painter.
 2. See the left anchor of a painter (plus a little more), paint the right
-anchor.
+anchor.  See a partial configuration, run a painter to complete it.
 3. See the right anchor of a painter (plus a little more), paint the left
-anchor.
+anchor.  See a partial configuration, run a painter to complete it.
+
+
+------------------------------------------------------------------------
+
+Could there be a single 'complete me' method on every Predicate?
+
+    match (su[I], su[J]):
+        case (int(i), int(j)):
+            if i-j relation is OK, return NullCompletion, i.e. "OK"
+            else return BottomSubst (or a diagnosis)
+        case (int(i), None):
+            return Completion for J
+        case (None, int(j)):
+            return Completion for I
+        case (None, None):
+            return NeedDefined(I, J)
+
+    match (su[P], su[K]):
+        case (Painter() as p, int(k)):
+            if anchors of p are OK, return NullCompletion
+            else return BottomSubst
+        case (Painter() as p, None):
+            return IncompleteActionElement(LoopVariable(K))
+        case (None, int(i)):
+            return PainterCompletion(LoopVariable[I], LoopVariable[J], I<K<J, MakePainter(p1, I, J))
+        case (None, None):
+            return NeedDefined(P, K)
+
+    match (su[P], su[Q]):
+        case (Painter() as p, Painter() as q):
+            if painters have the right relationship, return NullCompletion
+            else return BottomSubst or diagnosis
+        case (Painter() as p, None as q):
+            return ProposedAnchors(p, ...) or whatever
+        case (None, Painter() as q):
+            return ProposedAnchors(q, ...) or whatever
+        case (None, None):
+            return NeedDefined(P, Q)
+
+Predicate.complete_me(su, ws) returns a Completion. There may be a big
+variety of Completion objects. Some of them can be completed in the loop
+following the loop through the Predicates. Some of them might need
+objects to persist in the workspace a while to search for possible
+completions.
+
+The above are painters completing an incomplete configuration. Could we also
+complete an incomplete painter?
