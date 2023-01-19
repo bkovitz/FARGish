@@ -12,7 +12,8 @@ from itertools import chain, combinations
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Model import Canvas, CanvasValue, Expr, I, J, VarSpec, Value, Index, \
+from Model import Canvas, CanvasValue, Expr, I, J, K, P, \
+    VarSpec, Value, Index, \
     FizzleNoSucc, FizzleNoPred, FizzleNoValue, \
     IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable, \
     Variable, \
@@ -39,7 +40,7 @@ class Subst:
     d: PMap[VarSpec, Value] = field(default_factory=lambda: pmap())
 
     @classmethod
-    def make_from(cls, *pairs: Tuple[VarSpec, Value]) -> Subst:
+    def make_from(cls, *pairs: Tuple[VarSpec, Union[Index, Painter]]) -> Subst:
         result = cls()
         for lhs, rhs in pairs:
             result = result.unify(lhs, rhs)
@@ -191,7 +192,7 @@ class Painter:
 @dataclass
 class Workspace:
     canvas: Canvas
-    #painters: Set[Painter]
+    painters: Set[Painter] = field(default_factory=set)
 
     @classmethod
     def from_str(cls, s: str) -> Workspace:
@@ -203,7 +204,12 @@ class Workspace:
 
     def get(self, i: Optional[Index]) -> Optional[CanvasValue]:
         return self.canvas[i]
+
+    def has_index(self, i: Optional[Index]) -> bool:
+        return self.canvas.has_index(i)
     
+########## Predicates ##########
+
 class Predicate(ABC):
     
     @abstractmethod
@@ -211,7 +217,7 @@ class Predicate(ABC):
         pass
 
     @abstractmethod
-    def loop_through_principal_variables(self, c: Canvas) \
+    def loop_through_principal_variables(self, ws: Workspace) \
     -> Iterable[Subst]:
         pass
 
@@ -220,9 +226,9 @@ class Predicate(ABC):
     
 class PredicateIJ(Predicate):
 
-    def loop_through_principal_variables(self, c: Canvas) \
+    def loop_through_principal_variables(self, ws: Workspace) \
     -> Iterable[Subst]:
-        for i, j in c.all_index_pairs():
+        for i, j in ws.canvas.all_index_pairs():  # TODO LoD
             yield Subst.make_from((I, i), (J, j))
 
 class Apart(PredicateIJ):
@@ -273,6 +279,35 @@ class Pred(PredicateIJ):
                     return CantComplete()
             case _:
                 raise NotImplementedError(f'Pred({su[I]}, {su[J]})')
+
+class Inside(Predicate):
+
+    def loop_through_principal_variables(self, ws: Workspace) \
+    -> Iterable[Subst]:
+        for p in ws.painters:
+            for k in ws.canvas.all_indices():
+                yield Subst.make_from((P, p), (K, k))
+
+    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+        lo('CM1', su)
+        match (su[P], su[K]):
+            case (Painter() as p, int(k)):
+                psubst = p.subst
+                lo('CM2', psubst)
+                match (psubst[I], psubst[J]):
+                    case (int(i), int(j)):
+                        if (
+                            i < k and k < j
+                            and
+                            ws.has_index(i) and ws.has_index(j)
+                        ):
+                            return AlreadyComplete(self, su)
+                        else:
+                            return CantComplete()
+            case _:
+                raise NotImplementedError(
+                    f'Inside({veryshort(su[P])}, {su[K]})'
+                )
 
 class Completion:
     pass
@@ -442,6 +477,9 @@ def can_be_principal_argument(x: Any) -> bool:
 
 ########## Model ##########
 
+default_predicates: Collection[Predicate] = (
+    Apart(), Same(), Succ(), Pred(), Inside()
+)
 default_anchor_attributes: Collection[Type[AnchorAttribute]] = (
     Holds, LeftmostIndex, RightmostIndex, InextremeIndex
 )  # type: ignore[assignment]  # mypy 0.971 bug?
@@ -449,8 +487,7 @@ default_anchor_attributes: Collection[Type[AnchorAttribute]] = (
 @dataclass
 class Model:
     ws: Workspace = Workspace.empty()
-    all_predicates: List[Predicate] = \
-        field(default_factory=lambda: [Apart(), Same(), Succ(), Pred()])
+    all_predicates: Collection[Predicate] = default_predicates
     all_anchor_attributes: Collection[Type[AnchorAttribute]] = \
         default_anchor_attributes
 
@@ -466,7 +503,7 @@ class Model:
     def make_detections(self) -> Iterable[Detection]:
         for predicate in self.all_predicates:
             for su in predicate.loop_through_principal_variables(
-                self.ws.canvas
+                self.ws
             ):
                 if isinstance(
                     completion := predicate.complete_me(su, self.ws),
@@ -524,13 +561,18 @@ class Model:
 if __name__ == '__main__':
     print("\n-- Making painters from 'ajaqb':")
     m = Model.from_str('ajaqb')
-#    detections = list(m.make_detections())
-#    pr(detections)
-#    painters = m.detections_to_painters(detections)
 
     painters = m.make_painters()
     print()
     pr(painters)
+
+    m.ws.painters = set(painters)
+    print("\n -- 2nd round: making painters now that p1 and p3 exist:")
+    detections = list(m.make_detections())
+#    painters = m.detections_to_painters(detections)
+    
+    print()
+    pr(detections)
 
 
 

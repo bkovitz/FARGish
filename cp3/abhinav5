@@ -26,15 +26,15 @@ Implement p1..p4 using Completions. (tomorrow)
 
       InextremeIndex  DONE
 
-  detections_to_painters  NEXT
+  detections_to_painters  DONE
 
-    p1
+    p1  DONE
 
-    p3
+    p3  DONE
 
   more detections
 
-    Inside
+    Inside  DONE
 
     FilledWith
 
