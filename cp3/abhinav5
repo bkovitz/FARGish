@@ -1,0 +1,106 @@
+Agenda for Tue 17-Jan-2023
+
+How to get good at low-level design.
+
+Work out the Completions for p5 (all the way).
+
+Implement p1..p4 using Completions. (tomorrow)
+
+
+------------------------------------------------------------------------
+
+Apart.complete_me()
+
+    if su[D] is None:
+        return NeedDefined(D)
+
+    match (su[I], su[J]):   "Detection" case
+        case (int(i), int(j)):
+            if j-i = su[D], return NullCompletion
+            else return BottomSubst
+        case (int(i), None):
+            return PaintAt(i + su[D])
+        case (None, int(j)):
+            return PaintAt(j - su[D])
+        case (None, None):
+            return NeedDefined(I, J)
+
+Succ.complete_me()
+
+    match (su[I], su[J]):
+        case (int(i), int(j)):
+            if succ(@i) = @j, return NullCompletion
+            else return BottomSubst
+        case (int(i), None):
+            return PaintValue(succ(@i))
+            unless there is no succ(@i); then return BottomSubst
+        case (None, int(j)):
+            return PaintValue(pred(@j))
+            unless there is no pred(@j); then return BottomSubst
+        case (None, None):
+            return NeedDefined(I, J)
+
+Inside.complete_me()
+
+    match (su[P], su[K]):
+        case (Painter() as p, int(k)):
+            (Need to cascade through p and its related painters to find I and J.)
+            if p.su[I] < K < p.su[J], return NullCompletion
+            else return BottomSubst
+        case (Painter() as p, None):
+            return LoopVariable(K), Condition(I<K<J)
+        case (None, int(i)):
+            if my_anchor_attributes[P] is undefined, return NeedAnchorAttribute[P]
+            #return LoopVariable[I], LoopVariable[J], Condition(I<K<J), MakePainter(my_anchor_attributes[P], I, J)
+            return LoopVariable[I], LoopVariable[J], Condition(I<K<J), MakePainter('P),
+                   PainterAnchorAttributes(P, (anchor_attributes(this_painter), I, J))
+        case (None, None):
+            return NeedDefined(P, K)  exploit information like ConsecutiveLocations to cook up a painter
+
+FilledWith.complete_me()
+
+    match (su[K], su[L]):
+        case (int(k), Letter(l)):
+            if @k = l, return NullCompletion
+            if @k = Blank or None, return PaintAt(k), PaintValue(l)
+            else return BottomSubst
+        case (int(k), None):
+            return NeedDefined(L)   or exploit information in anchor_attributes?
+        case (None, Letter(l)):
+            return PaintAt(K), PaintValue(l)    The K means "need another Completion to supply the value for K".
+        case (None, None):
+            return NeedDefined(K, L)
+
+SameSpatialRelation.complete_me()
+
+    match (su[P], su[Q]):
+        case (Painter() as p, Painter() as q):
+            if both p and q have the same spatial relation in their predicates, return NullCompletion
+            else return BottomSubst
+        case (Painter() as p, None as q):
+            return MakePainter('Q), PainterPredicate(Q, spatial_relation(p))
+        case (None, Painter() as q):
+            return MakePainter('P), PainterPredicate(P, spatial_relation(q))
+        case (None, None):
+            return NeedDefined(P, Q)
+
+ConsecutiveLocations.complete_me()
+
+    match (su[P], su[Q]):
+        case (Painter() as p, Painter() as q):
+            ctype = su[CTYPE]    type of ConsecutiveLocation, "consecutivity"
+            if ctype is None, return LoopThroughCtypes     Caller must run us again.
+            if ctype.match(span(p), span(q)), return NullCompletion
+            else return BottomSubst
+        case (Painter() as p, None as q):
+            return MakePainter('Q), RequiredPainterAttribute(Consecutive(p, Q))
+        case (None, Painter() as q):
+            return MakePainter('P), RequiredPainterAttribute(Consecutive(P, q))   Place a tag on P.
+        case (None, None):
+            return NeedDefined(P, Q)
+
+
+
+
+Painter.do_something()  The main function that loops through the Predicates, assembles their Completions into a PainterCompletion,
+and runs the PainterCompletion to generate ActionProposals.

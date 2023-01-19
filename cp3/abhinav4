@@ -325,9 +325,9 @@ Could there be a single 'complete me' method on every Predicate?
             if i-j relation is OK, return NullCompletion, i.e. "OK"
             else return BottomSubst (or a diagnosis)
         case (int(i), None):
-            return Completion for J
+            return Completion for J    PaintAt(i + D)    or diagnosis
         case (None, int(j)):
-            return Completion for I
+            return Completion for I    PaintAt(j - D)    or diagnosis
         case (None, None):
             return NeedDefined(I, J)
 
@@ -340,16 +340,16 @@ Could there be a single 'complete me' method on every Predicate?
         case (None, int(i)):
             return PainterCompletion(LoopVariable[I], LoopVariable[J], I<K<J, MakePainter(p1, I, J))
         case (None, None):
-            return NeedDefined(P, K)
+            return NeedDefined(P, K)  or perhaps exploit information like ConsecutiveLocations to cook up a painter
 
     match (su[P], su[Q]):
         case (Painter() as p, Painter() as q):
             if painters have the right relationship, return NullCompletion
             else return BottomSubst or diagnosis
         case (Painter() as p, None as q):
-            return ProposedAnchors(p, ...) or whatever
+            return ProposedAnchors(Span(p) + 1, ...) or whatever
         case (None, Painter() as q):
-            return ProposedAnchors(q, ...) or whatever
+            return ProposedAnchors(Span(q) - 1, ...) or whatever
         case (None, None):
             return NeedDefined(P, Q)
 
@@ -361,3 +361,27 @@ completions.
 
 The above are painters completing an incomplete configuration. Could we also
 complete an incomplete painter?
+
+
+When we ask a Predicate to "complete me", there are three kinds of answer possible:
+
+1. It's already complete.
+2. Here is how to complete it.
+3. It's so incomplete that I don't know where to begin.
+
+
+------------------------------------------------------------------------
+
+                                              left to right           right to left
+Relation between canvas cells:
+  Spatial relation  Apart                     PaintAt                 PaintAt
+  Value relation    Succ                      PaintValue              PaintValue
+
+Relation between painter and canvas cell:
+  Anchor-to-index relation  Inside            Loop to find K, I<K<J   Loop I, J; MakePainter(based on p, I, J)
+  Index-to-value relation   FilledWith        PaintAt, PaintValue     Loop to find K (cell must contain 'j')    
+
+Relation between painters:
+  Predicate relation  SameSpatialRelation
+  Anchor relation     ConsecutiveLocations?
+  Indirect relation   ConsecutiveLocations?
