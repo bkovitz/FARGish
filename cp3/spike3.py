@@ -11,8 +11,10 @@ from abc import ABC, abstractmethod
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Model import Canvas, Expr, I, J, VarSpec, Value, Index, FizzleNoValue, \
-    IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable
+from Model import Canvas, CanvasValue, Expr, I, J, VarSpec, Value, Index, \
+    FizzleNoSucc, FizzleNoPred, FizzleNoValue, \
+    IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable, \
+    succ_of, pred_of
 from Log import lo, trace
 from util import pr, short
 
@@ -173,6 +175,9 @@ class Workspace:
     @classmethod
     def empty(cls) -> Workspace:
         return Workspace(canvas=Canvas.make_from_width(5))
+
+    def get(self, i: Optional[Index]) -> Optional[CanvasValue]:
+        return self.canvas[i]
     
 class Predicate(ABC):
     
@@ -185,7 +190,17 @@ class Predicate(ABC):
     -> Iterable[Subst]:
         pass
 
-class Apart(Predicate):
+    def short(self) -> str:
+        return self.__class__.__name__
+    
+class PredicateIJ(Predicate):
+
+    def loop_through_principal_variables(self, c: Canvas) \
+    -> Iterable[Subst]:
+        for i, j in c.all_index_pairs():
+            yield Subst.make_from((I, i), (J, j))
+
+class Apart(PredicateIJ):
     '''Hard-coded to distance 2. (No 'D' variable.)'''
 
     def complete_me(self, su: Subst, ws: Workspace) -> Completion:
@@ -198,14 +213,41 @@ class Apart(Predicate):
             case _:
                 raise NotImplementedError(f'Apart({su[I]}, {su[J]})')
 
-    def loop_through_principal_variables(self, c: Canvas) \
-    -> Iterable[Subst]:
-        for i, j in c.all_index_pairs():
-            yield Subst.make_from((I, i), (J, j))
+class Same(PredicateIJ):
 
-    def short(self) -> str:
-        return self.__class__.__name__
-    
+    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+        match (su[I], su[J]):
+            case (int(i), int(j)):
+                if ws.get(i) == ws.get(j):
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case _:
+                raise NotImplementedError(f'Same({su[I]}, {su[J]})')
+                
+class Succ(PredicateIJ):
+
+    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+        match (su[I], su[J]):
+            case (int(i), int(j)):
+                if is_succ(ws.get(i), ws.get(j)):
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case _:
+                raise NotImplementedError(f'Succ({su[I]}, {su[J]})')
+                
+class Pred(PredicateIJ):
+
+    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+        match (su[I], su[J]):
+            case (int(i), int(j)):
+                if is_pred(ws.get(i), ws.get(j)):
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case _:
+                raise NotImplementedError(f'Pred({su[I]}, {su[J]})')
 
 class Completion:
     pass
@@ -234,10 +276,33 @@ class Detection:
         cl = self.__class__.__name__
         return f'{cl}({short(self.predicate)}, {short(self.subst)})'
 
+########## Functions ##########
+
+def safe_eq(a: Any, b: Any) -> bool:
+    if a is None or b is None:
+        return False
+    else:
+        return a == b
+
+def is_succ(a: Any, b: Any) -> bool:
+    try:
+        return safe_eq(succ_of(a), b)
+    except FizzleNoSucc:
+        return False
+
+def is_pred(a: Any, b: Any) -> bool:
+    try:
+        return safe_eq(pred_of(a), b)
+    except FizzleNoPred:
+        return False
+
+########## Model ##########
+
 @dataclass
 class Model:
     ws: Workspace = Workspace.empty()
-    all_predicates: List[Predicate] = field(default_factory=lambda: [Apart()])
+    all_predicates: List[Predicate] = \
+        field(default_factory=lambda: [Apart(), Same(), Succ(), Pred()])
 
     @classmethod
     def from_str(cls, s: str) -> Model:

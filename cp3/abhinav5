@@ -2,10 +2,73 @@ Agenda for Tue 17-Jan-2023
 
 How to get good at low-level design.
 
-Work out the Completions for p5 (all the way).
+Work out the Completions for p5 (all the way). DONE
 
 Implement p1..p4 using Completions. (tomorrow)
 
+  make_detections  DONE
+
+    Apart  DONE
+
+    Same  DONE
+
+    Succ  DONE
+
+    Pred  DONE
+
+  detections_to_painters
+
+    p1
+
+    p3
+
+  more detections
+
+    Inside
+
+    FilledWith
+
+    p2
+
+    p4
+
+  regenerate from a____
+
+    Apart
+
+    Same
+
+    Succ
+
+    Pred
+
+    p1
+
+    p3
+
+    Inside
+
+    FilledWith
+
+    p2
+
+    p4
+
+  more detections
+
+    SameSpatialRelation
+
+    ConsecutiveLocations
+
+    p5
+
+  regenerate from a____
+
+    SameSpatialRelation
+
+    ConsecutiveLocations
+
+    p5
 
 ------------------------------------------------------------------------
 
