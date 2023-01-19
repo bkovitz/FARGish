@@ -21,7 +21,7 @@ from Model import Blank, Canvas, CanvasValue, Expr, I, J, K, L, P, \
     Variable, \
     succ_of, pred_of
 from Log import lo, trace
-from util import intersection, pr, pts, short, veryshort
+from util import as_list, intersection, pr, pts, short, veryshort
 
 
 # Predicate
@@ -42,7 +42,9 @@ class Subst:
     d: PMap[VarSpec, Value] = field(default_factory=lambda: pmap())
 
     @classmethod
-    def make_from(cls, *pairs: Tuple[VarSpec, Union[Index, Painter]]) -> Subst:
+    def make_from(
+        cls, *pairs: Tuple[VarSpec, Union[Index, Painter, Letter]]
+    ) -> Subst:
         result = cls()
         for lhs, rhs in pairs:
             result = result.unify(lhs, rhs)
@@ -217,7 +219,8 @@ class Painter:
             completion = predicate.complete_me(su, ws)
             if isinstance(completion, CantComplete):
                 return []
-            completions.append(completion)
+            #completions.append(completion)
+            completions += as_list(completion)
         return completions
 
     def completions_to_actions(self, completions: Iterable[Completion]) \
@@ -258,7 +261,7 @@ class Painter:
 class Predicate(ABC):
     
     @abstractmethod
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         pass
 
     @abstractmethod
@@ -280,7 +283,7 @@ class Apart(PredicateIJ):
     '''Hard-coded to distance 2. (No 'D' variable.)'''
     d: ClassVar[Index] = 2
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 if j - i == self.d:
@@ -304,7 +307,7 @@ class Apart(PredicateIJ):
 
 class Same(PredicateIJ):
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 return self.value_completion(su, ws, i, j)
@@ -343,7 +346,7 @@ class Same(PredicateIJ):
                 
 class Succ(PredicateIJ):
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 return self.value_completion(su, ws, i, j)
@@ -386,7 +389,7 @@ class Succ(PredicateIJ):
 
 class Pred(PredicateIJ):
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 if is_pred(ws.get(i), ws.get(j)):
@@ -404,7 +407,7 @@ class Inside(Predicate):
             for k in ws.canvas.all_indices():
                 yield Subst.make_from((P, p), (K, k))
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         match (su[P], su[K]):
             case (Painter() as p, int(k)):
                 psubst = p.subst
@@ -418,6 +421,15 @@ class Inside(Predicate):
                             return AlreadyComplete(self, su)
                         else:
                             return CantComplete()
+                    case _:
+                        return CantComplete()
+            case (Painter() as p, None):
+                psubst = p.subst
+                match (psubst[I], psubst[J]):
+                    case (int(i), int(j)):
+                        return [LoopVariable(K), LessThan(i, K), LessThan(K, j)]
+                    case _:
+                        return CantComplete()
             case _:
                 raise NotImplementedError(
                     f'Inside({veryshort(su[P])}, {su[K]})'
@@ -430,8 +442,13 @@ class FilledWith(Predicate):
         for k in ws.canvas.all_indices():   # TODO LoD
             yield Subst.make_from((K, k))
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
         match (su[K], su[L]):
+            case (int(k), Letter() as l):
+                if ws.get(k) == l:
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
             case (int(k), None):
                 match letter := ws.get(k):
                     case Letter():
@@ -439,16 +456,17 @@ class FilledWith(Predicate):
                         return AlreadyComplete(self, su.unify(L, letter))
                     case _:
                         return CantComplete()
-            case (int(k), Letter() as l):
-                if ws.get(k) == l:
-                    return AlreadyComplete(self, su)
-                else:
-                    return CantComplete()
+            case (None, Letter() as l):
+                return [PaintAt(K), PaintValue(l)]
             case _:
-                raise NotImplementedError(f'FilledWith({su[K]})')
+                raise NotImplementedError(f'FilledWith({su[K]}, {su[L]})')
+
+########## Completions ##########
 
 class Completion:
     pass
+
+Completions = Union[Completion, List[Completion]]
 
 @dataclass(frozen=True)
 class AlreadyComplete(Completion):
@@ -470,6 +488,17 @@ class PaintValue(Completion):
 class PaintValueAt(Completion):
     index: Index
     value: CanvasValue
+
+@dataclass(frozen=True)
+class LoopVariable(Completion):
+    var: Variable
+
+@dataclass(frozen=True)
+class LessThan(Completion):
+    a: Union[Index, Variable]
+    b: Union[Index, Variable]
+
+########## Detection ##########
 
 @dataclass(frozen=True)
 class Detection:
@@ -737,22 +766,38 @@ if __name__ == '__main__':
     print("\n-- Making painters from 'ajaqb':")
     m = Model.from_str('ajaqb')
 
-    painters = m.make_painters()
+    painters = m.make_painters()  # These should go into LTM
     print()
     pr(painters)
 
-    m.ws.painters = set(painters)
+    m.ws.painters = set(painters)  # Unrealistic: during normal run,
+        # painters don't get added to the Workspace until they're run.
     print("\n -- 2nd round: making painters now that p1 and p3 exist:")
     print()
     painters = list(sorted(m.make_painters(), key=str))
     pts(painters)
 
-    print("\n -- Regenerate from 'a____'")
+    #print("\n -- Regenerate from 'a____'")
+    print("\n -- Generate completions and actions for p3")
     print()
     p = painters[1]
     lo('PAINTER', p)
+    # We're skipping generating the su
     cs = p.su_to_completions(Subst.make_from((I, 1)), m.ws)
+    print()
     pts(cs)
     print()
     actions = p.completions_to_actions(cs)
     pts(actions)
+
+    print("\n -- Generate completions and actions for p2 on _j___")
+    print()
+    p1 = painters[0]
+    p2 = painters[2]
+    lo('PAINTER', p2)
+    cs = p2.su_to_completions(Subst.make_from((P, p1), (L, Letter('j'))), m.ws)
+    print()
+    pts(cs)
+#    print()
+#    actions = p.completions_to_actions(cs)
+#    pts(actions)
