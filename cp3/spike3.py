@@ -15,9 +15,10 @@ from pyrsistent.typing import PMap
 from Model import Canvas, CanvasValue, Expr, I, J, VarSpec, Value, Index, \
     FizzleNoSucc, FizzleNoPred, FizzleNoValue, \
     IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable, \
+    Variable, \
     succ_of, pred_of
 from Log import lo, trace
-from util import pr, short, veryshort
+from util import intersection, pr, short, veryshort
 
 
 # Predicate
@@ -162,7 +163,30 @@ bottom_subst = BottomSubst()
 
 @dataclass(frozen=True)
 class Painter:
-    pass
+    predicates: FrozenSet[Predicate]
+    subst: Subst
+    anchor_attributes: FrozenSet[AnchorAttribute]
+    # TODO Need left_argument and right_argument?
+
+    @classmethod
+    def from_detections(cls, detections: FrozenSet[Detection]) -> Painter:
+        predicates: Set[Predicate] = set()
+        subst = Subst()
+        anchor_attributes: Set[AnchorAttribute] = set()
+        principal_arguments: Set[Variable] = set()
+
+        for d in detections:
+            predicates.add(d.predicate)
+            subst = subst.merge(d.subst)
+            anchor_attributes |= d.anchor_attributes
+        return cls(frozenset(predicates), subst, frozenset(anchor_attributes))
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        ps = ', '.join(sorted(short(p) for p in self.predicates))
+        ss = veryshort(self.subst)
+        aa = ', '.join(sorted(short(a) for a in self.anchor_attributes))
+        return f'{cl}({ps}; {ss}; {aa})'
 
 @dataclass
 class Workspace:
@@ -409,6 +433,13 @@ def is_pred(a: Any, b: Any) -> bool:
     except FizzleNoPred:
         return False
 
+def can_be_principal_argument(x: Any) -> bool:
+    match x:
+        case IndexVariable():
+            return True
+        # TODO PainterVariable
+    return False
+
 ########## Model ##########
 
 default_anchor_attributes: Collection[Type[AnchorAttribute]] = (
@@ -426,6 +457,11 @@ class Model:
     @classmethod
     def from_str(cls, s: str) -> Model:
         return Model(ws=Workspace.from_str(s))
+
+    def make_painters(self) -> FrozenSet[Painter]:
+        return frozenset(
+            self.detections_to_painters(list(self.make_detections()))
+        )
 
     def make_detections(self) -> Iterable[Detection]:
         for predicate in self.all_predicates:
@@ -452,14 +488,49 @@ class Model:
             )
         )
 
+    def detections_to_painters(self, detections: Sequence[Detection]) \
+    -> Iterable[Painter]:
+        for d1, d2 in combinations(detections, 2):
+            if self.can_be_painter(d1, d2):
+                yield Painter.from_detections(frozenset([d1, d2]))
+
+    @classmethod
+    def can_be_painter(cls, d1: Detection, d2: Detection) -> bool:
+        # TODO Check that both spatial and value predicates are detected?
+        # TODO Check that the AnchorAttributes don't contradict each other?
+        d1pairs = [
+            (k, v) for k, v in d1.subst.pairs() if can_be_principal_argument(k)
+        ]
+        d2pairs = [
+            (k, v) for k, v in d2.subst.pairs() if can_be_principal_argument(k)
+        ]
+        return bool(
+            intersection(d1pairs, d2pairs)
+            and
+            d1.subst.merge_with_unify(d2.subst)
+        )
+
+    @classmethod
+    def can_be_principal_argument(cls, x: Any) -> bool:
+        match x:
+            case IndexVariable():
+                return True
+            # TODO PainterVariable
+        return False
+
+
+########## Main ##########
+
 if __name__ == '__main__':
     print("\n-- Making painters from 'ajaqb':")
     m = Model.from_str('ajaqb')
-    detections = m.make_detections()
-    pr(detections)
-#    painters = make_painters(c, frozenset())
-#    print()
-#    pr(painters)
+#    detections = list(m.make_detections())
+#    pr(detections)
+#    painters = m.detections_to_painters(detections)
+
+    painters = m.make_painters()
+    print()
+    pr(painters)
 
 
 

@@ -16,17 +16,17 @@ Implement p1..p4 using Completions. (tomorrow)
 
     Pred  DONE
 
-    AnchorAttributes
+    AnchorAttributes  DONE
 
-      Holds
+      Holds  DONE
 
-      LeftmostIndex
+      LeftmostIndex  DONE
 
-      RightmostIndex
+      RightmostIndex  DONE
 
-      InextremeIndex
+      InextremeIndex  DONE
 
-  detections_to_painters
+  detections_to_painters  NEXT
 
     p1
 
