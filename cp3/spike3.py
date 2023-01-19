@@ -12,7 +12,7 @@ from itertools import chain, combinations
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Model import Canvas, CanvasValue, Expr, I, J, K, P, \
+from Model import Canvas, CanvasValue, Expr, I, J, K, L, P, \
     VarSpec, Value, Index, \
     FizzleNoSucc, FizzleNoPred, FizzleNoValue, \
     IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable, \
@@ -289,11 +289,9 @@ class Inside(Predicate):
                 yield Subst.make_from((P, p), (K, k))
 
     def complete_me(self, su: Subst, ws: Workspace) -> Completion:
-        lo('CM1', su)
         match (su[P], su[K]):
             case (Painter() as p, int(k)):
                 psubst = p.subst
-                lo('CM2', psubst)
                 match (psubst[I], psubst[J]):
                     case (int(i), int(j)):
                         if (
@@ -308,6 +306,30 @@ class Inside(Predicate):
                 raise NotImplementedError(
                     f'Inside({veryshort(su[P])}, {su[K]})'
                 )
+
+class FilledWith(Predicate):
+
+    def loop_through_principal_variables(self, ws: Workspace) \
+    -> Iterable[Subst]:
+        for k in ws.canvas.all_indices():   # TODO LoD
+            yield Subst.make_from((K, k))
+
+    def complete_me(self, su: Subst, ws: Workspace) -> Completion:
+        match (su[K], su[L]):
+            case (int(k), None):
+                match letter := ws.get(k):
+                    case Letter():
+                        # TODO What if .unify() returns BottomSubst?
+                        return AlreadyComplete(self, su.unify(L, letter))
+                    case _:
+                        return CantComplete()
+            case (int(k), Letter() as l):
+                if ws.get(k) == l:
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case _:
+                raise NotImplementedError(f'FilledWith({su[K]})')
 
 class Completion:
     pass
@@ -478,7 +500,7 @@ def can_be_principal_argument(x: Any) -> bool:
 ########## Model ##########
 
 default_predicates: Collection[Predicate] = (
-    Apart(), Same(), Succ(), Pred(), Inside()
+    Apart(), Same(), Succ(), Pred(), Inside(), FilledWith()
 )
 default_anchor_attributes: Collection[Type[AnchorAttribute]] = (
     Holds, LeftmostIndex, RightmostIndex, InextremeIndex
@@ -573,6 +595,3 @@ if __name__ == '__main__':
     
     print()
     pr(detections)
-
-
-
