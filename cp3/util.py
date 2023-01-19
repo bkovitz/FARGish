@@ -807,10 +807,32 @@ def short(o, inside: bool=False) -> str:
             return str(o)
 
 def veryshort(o, inside: bool=False) -> str:
-    if hasattr(o, 'veryshort'):
-        return o.veryshort()
+    if isinstance(o, list):
+        return f"[{', '.join(veryshort(x, inside=True) for x in o)}]"
+    elif isinstance(o, tuple):
+        return f"({', '.join(veryshort(x, inside=True) for x in o)})"
+    elif isinstance(o, set):
+        return f"{{{', '.join(veryshort(x, inside=True) for x in o)}}}"
+    elif isinstance(o, frozenset):
+        return f"frozenset([{', '.join(veryshort(x, inside=True) for x in o)}])"
+    elif isinstance(o, dict):
+        items = [f'{repr(k)}: {veryshort(v, inside=True)}' for k, v in o.items()]
+        return f"{{{', '.join(items)}}}"
+    elif isinstance(o, float):
+        return f'{o:1.3}'
+    elif isclass(o):
+        return o.__name__
+    elif inside and isinstance(o, str):
+        return repr(o)
+    elif isinstance(o, MethodType):
+        return f'{veryshort(o.__self__)}.{o.__name__}()'
+    elif isinstance(o, FunctionType):
+        return o.__name__
     else:
-        return short(o, inside)
+        try:
+            return o.veryshort()
+        except AttributeError:
+            return short(o)
 
 def csep(xs) -> str:
     '''Comma-separated string for whatever you pass it.'''

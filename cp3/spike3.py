@@ -143,7 +143,9 @@ class Subst:
         return f'{cl}({items})'
 
     def veryshort(self) -> str:
-        return ', '.join(f'{short(k)}={short(v)}' for k, v in self.d.items())
+        return ', '.join(sorted(
+            f'{short(k)}={short(v)}' for k, v in self.d.items()
+        ))
 
     __repr__ = short
 
@@ -188,6 +190,12 @@ class Painter:
         ss = veryshort(self.subst)
         aa = ', '.join(sorted(short(a) for a in self.anchor_attributes))
         return f'{cl}({ps}; {ss}; {aa})'
+
+    def veryshort(self) -> str:
+        cl = self.__class__.__name__
+        ps = ', '.join(sorted(veryshort(p) for p in self.predicates))
+        ss = veryshort(self.subst)
+        return f'{cl}({ps}, {ss})'
 
 @dataclass
 class Workspace:
@@ -571,12 +579,7 @@ class Model:
 
     @classmethod
     def can_be_principal_argument(cls, x: Any) -> bool:
-        match x:
-            case IndexVariable():
-                return True
-            # TODO PainterVariable
-        return False
-
+        return isinstance(x, (IndexVariable, PainterVariable, LetterVariable))
 
 ########## Main ##########
 
@@ -595,3 +598,7 @@ if __name__ == '__main__':
     
     print()
     pr(detections)
+    print()
+    painters = m.make_painters()
+    pr(painters)
+
