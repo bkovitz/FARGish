@@ -164,6 +164,8 @@ class Predicate(ABC):
 
     @abstractmethod
     def args_ok(self, c: Canvas, su: Subst) -> DetectionResult:
+        '''Called when searching the canvas/workspace for a pair of cells/
+        painters that meets the condition of the predicate.'''
         pass
 
     @abstractmethod
@@ -174,13 +176,20 @@ class Predicate(ABC):
         pass
 
     @abstractmethod
+    def step_through_nonprincipal_variables(self, su: Subst, ws: Workspace) \
+    -> Iterable[Subst]:
+        '''Given values for the principal variables in 'su', step through
+        all the other variables that the predicate needs.'''
+        pass
+
+    @abstractmethod
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         pass
 
     @abstractmethod
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         pass
 
     @abstractmethod
@@ -233,22 +242,31 @@ class Apart(Predicate):
             yield Subst.make_from((I, i), (J, j))
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
+        '''Given J, what is K?'''
         j = safe_add(su.as_index(I), su.as_index(D))
-        if not c.has_index(j):
-            return None
-        else:
+        if c.has_index(j):
             assert j is not None
-            return (su.unify(J, j), PaintAt(j))
+            yield (su.unify(J, j), PaintAt(j))
+
+#        if not c.has_index(j):
+#            return None
+#        else:
+#            assert j is not None
+#            return (su.unify(J, j), PaintAt(j))
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         i = safe_sub(su.as_index(J), su.as_index(D))
-        if not c.has_index(i):
-            return None
-        else:
+        if c.has_index(i):
             assert i is not None
-            return (su.unify(I, i), PaintAt(i))
+            yield (su.unify(I, i), PaintAt(i))
+
+#        if not c.has_index(i):
+#            return None
+#        else:
+#            assert i is not None
+#            return (su.unify(I, i), PaintAt(i))
 
     def short(self) -> str:
         cl = self.__class__.__name__
@@ -273,18 +291,14 @@ class Same(Predicate):
             yield Subst.make_from((I, i), (J, j))
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         if isinstance(letter := c[su.as_index(I)], Letter):
-            return (su, PaintValue(letter))
-        else:
-            return None
+            yield (su, PaintValue(letter))
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         if isinstance(letter := c[su.as_index(J)], Letter):
-            return (su, PaintValue(letter))
-        else:
-            return None
+            yield (su, PaintValue(letter))
 
 @dataclass(frozen=True)
 class Succ(Predicate):
@@ -308,24 +322,20 @@ class Succ(Predicate):
             yield Subst.make_from((I, i), (J, j))
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         try:
             if isinstance(letter := succ_of(c[su.as_index(I)]), Letter):
-                return (su, PaintValue(letter))
-            else:
-                return None
+                yield (su, PaintValue(letter))
         except FizzleNoSucc:
-            return None
+            return
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         try:
             if isinstance(letter := pred_of(c[su.as_index(J)]), Letter):
-                return (su, PaintValue(letter))
-            else:
-                return None
+                yield (su, PaintValue(letter))
         except FizzleNoPred:
-            return None
+            return
 
 @dataclass(frozen=True)
 class Pred(Predicate):
@@ -350,24 +360,20 @@ class Pred(Predicate):
             yield Subst.make_from((I, i), (J, j))
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         try:
             if isinstance(letter := pred_of(c[su.as_index(I)]), Letter):
-                return (su, PaintValue(letter))
-            else:
-                return None
+                yield (su, PaintValue(letter))
         except FizzleNoPred:
-            return None
+            return
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         try:
             if isinstance(letter := succ_of(c[su.as_index(J)]), Letter):
-                return (su, PaintValue(letter))
-            else:
-                return None
+                yield (su, PaintValue(letter))
         except FizzleNoSucc:
-            return None
+            return
 
 @dataclass(frozen=True)
 class Inside(Predicate):
@@ -401,11 +407,15 @@ class Inside(Predicate):
                 yield Subst.make_from((P, p), (K, k)) # type: ignore[arg-type]
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
+        '''Given P, what should K be?'''
         pass  # TODO
+        # Loop through all possible values of K
+        #   yield (su.unify(K, k), PaintAt(k))
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
+        '''Given K, what should P be?'''
         pass  # TODO
 
 @dataclass(frozen=True)
@@ -432,11 +442,11 @@ class FilledWith(Predicate):
             yield Subst.make_from((K, k))
 
     def spec_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         pass  # TODO
 
     def spec_right_to_left(self, c: Canvas, su: Subst) \
-    -> Optional[Tuple[Subst, ActionSpec]]:
+    -> Iterable[Tuple[Subst, ActionSpec]]:
         pass  # TODO
 
 ##### AnchorAttributes #####
@@ -643,15 +653,22 @@ class Painter:
                     yield su.unify(self.right_argument, px)
 
     def result_left_to_right(self, c: Canvas, su: Subst) \
-    -> Optional[PainterResult]:
+    -> Iterable[PainterResult]:
+        ''''su' has a value for the Painter's left principal argument.'''
         specs: List[ActionSpec] = []
         for predicate in self.predicates:
+            for tu in predicate.step_through_nonprincipal_variables(c, su):
+
             tup = predicate.spec_left_to_right(c, su)
             if tup is None:
                 return None
             else:
                 su = tup[0]
                 specs.append(tup[1])
+
+            for tu, spec in predicate.spec_left_to_right(c, su):
+                yield ...
+
         action = PainterAction.from_specs(specs)
         if action is None:
             return None
@@ -661,9 +678,14 @@ class Painter:
         )
         matchcount = len(new_aas)
         return PainterResult(self, su, action, new_aas, matchcount)
+
+    def results_left_to_right(self, c: Canvas, su: Subst) \
+    -> Iterable[PainterResult]:
+        ''''su' has a value for the Painter's left principal argument.'''
             
     def result_right_to_left(self, c: Canvas, su: Subst) \
     -> Optional[PainterResult]:
+        ''''su' has a value for the Painter's right principal argument.'''
         specs: List[ActionSpec] = []
         for predicate in self.predicates:
             tup = predicate.spec_right_to_left(c, su)
@@ -776,7 +798,7 @@ class PainterAction:
         if index is None or value is None:
             return None
         else:
-            return PainterAction(index, value)
+            return cls(index, value)
 
     def run(self, ws: Workspace) -> None:
         ws.set_value(self.index, self.value)
@@ -826,16 +848,26 @@ class Workspace:
         else:
             self.canvas[i] = v
 
+#    def OLDget_painter_results(self, painters: Iterable[Painter]) \
+#    -> Set[PainterResult]:
+#        results: Set[PainterResult] = set()
+#        for p in painters:
+#            for su in p.left_substs(self):
+#                if (result := p.result_left_to_right(self.canvas, su)):
+#                    results.add(result)
+#            for su in p.right_substs(self):
+#                if (result := p.result_right_to_left(self.canvas, su)):
+#                    results.add(result)
+#        return results
+
     def get_painter_results(self, painters: Iterable[Painter]) \
     -> Set[PainterResult]:
         results: Set[PainterResult] = set()
         for p in painters:
             for su in p.left_substs(self):
-                if (result := p.result_left_to_right(self.canvas, su)):
-                    results.add(result)
+                results.update(p.results_left_to_right(self.canvas, su))
             for su in p.right_substs(self):
-                if (result := p.result_right_to_left(self.canvas, su)):
-                    results.add(result)
+                results.update(p.results_right_to_left(self.canvas, su))
         return results
 
     def add_painter(self, painter: Painter) -> None:
@@ -873,26 +905,25 @@ def choose_result(results: Set[PainterResult]) -> PainterResult:
     return max(results, key=operator.attrgetter('matchcount'))
 
 if __name__ == '__main__':
-    # Make painters
+    print("\n-- Making painters from 'ajaqb':")
     c = Canvas.make_from('ajaqb')
     painters = make_painters(c, frozenset())
     print()
     pr(painters)
 
-    #NEXT Make p2 and p4 by cycling P and K.
+    print("\n-- 2nd round of making painters from 'ajaqb': should make p2 and p4:")
     print()
     painters = make_painters(c, painters)
     print()
     pr(painters)
 
-    # Find painters that can run
-    #c = Canvas.make_from('a    ')
+    print("\n-- Finding which painters can run on 'a____':")
     ws = Workspace.make_from('a    ')
     results = ws.get_painter_results(painters)
     print()
     pr(results)
 
-    # Run the painters
+    print("\n-- Choosing one painter and running it:")
     # 0. Choose the painter.
     result = choose_result(results)
     print()
@@ -902,11 +933,13 @@ if __name__ == '__main__':
     result.run(ws)
 
     # 2. Add the painter to the workspace.
+    print("New workspace:")
     result.add_to_workspace(ws)
     print()
     pr(ws)
 
-    # Find painters that can run; should find p2
+
+    print("-- Finding which painters can run in new workspace:")
     results = ws.get_painter_results(painters)
     print()
     pr(results)
