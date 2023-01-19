@@ -7,6 +7,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
+from itertools import chain, combinations
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -16,7 +17,7 @@ from Model import Canvas, CanvasValue, Expr, I, J, VarSpec, Value, Index, \
     IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable, \
     succ_of, pred_of
 from Log import lo, trace
-from util import pr, short
+from util import pr, short, veryshort
 
 
 # Predicate
@@ -264,17 +265,129 @@ class CantComplete(Completion):
 class Detection:
     predicate: Predicate
     subst: Subst
-    #anchor_attributes: FrozenSet[AnchorAttribute]
-
-    @classmethod
-    def from_already_complete(cls, ac: AlreadyComplete, ws: Workspace) \
-    -> Detection:
-        # TODO Add anchor_attributes.
-        return cls(ac.predicate, ac.subst)
+    anchor_attributes: FrozenSet[AnchorAttribute]
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({short(self.predicate)}, {short(self.subst)})'
+        aas = ', '.join(sorted(veryshort(aa) for aa in self.anchor_attributes))
+        return f'{cl}({short(self.predicate)}, {short(self.subst)}, {aas})'
+
+##### AnchorAttributes #####
+
+class AnchorAttribute(ABC):
+
+    @classmethod
+    @abstractmethod
+    def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
+        pass
+
+    @abstractmethod
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        '''Do the Canvas and Subst match the condition of this
+        AnchorAttribute?'''
+        pass
+
+@dataclass(frozen=True)
+class Holds(AnchorAttribute):
+    var: IndexVariable
+    letter: Letter
+
+    @classmethod
+    def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
+        for k, v in su.pairs():
+            match k:
+                case IndexVariable():
+                    if isinstance(letter := c[su.as_index(k)], Letter):
+                        yield Holds(k, letter)
+                case _:
+                    pass
+
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return c[su.as_index(self.var)] == self.letter
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.var)}, {short(self.letter)})'
+
+@dataclass(frozen=True)
+class LeftmostIndex(AnchorAttribute):
+    var: IndexVariable
+
+    @classmethod
+    def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
+        for k, v in su.pairs():
+            match k:
+                case IndexVariable():
+                    if su[k] == 1:
+                        yield LeftmostIndex(k)
+                case _:
+                    pass
+
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return safe_eq(c.min_index, su[self.var])
+        
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.var)})'
+
+@dataclass(frozen=True)
+class RightmostIndex(AnchorAttribute):
+    var: IndexVariable
+
+    @classmethod
+    def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
+        for k, v in su.pairs():
+            match k:
+                case IndexVariable():
+                    if safe_eq(su[k], c.max_index):
+                        yield RightmostIndex(k)
+                case _:
+                    pass
+
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return safe_eq(c.max_index, su[self.var])
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.var)})'
+
+
+@dataclass(frozen=True)
+class InextremeIndex(AnchorAttribute):
+    var: IndexVariable
+
+    @classmethod
+    def make_for(cls, c: Canvas, su: Subst) -> Iterable[AnchorAttribute]:
+        for k, v in su.pairs():
+            match k:
+                case IndexVariable():
+                    if cls.is_inextreme(c, v):
+                        yield InextremeIndex(k)
+                case _:
+                    pass
+
+    @classmethod
+    def is_inextreme(cls, c: Canvas, x: Any) -> bool:
+        match x:
+            case int(i):
+                if c.max_index is None:
+                    return False
+                return i != 1 and i != c.max_index
+            case _:
+                return False
+
+    def is_match(self, c: Canvas, su: Subst) -> bool:
+        return (
+            c.has_index(su[self.var])
+            and
+            not safe_eq(c.min_index, su[self.var])
+            and
+            not safe_eq(c.max_index, su[self.var])
+        )
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.var)})'
 
 ########## Functions ##########
 
@@ -298,11 +411,17 @@ def is_pred(a: Any, b: Any) -> bool:
 
 ########## Model ##########
 
+default_anchor_attributes: Collection[Type[AnchorAttribute]] = (
+    Holds, LeftmostIndex, RightmostIndex, InextremeIndex
+)  # type: ignore[assignment]  # mypy 0.971 bug?
+
 @dataclass
 class Model:
     ws: Workspace = Workspace.empty()
     all_predicates: List[Predicate] = \
         field(default_factory=lambda: [Apart(), Same(), Succ(), Pred()])
+    all_anchor_attributes: Collection[Type[AnchorAttribute]] = \
+        default_anchor_attributes
 
     @classmethod
     def from_str(cls, s: str) -> Model:
@@ -317,8 +436,21 @@ class Model:
                     completion := predicate.complete_me(su, self.ws),
                     AlreadyComplete
                 ):
-                    yield Detection.from_already_complete(completion, self.ws)
-                    # this adds the anchor attributes
+                    #yield Detection.from_already_complete(completion, self.ws)
+                    yield self.add_anchor_attributes(completion)
+
+    def add_anchor_attributes(self, already_complete: AlreadyComplete) \
+    -> Detection:
+        return Detection(
+            already_complete.predicate,
+            already_complete.subst,
+            frozenset(
+                chain.from_iterable(
+                    aa.make_for(self.ws.canvas, already_complete.subst)
+                        for aa in self.all_anchor_attributes
+                )
+            )
+        )
 
 if __name__ == '__main__':
     print("\n-- Making painters from 'ajaqb':")

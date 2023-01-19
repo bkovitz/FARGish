@@ -16,6 +16,16 @@ Implement p1..p4 using Completions. (tomorrow)
 
     Pred  DONE
 
+    AnchorAttributes
+
+      Holds
+
+      LeftmostIndex
+
+      RightmostIndex
+
+      InextremeIndex
+
   detections_to_painters
 
     p1
