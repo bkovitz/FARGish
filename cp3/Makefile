@@ -107,7 +107,7 @@ bc browse-coverage:
 	coverage html && $(BROWSER) htmlcov/index.html
 
 tags:
-	ctags *.py  # fargcyto.js  # force-directed*.js
+	ctags *.py
 
 clean:
 	rm -f *.gen.py

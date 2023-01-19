@@ -44,6 +44,14 @@ Implement p1..p4 using Completions. (tomorrow)
 
   regenerate from a____
 
+    try_painters
+
+    Painter.actions
+
+    PainterAction
+
+    Painter.loop_through_principal_variables
+
     Apart
 
     Same

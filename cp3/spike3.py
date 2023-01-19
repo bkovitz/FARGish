@@ -1,4 +1,6 @@
 # spike3.py -- A quick test of Predicates that return Completion objects
+#
+# Started on 18-Jan-2023
 
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
@@ -12,14 +14,14 @@ from itertools import chain, combinations
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
-from Model import Canvas, CanvasValue, Expr, I, J, K, L, P, \
+from Model import Blank, Canvas, CanvasValue, Expr, I, J, K, L, P, \
     VarSpec, Value, Index, \
     FizzleNoSucc, FizzleNoPred, FizzleNoValue, \
     IndexVariable, FullIndex, PainterVariable, Letter, LetterVariable, \
     Variable, \
     succ_of, pred_of
 from Log import lo, trace
-from util import intersection, pr, short, veryshort
+from util import intersection, pr, pts, short, veryshort
 
 
 # Predicate
@@ -162,7 +164,17 @@ class BottomSubst(Subst):
 empty_subst = Subst()
 bottom_subst = BottomSubst()
 
-##########
+########## Actions ##########
+
+class Action:
+    pass
+
+@dataclass(frozen=True)
+class Paint(Action):
+    index: Index
+    value: CanvasValue
+
+########## Painter ##########
 
 @dataclass(frozen=True)
 class Painter:
@@ -184,6 +196,48 @@ class Painter:
             anchor_attributes |= d.anchor_attributes
         return cls(frozenset(predicates), subst, frozenset(anchor_attributes))
 
+#    def actions(self, ws: Workspace) -> Iterable[PainterAction]:
+#        for su in self.loop_through_left_variable():
+#
+#        for su in self.loop_through_right_variable():
+#            
+#        # Then loop through the completions
+            
+    #def completions_to_actions(self, 
+
+    def su_to_actions(self, su: Subst, ws: Workspace) -> Iterable[Action]:
+        yield from self.completions_to_actions(
+            self.su_to_completions(su, ws)
+        )
+
+    def su_to_completions(self, su: Subst, ws: Workspace) \
+    -> Collection[Completion]:
+        completions: List[Completion] = []
+        for predicate in self.predicates:
+            completion = predicate.complete_me(su, ws)
+            if isinstance(completion, CantComplete):
+                return []
+            completions.append(completion)
+        return completions
+
+    def completions_to_actions(self, completions: Iterable[Completion]) \
+    -> Iterable[Action]:
+        index: Optional[Index] = None
+        value: Optional[CanvasValue] = None
+
+        for completion in completions:
+            match completion:
+                case PaintAt(i):
+                    index = i
+                case PaintValue(v):
+                    value = v
+                case _:
+                    raise NotImplementedError(
+                        f'completions_to_actions: {completion}'
+                    )
+        if index is not None and value is not None:
+            yield Paint(index, value)
+
     def short(self) -> str:
         cl = self.__class__.__name__
         ps = ', '.join(sorted(short(p) for p in self.predicates))
@@ -191,31 +245,14 @@ class Painter:
         aa = ', '.join(sorted(short(a) for a in self.anchor_attributes))
         return f'{cl}({ps}; {ss}; {aa})'
 
+    __str__ = short
+
     def veryshort(self) -> str:
         cl = self.__class__.__name__
         ps = ', '.join(sorted(veryshort(p) for p in self.predicates))
         ss = veryshort(self.subst)
         return f'{cl}({ps}, {ss})'
 
-@dataclass
-class Workspace:
-    canvas: Canvas
-    painters: Set[Painter] = field(default_factory=set)
-
-    @classmethod
-    def from_str(cls, s: str) -> Workspace:
-        return Workspace(canvas=Canvas.make_from(s))
-
-    @classmethod
-    def empty(cls) -> Workspace:
-        return Workspace(canvas=Canvas.make_from_width(5))
-
-    def get(self, i: Optional[Index]) -> Optional[CanvasValue]:
-        return self.canvas[i]
-
-    def has_index(self, i: Optional[Index]) -> bool:
-        return self.canvas.has_index(i)
-    
 ########## Predicates ##########
 
 class Predicate(ABC):
@@ -241,12 +278,25 @@ class PredicateIJ(Predicate):
 
 class Apart(PredicateIJ):
     '''Hard-coded to distance 2. (No 'D' variable.)'''
+    d: ClassVar[Index] = 2
 
     def complete_me(self, su: Subst, ws: Workspace) -> Completion:
         match (su[I], su[J]):
             case (int(i), int(j)):
-                if j - i == 2:
+                if j - i == self.d:
                     return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case (int(i), None):
+                j = i + self.d
+                if ws.has_index(j):
+                    return PaintAt(j)
+                else:
+                    return CantComplete()
+            case (None, int(j)):
+                i = j - self.d
+                if ws.has_index(i):
+                    return PaintAt(i)
                 else:
                     return CantComplete()
             case _:
@@ -257,25 +307,83 @@ class Same(PredicateIJ):
     def complete_me(self, su: Subst, ws: Workspace) -> Completion:
         match (su[I], su[J]):
             case (int(i), int(j)):
-                if ws.get(i) == ws.get(j):
+                return self.value_completion(su, ws, i, j)
+            case (int(i), None):
+                match ws.get(i):
+                    case Letter() as l:
+                        return PaintValue(l)
+                    case _:
+                        return CantComplete()
+            case (None, int(j)):
+                match ws.get(j):
+                    case Letter() as l:
+                        return PaintValue(l)
+                    case _:
+                        return CantComplete()
+            case _:
+                raise NotImplementedError(f'Same({su[I]}, {su[J]})')
+
+    def value_completion(
+        self, su: Subst, ws: Workspace, i: Index, j: Index
+    ) -> Completion:
+        '''Returns completion for case where both I and J contain
+        indices.'''
+        match (ws.get(i), ws.get(j)):
+            case (Letter() as li, Letter() as lj):
+                if li == lj:
                     return AlreadyComplete(self, su)
                 else:
                     return CantComplete()
+            case (Letter() as li, Blank()):
+                return PaintValueAt(j, li)
+            case (Blank(), Letter() as lj):
+                return PaintValueAt(i, lj)
             case _:
-                raise NotImplementedError(f'Same({su[I]}, {su[J]})')
+                return CantComplete()
                 
 class Succ(PredicateIJ):
 
     def complete_me(self, su: Subst, ws: Workspace) -> Completion:
         match (su[I], su[J]):
             case (int(i), int(j)):
-                if is_succ(ws.get(i), ws.get(j)):
-                    return AlreadyComplete(self, su)
-                else:
+                return self.value_completion(su, ws, i, j)
+            case (int(i), None):
+                try:
+                    return PaintValue(succ_of(ws.get(i)))
+                except FizzleNoSucc:
+                    return CantComplete()
+            case (None, int(j)):
+                try:
+                    return PaintValue(pred_of(ws.get(j)))
+                except FizzleNoPred:
                     return CantComplete()
             case _:
                 raise NotImplementedError(f'Succ({su[I]}, {su[J]})')
                 
+    def value_completion(
+        self, su: Subst, ws: Workspace, i: Index, j: Index
+    ) -> Completion:
+        match (ws.get(i), ws.get(j)):
+            case (Letter() as li, Letter() as lj):
+                if is_succ(li, lj):
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case (Letter() as li, Blank() as lj):
+                try:
+                    return PaintValueAt(j, succ_of(li))
+                except FizzleNoSucc:
+                    return CantComplete()
+            case (Blank(), Letter() as lj):
+                try:
+                    return PaintValueAt(i, pred_of(lj))
+                except FizzleNoPred:
+                    return CantComplete()
+
+            case _:
+                return CantComplete()
+
+
 class Pred(PredicateIJ):
 
     def complete_me(self, su: Subst, ws: Workspace) -> Completion:
@@ -349,6 +457,19 @@ class AlreadyComplete(Completion):
 
 class CantComplete(Completion):
     pass
+
+@dataclass(frozen=True)
+class PaintAt(Completion):
+    index: Index
+
+@dataclass(frozen=True)
+class PaintValue(Completion):
+    value: CanvasValue
+
+@dataclass(frozen=True)
+class PaintValueAt(Completion):
+    index: Index
+    value: CanvasValue
 
 @dataclass(frozen=True)
 class Detection:
@@ -498,15 +619,34 @@ def is_pred(a: Any, b: Any) -> bool:
     except FizzleNoPred:
         return False
 
-def can_be_principal_argument(x: Any) -> bool:
-    match x:
-        case IndexVariable():
-            return True
-        # TODO PainterVariable
-    return False
+#def can_be_principal_argument(x: Any) -> bool:
+#    match x:
+#        case IndexVariable():
+#            return True
+#        # TODO PainterVariable
+#    return False
 
-########## Model ##########
+########## Workspace and Model ##########
 
+@dataclass
+class Workspace:
+    canvas: Canvas
+    painters: Set[Painter] = field(default_factory=set)
+
+    @classmethod
+    def from_str(cls, s: str) -> Workspace:
+        return Workspace(canvas=Canvas.make_from(s))
+
+    @classmethod
+    def empty(cls) -> Workspace:
+        return Workspace(canvas=Canvas.make_from_width(5))
+
+    def get(self, i: Optional[Index]) -> Optional[CanvasValue]:
+        return self.canvas[i]
+
+    def has_index(self, i: Optional[Index]) -> bool:
+        return self.canvas.has_index(i)
+    
 default_predicates: Collection[Predicate] = (
     Apart(), Same(), Succ(), Pred(), Inside(), FilledWith()
 )
@@ -529,6 +669,14 @@ class Model:
         return frozenset(
             self.detections_to_painters(list(self.make_detections()))
         )
+
+#NEXT
+#    def try_painters(self) -> FrozenSet[Painter]:
+#        return frozenset(chain.from_iterable(
+#            p.actions(self.ws) for p in self.ws.painters
+#        ))
+
+    ### Ancillary methods ###
 
     def make_detections(self) -> Iterable[Detection]:
         for predicate in self.all_predicates:
@@ -566,10 +714,12 @@ class Model:
         # TODO Check that both spatial and value predicates are detected?
         # TODO Check that the AnchorAttributes don't contradict each other?
         d1pairs = [
-            (k, v) for k, v in d1.subst.pairs() if can_be_principal_argument(k)
+            (k, v) for k, v in d1.subst.pairs()
+                       if cls.can_be_principal_argument(k)
         ]
         d2pairs = [
-            (k, v) for k, v in d2.subst.pairs() if can_be_principal_argument(k)
+            (k, v) for k, v in d2.subst.pairs()
+                       if cls.can_be_principal_argument(k)
         ]
         return bool(
             intersection(d1pairs, d2pairs)
@@ -579,7 +729,7 @@ class Model:
 
     @classmethod
     def can_be_principal_argument(cls, x: Any) -> bool:
-        return isinstance(x, (IndexVariable, PainterVariable, LetterVariable))
+        return isinstance(x, (IndexVariable, PainterVariable))
 
 ########## Main ##########
 
@@ -593,12 +743,16 @@ if __name__ == '__main__':
 
     m.ws.painters = set(painters)
     print("\n -- 2nd round: making painters now that p1 and p3 exist:")
-    detections = list(m.make_detections())
-#    painters = m.detections_to_painters(detections)
-    
     print()
-    pr(detections)
-    print()
-    painters = m.make_painters()
-    pr(painters)
+    painters = list(sorted(m.make_painters(), key=str))
+    pts(painters)
 
+    print("\n -- Regenerate from 'a____'")
+    print()
+    p = painters[1]
+    lo('PAINTER', p)
+    cs = p.su_to_completions(Subst.make_from((I, 1)), m.ws)
+    pts(cs)
+    print()
+    actions = p.completions_to_actions(cs)
+    pts(actions)
