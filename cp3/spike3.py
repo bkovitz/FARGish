@@ -711,9 +711,16 @@ class CantComplete(ActionElement):
 class PaintAt(ActionElement):
     index: Index
 
+    def eval(self, su: Subst) -> Completion:
+        match self.index:
+            case int():
+                return self
+            case Variable() as var:
+                return PaintAt(su[var])
+
 @dataclass(frozen=True)
 class PaintValue(ActionElement):
-    value: CanvasValue
+    value: CanvasValue  # NEXT eval?
 
 @dataclass(frozen=True)
 class PaintValueAt(ActionElement):
