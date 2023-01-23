@@ -13,8 +13,8 @@ from itertools import chain, combinations, product as cartesian_product
 from functools import cmp_to_key, reduce
 from operator import attrgetter
 
-from pyrsistent import pmap
-from pyrsistent.typing import PMap
+from pyrsistent import pmap  # type: ignore[import]
+from pyrsistent.typing import PMap  # type: ignore[import]
 
 #from Model import Canvas, FullIndex, Value
 from Log import lo, trace
@@ -346,7 +346,7 @@ class Painter:
     -> Collection[Completion]:
         completions: List[Completion] = []
         for predicate in self.predicates:
-            completion = predicate.complete_me(su, ws)
+            completion = predicate.complete_me(self, su, ws)
             if isinstance(completion, CantComplete):
                 return []
             #completions.append(completion)
@@ -467,7 +467,7 @@ Value = Union[Index, Painter]  # TODO Union[Index, Painter, Canvas]?
 class Predicate(ABC):
     
     @abstractmethod
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         pass
 
     @abstractmethod
@@ -489,7 +489,7 @@ class Apart(PredicateIJ):
     '''Hard-coded to distance 2. (No 'D' variable.)'''
     d: ClassVar[Index] = 2
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 if j - i == self.d:
@@ -513,7 +513,7 @@ class Apart(PredicateIJ):
 
 class Same(PredicateIJ):
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 return self.value_completion(su, ws, i, j)
@@ -552,7 +552,7 @@ class Same(PredicateIJ):
                 
 class Succ(PredicateIJ):
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 return self.value_completion(su, ws, i, j)
@@ -595,7 +595,7 @@ class Succ(PredicateIJ):
 
 class Pred(PredicateIJ):
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 if is_pred(ws.get(i), ws.get(j)):
@@ -613,7 +613,7 @@ class Inside(Predicate):
             for k in ws.canvas.all_indices():
                 yield Subst.make_from((P, p), (K, k))
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[P], su[K]):
             case (Painter() as p, int(k)):
                 psubst = p.subst
@@ -636,6 +636,23 @@ class Inside(Predicate):
                         return [LoopVariable(K), LessThan(i, K), LessThan(K, j)]
                     case _:
                         return CantComplete()
+            case (None, int(k)):  # Given K, deduce P
+                # TODO Programmatically determine which variables to loop through?
+                match owner:
+                    case Painter():
+                        match owner.subst[P]:  # TODO LoD
+                            case Painter() as p:
+                                return [
+                                    LoopVariable(I),
+                                    LoopVariable(J),
+                                    LessThan(I, k),
+                                    LessThan(k, J),
+                                    MaybeMakePainter(p, [I, J])
+                                ]
+                            case _:
+                                return CantComplete()
+                    case None:
+                        return CantComplete()
             case _:
                 raise NotImplementedError(
                     f'Inside({veryshort(su[P])}, {su[K]})'
@@ -648,7 +665,7 @@ class FilledWith(Predicate):
         for k in ws.canvas.all_indices():   # TODO LoD
             yield Subst.make_from((K, k))
 
-    def complete_me(self, su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[K], su[L]):
             case (int(k), Letter() as l):
                 if ws.get(k) == l:
@@ -704,6 +721,10 @@ class AlreadyComplete(ActionElement):
     predicate: Predicate
     subst: Subst
 
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({veryshort(self.predicate)}, {veryshort(self.subst)})'
+
 class CantComplete(ActionElement):
     pass
 
@@ -720,7 +741,7 @@ class PaintAt(ActionElement):
 
 @dataclass(frozen=True)
 class PaintValue(ActionElement):
-    value: CanvasValue  # NEXT eval?
+    value: CanvasValue  # TODO eval so that a Variable can go here
 
 @dataclass(frozen=True)
 class PaintValueAt(ActionElement):
@@ -764,6 +785,17 @@ class LessThan(ConditionObject):
             return self.a < self.b
         else:
             raise ValueError(f'{self}: Variables must be replaced with constants before calling passes().')
+
+@dataclass(frozen=True)
+class MaybeMakePainter(ActionElement):
+    template_painter: Painter
+    variables: Collection[Variable]
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({veryshort(self.template_painter)}, {veryshort(self.variables)})'
+
+    __str__ = short
 
 ########## Detection ##########
 
@@ -1181,7 +1213,7 @@ class Model:
                 self.ws
             ):
                 if isinstance(
-                    completion := predicate.complete_me(su, self.ws),
+                    completion := predicate.complete_me(None, su, self.ws),
                     AlreadyComplete
                 ):
                     #yield Detection.from_already_complete(completion, self.ws)
@@ -1258,7 +1290,7 @@ if __name__ == '__main__':
     actions = p.completions_to_actions(Subst(), m.ws, cs)
     pts(actions)
 
-    print("\n -- Generate completions and actions for p2 on _j___")
+    print("\n -- Generate completions and actions for p2, given P=p1(1, 3)")
     print()
     p1 = painters[0]
     p2 = painters[2]
@@ -1269,3 +1301,19 @@ if __name__ == '__main__':
     print()
     actions = list(p.completions_to_actions(Subst(), m.ws, cs))
     pts(actions)
+
+    print("\n -- Generate completions for p2, given K=2")
+    print()
+    cs = p2.su_to_completions(Subst.make_from((K, 2), (L, Letter('j'))), m.ws)
+    # WANT
+    # LoopVariable(I)
+    # LoopVariable(J)
+    # LessThan(I, K)
+    # LessThan(K, J)
+    # MaybeMakePainter(p1, Subst('I=I, 'J=J)
+    pts(cs)
+
+    # Generate actions
+    # WANT
+    # MakePainter(p1, Subst((I, 1), (J, 3)))
+
