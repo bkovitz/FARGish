@@ -40,7 +40,7 @@ class Variable(ABC):
     name: str
     place: ArgumentPlace
 
-    #@abstractmethod
+    @abstractmethod
     def make_loop(self, ws: Workspace) -> Iterable[Subst]:
         pass
 
@@ -77,7 +77,7 @@ class LetterVariable(Variable):
     def __repr__(self) -> str:
         return self.name
 
-D = Variable('D', 'NotPrincipal')  # "distance", in Apart
+#D = Variable('D', 'NotPrincipal')  # "distance", in Apart
 I = IndexVariable('I', 'LeftArgument')
 J = IndexVariable('J', 'RightArgument')
 K = IndexVariable('K', 'RightArgument')
