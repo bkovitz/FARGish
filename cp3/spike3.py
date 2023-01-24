@@ -176,6 +176,15 @@ class Subst:
             result = result.unify(lhs, rhs)
         return result
 
+    @classmethod
+    def fill_from(cls, su: Subst, variables: Iterable[Variable]) -> Subst:
+        '''Returns a new Subst, with a definition for each variable in
+        'variables', with values taken from 'su'.'''
+        result = Subst()
+        for variable in variables:
+            result = result.unify(variable, su[variable])
+        return result
+
     def __bool__(self) -> bool:
         # Returns True if valid Subst, False if BottomSubst (i.e. failed).
         return True
@@ -304,6 +313,15 @@ class Paint(Action):
     index: Index
     value: CanvasValue
 
+@dataclass(frozen=True)
+class MakePainter(Action):
+    predicates: FrozenSet[Predicate]
+    subst: Subst
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({veryshort(self.predicates)}, {veryshort(self.subst)})'
+
 ########## Painter ##########
 
 @dataclass(frozen=True)
@@ -353,8 +371,9 @@ class Painter:
             completions += as_list(completion)
         return completions
 
-    def evaled_completions_to_action(self, completions: Iterable[Completion]) \
-    -> Iterable[Action]:
+    def evaled_completions_to_action(
+        self, completions: Iterable[Completion], ws: Workspace
+    ) -> Iterable[Action]:
         index: Optional[Index] = None
         value: Optional[CanvasValue] = None
 
@@ -364,6 +383,10 @@ class Painter:
                     index = i
                 case PaintValue(v):
                     value = v
+                case AlreadyComplete():
+                    continue
+                case MaybeMakePainter():
+                    yield from completion.make_action(ws)
                 case _:
                     raise NotImplementedError(
                         f'completions_to_actions: {completion}'
@@ -382,8 +405,9 @@ class Painter:
                     for condition in condition_objects
             ):
                 yield from self.evaled_completions_to_action(
-                    action_element.eval(su)
-                        for action_element in action_elements
+                    (action_element.eval(su)
+                        for action_element in action_elements),
+                    ws
                 )
 
     def prepare_completion_loop(self, completions: Iterable[Completion]) \
@@ -467,8 +491,13 @@ Value = Union[Index, Painter]  # TODO Union[Index, Painter, Canvas]?
 class Predicate(ABC):
     
     @abstractmethod
-    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
+    -> Completions:
         pass
+
+    def passes(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
+    -> bool:
+        return isinstance(self.complete_me(owner, su, ws), AlreadyComplete)
 
     @abstractmethod
     def loop_through_principal_variables(self, ws: Workspace) \
@@ -764,7 +793,6 @@ class LessThan(ConditionObject):
     a: Union[Index, Variable]
     b: Union[Index, Variable]
 
-    @trace
     def eval(self, su: Subst) -> LessThan:
         # TODO Address possibility of failure, i.e. a variable not defined in su
         match (self.a, self.b):
@@ -779,7 +807,6 @@ class LessThan(ConditionObject):
             case _:
                 raise ValueError('LessThan.eval {self.a} {self.b}')
 
-    @trace
     def passes(self) -> bool:
         if isinstance(self.a, int) and isinstance(self.b, int):
             return self.a < self.b
@@ -790,10 +817,23 @@ class LessThan(ConditionObject):
 class MaybeMakePainter(ActionElement):
     template_painter: Painter
     variables: Collection[Variable]
+    subst: Optional[Subst] = None  # This will override template_painter's Subst
+
+    def eval(self, su: Subst) -> MaybeMakePainter:
+        return replace(self, subst=Subst.fill_from(su, self.variables))
+
+    def make_action(self, ws) -> Iterable[MakePainter]:
+        '''Yields a MakePainter if the resulting Painter's predicates would
+        all pass. Otherwise yields nothing.'''
+        assert self.subst is not None
+        predicates = self.template_painter.predicates
+        subst = self.template_painter.subst.merge(self.subst)
+        if all(predicate.passes(None, subst, ws) for predicate in predicates):
+            yield MakePainter(predicates, subst)
 
     def short(self) -> str:
         cl = self.__class__.__name__
-        return f'{cl}({veryshort(self.template_painter)}, {veryshort(self.variables)})'
+        return f'{cl}({veryshort(self.template_painter)}, {veryshort(self.variables)}, {veryshort(self.subst)})'
 
     __str__ = short
 
@@ -1314,6 +1354,9 @@ if __name__ == '__main__':
     pts(cs)
 
     # Generate actions
+    print()
+    actions = list(p2.completions_to_actions(Subst(), m.ws, cs))
+    pts(actions)
     # WANT
     # MakePainter(p1, Subst((I, 1), (J, 3)))
 
