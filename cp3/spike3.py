@@ -17,7 +17,7 @@ from pyrsistent import pmap  # type: ignore[import]
 from pyrsistent.typing import PMap  # type: ignore[import]
 
 #from Model import Canvas, FullIndex, Value
-from Log import lo, trace
+from Log import indent_log, lo, trace
 from util import as_list, intersection, pr, pts, short, veryshort
 
 
@@ -359,7 +359,6 @@ class NullSpan:
 
 Span = Union[RealSpan, NullSpan]
 
-
 ########## Painter ##########
 
 @dataclass(frozen=True)
@@ -384,7 +383,13 @@ class Painter:
 
     @classmethod
     def have_same_spatial_relation(cls, p: Painter, q: Painter) -> bool:
-        return p.get_spatial_relations() == q.get_spatial_relations()
+        psr = p.get_spatial_relations()
+        qsr = q.get_spatial_relations()
+        return (
+            bool(psr) and bool(qsr)
+            and
+            p.get_spatial_relations() == q.get_spatial_relations()
+        )
 #        p_relation = p.get_spatial_relation()
 #        q_relation = q.get_spatial_relation()
 #        return (
@@ -412,7 +417,11 @@ class Painter:
         return frozenset(
             predicate
                 for predicate in self.predicates
-                    if isinstance(predicate, SpatialRelation)
+                    if (
+                        isinstance(predicate, SpatialRelation)
+                        and
+                        not isinstance(predicate, Apart)  # HACK
+                    )
         )
 
     def su_to_actions(self, su: Subst, ws: Workspace) -> Iterable[Action]:
@@ -578,6 +587,12 @@ class Predicate(ABC):
 class SpatialRelation(Predicate):
     pass
 
+class ValueRelation(Predicate):
+    pass
+
+class PainterRelation(Predicate):
+    pass
+
 class PredicateIJ(Predicate):
 
     def loop_through_principal_variables(self, ws: Workspace) \
@@ -597,7 +612,7 @@ class PredicatePQ(Predicate):
     def loop_through_principal_variables(self, ws: Workspace) \
     -> Iterable[Subst]:
         for p, q in ws.all_painter_pairs():
-            yield Subst.make_from((P, q), (Q, q))
+            yield Subst.make_from((P, p), (Q, q))
 
     def span(self, su: Subst) -> Span:
         match (su[P], su[Q]):
@@ -633,7 +648,7 @@ class Apart(PredicateIJ, SpatialRelation):
             case _:
                 raise NotImplementedError(f'Apart({su[I]}, {su[J]})')
 
-class Same(PredicateIJ):
+class Same(PredicateIJ, ValueRelation):
 
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
@@ -672,7 +687,7 @@ class Same(PredicateIJ):
             case _:
                 return CantComplete()
                 
-class Succ(PredicateIJ):
+class Succ(PredicateIJ, ValueRelation):
 
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
@@ -714,7 +729,7 @@ class Succ(PredicateIJ):
             case _:
                 return CantComplete()
 
-class Pred(PredicateIJ):
+class Pred(PredicateIJ, ValueRelation):
 
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
         match (su[I], su[J]):
@@ -786,7 +801,7 @@ class Inside(SpatialRelation):
             case _:
                 return NullSpan()
 
-class FilledWith(Predicate):
+class FilledWith(ValueRelation):
 
     def loop_through_principal_variables(self, ws: Workspace) \
     -> Iterable[Subst]:
@@ -819,7 +834,7 @@ class FilledWith(Predicate):
             case _:
                 return NullSpan()
 
-class SameSpatialRelation(PredicatePQ):
+class SameSpatialRelation(PainterRelation, PredicatePQ):
 
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
     -> Completions:
@@ -834,7 +849,7 @@ class SameSpatialRelation(PredicatePQ):
                     f'SameSpatialRelation({su[P]}, {su[Q]}'
                 )
 
-class ConsecutiveLocations(PredicatePQ):
+class ConsecutiveLocations(PainterRelation, PredicatePQ):
 
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
     -> Completions:
@@ -985,6 +1000,28 @@ class Detection:
     subst: Subst
     anchor_attributes: FrozenSet[AnchorAttribute]
 
+    @classmethod
+    def has_spatial_and_value_relations(cls, d1: Detection, d2: Detection) \
+    -> bool:
+        return (
+            isinstance(d1.predicate, SpatialRelation)
+            and
+            isinstance(d2.predicate, ValueRelation)
+        ) or (
+            isinstance(d1.predicate, ValueRelation)
+            and
+            isinstance(d2.predicate, SpatialRelation)
+        )
+
+    @classmethod
+    def both_painter_relations(cls, d1: Detection, d2: Detection) \
+    -> bool:
+        return (
+            isinstance(d1.predicate, PainterRelation)
+            and
+            isinstance(d2.predicate, PainterRelation)
+        )
+ 
     def short(self) -> str:
         cl = self.__class__.__name__
         aas = ', '.join(sorted(veryshort(aa) for aa in self.anchor_attributes))
@@ -1365,7 +1402,8 @@ class Workspace:
 
     
 default_predicates: Collection[Predicate] = (
-    Apart(), Same(), Succ(), Pred(), Inside(), FilledWith()
+    Apart(), Same(), Succ(), Pred(), Inside(), FilledWith(),
+    SameSpatialRelation(), ConsecutiveLocations()
 )
 default_anchor_attributes: Collection[Type[AnchorAttribute]] = (
     Holds, LeftmostIndex, RightmostIndex, InextremeIndex
@@ -1430,6 +1468,12 @@ class Model:
     def can_be_painter(cls, d1: Detection, d2: Detection) -> bool:
         # TODO Check that both spatial and value predicates are detected?
         # TODO Check that the AnchorAttributes don't contradict each other?
+        if (
+            not Detection.has_spatial_and_value_relations(d1, d2)
+            and
+            not Detection.both_painter_relations(d1, d2)
+        ):
+            return False
         d1pairs = [
             (k, v) for k, v in d1.subst.pairs()
                        if cls.can_be_principal_argument(k)
@@ -1509,7 +1553,15 @@ if __name__ == '__main__':
     # WANT
     # MakePainter(p1, Subst((I, 1), (J, 3)))
 
-    print("\n -- Detect the relationship to be embodied by p5")
-    print()
-    es = as_list(SameSpatialRelation().complete_me(None, Subst.make_from((P, p2), (Q, p1)), m.ws))
-    pts(es)
+    #print("\n -- Detect the relationship to be embodied by p5")
+    #print()
+    #es = as_list(SameSpatialRelation().complete_me(None, Subst.make_from((P, p2), (Q, p4)), m.ws))
+    #es = as_list(ConsecutiveLocations().complete_me(None, Subst.make_from((P, p2), (Q, p4)), m.ws))
+    #pts(es)
+
+    print("\n -- Detect the relationship between p2 and p4\n")
+    m.ws.painters = set(painters)
+    #detections = list(sorted(m.make_detections(), key=str))
+    #pts(detections)
+    painters = list(sorted(m.make_painters(), key=str))
+    pts(painters)

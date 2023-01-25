@@ -74,11 +74,11 @@ Implement p1..p4 using Completions. (tomorrow)
 
   more detections
 
-    SameSpatialRelation
+    SameSpatialRelation  DONE
 
-    ConsecutiveLocations
+    ConsecutiveLocations  DONE
 
-    p5
+    p5  DONE
 
   regenerate from a____
 
@@ -198,3 +198,9 @@ p4.span() should be (3, 5)
 p5.span() should be (1, 5)
   SameSpatialRelation.span(su) should be union(span(p2), span(p4))
   ConsecutiveLocations.span(su) should be union(span(p2), span(p4))
+
+
+CLEAN-UPS TO DO
+
+- Make Apart inherit from something other than SpatialRelation, or somehow,
+  in a principled way, make Apart not get detected by SameSpatialRelation.
