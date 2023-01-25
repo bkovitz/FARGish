@@ -185,3 +185,16 @@ ConsecutiveLocations.complete_me()
 
 Painter.do_something()  The main function that loops through the Predicates, assembles their Completions into a PainterCompletion,
 and runs the PainterCompletion to generate ActionProposals.
+
+
+p1.span() should be (1, 3)
+  Apart.span(su) should be (1, 3)
+  Succ.span(su) should be (1, 3)
+p2.span() should be (1, 3)
+  Inside.span(su) should be p1.span(), which is (1, 3)
+  FilledWith.span(su) should be (K, K), which is (2, 2)
+p3.span() should be (3, 5)
+p4.span() should be (3, 5)
+p5.span() should be (1, 5)
+  SameSpatialRelation.span(su) should be union(span(p2), span(p4))
+  ConsecutiveLocations.span(su) should be union(span(p2), span(p4))

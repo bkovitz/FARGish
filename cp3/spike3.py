@@ -82,6 +82,7 @@ I = IndexVariable('I', 'LeftArgument')
 J = IndexVariable('J', 'RightArgument')
 K = IndexVariable('K', 'RightArgument')
 P = PainterVariable('P', 'LeftArgument')
+Q = PainterVariable('Q', 'LeftArgument')
 L = LetterVariable('L', 'NotPrincipal')
 
 class Vars:
@@ -322,6 +323,43 @@ class MakePainter(Action):
         cl = self.__class__.__name__
         return f'{cl}({veryshort(self.predicates)}, {veryshort(self.subst)})'
 
+########## Span ##########
+
+@dataclass(frozen=True)
+class RealSpan:
+    left_boundary: Index
+    right_boundary: Index
+
+    @classmethod
+    def are_consecutive(cls, span1: Span, span2: Span) -> bool:
+        match (span1, span2):
+            case (RealSpan() as s1, RealSpan() as s2):
+                return (
+                    s1.right_boundary == s2.left_boundary
+                    or
+                    s2.right_boundary + 1 == s2.left_boundary
+                )
+            case _:
+                return False
+
+    def union(self, other: Span) -> Span:
+        match other:
+            case RealSpan():
+                return RealSpan(
+                    min(self.left_boundary, other.left_boundary),
+                    max(self.right_boundary, other.right_boundary)
+                )
+            case _:
+                return self
+
+class NullSpan:
+
+    def union(self, other: Span) -> Span:
+        return other
+
+Span = Union[RealSpan, NullSpan]
+
+
 ########## Painter ##########
 
 @dataclass(frozen=True)
@@ -344,6 +382,23 @@ class Painter:
             anchor_attributes |= d.anchor_attributes
         return cls(frozenset(predicates), subst, frozenset(anchor_attributes))
 
+    @classmethod
+    def have_same_spatial_relation(cls, p: Painter, q: Painter) -> bool:
+        return p.get_spatial_relations() == q.get_spatial_relations()
+#        p_relation = p.get_spatial_relation()
+#        q_relation = q.get_spatial_relation()
+#        return (
+#            p_relation == q_relation
+#            and
+#            p.subst.only(p_relation.my_vars) == q.subst.only(q_relation.my_vars)
+#        )
+
+    def span(self) -> Span:
+        result: Span = NullSpan()
+        for predicate in self.predicates:
+            result = result.union(predicate.span(self.subst))
+        return result
+
 #    def actions(self, ws: Workspace) -> Iterable[PainterAction]:
 #        for su in self.loop_through_left_variable():
 #
@@ -352,6 +407,13 @@ class Painter:
 #        # Then loop through the completions
             
     #def completions_to_actions(self, 
+
+    def get_spatial_relations(self) -> FrozenSet[SpatialRelation]:
+        return frozenset(
+            predicate
+                for predicate in self.predicates
+                    if isinstance(predicate, SpatialRelation)
+        )
 
     def su_to_actions(self, su: Subst, ws: Workspace) -> Iterable[Action]:
         yield from self.completions_to_actions(
@@ -488,7 +550,9 @@ Value = Union[Index, Painter]  # TODO Union[Index, Painter, Canvas]?
 
 ########## Predicates ##########
 
+@dataclass(frozen=True)
 class Predicate(ABC):
+    my_vars: ClassVar[Tuple[Variable]]
     
     @abstractmethod
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
@@ -504,9 +568,16 @@ class Predicate(ABC):
     -> Iterable[Subst]:
         pass
 
+    @abstractmethod
+    def span(self, su: Subst) -> Span:
+        pass
+
     def short(self) -> str:
         return self.__class__.__name__
     
+class SpatialRelation(Predicate):
+    pass
+
 class PredicateIJ(Predicate):
 
     def loop_through_principal_variables(self, ws: Workspace) \
@@ -514,11 +585,33 @@ class PredicateIJ(Predicate):
         for i, j in ws.canvas.all_index_pairs():  # TODO LoD
             yield Subst.make_from((I, i), (J, j))
 
-class Apart(PredicateIJ):
+    def span(self, su: Subst) -> Span:
+        match (su[I], su[J]):
+            case (int(i), int(j)):
+                return RealSpan(i, j)
+            case _:
+                return NullSpan()
+
+class PredicatePQ(Predicate):
+
+    def loop_through_principal_variables(self, ws: Workspace) \
+    -> Iterable[Subst]:
+        for p, q in ws.all_painter_pairs():
+            yield Subst.make_from((P, q), (Q, q))
+
+    def span(self, su: Subst) -> Span:
+        match (su[P], su[Q]):
+            case (Painter() as p, Painter() as q):
+                return p.span().union(q.span())
+            case _:
+                return NullSpan()
+
+class Apart(PredicateIJ, SpatialRelation):
     '''Hard-coded to distance 2. (No 'D' variable.)'''
     d: ClassVar[Index] = 2
 
-    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
+    -> Completions:
         match (su[I], su[J]):
             case (int(i), int(j)):
                 if j - i == self.d:
@@ -621,7 +714,6 @@ class Succ(PredicateIJ):
             case _:
                 return CantComplete()
 
-
 class Pred(PredicateIJ):
 
     def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) -> Completions:
@@ -634,7 +726,7 @@ class Pred(PredicateIJ):
             case _:
                 raise NotImplementedError(f'Pred({su[I]}, {su[J]})')
 
-class Inside(Predicate):
+class Inside(SpatialRelation):
 
     def loop_through_principal_variables(self, ws: Workspace) \
     -> Iterable[Subst]:
@@ -687,6 +779,13 @@ class Inside(Predicate):
                     f'Inside({veryshort(su[P])}, {su[K]})'
                 )
 
+    def span(self, su: Subst) -> Span:
+        match su[P]:
+            case Painter() as p:
+                return p.span()
+            case _:
+                return NullSpan()
+
 class FilledWith(Predicate):
 
     def loop_through_principal_variables(self, ws: Workspace) \
@@ -712,6 +811,43 @@ class FilledWith(Predicate):
                 return [PaintAt(K), PaintValue(l)]
             case _:
                 raise NotImplementedError(f'FilledWith({su[K]}, {su[L]})')
+
+    def span(self, su: Subst) -> Span:
+        match su[K]:
+            case int(k):
+                return RealSpan(k, k)
+            case _:
+                return NullSpan()
+
+class SameSpatialRelation(PredicatePQ):
+
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
+    -> Completions:
+        match (su[P], su[Q]):
+            case (Painter() as p, Painter() as q):
+                if Painter.have_same_spatial_relation(p, q):
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case _:
+                raise NotImplementedError(
+                    f'SameSpatialRelation({su[P]}, {su[Q]}'
+                )
+
+class ConsecutiveLocations(PredicatePQ):
+
+    def complete_me(self, owner: Optional[Painter], su: Subst, ws: Workspace) \
+    -> Completions:
+        match (su[P], su[Q]):
+            case (Painter() as p, Painter() as q):
+                if RealSpan.are_consecutive(p.span(), q.span()):
+                    return AlreadyComplete(self, su)
+                else:
+                    return CantComplete()
+            case _:
+                raise NotImplementedError(
+                    f'ConsecutiveLocations({su[P]}, {su[Q]})'
+                )
 
 ########## Completions ##########
 
@@ -755,7 +891,9 @@ class AlreadyComplete(ActionElement):
         return f'{cl}({veryshort(self.predicate)}, {veryshort(self.subst)})'
 
 class CantComplete(ActionElement):
-    pass
+
+    def __str__(self) -> str:
+        return self.__class__.__name__
 
 @dataclass(frozen=True)
 class PaintAt(ActionElement):
@@ -841,6 +979,8 @@ class MaybeMakePainter(ActionElement):
 
 @dataclass(frozen=True)
 class Detection:
+    '''A Detection represents having noticed that objects in the Workspace
+    (cells and/or Painters) meet the condition of a Predicate.'''
     predicate: Predicate
     subst: Subst
     anchor_attributes: FrozenSet[AnchorAttribute]
@@ -1215,6 +1355,14 @@ class Workspace:
 
     def has_index(self, i: Optional[Index]) -> bool:
         return self.canvas.has_index(i)
+
+    def all_painter_pairs(self) -> Iterable[Tuple[Painter, Painter]]:
+        # TODO Don't allow mirror-image duplicates, e.g. (p1, p2) and (p2, p1)?
+        for p in self.painters:
+            for q in self.painters:
+                if p != q:
+                    yield (p, q)
+
     
 default_predicates: Collection[Predicate] = (
     Apart(), Same(), Succ(), Pred(), Inside(), FilledWith()
@@ -1334,6 +1482,7 @@ if __name__ == '__main__':
     print()
     p1 = painters[0]
     p2 = painters[2]
+    p4 = painters[3]
     lo('PAINTER', p2)
     cs = p2.su_to_completions(Subst.make_from((P, p1), (L, Letter('j'))), m.ws)
     print()
@@ -1360,3 +1509,7 @@ if __name__ == '__main__':
     # WANT
     # MakePainter(p1, Subst((I, 1), (J, 3)))
 
+    print("\n -- Detect the relationship to be embodied by p5")
+    print()
+    es = as_list(SameSpatialRelation().complete_me(None, Subst.make_from((P, p2), (Q, p1)), m.ws))
+    pts(es)
