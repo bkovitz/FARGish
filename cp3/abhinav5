@@ -181,6 +181,14 @@ ConsecutiveLocations.complete_me()
             return NeedDefined(P, Q)
 
 
+When running p5 given P, we need the following for Q to be fully defined:
+
+    The predicates of p4:
+        Inside
+        FilledWith
+    K=4
+    L='q'
+    P=p3    and p3 must be created
 
 
 Painter.do_something()  The main function that loops through the Predicates, assembles their Completions into a PainterCompletion,

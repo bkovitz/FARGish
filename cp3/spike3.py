@@ -84,6 +84,7 @@ K = IndexVariable('K', 'RightArgument')
 P = PainterVariable('P', 'LeftArgument')
 Q = PainterVariable('Q', 'LeftArgument')
 L = LetterVariable('L', 'NotPrincipal')
+NEW_PAINTER = PainterVariable('NEW_PAINTER', 'NotPrincipal')
 
 class Vars:
     '''This class exists not to be instantiated but to provide a holder
@@ -254,9 +255,12 @@ class Subst:
         return list(self.d.keys())
 
     # TODO UT
-    def merge(self, other: Subst) -> Subst:
+    def merge(self, other: Optional[Subst]) -> Subst:
         '''Other's pairs override self's pairs.'''
-        return Subst(self.d.update(other.d))
+        if not other:
+            return self
+        else:
+            return Subst(self.d.update(other.d))
 
     # TODO UT
     def merge_with_unify(self, other: Subst) -> Subst:
@@ -318,6 +322,16 @@ class Paint(Action):
 class MakePainter(Action):
     predicates: FrozenSet[Predicate]
     subst: Subst
+
+    @classmethod
+    def maybe_from(
+        cls,
+        predicates: FrozenSet[Predicate],
+        subst: Subst,
+        ws: Workspace
+    ) -> Iterable[MakePainter]:
+        if all(predicate.passes(None, subst, ws) for predicate in predicates):
+            yield MakePainter(predicates, subst)
 
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -447,6 +461,8 @@ class Painter:
     ) -> Iterable[Action]:
         index: Optional[Index] = None
         value: Optional[CanvasValue] = None
+        template_painter: Optional[Painter] = None
+        painter_subst: Optional[Subst] = None
 
         for completion in completions:
             match completion:
@@ -456,14 +472,25 @@ class Painter:
                     value = v
                 case AlreadyComplete():
                     continue
-                case MaybeMakePainter():
-                    yield from completion.make_action(ws)
+                case PainterTemplate():
+                    template_painter = completion.template_painter
+                    painter_subst = completion.subst
+                case RequiredPainterAttribute():
+                    # STUB add the attribute to a list
+                    pass
                 case _:
                     raise NotImplementedError(
                         f'completions_to_actions: {completion}'
                     )
         if index is not None and value is not None:
             yield Paint(index, value)
+        if template_painter is not None:
+            # TODO passes the required attributes to MakePainter
+            yield from MakePainter.maybe_from(
+                template_painter.predicates,
+                template_painter.subst.merge(painter_subst),
+                ws
+            )
 
     def completions_to_actions(
         self, start_su: Subst, ws: Workspace, completions: Iterable[Completion]
@@ -783,7 +810,7 @@ class Inside(SpatialRelation):
                                     LoopVariable(J),
                                     LessThan(I, k),
                                     LessThan(k, J),
-                                    MaybeMakePainter(p, [I, J])
+                                    PainterTemplate(p, [I, J])
                                 ]
                             case _:
                                 return CantComplete()
@@ -844,6 +871,16 @@ class SameSpatialRelation(PainterRelation, PredicatePQ):
                     return AlreadyComplete(self, su)
                 else:
                     return CantComplete()
+            case (Painter() as p, None):
+                return [
+                    PainterPredicate(spatial_relation)
+                        for spatial_relation in p.get_spatial_relations()
+                ]
+            case (None, Painter() as q):
+                return [
+                    PainterPredicate(spatial_relation)
+                        for spatial_relation in q.get_spatial_relations()
+                ]
             case _:
                 raise NotImplementedError(
                     f'SameSpatialRelation({su[P]}, {su[Q]}'
@@ -859,6 +896,19 @@ class ConsecutiveLocations(PainterRelation, PredicatePQ):
                     return AlreadyComplete(self, su)
                 else:
                     return CantComplete()
+            case (Painter() as p, None):
+                #return AlreadyComplete(self, su)  # STUB Replace with correct code
+                lo('OWNER', owner)
+                return [
+                    # NEXT: get Q from owner's subst
+                    #PainterTemplate(psubst[Q], []),  # TODO variables instead of []?
+                    RequiredPainterAttribute(Consecutive(p, NEW_PAINTER))
+                ]
+            case (None, Painter() as q):
+                return [
+                    PainterTemplate(q, []),  # TODO as above
+                    RequiredPainterAttribute(Consecutive(NEW_PAINTER, q))
+                ]
             case _:
                 raise NotImplementedError(
                     f'ConsecutiveLocations({su[P]}, {su[Q]})'
@@ -967,28 +1017,57 @@ class LessThan(ConditionObject):
             raise ValueError(f'{self}: Variables must be replaced with constants before calling passes().')
 
 @dataclass(frozen=True)
-class MaybeMakePainter(ActionElement):
+class PainterTemplate(ActionElement):
     template_painter: Painter
     variables: Collection[Variable]
     subst: Optional[Subst] = None  # This will override template_painter's Subst
 
-    def eval(self, su: Subst) -> MaybeMakePainter:
+    def eval(self, su: Subst) -> PainterTemplate:
         return replace(self, subst=Subst.fill_from(su, self.variables))
 
-    def make_action(self, ws) -> Iterable[MakePainter]:
-        '''Yields a MakePainter if the resulting Painter's predicates would
-        all pass. Otherwise yields nothing.'''
-        assert self.subst is not None
-        predicates = self.template_painter.predicates
-        subst = self.template_painter.subst.merge(self.subst)
-        if all(predicate.passes(None, subst, ws) for predicate in predicates):
-            yield MakePainter(predicates, subst)
+#    def make_action(self, ws) -> Iterable[MakePainter]:
+#        '''Yields a MakePainter if the resulting Painter's predicates would
+#        all pass. Otherwise yields nothing.'''
+#        assert self.subst is not None
+#        predicates = self.template_painter.predicates
+#        subst = self.template_painter.subst.merge(self.subst)
+#        if all(predicate.passes(None, subst, ws) for predicate in predicates):
+#            yield MakePainter(predicates, subst)
 
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({veryshort(self.template_painter)}, {veryshort(self.variables)}, {veryshort(self.subst)})'
 
     __str__ = short
+
+@dataclass(frozen=True)
+class PainterPredicate(ActionElement):
+    predicate: Predicate
+
+@dataclass(frozen=True)
+class RequiredPainterAttribute(ActionElement):
+    attribute: PainterAttribute
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({veryshort(self.attribute)})'
+
+    __repr__ = __str__
+
+class PainterAttribute:
+    pass
+
+@dataclass(frozen=True)
+class Consecutive(PainterAttribute):
+    left_index: Union[Index, Painter, Variable]
+    right_index: Union[Index, Painter, Variable]
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({veryshort(self.left_index)}, {veryshort(self.right_index)})'
+
+    __repr__ = __str__
+
 
 ########## Detection ##########
 
@@ -1559,9 +1638,14 @@ if __name__ == '__main__':
     #es = as_list(ConsecutiveLocations().complete_me(None, Subst.make_from((P, p2), (Q, p4)), m.ws))
     #pts(es)
 
-    print("\n -- Detect the relationship between p2 and p4\n")
+    print("\n -- Detect the relationship between p2 and p4 and create p5\n")
     m.ws.painters = set(painters)
     #detections = list(sorted(m.make_detections(), key=str))
     #pts(detections)
     painters = list(sorted(m.make_painters(), key=str))
     pts(painters)
+    p5 = painters[2]
+
+    print("\n -- p5 completions\n")
+    cs = p5.su_to_completions(Subst.make_from((P, p2)), m.ws)
+    pts(cs)
