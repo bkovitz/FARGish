@@ -190,6 +190,43 @@ When running p5 given P, we need the following for Q to be fully defined:
     L='q'
     P=p3    and p3 must be created
 
+    The predicates of p3:
+        Apart
+        Succ
+    I=3
+    J=5
+
+From this:
+    aja__ p1, p2
+To this:
+    ajaqb p1, p2, p3, p4, p5
+
+Steps:
+    p5 creates IncompletePainter 'Q', with predicates Inside, FilledWith
+        Inside(P=(gap), K=(gap))
+        FilledWith(K=(gap), L='q')
+        RequiredPainterAttribute(Consecutive(p2, 'Q'))  'Q' will be p4
+    'Q' creates p3
+        Try to fill variables P, L, and K, starting from the old p4
+            P must derive from p3, because old p4's P was p3
+            Consecutive(p2, 'Q')
+    'Q' becomes complete, with P=p3, K=4
+
+
+Ideally, the model could generate both of these responses:
+__aja__q__ -> __ajaaaqbb  K=8
+__aja__q__ -> __ajaqbq__  K=6
+
+
+__ajjja_____ -> __ajjjaqqqb_  K=8,9,10
+
+
+At each stage of completing 'Q', there might be multiple, conflicting
+completions. The model should allow them all to grow independently.
+
+
+Could this all be described by a simple term-rewriting system?
+
 
 Painter.do_something()  The main function that loops through the Predicates, assembles their Completions into a PainterCompletion,
 and runs the PainterCompletion to generate ActionProposals.

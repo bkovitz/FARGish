@@ -898,12 +898,18 @@ class ConsecutiveLocations(PainterRelation, PredicatePQ):
                     return CantComplete()
             case (Painter() as p, None):
                 #return AlreadyComplete(self, su)  # STUB Replace with correct code
-                lo('OWNER', owner)
-                return [
-                    # NEXT: get Q from owner's subst
-                    #PainterTemplate(psubst[Q], []),  # TODO variables instead of []?
-                    RequiredPainterAttribute(Consecutive(p, NEW_PAINTER))
-                ]
+                if owner is None:
+                    return CantComplete()
+                match owner.subst[Q]:
+                    case Painter() as q:
+                        return [
+                            PainterTemplate(q, []), # TODO variables instead of []?
+                            RequiredPainterAttribute(
+                                Consecutive(p, NEW_PAINTER)
+                            )
+                        ]
+                    case _:
+                        return CantComplete()
             case (None, Painter() as q):
                 return [
                     PainterTemplate(q, []),  # TODO as above

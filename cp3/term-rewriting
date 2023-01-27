@@ -1,0 +1,131 @@
+current expression
+  matches a reduction rule
+new current expression
+  matches a reduction rule
+new current expression
+  . . .
+
+Each reduction goes  lhs -> rhs. The lhs found in the current expression is
+replaced by rhs.
+
+In the c&p model, we don't want to replace, we want to complete. (Maybe there's
+no difference.)
+
+
+----------
+
+aa
+Same[1,2]
+
+aba
+q1=Same[1,3]
+Inside[q1,'b']
+
+
+C1='a' C2='a'
+Same[1,2]
+
+C1='a' C2='b' C3='a'
+q1=Same[1,3]
+q2=Inside[q1,'b']
+
+
+adfskfghdjshgjkhgjfdhjkghfjdkha
+Same[1,30]
+
+
+In a typical term-rewriting system (including Mathematica), the thing to be
+reduced is a tree-structured expression (identified, brackets, arguments). In
+c&p, the thing to be reduced is a set of stuff, in no particular order. Even
+the items in the canvas cells can be scattered all over the canvas.
+
+Absorption
+ajaqb
+12345
+
+1. p1 = Same[1,3], Span[1,3], Letter['j',2]
+2. p3 = Succ[3,5], Span[3,5]
+3. p2 = Inside['j', p1]
+4. p4 = Inside['q', p3]
+5. SameSpatialRelation[p2, p4]
+6. ConsecutiveSpans[p2, p4]  <-- indirect, via p1 and p3
+
+In a typical term-rewriting system, the subexpression matched is replaced by
+something new. In c&p, we usually add something to the set of stuff.
+
+
+IDEA: Let the "current thing" include a set of predicates that indicate
+what is *noticed* right now. You have to notice Same[1,3], Span[1,3], and
+Letter['j',2] all at once to then notice Inside[...]. The set of things
+noticed might fluctuate as noticed things fade out and new things get
+noticed.
+
+How do we notice something? We can have a set of predicates (as in spike3)
+and a set of focal points that rove around; keep trying the set of predicates
+on the current set of focal points.
+
+IDEA: Completions could be full citizens of the "current thing".  When the
+model recognizes something, it adds a Completion.
+
+IDEA: Store constants in the predicate instances in every painter. But when
+we create an incomplete painter, chance the constants to variables. Then,
+a painter containing a variable is incomplete and therefore looks for
+constants to fill the variable.
+
+IDEA: When we start looking for a way to build p1', we make a copy of p1 with
+some or all constants changed to variables. Start by changing indices to
+variables; then move to constants that mean things like distance (D in Apart).
+
+IDEA: Two variable types are LeftIndex, RightIndex. Give every variable a
+type that maps to a variable (pretty much implicit in spike3).
+
+_j___
+Wrap the 'j' in an Inside.
+Something sees the Inside as a partial version of itself, and completes it
+with FilledWith.
+
+_j___
+FilledWith[2, 'j']       predicate match
+
+_j___
+Incomplete-p2':
+    FilledWith[2, 'j']
+    Inside[P, 2]
+        P must be based on p1  (an anchor attribute)
+
+                             partial match with p2; partial completion = supply
+                             the Inside (because p2 has two parts: FilledWith
+                             and Inside).
+
+The variable P now triggers completion by searching for a painter as well as
+creating a new painter.
+
+_j___
+FilledWith[2, 'j']
+Inside[p1', 2]
+p1' = ?                 p2 needs a p1
+
+
+
+    Same[1,3], Apart[2,1,3]  
+
+
+p1:
+  Apart[2,1,3]
+  Same[1,3]
+  Holds[1,'a'], Holds[3,'a'], LeftmostIndex[1], InextremeIndex[2]
+
+p2:
+  Inside[p1,2]
+  FilledWith[2,'j']
+
+
+___j_
+p1' = Apart[2,3,5], Same[3,5], Holds[3,'a'], Holds[5,'a']
+
+
+
+
+Every variable is something that needs to be completed, by replacing it with
+a constant. Each completion comes from a rewriting rule?
+
