@@ -841,7 +841,9 @@ class FilledWith(ValueRelation):
                 if ws.get(k) == l:
                     return AlreadyComplete(self, su)
                 else:
-                    return CantComplete()
+                    return CantComplete()  # <-- WRONG Should paint l at k
+                                           # Otherwise when p5 creates p4',
+                                           # p4' will never draw 'q'.
             case (int(k), None):
                 match letter := ws.get(k):
                     case Letter():

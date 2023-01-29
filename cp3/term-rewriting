@@ -79,53 +79,140 @@ variables; then move to constants that mean things like distance (D in Apart).
 IDEA: Two variable types are LeftIndex, RightIndex. Give every variable a
 type that maps to a variable (pretty much implicit in spike3).
 
-_j___
-Wrap the 'j' in an Inside.
-Something sees the Inside as a partial version of itself, and completes it
-with FilledWith.
+How can we get a predicate to construct part of a painter?
 
-_j___
-FilledWith[2, 'j']       predicate match
+NEXT: Walk step by step through building p4' and p3'. What are all the 
+Completions and Actions?
 
-_j___
-Incomplete-p2':
-    FilledWith[2, 'j']
-    Inside[P, 2]
-        P must be based on p1  (an anchor attribute)
-
-                             partial match with p2; partial completion = supply
-                             the Inside (because p2 has two parts: FilledWith
-                             and Inside).
-
-The variable P now triggers completion by searching for a painter as well as
-creating a new painter.
-
-_j___
-FilledWith[2, 'j']
-Inside[p1', 2]
-p1' = ?                 p2 needs a p1
-
-
-
-    Same[1,3], Apart[2,1,3]  
-
-
-p1:
-  Apart[2,1,3]
-  Same[1,3]
-  Holds[1,'a'], Holds[3,'a'], LeftmostIndex[1], InextremeIndex[2]
-
-p2:
-  Inside[p1,2]
-  FilledWith[2,'j']
-
-
-___j_
-p1' = Apart[2,3,5], Same[3,5], Holds[3,'a'], Holds[5,'a']
-
+What are all the ways that something could be incomplete? And what are all the
+ways it could be completed?
 
 
 
 Every variable is something that needs to be completed, by replacing it with
 a constant. Each completion comes from a rewriting rule?
 
+
+
+_j___
+FilledWith[2, 'j']   predicate match, K=2, L='j'
+This predicate is part of p2, so we try to run p2 with K=2, L='j'.
+p2's other predicate is Inside[P, K], where P has an AnchorAttribute basing it
+on p1. So, we try to run Inside[P, K].complete_me(), and it makes p1'.
+Because p2 succeeded in running, we add p2 to the workspace.
+
+_j___  p2, p1'
+p1' must run, though not necessarily right away. Succ[I=1,J=3] wants something
+in I or something in J, but there are only blanks there. However, p1's
+AnchorAttributes can supply an 'a'.
+
+aja__  p2, p1'
+p5 must wake up because p2 is recognized. We call p5.complete_me(P=p2), so
+p5 tries to create Q. SameSpatialRelation supplies PainterPredicate[Inside].
+ConsecutiveLocations supplies PainterTemplate[p4] and
+RequiredPainterAttribute[ConsecutiveLocations[p2, NEW_PAINTER]].
+
+
+p5[P=p2, Q=p4]
+   P=p2, Q=?   Q will have Inside, be based on p4, and will be consecutive with
+               p2.
+
+At this point, we can't make p4'[P=?,K=?] because we don't have a p3' and we
+don't know where K should be. So, we create IncompletePainter[BasedOn[p4],
+Inside, ConsecutiveLocation[p2, THIS_PAINTER]].
+
+aja__  p2, p1', p5, IncompletePainter[p4']
+Since p4 takes arguments P and K, we can search for possible values for these.
+Can we deduce K from Inside, ConsecutiveLocation[p2, THIS_PAINTER]? No.
+Can we deduce P from Inside, ConsecutiveLocation[p2, THIS_PAINTER]? Partly.
+Because Inside in p4 refers to P=p3, let's create a p3' and find values for
+its arguments I, J. So, let's loop through all possible values of I, J and
+ask, of each one, if it is Consecutive with p2[I=1,J=3]:
+
+  I=1 J=2  No
+  I=1 J=3  No
+  I=1 J=4  No
+  I=1 J=5  No
+  I=2 J=3  No
+  I=2 J=4  No
+  I=2 J=5  No
+  I=3 J=4  Yes
+  I=3 J=5  Yes
+  I=4 J=5  Yes
+
+Now let's see which of these I,J pairs match Inside[P,K]. Given I,J, what
+would K be?
+
+  I=3 J=4  None
+  I=3 J=5  K=4
+  I=4 J=5  None
+
+Therefore p4' will have [P=p3' (not yet created), K=4]. And therefore we can
+ask p4' to paint p3'. SOMEHOW the Inside.complete_me() code must allow the
+new spatial relation to override the one in p4.
+
+
+IDEA: If we could specify all the elements that need to be completed, then
+code could examine them all and see if there is any way to complete one more.
+What if we could describe each completable element in terms of what it could
+provide for another?
+
+We could have little code snippets that all have arguments of the form
+"Given X, I can give you Y." Then some master subroutine can match what's
+needed to what can provide it.
+
+Apart:
+    Given I,J, give OK
+    Given I, give J
+    Given J, give I
+
+Same/Succ/Pred:
+    Given @I,@J, give OK
+    Given @I,J give @J
+    Given I,@J, give @I
+
+Inside:
+    Given P,K, give OK
+    Given P, give K
+    Given K, give I,J
+    Given K, give P    <-- will create incomplete P, which needs I,J
+             allow caller to pass an incomplete P
+
+FilledWith
+    Given K,L, give OK
+    Given K,L, give @K
+    Given @K, give L
+
+SameSpatialRelation
+    Given P,Q, give OK
+    Given P, give Q  or maybe  Given P.spatial_relation, give Q.spatial_relation
+    Given Q, give P  (as above)
+
+ConsecutiveLocations
+    Given P,Q, give OK
+    Given P,P.owner, give Q.template,Q.painter_relation
+    Given Q,Q.owner, give P.template,Q.painter_relation
+    Given I1,J1,I2,J2, give OK
+    Given J1, give I2
+    Given I2, give J1
+
+Given P, give Span
+
+
+Given a snippet, give two chunks
+Given a snippet, give a leftmost chunk
+Given I, give @I
+Given LeftMost, give @LeftMost
+
+Each given or generated item is like an address. Could we have addresses of
+addresses? Can the whole system consist of finding a chain of converters to
+get from A to B, via perhaps many levels of indirection, including thinking
+up what addresses to look for?
+
+
+NEXT: Work out the action of the above "completers" on ajaqb, a____, m____, and
+_j___.
+
+a____
+Given I=1, get J=3
+Given @I='a',J=3, get @J='a'
