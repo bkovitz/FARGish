@@ -173,7 +173,7 @@ Same/Succ/Pred:
 
 Inside:
     Given P,K, give OK
-    Given P, give K
+    Given P.span, give K
     Given K, give I,J
     Given K, give P    <-- will create incomplete P, which needs I,J
              allow caller to pass an incomplete P

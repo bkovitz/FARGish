@@ -49,7 +49,19 @@ class Same:
         return at_j
 
 
+class Painter:
+
+    def c1(self, ws: Workspace) -> Optional[Painter]:
+        return self.subst[P]  # <-- WRONG? because it might be better to return Q
+
 '''
+
+ Have -> need
+
+ Have @J, need J   PaintValue('a')
+
+ Paint object:
+     Have PaintValue, need PaintAt.
 
 p1 = ws.make_painter_from([Apart, Same], [(I, 1), (J, 3)])
 p2 = ws.make_painter_from(
@@ -63,23 +75,38 @@ p1.complete(ws, Subst.make_from([(I, 1)]) should= Paint(3, Letter('a'))
     Same can build from I but needs a J
     Apart, given I, can make a J
     Same, given @I, can make @J
-Now put p1 into ws.
-Loop P through all painters:
+Now put p1 into ws.  {a_a__ p1}
+Loop P through all painters in the ws:
 p2.complete(ws, Subst.make_from([(P, p1)])) should= Paint(2, Letter('j'))
     FilledWith can build @K but needs a K
-    Inside, given P, can make a K
+    Inside, given P.span, can make a K
     FilledWith, given K, can make @K
-Now put p2 into ws.
+Now put p2 into ws.  {aja__ p1 p2}
 Loop P through all painters:
 p5.complete(ws, Subst.make_from([(P, p2)])) should= MakePainter(p4, ...)
     SameSpatialRelation given P, can make Q.spatial_relation
     ConsecutiveSpans given P, can make Q  (but it will lack a span)
+                                       Q.requires_consecutive(P, Q)
 Incomplete[p4'] needs a span
     p3.Apart can make a span and p4' needs a p3 mate
     Apart, to make a span, needs I,J
     ConsecutiveSpans can judge whether p2.I,J and p4'.I,J are consecutive
         ^ This is tricky. We need to make fresh variables I1,J1,I2,J2 to
           pass to ConsecutiveSpans to check every possibility.
+
+
+p5.complete(ws, Subst.make_from([(P, p2)])) should= MakePainter(based_on=p4, WillHave(ConsecutiveSpan(p2, THIS)))
+    p4 = P=p3, K=4
+    
+Incomplete[p4'] is built. {aja__ p1 p2 Incomplete[p4']}
+Inside[P],FilledWith[K,L],L='q'
+Need: P.span,K,ConsecutiveSpan(p2,THIS)
+
+Problem: We need P.span, but P does not exist. How can tell that P must be created, and based on p3?
+The answer must come from the Subst or AnchorAttributes of p4.
+
+Need P. No predicate holds P. The painter object itself must offer a method that, given nothing, can return a Painter.
+
 
 "What can you make from an X?"
     We call this while painting, or seeing if you can paint.
@@ -130,3 +157,27 @@ Given I,J,Predicate, give Detection.
 Given two Detections, give Painter.
 
 Can we make new Predicates dynamically? Apart(D=3)?
+
+If we learn abc->abd, it should be easy to see that again. We should, in
+effect, build up an "interpreter" for some virtual machine of painters.
+(Still a vague idea.)
+
+
+If we represent the Workspace as nothing but a big soup of canvas cell–value
+pairs and painters, then we can do like Mathematics SubsetReplace to keep
+updating it. Then maybe c&p will be like a term-rewriting system.
+
+Can we prove that this system always reaches an attractor? Can we disprove it?
+
+
+Can we use a notion of "p4' is like p4 but with these arguments" or "p4' is
+like p4 but with this override"?
+
+
+We have some notion of an Index and a Thing At That Index. Can a Thing be a
+snippet? A sequence of letters? A painter? A collection of painters?
+
+
+What we need next: The ability to figure out what we have, so we can ask
+what can build on it, and the ability to figure out what we need, so we can
+ask to build it.
