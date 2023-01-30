@@ -213,6 +213,8 @@ up what addresses to look for?
 NEXT: Work out the action of the above "completers" on ajaqb, a____, m____, and
 _j___.
 
+IMPLEMENT: Absorb 'aja' and regenerate from any one letter.
+
 a____
 Given I=1, get J=3
 Given @I='a',J=3, get @J='a'
