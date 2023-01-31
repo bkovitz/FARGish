@@ -1,0 +1,151 @@
+The workspace consists of a soup of objects, each of which is complete or
+incomplete. Each timestep, we ask the incomplete objects what they need and
+see who can provide it for them, and we ask some objects what they provide
+and build it even when no one is asking.
+
+ABSORPTION
+
+<'ajaqb'>
+  'ajaqb' is incomplete because it has filled cells that have no painter.
+  So, we loop I,J,K,P through everything (P loops through nothing because
+  there are no painters yet), and we ask each predicate to detect what it can.
+  This results in a set of Detections.
+
+<'ajaqb', Detection[Apart[1, 3]], Detection[Apart[2, 4]], ...,
+          Detection[Same[1, 3], Succ[3, 5], Succ[1, 5]], ...>
+
+  Most of these Detections are incomplete because they're not part of a
+  painter.
+
+  Maybe it would be better to loop through the cells that have no painter,
+  and then ask the predicates to search for mates. For now, though, it's
+  probably not even worth the trouble to treat Detections as incomplete and
+  in need of being combined into a painter.
+
+<'ajaqb', p1, p3>
+
+  'j' and 'q' are incomplete because they have no painter.
+  p1 and p3 are incomplete because they have no painter.
+
+  By looping K thorugh 'j' and 'q' and looping P through p1 and p3, we should
+  generate p2 and p4.
+
+<'ajaqb', p1, p2, p3, p4>
+
+  p2 and p4 are incomplete because they have no painter.
+
+  By looping P,Q through p2 and p4, we should generate p5.
+
+<'ajaqb', p1, p2, p3, p4, p5>
+
+  Is p5 complete by itself or does it need a painter, too? Let's say that
+  a PQ painter is complete by itself. It's glue that connects other painters,
+  and that's good enough. IJ and PK painters relate directly to canvas cells,
+  so they need to be woven into a larger structure to be complete.
+
+A lesson learned so far: there must be some "prime" completers, built into the
+workspace, to trigger the search for Detections.
+
+Also, completers might enable a restoration of the clarity concept. We prefer
+completions that start from solidly established anchors. We focus on filling
+gaps, i.e. completing things.
+
+
+REGENERATION 1
+
+<'a____'>
+
+  The four blanks are incomplete. The 'a' is incomplete because it lacks a
+  painter.
+
+  We try all the painters in the LTM, looping through I and looping through J,
+  to see which ones can complete themselves.
+
+  p1.complete_given(I=1)
+    Apart
+
+<'a_a__', p1>
+
+
+REGENERATION 2
+
+<'abc->abd; ijk->?'>
+
+  All the snippets are incomplete because they have no painter. The '?' snippet
+  is incomplete because it's blank.
+
+  We run the repetition detector on snippets 1..3. It finds r1, r2, r3.
+  Do we look for cross-snippet relations between individual letters? No for now.
+
+  We have a pre-built, permanent painter that tries to run the Old World
+  painters on the New World.
+
+<'abc->abd; ijk->?', r1, r2, r3>
+
+  r1, r2, r3 are incomplete because they have no painter and because they have
+  not been checked for flaws. So, we loop P,Q through them and we get painters
+  s1 (maps r1 to r2) and s2 (maps r1 to r3).
+
+    s1: Same(S1.1, S1.2)  Runs S1.1's painters on S1.2? Creates a new painter
+                          for S1.2?
+    s2: Same(S1.1, S2.1)
+
+  Do we need Gap or HaveNeed objects to tell what we have and what we need? If
+  so, we could have a function that takes all the Gap objects and all the
+  Completers and figures out which Completer to call.
+
+<'abc->abd; ijk->?', r1, r2, r3, s1, s2>
+
+  r1, r2, r3, s1, s2 are all incomplete because they have not been checked for
+  flaws. Let's declare that s1 and s2 don't need painters.
+
+  Running r2 and comparing it against snippet S1.2 reveals that cell 3 is
+  wrong: r2 says that it's 'c' and really it's 'd'. So now we get a Flaw
+  object. The 'd' is declared incomplete because it needs a painter to
+  correct it.
+
+<'abc->abd; ijk->?', r1, r2, r3, s1, s2, Flaw('d')>
+
+  We search across snippets for predicates that can form a relation with the
+  'd'. We get a new detection, d1:
+    Succ(S1.3, S2.3)   Succ, I=S1.3, J=S2.3
+
+<'abc->abd; ijk->?', r1, r2, r3, s1, s2, Flaw('d'), d1>
+
+  d1 is incomplete because it has no spatial relation. Or perhaps we should
+  say that d1 is a painter and is incomplete because it has no painter.
+  A predicate needs to detect the relation(s) between S1.3 and S2.3:
+  consecutive snippets and last cell in both.
+
+    ConsecutiveSnippets(I, J)
+    SameIntraSnippetIndex(I, J)
+
+  It sounds like we need to put addresses onto indices. We need to say,
+  "In that Succ(I, J), I can create the I index."
+
+
+One of our main concepts is "Run this painter, but over there," i.e. run a
+painter but with different arguments. Are we going to re-run the same painters
+in new places or are we always going to build new painters? Let's make the
+question moot by representing running a painter in a new place with a new
+painter that refers to the old painter, with the addition of an override to
+its arguments.
+
+If we separate out spatial-relation predicates from value relations, so each
+relation is its own painter, then we can "re-run" spatial relations, i.e.
+point them at other things. Once a spatial relation has been found, we should
+look for more instances of it--that is, there should be pressure favoring
+searching for more instances, or near-instances.
+
+
+Should we allow p1=Same(1, 3) to be a painter? Then it would team up with
+p1a=Apart(2, p1.I, p1.J). The only reason we care about Apart(2) is so that
+we can "replay" the Apart when figuring out where to put Succ, i.e. to
+make Succ(3, 5).
+
+
+New idea from Dave: Put all the variables into one master Subst, and make
+the arguments to each painter variables whose values are given in this Subst.
+This makes it very easy for one painter to refer to an argument of another
+painter. Will it make it easy to re-run painters with new arguments, and/or
+to cascade "changes" to a variable?

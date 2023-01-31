@@ -48,6 +48,12 @@ class Same:
     def c3(self, ws: Workspace, at_j: AtRightIndex) -> Optional[AtLeftIndex]:
         return at_j
 
+class ConsecutiveSpans:
+
+    def c4(self, ws: Workspace, ij1: Tuple[LeftIndex, RightIndex]) -> Optional[Tuple[LeftIndex, RightIndex]]:
+        #1, 3 -> 3, 5
+        ?, 3 -> 3, ?
+        #?, 3 -> 4, ?  There are two ways to make spans consecutive; let's ignore this one for now.
 
 class Painter:
 
@@ -95,17 +101,64 @@ Incomplete[p4'] needs a span
           pass to ConsecutiveSpans to check every possibility.
 
 
-p5.complete(ws, Subst.make_from([(P, p2)])) should= MakePainter(based_on=p4, WillHave(ConsecutiveSpan(p2, THIS)))
+p5.complete(ws, Subst.make_from([(P, p2)])) should= MakePainter(based_on=p4, WillHave(THIS.spatial_relation), WillHave(ConsecutiveSpan(p2, THIS)))
     p4 = P=p3, K=4
     
 Incomplete[p4'] is built. {aja__ p1 p2 Incomplete[p4']}
 Inside[P],FilledWith[K,L],L='q'
 Need: P.span,K,ConsecutiveSpan(p2,THIS)
 
-Problem: We need P.span, but P does not exist. How can tell that P must be created, and based on p3?
+Problem: We need P.span, but P does not exist. How can we tell that P must be created, and based on p3?
 The answer must come from the Subst or AnchorAttributes of p4.
 
 Need P. No predicate holds P. The painter object itself must offer a method that, given nothing, can return a Painter.
+
+When we start running a complete painter, it has one anchor and needs one anchor.
+When we start completing an incomplete painter, we look to find or construct both its anchors.
+The anchors of Incomplete[p4'] are P,K.  The reason we call it incomplete is because it doesn't even have one anchor yet.
+We must base any new constructed anchor on a WillHave attribute.
+
+To paint a canvas cell, what do we need?
+  Index
+  Value
+
+To build a new painter, what do we need?
+  I,J painter:       P,K painter:      P,Q painter:
+  LeftIndex          OtherPainter      FirstPainter
+  RightIndex         Index             SecondPainter
+  SpatialRelation    SpatialRelation   PainterRelation
+  ValueRelation      ValueRelation     PainterRelation
+
+When completing Incomplete[p4'], we need:
+    OtherPainter    ->  get a template for it from p4
+    Index           ->  will get it from p3' once p3' is built
+    SpatialRelation ->  Inside  (from WillHave, provided by SameSpatialRelation)
+    ValueRelation   ->  get it from p4'  (FilledWith)
+
+    FilledWith will need K  ->  get it from p3' once p3' is built
+    FilledWith will need L  ->  get it from p4
+    Inside will need P      ->  get a template for it from p4
+    Inside will need P.span ->
+
+    To construct p3', we need:
+        LeftIndex        -> somehow ConsecutiveSpan must provide it
+        RightIndex       -> somehow ConsecutiveSpan must provide it
+        SpatialRelation  -> Apart (from template)
+        ValueRelation    -> Succ (from template)
+
+        To construct a span, we need:
+            LeftIndex
+            RightIndex
+        So, we might create a span with only a LeftIndex, and have yet another
+        completion process to find the RightIndex.
+
+
+IDEA: The Workspace could be a big soup of objects, some of which are complete and
+some of which are incomplete. Every timestep, we pick an incomplete object and try
+to do the next step of completing it.
+
+NEXT: Work the same examples as always through the above idea.
+        
 
 
 "What can you make from an X?"
@@ -181,3 +234,4 @@ snippet? A sequence of letters? A painter? A collection of painters?
 What we need next: The ability to figure out what we have, so we can ask
 what can build on it, and the ability to figure out what we need, so we can
 ask to build it.
+'''

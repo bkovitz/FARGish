@@ -188,7 +188,7 @@ SameSpatialRelation
     Given P, give Q  or maybe  Given P.spatial_relation, give Q.spatial_relation
     Given Q, give P  (as above)
 
-ConsecutiveLocations
+ConsecutiveSpans
     Given P,Q, give OK
     Given P,P.owner, give Q.template,Q.painter_relation
     Given Q,Q.owner, give P.template,Q.painter_relation
