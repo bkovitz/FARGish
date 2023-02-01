@@ -1,0 +1,186 @@
+Workspace: Soup of objects, each of which is complete or incomplete.
+Painters: Each painter is a single predicate.
+
+ABSORPTION
+
+<'ajaqb'>
+
+  Desired output:
+    q1 = Same(1, 3)
+    q2 = Succ(3, 5)
+    q3 = Filled(2, 'j')         needs to bind with a spatial relation
+    q4 = Filled(4, 'q')         needs to bind with a spatial relation
+    q5 = Inside(q1.span, q3.K)       partially completes q1
+    q6 = Inside(q2.span, q4.K)       partially completes q2
+    q7 = SamePredicate(q5, q6)
+    q8 = WalkingSpans(q1, q2)
+
+    q9 = Filled(1, 'a')
+    q10 = Filled(3, 'a')
+    q11 = Filled(5, 'b')
+
+    The 1 and 3 are unrelated, and the 3 and 5 are unrelated.
+
+    How about Filled painters for all the other cells?
+
+REGENERATION
+
+<'a____'>
+
+  q1 can run, because cell 1 is filled.
+
+<'a_a__', q1>
+
+  q2 can run, because cell 3 is filled.
+
+<'a_a_b', q1, q2>
+
+  q5 can run, because q1 is here. But q5 is incomplete because there is no q3.
+
+<'a_a_b', q1, q2, q5-incomplete>
+
+  A simple way to recreate q3: copy it from the LTM.
+
+
+ajjj_
+ajjja
+  
+
+ajaqb
+r1 = Repeat('a', Same) + (2, 'j')
+  overlap at last index
+r2 = Repeat('a', Succ, step=2) + (4, 'q')   ('Inserted' might be better than 'step')
+
+axax followed by b
+
+
+
+THOUGHTS / OBSERVATIONS
+
+A painter is "complete" when another painter specifies its indices.
+
+"Prime" roles are designated by variables--arguments to painters. Can composite
+roles result from combining several painters?
+
+When constructing new painters during regeneration, do we create new variables?
+Do we construct new variables isomorphically to relations among the original
+painters?
+
+Do we always simply want to know a relation between any two arguments, such
+that one can always be reconstructed from the other?  E.g. in Succ(1, 3), there
+is a relation of Apart(2) from 1 to 3. Given the 1, we can make the 3, and given
+the 3, we can make the 1. There are also relations between 1,3 and the 2 in
+Filled(2, 'j'). We can get from the 1 to the 3 also by going from Leftmost
+to Inextreme. I think it would be best if we get from 1 to 3 in a way that
+calls upon context, deciding what will correspond to "3" based on old
+painters and on reference points in the new context.
+
+When running Same(1, ?), we should search for either a blank cell or a cell
+containing an 'a' to fill the second index. If we find an 'a', we reinforce it.
+If we find a blank, we fill it.
+
+Should we say that a painter is incomplete if its arguments are unrelated to
+something else?
+
+The main idea is, given some of the relation defined by a painter, the
+painter can finish it. Therefore we need, for each element of that relation,
+a function that can supply it given the remaining elements.
+
+Maybe the right question to ask is: "Who could be completed by this?"
+
+ABSORPTION STEP BY STEP
+
+<'ajaqb'>
+
+  Each cell in 'ajaqb' is incomplete because it has no painter. So, we loop
+  I,J,K,P through everything and ask each predicate to detect what it can.
+  This results in a set of Detections.
+
+
+
+
+abc->abd; ijk->?
+
+r1 = Repeat('a', Succ)
+r2 = Repeat('a', Succ) + overwrite last char with Succ(prev last)
+s1 = Same(r1, r2) + r2 has its exception
+r3 = Repeat('i', Succ)
+run s1(r3, _), get r4 = Repeat('i', Succ) + overwrite ...
+
+
+
+
+Repeat('a', Succ) -> Repeat('a', Succ) + the last letter is Succ(prev last)
+
+
+
+
+? = snippet of unknown length
+
+'abc->abd; ijk->?'
+'abc'->'abd'; 'ijk'->?
+ n1     n2     n3    n4
+
+1. n1 = Snippet('abc', length=3, addr=C.O.lhs)
+   n1 is incomplete, because it has no painter.
+   Since n1 is a snippet, it needs a repeater for its painter.
+   So, we run the repetition-detector on n1.
+   This yields r1 = Repeat(n1, start='a', Succ).
+
+2. n2 = Snippet('abd', length=3, addr=C.O.rhs)
+   n2 is incomplete, because it has no painter.
+   Since n2 is a snippet, it needs a repeater for its painter.
+   So, we run the repetition-detector on n2.
+   This yields r2 = Repeat(n2, start='a', Succ, flaw=Replace(3, 'd'))
+               r2 = Repeat(n2, start='a', Succ, flaw=Skip(3)
+
+3. n2 is incomplete because the flaw has no painter.
+   So, we run all the predicates on (I, flaw) where I loops through all of
+   C.O.  (The mode should also have the ability to look at (flaw, J).)
+   "Simple-value-relation detector": sees relations between values.
+   We find that 'd' is the successor of 3, which yields:
+   q1 = Succ(C.O.lhs.3, n2.flaw)
+        Succ(C.O.lhs.3, C.O.rhs.3)
+        Succ(C.O.lhs.PureRepeater.3, C.O.rhs.3)
+
+4. q1 is incomplete because there is no painter that can make one index given
+   the other.
+   "Simple spatial-relation detector": sees relations between indices.
+   q2 = OtherSide(q1.I, q1.J)
+   q2 = IndexSucc(q1.I, q1.J)
+   
+5. r1 and r2 are incomplete because they have no painter that can make one
+   op given the other.
+   s1 = Same(r1.op, r2.op, except=r2.flaw=Replace(3, 'd'))
+   s1 = Same(r1.op, r2.op, except=r2 has a flaw supplied by q1)
+
+6. r1 and r2 are still incomplete because they have no painter that can make
+   one index given another.
+   q3 = OtherSide(r1.S, r2.S)
+   q3 = IndexSucc(r1.S, r2.S)
+
+7. r1 is incomplete because start='a' has no painter.
+   "Simple value-relation detector" searches only within n1.
+   q4 = Copy(r1.start, C.O.lhs.1)
+
+8. r2 is incomplete because start='a' has no painter.
+   "Simple value-relation detector" searches only within n1.
+   q5 = Copy(r2.start, C.O.rhs.1)
+
+<r1, r2, q1, q2, q3, q4, q5, s1>
+Now that C.O is complete, how do we run its painters on C.N? We have a
+built-in painter that tries to run the painter-cluster from C.O on C.N.
+
+9. Where do we start? Which existing painter do we try to run on C.N?
+   Can we ask r1 and r2 to "detect" their pattern in the new situation?
+   r3 = r1 except I=C.N.lhs start='i'
+
+Every painter is a detector.
+
+Hypothesis: Pick *any* painter to start from, which matches something in N,
+and all the other painters will come along.
+
+10. r1 is incomplete becase it lacks 'start'. Who refers to r1? s1, q3, q4.
+   So, we try to build analogs of these painters, to run on r3.
+
+

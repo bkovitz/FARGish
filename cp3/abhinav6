@@ -1,0 +1,186 @@
+1. Each painter is one predicate.
+   Run quickly through 'ajaqb'.
+2. One Subst for all.
+3. Start with Repeaters.
+
+
+COMPLETION
+
+When you are complete, you can be reconstructed from some (not all) of yoiur
+elements or neighbors.
+
+- Every letter with no painter is incomplete.
+
+- Every blank is incomplete. (The archetypal form of incompletion.)
+
+- Every IJ, PK, and KL with no painter is incomplete.
+
+
+We will look for ways to complete everything but we will not always succeed.
+
+Represent strings with repeaters wherever possible, and with single-letter relations
+wherever necessary. Like bricks and mortar. Single-letter relations are like spackle.
+
+Real-life observation: we favor viewing analogies with a small number of relations.
+So maybe choose breakdowns with the lowest number of snippets.
+
+
+ONE SUBST FOR ALL
+
+    A=1 B=3 C=5 E=2 F=4 G=q1.span H='j' I='q' J=q2.span K=
+    q1 = Same(A, B)
+    q2 = Succ(B, C)
+    q3 = Filled(E, H)         needs to bind with a spatial relation
+    q4 = Filled(F, I)         needs to bind with a spatial relation
+    q5 = Inside(G, E)       partially completes q1
+    q6 = Inside(J, F)       partially completes q2
+    q7 = SamePredicate(q5, q6)
+    q8 = WalkingSpans(q1, q2)
+    q9 = Filled(A, 'a')
+    q10 = Filled(B, 'a')
+    q11 = Filled(C, 'b')
+
+Will changing one value trigger a cascade of changes?
+
+The variables are not a tree that goes in one direction. Could be trouble.
+
+
+AJAQB WITH REPEATERS
+
+'ajaqb'
+Goal:
+  r1 = Repeat('a', Same) + Insert 'j' in middle
+    overlap at last index
+  r2 = Repeat('a', Succ, step=2) + Insert 'q' in middle
+
+1. Spell out the above fully as painters.
+2. See how regeneration works on a____, m____, _j___, ajjj_____.
+
+Absorption
+
+  Run repetition detector with Same, Succ, Pred and flaw limit of 1.
+  At I=4, the flaw limit goes to 2, so we stop.
+    - or -
+  We run IxJ with Same, Succ, Pred and see Same(1, 3). We translate Same
+  into Repeat([1, 3], start='a', Same). Wild idea: all nearby value relations
+  are represented by repeaters.
+
+  'ajaqb'
+  WANT: 
+    n1 = Snippet(orig, 1, 3)
+    r1 = Repeat(n1, start='a', Same) + Insert(middle, 'j')
+
+    n2 = Snippet(orig, 3, 5)
+    r2 = Repeat(n2, start='a', Succ) + Insert(middle, 'q')
+
+    s1 = WalkingSpans(n1, n2)
+    s2 = Same(exception.place, r1, r2)
+
+    Same(1, 3)   S S
+    Succ(1, 5)   U   U      UjaqU: 'jaq' is not a snippet
+    Succ(3, 5)     U U  
+
+    Since flaw limit = 1, we ignore all repetitions that skip more than one cell.
+
+Regeneration
+
+  'a____'
+
+    r1 sees the 'a', builds:
+      r1' = Repeat(_, start='a', Same) + Insert(middle, 'j')
+      r1' is incomplete because it lacks a snippet.
+
+    build snippet:
+      n1' = Snippet(orig, 1, 3)
+
+    r1' fills n1'.
+      'aja__'  (really 'aja', '__')
+
+    s1 sees n1' and builds n2'.
+      n2' = Snippet(orig, 3, 5)
+
+    r2 sees 'a' at index 3 and n2. So r2 builds:
+      r2' = Repeat(n2', start='a', Succ) + Insert(middle, 'q')
+
+    r2' fills n2:
+      'aja', 'aqb'  ('ajaqb')
+
+  What is unknown right now?
+
+    Under what conditions does a repeater in LTM "wake up" in the workspace?
+
+    If the new repeater is missing an argument, like a snippet, how do we provide it?
+
+    How do we build a new snippet based on an old one?
+
+    How do we build a new repeater based on an old one?
+
+
+  Easier, more reasonable tests, with clear expected results:
+  'aja b'
+  ' j q '
+  'mjm  '
+
+
+    acbdtfgh
+
+----------
+
+What if we have 'ajaab'? The two-letter relationship of Same doesn't cover
+all three 'a's. Solution: Code to look simultaneously at all the Sames, Succs,
+Preds, and group them into repeaters.
+
+  Same(1, 3)
+  Same(1, 4)    we'll skip this because the leap is too large
+  Same(3, 4)
+  Succ(1, 5)
+  Succ(3, 5)
+  Succ(4, 5)
+
+How to merge these predicates into a repeater?
+
+  S SS     continuous Same starting from 'a'
+     UU    continuous Succ starting from 'a'
+  U   U
+    U U
+
+WANT:
+  n1 = Snippet(1, 4)
+  r1 = Repeat(n1, 'a', Same) + Replace(2, 'j')
+
+  n2 = Snippet(4, 5)
+  r2 = Repeat(n2, 'a', Succ)
+
+  n2 = Snippet(5, 5)
+  q1 = Fill(n2.1, 'b')
+
+  n2 = Snippet(n1, 5)
+  r2 = Repeat(n2, Succ, start_from=n1.1)
+
+
+What if we have 'ajaghg'?
+
+  n1 = Snippet(1, 3)
+  r1 = Repeat(n1, 'a', Same) + Replace(2, 'j')
+  n2 = Snippet(4, 6)
+  r2 = Repeat(n2, 'g', Same) + Replace(2, 'q')
+  s1 = Same(r1, r2) + the Repeat.start is different + the Replace.L is different
+
+  r3 = Repeat(n2, 'g', Succ) + Replace(3, 'g')
+
+  n3 = Snippet(4, 5)
+  n4 = Snippet(5, 6)
+  r4 = Repeat(n3, 'g', Succ)
+  r5 = Repeat(n4, 'h', Pred)
+
+  How should the model choose which snippet/repeater breakdown to follow? It should
+  depend on context, i.e. other painters, but exactly how is not clear yet.
+
+    Favor snippets of exactly or approximately the same size over snippets with
+    great disparity of lengths. The model will need some built-in biases to help
+    decide these.
+
+    4, 5, 6
+    10, 1, 1
+
+    aaaaaaaax -> aaaaaaaay 
