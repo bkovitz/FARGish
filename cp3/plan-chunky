@@ -1,0 +1,59 @@
+Plan for the "chunky" model
+---------------------------
+
+Painters
+   class variables: types of arguments
+
+   class method: detect(arg, arg)?
+                 detect(range to search)?
+
+   .complete(*args) -> Optional[Action]
+      Some arguments can be blanks. There can still be blanks in the
+      returned Painter.
+      Some completions may involve painting, e.g. Succ.complete().
+   .complete(have, need)?
+
+   Painter instances must know what Painter they were derived from, so we
+   can fill parameters by looking at how the corresponding parameters were
+   filled in the ancestor painter.
+
+   Repeat(Snippet, StartLetter, Operation, Optional[Exception])
+
+      detect(snippet) -> Optional[Repeat]
+         Somewhere we need a flaw-limit parameter.
+
+   Same(Index, Index)
+   Succ(Index, Index)
+   Pred(Index, Index)
+   OtherSide(Snippet, Snippet)
+   OtherSideSameIndex(Index, Index)
+   IndexWithin(Snippet, Index, Index)
+      Need to decide whether the 3rd argument can be a constant.
+   Copy(Letter, Index)
+
+Except
+   Skip(Index)
+   Replace(Index, Content)
+
+Content is Letter or Snippet, i.e. something that can go into one "cell" of a
+Snippet.
+
+Workspace
+   the master Subst
+   all the snippets, including the master canvas
+   all the painters
+   a list of "painters pending completion"
+      or maybe these are just painters with blanks
+   a function to find all the painters that refer to the variables in a given
+      painter.
+   a function to find the arguments to pass to a new painter, that correspond
+      to the arguments passed to its ancestor.
+
+Model / top level
+   a function to detect relations bottom-up
+   a function to ask all the painters what action they propose
+   a function to choose which action to do
+
+Canvas/Snippet
+   Needs an address, e.g. C.O.lhs.1
+   The elements may themselves be snippets
