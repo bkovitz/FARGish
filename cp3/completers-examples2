@@ -119,53 +119,65 @@ Repeat('a', Succ) -> Repeat('a', Succ) + the last letter is Succ(prev last)
 
 'abc->abd; ijk->?'
 'abc'->'abd'; 'ijk'->?
- n1     n2     n3    n4
+ S1     S2     S3    S4
 
-1. n1 = Snippet('abc', length=3, addr=C.O.lhs)
-   n1 is incomplete, because it has no painter.
-   Since n1 is a snippet, it needs a repeater for its painter.
-   So, we run the repetition-detector on n1.
-   This yields r1 = Repeat(n1, start='a', Succ).
+1. S1 = Snippet('abc', length=3, addr=C.O.lhs)
+   S1 is incomplete, because it has no painter.
+   Since S1 is a snippet, it needs a repeater for its painter.
+   So, we run the repetition-detector on S1.
+   This yields r1 = Repeat(S1, start='a', Succ).
 
-2. n2 = Snippet('abd', length=3, addr=C.O.rhs)
-   n2 is incomplete, because it has no painter.
-   Since n2 is a snippet, it needs a repeater for its painter.
-   So, we run the repetition-detector on n2.
-   This yields r2 = Repeat(n2, start='a', Succ, flaw=Replace(3, 'd'))
-               r2 = Repeat(n2, start='a', Succ, flaw=Skip(3)
+2. S2 = Snippet('abd', length=3, addr=C.O.rhs)
+   S2 is incomplete, because it has no painter.
+   Since S2 is a snippet, it needs a repeater for its painter.
+   So, we run the repetition-detector on S2.
+   This yields r2 = Repeat(S2, start='a', Succ, flaw=Replace(3, 'd'))
+               r2 = Repeat(S2, start='a', Succ, flaw=Skip(3)
 
-3. n2 is incomplete because the flaw has no painter.
+XXX3. r2 is incomplete because the flaw has no painter.
    So, we run all the predicates on (I, flaw) where I loops through all of
    C.O.  (The mode should also have the ability to look at (flaw, J).)
    "Simple-value-relation detector": sees relations between values.
    We find that 'd' is the successor of 3, which yields:
-   q1 = Succ(C.O.lhs.3, n2.flaw)
+   q1 = Succ(C.O.lhs.3, S2.flaw)
         Succ(C.O.lhs.3, C.O.rhs.3)
         Succ(C.O.lhs.PureRepeater.3, C.O.rhs.3)
 
-4. q1 is incomplete because there is no painter that can make one index given
+XXX4. q1 is incomplete because there is no painter that can make one index given
    the other.
    "Simple spatial-relation detector": sees relations between indices.
    q2 = OtherSide(q1.I, q1.J)
    q2 = IndexSucc(q1.I, q1.J)
    
-5. r1 and r2 are incomplete because they have no painter that can make one
-   op given the other.
-   s1 = Same(r1.op, r2.op, except=r2.flaw=Replace(3, 'd'))
+5. r1.op and r2.op are incomplete because each has no painter.
+   Run the predicate library on r[12].op X everything.
+   s1 = Same(r1.op, r2.op, except=r2.flaw=Skip(3))
    s1 = Same(r1.op, r2.op, except=r2 has a flaw supplied by q1)
 
-6. r1 and r2 are still incomplete because they have no painter that can make
-   one index given another.
+6. r1.snippet and r2.snippet are incomplete because each has no painter.
    q3 = OtherSide(r1.S, r2.S)
    q3 = IndexSucc(r1.S, r2.S)
 
-7. r1 is incomplete because start='a' has no painter.
+7. r1.start is incomplete because no cell in S1 has a painter other than r1
+   (more precisely, a painter whose source is from outside S1).
+   What we really need is a painter to fill at least one cell in S1 from
+   some other source.
    "Simple value-relation detector" searches only within n1.
-   q4 = Copy(r1.start, C.O.lhs.1)
+   #q4 = Copy(r1.start, C.O.lhs.1)
+   q4 = Same(S1.1, S2.1)  where K1=S1.1, K2=S2.2
+        (SameLetter)
+   q6 = IndexWithin(S1, K1, 1)
+   q7 = IndexWithin(S2, K2, 1)
 
+XXX Now r2.start is complete.
 8. r2 is incomplete because start='a' has no painter.
    "Simple value-relation detector" searches only within n1.
    q5 = Copy(r2.start, C.O.rhs.1)
+
+8. q4 is not complete because there is no painter to construct either argument
+   from the other. The arguments are indices, so we run predicate detection
+   on Cartesian product of indices.
+   q5 = OtherSideSameIndex(K1, K2)
 
 <r1, r2, q1, q2, q3, q4, q5, s1>
 Now that C.O is complete, how do we run its painters on C.N? We have a
@@ -173,14 +185,132 @@ built-in painter that tries to run the painter-cluster from C.O on C.N.
 
 9. Where do we start? Which existing painter do we try to run on C.N?
    Can we ask r1 and r2 to "detect" their pattern in the new situation?
+   S3 is incomplete because it has no painter. r1 detects it.
+   The Repeat detector must allow a difference in both the 'snippet' and
+   'start' arguments.
    r3 = r1 except I=C.N.lhs start='i'
+   r3 = Repeat(S3, L3, F1, based_on=r1)   F1=Succ, L3='i'
+
+10. What painters refer to r1's arguments? We find those painters and try
+   to run them with r3's arguments.
+   These painters are: s1, q3, q6
+   Therefore we create:
+      s1' = Same(F1, _, _)  NOT NEEDED: F1 is unchanged in r1/r3
+      q3' = OtherSide(S3, _)
+      q6' = IndexWithin(S3, _, 1)
+
+11. Let's start with q3. When we complete q3(S3, _), we get:
+   q3' = OtherSide(S3, S4)
+   At this point, no other painter refers to S4. But, r2 referred to q2's
+   second argument, S2, so we create r4.
+   Current pending painters:
+      r4 = Repeat(S4, _, _, _)
+      s1' = Same(F1, _, _)   XXX
+      q6' = IndexWithin(S3, _, 1)
+
+XXX
+12. Let's run s1. When we complete s1(F1, F2, E1), we get:
+   s1' = Same(F1, F2, E1)   This is the same as s1, so we don't build it.
+   E1 goes with r2, which corresponds to r4, which we already have.
+   F2 goes with r2, which corresponds to r4, which we already have.
+   Current pending painters:
+      r4 = Repeat(S4, _, _, _)
+      q6' = IndexWithin(S3, _, 1)
+
+13. Let's run q6. When we complete q6(S3, _, 1), we get:
+   q6' = IndexWithin(S3, K3, 1)  K3=S3.1
+   Since q6 referred to K1, and q4 and q5 referred to K1, we add these
+   painters to the current pending painters.
+   Current pending painters:
+      r4 = Repeat(S4, _, _, _)
+      q4' = Same(K3, _)
+      q5' = OtherSideSameIndex(K3, _)
+
+14. Let's run q4'. q4' is a value relation, and we don't yet know the analog
+   of the index K2. So, we can't run q4 yet.
+   Current pending painters:
+      r4 = Repeat(S4, _, _, _)
+      q4' = Same(K3, _)
+      q5' = OtherSideSameIndex(K3, _)
+
+15. Let's run q5'. Completing q5(K3, _) yields:
+   q5' = OtherSideSameIndex(K3, K4)  K4=S4.1
+   Now we see that q4 referred to K2, so already know to fill in q4', since
+   K2 : K4.
+   q4' = Same(K3, K4)   (This still needs to run--another kind of pending.)
+   We see that q7 referred to K2, so q7' becomes needed. But we already know
+   all its arguments, because we already have S2 : S4.
+   q7' = IndexWithin(S4, K4, 1)
+   Current pending painters:
+      r4 = Repeat(S4, _, F2, E1)  We already know F2, E1 from s1.
+
+16. Let's run r4. It needs L2. We need to start this analysis over and include
+   q8 = Copy(L2, K1) and q9 = Copy(L1, K2). These supply the need to have
+   a painter for a letter in a snippet with a source outside that snippet.
 
 Every painter is a detector.
 
 Hypothesis: Pick *any* painter to start from, which matches something in N,
 and all the other painters will come along.
 
-10. r1 is incomplete becase it lacks 'start'. Who refers to r1? s1, q3, q4.
-   So, we try to build analogs of these painters, to run on r3.
 
 
+
+---------- OLD
+
+10. r1' is incomplete because it lacks 'start'. Who refers to r1? s1, q3, q4.
+   So, we try to build analogs of these painters, to run on r1'.
+
+   E1=Replace(I1, L3)
+   F1=Succ
+   F2=Succ
+   I1=3
+   I2=C.O.lhs.3
+   K1=C.O.lhs.1
+   K2=C.O.rhs.1
+   L1='a'
+   L2='a'
+   L3='d'
+   S1=C.O.lhs
+   S2=C.O.rhs
+   
+   r1 = Repeat(S1, L1, F1)
+   r2 = Repeat(S2, L2, F2, E1)
+   q1 = Succ(I2, L3)
+   q2 = OtherSide(I2, I1)  <-- not quite; need "relative jump"
+   s1 = Same(F1, F2, E1)   <-- not quite; need whole-painter same/diff
+   q3 = OtherSide(S1, S2)
+   q4 = Same(K1, K2)
+   q5 = OtherSideSameIndex(K1, K2)
+   q6 = IndexWithin(S1, K1, 1)
+   q7 = IndexWithin(S2, K2, 1)
+   q8 = Copy(L2, K1)
+   q9 = Copy(L1, K2)
+
+   S3 = C.N.lhs
+
+   r1' = Repeat(S3, (L4), F1)
+   How do we get from r1' to r2'?
+      s1 goes F1 to F2 and E1
+      q3 goes S1 to S2
+      q4 goes L1 to K1  (need to connect K1 to something)
+
+   q3' = OtherSide(S3, (S4))
+   
+NEXT: Put in the "relative jump" so we can construct the exception
+appropriately for r4. Actually, OtherSide is already a relative jump.
+There just needs to be a relative jump for the index within the snippet.
+
+NEXT: Draw a graph of all the painters and arguments.
+
+Maybe painters without arguments are "protopainters".
+Painter.detect(arg1, arg2).
+
+
+
+Maybe we need to make variables that know what they're derived from: S1'
+
+"A cascade of blanks"
+
+We need to store a global set of ":" relationships in the workspace.
+Fun idea: Occasionally "forget" one and seed if it grows back.
