@@ -1,0 +1,40 @@
+Each proto-painter needs a set of criteria for what it takes to be complete.
+
+A painter is complete when the model has all the information needed to run
+the painter somewhere other than where it was made, i.e. changing one its
+arguments and blanking the other.
+
+It appears that since some painters are complete when they start, we don't
+get a quadratic explosion of metapainters.
+
+
+Same(addr, addr)
+   Needs relation between addrs. (Because Same is a value relation.)
+Same(op, op)
+   Complete. (Because we don't know about relations between predicates. Or
+   do we? What about Succ-Pred, the "mirror" relation?)
+
+OtherHandSameIndex(addr, addr)
+   Complete. (Because OtherHandSameIndex is a relative spatial relation:
+   OtherHandSameIndex can construct addr1 from any new addr2 and vice versa.)
+
+OtherSide(addr, addr)
+   Complete. (Because OtherSide is a relative spatial relation.)
+
+Repeat(addr, start, op)
+   Needs source outside addr for start.
+   Needs painter for op (unless op was taken from source).
+   Needs painter for addr.
+
+Copy(letter, addr)
+   Needs source for letter?
+   Needs painter for addr.
+
+
+
+
+
+   a1=a(x, y)
+   b1=b(a'(x), a'(y))
+   c1=c(b(a'(x), b(a'(y))
+

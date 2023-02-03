@@ -1,0 +1,167 @@
+'abc' 'abd' 'xyz' ?
+ S1    S2    S3   S4
+
+ABSORPTION
+
+1. All four snippets are incomplete. Let's pick S1 and run the detectors on
+   it. The repetition detector yields:
+      r1 = Repeat(S1, L1='a', F1=Succ)
+
+2. r1 is incomplete because r1.start has no painter and r1.op has no painter.
+   S2 is incomplete. Let's run the detectors on S2. The repetition detector
+   yields:
+      r2 = Repeat(S2, L2='a', F2=Succ + Skip(3))
+
+3. Incomplete list:
+      r1.addr     lacks painter
+      r1.op       lacks painter
+      r1.start    S1's cells lack a painter with a source outside S1
+      r2.addr     lacks painter
+      r2.op       lacks painter
+      r2.start    S2's cells lack a painter with a source outside S2
+   Variables:       Referrers:
+      S1=C.O.lhs     r1.addr  
+      S2=C.O.rhs     r2.addr  
+      S3=C.N.lhs
+      S4=C.N.rhs
+      L1='a'         r1.start
+      L2='a'         r2.start
+      F1=Succ        r1.op
+      F2=Succ + E1   r2.op
+      E1=Skip(3)     r2.op.flaw
+   We run detectors on all things that lack painters. Let's say that the
+   Same "protopainter" detects that r1.op is the same as r2.op. This yields:
+      s1 = Same(F1, F2, E1)
+   s1 is complete because Same(op, op) doesn't need a painter. (Maybe in a
+   later version require that E1 get a painter.)
+
+4. Incomplete list:
+      r1.addr     lacks painter
+      r1.start    S1's cells lack a painter with a source outside S1
+      r2.addr     lacks painter
+      r2.start    S2's cells lack a painter with a source outside S2
+   Variables: (same as last step)
+   Running detectors on all things that lack a painter, let's say that we
+   detect that r1.addr and r2.addr are lhs/rhs. This yields:
+      q1 = OtherSide(S1, S2)
+   q1 is complete because OtherSide(snippet, snippet) doesn't need a painter.
+
+5. Incomplete list:
+      r1.start    S1's cells lack a painter with a source outside S1
+      r2.start    S2's cells lack a painter with a source outside S2
+   Running detectors, let's say we detect that S1.1 is the same as S2.1.
+   This yields:
+      q2 = Same(K1=C.O.lhs.1, K2=C.O.rhs.1)
+   q2 is incomplete because Same(addr, addr) needs a painter that can
+   construct one addr from the other.
+
+6. Incomplete list:
+      q2         needs painter for addrs
+   Variables:       Referrers:
+      E1=Skip(3)     r2.op.flaw
+      F1=Succ        r1.op
+      F2=Succ + E1   r2.op
+      K1=C.O.lhs.1
+      K2=C.O.rhs.1
+      L1='a'         r1.start
+      L2='a'         r2.start
+      S1=C.O.lhs     r1.addr  
+      S2=C.O.rhs     r2.addr  
+      S3=C.N.lhs
+      S4=C.N.rhs
+   We choose q2(K1, K2) to complete. We run detectors on K1, K2, (and,
+   implicitly, on everything else), which yields:
+      q3 = OtherHandSameIndex(K1, K2)
+   q3 is complete because OtherHandSameIndex doesn't need a painter.
+
+REGENERATION
+
+7. Incomplete list:
+      S3       no painters
+      S4       no painters
+   Running detectors on S3 and S4, r1 detects that S3 is like itself,
+   yielding:
+      r3 = Repeat(S3, L3='x', F1=Succ, based_on=r1)
+   r3 is incomplete (see next step).
+
+8. Incomplete list:
+      S4          no painters
+      r3.addr     needs painter
+      r3.start    lacks outside source for a letter
+   Pending analogous constructions for:
+      r2.addr
+      r3.start
+      r3.op
+   Variables:       Referrers:
+      E1=Skip(3)     r2.op.flaw, s1
+      F1=Succ        r1.op, s1
+      F2=Succ + E1   r2.op, s1
+      K1=C.O.lhs.1   q2, q3
+      K2=C.O.rhs.1   q2, q3
+      L1='a'         r1.start
+      L2='a'         r2.start
+      L3='x'         r3.start
+      S1=C.O.lhs     r1.addr, q1
+      S2=C.O.rhs     r2.addr, q1
+      S3=C.N.lhs
+      S4=C.N.rhs
+   Painters:
+      r1 = Repeat(S1, L1='a', F1=Succ)
+      r2 = Repeat(S2, L2='a', F2=Succ + Skip(3))
+      r3 = Repeat(S3, L3='x', F1=Succ, based_on=r1)
+      s1 = Same(F1, F2, E1)
+      q1 = OtherSide(S1, S2)
+      q2 = Same(K1, K2)
+      q3 = OtherHandSameIndex(K1, K2)
+      q4 = Copy(L1, K1)  We didn't do a step for this
+      q5 = Copy(L2, K2)  We didn't do a step for this
+   Now, to complete r3.addr, we find that r1.addr=S1 is referred to by q1,
+   we make q1':
+      q1' = OtherSide(S3, _, based_on=q1)
+
+9. To complete r3.start, we find that r1.start=L1 is referred to by q4, so
+   we make q4':
+      q4' = Copy(L3, _, based_on=q4)
+
+10. To complete q1', we simply let its second argument be the OtherSide of
+   its first argument:
+      q1' = OtherSide(S3, S4)
+
+?11. To complete q4', we note that the second argument of q4 was K1, and
+   K1 is referred to by q2 and q3. So, we create a new variable K3 and
+   new analogous painters q2' and q3':
+      K3=?
+      q2' = Same(K3, _)
+      q3' = OtherHandSameIndex(K3, _)
+
+
+?12. To complete q2', we note that the second argument of q2 was K2, and
+   K2 is referred to by q2 and q3. We already have q2' and q3', so we
+   create a new variable K4 and fill it in to q2' and q3':
+      K4=?
+      q2' = Same(K3, K4)
+      q3' = OtherHandSameIndex(K3, K4)
+
+13. Incomplete list:
+      S4       lacks repeater
+      K3       lacks value
+      K4       lacks value
+
+      
+
+
+13. To complete r3.op, we find that r1.op=F1 is referred to by s1. We don't
+   make s1', because r3.op is copied directly from r1.op.
+      s1' = Same(
+
+9. To make the analogous construction for r
+
+
+
+      q2 = Same(L1, K2=C.O.rhs.1)   Same(letter,index)
+
+      q3 = Same(L2, K1=C.O.lhs.1)
+      q? = Same(L1, L2)
+
+
+abc -> def ; pqr -> ?
