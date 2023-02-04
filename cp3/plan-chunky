@@ -57,3 +57,5 @@ Model / top level
 Canvas/Snippet
    Needs an address, e.g. C.O.lhs.1
    The elements may themselves be snippets
+   Painting to a snippet in a place that conflicts with something already
+      there creates a competing snippet.
