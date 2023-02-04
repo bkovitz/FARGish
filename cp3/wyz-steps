@@ -146,7 +146,17 @@ REGENERATION
       S4       lacks repeater
       K3       lacks value
       K4       lacks value
+      more?
+   To complete K3, we will need to look in S3, and we need to choose S3
+   because r4's start-letter is L3, which comes from S3.
 
+   That's awfully complicated. Could we just make Repeat work more like this?
+      Repeat(snippet, start-letter, letter-source, op)?
+   letter-source would be the index of the start-letter within snippet.
+   The Repeat would be incomplete if letter-source itself had no source
+   from outside the snippet, like Same(K1, K2) and/or OtherHandSameIndex(K1,
+   K2). Or maybe:
+      Same(start-letter, letter-source)
       
 
 
