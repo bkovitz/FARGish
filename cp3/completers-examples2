@@ -257,6 +257,8 @@ and all the other painters will come along.
 
 
 ---------- OLD
+abc -> abd; ijk -> ?
+S1     S2   S3     S4
 
 10. r1' is incomplete because it lacks 'start'. Who refers to r1? s1, q3, q4.
    So, we try to build analogs of these painters, to run on r1'.
@@ -286,6 +288,12 @@ and all the other painters will come along.
    q7 = IndexWithin(S2, K2, 1)
    q8 = Copy(L2, K1)
    q9 = Copy(L1, K2)
+
+   r3 = Repeat(S3, 'a', Succ)
+
+        OtherSide(S3, _)
+        OtherSide(S3, S4)
+   r4 = Repeater(S4, _, _, _)
 
    S3 = C.N.lhs
 

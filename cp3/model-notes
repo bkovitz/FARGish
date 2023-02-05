@@ -38,3 +38,33 @@ Copy(letter, addr)
    b1=b(a'(x), a'(y))
    c1=c(b(a'(x), b(a'(y))
 
+
+"What else refers to both X and Y?" might be an important idea. This search
+produces painters that might produce a relation between something else that's
+related to X and Y, which can then be used to fill a blank.
+
+
+Filled arguments in incomplete painters give us something to build from.
+Blanks in painter arguments don't give us anything to search for. We have
+to exploit other parts of the painter, like at least one filled argument.
+
+
+Some searches:
+
+1. What relates to this painter?
+2. What relates to this variable?
+3. What relation can be found for these two constants?
+4. What other painters have this relation but different arguments?
+5. What other painters have these same arguments?
+6. What other painters have at least one of these arguments?
+7. What pairs of arguments fit this proto-painter? "Detection"
+8. What existing painters relate two arguments of given data types?
+   E.g. "I need a relationship between snippets."
+
+
+Working backward ('pull') is hard. Working forward ('push') is easy. So, when
+working backward, try to trigger a forward cascade that might lead to a
+solution. (This is certainly how solving cryptograms works.)
+
+When a "foothold" looks promising, that means that you think that if you
+started working forward from it, it might lead to filling the current blank.

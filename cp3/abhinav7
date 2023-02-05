@@ -1,0 +1,214 @@
+AGENDA
+
+1. Decisions to make
+2. Pull vs. push
+3. Make decisions
+   Try walking step-by-step through 'abc->abd; ijk->?' again.
+
+
+DECISIONS TO MAKE
+
+1. Can a painter be the flaw in a repeater?
+   Against: Skip(3) can't be a painter? Maybe it could be a painter, by
+   altering all cells after a certain point.
+
+2. Should the flaw be included with the operation, e.g. F2 = Succ + Skip(3)?
+   Instead of: Repeat(S2, L2, F2, E1)
+   Have:       Repeat(S2, L2, F2)
+   Same(F1, F2, E1)     Same(Succ, Succ, Skip(3))
+   Same(F1, _, E1)
+
+   Succ(3, 5)   ajaqb
+   Succ(3, 5, except Skip(3))  <-- This seems strange: Succ is a relation
+                                   between two cells. Repeat is a relation
+                                   among many cells.
+
+3. Same(r1.op, r2.op, Skip(3))
+   Same(A1, A2, E1)
+   A1 = r1.op   "A" for address
+   A2 = r2.op
+
+4. SameOp(R1, R2, E1)
+   SameSeedLetter(R1, R2)
+   SameSeedLetterIndex(R1, R2)
+
+5. New data type: Seed?  Abbreviated "D".
+   Repeat(S1, D1, F1)
+   D1=Seed(L1, I1)     Seed('a', 1)
+   L1='a'
+   I1=1
+   D1=Seed(R1, L1, I1)
+
+   SeedIs(R1, D1)
+
+6. r2 = Repeat(S2, L2, F2) + E1 ?
+
+7. New data type: RepeatedOperation?  Abbreviated "F" (for "function").
+   RepeatedOperation(Succ, Skip(3))
+   RepeatedOperation(Succ)
+
+
+There are two kinds of arguments to painters: addresses and data.
+Same(I, J)  <- I,J are addresses. What is the same is @I, @J
+Same(1, 3)  <- 1,3 are addresses. What is the same is @1, @3
+Repeat(O.lhs, 'a', Succ)  <-- O.lhs is an address
+                              'a' is data
+                              Succ is data
+Same(@I, @J)  Now Same just takes data, but the data come with addresses.
+
+
+The problem:  Same(r1, r2, exception) needs to paint *two* arguments of r2.
+              Same(F1, F2, E1)  has no access to r2
+Two kinds of solution:
+   1. Make the 'Same' painter refer to the Repeaters.
+      Repeat(S2, L2, _, _)
+      Same(r1.op, r2.op, Skip(3)) could fill args 3 and 4 of Repeat.
+      ^ Violates "Law of Demeter" in modeling
+   2. Combine both arguments into one, e.g. Succ + Skip(3).
+      Repeat(S2, L2, _)
+      Same(Succ, Succ, Skip(3))
+      Repeat(S2, L2, F2)
+      Same(F1, F2, E1)
+      Same(F1, _, E1)   Same can fill _
+      Same(F1, F2, _)   Same can't fill _; therefore E1 needs a painter
+                        for Same to be complete.
+
+      F2 = F1 + E1
+      SameWithException(F1, F2, E1)
+
+__c   Succ   -> abc
+
+
+PULL VS. PUSH
+
+Try doing the "pull" concept all the way by hand--that is, let the blank
+drive the building of painters for relations--in order to get some insight
+and then make decisions.
+
+'abc->abd; ijk->?'
+
+When we start, S1, S2, S3, S4 are all incomplete because they have no painter.
+
+1. r1 = Repeat(S1, L1, F1)
+   r2 = Repeat(S2, L2, F2)
+   r3 = Repeat(S3, L3, F3)
+   
+   L1='a'
+   L2='a'
+   L3='i'
+   F1=Succ
+   F2=Succ + E1
+   F3=Succ
+   E1=Skip(3)
+
+   Instead of working out sameness and other relations after making r1 and
+   r2, we just make a repeater for S3, and then we let the blank "pull" the
+   exploration of sameness relations to fill it in.
+
+   Now S1, S2, S3 are all complete.
+   Incomplete list:
+      S4  needs repeater, needs contents
+      r1  needs painter for op, needs painter for addr, needs source for start
+      r2  needs painter for op, needs painter for addr, needs source for start
+      r3  needs painter for op, needs painter for addr, needs source for start
+
+2. r4 = Repeat(S4, _, _)
+   How do we fill the blanks? We look for a relation for S4, because S4 is
+   all we have. Detector finds:
+      q1 = OtherSide(S3, S4)
+
+   Incomplete list:
+      S4  needs contents
+      r1  needs painter for op, needs painter for addr, needs source for start
+      r2  needs painter for op, needs painter for addr, needs source for start
+      r3  needs painter for op, needs painter for addr, needs source for start
+      r4  needs start-letter, op; needs painter for op
+
+   Since S4 needs contents, and its repeater is r4, filling r4's
+   incompleteness is now top priority.
+
+3. What relates to the 2nd blank or the 3rd blank? Nothing.
+   Who relates to r4? Nobody.
+   Who relates to r4's argument S4? q1.
+   So, we must build from q1, which is the only thing we have.
+   Detectors:
+      What else relates two snippets?
+      What else has OtherSide as a relation?
+      Privilege OtherWorld relation when searching. (?)
+   Let's say the OtherSide detector finds:
+      q2 = OtherSide(S1, S2)
+
+4. What else refers to both S1 and S2? r1 and r2. Run detectors on the other
+   arguments of r1 and r2, namely L1, F1, L2, F2.
+   Let's say we first notice that L1=L2:
+      q3 = Same(L1, L2)   <-- data, not addresses
+
+5. Since 
+   Next let's say we notice that F1 and F2 are almost the same:
+      q4 = Same(F1, F2, E1)  <-- data, not addresses
+
+6. Another detector:
+      q5 = SameSideOppositeWorlds(S1, S3)
+
+7. What else refers to both S1 and S3? r1 and r3. Run detectors on the other
+   arguments of r1 and r3, namely L1, F1, L3, F3.
+   Let's say we first notice F1=F3:
+      q6 = Same(F1, F3)
+
+8. Next, let's say we notice that L1 and L3 are different. Do we notice that
+   they're different, or do we notice nothing at all? For now, let's say the 
+   model notices nothing, but we might eventually add the ability to notice
+   the difference.
+
+9. 
+      
+
+What is it about two repeaters that makes one appear to be an instance of
+the other? Same operation.
+
+   Same(r1, r3, start-letter='i')
+
+At some point, does 'pull' trigger 'push'? In 'push', we have incomplete
+painters seeking completion--blanks to fill.
+
+
+IDEA: During 'pull', mark a painter as 'promising' for leading to filling in
+a certain blank. Then try to complete the promising painter.
+
+
+SECOND ATTEMPT AT 'PULL'
+
+'abc->abd; ijk->?'
+
+When we start, S1, S2, S3, S4 are all incomplete because they have no painter.
+
+1. r1 = Repeat(S1, L1, F1)
+   r2 = Repeat(S2, L2, F2)
+   r3 = Repeat(S3, L3, F3)
+   r4 = Repeat(S4, _, _)
+   
+   L1='a'
+   L2='a'
+   L3='i'
+   F1=Succ
+   F2=Succ + E1
+   F3=Succ
+   E1=Skip(3)
+
+   Now S1, S2, S3 are all complete.
+   Incomplete list:
+      S4  needs repeater, needs contents
+      r1  needs painter for op, needs painter for addr, needs source for start
+      r2  needs painter for op, needs painter for addr, needs source for start
+      r3  needs painter for op, needs painter for addr, needs source for start
+      r4  needs start-letter, op; needs painter for op
+
+2. Now we search for a "foothold": some existing painter or snippet that we
+   can try to complete, in order to fill the blanks in r4.
+   We now search for a "precedent" for r4--another repeater.
+   Since all we have to work with is r4.addr=S4, we search for a relation
+   involving S4. Detect:
+      q1 = OtherSide(S3, S4)
+
+
+What makes a good precedent?

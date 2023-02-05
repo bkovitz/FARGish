@@ -157,6 +157,15 @@ REGENERATION
    from outside the snippet, like Same(K1, K2) and/or OtherHandSameIndex(K1,
    K2). Or maybe:
       Same(start-letter, letter-source)
+   Actually, start-letter needs to be more complicated. It must indicate not
+   only the letter but where it goes in the snippet.
+      seed-letter, seed-index
+   where seed-index can be a number or an orientation cue like Leftmost or
+   Rightmost. Or should we tag the index with a cue like that?
+      Rightmost(S1, D1)
+   Can tags be painters? Rightmost(S3, _) can be completed by looking at S3.
+   In fact, Rightmost(_, 5) can be completed by finding all snippets that
+   have length 5.
       
 
 
