@@ -61,10 +61,9 @@ Some searches:
 8. What existing painters relate two arguments of given data types?
    E.g. "I need a relationship between snippets."
 
+There also seems to be an operation "create analog". Search for preimages
+that referred to a variable; create analogs of those preimages.
 
-Working backward ('pull') is hard. Working forward ('push') is easy. So, when
-working backward, try to trigger a forward cascade that might lead to a
-solution. (This is certainly how solving cryptograms works.)
 
-When a "foothold" looks promising, that means that you think that if you
-started working forward from it, it might lead to filling the current blank.
+Who can paint me?
+What can I paint?

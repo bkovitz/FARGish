@@ -212,3 +212,16 @@ When we start, S1, S2, S3, S4 are all incomplete because they have no painter.
 
 
 What makes a good precedent?
+
+Do we need painters to record a chain of painters? From S1 to S2 to S3 to S4,
+or perhaps more links than that.
+
+We need something to become salient so we can trace it to a foothold or use it
+as a foothold.
+
+
+Could we make Master Subst variables for individual canvas cells?
+Snippet(N1, C1, C2, C3)  
+How to handle variable # of chars?
+How to handle spatial relations between indices?
+

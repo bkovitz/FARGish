@@ -68,8 +68,11 @@ Variables
    function to see which painters refer to a given variable
    Track the analogy or cascade in which a variable was created, so multiple
    "users" don't create multiple instances of it.
-   function to find "What variable in the ancestral painter corresponds t
+   function to find "What variable in the ancestral painter corresponds to
    this argument slot?"
+
+Searches
+   
 
 Reporting
    Each timestep, display:
