@@ -69,6 +69,9 @@ DESIRED END STATE
    R5=Repeat(S4, Seed('z', 3), Pred + Skip, Direction(RightToLeft))
    mirror=True?
 
+   Poorer solutions should be possible. The model should be able to conclude
+   at "Just don't do the exception."
+
 DESIRED WAY TO GET THERE
 
    Tag the snag.
@@ -76,4 +79,46 @@ DESIRED WAY TO GET THERE
    Notice that 'a' and 'z' have something in common: they're the "bookend"
    letters of the alphabet ('a' has no successor, 'z' has no predecessor).
 
+      Lacks('a', Pred)
+      Lacks('z', Succ)
+
    That should trigger a search for a mirror-image repeater.
+
+MEDIUM-LEVEL HOW WE GET THERE
+
+   FA1=Failed(R4, SN1)
+   SN1=Cannot(F4, K1)
+   K1=N.rhs.3
+
+   Now we look for ways to tag K1 with something of interest, and then look
+   for other cells to tage with something similar.
+
+   T1=Rightmost(K1)
+   
+   This should trigger a search for Rightmost elsewhere and/or a search for
+   Leftmost.
+
+   We should also be searching for more tags to put on K1. This yields:
+
+   T2=Lacks(Succ, K1)
+
+   The two tags on K1 should lead to finding two "similar" tags:
+
+   T3=Leftmost(K2)
+   T4=Lacks(Pred, K2)
+   K2=O.lhs.1
+
+   Now running the detectors on T1,T2,T3,T4 should reveal the "mirror"
+   relation:
+
+   MI1=Mirror(Tag, T1, T2)
+   MI2=Mirror(Op, T2, T4)
+
+   From here, we are going to have to somehow build up a Mirror relation
+   between R1 and R2, and probably anchor to the T1, T2 tags. The Mirror
+   relation should give a Direction(RightToLeft) argument to R5.
+
+There needs to be an Opposite tag, or Mirror painter.
+
+Maybe Direction(RightToLeft) should be "added" to R5 the way exceptions are.
+"Adding" an argument might be a nice way to incorporate optional arguments.
