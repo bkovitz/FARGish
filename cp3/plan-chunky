@@ -6,12 +6,13 @@ Painters
 
    class method: detect(arg, arg)?
                  detect(range to search)?
+                 detect(ws)?  <--SIMPLEST
 
-   .complete(*args) -> Optional[Action]
+   .complete(ws, *args) -> Optional[Action]
       Some arguments can be blanks. There can still be blanks in the
       returned Painter.
       Some completions may involve painting, e.g. Succ.complete().
-   .complete(have, need)?
+   .complete(ws, have, need)?
 
    Painter instances must know what Painter they were derived from, so we
    can fill parameters by looking at how the corresponding parameters were
@@ -32,20 +33,31 @@ Painters
    IndexWithin(Snippet, Index, Index)
       Need to decide whether the 3rd argument can be a constant.
    Copy(Letter, Index)
+   other "relative spatial relations"
+
+Tags?
+   Leftmost
+   Rightmost
+   Inextreme
 
 Except
    Skip(Index)
    Replace(Index, Content)
+
+Seed
+
+BasedOn
 
 Content is Letter or Snippet, i.e. something that can go into one "cell" of a
 Snippet.
 
 Workspace
    the master Subst
+      all the painters
    all the snippets, including the master canvas
-   all the painters
    a list of "painters pending completion"
       or maybe these are just painters with blanks
+      or a function that lists all the pending completions
    a function to find all the painters that refer to the variables in a given
       painter.
    a function to find the arguments to pass to a new painter, that correspond
@@ -72,7 +84,11 @@ Variables
    this argument slot?"
 
 Searches
-   
+   . . . various search functions (these will change in each version)
+   A lookup table to determine when to run each search, or maybe just have a
+      list of processes that should occur each timestep.
+      FIGURE OUT THIS TABLE FIRST
+      
 
 Reporting
    Each timestep, display:

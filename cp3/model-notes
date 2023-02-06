@@ -1,3 +1,5 @@
+COMPLETENESS CRITERIA
+
 Each proto-painter needs a set of criteria for what it takes to be complete.
 
 A painter is complete when the model has all the information needed to run
@@ -29,6 +31,10 @@ Repeat(addr, start, op)
 Copy(letter, addr)
    Needs source for letter?
    Needs painter for addr.
+
+Seed(letter, local-index)
+   Needs painter for letter.
+   Needs painter for local-index.
 
 
 
@@ -67,3 +73,19 @@ that referred to a variable; create analogs of those preimages.
 
 Who can paint me?
 What can I paint?
+
+
+What processes are running?
+
+1. Repetition detector: runs on snippets that lack repeaters.
+2. Sameness detector: runs on everything. Actually, there's a detector for
+   every predicate. OtherSide.
+3. Instance detector: every painter (or at least every repeater) looks for
+   instances of itself.
+4. The above searches.
+5. Look for incomplete objects and try to complete them.
+
+
+f(x) = x^2
+
+x = 3  =>  f(x) = 9

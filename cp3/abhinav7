@@ -3,7 +3,9 @@ AGENDA
 1. Decisions to make
 2. Pull vs. push
 3. Make decisions
-   Try walking step-by-step through 'abc->abd; ijk->?' again.
+
+1  Try walking step-by-step through 'abc->abd; ijk->?' again.
+2. See if the program elements can be identified fully right now.
 
 
 DECISIONS TO MAKE
@@ -22,6 +24,18 @@ DECISIONS TO MAKE
    Succ(3, 5, except Skip(3))  <-- This seems strange: Succ is a relation
                                    between two cells. Repeat is a relation
                                    among many cells.
+
+
+   R1=Repeat(S1, L1, F1)
+   R2=Repeat(S2, L2, F2, E1)
+   F2=Succ
+   M1=Same(R1, R2, E1)  <--- Implies that all other args are the same
+   
+   R1=Repeat(S1, L1, F1)
+   R2=Repeat(S2, L2, F2)
+   F2=Succ + E1
+   M1=Same(F1, F2, E1)  <--- Allows other args to be different between R1 & R2
+
 
 3. Same(r1.op, r2.op, Skip(3))
    Same(A1, A2, E1)
@@ -221,7 +235,8 @@ as a foothold.
 
 
 Could we make Master Subst variables for individual canvas cells?
-Snippet(N1, C1, C2, C3)  
+S1=Snippet(N1, C1, C2, C3)  
+M1=Same(C1, C3)  <--- C1 and C3 are data, not addrs
 How to handle variable # of chars?
 How to handle spatial relations between indices?
-
+How to handle conflicting snippets?

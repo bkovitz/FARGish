@@ -1,4 +1,5 @@
 'abc->abd; ijk->?'
+ S1   S2   S3   S4
 
 1. Repetition detector:
    R1=Repeat(S1, D1, F1)
@@ -52,7 +53,9 @@
 7. Sameness detector:
    Q5=Same(D1, D2)      completes R1.seed, R2.seed
 
-Nothing else seems completable, so we begin regeneration.
+Nothing else seems completable, so we begin regeneration. We don't necessarily
+need a detector for "nothing else seems completable"; the model can just plow
+forward with regeneration before absorption is complete.
 
 7. Repetition detector:
    R3=Repeat(S3, D3, F3)
@@ -62,7 +65,7 @@ Nothing else seems completable, so we begin regeneration.
    F3=Succ
 
 8. R1 detector:
-   Q5=Same(R1, R3, .addr, .seed) ?
+   #Q5=Same(R1, R3, .addr, .seed) ?
    Tag R3 += BasedOn(R1)
    B1=BasedOn(R3, R1)
 
@@ -73,14 +76,17 @@ Nothing else seems completable, so we begin regeneration.
    Q2'=OtherSide(S3, _) via B1
 
 10. Make analog of Q4:
-   Q4'=Same(F3, _, _)   STILL UNCLEAR: How will we make analog of E1?
+   Q4'=Same(F3, _, _) via B1   STILL UNCLEAR: How will we make analog of E1?
 
    For now, let's just copy E1 without modification: Q4'=Same(F3, _, E1)
 
    E1 has no painters, so just referring to it is our only option.
 
 11. Make analog of Q5:
-   Q5'=Same(D3, _)
+   Q5'=Same(D3, _) via B1
+
+   To fill the blank, Q5' must create a new variable, D4. But see below for
+   how this variable could already be created.
 
 12. Complete Q2':
    Q2'=OtherSide(S3, S4)
@@ -89,6 +95,8 @@ Nothing else seems completable, so we begin regeneration.
    an analog of R2:
    R4=Repeat(S4, _, _)
    B2=BasedOn(R4, R2)
+
+   Should creating a new, analogous painter happen only with repeaters?
 
 13. Complete Q4':
    Q4'=Same(F3, F4?, E1?) via B2? B1?
@@ -177,6 +185,49 @@ blank. We do know what is an image of what:
 but we don't already know that image(S2)=S4, which will not need a new
 variable. But we can at least put 'image(X)' in the blanks. Then, when we
 do create a new variable, we can easily see what else refers to it.
+
+Could we start by setting F4 to _? Then when q4' sets F4, R4 automatically has
+F4.
+   R4=Repeat(S4, D4, F4)
+   F4=_ image(F2)
+
+Could we start by setting S4 to _?
+   R4=Repeat(S4, D4, F4)
+   S4=_ image(S2)
+No, because S4 is already defined: it's the 4th snippet.
+But, we could define S5 like this:
+   R4=Repeat(S5, D4, F4)
+   S5=_ image(S2)
+   Q2'=OtherSide(S3, S5)
+and then let Q2' complete itself:
+   S5=S4
+This method should work, but it creates an extraneous equation, S5=S4. Also,
+having blanks in painters seems nice. So, we might prefer the other method,
+which is that when you complete a painter with a blank, you look for all the
+other painters with "the same" blank, i.e. defined as image(same_thing). So
+the process goes like this:
+   R4=Repeat(_ image(S2), _ image(D2), _ image(F2))
+   Q2'=OtherSide(S3, _ image(S2))
+R4 can't complete itself (fill its blanks). Q2' can complete itself. It
+becomes:
+   Q2'=OtherSide(S3, S4), image(S2)=S4
+and then we search for all painters with "_ image(S2)" as an argument, and
+replace it with S4. THIS IS THE BETTER WAY.
+
+Should BasedOn include a list of all the arguments that need to be filled in?
+
+
+Repeat(S3, D3, F3)  If S3 is filled with letters, we can make D3 and F3
+   (assuming that S3 is filled with a repetitive pattern). Givem D3 and F3,
+   we can fill S3. So, Repeat does sort of follow the principle of painters:
+   "Given one argument, I can reconstruct the other."
+Repeat(S3, Z3) where Z3 is a "repetition spec": (D3, F3). Might a repetition
+   spec be easier to work with for adding exceptions?
+   Same(Z1, Z2, E1)  No: this assumes that the seeds as well as the operations
+      of Z1 and Z2 are the same.
+   SameOp(Z1, Z2, E1)
+   Same(.op, Z1, Z2, E1)  Could Same take an argument saying that Z1.op and
+      Z2.op are the same, but Z2 has the exception E1?
    
 
 NEXT: Need to do this 'live' at a whiteboard.

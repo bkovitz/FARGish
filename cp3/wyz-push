@@ -1,0 +1,79 @@
+'abc' 'abd' 'xyz' ?
+ S1    S2    S3   S4
+
+1. Repetition detector:
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, I1)
+   L1='a'
+   I1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, I2)
+   L2='a'
+   I2=1
+   F2=Succ+E1
+   E1=Exception(G1, I3)
+   G1=Skip
+   I3=3
+
+3. Sameness detector:
+   Q1=Same(D1, D2)
+
+4. OtherSide detector:
+   Q2=OtherSide(S1, S2)
+
+5. Sameness detector:
+   Q3=Same(F1, F2, E1)
+
+Now we start looking at the New World.
+
+6. Repetition detector:
+   R3=Repeat(S3, D3, F3)
+   D3=Seed(L3, I4)
+   L3='x'
+   I4=1
+   F3=Succ
+
+7. R1 detector:
+   B1=BasedOn(R3, R1)
+   R3 += B1
+
+8. Make analogs of painters that refer to R1's arguments:
+   Q1'=Same(D3, _image(D2))
+   Q2'=OtherSide(S3, _image(S2))
+   Q3'=Same(F3, _image(F2), E1)
+
+9. Complete these new painters:
+   Q1'=Same(D3, D4)        D4 becomes image(D2)
+   Q2'=OtherSide(S3, S4)   S4 becomes image(S2)
+   Q3'=Same(F3, F4, E1)    F4 becomes image(F2)
+   D4=Seed(L3, I4)
+   F4=Succ + E1
+   
+10. Look for what referred to the preimage of each of the arguments that was
+   filled in: images: D4, S4, F4; preimages: D2, S2, F2. Then look for what
+   referred to the preimages that we haven't built yet. R2 referred to S2,
+   so we create an image of R2.
+   R4=Repeat(_image(S2), _image(D2), _image(F2))
+   All these images are already defined, so:
+   R4=Repeat(S4, D4, F4)
+
+11. Now we try to run R4 to paint S4, but it fails because Skip(3) tries to
+   take the successor of 'z'.
+
+
+DESIRED END STATE
+
+   R5=Repeat(S4, Seed('z', 3), Pred + Skip, Direction(RightToLeft))
+   mirror=True?
+
+DESIRED WAY TO GET THERE
+
+   Tag the snag.
+
+   Notice that 'a' and 'z' have something in common: they're the "bookend"
+   letters of the alphabet ('a' has no successor, 'z' has no predecessor).
+
+   That should trigger a search for a mirror-image repeater.
