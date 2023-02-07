@@ -91,7 +91,7 @@ MEDIUM-LEVEL HOW WE GET THERE
    K1=N.rhs.3
 
    Now we look for ways to tag K1 with something of interest, and then look
-   for other cells to tage with something similar.
+   for other cells to tag with something similar.
 
    T1=Rightmost(K1)
    
@@ -122,3 +122,7 @@ There needs to be an Opposite tag, or Mirror painter.
 
 Maybe Direction(RightToLeft) should be "added" to R5 the way exceptions are.
 "Adding" an argument might be a nice way to incorporate optional arguments.
+
+To make the analogy satisfactorily, we need a reason why the mirroring is
+satisfactory. And I think that's because a single "mirror" operation should be
+all that's needed to rescue R4.
