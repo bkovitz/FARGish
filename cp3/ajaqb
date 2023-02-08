@@ -70,7 +70,7 @@ REGENERATION from 'a____'
 1. R1 detector sees the 'a'
    B1=BasedOn(R1, R3)    preimage, image
    R3=Repeat(S4, D1, F1, E1)   The only difference is .snippet
-   S4=Snippet(inside=S1', range=(1, 3))
+   S4=Snippet(inside=S1', range=(1, 3))   wants to paint 'aja__'
 
    Does R1 need to be copied to the workspace? I don't think so; R3 is in
    effect that copy.
@@ -80,7 +80,7 @@ REGENERATION from 'a____'
 2. R2 detector sees the 'a'
    B2=BasedOn(R2, R4)
    R4=Repeat(S5, D2, F2, E2)   The only difference is .snippet
-   S5=Snippet(inside=S1', range(1, 3))
+   S5=Snippet(inside=S1', range(1, 3))   wants to paint 'aqb__'  (bad painter)
 
    TODO: How do we decide on the length of S5?
 
@@ -176,6 +176,8 @@ REGENERATION from 'a____'
    Do we get any circular painting now? What else could paint R4?
    Or could we just go on the basis of clarity? What else paints a 'j'
    in S6.2? There is only one painter that paints at S6.2, and that's R4.
+
+   NEXT: Draw a graph of who paints what.
    
 
    
