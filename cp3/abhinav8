@@ -1,0 +1,38 @@
+AGENDA
+
+1. Figure out what each edge represents.
+2. Identify the basis of thinking that cycles matter.
+3. What rules determine placing edges and deciding whether a cycle is good?
+
+
+WHY ARE CYCLES IN ANALOGIES GOOD?
+
+Because cycles describe attractors in an update process. That's how it worked
+in the Hopfield net. But in c&p, we don't have painters altering canvas cells
+back and forth. What sort of attractor is there in the dynamics of c&p?
+
+Snippets never change (more than once), but the final canvas changes as
+snippets get more and less weight. Is there any attractor for the final
+canvas and the weights of the snippets? The main concern is the final canvas;
+the snippet weights affect it.
+
+What makes a snippet's weight change? Perhaps "repainting" occurs in the form
+of occasional repeated spreading activation, where high-clarity snippets and
+cells (like the given letters) cause activation to flow to painters that
+read from them as arguments, or, better yet, paint them correctly.
+
+   In cp1, a painter that reads from a high-clarity cell and writes to a
+   low-clarity cell has high probability of running.
+
+
+coherence => stability
+
+stability is the sine qua non of analogy
+
+
+
+clarity <=> stability ?
+
+
+Hyp.: People dislike instability as such. So, the mere recognition that an
+idea is unstable is enough to make people flee it.
