@@ -1,0 +1,178 @@
+abc -> abd; iijjkk -> ?
+S1     S2   S3        S4
+
+
+We start by looking at the Old World.
+
+1. Repetition detector:   'abc'
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, I1)
+   L1='a'
+   I1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:   'abd'
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, I2)
+   L2='a'
+   I2=1
+   F2=Succ+E1
+   E1=Exception(G1, I3)
+   G1=Skip
+   I3=3
+
+3. Sameness detector:
+   Q1=Same(D1, D2)
+
+4. OtherSide detector:
+   Q2=OtherSide(S1, S2)
+
+5. Sameness detector:
+   Q3=Same(F1, F2, E1)
+
+Now we start looking at the New World.
+
+6. Repetition detector:   'ii'
+   R3.1=Repeat(S3.1, D3.1, F3.1)
+   S3.1=Snippet(inside=S3, range=(1, 2))
+   D3.1=Seed(L3.1, K3.1)
+   L3.1='i'
+   K3.1=1
+   F3.1=Same
+
+7. Repetition detector:   'jj'
+   R3.2=Repeat(S3.2, D3.2, F3.2)
+   S3.2=Snippet(inside=S3, range=(1, 2))
+   D3.2=Seed(L3.2, K3.2)
+   L3.2='j'
+   K3.2=1
+   F3.2=Same
+
+8. Repetition detector:   'kk'
+   R3.3=Repeat(S3.3, D3.3, F3.3)
+   S3.3=Snippet(inside=S3, range=(1, 2))
+   D3.3=Seed(L3.3, K3.3)
+   L3.3='k'
+   K3.3=1
+   F3.3=Same
+
+9. Repetition detector:   'ii','jj','kk'
+   R4=Repeat(S3, D3.1, F4, where=WH1)
+   F4=Succ
+   WH1=seed.letter    WH means "where" to find the relevant thing to take
+                      the successor of
+
+Now, can R4 reconstruct R3.1 from R3.2? Can R4 reconstruct all three from
+scratch? Somehow the Succ painter must be able to create a repeater given
+a repeater.
+
+How can R4 paint the first snippet (S3.1)?
+
+Looking at the size of S3 will help decide lengths of subsnippets.
+Another clue is the number of subsnippets: 3.
+
+Maybe R4 makes the subsnippets and associates each one with an icon or "seed",
+from which the subsnippets can grow their own repeaters.
+
+   F4=Succ, len=2
+
+   F4=Succ
+   F5=Same(.len)
+
+R4 needs a seed that specifies the first snippet. Then R4's operation makes
+the next snippet, over and over.
+
+Somehow R4 must know that its snippet is a collection of snippets, not
+letters.
+
+   D4=Seed(snippet of length 2, .seed.letter='i', .index=1)
+                                 ^ goes into the
+                                 repeater created
+                                 by R4
+
+aqqqarrra
+aQa aRa     the letter in the middle is the "icon" of the group
+
+Maybe have each operation (Same, Succ, Pred) have its own icon definition.
+Actually, for all these operations, the first letter may make the icon.
+In other kinds of snippet, something about the exception makes the icon.
+
+
+4 levels of snippet:
+a a a p q q r a a a  b  b  b  p  q  q  r  b  b  b  c  c  c  p  q  q  r  c  c  c
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
+
+S1=aaapqqraaa
+S11=aaa S12=pqqr S13=aaa
+
+
+R=Repeat(S, (1, 'a'), Succ, element_ctor=R1)
+S=(S1, S2, S3, range(1,30))
+
+S1 = (len=10, range(1,10), S11, S12, S13)
+
+S11
+
+R1=Repeat(S1, 
+
+The top-level repeater needs all the information to create the 2nd-level
+repeater. The 2nd-level repeater needs all the information to create the
+3rd-level repeater. This implies that the top-level repeater contains all
+the information needed to create the 3rd-level repeater.
+
+Can you take the successor of a repeater?
+
+NEXT: How can the model start breaking up a long string into snippets?
+THEN: How can a repeater construct sub-repeaters? The repeaters need to be
+able to run starting from different seeds.
+
+
+CONTINUATIONS??
+
+Could we use the concept of a 'continuation'?
+
+def do_something(arg, success-continuation, failure-continuation):
+   . . .
+   if succeeded:
+      return success-continuation()
+   else:
+      return failure-continuation()
+
+def do_something(arg, k):
+   . . .
+   y = dkshjfjkdshjfk
+   return k(y)
+
+def factorial(n, k):
+   if n <= 1:
+      return k(1)
+   else:
+      return factorial(n - 1, lambda m: k(n * m))
+
+
+def f1(f):
+   return lambda g: f(g)
+
+def f2(f):
+   return lambda g: f(f(g))
+
+def f3(f):
+   return lambda g: f(f(f(g)))
+
+print(f1)
+
+def rfact(n):
+   if n <= 1:
+      return 1
+   else:
+      return rfact(n - 1) * n
+
+factorial(3, identity)
+= factorial(2, f=lambda m: identity(3 * m))
+= factorial(1, lambda m: f(2 * m))
+= f(2 * 1) = f(2) = 6
+
+def identity(x):
+   return x
+
+factorial(5, identity)

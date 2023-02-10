@@ -1,4 +1,4 @@
-AGENDA
+AGENDA 9-Feb-2023
 
 1. Figure out what each edge represents.
 2. Identify the basis of thinking that cycles matter.
@@ -36,3 +36,49 @@ clarity <=> stability ?
 
 Hyp.: People dislike instability as such. So, the mere recognition that an
 idea is unstable is enough to make people flee it.
+
+
+CYCLE DEFINITION
+
+'image of' makes an edge, but only between repeaters.
+
+'paints' makes an edge.
+
+Edges are bidirectional even though 'image of' and 'paints' have direction.
+
+A cycle that goes through a repeater and another repeater in the "old world"
+is best. That shows that the analogy preserves a relationship between
+repeaters in the "old world".
+
+
+AGENDA 10-Feb-2023
+
+? List model elements
+? abcd -> abcde; pqr -> ?
+? abc -> abd; iijjkk -> ?  <--TODAY
+
+
+MAJOR BREAKTHROUGHS
+
+   PHYSICS
+
+      Galilean relativity
+      Newton's laws of motion
+      Newton's law of gravity
+      Newton's law of cooling
+      Hamiltonian reformulation
+      Carnot cycle
+      Boltzmann's theory of heat
+      Relativity
+      Quantum mechanics
+
+   CHEMISTRY
+
+      Periodic table / valence
+      Dalton's law (small-integer ratios in reactions)
+      The atom
+      Polymers
+
+   NEUROSCIENCE
+
+      Hodgkin-Huxley model
