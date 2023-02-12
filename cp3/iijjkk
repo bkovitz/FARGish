@@ -62,6 +62,104 @@ Now we start looking at the New World.
    WH1=seed.letter    WH means "where" to find the relevant thing to take
                       the successor of
 
+Given D3.1, F4, WH1, can we regenerate S3?
+
+Instead of D3.1, let the seed be R3.1, maybe with more info.
+
+R4=Repeat(S3, R3.1, F4)
+
+R4=Repeat(S3, D4, F4)
+D4=Seed(R3.1, S3.1)
+
+What is the successor of D4?
+
+painter to get from R3.1 to R3.2: "pheromone" that says that this painter
+performs "successor" in this context
+
+From-snippet-to-snippet successor:
+   look at 1st letter in 1st snippet
+   take its successor
+   make repeater for 2nd snippet, with that letter as its seed
+   to make a repeater requires generating up to 4 arguments
+
+From S3.1 to S3.2:
+   S3.1[1] = 'i'
+   Succ('i') = 'j'
+   S3.2 = Next snippet
+   D3.2 = Seed('j', 1)
+   F3.2 = Same
+
+   Therefore, we must have a painter that knows how to supply the arguments to
+   R3.2: S3.2, D3.2, F3.2 as functions of S3.1. 'Same' given by a constant
+   function, i.e. the function ignores its argument.
+
+   R4SUCC=SnippetToRepeater(S3.1, S3.2, Succ(S3.1
+
+From R3.1 to R3.2:
+   .snippet to .snippet:  ConsecutiveSnippets
+   .seed to .seed:        Succ(.letter), Same(.index)
+   .op to .op             Same(.op)
+   We're building a new function/painter that works like Succ. Call it RSucc.
+   Succ(I, J) is implemented by Python code. But RSucc(r1, r2) must be
+   implemented by painters.
+   RR1=
+
+IDEA: custom subst, local subst
+   RR1=Repeat(SS1, DD1, FF)
+   RR2=Repeat(SS2, DD2, FF)
+   Consecutive(SS1, SS2)
+   DD1=Seed(LL1, II)
+   DD2=Seed(LL2, II)
+   Succ(LL1, LL2)
+
+   We can treat this cluster of painters as a painter, where given some of the
+   free variables, we can fill in the others.
+
+   ThePainterAbove(SS1, SS2, FF, LL1, II, LL2)
+   Given RR1, can derive RR2 (and vice versa), because:
+      Given SS1, can derive SS2 (and vice versa).
+      Given DD1, can derive DD2 (and vice versa), because:
+         Given LL1, can derive LL2 (and vice versa).
+         Given II, can't derive anything but that's enough.
+      Given FF, can't derive anything but that's enough.
+   Pass ThePainterAbove a subst with some but not all of the variables, and it
+   will return a subst with the remaining variables filled in.
+   
+
+   
+
+IDEA: just make painters for any trans-snippet relation we see
+
+NEXT (13-Feb-2023): Figure out how to construct a painter to go from an
+attribute of one snippet to an attribute of the next snippet. An "attribute"
+here could be a parameter of a repeater that fills the snippet.
+
+ALSO: See what else can be done with "painter cluster with local subst" is a
+painter. With that, the model can "program" its own painters? Look at more
+examples. In particular, can we do 'ijl' this way? Can we do 'ajaqb' this way?
+
+
+Treat painter arguments as canvas cells.
+   Value relations
+      canvases: Same, Succ, Pred
+      painters: relations between arguments
+   Spatial relations
+      canvases: I,J; Apart; next cell
+      painters: .parameter
+
+Succ(I, J)   relation between values
+In the master Subst, I=3, J=5
+
+What kinds of painter arguments have we seen so far?
+   which snippet
+   operation  (Same, Succ, Pred)
+   letter
+   relative indices
+   seeds
+   exceptions
+   exception ops   (Skip, Replace)
+
+
 Now, can R4 reconstruct R3.1 from R3.2? Can R4 reconstruct all three from
 scratch? Somehow the Succ painter must be able to create a repeater given
 a repeater.
@@ -176,3 +274,15 @@ def identity(x):
    return x
 
 factorial(5, identity)
+
+
+IDEA: Instead of continuations, search for things in the workspace to trigger
+the next step--stigmergically.
+
+IDEA: Repeater tries to approximate string at top level, e.g. "lots of a's".
+
+IDEA: Maybe increase the flaw limit for longer strings. Or the flaw limit can
+be dynamically increased in response to pressure.
+
+IDEA: When repeater #1 finds a flaw, it marks it as a flaw and leaves it for
+another repeater to analyze.
