@@ -112,10 +112,15 @@ IDEA: custom subst, local subst
    DD2=Seed(LL2, II)
    Succ(LL1, LL2)
 
+
+
+   Succ(I, J)
+
+
    We can treat this cluster of painters as a painter, where given some of the
    free variables, we can fill in the others.
 
-   ThePainterAbove(SS1, SS2, FF, LL1, II, LL2)
+   ThePainterAbove(RR1, RR2, SS1, SS2, DD1, DD2, FF, LL1, II, LL2)
    Given RR1, can derive RR2 (and vice versa), because:
       Given SS1, can derive SS2 (and vice versa).
       Given DD1, can derive DD2 (and vice versa), because:
@@ -124,19 +129,44 @@ IDEA: custom subst, local subst
       Given FF, can't derive anything but that's enough.
    Pass ThePainterAbove a subst with some but not all of the variables, and it
    will return a subst with the remaining variables filled in.
+
+   Given SS1, can ThePainterAbove paint SS2?
+
+   The process:
+      What else refers to variable X?
+      Run all those painters and let them complete other variables.
+      Then re-run this process on those variables.
+
+   RR1=R3.1
+   RR2=Repeat(SS2, DD2, FF)   <-- when SS2, DD2, and FF are filled, we're done
+   SS1=S3.1
+   SS2=S3.2
+   DD1=Seed(LL1, II)
+   DD2=Seed(LL2, II)
+   FF=Same
+   LL1='i'
+   II=1
+   LL2='j'   <-- the key move
+
+   Could Succ be the "icon" of ThePainterAbove?
+   How did we find Succ(LL1, LL2)?
    
 
    
 
 IDEA: just make painters for any trans-snippet relation we see
 
-NEXT (13-Feb-2023): Figure out how to construct a painter to go from an
+(13-Feb-2023): Figure out how to construct a painter to go from an
 attribute of one snippet to an attribute of the next snippet. An "attribute"
 here could be a parameter of a repeater that fills the snippet.
 
-ALSO: See what else can be done with "painter cluster with local subst" is a
+ALSO: See what else can be done with "painter cluster with local subst" as a
 painter. With that, the model can "program" its own painters? Look at more
 examples. In particular, can we do 'ijl' this way? Can we do 'ajaqb' this way?
+
+NEXT (14-Feb-2023): Do the painter-cluster approach on 'ajaqb'. Then do it on
+'iijjkk' and see what new problems arise, like creating S4 with the right
+length.
 
 
 Treat painter arguments as canvas cells.

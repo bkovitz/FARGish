@@ -1,0 +1,131 @@
+EXAMPLE: The 'ijl' analogy, solved by painter clusters. Trying to work out the
+details of the idea.
+
+abc -> abd; ijk -> ?
+S1     S2   S3     S4
+
+
+ABSORPTION
+
+1. Repetition detector:
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, I1)
+   L1='a'
+   I1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, I2)
+   L2='a'
+   I2=1
+   F2=Succ+E1
+   E1=Exception(G1, I3)
+   G1=Skip
+   I3=3
+
+3. Detector for '->': we search for sameness and difference between R1 and R2.
+   We want a painter that, given R1 can make R2, and vice versa. This painter
+   would be a painter-cluster, constructed by the model.
+
+   If we compress all the 'Same's into common variables, we get:
+
+   TheCat(RR1, RR2, SS1, SS2, DD, FF1, FF2, GG)
+   RR1=Repeat(SS1, DD, FF1)
+   RR2=Repeat(SS2, DD, FF2)
+   OtherSide(SS1, SS2)
+   AddException(FF1, FF2, EE)
+   EE=Exception(GG, II)
+   GG=Skip     <-- GG and II are constants, not relations.
+   II=3        <-- what if SS2 has more than 3 cells?
+                   The best way to find II is to get it from context.
+                   Maybe have II refer to a tag, which then has to be placed
+                   in SS2?
+   
+   We could just say that when a painter in a cluster refers to a specific
+   index or letter, it must refer to a tag.
+
+   How do we create this painter-cluster, i.e. TheCat?
+
+      1. Start by choosing R1 and R2 as the painters to form a relation
+      between. This is because we're searching for a relation between S1 and
+      S2, and repeaters fill the snippets. To make a painter to go between
+      snippets, we make a painter that goes between whatever painters fill
+      those snippets.
+
+      2. Pair off the arguments of R1 and R2. When a pair is the same, give
+      them both the same variable in the cluster. When a pair is different,
+      search for a relation between them. That relation becomes a painter
+      added to the cluster.
+
+         If we can't find a relation between two variables, we might abort
+         constructing the painter-cluster.
+
+      3. When we find an index that has no relation across repeaters, we find
+      or invent a tag for that index, and we anchor the variable inside the
+      cluster to that tag.
+
+      4. Repeat step 2 for the arguments of each created object.
+
+   Inventing a tag:
+      We have II=3. Therefore we need to tag index 3. What is salient about
+      index 3? SOMEHOW a detector must notice that index 3 is the RightMost
+      index. Therefore:
+
+         II=AtTag(RightMost)   instead of II=3
+
+      We could add multiple tags.
+
+   Alternative idea, instead of predefining the index tags:
+      Just set II=3, but when running TheCat, there must be a process to say
+      "what is 'the 3'" in the new context? The idea is to pre-judge future
+      contexts as little as possible. In the new context, search for something
+      to play needed role.
+
+abc -> abd; ijklmn -> ?    want II=6; ijklmo   RightMost
+abc -> abd; wyz -> ?       want II=1?          Opposite(RightMost)
+abc -> abd; fjp -> ?       want II=3  fjo  weak relation, but good enough
+abc -> abd; rrijklww -> ?   want II=S2.4  rrijkmww  RightMost within S2
+abc -> abd; zzzzizzzzjzzzzzzzkzzz
+                           want II=18  zzzzizzzzjzzzzzzzlzzz
+
+      Based on these examples, it appears that just tagging the Old World
+      lhs's 3rd cell with RightMost will work well. We don't need to solve
+      all of these. And to get the 3rd and 4th problems, we could still try
+      to construct "RightMost in this context".
+
+REGENERATION
+
+4. Repetition-detector:
+   R3=Repeat(S3, D3, F3)
+   D3=Seed(L3, I4)
+   L3='i'
+   I4=1
+   F3=Succ
+
+5. Now that S3 is filled by a repeater (R3), try to run TheCat on R3:
+   TheCat(RR1=R3) returns:
+   RR1=R3 RR2=Repeat(S4, Seed('i', 1), Succ+Exception(Skip, 3))
+   + all the other variables needed for RR2 to refer to
+
+   Now how do we create new things in the workspace to reflect the subst that
+   TheCat returned?
+
+      Maybe just note which variables in the local subst got filled, and
+      add those to the workspace, maybe assigning them new variables.
+
+      What about S4? It looks like OtherSide simply refers to the variable
+      S4's definition in the workspace, i.e. in the global subst. So,
+      OtherSide just completes as OtherSide(S3, S4).
+
+
+6. Run RR2.
+   That fills S4, and we're done.
+
+If you pass a painter cluster a subst that makes some of the variables
+conflict with each other, the cluster should fail.
+
+Should we look for relations between all possible snippets? Maybe. At minimum,
+we look for relations between snippets separated by ->. Maybe the solution is
+that the model *could* look for a relation between any two snippets, but it
+prioritizes which snippet pairs it looks at (SOMEHOW).
