@@ -1,0 +1,92 @@
+Solving this problem with painter-clusters (compound painters):
+
+abc -> abd; iijjkk -> ?
+S1     S2   S3        S4
+
+
+ABSORPTION
+
+1. Repetition detector:   'abc'
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, I1)
+   L1='a'
+   I1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:   'abd'
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, I2)
+   L2='a'
+   I2=1
+   F2=Succ+E1
+   E1=Exception(G1, I3)
+   G1=Skip
+   I3=3
+
+3. Detector for '->': we search for sameness and difference between R1 and R2.
+
+   Arrow(RR1, RR2, SS1, SS2, DD, FF1, FF2, GG)=
+   RR1=Repeat(SS1, DD, FF1)
+   RR2=Repeat(SS2, DD, FF2)
+   OtherSide(SS1, SS2)
+   AddException(FF1, FF2, EE)
+   EE=Exception(GG, II)
+   GG=Skip
+   II=3
+
+REGENERATION
+
+4. Repetition detector:   'ii'
+   R3.1=Repeat(S3.1, D3.1, F3.1)
+   S3.1=Snippet(inside=S3, range=(1, 2))
+   D3.1=Seed(L3.1, K3.1)
+   L3.1='i'
+   K3.1=1
+   F3.1=Same
+
+5. Repetition detector:   'jj'
+   R3.2=Repeat(S3.2, D3.2, F3.2)
+   S3.2=Snippet(inside=S3, range=(1, 2))
+   D3.2=Seed(L3.2, K3.2)
+   L3.2='j'
+   K3.2=1
+   F3.2=Same
+
+6. 'Diff' process looks at R3.1 and R3.2 and constructs this painter:
+   CustomSucc(RR1, RR2, SS1, SS2, DD1, DD2, FF1, FF2, LL1, LL2, II)=
+   RR1=Repeat(SS1, DD1, FF1)
+   RR2=Repeat(SS2, DD2, FF2)
+   Consecutive(SS1, SS2)
+   DD1=Seed(LL1, II)
+   DD2=Seed(LL2, II)
+   Succ(LL1, LL2)
+
+7. SOMEHOW repetition detector sees that CustomSucc can get from R3.1 to R3.2,
+   and tries building this repeater to fill S3:
+   R3=Repeat(S3, D3, F3)
+   D3=Seed(R3.1, S3.1)
+   F3=CustomSucc
+
+8. Run R3 to fill S3, including running all the generated repeaters, and see
+   that the result regenerates R3.1 and R3.2 and fills the rest of S3 with
+   the correct test. This produces painter R3.3:
+
+   R3.3=Repeat(S3.3, D3.3, F3.3)
+   S3.3=Snippet(inside=S3, range=(1, 2))
+   D3.3=Seed(L3.3, K3.3)
+   L3.3='k'
+   K3.3=1
+   F3.3=Same
+
+   (Or perhaps R3.3 got created first and R3 generated a copy. SOMEHOW the
+   model takes the copy and the copy to be the same thing.)
+
+   So, now the model is satisfied that S3 is complete.
+
+9. Run Arrow(RR1=R3). This yields:
+   R4=Repeat(S4, D3, F4)
+   F4=CustomSucc + Skip(3)
+
+10. Run R4, filling S4. This fills the empty snippet, and we're done.
+
+UNKNOWN: Exactly how to determine the length of S4.

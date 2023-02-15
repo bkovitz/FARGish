@@ -172,3 +172,19 @@ Succ?
 
 Solution: ?? Maybe the model never needs to do that, because CustomSucc is the
 only available operation thaht fits.
+
+
+Problem: How, when a compound painter produces a new snippet, which
+corresponds to an existing snippet, does the model determine that a new
+snippet should not be created, and instead, its variable should be set to
+the existing snippet? For example, CustomSucc generates a new snippet as
+well as a new repeater. Then again, sometimes this new snippet actually
+needs to be created to span some existing canvas cells.
+
+Solution: ??
+
+
+Problem: ??
+
+Solution: Marking canvas cells, snippets, and painters as "complete" if they
+have a painter that can regenerate them.

@@ -1,0 +1,110 @@
+ajaqb
+S0
+
+ABSORPTION
+
+1. Repetition detector:
+   R1=Repeat(S1, D1, F1, E1)
+   S1=Snippet(S0, SP1)
+   SP1=Span(1, 3)    Is this a good idea?
+   D1=Seed(L1, I1)
+   L1='a'
+   I1=1      relative index
+   F1=Same
+   E1=Exception(G1, I2)
+   G1=Insert(L2)
+   L2='j'
+   I2=2
+
+2. Repetition detector:
+   R2=Repeat(S2, D2, F2, E2)
+   S2=Snippet(S0, SP2)
+   SP2=Span(3, 5)
+   D2=Seed(L3, I3)
+   L3='a'
+   I3=1
+   F2=Succ
+   E2=Exception(G2, I4)
+   G2=Insert(L4)
+   L4='q'
+   I4=2
+
+3. Detect the overlap between S1 and S2, and make this painter via the 'diff'
+   process.
+   R3=Cluster(RR1, RR2, SS1, SS2, DD, FF1, FF2, EE1, EE2, GG1, GG2, LL1, LL2,
+              II1, II2)
+      RR1=Repeat(SS1, DD, FF1, EE1)
+      RR2=Repeat(SS2, DD, FF2, EE2)
+      Overlap(SS1, SS2)    <-- the only painter??
+      FF1=Same
+      FF2=Succ
+      EE1=Exception(GG1, II1)
+      GG1=Insert(LL1)
+      LL1='j'
+      II1=2
+      EE2=Exception(GG2, II2)
+      GG2=Insert(LL2)
+      LL2='q'
+      II2=2
+
+   R3 means "If you give me an analog of R1, I'll give you an analog of R2
+   (or vice versa)."
+
+REGENERATION   from 'a____'
+                    T0
+
+4. R1's detector sees 'a__' and fires, creating R1':
+   R1'=Repeat(T1, D1, F1, E1)
+   T1=Snippet(T0, SP3)
+   SP3=Span(1, 3)
+
+5. R2's detector sees 'a__' and fires, creating R2':
+   R2'=Repeat(T2, D2, F2, E2)
+   T2=Snippet(T0, SP4)
+   SP4=Span(1, 3)
+
+6. SOMEHOW choose to run R3 on R1'. Then R3(RR1=R1') creates this painter:
+   R2''=Repeat(T3, D1, F3, E3)
+   T3=Snippet(T0, SP5)
+   SP5=Span(3, 5)
+   F3=Succ
+   E3=Exception(G3, I5)
+   G3=Insert(L5)
+   L5='q'
+   I5=2
+
+   R3 must create the Overlap painter and leave it in the workspace to retain
+   the relation between snippets T1 and T3. We need that Overlap relation in
+   order to track cycles.
+
+7. R1' runs, filling snippet T1. T1 projects into the final canvas, producing:
+   'aja__'.
+
+8. R2' runs, filling snippet T2. T2 gives us two competing snippets for the
+   first three cells of the final canvas:
+   'aja__'
+   'aqa__'
+
+9. R2'' runs, filling snippet T3. T3 is linked to T1, so they together form
+   this final canvas:
+   'ajaqb'
+
+10. SOMEHOW R3 decides to run on R2'.
+   QUESTION: How do we know which parameter to fill with R2'?
+      Idea #1: Track with a BasedOn tag that RR2 was originally R2.
+      Idea #2: R3 will fail unification if run with RR1=R2', because
+      R2'.op ≠ Same. R3.FF1=Same but R2'.op=Succ.
+   Then R3(RR2=R2') creates the following:
+   R1''=Repeat(T-1, D1, F4, E4)
+   Snippet T-1 fails because it's off the left edge of the main canvas.
+
+   What happens if the model tries to extend the canvas? Will there still be
+   broken cycles of painters, as in the version without clusters?
+
+11. Since R3(RR2=R2') failed, there's nothing left to do.
+
+Did cycles emerge? Yes. But now instead of the 'image-of' or BasedOn relation,
+R2 and R2'' are related by the fact that 
+
+
+ajjja____  ==>  ajjjaqqqb
