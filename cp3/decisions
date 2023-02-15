@@ -1,0 +1,130 @@
+Decisions about the contents of the model. 14-Feb-2023
+
+
+---- ENTITIES ----
+
+Canvases / Snippets
+      
+   A canvas is a container that holds a sequence of letters, blanks, and/or
+   snippets.
+
+   At the start of every run, there is an "original canvas", whose cells are
+   "given", i.e. known to be correct. The object of a run of the model is
+   to fill the blanks in the original canvas.
+
+   A snippet is a canvas that maps to a span of another canvas. The other
+   canvas is called the snippet's "parent". The span of the snippet may be
+   larger or smaller than the part of the parent canvas that it maps to. A
+   snippet may have an unspecified length; such a snippet is effectively a
+   blank.
+
+   The final canvas is made by a projection of snippets, recreating the
+   original canvas but stretching and shrinking sections of the canvas
+   according to the spans of the snippets, and rewriting those sections
+   according to the contents of the snippets.
+
+   Every snippet must be associated with either a single Repeat painter that
+   fills it or a set of subsnippets that collectively fill it.
+
+   The model pre-parses a letterstring analogy into four snippets, tagged with
+   relations for -> and ;.
+
+   UNDECIDED: When we paint over a blank on a snippet, do we create a new
+   snippet to coexist with the one containing the blank, or do we simply modify
+   the original snippet?
+
+Proto-painters: predicates representing some sort of relationship among model
+elements.
+
+   Repeat(snippet, seed, op [, exception])
+
+      UNDECIDED: Should the exception be stored as a separate argument of
+      Repeat or as an adjunct to .op?
+
+   Same(left, right)
+
+   Succ(left, right)
+
+   Pred(left, right)
+
+   OtherSide(left, right)
+
+   OtherWorld(left, right)
+
+   Overlap(left, right)
+
+   Consecutive(left, right)
+
+   Every proto-painter has one or more "completers": functions that, given one
+   or more but not all of the proto-painter's arguments, can produce
+
+
+Painters: proto-painters whose parameters are filled with arguments (though
+possibly those arguments can be blanks).
+
+Compound painters:
+
+   @@
+
+Detectors
+
+   Associated with every proto-painter is a detector that can, if given two
+   arguments (or whatever is appropriate for the proto-painter), construct a
+   painter that, given one or some of the arguments, complete the relationship
+   by constructing the missing argument(s). This painter, in effect, paints
+   what is already there.
+
+Tags
+
+   ImageOf(pre, post)
+
+   Failed(element, reason)
+
+Misc. Entities
+
+   Seed(letter-or-snippet, relative-index)
+
+   Exception(exception_op, relative-index)
+
+      Skip
+
+      Insert(letter-or-snippet)
+
+      ReplaceWith(letter-or-snippet)
+
+   BasedOn(old-element, new-element)
+
+   Element relations:
+
+      -> between snippets
+      ;  between snippet pairs
+
+Substitutions
+
+   @@
+
+Workspace
+
+   @@
+
+---- ACTION ----
+
+Every timestep:
+
+   1. Ask every painter and detector, "What actions can do you do now?"
+
+   2. Choose an action and run it.
+
+   3. Update weights that affect probabilities of action choices, probability of   removing (forgetting) model elements, and which snippets project into the
+   final canvas.
+
+UNDECIDED: How the model decides when to stop.
+
+Analogy-construction
+
+   @@
+
+Settling on an attractor
+
+   UNDECIDED: What constitutes reaching an attractor state.
+
