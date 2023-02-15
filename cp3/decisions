@@ -132,3 +132,8 @@ Settling on an attractor
 
    UNDECIDED: What constitutes reaching an attractor state.
 
+
+---- TESTS ----
+
+If we use the most simplistic weights, like giving every action the same
+probability, the model should still function OK.

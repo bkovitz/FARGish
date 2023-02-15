@@ -3,6 +3,9 @@ Solving this problem with painter-clusters (compound painters):
 abc -> abd; iijjkk -> ?
 S1     S2   S3        S4
 
+       ab  d
+            i ij jk k
+
 
 ABSORPTION
 
@@ -69,7 +72,7 @@ REGENERATION
 
 8. Run R3 to fill S3, including running all the generated repeaters, and see
    that the result regenerates R3.1 and R3.2 and fills the rest of S3 with
-   the correct test. This produces painter R3.3:
+   the correct text. This produces painter R3.3:
 
    R3.3=Repeat(S3.3, D3.3, F3.3)
    S3.3=Snippet(inside=S3, range=(1, 2))
