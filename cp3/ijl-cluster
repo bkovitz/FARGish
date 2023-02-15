@@ -20,8 +20,8 @@ ABSORPTION
    L2='a'
    I2=1
    F2=Succ+E1
-   E1=Exception(G1, I3)
-   G1=Skip
+   E1=Exception(G1, I3)      operation, relative index
+   G1=Skip                   G because G follows F in the alphabet
    I3=3
 
 3. Detector for '->': we search for sameness and difference between R1 and R2.

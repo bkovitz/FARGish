@@ -101,6 +101,10 @@ Misc. Entities
 
 Substitutions
 
+   Every argument to every painter must be a variable defined in the master
+   Subst (one Subst shared by the whole workspace); painters inside compound
+   painters must have their arguments defined by a local-arguments Subst.
+
    @@
 
 Workspace

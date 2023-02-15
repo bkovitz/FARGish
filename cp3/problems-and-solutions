@@ -1,0 +1,65 @@
+Problem: How to create a custom Succ operation to make each consecutive
+snippet in 'iijjkk'.
+
+Solution: A painter-cluster:
+
+CustomSucc(RR1, RR2, SS1, SS2, DD1, DD2, LL1, LL2, II, FF)=
+   RR1=Repeat(SS1, DD1, FF)
+   RR2=Repeat(SS2, DD2, FF)
+   Consecutive(SS1, SS2)
+   DD1=Seed(LL1, II)
+   DD2=Seed(LL2, II)
+   Succ(LL1, LL2)
+
+
+Problem: How to settle on one of multiple competing snippets.
+
+Solution #1: Favor cycles in which repeaters have a path back to themselves in
+the graph of 'A paints B' and 'A is the image of B'.
+
+Solution #2: Spreading activation.
+
+
+Question: What actions should a painter generate?
+
+
+Problem: How can we detect repetitions, including allowing flaws?
+
+Solution: Write a crude repetition detector in Python, with a "flaw limit" as
+an argument: the number of wrong elements allowed.
+
+
+Problem: The "constants and variables" problem. In the Hopfield net, each cell
+is a variable and each index is a constant. Edges specify relations between
+variables and this can be applied to different values of those variables. But
+the Hopfield net has no way to represent relations between cell indices, hence
+no way to reconstruct the same spatial relation in different places on the
+canvas. If we specify a value in a cell as an anchor, so that the cell indices
+can be variables, linked by a relation in a painter (an "edge"), then the cell
+value becomes the constant--and the model can't respond to different values
+as anchors. 'abc' would be completely different from 'ijk'. We want some way
+that both the cell values and the cell indices could be variables at the same
+time.
+
+Solution: ??
+
+
+Problem: How do we run a painter in a new place?
+
+Solution #1: We construct a new painter, with the argument for the place
+replaced by something new. Possibly the painter completes itself by filling in
+other arguments by reconstructing the relationship from the given argument.
+
+Solution #2: We pass the new place as a Subst element to a compound painter.
+
+
+Problem: How do we "reach inside" another painter--specify elements of
+elements of arguments to that painter?
+
+Solution: Put all arguments into the master Subst, so that different painters'
+and elements' arguments can share the same variable and thus literally refer
+to the same thing. When constructing an analogy, we search for "what else
+refers to this variable?" and construct new analogous painters and elements
+that refer to the analogous variable, so we preserve the structure of
+relations among painter elements, elements of elements, etc.
+
