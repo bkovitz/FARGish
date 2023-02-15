@@ -1,7 +1,8 @@
 Problem: How to create a custom Succ operation to make each consecutive
 snippet in 'iijjkk'.
 
-Solution: A painter-cluster:
+Solution: Run a 'diff' process on the repeaters for 'abc' and 'abd' to make a
+painter-cluster:
 
 CustomSucc(RR1, RR2, SS1, SS2, DD1, DD2, LL1, LL2, II, FF)=
    RR1=Repeat(SS1, DD1, FF)
@@ -11,22 +12,31 @@ CustomSucc(RR1, RR2, SS1, SS2, DD1, DD2, LL1, LL2, II, FF)=
    DD2=Seed(LL2, II)
    Succ(LL1, LL2)
 
+This CustomSucc can run as the .op to make 'ii,jj,kk' as well as 'a,b,c'.
+
 
 Problem: How to settle on one of multiple competing snippets.
 
-Solution #1: Favor cycles in which repeaters have a path back to themselves in
-the graph of 'A paints B' and 'A is the image of B'.
+Solution #1: Search for cycles in the graph of who paints what:
+
+   a) Favor cycles in which repeaters have a path back to themselves in the
+   graph of 'A paints B (or vice versa)' and 'A is the image of B'.
+
+   b) Favor cycles that fill all the blanks.
 
 Solution #2: Spreading activation.
 
 
 Question: What actions should a painter generate?
 
+Answer: Completions. Anything else?
+
 
 Problem: How can we detect repetitions, including allowing flaws?
 
 Solution: Write a crude repetition detector in Python, with a "flaw limit" as
-an argument: the number of wrong elements allowed.
+an argument: the number of wrong elements allowed. Flaws include "replace one
+element", "skip one iteration", "insert one element".
 
 
 Problem: The "constants and variables" problem. In the Hopfield net, each cell
@@ -41,20 +51,38 @@ as anchors. 'abc' would be completely different from 'ijk'. We want some way
 that both the cell values and the cell indices could be variables at the same
 time.
 
+Variables feed into relations. Constants determine where a relation is
+recognized or triggered. Whatever you use as a trigger can't be a variable
+that plugs into the relation. "If you see an 'a' at cell I, paint a 'g' at
+cell I+2" makes the indices into variables and the cell values into constants.
+"Paint the opposite value from what is in cell 2 at cell 6" makes the
+indices into constants and the cell values into variables.
+
 Solution: ??
+   ? Have two kinds of painters: one with indices as constants and cell values
+   as variable, one with cell values as constants and indices as variables.
+
+   ? Combine the two kinds of painter into a composite painter.
+
+   ? Painters build painters.
 
 
-Problem: How do we run a painter in a new place?
+Problem: How do we run a painter in a new place? How do we build the same
+relationship starting from an anchor in a different place (a different
+anchor)?
 
 Solution #1: We construct a new painter, with the argument for the place
 replaced by something new. Possibly the painter completes itself by filling in
 other arguments by reconstructing the relationship from the given argument.
 
 Solution #2: We pass the new place as a Subst element to a compound painter.
+A compound painter in effect takes parameters that work as local variables.
+The compound painter typically just creates a new painter, though, so really
+this is still just a form of solution #1.
 
 
 Problem: How do we "reach inside" another painter--specify elements of
-elements of arguments to that painter?
+elements of arguments to that painter?  Succ(A, B.op.seed.letter)
 
 Solution: Put all arguments into the master Subst, so that different painters'
 and elements' arguments can share the same variable and thus literally refer
@@ -63,3 +91,84 @@ refers to this variable?" and construct new analogous painters and elements
 that refer to the analogous variable, so we preserve the structure of
 relations among painter elements, elements of elements, etc.
 
+
+Problem: How do we construct a group of multiple cells by analogy with another
+group?
+
+Solution: @@build a new painter, BasedOn the old painter; then look at all the
+painters that referred to the variables in the old painter; build new painters
+with no variables corresponding to those variables. This only works because of
+the master Subst.
+
+Solution #2: Compound painters?
+
+
+Problem: What was the problem, again? Something about larger entities.
+
+Solution: Snippets that are filled by repeaters.
+
+
+Problem: How do we prevent infinite loops resulting from a painter triggered
+by an X, which paints another X--hence triggering itself again (due to the new
+X)?
+
+Solution: We make every repeater fill its snippet. So, every repeater is an
+infinite loop, but it's bounded by the space that it's in.
+
+
+Problem: How do we allow a variable number of blanks? For example:
+
+   abcd -> abcde; pqr -> ?
+
+The ? means that we don't know yet how long the answer should be.
+
+Solution: A snippet with an unspecified length.
+
+
+Problem: How do we prevent an infinite quadratic explosion of metapinters,
+metametapainters, and so on?
+
+Solution: Most kinds of metapinters don't get metametapainters. Some are the
+end of the line of "making a painter to recreate this". We only build a
+compound painter when we see a relationship between two painters.
+
+I don't know if this problem is completely solved. If two compound painters
+have a relationship with one of the painters that led to their creation, we
+could still get infinite growth of metapainters.
+
+
+Problem: How do we prevent growth of too many variant painters?
+
+Solution: ?? Too early to solve; we haven't seen the problem enough yet.
+
+
+Problem: How do we allow flexibility in repeaters, so that, say, they can
+include multiple flaws?
+
+Solution: We don't solve this problem. We accept it as a limitation of the
+model. The model demonstrates the power as well as the limits of the painter
+concept when unsupplemented by additional mechanisms for flexibility.
+
+
+Problem: How do we get the New World to influence the choice of the Arrow
+painter? For example, resolving ambiguous grouping:
+
+   aaabac -> aaabacad; ijk -> ?     ijkl
+
+   aaabac -> bacaaa; ij -> ?        ji
+
+Solution: ?? Still unsolved.
+
+   
+
+Problem: How do we detect something that stands out against what surrounds it?
+
+Solution: The repetition-detector does this, implemented in Python code
+(opaque to the model). It represents the "oddball" by a flaw.
+
+
+Problem: How can the model tell that a CustomSucc corresponds to the built-in
+Succ?
+
+Solution: ?? Maybe the model never needs to do that, because CustomSucc is the
+only available operation thaht fits.
