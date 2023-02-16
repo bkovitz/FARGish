@@ -132,6 +132,11 @@ Solution: Most kinds of metapinters don't get metametapainters. Some are the
 end of the line of "making a painter to recreate this". We only build a
 compound painter when we see a relationship between two painters.
 
+Solution: A cell or painter is considered "complete" where there is a painter
+that can regenerate it from its relation to something else. The model searches
+for ways to complete everything that is currently incomplete, giving highest
+priority to original blank canvas cells. 
+
 I don't know if this problem is completely solved. If two compound painters
 have a relationship with one of the painters that led to their creation, we
 could still get infinite growth of metapainters.

@@ -1,0 +1,31 @@
+abc -> cba
+S1     S2
+
+
+1. Repetition detector:   'abc'
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, K1)
+   L1='a'
+   K1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:   'cba'
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, K2)
+   L2='c'
+   K2=1
+   F2=Pred
+
+   This is not so good. We want to perceive the mirror relation. To get that,
+   we need the seed to be the same for both repeaters but the direction to be
+   opposite.
+
+3. Detector:
+   Q1=Same(I1, J1)
+   I1=S1/3
+   J1=S2/1
+   Leftmost(S2, J1)
+   Rightmost(S1, I1)
+
+   Now how does this lead to seeing a mirror relation? The Mirror detector
+   has to see this, and maybe at the same time see the Succ/Pred relation.
