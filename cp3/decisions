@@ -137,3 +137,15 @@ Settling on an attractor
 
 If we use the most simplistic weights, like giving every action the same
 probability, the model should still function OK.
+
+
+
+---- TO BE DECIDED ----
+
+Inside a painter-cluster, should we have one variable, like DD, for elements
+that are the same across two or more painters, or should we have a Same
+painter to relate them?
+
+
+How can we anchor an index to "the most salient thing here" without
+predefining what the salience will be in a new context?

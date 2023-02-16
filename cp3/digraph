@@ -1,0 +1,8 @@
+Digraph(left, right)
+
+A Digraph puts canvas elements (cell values and/or snippets) into consecutive
+cells/elements of a canvas.
+
+Digraph('a', 'b')
+
+If the same Digraph occurs in many places, the model may want to incorporate it into repeaters and compound painters.

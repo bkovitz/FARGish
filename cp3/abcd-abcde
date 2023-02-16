@@ -1,0 +1,42 @@
+abcd -> abcde; pqr -> ?
+S1      S2     S3     S4
+
+
+1. Repetition detector:   'abcd'
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, I1)
+   L1='a'
+   I1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:   'abcde'
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, I2)
+   L2='a'
+   I2=1       a relative address
+   F2=Succ
+
+3. Detector for '->': we search for sameness and difference between R1 and R2.
+   Arrow(RR1, RR2,
+   RR1=Repeat(args)
+   RR2=Repeat(args)
+   Same(RR1, RR2)   <-- wrong: R1.snippet ≠ R2.snippet
+
+   We find that we don't need a painter-cluster here.
+
+4. Detector for '->': we search for a relation between S1 and S2.
+   Arrow(SS1, SS2, RR, NN1, NN2)=
+   SS1=Snippet(.length=NN1, .filled_by=RR)
+   SS2=Snippet(.length=NN2, .filled_by=RR)
+   Succ(NN1, NN2)
+
+   CONCLUSION: Painters need named arguments. Specifications of painters in
+   clusters should be able to refer to some of a painter's arguments and not
+   need to specify all. If a cluster constructs a partial object, it can be
+   completed by some other element later.
+
+   CONCLUSION: The Arrow painter should relate snippets, not repeaters.
+   DOUBT: This was based on the mistaken conclusion that R1 and R2 are the
+   same. Im fact, their .snippet arguments are different.
+
+   Should we have a Same painter inside Arrow?

@@ -29,6 +29,7 @@ ABSORPTION
 3. Detector for '->': we search for sameness and difference between R1 and R2.
 
    Arrow(RR1, RR2, SS1, SS2, DD, FF1, FF2, GG)=
+   Arrow(          SS1=S3, SS2=S4,           )
    RR1=Repeat(SS1, DD, FF1)
    RR2=Repeat(SS2, DD, FF2)
    OtherSide(SS1, SS2)
