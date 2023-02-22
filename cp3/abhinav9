@@ -1,0 +1,84 @@
+AGENDA
+
+1. List the main analogies and features that we have so far.
+2. Look at tags
+2. Look at doug28
+
+
+MAIN ANALOGIES AND FEATURES SO FAR
+
+abc -> abd; ijk -> ?
+   ijl-cluster
+   Worked out.
+
+ajaqb; m____ -> ?
+   ajaqb-cluster
+   Mostly worked out, except for prioritizing the best answer.
+
+abc -> abd; wyz -> ?
+   wyz-push
+   Not worked out: we need to snag-tagging and building a consistent "mirror"
+   cluster.
+   Not attempted yet with painter-clusters.
+
+abc -> abd; iijjkk -> ?
+   iijjkk-cluster
+   Mostly worked out.
+   Missing: repetition detector recognizes CustomSucc as a repeatable
+   operation; how to determine the length of the '?' snippet.
+
+abcd -> abcde; pqr -> ?
+   abcd-abcde
+   Not fully worked out. Need to see how to make a painter that paints a
+   snippet's length based on its relation to something else.
+
+
+UNRESOLVED ISSUES
+
+How to prioritize the best answer in 'ajaqb'.
+   Need to:
+      Determine which cycles are best. (Already done?)
+      Try it on a couple more examples.
+
+How to tag failure and have it lead to recovery.
+
+How to tag "the salient thing" and have that work in different contexts (see
+'abc-cba').
+
+How to detect a "mirror" relationship (as in 'wyz' and 'abc-cba').
+
+How to make a consistent "mirror" cluster (as in 'wyz').
+
+How to represent 'aaabac' as a successor group.
+
+How to make digraph painters, such as for 'aaa' and 'bac' in 'aaabac'.
+
+How the repetition detector can detect that a painter-cluster can serve as a
+repeated operation, especially when the painter-cluster painters a subsnippet.
+
+How to set the length of a variable-length snippet, especially as a relation
+to something else (as in 'abcd-abcde').
+
+Can a painter specify some but not all the arguments of something that it
+paints? (As in 'abcd-abcde', and setting all the snippet lengths to 2 in
+'doug28'.)
+
+How can we anchor an index to "the most salient thing here" without
+predefining what the salience will be in a new context? E.g. Rightmost,
+Leftmost, "the 'a'".
+
+
+The model will be ready to implement when it's clear that upcoming changes are
+small and/or additions rather than radical modifications.
+
+
+(Not needed to get started coding.)
+Are painter-clusters flexible enough?
+   This should become clear after a few more examples.
+
+(Not needed for coding. Needed only for dissertation.)
+What makes cycles so good?
+   Hypothetically, the attractors are at cycles.
+   And cycles imply coherence.
+
+

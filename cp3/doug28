@@ -1,0 +1,32 @@
+28. aaaaabccdddde -> aabbccddee; uvvvwwxxxxyz -> ?
+    S1               S2          S3              S4
+
+
+How can we make a repeater that just sets the length of every subsnippet to 2?
+Maybe have two Arrow painters: one is a repeater that copies all the snippets
+in sequence, and the other is a repeater that sets the length of each snippet
+to 2.
+
+Could we perceive S1 as a flawed S2?
+
+
+1. Repetition detections:
+   R1.1=Repeat(S1.1, Seed('a', 1), Same)
+   S1.1=Snippet(inside=S1, span(1, 5))
+   R1.2=Repeat(S1.2, Seed('b', 1), Same)
+   S1.2=Snippet(inside=S1, span(6, 6))
+   R1.3=Repeat(S1.3, Seed('c', 1), Same)
+   S1.3=Snippet(inside=S1, span(7, 8))
+   R1.4=Repeat(S1.4, Seed('d', 1), Same)
+   S1.4=Snippet(inside=S1, span(9, 12))
+   R1.5=Repeat(S1.5, Seed('e', 1), Same)
+   S1.5=Snippet(inside=S1, span(13, 13))
+
+   Can we make a repeater apply the Succ relationship across all the snippets
+   while allowing each to retain its own length?
+
+
+
+28a. aaaaaijkeeeeeeabc -> aaijeeab; ufghijklrrrr -> ?
+
+(Find the natural groups, without requiring a successor relation between them.)

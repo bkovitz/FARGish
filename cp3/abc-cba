@@ -127,16 +127,20 @@ X. SOMEHOW construct:
    Rightmost and Leftmost are the only possible start (or end) indices for any
    repeater.
 
-   Could the model create the Seed concept dynamically? Two of a repeater's
-   arguments are .start_index and .start_letter. Often we need to bundle these
-   together, hence the Seed object. But sometimes we don't; sometimes one of
-   them is redundant. So, could the model notice an occasion where it helps to
-   bundle these, and create something like this:
-      Bundle(.start_index, .start_letter)
+
+   IDEA: Could the model create the Seed concept dynamically? Two of a
+   repeater's arguments are .start_index and .start_letter. Often we need to
+   bundle these together, hence the Seed object. But sometimes we don't;
+   sometimes one of them is redundant. So, could the model notice an occasion
+   where it helps to bundle these, and create something like this:
+   Bundle(.start_index, .start_letter)
 
    'abc'
-   Seed(_, 1)
-   Seed('a', _)
+   Seed(_, 1)      Redundant?
+   Seed('a', _)    Redundant?
+
+   Wait a minute. A repeater needs a seed to specify *both* a letter and an
+   index. So, neither one can be redundant.
 
 
    exempli gratia

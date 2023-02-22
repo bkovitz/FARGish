@@ -1,0 +1,21 @@
+Suppose that we mostly refer to indices via tags, like Rightmost, Leftmost,
+Salient, The(letter), The(Oddball). Then a common process should go like this:
+
+   1. painter refers to something by tag
+   2. nothing in the relevant context has that tag
+   3. some other process looks for something to give that tag to
+   4. something in the relevant context gets the tag
+   5. the painter re-runs, this time successfully
+
+
+Opposite(tag)
+
+--------------------
+
+Let's look at seeds for repeaters.
+
+'abc'
+S1
+
+Repeat(S1, Seed('a', _), Succ, .dir=LeftToRight)
+Repeat(S1, Seed('c', _), Pred, .dir=RightToLeft)
