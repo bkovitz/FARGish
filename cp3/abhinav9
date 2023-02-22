@@ -1,8 +1,8 @@
 AGENDA
 
 1. List the main analogies and features that we have so far.
-2. Look at tags
 2. Look at doug28
+3. Look at tags
 
 
 MAIN ANALOGIES AND FEATURES SO FAR
@@ -34,6 +34,8 @@ abcd -> abcde; pqr -> ?
 
 
 UNRESOLVED ISSUES
+
+Does Repeat get the Exception as an optional argument, or does the .op?
 
 How to prioritize the best answer in 'ajaqb'.
    Need to:

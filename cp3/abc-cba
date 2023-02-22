@@ -2,6 +2,13 @@ abc -> cba; pqr -> ?
 S1     S2   S3     S4
 
 
+
+This would not work:
+Arrow: .start-letter 'a' to 'c'; .op Succ to Pred.
+
+
+FIRST ATTEMPT (16-Feb-2023)
+
 1. Repetition detector:   'abc'
    R1=Repeat(S1, D1, F1)
    D1=Seed(L1, K1)
@@ -161,3 +168,109 @@ Arrow(RR1=R1):
 ----------
 
 The same should happen without an arrow, e.g. 'abccba'.
+
+
+
+SECOND ATTEMPT
+
+1. Repetition detector:   'abc'
+   R1=Repeat(S1, D1, F1)
+   D1=Seed(L1, K1)
+   L1='a'
+   K1=1       a relative address
+   F1=Succ
+
+2. Repetition detector:   'cba'
+   R2=Repeat(S2, D2, F2)
+   D2=Seed(L2, K2)
+   L2='c'
+   K2=1
+   F2=Pred
+
+If we used relative indices, then we might be able to reconstruct S4 out of S3.
+
+Do we need a detector to convert R2 to relative indices?
+
+Or 
+
+   R3=Repeat(S3, D3, F3, DIR3)
+   D3=Seed(L3, K3)
+   L3='a'
+   K3=1               <--- relative index
+   F3=Succ
+   DIR3=RightToLeft   <--- ... because we're going right to left
+   
+How does the model detect RightToLeft?
+
+Maybe give Succ higher priority than Pred.
+
+   When we create a Succ painter, also paint a Pred painter.
+
+Maybe don't have a Pred painter. Just have Succ, which can optionally be
+combined with RightToLeft.
+
+   Against this idea: sometimes we want to perceive the start at the left.
+   Succ+RightToLeft makes you perceive the start at the end.
+   zyxwaaa
+
+   OTOH, the start-letter could still come at the 'end' of the string, i.e.
+   index 1 with RightToLeft.
+
+   For now, let's stick with having both Succ and Pred painters, and just
+   work out the rest of this example using Succ in both directions.
+
+3. Another detector builds a repeater for S2 that goes the other way:
+   R2A=Repeat(S2A, D2A, F2A, DIR2A)
+   D2A=Seed(L2A, K2A)
+   L2A='a'
+   K2A=1               <--- relative index
+   F2A=Succ
+   DIR2A=RightToLeft   <--- ... because we're going right to left
+
+3. The Diff process looks at R1 and R2 and constructs this painter:
+   Arrow(RR1, RR2, SS1, SS2, DD1, DD2, FF1, FF2, LL1, LL2)
+   RR1=Repeat(SS1, DD1, FF1)
+   RR2=Repeat(SS2, DD2, FF2)
+   OtherSide(SS1, SS2)
+   DD1=Seed(LL1, KK)
+   LL1='a'
+   DD2=Seed(LL2, KK)
+   LL2='c'
+   FF1=Succ
+   FF2=Pred
+
+   Should there be a mirror painter to convert between Succ and Pred?
+
+   This cluster is unsatisfactory because it's so arbitrary. It only has two
+   non-arbitrary relations: OtherSide and KK is the same for both seeds.
+   But the model should try to use it, because sometimes unsatisfactory is
+   the best you have.
+
+4. The Diff process looks at R1 and R2A and constructs this painter:
+   Arrow2(RR1, RR2, SS1, SS2, DD, FF, EE)
+   RR1=Repeat(SS1, DD, FF)
+   RR2=Repeat(SS2, DD, FF, DIR)
+   OtherSide(SS1, SS2)
+   DIR=RightToLeft
+
+5. Repetition detector:   'pqr'
+   R3=Repeat(S3, D3, F3)
+   D3=Seed(L3, K3)
+   L3='p'
+   K3=1       a relative address
+   F3=Succ
+
+6. Now the model tries running Arrow on the New World, specifically with
+   RR1=R3. This fails because R3's "LL1" is not 'a'. This causes unification to
+   fail. So, we tag Arrow(RR1=R3) with failure. But the model should not give
+   up yet.
+
+7. The model can address the failure tag by "fudging" the LL1 in Arrow(RR1=R3).
+   This yields:
+   Arrow1a(...)   same as Arrow except:
+   LL1='p'
+
+   Arrow1a can run. But Arrow1a must carry a Hack tag, to indicate its
+   inferiority. We still need to work it out in full, but we expect that this
+   tag will cause Arrow2's progeny to prevail.
+   
