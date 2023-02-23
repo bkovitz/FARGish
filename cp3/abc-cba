@@ -247,7 +247,7 @@ combined with RightToLeft.
    the best you have.
 
 4. The Diff process looks at R1 and R2A and constructs this painter:
-   Arrow2(RR1, RR2, SS1, SS2, DD, FF, EE)
+   Arrow2(RR1, RR2, SS1, SS2, DD, FF, DIR)
    RR1=Repeat(SS1, DD, FF)
    RR2=Repeat(SS2, DD, FF, DIR)
    OtherSide(SS1, SS2)
@@ -273,4 +273,50 @@ combined with RightToLeft.
    Arrow1a can run. But Arrow1a must carry a Hack tag, to indicate its
    inferiority. We still need to work it out in full, but we expect that this
    tag will cause Arrow2's progeny to prevail.
+
+   WTST: Arrow1a, even after it runs successfully, still loses to Arrow2.
+
+   Let's finish Arrow1a:
+   Arrow1a(RR1, RR2, SS1, SS2, DD1, DD2, FF1, FF2, LL1, LL2):
+   RR1=Repeat(SS1, DD1, FF1)
+   RR2=Repeat(SS2, DD2, FF2)
+   OtherSide(SS1, SS2)
+   DD1=Seed(LL1, KK)
+   LL1='p'                <--- the only change
+   DD2=Seed(LL2, KK)
+   LL2='c'                <--- but this is still terrible
+   FF1=Succ
+   FF2=Pred
    
+8. Let's run Arrow1a. It creates a new repeater, R4, which creates a new
+   snippet:
+   R4=Repeat(S4A, Seed('c', 1), Pred)
+   S4A=Snippet(.body='cba', .replaces=S4)
+
+9. Let's run Arrow2. It creates a new repeater, R5, which creates a new
+   snippet:
+   R5=Repeat(S4B, Seed('p', 1), Succ, RightToLeft)
+   S4B=Snippet(.body='rqp', .replaces=S4)
+
+   Now, why is S4B superior to S4A? It must have something to do with the
+   repeaters.
+
+   - R5 has a shorter (hence simpler) genealogy than R4.
+
+   - R5 uses only explicit letters from the New World (hence more pertinent to
+     context).
+
+   - The 'fudge' fix alone ought to count against R4. More fudges, worse
+     solution.
+
+   - More Same and less different is better, in the Arrow* painters. Arrow2
+     reuses seed (DD) and operation (FF). Arrow1a has to specify seeds (DD1
+     and DD2) and operations (FF1 and FF2). As Arrow2 sees it, both repeaters
+     use the same operation, so Arrow2 doesn't care what it is. The operation
+     is a variable rather than two constants. Similarly for the seeds.
+
+   - Arrow2 specifies a difference: a new direction. 
+
+
+   Does R4 use all the of available relationships?
+   mrrjjj

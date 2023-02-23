@@ -84,3 +84,34 @@ What makes cycles so good?
    And cycles imply coherence.
 
 
+
+
+CONVERSATION
+
+abc -> abd; mrrjjj -> ?
+
+Looking for relationships between 'abc' and 'mrrjjj'.
+I know the 'abc->abd' relation, so I look for a relation with something else.
+I see one that's based on the number of cells in the snippet.
+I see a,b,c are successors. m,rr,jjj are successors in the sense of number of
+cells in the snippet.
+I'm not able to translate the exception.
+I'm blanking out now.
+The problem I have is that I'm not able to match the exception in the Old
+World to that in the New World. How can I get from...?
+I think the answer should start with 'mrr'. But what next?
+First idea that comes to mind is four j's.
+Not a strong relationship there.
+What other relations do I have between the three snippets in the New World,
+apart from length?
+I'm trying to see if there is any other relation. I don't think there is.
+I just remember that the only relations are same, successor, and predecessor,
+so I'll go with this:
+
+   mrrjjjj
+
+
+mrrkkk
+
+
+Assets = Capital - Liabilities
