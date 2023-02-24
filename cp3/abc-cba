@@ -317,6 +317,10 @@ combined with RightToLeft.
 
    - Arrow2 specifies a difference: a new direction. 
 
+   Exactly how to make S4B prevail over S4A can be deferred until the model is
+   implemented. It will be some combination of numerical weights for the above
+   factors.
+
 
    Does R4 use all the of available relationships?
    mrrjjj

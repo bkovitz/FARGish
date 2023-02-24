@@ -1,0 +1,58 @@
+Moved from ijl-cluster, regarding the Seed in R1
+------------------------------------------------
+
+   Regard the Seed, we need some ability to remember that the original repeater
+   started at an 'a' and maybe that the original repeater operated on the lhs.
+
+   We could just say that when a painter in a cluster refers to a specific
+   index or letter, it must refer to a tag.
+
+   How do we create this painter-cluster, i.e. Arrow?
+
+      1. Start by choosing R1 and R2 as the painters to form a relation
+      between. This is because we're searching for a relation between S1 and
+      S2, and repeaters fill the snippets. To make a painter to go between
+      snippets, we make a painter that goes between whatever painters fill
+      those snippets.
+
+      2. Pair off the arguments of R1 and R2. When a pair is the same, give
+      them both the same variable in the cluster. When a pair is different,
+      search for a relation between them. That relation becomes a painter
+      added to the cluster.
+
+         If we can't find a relation between two variables, we might abort
+         constructing the painter-cluster.
+
+      3. When we find an index that has no relation across repeaters, we find
+      or invent a tag for that index, and we anchor the variable inside the
+      cluster to that tag.
+
+      4. Repeat step 2 for the arguments of each created object.
+
+   Inventing a tag:
+      We have II=3. Therefore we need to tag index 3. What is salient about
+      index 3? SOMEHOW a detector must notice that index 3 is the RightMost
+      index. Therefore:
+
+         II=AtTag(RightMost)   instead of II=3
+
+      We could add multiple tags.
+
+   Alternative idea, instead of predefining the index tags:
+      Just set II=3, but when running Arrow, there must be a process to say
+      "what is 'the 3'" in the new context? The idea is to pre-judge future
+      contexts as little as possible. In the new context, search for something
+      to play needed role.
+
+abc -> abd; ijklmn -> ?    want II=6; ijklmo   RightMost
+abc -> abd; wyz -> ?       want II=1?          Opposite(RightMost)
+abc -> abd; fjp -> ?       want II=3  fjo  weak relation, but good enough
+abc -> abd; rrijklww -> ?   want II=S2.4  rrijkmww  RightMost within S2
+abc -> abd; zzzzizzzzjzzzzzzzkzzz
+                           want II=18  zzzzizzzzjzzzzzzzlzzz
+
+      Based on these examples, it appears that just tagging the Old World
+      lhs's 3rd cell with RightMost will work well. We don't need to solve
+      all of these. And to get the 3rd and 4th problems, we could still try
+      to construct "RightMost in this context".
+

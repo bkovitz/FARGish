@@ -1,3 +1,14 @@
-NEXT Figure out how to represent aaabac as a successor group.
+Update the 'ijl-cluster' file so that the exception is added to the repeater,
+not the operation. DONE
+
+NEXT Do an example where we make use of tags to figure out an index, such as
+figuring out that the Skip goes at cell 3 in ijl-cluster, and/or the same
+thing in iijjkk-cluster.
+
+Plan out the programming.
+
+   Work out the function signatures.
+
+Figure out how to represent aaabac as a successor group.
 
 Figure out how to represent aaabac as a digraph: 'aaa' followed by 'bac'.

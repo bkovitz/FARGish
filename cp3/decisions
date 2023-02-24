@@ -142,6 +142,27 @@ probability, the model should still function OK.
 
 ---- TO BE DECIDED ----
 
+Shall we have all named arguments, or positional arguments?
+
+   Positional arguments, as in OtherSide(snippet1, snippet2), can be named
+   arguments easily: OtherSide(.left, .right).
+
+   The human-readable notation can use position by default for some arguments,
+   but the program should use named arguments everywhere.
+
+
+How can a painter specify just some of the arguments to another painter?
+
+   One example where this is needed: doug28. Somehow one painter must
+   specify that the length of each snippet will be 2 without specifying
+   content. The content should be brought over one snippet at a time from
+   the lhs.
+
+   Perhaps another example is any exception or direction change to a repeater.
+   An exception is an additional argument. AddException or ChangeDirection
+   could be just one painter: AddArgument(.exception=___).
+
+
 Inside a painter-cluster, should we have one variable, like DD, for elements
 that are the same across two or more painters, or should we have a Same
 painter to relate them?
@@ -149,3 +170,13 @@ painter to relate them?
 
 How can we anchor an index to "the most salient thing here" without
 predefining what the salience will be in a new context?
+
+How can we specify indices via tags, like RightMost or 'a', without
+predefining too much about the new context?
+
+   See step 5 of ijl-cluster. How does the model decide where to Skip?
+
+
+
+Do we have any use for an AddException or AddArgument painter, or is it enough
+to just make painter-clusters in which RR1 and RR2 differ by one argument?
