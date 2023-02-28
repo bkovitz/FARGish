@@ -1,0 +1,105 @@
+What are all the little changes that occur in the workspace, which
+collectively could produce attractors or limit cycles?
+
+------------------------------------------------------------------------
+
+To speak of attractors, we need to understand what the equilibrium points are:
+
+   Once you've found the solution to 'abc -> abd; ijk -> ?', you're stuck
+   there.  Any small change to the solution will quickly be rejected.
+
+   When the model (or a person) is at 'ijl', is there a process analogous to
+   "derivate = 0", where the solution keeps repainting itself forever?
+
+Let's look in 'ijl-cluster' at what happens once RR2 fills S4 with 'ijl'.
+
+   A repetition detector sees S4 and builds a repeater for it. This repeater
+   is exactly the same as RR2.
+
+   A differ sees R3 and RR2, and builds a painter-cluster to map between R3
+   and RR2.  This painter-cluster is identical to Arrow.
+
+Looking at 'diss/canvases.tex', we see that the above two painter-creation
+processes are part of 'process A': constructing painters to paint what is
+already there.
+
+Also, we see that the main delta that can provide perturbations from which to
+return to the attractor, is randomly erasing canvas cells and workspace
+painters. Random erasing is not the best way to define attractors for making
+this model demonstrate something about attractors in cognition, but it's
+something.
+
+Another kind of perturbation is exploring an alternate line of thought, like
+'aqb__', countering 'aja__'.
+
+------------------------------------------------------------------------
+
+Let's continue 'ijl-cluster' and see what happens when we allow 'process A'
+and random erasures to occur.
+
+The only cells we'll erase are in S4 (or canvases that cover S4).
+
+7. The model randomly erases the 'i' in S4. What does that mean, exactly, now
+   that we don't allow canvases to change? I guess it means that we add a
+   canvas S4', consisting of '_jl'.
+
+8. A repetition detector looks at S4'. It finds a successor repetition with
+   one flaw, so it generates this painter:
+   RX=Repeat(S4', DX, FX, EX)
+   DX=Seed(LX, IX)
+   LX='j'
+   IX=2
+   EX=Exception(GX, IXX)
+   GX=Skip
+   IXX=3
+
+   This painter is not identical to RR2. But it paints the same result: 'ijl'.
+
+7a. Now the model randomly erases the 'l' in S4. This creates S4'='ij_'.
+
+8a. A repetition detector looks at S4' and generates:
+   RX=Repeat(S4', Seed('i', 1), Succ)
+
+   This paints 'ijk' in S4'.
+
+   RX is not identical to RR2, and it paints a different result. Consequently,
+   Arrow does not create RX.
+
+9a. The differ compares R3 and RX and generates this painter:
+   BadArrow(RR1, RR2, SS1, SS2, DD, FF)
+   RR1=Repeat(SS1, DD, FF)      ; R3
+   RR2=Repeat(SS2, DD, FF)      ; RX
+   OtherSide(SS1, SS2)
+
+   So, why does BadArrow lose to Arrow? BadArrow is found in the New World
+   only, not in the Old World.
+
+   Observation: In reality, people do often say 'ijk' in this situation by
+   mistake.
+
+   Let's say that painters from the Old World get more activation, which they
+   can spread to the items they paint.
+
+   Then, if the total activation exceeds the limit, BadArrow and its progeny
+   will get squeezed by the sigmoid function for clipping excess activation
+   ("the rich get richer and the poor get poorer").
+
+   RX and BadArrow will still have positive activations. How will they fade
+   away?
+
+   S1 and S2 are strong sources of activation because they contain original
+   letters. These feed to R1 and R2, thence to Arrow, thence to R3 and RR2.
+   They don't feed to BadArrow, except indirectly through Arrow and R3.
+   So, BadArrow should always tend to have less activation than Arrow.
+
+   We might also give an activation bonus to Arrow for operating in both the
+   Old World and the New World. BadArrow connects only in the New World.
+
+   Instead of decaying the activation of every item by a constant percentage
+   every timestep, we could do "rich get richer, poor get poorer" every
+   timestep.
+
+   I am passably satisfied that this should tend to make the "drawing hands"
+   configuration tend to prevail over "dead ends", though it's not completely
+   clear. We might have to experiment a bit with tweaking the spreading
+   activation to make it work.

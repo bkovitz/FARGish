@@ -4,7 +4,7 @@ S0
 ABSORPTION
 
 1. Repetition detector:
-   R1=Repeat(S1, D1, F1, E1)
+   R1=Repeat(S1, D1, F1, E1)         'aja'
    S1=Snippet(S0, SP1)
    SP1=Span(1, 3)    Is this a good idea?
    D1=Seed(L1, I1)
@@ -17,7 +17,7 @@ ABSORPTION
    I2=2
 
 2. Repetition detector:
-   R2=Repeat(S2, D2, F2, E2)
+   R2=Repeat(S2, D2, F2, E2)         'aqb'
    S2=Snippet(S0, SP2)
    SP2=Span(3, 5)
    D2=Seed(L3, I3)
@@ -53,17 +53,17 @@ ABSORPTION
 REGENERATION   from 'a____'
                     T0
 
-4. R1's detector sees 'a__' and fires, creating R1':
+1. R1's detector sees 'a__' and fires, creating R1':
    R1'=Repeat(T1, D1, F1, E1)
    T1=Snippet(T0, SP3)
    SP3=Span(1, 3)
 
-5. R2's detector sees 'a__' and fires, creating R2':
+2. R2's detector sees 'a__' and fires, creating R2':
    R2'=Repeat(T2, D2, F2, E2)
    T2=Snippet(T0, SP4)
    SP4=Span(1, 3)
 
-6. SOMEHOW choose to run R3 on R1'. Then R3(RR1=R1') creates this painter:
+3. SOMEHOW choose to run R3 on R1'. Then R3(RR1=R1') creates this painter:
    R2''=Repeat(T3, D1, F3, E3)
    T3=Snippet(T0, SP5)
    SP5=Span(3, 5)
@@ -77,19 +77,19 @@ REGENERATION   from 'a____'
    the relation between snippets T1 and T3. We need that Overlap relation in
    order to track cycles.
 
-7. R1' runs, filling snippet T1. T1 projects into the final canvas, producing:
+4. R1' runs, filling snippet T1. T1 projects into the final canvas, producing:
    'aja__'.
 
-8. R2' runs, filling snippet T2. T2 gives us two competing snippets for the
+5. R2' runs, filling snippet T2. T2 gives us two competing snippets for the
    first three cells of the final canvas:
    'aja__'
    'aqa__'
 
-9. R2'' runs, filling snippet T3. T3 is linked to T1, so they together form
+6. R2'' runs, filling snippet T3. T3 is linked to T1, so they together form
    this final canvas:
    'ajaqb'
 
-10. SOMEHOW R3 decides to run on R2'.
+7. SOMEHOW R3 decides to run on R2'.
    QUESTION: How do we know which parameter to fill with R2'?
       Idea #1: Track with a BasedOn tag that RR2 was originally R2.
       Idea #2: R3 will fail unification if run with RR1=R2', because
@@ -101,10 +101,43 @@ REGENERATION   from 'a____'
    What happens if the model tries to extend the canvas? Will there still be
    broken cycles of painters, as in the version without clusters?
 
-11. Since R3(RR2=R2') failed, there's nothing left to do.
+8. Since R3(RR2=R2') failed, there's nothing left to do.
 
 Did cycles emerge? Yes. But now instead of the 'image-of' or BasedOn relation,
 R2 and R2'' are related by the fact that 
 
 
 ajjja____  ==>  ajjjaqqqb
+
+
+
+RUNNING ALL PAINTERS EVERY TIMESTEP
+
+Let's see what happens if we run every painter every timestep.
+
+Absorption:
+
+1. Repetition detector runs, makes R1.
+
+2. Repetition detector runs, makes R2.
+   R1 paints 'aja..'.
+
+...
+
+Let's skip absorption and just look at regeneration:
+
+1. R1's detector paints R1'.
+   R2's detector paints R2'.
+
+2. R1' paints 'aja..'   The .. means "not in the snippet".
+   R2' paints 'aqb..'
+
+   Instead of looking at 'a____', now the model looks at 'aja__' and 'aqb__'.
+   Now, will R1's and R2's detectors fire? Yes, and with more strength: the
+   match is complete instead of just one letter.
+
+   R1's detector repaints R1'.
+   R2's detector repaints R2'.
+   R3(RR1=R1') paints R2''
+   R3(RR1=R1') paints R2''
+

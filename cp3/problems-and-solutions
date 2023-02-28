@@ -29,6 +29,8 @@ Solution #1: Search for cycles in the graph of who paints what:
 
 Solution #2: Spreading activation.
 
+See weights-and-cycles.
+
 
 Question: What actions should a painter generate?
 

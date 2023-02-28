@@ -76,7 +76,7 @@ REGENERATION
       OtherSide just completes as OtherSide(S3, S4).
 
 6. Run RR2.
-   That fills S4, and we're done.
+   That fills S4 with 'ijl', and we're done.
 
 If you pass a painter cluster a subst that makes some of the variables
 conflict with each other, the cluster should fail. "Unification failure"

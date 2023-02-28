@@ -1,0 +1,123 @@
+How does the model give higher weights to better solutions?
+
+
+Various factors give different weights to different solutions.
+
+IN THEORY, what should tend to favor a solution is the fact that it keeps
+getting repainted. The model SHOULD work like ant-colony optimization:
+pheromone trails fade, so only the trails that get refreshed most often
+persist.
+
+
+Method #1 of favoring better solutions:     'spreading activation'
+
+   Painters fade; painters get refreshed when repainted.
+
+   Past experience, where painters faded and needed to be refresh: results
+   were extremely random, reflecting how often a painter happened to be chosen
+   to run in the next timestep. There were so many painters that any given
+   painter would tend to fade out before its repainter was chosen to run
+   again.
+
+   What if, instead of running one painter per timestep, we ran all painters
+   every timestep? This would work a lot more like spreading activation. Or
+   would whatever got painted first just increase its activation monotonically
+   forever? A way to get some painters to fade, though, would be to institute
+   competition: when the total activation of all painters exceeds some limit,
+   some indication of better and worse painters that is independent of
+   repainting (see Method #2) could allocate more of the limited activation to
+   the better painters, e.g. through a sigmoid function.
+
+   Alternative idea: all painters run every timestep, but once a painter has
+   painted, it can never paint again until something else repaints it. This
+   would favor complete cycles, because painters in a cycle get repainted
+   every timestep. Or, once a painter paints, give it a rest for a few
+   timesteps.
+
+
+   If we run all detectors every timestep, then in effect we are looking at
+   Cartesian products. (?)
+
+   Lessons learned from thinking about this so far:
+
+   1. There must be some way to reduce the activation of some painters.
+
+   2. The strength of a match should influence how much activation a painter
+      gets. E.g. starting from 'a____', the painter for 'aja' has a pretty
+      weak match. The location of the match should perhaps also figure into it,
+      giving the painter for 'aqb' a disadvantage right from the start.
+
+   3. Even under spreading activation, there must be some way to distinguish
+      stronger from weaker relationships, e.g. when 'a____' triggers the
+      painter for 'aja'.
+
+
+Method #2 of favoring better solutions:
+
+   The model seeks out cycles and tags them as superior; the model applies and
+   considers other tags, such as 'HACK'.
+
+   For example, in 'ajaqb' starting from 'a____' (see ajaqb-cluster), the
+   Overlap painter tries to paint off the left edge of the canvas, when given
+   a bad start (i.e. painting 'aqb__', calling for 'aja' to overlap with it to
+   the left). This gets tagged a failure, so the cycle from the LTM's original
+   painters doesn't complete. Failures can get fixed up, e.g. by extending the
+   canvas to the left. This would enable the cycle to complete, but it still
+   wouldn't paint anything in the last two blanks of the original canvas.
+   SOMEHOW this results in a tag that marks this as a flaw of the cycle. The
+   good solution, which fills the canvas with 'ajaqb', doesn't need to extend
+   the canvas and doesn't get the flaw tag for failing to fill all the blanks.
+
+   A flaw with Method #2: It can't model the 'limit cycle' behavior of the
+   Necker Cube.
+
+
+   Factors favoring better solutions:
+
+   1. Contradicting an original letter is bad.
+
+
+Method #3?
+
+   Associate a clarity level with each canvas cell value, each snippet, and
+   each painter. ...
+
+   Clarity is meant to represent consensus among many painters.
+
+
+   Suppose 5 painters paint 'a', 1 paints 'b', 1 paints 'c', 1 paints 'd',
+   1 paints 'e', 1 paints 'f'. Then, in cp2, the cell would likely have an 'a'
+   inn it much of the time, with a clarity of 1 or 2, but often the cell would
+   be blank and occasionally one of the other letters would appear with a
+   clarity of 1.
+
+   This is unsatisfactory because the painter that paints a 'c' gets almost no
+   chance to form a coalition with other painters, who might start by taking
+   the 'c' as input. What we want is a coalition of painters who work with
+   each other and agree with each other.
+
+
+WANT
+
+   1. The model should settle on a solution that is an attractor in the space
+   of possible solutions (and/or possible search steps). Or perhaps an
+   attractor in the space of workspace states.
+
+   2. The final solution should be internally coherent; it should work like
+   Drawing Hands. Painters should paint painters in cycles so that each
+   painter contributes to repainting itself.
+
+   3. Cycles of painters that make full use of the salient relationships in
+   both the Old and New Worlds should tend to prevail. E.g. make use of the
+   fact that 'ii','jj','kk' are all the same length, and the number of the is
+   the same as the length of 'abc'.
+
+   4. The winning string should result from a coalition of painters who build
+   on each other's output and agree with each other.
+
+
+NEXT
+
+   We need to figure out what are all the little changes that happen to the
+   workspace on any timestep. Understanding (or deciding) the deltas to the
+   workspace will shed light on the attractors.

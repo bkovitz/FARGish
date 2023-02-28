@@ -47,7 +47,7 @@ Moved from ijl-cluster, regarding the Seed in R1
 abc -> abd; ijklmn -> ?    want II=6; ijklmo   RightMost
 abc -> abd; wyz -> ?       want II=1?          Opposite(RightMost)
 abc -> abd; fjp -> ?       want II=3  fjo  weak relation, but good enough
-abc -> abd; rrijklww -> ?   want II=S2.4  rrijkmww  RightMost within S2
+abc -> abd; rrijklww -> ?  want II=S2.4  rrijkmww  RightMost within S2
 abc -> abd; zzzzizzzzjzzzzzzzkzzz
                            want II=18  zzzzizzzzjzzzzzzzlzzz
 
@@ -55,4 +55,21 @@ abc -> abd; zzzzizzzzjzzzzzzzkzzz
       lhs's 3rd cell with RightMost will work well. We don't need to solve
       all of these. And to get the 3rd and 4th problems, we could still try
       to construct "RightMost in this context".
+      
+
+Another reasonable solution--but not very reasonable--to the first analogy:
+
+   abc -> abd; ijklmn -> ?    II=3; ijllmn
+
+The model should have the ability to entertain this as well as the solution
+above. However, there is another factor here, weighing against this solution:
+the 'll' in the solution naturally gets parsed as a snippet, which doesn't
+correspond to anything in the Old World. You can perceive the solution as
+'ij,ll,mn'. And this lacks any good relation to 'abc', 'abc', or 'abc->abd'.
+Somehow the model needs to disfavor this solution.
+
+
+
+
+
 
