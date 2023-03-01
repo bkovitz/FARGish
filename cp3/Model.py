@@ -173,9 +173,9 @@ class Subst:
     def unify(self, lhs: Expr, rhs: Expr) -> Subst:
         # Is this all the unification we need? No need to store expressions
         # like I->J+2 and then set I to 5 if J gets unified with 3?
-        lo(lhs, type(lhs), rhs, type(rhs))
-        print(isinstance(lhs, PainterVariable), isinstance(rhs, Painter))
-        print('HERE')
+        #lo(lhs, type(lhs), rhs, type(rhs))
+        #print(isinstance(lhs, PainterVariable), isinstance(rhs, Painter))
+        #print('HERE')
         match (lhs, rhs):
             case (x, y) if x == y:
                 return self
