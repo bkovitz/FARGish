@@ -88,6 +88,8 @@ Searches
    A lookup table to determine when to run each search, or maybe just have a
       list of processes that should occur each timestep.
       FIGURE OUT THIS TABLE FIRST
+
+Spreading activation
       
 
 Reporting
@@ -104,3 +106,80 @@ Reporting
       Actions generated
       Action chosen
 
+------------------------------------------------------------------------
+
+Sequence in which to implement things
+
+Goal: get to 'abc->abd; ijk->?' as early as possible.
+
+
+Canvas
+   Letter
+   Blank
+   Span
+      Within another Canvas.
+      An easy way to extract the Span: either a Span specified when
+      the Canvas is created, or a Span derived from what's put in the
+      Canvas.
+   Recombine Canvases based on their spans.
+
+Parse 'abc->abd; ijk->?' into snippets (canvases).
+
+Painters referring to elements of Canvases, like their Spans, or elements
+of anything else.
+
+Repetition detection
+   flaw limit
+   Succ
+   Pred
+   Same
+   Skip
+   Replace
+   Insert
+
+Subst
+   generate a variable name
+
+Seed
+
+Painters
+   Repeat
+   OtherSide
+   OtherWorld
+
+   Exception
+
+Differ
+
+Absorb (make painters for Old World)
+
+Regenerate (make painters for New World)
+
+Tags
+
+Spreading activation
+
+
+Test cases:
+
+   Make 'abc', query its length.
+
+   Repeat(S, Seed('a', 1), Succ) => 'abc'
+
+   Parse 'abc->abd; ijk->?' into four snippets.
+
+   Detect repetition: 'abc'
+
+   Detect repetition with flaw: 'abd'
+
+   Diff R1 and R2 to get Arrow (as in 'ijl-cluster').
+
+   Run Arrow(RR1=R3), get 'ijl'.
+
+
+   Make 'jj' a subsnippet of 'iijjkk'.
+
+   Combine 'ii', 'jj', 'll' into 'iijjll'.
+
+   ... more stuff, for spreading activation, tags
+   
