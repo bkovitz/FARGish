@@ -5,6 +5,7 @@
 ifeq ($(shell hostname),samosa)  # Ben's MacBook Air M1
 PY = python3.10
 BROWSER = open
+MYPYPATH = /opt/homebrew/lib/python3.10
 else
 PY = PYTHONHASHSEED=0 python3.10
 BROWSER = google-chrome
@@ -32,6 +33,9 @@ mtest: mypy test
 # Static typecheck. Requires that 'mypy' be installed.
 mypy:
 	which mypy
+	echo $$MYPYPATH
+	echo $$BROWSER
+	echo $$PY
 	@echo -e \\n\\n\\n\\n\\n
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py # atest*.py
 

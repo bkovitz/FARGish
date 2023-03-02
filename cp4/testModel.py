@@ -10,5 +10,7 @@ from util import pts, reseed, short
 
 
 class TestCanvas(unittest.TestCase):
-    canvas = Canvas.make_from('abc')
-    self.assertEqual(len(canvas), 3)
+
+    def test_len(self) -> None:
+        canvas = Canvas.make_from('abc')
+        self.assertEqual(len(canvas), 3)
