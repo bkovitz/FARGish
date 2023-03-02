@@ -31,11 +31,13 @@ test: ut at
 mtest: mypy test
 
 # Static typecheck. Requires that 'mypy' be installed.
+#	which mypy
+#	which python3.10
+#	echo $$PATH
+#	echo $$MYPYPATH
+#	echo $$BROWSER
+#	echo $$PY
 mypy:
-	which mypy
-	echo $$MYPYPATH
-	echo $$BROWSER
-	echo $$PY
 	@echo -e \\n\\n\\n\\n\\n
 	$(MYPY) $(MYPY_FLAGS) $(SRCFILES) test*.py # atest*.py
 
