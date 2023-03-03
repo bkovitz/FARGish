@@ -44,3 +44,24 @@ class TestRepetitionDetection(unittest.TestCase):
         seed, op = got
         self.assertEqual(seed, Seed('e', 1))
         self.assertEqual(op, Same)
+
+class TestParseInputString(unittest.TestCase):
+
+    def test_abc_abd_ijk(self) -> None:
+        parsed = Canvas.parse_analogy_string('abc->abd; ijk->?');
+
+        expect_snippet1 = Canvas.make_from('abc')
+        expect_snippet2 = Canvas.make_from('abd')
+        expect_snippet3 = Canvas.make_from('ijk')
+        expect_snippet4 = Canvas.make_unknown()
+
+        self.assertEqual(
+            parsed,
+            [expect_snippet1, expect_snippet2, expect_snippet3, expect_snippet4]
+        )
+
+        # These canvases need "addresses": C.1, C.2, C.3, C.4
+        # These canvases also need variables: S1, S2, S3, S4
+        # There also need to be relations between these canvases: OtherSide
+        # and OtherWorld.
+

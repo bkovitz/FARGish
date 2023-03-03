@@ -162,15 +162,19 @@ Spreading activation
 
 Test cases:
 
-   Make 'abc', query its length.
-
-   Repeat(S, Seed('a', 1), Succ) => 'abc'
-
-   Parse 'abc->abd; ijk->?' into four snippets.
+   Make 'abc', query its length.  DONE
 
    Detect repetition: 'abc'
 
+      Same, Succ, Pred  DONE
+
+      no repetition: 'aqb'
+
+   Parse 'abc->abd; ijk->?' into four snippets.
+
    Detect repetition with flaw: 'abd'
+
+   Repeat(S, Seed('a', 1), Succ) => 'abc'
 
    Diff R1 and R2 to get Arrow (as in 'ijl-cluster').
 
@@ -183,3 +187,11 @@ Test cases:
 
    ... more stuff, for spreading activation, tags
    
+
+---------------
+TODO
+
+Canvas:  Unknown should have None for length
+ length: Optional[int]
+
+What should parse_analogy_string() do if it fails?

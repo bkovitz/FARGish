@@ -8,6 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain
+import re
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -28,6 +29,21 @@ class Canvas:
     @classmethod
     def make_from(cls, s: str) -> Canvas:
         return Canvas(s)
+
+    @classmethod
+    def parse_analogy_string(cls, s: str) -> List[Canvas]:
+        #old_world, new_world = s.split(";")
+        m = re.match('([a-z]+)\s*->\s*([a-z]+)\s*;\s*([a-z]+)\s*->\s*\?', s)
+        if m is not None:
+            return [
+                cls.make_from(group) for group in m.groups()
+            ] + [cls.make_unknown()]
+        else:
+            return []
+
+    @classmethod
+    def make_unknown(cls) -> Canvas:
+        return Canvas('')
 
     # TODO UT
     def __getitem__(self, i: Index) -> str:
