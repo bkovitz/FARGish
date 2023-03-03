@@ -69,15 +69,45 @@ class Op(ABC):
 
     # TODO UT  Fail when reaching 'z' or 'a'
     @classmethod
-    def make(cls, start_letter: str, n: int) -> str:
-        result: List[str] = [start_letter]
-        for _ in range(n - 1):
-            result.append(cls.next_letter(result[-1]))
+    def make(cls, start_letter: str, length: int, start_index: int=1) -> str:
+        return (
+            cls.reverse_sequence(start_letter, 1, start_index)
+            +
+            cls.sequence(start_letter, start_index, length)
+        )
+
+    @classmethod
+    def reverse_sequence(
+        cls,
+        start_letter: str,
+        from_index: Index,
+        end_index_exclusive: Index
+    ) -> str:
+        result: List[str] = []
+        for _ in range(from_index, end_index_exclusive):
+            start_letter = cls.prev_letter(start_letter)
+            result.append(start_letter)
+        result.reverse()
+        return ''.join(result)
+
+    @classmethod
+    def sequence(cls, start_letter: str, from_index: Index, to_index: Index) \
+    -> str:
+        result: List[str] = []
+        for i in range(from_index, to_index + 1):
+            if i != from_index:
+                start_letter = cls.next_letter(start_letter)
+            result.append(start_letter)
         return ''.join(result)
 
     @classmethod
     @abstractmethod
     def next_letter(cls, letter: str) -> str:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def prev_letter(cls, letter: str) -> str:
         pass
 
 class Succ(Op):
@@ -91,9 +121,15 @@ class Succ(Op):
                 return ord(x1) + 1 == ord(x2)
         return False
 
+    # TODO what about 'z'?
     @classmethod
     def next_letter(cls, letter: str) -> str:
         return chr(ord(letter) + 1)
+
+    # TODO what about 'a'?
+    @classmethod
+    def prev_letter(cls, letter: str) -> str:
+        return chr(ord(letter) - 1)
 
 class Pred(Op):
 
@@ -111,6 +147,11 @@ class Pred(Op):
     def next_letter(cls, letter: str) -> str:
         return chr(ord(letter) - 1)
 
+    # TODO what about 'z'?
+    @classmethod
+    def prev_letter(cls, letter: str) -> str:
+        return chr(ord(letter) + 1)
+
 @dataclass(frozen=True)
 class Same(Op):
 
@@ -121,6 +162,8 @@ class Same(Op):
     @classmethod
     def next_letter(cls, letter: str) -> str:
         return letter
+
+    prev_letter = next_letter
 
 def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
     if canvas.length is None:
@@ -133,7 +176,6 @@ def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
                 return Seed(start_letter, 1), op
     return None
 
-    
 @dataclass(frozen=True)
 class Seed:
     letter: str
@@ -146,7 +188,7 @@ class Repeat:
     op: Type[Op]
 
     def fill(self) -> None:
-        if self.seed.i == 1 and self.canvas.length is not None:
+        if self.canvas.length is not None:
             self.canvas.replace_contents(
-                self.op.make(self.seed.letter, self.canvas.length)
+                self.op.make(self.seed.letter, self.canvas.length, self.seed.i)
             )

@@ -65,6 +65,12 @@ class TestRepeat(unittest.TestCase):
         repeat.fill()
         self.assertEqual(str(canvas), 'abc')
 
+    def test_repeat_succ_seed_2(self) -> None:
+        canvas = Canvas.make_unknown(length=3)
+        repeat = Repeat(canvas, Seed('j', 2), Succ)
+        repeat.fill()
+        self.assertEqual(str(canvas), 'ijk')
+
 
 class TestParseInputString(unittest.TestCase):
 
