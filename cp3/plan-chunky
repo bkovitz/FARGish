@@ -170,11 +170,23 @@ Test cases:
 
       no repetition: 'aqb'
 
+      What sort of repetition should 'a' return?
+
+   Canvas return None for nonexistent element
+
    Parse 'abc->abd; ijk->?' into four snippets.
 
-   Detect repetition with flaw: 'abd'
+      Canvas addresses
+
+      Assign to snippet variables
+
+      OtherSide
+
+      OtherWorld
 
    Repeat(S, Seed('a', 1), Succ) => 'abc'
+
+   Detect repetition with flaw: 'abd'
 
    Diff R1 and R2 to get Arrow (as in 'ijl-cluster').
 
@@ -195,3 +207,11 @@ Canvas:  Unknown should have None for length
  length: Optional[int]
 
 What should parse_analogy_string() do if it fails?
+
+test_repeat_succ():
+   ws = Workspace()
+   ws.make_canvas('C', length=3)
+   repeat = Repeat('C', Seed('a', 1), Succ)
+   repeat.fill(ws)
+   self.assertEqual(str(ws.get_canvas('C')), 'abc')
+

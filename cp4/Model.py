@@ -22,13 +22,14 @@ Index = int
 
 ########## The canvas ##########
 
-@dataclass(frozen=True)
+@dataclass
 class Canvas:
     contents: str
+    length: Optional[int]
 
     @classmethod
     def make_from(cls, s: str) -> Canvas:
-        return Canvas(s)
+        return Canvas(contents=s, length=len(s))
 
     @classmethod
     def parse_analogy_string(cls, s: str) -> List[Canvas]:
@@ -42,16 +43,18 @@ class Canvas:
             return []
 
     @classmethod
-    def make_unknown(cls) -> Canvas:
-        return Canvas('')
+    def make_unknown(cls, length: Optional[int]=None) -> Canvas:
+        return Canvas(contents='', length=length)
 
     # TODO UT
-    def __getitem__(self, i: Index) -> str:
-        return self.contents[i - 1]
-        # TODO what if the index is out of bounds?
+    def __getitem__(self, i: Index) -> Optional[str]:
+        try:
+            return self.contents[i - 1]
+        except IndexError:
+            return None
 
-    def __len__(self) -> int:
-        return len(self.contents)
+    def replace_contents(self, s: str) -> None:
+        self.contents = s
 
     def __str__(self) -> str:
         return self.contents
@@ -120,12 +123,14 @@ class Same(Op):
         return letter
 
 def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
+    if canvas.length is None:
+        return None
     start_letter = canvas[1]
-    second_letter = canvas[2]
-    for op in [Same, Succ, Pred]:
-        perfect = op.make(start_letter, len(canvas))
-        if str(canvas) == perfect:
-            return Seed(start_letter, 1), op
+    if start_letter is not None:
+        for op in [Same, Succ, Pred]:
+            perfect = op.make(start_letter, canvas.length)
+            if str(canvas) == perfect:
+                return Seed(start_letter, 1), op
     return None
 
     
@@ -133,3 +138,15 @@ def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
 class Seed:
     letter: str
     i: Index
+
+@dataclass(frozen=True)
+class Repeat:
+    canvas: Canvas
+    seed: Seed
+    op: Type[Op]
+
+    def fill(self) -> None:
+        if self.seed.i == 1 and self.canvas.length is not None:
+            self.canvas.replace_contents(
+                self.op.make(self.seed.letter, self.canvas.length)
+            )
