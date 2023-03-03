@@ -65,6 +65,23 @@ class Succ:
     def next_letter(cls, letter: str) -> str:
         return chr(ord(letter) + 1)
 
+@dataclass(frozen=True)
+class Same:
+
+    @classmethod
+    def has_relation(cls, x1: Any, x2: Any) -> bool:
+        return x1 == x2
+
+    @classmethod
+    def make(cls, start_letter: str, n: int) -> str:
+        result: List[str] = [start_letter]
+        for _ in range(n - 1):
+            result.append(cls.next_letter(result[-1]))
+        return ''.join(result)
+
+    @classmethod
+    def next_letter(cls, letter: str) -> str:
+        return letter
 
 def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
     start_letter = canvas[1]
@@ -74,6 +91,11 @@ def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
         perfect = Succ.make(start_letter, len(canvas))
         if str(canvas) == perfect:
             return Seed(start_letter, 1), Succ
+    elif Same.has_relation(start_letter, second_letter):
+        # try Same all the way through
+        perfect = Same.make(start_letter, len(canvas))
+        if str(canvas) == perfect:
+            return Seed(start_letter, 1), Same
     return None
     
 @dataclass(frozen=True)
