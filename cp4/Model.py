@@ -41,7 +41,27 @@ class Canvas:
         return self.contents
 
 
-class Succ:
+class Op(ABC):
+
+    @classmethod
+    @abstractmethod
+    def has_relation(cls, x1: Any, x2: Any) -> bool:
+        pass
+
+    # TODO UT  Fail when reaching 'z' or 'a'
+    @classmethod
+    def make(cls, start_letter: str, n: int) -> str:
+        result: List[str] = [start_letter]
+        for _ in range(n - 1):
+            result.append(cls.next_letter(result[-1]))
+        return ''.join(result)
+
+    @classmethod
+    @abstractmethod
+    def next_letter(cls, letter: str) -> str:
+        pass
+
+class Succ(Op):
 
     @classmethod
     def has_relation(cls, x1: Any, x2: Any) -> bool:
@@ -52,20 +72,11 @@ class Succ:
                 return ord(x1) + 1 == ord(x2)
         return False
 
-    # TODO UT  Fail when reaching 'z'
-    @classmethod
-    def make(cls, start_letter: str, n: int) -> str:
-        result: List[str] = [start_letter]
-        for _ in range(n - 1):
-            result.append(cls.next_letter(result[-1]))
-        return ''.join(result)
-
-    # TODO UT  Fail when reaching 'z'
     @classmethod
     def next_letter(cls, letter: str) -> str:
         return chr(ord(letter) + 1)
 
-class Pred:
+class Pred(Op):
 
     @classmethod
     def has_relation(cls, x1: Any, x2: Any) -> bool:
@@ -78,30 +89,15 @@ class Pred:
 
     # TODO UT  Fail when reaching 'a'
     @classmethod
-    def make(cls, start_letter: str, n: int) -> str:
-        result: List[str] = [start_letter]
-        for _ in range(n - 1):
-            result.append(cls.next_letter(result[-1]))
-        return ''.join(result)
-
-    # TODO UT  Fail when reaching 'a'
-    @classmethod
     def next_letter(cls, letter: str) -> str:
         return chr(ord(letter) - 1)
 
 @dataclass(frozen=True)
-class Same:
+class Same(Op):
 
     @classmethod
     def has_relation(cls, x1: Any, x2: Any) -> bool:
         return x1 == x2
-
-    @classmethod
-    def make(cls, start_letter: str, n: int) -> str:
-        result: List[str] = [start_letter]
-        for _ in range(n - 1):
-            result.append(cls.next_letter(result[-1]))
-        return ''.join(result)
 
     @classmethod
     def next_letter(cls, letter: str) -> str:
@@ -110,22 +106,12 @@ class Same:
 def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
     start_letter = canvas[1]
     second_letter = canvas[2]
-    if Succ.has_relation(start_letter, second_letter):
-        # try Succ all the way through
-        perfect = Succ.make(start_letter, len(canvas))
+    for op in [Same, Succ, Pred]:
+        perfect = op.make(start_letter, len(canvas))
         if str(canvas) == perfect:
-            return Seed(start_letter, 1), Succ
-    elif Same.has_relation(start_letter, second_letter):
-        # try Same all the way through
-        perfect = Same.make(start_letter, len(canvas))
-        if str(canvas) == perfect:
-            return Seed(start_letter, 1), Same
-    elif Pred.has_relation(start_letter, second_letter):
-        # try Pred all the way through
-        perfect = Pred.make(start_letter, len(canvas))
-        if str(canvas) == perfect:
-            return Seed(start_letter, 1), Pred
+            return Seed(start_letter, 1), op
     return None
+
     
 @dataclass(frozen=True)
 class Seed:
