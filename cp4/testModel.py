@@ -23,27 +23,24 @@ class TestRepetitionDetection(unittest.TestCase):
 
     def test_abc(self) -> None:
         canvas = Canvas.make_from('abc')
-        got = detect_repetition(canvas)
-        assert got is not None
-        seed, op = got
-        self.assertEqual(seed, Seed('a', 1))
-        self.assertEqual(op, Succ)
+        self.assertEqual(
+            detect_repetition(canvas),
+            Repeat(canvas, Seed('a', 1), Succ)
+        )
 
     def test_cba(self) -> None:
         canvas = Canvas.make_from('cba')
-        got = detect_repetition(canvas)
-        assert got is not None
-        seed, op = got
-        self.assertEqual(seed, Seed('c', 1))
-        self.assertEqual(op, Pred)
+        self.assertEqual(
+            detect_repetition(canvas),
+            Repeat(canvas, Seed('c', 1), Pred)
+        )
 
     def test_eee(self) -> None:
         canvas = Canvas.make_from('eee')
-        got = detect_repetition(canvas)
-        assert got is not None
-        seed, op = got
-        self.assertEqual(seed, Seed('e', 1))
-        self.assertEqual(op, Same)
+        self.assertEqual(
+            detect_repetition(canvas),
+            Repeat(canvas, Seed('e', 1), Same)
+        )
 
     def test_on_canvas_with_unknown_length(self) -> None:
         canvas = Canvas.make_unknown()

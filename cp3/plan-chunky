@@ -180,11 +180,13 @@ Test cases:
 
       Assign to snippet variables
 
-      OtherSide
+      OtherSide: tag the snippets 'lhs' and 'rhs'
 
-      OtherWorld
+      OtherWorld: tag the snippets 'old-world' and 'new-world'
 
    Repeat(S, Seed('a', 1), Succ) => 'abc'
+
+      address failure somehow
 
    Detect repetition with flaw: 'abd'
 

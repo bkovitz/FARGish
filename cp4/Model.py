@@ -163,17 +163,20 @@ class Same(Op):
     def next_letter(cls, letter: str) -> str:
         return letter
 
-    prev_letter = next_letter
+    @classmethod
+    def prev_letter(cls, letter: str) -> str:
+        return letter
 
-def detect_repetition(canvas: Canvas) -> Optional[Tuple[Seed, Callable]]:
+ops: Iterable[Type[Op]] = (Same, Succ, Pred)
+def detect_repetition(canvas: Canvas) -> Optional[Repeat]:
     if canvas.length is None:
         return None
     start_letter = canvas[1]
     if start_letter is not None:
-        for op in [Same, Succ, Pred]:
+        for op in ops:
             perfect = op.make(start_letter, canvas.length)
             if str(canvas) == perfect:
-                return Seed(start_letter, 1), op
+                return Repeat(canvas, Seed(start_letter, 1), op)
     return None
 
 @dataclass(frozen=True)
