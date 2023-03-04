@@ -69,6 +69,19 @@ class TestRepeat(unittest.TestCase):
         self.assertEqual(str(canvas), 'ijk')
 
 
+#class TestWorkspace(unittest.TestCase):
+#
+#    def test_repeat_succ(self) -> None:
+#        ws = Workspace()
+#        ws.define('S1', Canvas.make_unknown(length=3))
+#        ws.define('R1', Repeat('S1', 'D1', 'F1'))
+#        ws.define('D1', Seed('L1', 'I1'))
+#        ws.define('L1', 'a')
+#        ws.define('I1', 1)
+#        ws.run_painter('R1')
+#        self.assertEqual(str(ws['S1']), 'abc')
+
+
 class TestParseInputString(unittest.TestCase):
 
     def test_abc_abd_ijk(self) -> None:
@@ -89,3 +102,27 @@ class TestParseInputString(unittest.TestCase):
         # There also need to be relations between these canvases: OtherSide
         # and OtherWorld.
 
+#class TestDiffer(unittest.TestCase):
+#
+#    def test_diff_abc_abd(self) -> None:
+#        ws = Workspace()
+#        ws.make('S1', Canvas.make_from('abc'))
+#        ws.make('R1', Repeat('S1', Seed('a', 1), Succ))
+#        ws.make('S2', Canvas.make_from('abd'))
+#        ws.make('R2', Repeat('S2', Seed('a', 1), Succ, exception=Skip(3)))
+#
+#        arrow = ws.construct_diff('R1', 'R2', name='Arrow')
+#        self.assertEqual(
+#            arrow.params, ['RR1', 'RR2', 'SS1', 'SS2', 'DD', 'FF', 'GG']
+#        )
+#        self.assertEqual(
+#            arrow,
+#            PainterCluster(
+#                Define('RR1', Repeat('SS1', 'DD', 'FF')),
+#                Define('RR2', Repeat('SS1', 'DD', 'FF', 'EE'),
+#                OtherSide('SS1', 'SS2'),
+#                Exception_('GG', 'II'),
+#                Define('GG', Skip)
+#                Define('II', 3)
+#            )
+#        )

@@ -220,8 +220,6 @@ def op_to_repeater(
         j += 1
     return Succeeded(flaw)
 
-
-
 @dataclass(frozen=True)
 class Seed:
     letter: str

@@ -188,7 +188,7 @@ Test cases:
 
       address failure somehow
 
-   Detect repetition with flaw: 'abd'
+   Detect repetition with flaw: 'abd'  DONE
 
    Diff R1 and R2 to get Arrow (as in 'ijl-cluster').
 
