@@ -3,7 +3,8 @@
 import unittest
 import inspect
 
-from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat
+from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
+    Skip
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -46,13 +47,12 @@ class TestRepetitionDetection(unittest.TestCase):
         canvas = Canvas.make_unknown()
         self.assertIsNone(detect_repetition(canvas))
 
-#    def test_abd(self) -> None:
-#        canvas = Canvas.make_from('abd')
-#        got = detect_repetition(canvas)
-#        assert got is not None
-#        seed, op = got
-#        self.assertEqual(seed, Seed('a', 1))
-#        self.assertEqual(op, Succ)
+    def test_abd(self) -> None:
+        canvas = Canvas.make_from('abd')
+        self.assertEqual(
+            detect_repetition(canvas),
+            Repeat(canvas, Seed('a', 1), Succ, exception=Skip(3))
+        )
 
 class TestRepeat(unittest.TestCase):
 

@@ -53,12 +53,17 @@ class Canvas:
         except IndexError:
             return None
 
+    def all_indices(self) -> Iterable[Index]:
+        if self.length is None:
+            return ()
+        else:
+            return range(1, self.length + 1)
+
     def replace_contents(self, s: str) -> None:
         self.contents = s
 
     def __str__(self) -> str:
         return self.contents
-
 
 class Op(ABC):
 
@@ -167,7 +172,16 @@ class Same(Op):
     def prev_letter(cls, letter: str) -> str:
         return letter
 
+@dataclass(frozen=True)
+class Skip:
+    i: Index
+
+@dataclass(frozen=True)
+class Succeeded:
+    info: Any
+
 ops: Iterable[Type[Op]] = (Same, Succ, Pred)
+
 def detect_repetition(canvas: Canvas) -> Optional[Repeat]:
     if canvas.length is None:
         return None
@@ -175,9 +189,38 @@ def detect_repetition(canvas: Canvas) -> Optional[Repeat]:
     if start_letter is not None:
         for op in ops:
             perfect = op.make(start_letter, canvas.length)
-            if str(canvas) == perfect:
-                return Repeat(canvas, Seed(start_letter, 1), op)
+            match op_to_repeater(op, canvas, perfect):
+                case Succeeded(flaw):
+                    return Repeat(
+                        canvas,
+                        Seed(start_letter, 1),
+                        op,
+                        exception=flaw
+                    )
     return None
+
+def op_to_repeater(
+    op: Type[Op],
+    canvas: Canvas,
+    perfect: str
+) -> Optional[Succeeded]:
+    flaw: Optional[Skip] = None
+    j = 0  # index into 'perfect'
+    for i in canvas.all_indices():
+        if canvas[i] == perfect[j]:
+            pass
+        elif canvas[i] == op.next_letter(perfect[j]):
+            if flaw is not None:
+                return None   # 2nd flaw, so give up
+            else:
+                flaw = Skip(i)
+                j += 1
+        else:
+            return None
+        j += 1
+    return Succeeded(flaw)
+
+
 
 @dataclass(frozen=True)
 class Seed:
@@ -189,6 +232,7 @@ class Repeat:
     canvas: Canvas
     seed: Seed
     op: Type[Op]
+    exception: Optional[Skip] = None
 
     def fill(self) -> None:
         if self.canvas.length is not None:
