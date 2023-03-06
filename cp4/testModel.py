@@ -4,7 +4,7 @@ import unittest
 import inspect
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
-    Skip, Workspace
+    Skip, Workspace, PainterCluster, Define
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -107,6 +107,23 @@ class TestWorkspace(unittest.TestCase):
         ws.run_painter('R1')
         self.assertEqual(str(ws['S1']), 'abc')
 
+    def test_painter_cluster(self) -> None:
+        ws = Workspace()
+        ws.define('CLUSTER', PainterCluster(
+            Define('RR', Repeat('SS', 'DD', 'FF'))
+        ))
+        ws.define('S1', Canvas.make_unknown(length=3))
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+
+#        self.assertEqual(
+#            ws.get_painter_cluster('CLUSTER').params(),
+#            ['SS', 'DD', 'FF']
+#        )
+
+        ws.run_painter_cluster('CLUSTER', dict(SS='S1', DD='D1', FF=Succ))
+        self.assertEqual(str(ws['S1']), 'abc')
 
 class TestParseInputString(unittest.TestCase):
 

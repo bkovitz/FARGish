@@ -14,12 +14,14 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Log import lo, trace
-from util import short
+from util import force_setattr, short
 
 
 T = TypeVar('T')
 Parameter = Union[str, T]
 OptionalParameter = Union[str, T, None]
+
+Subst = Dict[str, Parameter]
 
 Index = int
 
@@ -307,7 +309,7 @@ class Repeat:
     canvas: Parameter[Canvas]
     seed: Parameter[Seed]
     op: Parameter[Type[Op]]
-    exception: Optional[Skip] = None
+    exception: OptionalParameter[Skip] = None
 
     def fill(self, ws: Workspace) -> None:
         canvas = ws.get_canvas(self.canvas)
@@ -325,60 +327,98 @@ class Repeat:
                 )
             )
 
+@dataclass(frozen=True)
+class PainterClusterElement:
+        pass
+
+@dataclass(frozen=True)
+class Define(PainterClusterElement):
+    name: str
+    value: Any
+
+@dataclass(frozen=True)
+class PainterCluster:
+    elems: Tuple[PainterClusterElement, ...]
+
+    def __init__(self, *elems: PainterClusterElement):
+        force_setattr(self, 'elems', elems)
+
+#    def params(self) -> Any:
+#        pass
+
+    def run(self, ws: Workspace, subst_in: Subst) -> None:
+        subst = ws.subst | subst_in
+        for elem in self.elems:
+            match elem:
+                case Define(name, value):
+                    subst[name] = value
+
 @dataclass
 class Workspace:
-    variables: Dict[str, Any] = field(default_factory=dict)
+    subst: Dict[str, Any] = field(default_factory=dict)
     
     def define(self, name: str, value: Any) -> None:
-        self.variables[name] = value
+        self.subst[name] = value
 
     def __getitem__(self, name: str) -> Any:
         '''Returns None if 'name' is not defined.'''
-        return self.variables.get(name, None)
+        return self.subst.get(name, None)
 
     def run_painter(self, name: str) -> None:
         painter = self.get_repeater(name)  # TODO What about None?
         painter.fill(self)
 
+    def run_painter_cluster(self, pc: Parameter[PainterCluster], subst: Subst) \
+    -> None:
+        painter_cluster = self.get_painter_cluster(pc)
+        painter_cluster.run(self, subst)
+
     def get_index(self, x: Parameter[Index]) -> Index:
         if isinstance(x, str):
-            return self.variables[x]
+            return self.subst[x]
         else:
             return x
 
     def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
         if isinstance(x, str):
-            return self.variables[x]
+            return self.subst[x]
         else:
             return x
 
     def get_seed(self, x: Parameter[Seed]) -> Seed:
         if isinstance(x, str):
-            return self.variables[x]
+            return self.subst[x]
         else:
             return x
 
     def get_op(self, x: Parameter[Type[Op]]) -> Type[Op]:
         if isinstance(x, str):
-            return self.variables[x]
+            return self.subst[x]
         else:
             return x
 
     def get_exception(self, x: OptionalParameter[Exception_]) \
     -> Optional[Exception_]:
         if isinstance(x, str):
-            return self.variables[x]
+            return self.subst[x]
         else:
             return x
 
     def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
         if isinstance(x, str):
-            return self.variables[x]
+            return self.subst[x]
+        else:
+            return x
+
+    def get_painter_cluster(self, x: Parameter[PainterCluster]) \
+    -> PainterCluster:
+        if isinstance(x, str):
+            return self.subst[x]
         else:
             return x
 
     def get_letter(self, x: Parameter[str]) -> str:
         if isinstance(x, str) and len(x) > 1:
-            return self.variables[x]
+            return self.subst[x]
         else:
             return x
