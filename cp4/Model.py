@@ -346,26 +346,40 @@ class PainterCluster:
 #    def params(self) -> Any:
 #        pass
 
-    def run(self, ws: Workspace, subst_in: Subst) -> None:
-        subst = ws.subst | subst_in
+    def run(self, ws_in: Workspace, subst_in: Subst) -> None:
+        subst = ws_in.subst | subst_in
+        ws = Workspace(subst=subst)
         for elem in self.elems:
             match elem:
                 case Define(name, value):
-                    subst[name] = value
+                    ws.define(name, value)
+        for elem in self.elems:
+            match elem:
+                case Define(name, value):
+                    if isinstance(value, Repeat):
+                        ws.run_painter(value)
+                    
+def is_variable(x: Any) -> bool:
+    return isinstance(x, str) and len(x) > 1
 
 @dataclass
 class Workspace:
     subst: Dict[str, Any] = field(default_factory=dict)
+        # a "substitution": a map of variable names to values
     
     def define(self, name: str, value: Any) -> None:
         self.subst[name] = value
 
     def __getitem__(self, name: str) -> Any:
         '''Returns None if 'name' is not defined.'''
-        return self.subst.get(name, None)
+        value = self.subst.get(name, None)
+        if is_variable(value):
+            return self[value]
+        else:
+            return value
 
-    def run_painter(self, name: str) -> None:
-        painter = self.get_repeater(name)  # TODO What about None?
+    def run_painter(self, p: Parameter[Repeat]) -> None:
+        painter = self.get_repeater(p)  # TODO What about None?
         painter.fill(self)
 
     def run_painter_cluster(self, pc: Parameter[PainterCluster], subst: Subst) \
@@ -375,50 +389,50 @@ class Workspace:
 
     def get_index(self, x: Parameter[Index]) -> Index:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_seed(self, x: Parameter[Seed]) -> Seed:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_op(self, x: Parameter[Type[Op]]) -> Type[Op]:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_exception(self, x: OptionalParameter[Exception_]) \
     -> Optional[Exception_]:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_painter_cluster(self, x: Parameter[PainterCluster]) \
     -> PainterCluster:
         if isinstance(x, str):
-            return self.subst[x]
+            return self[x]
         else:
             return x
 
     def get_letter(self, x: Parameter[str]) -> str:
         if isinstance(x, str) and len(x) > 1:
-            return self.subst[x]
+            return self[x]
         else:
             return x
