@@ -188,9 +188,15 @@ Test cases:
 
       address failure somehow
 
+      Repeat with exception (generate 'abd')
+
+      run_painter with undefined variable
+
    Detect repetition with flaw: 'abd'  DONE
 
    Diff R1 and R2 to get Arrow (as in 'ijl-cluster').
+
+      Run Repeat with variables
 
    Run Arrow(RR1=R3), get 'ijl'.
 

@@ -17,6 +17,9 @@ from Log import lo, trace
 from util import short
 
 
+T = TypeVar('T')
+Parameter = Union[str, T]
+
 Index = int
 
 
@@ -176,6 +179,8 @@ class Same(Op):
 class Skip:
     i: Index
 
+Exception_ = Skip
+
 @dataclass(frozen=True)
 class Succeeded:
     info: Any
@@ -223,17 +228,90 @@ def op_to_repeater(
 @dataclass(frozen=True)
 class Seed:
     letter: str
-    i: Index
+    i: Parameter[Index]
+
+    def get_i(self, ws: Workspace) -> Index:
+        return ws.get_index(self.i)
+
+    def get_letter(self, ws: Workspace) -> str:
+        return ws.get_letter(self.letter)
+
+#class DeterminateSeed:
+#    letter: str
+#    i: Index
+    
 
 @dataclass(frozen=True)
 class Repeat:
-    canvas: Canvas
-    seed: Seed
-    op: Type[Op]
+    canvas: Parameter[Canvas]
+    seed: Parameter[Seed]
+    op: Parameter[Type[Op]]
     exception: Optional[Skip] = None
 
-    def fill(self) -> None:
-        if self.canvas.length is not None:
-            self.canvas.replace_contents(
-                self.op.make(self.seed.letter, self.canvas.length, self.seed.i)
+    def fill(self, ws: Workspace) -> None:
+        canvas = ws.get_canvas(self.canvas)
+        seed = ws.get_seed(self.seed)
+        op = ws.get_op(self.op)
+        #exception = ws.get_exception(self.exception)
+
+        if canvas.length is not None:
+            canvas.replace_contents(
+                op.make(seed.get_letter(ws), canvas.length, seed.get_i(ws))
             )
+
+@dataclass
+class Workspace:
+    variables: Dict[str, Any] = field(default_factory=dict)
+    
+    def define(self, name: str, value: Any) -> None:
+        self.variables[name] = value
+
+    def __getitem__(self, name: str) -> Any:
+        '''Returns None if 'name' is not defined.'''
+        return self.variables.get(name, None)
+
+    def run_painter(self, name: str) -> None:
+        painter = self.get_repeater(name)  # TODO What about None?
+        painter.fill(self)
+
+    def get_index(self, x: Parameter[Index]) -> Index:
+        if isinstance(x, str):
+            return self.variables[x]
+        else:
+            return x
+
+    def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
+        if isinstance(x, str):
+            return self.variables[x]
+        else:
+            return x
+
+    def get_seed(self, x: Parameter[Seed]) -> Seed:
+        if isinstance(x, str):
+            return self.variables[x]
+        else:
+            return x
+
+    def get_op(self, x: Parameter[Type[Op]]) -> Type[Op]:
+        if isinstance(x, str):
+            return self.variables[x]
+        else:
+            return x
+
+    def get_exception(self, x: Parameter[Exception_]) -> Exception_:
+        if isinstance(x, str):
+            return self.variables[x]
+        else:
+            return x
+
+    def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
+        if isinstance(x, str):
+            return self.variables[x]
+        else:
+            return x
+
+    def get_letter(self, x: Parameter[str]) -> str:
+        if isinstance(x, str) and len(x) > 1:
+            return self.variables[x]
+        else:
+            return x

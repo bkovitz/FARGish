@@ -4,7 +4,7 @@ import unittest
 import inspect
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
-    Skip
+    Skip, Workspace
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -59,27 +59,35 @@ class TestRepeat(unittest.TestCase):
     def test_repeat_succ(self) -> None:
         canvas = Canvas.make_unknown(length=3)
         repeat = Repeat(canvas, Seed('a', 1), Succ)
-        repeat.fill()
+        ws = Workspace()
+        repeat.fill(ws)
         self.assertEqual(str(canvas), 'abc')
 
     def test_repeat_succ_seed_2(self) -> None:
         canvas = Canvas.make_unknown(length=3)
         repeat = Repeat(canvas, Seed('j', 2), Succ)
-        repeat.fill()
+        ws = Workspace()
+        repeat.fill(ws)
         self.assertEqual(str(canvas), 'ijk')
 
 
-#class TestWorkspace(unittest.TestCase):
-#
-#    def test_repeat_succ(self) -> None:
-#        ws = Workspace()
-#        ws.define('S1', Canvas.make_unknown(length=3))
-#        ws.define('R1', Repeat('S1', 'D1', 'F1'))
-#        ws.define('D1', Seed('L1', 'I1'))
-#        ws.define('L1', 'a')
-#        ws.define('I1', 1)
-#        ws.run_painter('R1')
-#        self.assertEqual(str(ws['S1']), 'abc')
+class TestWorkspace(unittest.TestCase):
+
+    def test_define(self) -> None:
+        ws = Workspace()
+        ws.define('I1', 1)
+        self.assertEqual(ws['I1'], 1)
+
+    def test_repeat_succ(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_unknown(length=3))
+        ws.define('R1', Repeat('S1', 'D1', 'F1'))
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+        ws.define('F1', Succ)
+        ws.run_painter('R1')
+        self.assertEqual(str(ws['S1']), 'abc')
 
 
 class TestParseInputString(unittest.TestCase):
