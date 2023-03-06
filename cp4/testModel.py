@@ -70,6 +70,23 @@ class TestRepeat(unittest.TestCase):
         repeat.fill(ws)
         self.assertEqual(str(canvas), 'ijk')
 
+    def test_repeat_succ_with_skip(self) -> None:
+        canvas = Canvas.make_unknown(length=3)
+        repeat = Repeat(canvas, Seed('a', 1), Succ, exception=Skip(3))
+        ws = Workspace()
+        repeat.fill(ws)
+        self.assertEqual(str(canvas), 'abd')
+
+    def test_repeat_succ_seed_3_with_skip_at_2(self) -> None:
+        canvas = Canvas.make_unknown(length=3)
+        repeat = Repeat(canvas, Seed('k', 3), Succ, exception=Skip(2))
+        ws = Workspace()
+        repeat.fill(ws)
+        self.assertEqual(str(canvas), 'hjk')
+
+    #TODO Skip right at the seed
+    #TODO What should be the result of Skip(1)?
+
 
 class TestWorkspace(unittest.TestCase):
 
@@ -77,6 +94,7 @@ class TestWorkspace(unittest.TestCase):
         ws = Workspace()
         ws.define('I1', 1)
         self.assertEqual(ws['I1'], 1)
+        self.assertEqual(ws.get_index('I1'), 1)
 
     def test_repeat_succ(self) -> None:
         ws = Workspace()

@@ -188,7 +188,7 @@ Test cases:
 
       address failure somehow
 
-      Repeat with exception (generate 'abd')
+      Repeat with exception (generate 'abd')  DONE
 
       run_painter with undefined variable
 

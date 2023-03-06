@@ -19,6 +19,7 @@ from util import short
 
 T = TypeVar('T')
 Parameter = Union[str, T]
+OptionalParameter = Union[str, T, None]
 
 Index = int
 
@@ -77,36 +78,96 @@ class Op(ABC):
 
     # TODO UT  Fail when reaching 'z' or 'a'
     @classmethod
-    def make(cls, start_letter: str, length: int, start_index: int=1) -> str:
+    def make(
+        cls,
+        start_letter: str,
+        length: int,
+        start_index: int=1,
+        exception: Optional[Exception_]=None
+    ) -> str:
         return (
-            cls.reverse_sequence(start_letter, 1, start_index)
+            cls.reverse_sequence(start_letter, 1, start_index, exception)
             +
-            cls.sequence(start_letter, start_index, length)
+            cls.sequence(start_letter, start_index, length, exception)
         )
+
+    # NEXT Rewrite .make() top-down
 
     @classmethod
     def reverse_sequence(
         cls,
-        start_letter: str,
+        seed_letter: str,
         from_index: Index,
-        end_index_exclusive: Index
+        end_index_exclusive: Index,
+        exception: Optional[Exception_]=None
     ) -> str:
         result: List[str] = []
-        for _ in range(from_index, end_index_exclusive):
-            start_letter = cls.prev_letter(start_letter)
-            result.append(start_letter)
+        for i in range(from_index, end_index_exclusive):
+            actual_letter, seed_letter = \
+                cls.generate_prev(seed_letter, i, exception)
+            result.append(actual_letter)
         result.reverse()
         return ''.join(result)
 
     @classmethod
-    def sequence(cls, start_letter: str, from_index: Index, to_index: Index) \
-    -> str:
+    def sequence(
+        cls,
+        seed_letter: str,
+        from_index: Index,
+        to_index: Index,
+        exception: Optional[Exception_]=None
+    ) -> str:
         result: List[str] = []
         for i in range(from_index, to_index + 1):
             if i != from_index:
-                start_letter = cls.next_letter(start_letter)
-            result.append(start_letter)
+                #start_letter = cls.next_letter(start_letter)
+                actual_letter, seed_letter = \
+                    cls.generate_next(seed_letter, i, exception)
+            else:
+                actual_letter = seed_letter
+            result.append(actual_letter)
         return ''.join(result)
+
+    @classmethod
+    def generate_next(
+        cls,
+        seed_letter: str,
+        i: Index,
+        exception: Optional[Exception_]=None
+    ) -> Tuple[str, str]:
+        '''Returns (actual_letter, seed_letter) where seed_letter is the
+        letter to pass generate_next() next time. An exception can make
+        actual_letter different from seed_letter.'''
+        match exception:
+            case None:
+                actual_letter = cls.next_letter(seed_letter)
+                return actual_letter, actual_letter
+            case Skip(skip_i):
+                if i == skip_i:
+                    seed_letter = cls.next_letter(seed_letter)
+                    seed_letter = cls.next_letter(seed_letter)
+                    return seed_letter, seed_letter
+                else:
+                    return cls.generate_next(seed_letter, i)
+
+    @classmethod
+    def generate_prev(
+        cls,
+        seed_letter: str,
+        i: Index,
+        exception: Optional[Exception_]=None
+    ) -> Tuple[str, str]:
+        match exception:
+            case None:
+                actual_letter = cls.prev_letter(seed_letter)
+                return actual_letter, actual_letter
+            case Skip(skip_i):
+                if i == skip_i:
+                    seed_letter = cls.prev_letter(seed_letter)
+                    seed_letter = cls.prev_letter(seed_letter)
+                    return seed_letter, seed_letter
+                else:
+                    return cls.generate_prev(seed_letter, i)
 
     @classmethod
     @abstractmethod
@@ -252,11 +313,16 @@ class Repeat:
         canvas = ws.get_canvas(self.canvas)
         seed = ws.get_seed(self.seed)
         op = ws.get_op(self.op)
-        #exception = ws.get_exception(self.exception)
+        exception = ws.get_exception(self.exception)
 
         if canvas.length is not None:
             canvas.replace_contents(
-                op.make(seed.get_letter(ws), canvas.length, seed.get_i(ws))
+                op.make(
+                    seed.get_letter(ws),
+                    canvas.length,
+                    seed.get_i(ws),
+                    exception
+                )
             )
 
 @dataclass
@@ -298,7 +364,8 @@ class Workspace:
         else:
             return x
 
-    def get_exception(self, x: Parameter[Exception_]) -> Exception_:
+    def get_exception(self, x: OptionalParameter[Exception_]) \
+    -> Optional[Exception_]:
         if isinstance(x, str):
             return self.variables[x]
         else:
