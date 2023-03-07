@@ -26,6 +26,14 @@ Subst = Dict[str, Parameter]
 Index = int
 
 
+########## Tags ##########
+
+class Lhs:
+    pass
+
+class Rhs:
+    pass
+
 ########## The canvas ##########
 
 @dataclass
@@ -328,6 +336,26 @@ class Repeat:
             )
 
 @dataclass(frozen=True)
+class OtherSide:
+    left: Parameter[Canvas]
+    right: Parameter[Canvas]
+
+#    def complete(self, ws: Workspace) -> Completion:
+#        pass
+#        match (ws[self.left], ws[self.right]):
+#            case (None, None):
+#                return NoCompletion()
+#            case (Canvas(), None):
+#                pass # TODO
+#            case (None, Canvas()):
+#                pass # TODO
+#            case (Canvas(), Canvas()):
+#                pass # TODO
+
+Painter = Union[Repeat, OtherSide]
+                
+
+@dataclass(frozen=True)
 class PainterClusterElement:
         pass
 
@@ -367,20 +395,25 @@ class Workspace:
     subst: Dict[str, Any] = field(default_factory=dict)
         # a "substitution": a map of variable names to values
     
-    def define(self, name: str, value: Any) -> None:
+    def define(self, name: str, value: Any, tag: Optional[Any]=None) -> None:
         self.subst[name] = value
 
     def __getitem__(self, name: str) -> Any:
-        '''Returns None if 'name' is not defined.'''
+        '''Returns None if 'name' is not defined. If 'name' is defined as
+        another name, returns the value of that other name.'''
         value = self.subst.get(name, None)
         if is_variable(value):
             return self[value]
         else:
             return value
 
-    def run_painter(self, p: Parameter[Repeat]) -> None:
+    # TODO Merge this into run_painter
+    def run_repeater(self, p: Parameter[Repeat]) -> None:
         painter = self.get_repeater(p)  # TODO What about None?
         painter.fill(self)
+
+    def run_painter(self, p: Parameter[Painter]) -> None:
+        pass
 
     def run_painter_cluster(self, pc: Parameter[PainterCluster], subst: Subst) \
     -> None:

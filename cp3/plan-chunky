@@ -194,6 +194,8 @@ Test cases:
 
    Detect repetition with flaw: 'abd'  DONE
 
+   Run OtherSide(S1, SS)  NEXT
+
    Run a painter cluster: Arrow(RR1, RR2, SS1, SS2, DD, FF, GG)
 
    Diff R1 and R2 to get Arrow (as in 'ijl-cluster').

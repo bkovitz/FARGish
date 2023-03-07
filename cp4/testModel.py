@@ -4,7 +4,7 @@ import unittest
 import inspect
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
-    Skip, Workspace, PainterCluster, Define
+    Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -104,8 +104,15 @@ class TestWorkspace(unittest.TestCase):
         ws.define('L1', 'a')
         ws.define('I1', 1)
         ws.define('F1', Succ)
-        ws.run_painter('R1')
+        ws.run_repeater('R1')
         self.assertEqual(str(ws['S1']), 'abc')
+
+#    def test_other_side(self) -> None:
+#        ws = Workspace()
+#        ws.define('S1', Canvas.make_from('abc'), tag=Lhs())
+#        ws.define('S2', Canvas.make_from('abd'), tag=Rhs())
+#        ws.run_painter(OtherSide('S1', 'SS'))
+#        self.assertEqual(ws['SS'], ws['S2'])
 
 #    def test_painter_cluster(self) -> None:
 #        ws = Workspace()
