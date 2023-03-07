@@ -205,12 +205,16 @@ Test cases:
    Run Arrow(RR1=R3), get 'ijl'.
 
 
+   Succ(1, 3)
+
+
    Make 'jj' a subsnippet of 'iijjkk'.
 
    Combine 'ii', 'jj', 'll' into 'iijjll'.
 
    ... more stuff, for spreading activation, tags
    
+
 
 ---------------
 TODO

@@ -4,7 +4,8 @@ import unittest
 import inspect
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
-    Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs
+    Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
+    OldWorld, NewWorld
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -107,12 +108,38 @@ class TestWorkspace(unittest.TestCase):
         ws.run_repeater('R1')
         self.assertEqual(str(ws['S1']), 'abc')
 
-#    def test_other_side(self) -> None:
+#    def test_succ(self) -> None:
 #        ws = Workspace()
-#        ws.define('S1', Canvas.make_from('abc'), tag=Lhs())
-#        ws.define('S2', Canvas.make_from('abd'), tag=Rhs())
-#        ws.run_painter(OtherSide('S1', 'SS'))
-#        self.assertEqual(ws['SS'], ws['S2'])
+#        ws.define('C0', Canvas.make_from('ax '))
+#        #ws.run_painter(Succ(C0.1, C0.3))
+#        ws.run_painter(Succ(Addr('C0', 1), Addr('C0', 3)))
+#        self.assertEqual(str(ws['C0']), 'axb')
+
+    def test_other_side(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.run_painter(OtherSide('S1', 'SS'))
+        self.assertEqual(ws['SS'], ws['S2'])
+
+    def test_other_side2(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('wrong'))
+        ws.define('SR', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.run_painter(OtherSide('S1', 'SS'))
+        self.assertEqual(ws['SS'], ws['SR'])
+
+    def test_other_side3(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S3', Canvas.make_from('ijk'), tag=[Lhs(), NewWorld()])
+        ws.define('S4', Canvas.make_from('ijl'), tag=[Rhs(), NewWorld()])
+        ws.run_painter(OtherSide('S3', 'SS'))
+        self.assertEqual(ws['SS'], ws['S4'])
+        ws.run_painter(OtherSide('S1', 'ST'))
+        self.assertEqual(ws['ST'], ws['S2'])
 
 #    def test_painter_cluster(self) -> None:
 #        ws = Workspace()
@@ -142,10 +169,11 @@ class TestParseInputString(unittest.TestCase):
         expect_snippet3 = Canvas.make_from('ijk')
         expect_snippet4 = Canvas.make_unknown()
 
-        self.assertEqual(
-            parsed,
-            [expect_snippet1, expect_snippet2, expect_snippet3, expect_snippet4]
-        )
+        got1, got2, got3, got4 = parsed
+        self.assertEqual(str(got1), str(expect_snippet1))
+        self.assertEqual(str(got2), str(expect_snippet2))
+        self.assertEqual(str(got3), str(expect_snippet3))
+        self.assertEqual(str(got4), str(expect_snippet4))
 
         # These canvases need "addresses": C.1, C.2, C.3, C.4
         # These canvases also need variables: S1, S2, S3, S4

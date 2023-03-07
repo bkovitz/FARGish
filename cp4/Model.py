@@ -8,19 +8,21 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
 from abc import ABC, abstractmethod
 from itertools import chain
+from collections import defaultdict
 import re
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Log import lo, trace
-from util import force_setattr, short
+from util import as_iter, first, force_setattr, intersection, short
 
 
 T = TypeVar('T')
 Parameter = Union[str, T]
 OptionalParameter = Union[str, T, None]
 
+WorkspaceElem = Any
 Subst = Dict[str, Parameter]
 
 Index = int
@@ -28,10 +30,34 @@ Index = int
 
 ########## Tags ##########
 
-class Lhs:
+class Tag:
     pass
 
-class Rhs:
+@dataclass(frozen=True)
+class Lhs(Tag):
+    pass
+
+@dataclass(frozen=True)
+class Rhs(Tag):
+    pass
+
+@dataclass(frozen=True)
+class WorldTag(Tag):
+    pass
+
+@dataclass(frozen=True)
+class OldWorld(WorldTag):
+    pass
+
+@dataclass(frozen=True)
+class NewWorld(WorldTag):
+    pass
+
+
+########## Fizzles ##########
+
+@dataclass(frozen=True)
+class Fizzle(Exception):
     pass
 
 ########## The canvas ##########
@@ -40,6 +66,12 @@ class Rhs:
 class Canvas:
     contents: str
     length: Optional[int]
+
+    def __hash__(self):
+        return hash(id(self))
+
+    def __eq__(self, other):
+        return self is other
 
     @classmethod
     def make_from(cls, s: str) -> Canvas:
@@ -340,6 +372,17 @@ class OtherSide:
     left: Parameter[Canvas]
     right: Parameter[Canvas]
 
+    def run(self, ws: Workspace) -> None:
+        if isinstance(self.right, str):
+            #ws.define(self.right, 'S2')
+            #ws.define(self.right, ws.find_object_with_tag(Rhs()))
+            if (world := ws.world_of(self.left)) is not None:
+                ws.define(
+                    self.right,
+                    ws.find_object_with_tag([Rhs(), world])
+                )
+
+
 #    def complete(self, ws: Workspace) -> Completion:
 #        pass
 #        match (ws[self.left], ws[self.right]):
@@ -394,9 +437,39 @@ def is_variable(x: Any) -> bool:
 class Workspace:
     subst: Dict[str, Any] = field(default_factory=dict)
         # a "substitution": a map of variable names to values
+    tags: Dict[Tag, Set[WorkspaceElem]] = \
+        field(default_factory=lambda: defaultdict(set))
+        # tag to the objects with that tag   TODO multiple tags, multiple objs
+    tags_of: Dict[WorkspaceElem, Set[Tag]] = \
+        field(default_factory=lambda: defaultdict(set))
+        # maps each elem to its tags
     
-    def define(self, name: str, value: Any, tag: Optional[Any]=None) -> None:
+    def define(
+        self, name: str, value: Any, tag: Union[Tag, List[Tag], None]=None
+    ) -> None:
         self.subst[name] = value
+        for t in as_iter(tag):
+            self.tags[t].add(value)
+            self.tags_of[value].add(t)
+
+    def find_objects_with_tag(self, tag: Union[Tag, List[Tag]]) \
+    -> Set[WorkspaceElem]:
+        return intersection(
+            *(self.tags[t] for t in as_iter(tag))
+        )
+
+    def find_object_with_tag(self, tag: Union[Tag, List[Tag]]) -> WorkspaceElem:
+        # Fizzles if there is not exactly one object with the tags
+        result = self.find_objects_with_tag(tag)
+        if len(result) == 0:
+            raise Fizzle()  # TODO indicate reason for fizzle
+        return first(result)
+
+    def world_of(self, elem: WorkspaceElem) -> Optional[WorldTag]:
+        for tag in self.tags_of[self[elem]]:
+            if isinstance(tag, WorldTag):
+                return tag
+        return None
 
     def __getitem__(self, name: str) -> Any:
         '''Returns None if 'name' is not defined. If 'name' is defined as
@@ -413,7 +486,8 @@ class Workspace:
         painter.fill(self)
 
     def run_painter(self, p: Parameter[Painter]) -> None:
-        pass
+        if isinstance(p, OtherSide):
+            p.run(self)
 
     def run_painter_cluster(self, pc: Parameter[PainterCluster], subst: Subst) \
     -> None:
