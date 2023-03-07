@@ -19,7 +19,8 @@ from util import as_iter, first, force_setattr, intersection, short
 
 
 T = TypeVar('T')
-Parameter = Union[str, T]
+Variable = str
+Parameter = Union[Variable, T]
 OptionalParameter = Union[str, T, None]
 
 WorkspaceElem = Any
@@ -33,13 +34,29 @@ Index = int
 class Tag:
     pass
 
-@dataclass(frozen=True)
-class Lhs(Tag):
-    pass
+Tags = Union[
+    Tag,
+    Tuple[Union[Tag, None], ...],
+    Set[Tag],
+    List[Union[Tag, None]],
+    None
+]
 
 @dataclass(frozen=True)
-class Rhs(Tag):
-    pass
+class SideTag(Tag, ABC):
+    @abstractmethod
+    def opposite(self) -> SideTag:
+        pass
+
+@dataclass(frozen=True)
+class Lhs(SideTag):
+    def opposite(self) -> SideTag:
+        return Rhs()
+
+@dataclass(frozen=True)
+class Rhs(SideTag):
+    def opposite(self) -> SideTag:
+        return Lhs()
 
 @dataclass(frozen=True)
 class WorldTag(Tag):
@@ -53,6 +70,13 @@ class OldWorld(WorldTag):
 class NewWorld(WorldTag):
     pass
 
+def extract_tag(tagtype: Type[Tag], tags: Tags) -> Optional[Tag]:
+    '''Searches through 'tags' and returns the first tag of 'tagtype', or
+    None if not found.'''
+    for tag in as_iter(tags):
+        if isinstance(tag, tagtype):
+            return tag
+    return None
 
 ########## Fizzles ##########
 
@@ -110,6 +134,9 @@ class Canvas:
 
     def __str__(self) -> str:
         return self.contents
+
+    def short(self) -> str:
+        return repr(self.contents)
 
 class Op(ABC):
 
@@ -369,18 +396,41 @@ class Repeat:
 
 @dataclass(frozen=True)
 class OtherSide:
-    left: Parameter[Canvas]
-    right: Parameter[Canvas]
+    left: Variable
+    right: Variable
 
     def run(self, ws: Workspace) -> None:
-        if isinstance(self.right, str):
-            #ws.define(self.right, 'S2')
-            #ws.define(self.right, ws.find_object_with_tag(Rhs()))
-            if (world := ws.world_of(self.left)) is not None:
-                ws.define(
-                    self.right,
-                    ws.find_object_with_tag([Rhs(), world])
-                )
+#        if isinstance(self.right, str):
+#            #ws.define(self.right, 'S2')
+#            #ws.define(self.right, ws.find_object_with_tag(Rhs()))
+#            if (world := ws.world_of(self.left)) is not None:
+#                ws.define(
+#                    self.right,
+#                    ws.find_object_with_tag([Rhs(), world])
+#                )
+
+        match (ws[self.left], ws[self.right]):
+            case (Canvas(), None):
+                left_side_tags = ws.tags_of(self.left)
+                right_side_tags = self.other_side_tags(left_side_tags)
+                mate = ws.find_object_with_tag(right_side_tags)
+                ws.define(self.right, mate)
+            case (None, Canvas()):
+                right_side_tags = ws.tags_of(self.right)
+                left_side_tags = self.other_side_tags(right_side_tags)
+                mate = ws.find_object_with_tag(left_side_tags)
+                ws.define(self.left, mate)
+            # TODO
+                
+    def other_side_tags(self, tags: Tags) -> Tags:
+        #lo('OST', (extract_tag(SideTag, tags), extract_tag(WorldTag, tags)))
+        match (extract_tag(SideTag, tags), extract_tag(WorldTag, tags)):
+            case (SideTag() as side_tag, WorldTag() as world_tag):
+                return (side_tag.opposite(), world_tag)
+            case (SideTag() as side_tag, None):
+                raise NotImplementedError  # TODO
+                return side_tag.opposite()
+        return None  # TODO other cases
 
 
 #    def complete(self, ws: Workspace) -> Completion:
@@ -437,10 +487,10 @@ def is_variable(x: Any) -> bool:
 class Workspace:
     subst: Dict[str, Any] = field(default_factory=dict)
         # a "substitution": a map of variable names to values
-    tags: Dict[Tag, Set[WorkspaceElem]] = \
+    _tags: Dict[Tag, Set[WorkspaceElem]] = \
         field(default_factory=lambda: defaultdict(set))
         # tag to the objects with that tag   TODO multiple tags, multiple objs
-    tags_of: Dict[WorkspaceElem, Set[Tag]] = \
+    _tags_of: Dict[WorkspaceElem, Set[Tag]] = \
         field(default_factory=lambda: defaultdict(set))
         # maps each elem to its tags
     
@@ -449,24 +499,36 @@ class Workspace:
     ) -> None:
         self.subst[name] = value
         for t in as_iter(tag):
-            self.tags[t].add(value)
-            self.tags_of[value].add(t)
+            self._tags[t].add(value)
+            self._tags_of[value].add(t)
 
-    def find_objects_with_tag(self, tag: Union[Tag, List[Tag]]) \
-    -> Set[WorkspaceElem]:
+    def undefine(self, name: str) -> None:
+        '''It is not an error to undefine an undefined variable.'''
+        if name in self.subst:
+            del self.subst[name]
+        # TODO rm tags
+
+    def tags_of(self, obj: WorkspaceElem) -> Tags:
+        return self._tags_of.get(self[obj], None)
+
+    def find_objects_with_tag(self, tags: Tags) -> Set[WorkspaceElem]:
         return intersection(
-            *(self.tags[t] for t in as_iter(tag))
+            *(self._tags[t] for t in as_iter(tags))
         )
 
-    def find_object_with_tag(self, tag: Union[Tag, List[Tag]]) -> WorkspaceElem:
+    def find_object_with_tag(self, tags: Tags) -> WorkspaceElem:
         # Fizzles if there is not exactly one object with the tags
-        result = self.find_objects_with_tag(tag)
+        result = self.find_objects_with_tag(tags)
         if len(result) == 0:
             raise Fizzle()  # TODO indicate reason for fizzle
         return first(result)
 
+    def extract_tag(self, tagtype: Type[Tag], obj: WorkspaceElem) \
+    -> Optional[Tag]:
+        return extract_tag(tagtype, self._tags_of.get(self[obj], None))
+
     def world_of(self, elem: WorkspaceElem) -> Optional[WorldTag]:
-        for tag in self.tags_of[self[elem]]:
+        for tag in self._tags_of[self[elem]]:
             if isinstance(tag, WorldTag):
                 return tag
         return None
@@ -543,3 +605,6 @@ class Workspace:
             return self[x]
         else:
             return x
+
+    def short(self) -> str:
+        return self.__class__.__name__
