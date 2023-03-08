@@ -115,23 +115,31 @@ class TestWorkspace(unittest.TestCase):
 #        ws.run_painter(Succ(Addr('C0', 1), Addr('C0', 3)))
 #        self.assertEqual(str(ws['C0']), 'axb')
 
-    def test_other_side(self) -> None:
+    def test_other_side_lhs_blank(self) -> None:
         ws = Workspace()
         ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S1', 'SS'))
         self.assertEqual(ws['SS'], ws['S2'])
 
-        ws.undefine('SS')
-        assert(ws['SS'] is None)
+    def test_other_side_blank_lhs(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('SS', 'S1'))
         self.assertEqual(ws['SS'], ws['S2'])
 
-        ws.undefine('SS')
+    def test_other_side_rhs_blank(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S2', 'SS'))
         self.assertEqual(ws['SS'], ws['S1'])
 
-        ws.undefine('SS')
+    def test_other_side_blank_rhs(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('SS', 'S2'))
         self.assertEqual(ws['SS'], ws['S1'])
 

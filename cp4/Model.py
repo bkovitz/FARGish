@@ -411,19 +411,20 @@ class OtherSide:
 
         match (ws[self.left], ws[self.right]):
             case (Canvas(), None):
-                left_side_tags = ws.tags_of(self.left)
-                right_side_tags = self.other_side_tags(left_side_tags)
-                mate = ws.find_object_with_tag(right_side_tags)
+                mate = ws.find_object_with_tag(self.other_side_tags(ws, self.left))
                 ws.define(self.right, mate)
+                # TODO what if mate does not exist?
             case (None, Canvas()):
-                right_side_tags = ws.tags_of(self.right)
-                left_side_tags = self.other_side_tags(right_side_tags)
-                mate = ws.find_object_with_tag(left_side_tags)
+                mate = ws.find_object_with_tag(self.other_side_tags(ws, self.right))
                 ws.define(self.left, mate)
-            # TODO
+                # TODO what if mate does not exist?
+            # TODO the failure cases
                 
-    def other_side_tags(self, tags: Tags) -> Tags:
-        #lo('OST', (extract_tag(SideTag, tags), extract_tag(WorldTag, tags)))
+    #def other_side_tags(self, tags: Tags) -> Tags:
+    def other_side_tags(self, ws: Workspace, obj: WorkspaceElem) -> Tags:
+        '''Returns tags to specify an object on the other "side" (Lhs/Rhs) and
+        the same "world".'''
+        tags = ws.tags_of(obj)
         match (extract_tag(SideTag, tags), extract_tag(WorldTag, tags)):
             case (SideTag() as side_tag, WorldTag() as world_tag):
                 return (side_tag.opposite(), world_tag)
@@ -526,12 +527,6 @@ class Workspace:
     def extract_tag(self, tagtype: Type[Tag], obj: WorkspaceElem) \
     -> Optional[Tag]:
         return extract_tag(tagtype, self._tags_of.get(self[obj], None))
-
-    def world_of(self, elem: WorkspaceElem) -> Optional[WorldTag]:
-        for tag in self._tags_of[self[elem]]:
-            if isinstance(tag, WorldTag):
-                return tag
-        return None
 
     def __getitem__(self, name: str) -> Any:
         '''Returns None if 'name' is not defined. If 'name' is defined as
