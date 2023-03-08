@@ -27,7 +27,7 @@ ABSORPTION
 3. The Diff process compares R1 and R2, yielding this painter-cluster, which
    can construct R2 from R1 and vice versa:
 
-   Arrow(RR1, RR2, SS1, SS2, DD, FF, GG)
+   Arrow(RR1, RR2, SS1, SS2, DD, FF, EE, GG, II)
    RR1=Repeat(SS1, DD, FF)
    RR2=Repeat(SS2, DD, FF, EE)
    OtherSide(SS1, SS2)

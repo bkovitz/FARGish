@@ -231,3 +231,12 @@ test_repeat_succ():
    repeat.fill(ws)
    self.assertEqual(str(ws.get_canvas('C')), 'abc')
 
+--------------------
+TEST CASE FOR PAINTER CLUSTER
+
+Cluster(D1, D2, L1, L2, I1)
+D1=Seed(L1, I1)
+L1=Letter('a')
+I1=1
+D2=Seed(L2, I1)
+L2=Letter('i')

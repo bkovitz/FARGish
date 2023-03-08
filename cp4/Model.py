@@ -15,7 +15,7 @@ from pyrsistent import pmap
 from pyrsistent.typing import PMap
 
 from Log import lo, trace
-from util import as_iter, first, force_setattr, intersection, short
+from util import as_iter, first, force_setattr, intersection, short, union
 
 
 T = TypeVar('T')
@@ -23,11 +23,15 @@ Variable = str
 Parameter = Union[Variable, T]
 OptionalParameter = Union[str, T, None]
 
-WorkspaceElem = Any
 Subst = Dict[str, Parameter]
 
 Index = int
 
+class WorkspaceElem(ABC):
+
+    @abstractmethod
+    def params(self) -> List[Variable]:
+        pass
 
 ########## Tags ##########
 
@@ -356,7 +360,7 @@ def op_to_repeater(
     return Succeeded(flaw)
 
 @dataclass(frozen=True)
-class Seed:
+class Seed(WorkspaceElem):
     letter: str
     i: Parameter[Index]
 
@@ -365,6 +369,14 @@ class Seed:
 
     def get_letter(self, ws: Workspace) -> str:
         return ws.get_letter(self.letter)
+
+    def params(self) -> List[Variable]:
+        result: List[Variable] = []
+        if is_variable(self.letter):
+            result.append(self.letter)
+        if is_variable(self.i):
+            result.append(self.i)
+        return result
 
 #class DeterminateSeed:
 #    letter: str
@@ -395,9 +407,9 @@ class Repeat:
             )
 
 @dataclass(frozen=True)
-class OtherSide:
-    left: Variable
-    right: Variable
+class OtherSide(WorkspaceElem):
+    left: Variable     # TODO allow a constant?
+    right: Variable    # TODO allow a constant?
 
     def run(self, ws: Workspace) -> None:
 #        if isinstance(self.right, str):
@@ -421,7 +433,7 @@ class OtherSide:
             # TODO the failure cases
                 
     #def other_side_tags(self, tags: Tags) -> Tags:
-    def other_side_tags(self, ws: Workspace, obj: WorkspaceElem) -> Tags:
+    def other_side_tags(self, ws: Workspace, obj: Variable) -> Tags:
         '''Returns tags to specify an object on the other "side" (Lhs/Rhs) and
         the same "world".'''
         tags = ws.tags_of(obj)
@@ -433,6 +445,8 @@ class OtherSide:
                 return side_tag.opposite()
         return None  # TODO other cases
 
+    def params(self) -> List[Variable]:
+        return [self.left, self.right]
 
 #    def complete(self, ws: Workspace) -> Completion:
 #        pass
@@ -450,23 +464,30 @@ Painter = Union[Repeat, OtherSide]
                 
 
 @dataclass(frozen=True)
-class PainterClusterElement:
-        pass
-
-@dataclass(frozen=True)
-class Define(PainterClusterElement):
-    name: str
+class Define(WorkspaceElem):
+    '''Contrary to the name of what Define inherits from, a Define may not exist as
+    a full citizen of the Workspace. It may only be an element of a PainterCluster.'''
+    name: Variable
     value: Any
+
+    def params(self) -> List[Variable]:
+        result: List[Variable] = [self.name]
+        if is_variable(self.value):
+            result.append(self.value)
+        else:
+            if isinstance(self.value, WorkspaceElem):
+                result += self.value.params()
+        return result
 
 @dataclass(frozen=True)
 class PainterCluster:
-    elems: Tuple[PainterClusterElement, ...]
+    elems: Tuple[WorkspaceElem, ...]
 
-    def __init__(self, *elems: PainterClusterElement):
+    def __init__(self, *elems: WorkspaceElem):
         force_setattr(self, 'elems', elems)
 
-#    def params(self) -> Any:
-#        pass
+    def params(self) -> Set[Variable]:
+        return union(*(elem.params() for elem in self.elems))
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> None:
         subst = ws_in.subst | subst_in
@@ -481,7 +502,7 @@ class PainterCluster:
                     if isinstance(value, Repeat):
                         ws.run_painter(value)
                     
-def is_variable(x: Any) -> bool:
+def is_variable(x: Any) -> TypeGuard[Variable]:
     return isinstance(x, str) and len(x) > 1
 
 @dataclass
@@ -509,7 +530,7 @@ class Workspace:
             del self.subst[name]
         # TODO rm tags
 
-    def tags_of(self, obj: WorkspaceElem) -> Tags:
+    def tags_of(self, obj: Parameter[WorkspaceElem]) -> Tags:
         return self._tags_of.get(self[obj], None)
 
     def find_objects_with_tag(self, tags: Tags) -> Set[WorkspaceElem]:
@@ -528,10 +549,13 @@ class Workspace:
     -> Optional[Tag]:
         return extract_tag(tagtype, self._tags_of.get(self[obj], None))
 
-    def __getitem__(self, name: str) -> Any:
-        '''Returns None if 'name' is not defined. If 'name' is defined as
-        another name, returns the value of that other name.'''
-        value = self.subst.get(name, None)
+    def __getitem__(self, obj: Parameter[WorkspaceElem]) -> Any:
+        '''Returns None if 'obj' is not defined. If 'obj' is defined as
+        a variable name, returns the value of that other name.'''
+        if is_variable(obj):
+            value = self.subst.get(obj, None)
+        else:
+            value = obj
         if is_variable(value):
             return self[value]
         else:
@@ -546,10 +570,14 @@ class Workspace:
         if isinstance(p, OtherSide):
             p.run(self)
 
-    def run_painter_cluster(self, pc: Parameter[PainterCluster], subst: Subst) \
-    -> None:
-        painter_cluster = self.get_painter_cluster(pc)
-        painter_cluster.run(self, subst)
+    def run_painter_cluster(self, pc: Parameter[PainterCluster], subst_in: Subst) \
+    -> Subst:
+        #painter_cluster = self.get_painter_cluster(pc)
+        #painter_cluster.run(self, subst)
+        subst: Subst = {}
+        for k,v in subst_in.items():
+            subst[k] = self[v]
+        return subst
 
     def get_index(self, x: Parameter[Index]) -> Index:
         if isinstance(x, str):

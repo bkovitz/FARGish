@@ -181,6 +181,38 @@ class TestWorkspace(unittest.TestCase):
 #        ws.run_painter_cluster('CLUSTER', dict(SS='S1', DD='D1', FF=Succ))
 #        self.assertEqual(str(ws['S1']), 'abc')
 
+    def test_seed_params(self) -> None:
+        self.assertCountEqual(Seed('L1', 'I1').params(), ['L1', 'I1'])
+
+    def test_simple_cluster(self) -> None:
+        ws = Workspace()
+        ws.define('CLUSTER', PainterCluster(
+            Define('DD1', Seed('LL1', 'II')),
+            Define('LL1', 'a'),
+            Define('DD2', Seed('LL2', 'II')),
+            Define('LL2', 'i')
+            # II is not defined: it will be filled in to be the same in both seeds
+        ))
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+        subst = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
+
+        self.assertCountEqual(
+            ws['CLUSTER'].params(),
+            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
+        )
+
+#        self.assertEqual(subst['DD1'], Seed('LL1', 'II'))
+#        self.assertEqual(subst['LL1'], 'a')
+#        self.assertEqual(subst['DD2'], Seed('LL2', 'II'))
+#        self.assertEqual(subst['LL2'], 'i')
+#        self.assertEqual(subst['II'], 1)
+
+#        other_seeds: List[Variable] = ws.get_by_type(Seed)
+#        seed2 = ws.??
+#        self.assertEqual(ws.get_determinate(seed2), Seed('i', 1))
+
 class TestParseInputString(unittest.TestCase):
 
     def test_abc_abd_ijk(self) -> None:

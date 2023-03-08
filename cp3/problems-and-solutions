@@ -198,3 +198,10 @@ Problem: ??
 
 Solution: Marking canvas cells, snippets, and painters as "complete" if they
 have a painter that can regenerate them.
+
+
+
+Problem: Painting painters that bear some relationship to each other.
+
+Solution: Painter-clusters, which tell how to construct one painter (and its
+arguments) given another.
