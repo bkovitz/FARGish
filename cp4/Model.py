@@ -18,8 +18,14 @@ from Log import lo, trace
 from util import as_iter, first, force_setattr, intersection, short, union
 
 
-T = TypeVar('T')
+@dataclass(frozen=True)
+class Var:
+    '''A variable, together with a level number so that 
+    name: str
+    level: int
+
 Variable = str
+T = TypeVar('T')
 Parameter = Union[Variable, T]
 OptionalParameter = Union[str, T, None]
 

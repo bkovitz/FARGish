@@ -232,6 +232,14 @@ class TestWorkspace(unittest.TestCase):
         #self.assertEqual(len(ws.subst), 2)  # TODO rewrite more clearly
         self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
 
+    def test_painter_cluster_local_same_name_as_existing_variable(self) -> None:
+        ws = Workspace()
+        ws.define('LL', 'a')
+        ws.define('CLUSTER', PainterCluster(
+            Define('LL', 'b')
+        ))
+        ws.run_painter_cluster('CLUSTER', dict())
+        self.assertEqual(ws.all_letter_defs(), {'LL': 'a', 'L1': 'b'})
 
 #    def test_simple_cluster(self) -> None:
 #        ws = Workspace()
