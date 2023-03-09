@@ -591,6 +591,13 @@ class Workspace:
         else:
             return value
 
+    def all_letter_defs(self) -> Dict[Variable, str]:
+        return dict(
+            (k, v)
+                for k, v in self.subst.items()
+                    if isinstance(v, str)
+        )
+
     # TODO Merge this into run_painter
     def run_repeater(self, p: Parameter[Repeat]) -> None:
         painter = self.get_repeater(p)  # TODO What about None?

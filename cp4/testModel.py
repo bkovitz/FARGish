@@ -218,8 +218,7 @@ class TestWorkspace(unittest.TestCase):
         ))
 
         ws.run_painter_cluster('CLUSTER', dict())
-        self.assertEqual(ws['L1'], 'b')
-        self.assertEqual(ws['L2'], 'a')
+        self.assertEqual(ws.all_letter_defs(), {'L1': 'b', 'L2': 'a'})
 
     def test_painter_cluster_assign_to_existing_letter(self) -> None:
         ws = Workspace()
@@ -230,7 +229,8 @@ class TestWorkspace(unittest.TestCase):
         ws.run_painter_cluster('CLUSTER', dict(LL='L1'))
         # This should do nothing, since L1 already exists and is 'a'
         #lo('UT', ws.subst)
-        self.assertEqual(len(ws.subst), 2)  # TODO rewrite more clearly
+        #self.assertEqual(len(ws.subst), 2)  # TODO rewrite more clearly
+        self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
 
 
 #    def test_simple_cluster(self) -> None:
