@@ -78,7 +78,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestWorkspace.test_other_side
+	$(PY) -m unittest -v testModel.TestWorkspace.test_painter_cluster_assign_to_existing_letter
 	#$(PY) -m unittest -v testPainter
 
 # Acceptance tests

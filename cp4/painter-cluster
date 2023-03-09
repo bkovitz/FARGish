@@ -1,0 +1,45 @@
+When a painter cluster runs:
+
+1. Objects that don't exist in the workspace are created.
+
+2. Inside the painter cluster, objects have their local names.
+
+3. After the cluster runs, newly created objects get new names.
+
+4. Local variables get filled in starting from whatever already exists.
+
+5. Clashes between the painter cluster and what already exists cause the
+painter cluster to fizzle.
+
+
+
+More unit tests to write:
+
+If a Define clashes with an existing variable:
+   L1='b'
+
+   CLUSTER(LL)
+   Define(LL, 'a') 
+
+   Run CLUSTER(LL=L1)
+
+Local variables should coexist with original workspace variables:
+   LL='a'
+
+   CLUSTER(LL)
+   Define(LL, 'b')
+
+   Run CLUSTER()
+
+   Result should be:  LL='a', L1='b'
+
+A test where the cluster painters have to run in a special order.
+
+
+A test where we fill in local variables from member fields of existing objects.
+
+   DD=Seed(LL, II)
+
+   Run Cluster(DD=Seed('a', 1)) should set LL to 'a' and II to 1 without
+   creating a new letter or index in the workspace.
+

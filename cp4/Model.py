@@ -30,7 +30,7 @@ Index = int
 class WorkspaceElem(ABC):
 
     @abstractmethod
-    def params(self) -> List[Variable]:
+    def params(self) -> Collection[Variable]:
         pass
 
 ########## Tags ##########
@@ -483,8 +483,14 @@ class Define(WorkspaceElem):
                 result += self.value.params()
         return result
 
+    def run_local(self, local_ws: Workspace) -> None:
+        #lo('RLO', self.name in local_ws.subst, local_ws.subst)
+        if self.name not in local_ws.subst:
+            local_ws.define(self.name, self.value)
+        
+
 @dataclass(frozen=True)
-class PainterCluster:
+class PainterCluster(WorkspaceElem):
     elems: Tuple[WorkspaceElem, ...]
 
     def __init__(self, *elems: WorkspaceElem):
@@ -494,18 +500,28 @@ class PainterCluster:
         return union(*(elem.params() for elem in self.elems))
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> None:
-        subst = ws_in.subst | subst_in
-        ws = Workspace(subst=subst)
+#        subst = ws_in.subst | subst_in
+#        ws = Workspace(subst=subst)
+#        for elem in self.elems:
+#            match elem:
+#                case Define(name, value):
+#                    ws.define(name, value)
+#        for elem in self.elems:
+#            match elem:
+#                case Define(name, value):
+#                    if isinstance(value, Repeat):
+#                        ws.run_painter(value)
+        #ws_in.define('L1', 'a')
+        #ws_in.define_letter('a')
+        local_ws = Workspace(subst=ws_in.subst | subst_in)
         for elem in self.elems:
-            match elem:
-                case Define(name, value):
-                    ws.define(name, value)
-        for elem in self.elems:
-            match elem:
-                case Define(name, value):
-                    if isinstance(value, Repeat):
-                        ws.run_painter(value)
-                    
+            if isinstance(elem, Define):
+                elem.run_local(local_ws)
+        # Copy local variables back to ws_in
+        for name in self.params():
+            if name not in subst_in:  # if name was not given as an argument
+                ws_in.define_letter(local_ws[name])
+
 def is_variable(x: Any) -> TypeGuard[Variable]:
     return isinstance(x, str) and len(x) > 1
 
@@ -519,6 +535,7 @@ class Workspace:
     _tags_of: Dict[WorkspaceElem, Set[Tag]] = \
         field(default_factory=lambda: defaultdict(set))
         # maps each elem to its tags
+    letter_var_counter: int = 0
     
     def define(
         self, name: str, value: Any, tag: Union[Tag, List[Tag], None]=None
@@ -527,6 +544,15 @@ class Workspace:
         for t in as_iter(tag):
             self._tags[t].add(value)
             self._tags_of[value].add(t)
+
+    def define_letter(self, letter: str) -> Variable:
+        while True:
+            self.letter_var_counter += 1
+            name = f'L{self.letter_var_counter}'
+            if not name in self.subst:
+                break
+        self.define(name, letter)
+        return name
 
     def undefine(self, name: str) -> None:
         '''It is not an error to undefine an undefined variable.'''
@@ -574,14 +600,18 @@ class Workspace:
         if isinstance(p, OtherSide):
             p.run(self)
 
-    def run_painter_cluster(self, pc: Parameter[PainterCluster], subst_in: Subst) \
-    -> Subst:
-        #painter_cluster = self.get_painter_cluster(pc)
-        #painter_cluster.run(self, subst)
-        subst: Subst = {}
-        for k,v in subst_in.items():
-            subst[k] = self[v]
-        return subst
+    def run_painter_cluster(
+        self, painter_cluster: Parameter[PainterCluster], subst_in: Subst
+    ) -> None:
+        match (pc := self[painter_cluster]):
+            case PainterCluster():
+                pc.run(self, subst_in)
+#        #painter_cluster = self.get_painter_cluster(pc)
+#        #painter_cluster.run(self, subst)
+#        subst: Subst = {}
+#        for k,v in subst_in.items():
+#            subst[k] = self[v]
+#        return subst
 
     def get_index(self, x: Parameter[Index]) -> Index:
         if isinstance(x, str):

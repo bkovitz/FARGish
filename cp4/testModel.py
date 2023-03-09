@@ -184,24 +184,73 @@ class TestWorkspace(unittest.TestCase):
     def test_seed_params(self) -> None:
         self.assertCountEqual(Seed('L1', 'I1').params(), ['L1', 'I1'])
 
-    def test_simple_cluster(self) -> None:
+    def test_define_letter(self) -> None:
+        ws = Workspace()
+        name1 = ws.define_letter('a')
+        name2 = ws.define_letter('b')
+        self.assertEqual(name1, 'L1')
+        self.assertEqual(ws[name1], 'a')
+        self.assertEqual(name2, 'L2')
+        self.assertEqual(ws[name2], 'b')
+
+    def test_define_letter_that_clashes_with_existing_lettername(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a')
+        name = ws.define_letter('b')
+        self.assertEqual(ws['L1'], 'a')
+        self.assertEqual(name, 'L2')
+        self.assertEqual(ws[name], 'b')
+
+    def test_painter_cluster_just_define(self) -> None:
         ws = Workspace()
         ws.define('CLUSTER', PainterCluster(
-            Define('DD1', Seed('LL1', 'II')),
-            Define('LL1', 'a'),
-            Define('DD2', Seed('LL2', 'II')),
-            Define('LL2', 'i')
-            # II is not defined: it will be filled in to be the same in both seeds
+            Define('LL', 'a')
         ))
-        ws.define('D1', Seed('L1', 'I1'))
-        ws.define('L1', 'a')
-        ws.define('I1', 1)
-        subst = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
 
-        self.assertCountEqual(
-            ws['CLUSTER'].params(),
-            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
-        )
+        ws.run_painter_cluster('CLUSTER', dict())
+        self.assertEqual(ws['L1'], 'a')
+
+    def test_painter_cluster_just_define_after_existing_letter(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'b')
+        ws.define('CLUSTER', PainterCluster(
+            Define('LL', 'a')
+        ))
+
+        ws.run_painter_cluster('CLUSTER', dict())
+        self.assertEqual(ws['L1'], 'b')
+        self.assertEqual(ws['L2'], 'a')
+
+    def test_painter_cluster_assign_to_existing_letter(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a')
+        ws.define('CLUSTER', PainterCluster(
+            Define('LL', 'a')
+        ))
+        ws.run_painter_cluster('CLUSTER', dict(LL='L1'))
+        # This should do nothing, since L1 already exists and is 'a'
+        #lo('UT', ws.subst)
+        self.assertEqual(len(ws.subst), 2)  # TODO rewrite more clearly
+
+
+#    def test_simple_cluster(self) -> None:
+#        ws = Workspace()
+#        ws.define('CLUSTER', PainterCluster(
+#            Define('DD1', Seed('LL1', 'II')),
+#            Define('LL1', 'a'),
+#            Define('DD2', Seed('LL2', 'II')),
+#            Define('LL2', 'i')
+#            # II is not defined: it will be filled in to be the same in both seeds
+#        ))
+#        ws.define('D1', Seed('L1', 'I1'))
+#        ws.define('L1', 'a')
+#        ws.define('I1', 1)
+#        subst = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
+#
+#        self.assertCountEqual(
+#            ws['CLUSTER'].params(),
+#            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
+#        )
 
 #        self.assertEqual(
 #            subst,
