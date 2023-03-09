@@ -378,6 +378,10 @@ class Seed(WorkspaceElem):
             result.append(self.i)
         return result
 
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({self.letter!r}, {self.i})'
+
 #class DeterminateSeed:
 #    letter: str
 #    i: Index

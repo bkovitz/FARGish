@@ -203,6 +203,17 @@ class TestWorkspace(unittest.TestCase):
             ['DD1', 'LL1', 'DD2', 'LL2', 'II']
         )
 
+#        self.assertEqual(
+#            subst,
+#            {
+#                'DD1': Seed('LL1', 'II'),
+#                'LL1': 'a',
+#                'DD2': Seed('LL2', 'II'),
+#                'LL2': 'i',
+#                'II':  1
+#            }
+#        )
+
 #        self.assertEqual(subst['DD1'], Seed('LL1', 'II'))
 #        self.assertEqual(subst['LL1'], 'a')
 #        self.assertEqual(subst['DD2'], Seed('LL2', 'II'))
