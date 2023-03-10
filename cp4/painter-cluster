@@ -43,3 +43,6 @@ A test where we fill in local variables from member fields of existing objects.
    Run Cluster(DD=Seed('a', 1)) should set LL to 'a' and II to 1 without
    creating a new letter or index in the workspace.
 
+
+TODO
+   Nested levels of Var in PainterCluster

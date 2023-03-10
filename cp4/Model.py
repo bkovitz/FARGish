@@ -18,18 +18,32 @@ from Log import lo, trace
 from util import as_iter, first, force_setattr, intersection, short, union
 
 
+T = TypeVar('T')
+
 @dataclass(frozen=True)
 class Var:
-    '''A variable, together with a level number so that 
+    '''A variable, together with a level number so that @@'''
     name: str
     level: int
 
-Variable = str
-T = TypeVar('T')
+    @classmethod
+    def at_level(cls, v: Union[str, Var, T], level: int) -> Union[Var, T]:
+        match v:
+            case str() if is_variable(v):
+                return Var(v, level)  # type: ignore[arg-type]
+            case Var():
+                return Var(v.name, level)
+            case WorkspaceElem():
+                return v.with_var_level(level)  # type: ignore[return-value]
+            case _:
+                return v  # type: ignore[return-value]
+        return v  # type: ignore[return-value]   # mypy bug
+
+Variable = Union[str, Var]
 Parameter = Union[Variable, T]
 OptionalParameter = Union[str, T, None]
 
-Subst = Dict[str, Parameter]
+Subst = Dict[Variable, Parameter]
 
 Index = int
 
@@ -37,6 +51,12 @@ class WorkspaceElem(ABC):
 
     @abstractmethod
     def params(self) -> Collection[Variable]:
+        pass
+
+    @abstractmethod
+    def with_var_level(self, level: int) -> WorkspaceElem:
+        '''Return a new WorkspaceElem, in which all the Parameter variables have been
+        replaced with Var objects at 'level'.'''
         pass
 
 ########## Tags ##########
@@ -228,6 +248,8 @@ class Op(ABC):
                     return seed_letter, seed_letter
                 else:
                     return cls.generate_next(seed_letter, i)
+            case _:
+                raise NotImplementedError
 
     @classmethod
     def generate_prev(
@@ -247,6 +269,8 @@ class Op(ABC):
                     return seed_letter, seed_letter
                 else:
                     return cls.generate_prev(seed_letter, i)
+            case _:
+                raise NotImplementedError
 
     @classmethod
     @abstractmethod
@@ -315,11 +339,21 @@ class Same(Op):
     def prev_letter(cls, letter: str) -> str:
         return letter
 
-@dataclass(frozen=True)
-class Skip:
-    i: Index
+class Exception_(WorkspaceElem):
+    pass
 
-Exception_ = Skip
+@dataclass(frozen=True)
+class Skip(Exception_):
+    i: Parameter[Index]
+
+    def params(self) -> List[Variable]:
+        result: List[Variable] = []
+        if is_variable(self.i):
+            result.append(self.i)
+        return result
+
+    def with_var_level(self, level: int) -> Skip:
+        return Skip(Var.at_level(self.i, level))
 
 @dataclass(frozen=True)
 class Succeeded:
@@ -367,7 +401,7 @@ def op_to_repeater(
 
 @dataclass(frozen=True)
 class Seed(WorkspaceElem):
-    letter: str
+    letter: Parameter[str]
     i: Parameter[Index]
 
     def get_i(self, ws: Workspace) -> Index:
@@ -383,6 +417,12 @@ class Seed(WorkspaceElem):
         if is_variable(self.i):
             result.append(self.i)
         return result
+
+    def with_var_level(self, level: int) -> Seed:
+        return Seed(
+            Var.at_level(self.letter, level),
+            Var.at_level(self.i, level)
+        )
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
@@ -458,6 +498,12 @@ class OtherSide(WorkspaceElem):
     def params(self) -> List[Variable]:
         return [self.left, self.right]
 
+    def with_var_level(self, level: int) -> OtherSide:
+        return OtherSide(
+            Var.at_level(self.left, level),
+            Var.at_level(self.right, level),
+        )
+
 #    def complete(self, ws: Workspace) -> Completion:
 #        pass
 #        match (ws[self.left], ws[self.right]):
@@ -480,6 +526,9 @@ class Define(WorkspaceElem):
     name: Variable
     value: Any
 
+    def with_variables_at_level(self) -> Define:
+        pass
+
     def params(self) -> List[Variable]:
         result: List[Variable] = [self.name]
         if is_variable(self.value):
@@ -489,9 +538,16 @@ class Define(WorkspaceElem):
                 result += self.value.params()
         return result
 
+    def with_var_level(self, level: int) -> Define:
+        return Define(
+            Var.at_level(self.name, level),
+            self.value  #self.value.with_var_level(level)
+        )
+
     def run_local(self, local_ws: Workspace) -> None:
-        #lo('RLO', self.name in local_ws.subst, local_ws.subst)
+        lo('RLO', self.name in local_ws.subst, local_ws.subst)
         if self.name not in local_ws.subst:
+            lo('DEFINE', self.name, self.value)
             local_ws.define(self.name, self.value)
         
 
@@ -504,6 +560,10 @@ class PainterCluster(WorkspaceElem):
 
     def params(self) -> Set[Variable]:
         return union(*(elem.params() for elem in self.elems))
+
+    def with_var_level(self, level: int) -> PainterCluster:
+        return self  # TODO Is this right? Or should we make a new PainterCluster
+                     # with new elems?
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> None:
 #        subst = ws_in.subst | subst_in
@@ -520,20 +580,27 @@ class PainterCluster(WorkspaceElem):
         #ws_in.define('L1', 'a')
         #ws_in.define_letter('a')
         local_ws = Workspace(subst=ws_in.subst | subst_in)
-        for elem in self.elems:
+        elems = self.elems_at_level(1)
+        for elem in elems:
             if isinstance(elem, Define):
                 elem.run_local(local_ws)
         # Copy local variables back to ws_in
         for name in self.params():
+            lo('RUN', name, name not in subst_in)
             if name not in subst_in:  # if name was not given as an argument
+                name = Var.at_level(name, 1)
+                lo('RUN2', local_ws[name], local_ws.subst)
                 ws_in.define_letter(local_ws[name])
 
+    def elems_at_level(self, level: int) -> List[WorkspaceElem]:
+        return [elem.with_var_level(level) for elem in self.elems]
+
 def is_variable(x: Any) -> TypeGuard[Variable]:
-    return isinstance(x, str) and len(x) > 1
+    return (isinstance(x, str) and len(x) > 1) or isinstance(x, Var)
 
 @dataclass
 class Workspace:
-    subst: Dict[str, Any] = field(default_factory=dict)
+    subst: Dict[Variable, Any] = field(default_factory=dict)
         # a "substitution": a map of variable names to values
     _tags: Dict[Tag, Set[WorkspaceElem]] = \
         field(default_factory=lambda: defaultdict(set))
@@ -544,7 +611,7 @@ class Workspace:
     letter_var_counter: int = 0
     
     def define(
-        self, name: str, value: Any, tag: Union[Tag, List[Tag], None]=None
+        self, name: Variable, value: Any, tag: Union[Tag, List[Tag], None]=None
     ) -> None:
         self.subst[name] = value
         for t in as_iter(tag):
@@ -619,6 +686,8 @@ class Workspace:
         match (pc := self[painter_cluster]):
             case PainterCluster():
                 pc.run(self, subst_in)
+            case _:
+                raise NotImplementedError  # TODO handle missing PainterCluster
 #        #painter_cluster = self.get_painter_cluster(pc)
 #        #painter_cluster.run(self, subst)
 #        subst: Subst = {}
@@ -627,54 +696,63 @@ class Workspace:
 #        return subst
 
     def get_index(self, x: Parameter[Index]) -> Index:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case int():
+                return x
+            case _:
+                return self[x]
 
     def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case Canvas():
+                return x
+            case _:
+                return self[x]
 
     def get_seed(self, x: Parameter[Seed]) -> Seed:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case Seed():
+                return x
+            case _:
+                return self[x]
 
     def get_op(self, x: Parameter[Type[Op]]) -> Type[Op]:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case type():
+                return x
+            case _:
+                return self[x]
 
     def get_exception(self, x: OptionalParameter[Exception_]) \
     -> Optional[Exception_]:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case Exception_():
+                return x
+            case None:
+                return None
+            case _:
+                return self[x]
 
     def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case Repeat():
+                return x
+            case _:
+                return self[x]
 
     def get_painter_cluster(self, x: Parameter[PainterCluster]) \
     -> PainterCluster:
-        if isinstance(x, str):
-            return self[x]
-        else:
-            return x
+        match x:
+            case PainterCluster():
+                return x
+            case _:
+                return self[x]
 
     def get_letter(self, x: Parameter[str]) -> str:
-        if isinstance(x, str) and len(x) > 1:
+        if is_variable(x):
             return self[x]
         else:
-            return x
+            return x    # type: ignore[return-value]
 
     def short(self) -> str:
         return self.__class__.__name__

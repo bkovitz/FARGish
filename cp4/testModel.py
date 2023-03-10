@@ -235,10 +235,13 @@ class TestWorkspace(unittest.TestCase):
     def test_painter_cluster_local_same_name_as_existing_variable(self) -> None:
         ws = Workspace()
         ws.define('LL', 'a')
+        lo('UT', ws.subst)
         ws.define('CLUSTER', PainterCluster(
             Define('LL', 'b')
         ))
+        lo('UT2', ws.subst)
         ws.run_painter_cluster('CLUSTER', dict())
+        lo('UT3', ws.subst)
         self.assertEqual(ws.all_letter_defs(), {'LL': 'a', 'L1': 'b'})
 
 #    def test_simple_cluster(self) -> None:
