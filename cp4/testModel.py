@@ -186,8 +186,8 @@ class TestWorkspace(unittest.TestCase):
 
     def test_define_letter(self) -> None:
         ws = Workspace()
-        name1 = ws.define_letter('a')
-        name2 = ws.define_letter('b')
+        name1 = ws.define_and_name('a')
+        name2 = ws.define_and_name('b')
         self.assertEqual(name1, 'L1')
         self.assertEqual(ws[name1], 'a')
         self.assertEqual(name2, 'L2')
@@ -196,7 +196,7 @@ class TestWorkspace(unittest.TestCase):
     def test_define_letter_that_clashes_with_existing_lettername(self) -> None:
         ws = Workspace()
         ws.define('L1', 'a')
-        name = ws.define_letter('b')
+        name = ws.define_and_name('b')
         self.assertEqual(ws['L1'], 'a')
         self.assertEqual(name, 'L2')
         self.assertEqual(ws[name], 'b')
@@ -240,6 +240,18 @@ class TestWorkspace(unittest.TestCase):
         ))
         ws.run_painter_cluster('CLUSTER', dict())
         self.assertEqual(ws.all_letter_defs(), {'LL': 'a', 'L1': 'b'})
+
+    def test_painter_cluster_create_seed(self) -> None:
+        ws = Workspace()
+        ws.define('CLUSTER', PainterCluster(
+            Define('DD', Seed('LL', 'II'))
+        ))
+        ws.run_painter_cluster('CLUSTER', dict(LL='a', II=1))
+        self.assertEqual(ws.all_seed_defs(), {'D1': Seed('a', 1)})
+        #self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
+        #self.assertEqual(ws.all_index_defs(), {'I1': 1})
+
+    #NEXT Fill a cluster's variables "bottom-up"
 
 #    def test_simple_cluster(self) -> None:
 #        ws = Workspace()

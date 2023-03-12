@@ -39,6 +39,7 @@ class Var:
                 return v  # type: ignore[return-value]
         return v  # type: ignore[return-value]   # mypy bug
 
+
 Variable = Union[str, Var]
 Parameter = Union[Variable, T]
 OptionalParameter = Union[str, T, None]
@@ -57,6 +58,10 @@ class WorkspaceElem(ABC):
     def with_var_level(self, level: int) -> WorkspaceElem:
         '''Return a new WorkspaceElem, in which all the Parameter variables have been
         replaced with Var objects at 'level'.'''
+        pass
+
+    @abstractmethod
+    def eval(self: T, ws: Workspace) -> T:
         pass
 
 ########## Tags ##########
@@ -355,6 +360,9 @@ class Skip(Exception_):
     def with_var_level(self, level: int) -> Skip:
         return Skip(Var.at_level(self.i, level))
 
+    def eval(self, ws: Workspace) -> Skip:
+        pass  # TODO
+
 @dataclass(frozen=True)
 class Succeeded:
     info: Any
@@ -422,6 +430,12 @@ class Seed(WorkspaceElem):
         return Seed(
             Var.at_level(self.letter, level),
             Var.at_level(self.i, level)
+        )
+
+    def eval(self, ws: Workspace) -> Seed:
+        return Seed(
+            ws.eval(self.letter),
+            ws.eval(self.i)
         )
 
     def __repr__(self) -> str:
@@ -504,6 +518,9 @@ class OtherSide(WorkspaceElem):
             Var.at_level(self.right, level),
         )
 
+    def eval(self, ws: Workspace) -> OtherSide:
+        pass  # TODO
+
 #    def complete(self, ws: Workspace) -> Completion:
 #        pass
 #        match (ws[self.left], ws[self.right]):
@@ -541,15 +558,19 @@ class Define(WorkspaceElem):
     def with_var_level(self, level: int) -> Define:
         return Define(
             Var.at_level(self.name, level),
-            self.value  #self.value.with_var_level(level)
+            Var.at_level(self.value, level)  #self.value.with_var_level(level)
         )
 
     def run_local(self, local_ws: Workspace) -> None:
         #lo('RLO', self.name in local_ws.subst, local_ws.subst)
         if self.name not in local_ws.subst:
             #lo('DEFINE', self.name, self.value)
-            local_ws.define(self.name, self.value)
+            #local_ws.define(self.name, self.value)
+            #lo('LOCAL WS', local_ws.subst)
+            local_ws.define(self.name, local_ws.eval(self.value))
         
+    def eval(self, ws: Workspace) -> Define:
+        pass  # TODO
 
 @dataclass(frozen=True)
 class PainterCluster(WorkspaceElem):
@@ -578,10 +599,13 @@ class PainterCluster(WorkspaceElem):
         # Copy local variables back to ws_in
         for name_in in [Var.at_level(name, 1) for name in self.params()]:
             if name_in not in subst_in:  # if name was not given as an argument
-                ws_in.define_letter(local_ws[name_in])
+                ws_in.define_and_name(local_ws[name_in])
 
     def elems_at_level(self, level: int) -> List[WorkspaceElem]:
         return [elem.with_var_level(level) for elem in self.elems]
+
+    def eval(self, ws: Workspace) -> PainterCluster:
+        pass  # TODO
 
 def is_variable(x: Any) -> TypeGuard[Variable]:
     return (isinstance(x, str) and len(x) > 1) or isinstance(x, Var)
@@ -596,7 +620,8 @@ class Workspace:
     _tags_of: Dict[WorkspaceElem, Set[Tag]] = \
         field(default_factory=lambda: defaultdict(set))
         # maps each elem to its tags
-    letter_var_counter: int = 0
+    #letter_var_counter: int = 0
+    var_counters: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
     
     def define(
         self, name: Variable, value: Any, tag: Union[Tag, List[Tag], None]=None
@@ -606,13 +631,30 @@ class Workspace:
             self._tags[t].add(value)
             self._tags_of[value].add(t)
 
-    def define_letter(self, letter: str) -> Variable:
+#    def define_letter(self, letter: str) -> Variable:
+#        while True:
+#            self.letter_var_counter += 1
+#            name = f'L{self.letter_var_counter}'
+#            if not name in self.subst:
+#                break
+#        self.define(name, letter)
+#        return name
+
+    def define_and_name(self, obj: str | WorkspaceElem) -> Variable:
+        name_letter: str
+        match obj:
+            case str():   # Letter
+                name_letter = 'L'
+            case Seed():
+                name_letter = 'D'
+            case _:
+                raise NotImplementedError
         while True:
-            self.letter_var_counter += 1
-            name = f'L{self.letter_var_counter}'
+            self.var_counters[name_letter] += 1
+            name = f'{name_letter}{self.var_counters[name_letter]}'
             if not name in self.subst:
                 break
-        self.define(name, letter)
+        self.define(name, obj)
         return name
 
     def undefine(self, name: str) -> None:
@@ -652,11 +694,37 @@ class Workspace:
         else:
             return value
 
+#    def eval(self, x: Parameter[ WorkspaceElem | str | Index]) \
+#    -> Parameter[WorkspaceElem | str | Index]:
+    def eval(self, x: Parameter[T]) -> Parameter[T]:
+        match x:
+            case _ if is_variable(x):
+                return self[x]
+            case WorkspaceElem():
+                return x.eval(self)  # type: ignore[return-value]
+            case _:
+                return x
+        raise NotImplementedError  # Should never reach this line; mypy bug
+
     def all_letter_defs(self) -> Dict[Variable, str]:
         return dict(
             (k, v)
                 for k, v in self.subst.items()
                     if isinstance(v, str)
+        )
+
+    def all_seed_defs(self) -> Dict[Variable, Seed]:
+        return dict(
+            (k, v)
+                for k, v in self.subst.items()
+                    if isinstance(v, Seed)
+        )
+
+    def all_index_defs(self) -> Dict[Variable, int]:
+        return dict(
+            (k, v)
+                for k, v in self.subst.items()
+                    if isinstance(v, int)
         )
 
     # TODO Merge this into run_painter

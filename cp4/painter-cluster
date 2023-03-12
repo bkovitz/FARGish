@@ -23,7 +23,7 @@ If a Define clashes with an existing variable:
 
    Run CLUSTER(LL=L1)
 
-Local variables should coexist with original workspace variables:
+Local variables should coexist with original workspace variables:  DONE
    LL='a'
 
    CLUSTER(LL)
