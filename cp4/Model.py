@@ -545,9 +545,9 @@ class Define(WorkspaceElem):
         )
 
     def run_local(self, local_ws: Workspace) -> None:
-        lo('RLO', self.name in local_ws.subst, local_ws.subst)
+        #lo('RLO', self.name in local_ws.subst, local_ws.subst)
         if self.name not in local_ws.subst:
-            lo('DEFINE', self.name, self.value)
+            #lo('DEFINE', self.name, self.value)
             local_ws.define(self.name, self.value)
         
 
@@ -566,31 +566,19 @@ class PainterCluster(WorkspaceElem):
                      # with new elems?
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> None:
-#        subst = ws_in.subst | subst_in
-#        ws = Workspace(subst=subst)
-#        for elem in self.elems:
-#            match elem:
-#                case Define(name, value):
-#                    ws.define(name, value)
-#        for elem in self.elems:
-#            match elem:
-#                case Define(name, value):
-#                    if isinstance(value, Repeat):
-#                        ws.run_painter(value)
-        #ws_in.define('L1', 'a')
-        #ws_in.define_letter('a')
+        subst_in: Subst = dict(
+            (Var.at_level(k, 1), v) for k, v in subst_in.items()
+        )
         local_ws = Workspace(subst=ws_in.subst | subst_in)
         elems = self.elems_at_level(1)
         for elem in elems:
             if isinstance(elem, Define):
                 elem.run_local(local_ws)
+
         # Copy local variables back to ws_in
-        for name in self.params():
-            lo('RUN', name, name not in subst_in)
-            if name not in subst_in:  # if name was not given as an argument
-                name = Var.at_level(name, 1)
-                lo('RUN2', local_ws[name], local_ws.subst)
-                ws_in.define_letter(local_ws[name])
+        for name_in in [Var.at_level(name, 1) for name in self.params()]:
+            if name_in not in subst_in:  # if name was not given as an argument
+                ws_in.define_letter(local_ws[name_in])
 
     def elems_at_level(self, level: int) -> List[WorkspaceElem]:
         return [elem.with_var_level(level) for elem in self.elems]
