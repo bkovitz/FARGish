@@ -122,7 +122,7 @@ def trace(func):
     time it is called, and prints its return value when it returns.
     Caution: 'trace' will read generators all the way to their end.'''
     @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> None:
+    def trace_wrapper(*args, **kwargs) -> None:
         argstring = ''
         if args:
             argstring += ', '.join(short(a, inside=True) for a in args)
@@ -136,4 +136,4 @@ def trace(func):
             result = func(*args, **kwargs)
         lo(f'-> {short(result, inside=True)}')
         return result
-    return wrapper
+    return trace_wrapper

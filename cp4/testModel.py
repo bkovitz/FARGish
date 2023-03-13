@@ -3,9 +3,11 @@
 import unittest
 import inspect
 
+from dataclasses import dataclass, field, fields, replace, InitVar, Field
+
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
-    OldWorld, NewWorld
+    OldWorld, NewWorld, Tag
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -85,9 +87,27 @@ class TestRepeat(unittest.TestCase):
         repeat.fill(ws)
         self.assertEqual(str(canvas), 'hjk')
 
+    def test_repeat_params(self) -> None:
+        canvas = Canvas.make_unknown(length=3)
+        repeat = Repeat('C0', 'D1', 'F1')
+        self.assertCountEqual(repeat.params(), ['C0', 'D1', 'F1'])
+
+    def test_repeat_params_with_exception(self) -> None:
+        canvas = Canvas.make_unknown(length=3)
+        repeat = Repeat('C0', 'D1', 'F1', 'E1')
+        self.assertCountEqual(repeat.params(), ['C0', 'D1', 'F1', 'E1'])
+
     #TODO Skip right at the seed
     #TODO What should be the result of Skip(1)?
 
+
+@dataclass(frozen=True)
+class ArbitraryTag1(Tag):
+    pass
+
+@dataclass(frozen=True)
+class ArbitraryTag2(Tag):
+    pass
 
 class TestWorkspace(unittest.TestCase):
 
@@ -96,6 +116,14 @@ class TestWorkspace(unittest.TestCase):
         ws.define('I1', 1)
         self.assertEqual(ws['I1'], 1)
         self.assertEqual(ws.get_index('I1'), 1)
+
+    def test_tags(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a', tag=ArbitraryTag1())
+        self.assertEqual(ws.find_objects_with_tag(ArbitraryTag1()), set(['a']))
+        self.assertEqual(ws.find_object_with_tag(ArbitraryTag1()), 'a')
+        self.assertEqual(ws.tags_of('a'), set([ArbitraryTag1()]))
+        self.assertEqual(ws.tags_of('L1'), set([ArbitraryTag1()]))
 
     def test_repeat_succ(self) -> None:
         ws = Workspace()
@@ -201,6 +229,13 @@ class TestWorkspace(unittest.TestCase):
         self.assertEqual(name, 'L2')
         self.assertEqual(ws[name], 'b')
 
+#    def test_define_seed(self) -> None:
+#        ws = Workspace()
+#        ws.define('D1', Seed('a', 1))
+#        self.assertEqual(ws['D1'], Seed('L1', 'I1'))
+#        self.assertEqual(ws['L1'], 'a')
+#        self.assertEqual(ws['I1'], 1)
+
     def test_painter_cluster_just_define(self) -> None:
         ws = Workspace()
         ws.define('CLUSTER', PainterCluster(
@@ -227,9 +262,8 @@ class TestWorkspace(unittest.TestCase):
             Define('LL', 'a')
         ))
         ws.run_painter_cluster('CLUSTER', dict(LL='L1'))
-        # This should do nothing, since L1 already exists and is 'a'
-        #lo('UT', ws.subst)
-        #self.assertEqual(len(ws.subst), 2)  # TODO rewrite more clearly
+        # Running the PainterCluster should do nothing, since L1 already exists and
+        # is 'a'.
         self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
 
     def test_painter_cluster_local_same_name_as_existing_variable(self) -> None:
@@ -250,6 +284,17 @@ class TestWorkspace(unittest.TestCase):
         self.assertEqual(ws.all_seed_defs(), {'D1': Seed('a', 1)})
         #self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
         #self.assertEqual(ws.all_index_defs(), {'I1': 1})
+
+#    def test_painter_cluster_create_seed2(self) -> None:
+#        ws = Workspace()
+#        ws.define('L1', 'a')
+#        ws.define('I1', 1)
+#        ws.define('CLUSTER', PainterCluster(
+#            Define('DD', Seed('LL', 'II'))
+#        ))
+#        ws.run_painter_cluster('CLUSTER', dict(LL='L1', II='I1'))
+#        self.assertEqual(ws.all_seed_defs(), {'D1': Seed('L1', 'I1')})
+
 
     #NEXT Fill a cluster's variables "bottom-up"
 

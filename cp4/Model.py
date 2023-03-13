@@ -22,7 +22,9 @@ T = TypeVar('T')
 
 @dataclass(frozen=True)
 class Var:
-    '''A variable, together with a level number so that @@'''
+    '''A variable, together with a level number so that the model can tell
+    local variables in PainterClusters apart from variables of the same name in
+    an enclosing scope.'''
     name: str
     level: int
 
@@ -33,7 +35,7 @@ class Var:
                 return Var(v, level)  # type: ignore[arg-type]
             case Var():
                 return Var(v.name, level)
-            case WorkspaceElem():
+            case CompoundWorkspaceObj():
                 return v.with_var_level(level)  # type: ignore[return-value]
             case _:
                 return v  # type: ignore[return-value]
@@ -46,17 +48,18 @@ OptionalParameter = Union[str, T, None]
 
 Subst = Dict[Variable, Parameter]
 
+Letter = str  # strictly speaking, a single-character, lowercase str
 Index = int
 
-class WorkspaceElem(ABC):
+class CompoundWorkspaceObj(ABC):
 
     @abstractmethod
     def params(self) -> Collection[Variable]:
         pass
 
     @abstractmethod
-    def with_var_level(self, level: int) -> WorkspaceElem:
-        '''Return a new WorkspaceElem, in which all the Parameter variables have been
+    def with_var_level(self, level: int) -> CompoundWorkspaceObj:
+        '''Return a new CompoundWorkspaceObj, in which all the Parameter variables have been
         replaced with Var objects at 'level'.'''
         pass
 
@@ -344,7 +347,7 @@ class Same(Op):
     def prev_letter(cls, letter: str) -> str:
         return letter
 
-class Exception_(WorkspaceElem):
+class Exception_(CompoundWorkspaceObj):
     pass
 
 @dataclass(frozen=True)
@@ -408,7 +411,7 @@ def op_to_repeater(
     return Succeeded(flaw)
 
 @dataclass(frozen=True)
-class Seed(WorkspaceElem):
+class Seed(CompoundWorkspaceObj):
     letter: Parameter[str]
     i: Parameter[Index]
 
@@ -448,7 +451,7 @@ class Seed(WorkspaceElem):
     
 
 @dataclass(frozen=True)
-class Repeat:
+class Repeat(CompoundWorkspaceObj):
     canvas: Parameter[Canvas]
     seed: Parameter[Seed]
     op: Parameter[Type[Op]]
@@ -470,8 +473,21 @@ class Repeat:
                 )
             )
 
+    def eval(self, ws: Workspace) -> Repeat:
+        pass  # TODO
+
+    def with_var_level(self, level: int) -> Repeat:
+        pass  # TODO
+
+    def params(self) -> List[Variable]:
+        return [
+            x
+                for x in [self.canvas, self.seed, self.op, self.exception]
+                    if is_variable(x)
+        ]
+
 @dataclass(frozen=True)
-class OtherSide(WorkspaceElem):
+class OtherSide(CompoundWorkspaceObj):
     left: Variable     # TODO allow a constant?
     right: Variable    # TODO allow a constant?
 
@@ -537,7 +553,7 @@ Painter = Union[Repeat, OtherSide]
                 
 
 @dataclass(frozen=True)
-class Define(WorkspaceElem):
+class Define(CompoundWorkspaceObj):
     '''Contrary to the name of what Define inherits from, a Define may not exist as
     a full citizen of the Workspace. It may only be an element of a PainterCluster.'''
     name: Variable
@@ -551,7 +567,7 @@ class Define(WorkspaceElem):
         if is_variable(self.value):
             result.append(self.value)
         else:
-            if isinstance(self.value, WorkspaceElem):
+            if isinstance(self.value, CompoundWorkspaceObj):
                 result += self.value.params()
         return result
 
@@ -573,10 +589,10 @@ class Define(WorkspaceElem):
         pass  # TODO
 
 @dataclass(frozen=True)
-class PainterCluster(WorkspaceElem):
-    elems: Tuple[WorkspaceElem, ...]
+class PainterCluster(CompoundWorkspaceObj):
+    elems: Tuple[PainterClusterElem, ...]
 
-    def __init__(self, *elems: WorkspaceElem):
+    def __init__(self, *elems: CompoundWorkspaceObj):
         force_setattr(self, 'elems', elems)
 
     def params(self) -> Set[Variable]:
@@ -601,7 +617,7 @@ class PainterCluster(WorkspaceElem):
             if name_in not in subst_in:  # if name was not given as an argument
                 ws_in.define_and_name(local_ws[name_in])
 
-    def elems_at_level(self, level: int) -> List[WorkspaceElem]:
+    def elems_at_level(self, level: int) -> List[CompoundWorkspaceObj]:
         return [elem.with_var_level(level) for elem in self.elems]
 
     def eval(self, ws: Workspace) -> PainterCluster:
@@ -614,22 +630,35 @@ def is_variable(x: Any) -> TypeGuard[Variable]:
 class Workspace:
     subst: Dict[Variable, Any] = field(default_factory=dict)
         # a "substitution": a map of variable names to values
-    _tags: Dict[Tag, Set[WorkspaceElem]] = \
+    #_tags: Dict[Tag, Set[Variable]] = \
+    _tags: Dict[Tag, Set[WorkspaceObj]] = \
         field(default_factory=lambda: defaultdict(set))
         # tag to the objects with that tag   TODO multiple tags, multiple objs
-    _tags_of: Dict[WorkspaceElem, Set[Tag]] = \
+    #_tags_of: Dict[Variable, Set[Tag]] = \
+    _tags_of: Dict[WorkspaceObj, Set[Tag]] = \
         field(default_factory=lambda: defaultdict(set))
         # maps each elem to its tags
     #letter_var_counter: int = 0
     var_counters: Dict[str, int] = field(default_factory=lambda: defaultdict(int))
     
     def define(
-        self, name: Variable, value: Any, tag: Union[Tag, List[Tag], None]=None
+        self, name: Variable, value: Argument, tag: Union[Tag, List[Tag], None]=None
     ) -> None:
         self.subst[name] = value
+#        for t in as_iter(tag):
+#            self._tags[t].add(value)
+#            self._tags_of[value].add(t)
+        v = self[value]
         for t in as_iter(tag):
-            self._tags[t].add(value)
-            self._tags_of[value].add(t)
+            self._tags[t].add(v)
+            self._tags_of[v].add(t)
+
+#        match value:
+#            case _ if is_literal(value):
+#                self.subst[name] = self.value
+#            case CompoundWorkspaceObj():
+#                value = 
+#        for k, v in 
 
 #    def define_letter(self, letter: str) -> Variable:
 #        while True:
@@ -640,7 +669,7 @@ class Workspace:
 #        self.define(name, letter)
 #        return name
 
-    def define_and_name(self, obj: str | WorkspaceElem) -> Variable:
+    def define_and_name(self, obj: str | CompoundWorkspaceObj) -> Variable:
         name_letter: str
         match obj:
             case str():   # Letter
@@ -663,26 +692,26 @@ class Workspace:
             del self.subst[name]
         # TODO rm tags
 
-    def tags_of(self, obj: Parameter[WorkspaceElem]) -> Tags:
+    def tags_of(self, obj: Parameter[CompoundWorkspaceObj]) -> Tags:
         return self._tags_of.get(self[obj], None)
 
-    def find_objects_with_tag(self, tags: Tags) -> Set[WorkspaceElem]:
+    def find_objects_with_tag(self, tags: Tags) -> Set[CompoundWorkspaceObj]:
         return intersection(
             *(self._tags[t] for t in as_iter(tags))
         )
 
-    def find_object_with_tag(self, tags: Tags) -> WorkspaceElem:
+    def find_object_with_tag(self, tags: Tags) -> CompoundWorkspaceObj:
         # Fizzles if there is not exactly one object with the tags
         result = self.find_objects_with_tag(tags)
         if len(result) == 0:
             raise Fizzle()  # TODO indicate reason for fizzle
         return first(result)
 
-    def extract_tag(self, tagtype: Type[Tag], obj: WorkspaceElem) \
+    def extract_tag(self, tagtype: Type[Tag], obj: CompoundWorkspaceObj) \
     -> Optional[Tag]:
         return extract_tag(tagtype, self._tags_of.get(self[obj], None))
 
-    def __getitem__(self, obj: Parameter[WorkspaceElem]) -> Any:
+    def __getitem__(self, obj: Argument) -> Any:
         '''Returns None if 'obj' is not defined. If 'obj' is defined as
         a variable name, returns the value of that other name.'''
         if is_variable(obj):
@@ -694,13 +723,13 @@ class Workspace:
         else:
             return value
 
-#    def eval(self, x: Parameter[ WorkspaceElem | str | Index]) \
-#    -> Parameter[WorkspaceElem | str | Index]:
+#    def eval(self, x: Parameter[ CompoundWorkspaceObj | str | Index]) \
+#    -> Parameter[CompoundWorkspaceObj | str | Index]:
     def eval(self, x: Parameter[T]) -> Parameter[T]:
         match x:
             case _ if is_variable(x):
                 return self[x]
-            case WorkspaceElem():
+            case CompoundWorkspaceObj():
                 return x.eval(self)  # type: ignore[return-value]
             case _:
                 return x
@@ -812,3 +841,9 @@ class Workspace:
 
     def short(self) -> str:
         return self.__class__.__name__
+
+BaseLiteral = Union[Letter, Index]
+WorkspaceObj = Union[BaseLiteral, Canvas, CompoundWorkspaceObj, Type[Op]]
+    # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
+Argument = Union[Variable, WorkspaceObj]
+PainterClusterElem = Union[Define]  # TODO Add all Painters
