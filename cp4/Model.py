@@ -370,9 +370,10 @@ class Skip(Exception_):
         return Skip(Var.at_level(self.i, level))
 
     def eval(self, ws: Workspace) -> Skip:
-        pass  # TODO
+        raise NotImplementedError  # TODO
 
-    def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
+    def replace_constants_with_variables(self, ws: Workspace) \
+    -> CompoundWorkspaceObj:
         if is_variable(self.i):
             return self
         else:
@@ -465,7 +466,7 @@ class Seed(CompoundWorkspaceObj):
                 ws.define_and_name(self.i) # type: ignore[arg-type]
                     if not is_variable(self.i) else self.i
                 )
-            lo('REPL', letter_variable, i_variable)
+            #lo('REPL', letter_variable, i_variable)
             return Seed(letter_variable, i_variable)
 
     def __repr__(self) -> str:
@@ -501,10 +502,10 @@ class Repeat(CompoundWorkspaceObj):
             )
 
     def eval(self, ws: Workspace) -> Repeat:
-        pass  # TODO
+        raise NotImplementedError  # TODO
 
     def with_var_level(self, level: int) -> Repeat:
-        pass  # TODO
+        raise NotImplementedError  # TODO
 
     def params(self) -> List[Variable]:
         return [
@@ -596,7 +597,7 @@ class OtherSide(CompoundWorkspaceObj):
         )
 
     def eval(self, ws: Workspace) -> OtherSide:
-        pass  # TODO
+        raise NotImplementedError  # TODO
 
     def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
         return self
@@ -624,7 +625,7 @@ class Define(CompoundWorkspaceObj):
     value: Any
 
     def with_variables_at_level(self) -> Define:
-        pass
+        raise NotImplementedError
 
     def params(self) -> List[Variable]:
         result: List[Variable] = [self.name]
@@ -651,7 +652,7 @@ class Define(CompoundWorkspaceObj):
             local_ws.define(self.name, self.value)
         
     def eval(self, ws: Workspace) -> Define:
-        pass  # TODO
+        raise NotImplementedError  # TODO
 
     def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
         return self  # DOUBT Is this right? Do we need to replace constants inside
@@ -681,10 +682,17 @@ def try_to_make_level_0(subst: Subst, o: CompoundWorkspaceObj) \
     d: Dict[str, Any] = {}
     #for k, v in names_and_arguments_of(o):
     for name, v in parameters_and_arguments_of(o):
-        if is_level_0(v):
-            d[name] = v
+        if is_base_obj(v):
+            continue
+        elif is_variable(v):
+            if is_level_0(vv := subst.get(v, None)):
+                d[name] = vv
+            else:
+                return None
+        elif isinstance(v, CompoundWorkspaceObj):
+            raise NotImplementedError
         else:
-            return None
+            raise NotImplementedError
     return replace(o, **d)
 
 def parameters_and_arguments_of(o: CompoundWorkspaceObj) \
@@ -713,8 +721,8 @@ class PainterCluster(CompoundWorkspaceObj):
         return union(*(elem.params() for elem in self.elems))
 
     def with_var_level(self, level: int) -> PainterCluster:
-        return self  # TODO Is this right? Or should we make a new PainterCluster
-                     # with new elems?
+        return self # TODO Is this right? Or should we make a new PainterCluster
+                    # with new elems?
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> None:
         #import pdb; pdb.set_trace()
@@ -775,50 +783,47 @@ class PainterCluster(CompoundWorkspaceObj):
         # Inside the PainterCluster, we need common level-1 names in different
         # objects to refer to the same things.
 
-        level_1_names = list(subst_in.keys())
+        subst_out = local_ws.subst.copy()
+        level_1_names = [Var.at_level(name, 1) for name in self.params()]
         name_map: Dict[Variable, Variable] = {}  # level-1 to level-0
         while level_1_names:
             name1 = level_1_names.pop(0)  # the level-1 name we're trying to eliminate
-            value1 = subst_in[name1] # its value inside the PainterCluster
+            #value1 = subst_in[name1] # its value inside the PainterCluster
+            value1 = subst_out.get(name1, None) # its value inside the PainterCluster
+            #lo('LOOP', name1, value1)
+            #import pdb; pdb.set_trace()
             match value1:
                 case None:      # name1 never got defined
                     break       # so give up  (TODO maybe Fizzle)
-                case str() as name2 if is_variable(name1):
+                case str() if is_variable(value1):
                                       # name1 is defined as a level-0 name
                     continue          # so, we're done with name1
                 case Var(level=1):    # name1 is defined as a level-1 name
                     value2 = subst_in[name1]
                     if is_level_0(value2):
-                        subst_in[name1] = value2  # redefine name1 to bypass level-1
+                        subst_out[name1] = value2  # redefine name1 to bypass level-1
                     # we'll need a second pass for name1
                 case str():     # name1 is defined as a letter
+                    level_0_name = ws_in.define_and_name(value1)
+                    subst_out[name1] = level_0_name
                     continue
                 case int():     # name1 is defined as an index
+                    level_0_name = ws_in.define_and_name(value1)
+                    subst_out[name1] = level_0_name
                     continue
                 case Canvas():  # name1 is defined as a canvas
+                    level_0_name = ws_in.define_and_name(value1)
+                    subst_out[name1] = level_0_name
                     continue
                 case _ if safe_issubclass(value1, Op):  # name1 is defined as an Op
                     raise NotImplementedError
-#                case CompoundWorkspaceObj():  # name1 is defined as a compound object
-#                    if is_level_0(value1):
-#                        level_0_name = ws_in.define_and_name(value1)
-#                        # What if there are multiple names for value1?
-#                        subst_in[name1] = level_0_name
-#                    elif no_worse_than_level_1_members(value1):
-#                        value1_replacement = replace_members_with_definition(
-#                            subst_in,
-#                            value1
-#                        )
-#                        # What if one of those members lacks a definition?
-#                        level_0_name = ws_in.define_and_name(value1_replacement)
-#                        subst_in[name1] = level_0_name
                 case CompoundWorkspaceObj():  # name1 is defined as a compound object
                     value0 = try_to_make_level_0(subst_in, value1)
                     if value0 is None:
                         pass  # wait for another iteration
                     else:
                         level_0_name = ws_in.define_and_name(value0)
-                        subst_in[name1] = level_0_name
+                        subst_out[name1] = level_0_name
                         continue
                             
                     # else name1 must wait for another iteration of the loop, after
@@ -878,7 +883,7 @@ class PainterCluster(CompoundWorkspaceObj):
         return [elem.with_var_level(level) for elem in self.elems]
 
     def eval(self, ws: Workspace) -> PainterCluster:
-        pass  # TODO
+        raise NotImplementedError  # TODO
 
     def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
         return PainterCluster(
@@ -887,6 +892,12 @@ class PainterCluster(CompoundWorkspaceObj):
 
 def is_variable(x: Any) -> TypeGuard[Variable]:
     return (isinstance(x, str) and len(x) > 1) or isinstance(x, Var)
+
+def is_base_obj(x: Any) -> TypeGuard[BaseObj]:
+    return is_base_literal(x) or isinstance(x, Canvas) or is_type_op(x)
+
+def is_base_literal(x: Any) -> TypeGuard[BaseLiteral]:
+    return (isinstance(x, str) and len(x) == 1) or isinstance(x, int)
 
 @dataclass
 class Workspace:
@@ -933,8 +944,7 @@ class Workspace:
 #        self.define(name, letter)
 #        return name
 
-    # TODO obj: WorkspaceObj
-    def define_and_name(self, obj: str | int | CompoundWorkspaceObj) -> Variable:
+    def define_and_name(self, obj: WorkspaceObj) -> Variable:
         name_letter: str
         match obj:
             case str():   # Letter
@@ -1110,7 +1120,8 @@ class Workspace:
         return self.__class__.__name__
 
 BaseLiteral = Union[Letter, Index]
-WorkspaceObj = Union[BaseLiteral, Canvas, CompoundWorkspaceObj, Type[Op]]
+BaseObj = Union[BaseLiteral, Canvas, Type[Op]]
+WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define]  # TODO Add all Painters

@@ -120,7 +120,6 @@ class TestWorkspace(unittest.TestCase):
     def test_define_compound_object_and_create_variables_automatically(self) -> None:
         ws = Workspace()
         ws.define('D1', Seed('a', 1))
-        lo('UT', ws.subst)
         self.assertEqual(ws['D1'], Seed('L1', 'I1'))
         self.assertEqual(ws['L1'], 'a')
         self.assertEqual(ws['I1'], 1)
@@ -303,8 +302,12 @@ class TestWorkspace(unittest.TestCase):
         ws.run_painter_cluster('CLUSTER', dict(LL='L1', II='I1'))
         self.assertEqual(ws.all_seed_defs(), {'D1': Seed('L1', 'I1')})
 
+    #TODO A failed PainterCluster: ws should be unmodified--no half-done
+    #entering of newly created objects.
 
-    #NEXT Fill a cluster's variables "bottom-up"
+    #TODO Nested PainterClusters.
+
+    #TODO Fill a cluster's variables "bottom-up"
 
 #    def test_simple_cluster(self) -> None:
 #        ws = Workspace()
