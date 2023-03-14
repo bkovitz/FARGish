@@ -55,7 +55,7 @@ REGENERATION
    RR1=R3 RR2=Repeat(S4, Seed('i', 1), Succ+Exception(Skip, 3))
    + all the other variables needed for RR2 to refer to
 
-   RR1=R3
+   RR1=R3       SS1=S3 DD=D3 FF=F3
    RR2=Repeat(S4, D3, F3, E2)
    OtherSide(S3, S4)   <--- Arrow filled in S4 SOMEHOW
    E2=Exception(G2, I4)   <--- Arrow constructed E2

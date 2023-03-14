@@ -117,6 +117,14 @@ class TestWorkspace(unittest.TestCase):
         self.assertEqual(ws['I1'], 1)
         self.assertEqual(ws.get_index('I1'), 1)
 
+    def test_define_compound_object_and_create_variables_automatically(self) -> None:
+        ws = Workspace()
+        ws.define('D1', Seed('a', 1))
+        lo('UT', ws.subst)
+        self.assertEqual(ws['D1'], Seed('L1', 'I1'))
+        self.assertEqual(ws['L1'], 'a')
+        self.assertEqual(ws['I1'], 1)
+
     def test_tags(self) -> None:
         ws = Workspace()
         ws.define('L1', 'a', tag=ArbitraryTag1())
@@ -275,25 +283,25 @@ class TestWorkspace(unittest.TestCase):
         ws.run_painter_cluster('CLUSTER', dict())
         self.assertEqual(ws.all_letter_defs(), {'LL': 'a', 'L1': 'b'})
 
-    def test_painter_cluster_create_seed(self) -> None:
-        ws = Workspace()
-        ws.define('CLUSTER', PainterCluster(
-            Define('DD', Seed('LL', 'II'))
-        ))
-        ws.run_painter_cluster('CLUSTER', dict(LL='a', II=1))
-        self.assertEqual(ws.all_seed_defs(), {'D1': Seed('a', 1)})
-        #self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
-        #self.assertEqual(ws.all_index_defs(), {'I1': 1})
-
-#    def test_painter_cluster_create_seed2(self) -> None:
+#    def test_painter_cluster_create_seed(self) -> None:
 #        ws = Workspace()
-#        ws.define('L1', 'a')
-#        ws.define('I1', 1)
 #        ws.define('CLUSTER', PainterCluster(
 #            Define('DD', Seed('LL', 'II'))
 #        ))
-#        ws.run_painter_cluster('CLUSTER', dict(LL='L1', II='I1'))
+#        ws.run_painter_cluster('CLUSTER', dict(LL='a', II=1))
 #        self.assertEqual(ws.all_seed_defs(), {'D1': Seed('L1', 'I1')})
+#        self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
+#        self.assertEqual(ws.all_index_defs(), {'I1': 1})
+
+    def test_painter_cluster_create_seed2(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+        ws.define('CLUSTER', PainterCluster(
+            Define('DD', Seed('LL', 'II'))
+        ))
+        ws.run_painter_cluster('CLUSTER', dict(LL='L1', II='I1'))
+        self.assertEqual(ws.all_seed_defs(), {'D1': Seed('L1', 'I1')})
 
 
     #NEXT Fill a cluster's variables "bottom-up"

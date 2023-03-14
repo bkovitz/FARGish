@@ -79,7 +79,7 @@ ut:
 # Convenience target for single unit test current being worked on
 u:
 	#$(PY) -m unittest -v testModel.TestWorkspace.test_painter_cluster_local_same_name_as_existing_variable
-	$(PY) -m unittest -v testModel.TestWorkspace.test_tags
+	$(PY) -m unittest -v testModel.TestWorkspace.test_painter_cluster_create_seed2
 	#$(PY) -m unittest -v testPainter
 
 # Acceptance tests
