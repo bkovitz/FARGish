@@ -214,9 +214,9 @@ class TestWorkspace(unittest.TestCase):
         )
 
         ws.run_painter_cluster('CLUSTER', dict(SS='S1', DD='D1', FF=Succ))
-        #lo('UT', ws.subst)
         # TODO Assert that F1=Succ  (no duplicate, i.e. F2)
-        # TODO Assert that R1=Repeat(S1, D1, F1)
+        self.assertEqual(ws['R1'], Repeat('S1', 'D1', 'F1'))
+        self.assertIsNone(ws['F2'])  # regression test: no duplicate Succ
         ws.run_repeater('R1')
         self.assertEqual(str(ws['S1']), 'abc')
 

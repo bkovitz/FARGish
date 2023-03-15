@@ -690,10 +690,15 @@ def try_to_make_level_0(subst: Subst, o: CompoundWorkspaceObj) \
         if is_base_obj(v):
             continue
         elif is_variable(v):    # TODO what if v is level-0?
-            if is_level_0(vv := subst.get(v, None)):
-                d[name] = vv
+            if is_level_0(v):
+                continue
             else:
-                return None
+                # NEXT If vv is not a variable, give up
+                vv = subst.get(v, None)
+                if is_variable(vv) and is_level_0(vv):
+                    d[name] = vv
+                else:
+                    return None
         elif isinstance(v, CompoundWorkspaceObj):
             raise NotImplementedError
         else:
@@ -734,7 +739,6 @@ class PainterCluster(CompoundWorkspaceObj):
                     # with new elems?
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> None:
-        #import pdb; pdb.set_trace()
         subst_in: Subst = dict(
             (Var.at_level(k, 1), v) for k, v in subst_in.items()
         )
@@ -828,7 +832,7 @@ class PainterCluster(CompoundWorkspaceObj):
                     subst_out[name1] = level_0_name
                     continue
                 case CompoundWorkspaceObj():  # name1 is defined as a compound object
-                    value0 = try_to_make_level_0(subst_in, value1)
+                    value0 = try_to_make_level_0(subst_out, value1)
                     if value0 is None:
                         pass  # wait for another iteration
                     else:
