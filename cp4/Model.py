@@ -505,7 +505,12 @@ class Repeat(CompoundWorkspaceObj):
         raise NotImplementedError  # TODO
 
     def with_var_level(self, level: int) -> Repeat:
-        raise NotImplementedError  # TODO
+        return Repeat(
+            Var.at_level(self.canvas, level),
+            Var.at_level(self.seed, level),
+            Var.at_level(self.op, level),
+            Var.at_level(self.exception, level)
+        )
 
     def params(self) -> List[Variable]:
         return [
@@ -665,14 +670,14 @@ def is_level_0(x: Argument) -> bool:
     match x:
         case Var(level=level):
             return level == 0
-        case str():     # letter or level-o variable
+        case str():     # letter or level-0 variable
             return True
         case int():
             return True
         case Canvas():
             return True
         case _ if is_type_op(x):
-            raise NotImplementedError
+            return True
         case CompoundWorkspaceObj():
             return all(is_level_0(arg) for arg in all_arguments_of(x))
     raise NotImplementedError  # mypy bug: it thinks x is Type[Op]
@@ -684,7 +689,7 @@ def try_to_make_level_0(subst: Subst, o: CompoundWorkspaceObj) \
     for name, v in parameters_and_arguments_of(o):
         if is_base_obj(v):
             continue
-        elif is_variable(v):
+        elif is_variable(v):    # TODO what if v is level-0?
             if is_level_0(vv := subst.get(v, None)):
                 d[name] = vv
             else:
@@ -695,17 +700,21 @@ def try_to_make_level_0(subst: Subst, o: CompoundWorkspaceObj) \
             raise NotImplementedError
     return replace(o, **d)
 
+def is_parameter(typ: Collection) -> bool:
+    '''Is typ a Parameter, OptionalParameter, or Value?'''
+    return Var in get_args(typ)
+
 def parameters_and_arguments_of(o: CompoundWorkspaceObj) \
 -> Iterable[Tuple[str, Argument]]:
     for name, typ in get_type_hints(o.__class__).items():
-        if Var in get_args(typ):
+        if is_parameter(typ):
             value = getattr(o, name)
             if value is not None:
                 yield (name, value)
     
 def all_arguments_of(o: CompoundWorkspaceObj) -> Iterable[Argument]:
     for name, typ in get_type_hints(o.__class__).items():
-        if Var in get_args(typ):  # if Parameter, OptionalParameter, or Variable
+        if is_parameter(typ):
             value = getattr(o, name)
             if value is not None:
                 yield value
@@ -785,7 +794,6 @@ class PainterCluster(CompoundWorkspaceObj):
 
         subst_out = local_ws.subst.copy()
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
-        name_map: Dict[Variable, Variable] = {}  # level-1 to level-0
         while level_1_names:
             name1 = level_1_names.pop(0)  # the level-1 name we're trying to eliminate
             #value1 = subst_in[name1] # its value inside the PainterCluster
@@ -815,8 +823,10 @@ class PainterCluster(CompoundWorkspaceObj):
                     level_0_name = ws_in.define_and_name(value1)
                     subst_out[name1] = level_0_name
                     continue
-                case _ if safe_issubclass(value1, Op):  # name1 is defined as an Op
-                    raise NotImplementedError
+                case _ if is_type_op(value1):
+                    level_0_name = ws_in.define_and_name(value1)
+                    subst_out[name1] = level_0_name
+                    continue
                 case CompoundWorkspaceObj():  # name1 is defined as a compound object
                     value0 = try_to_make_level_0(subst_in, value1)
                     if value0 is None:
@@ -953,8 +963,12 @@ class Workspace:
                 name_letter = 'D'
             case int():
                 name_letter = 'I'
+            case _ if is_type_op(obj):
+                name_letter = 'F'
+            case Repeat():
+                name_letter = 'R'
             case _:
-                raise NotImplementedError
+                raise NotImplementedError(obj)
         while True:
             self.var_counters[name_letter] += 1
             name = f'{name_letter}{self.var_counters[name_letter]}'

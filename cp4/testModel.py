@@ -198,23 +198,27 @@ class TestWorkspace(unittest.TestCase):
         ws.run_painter(OtherSide('S1', 'ST'))
         self.assertEqual(ws['ST'], ws['S2'])
 
-#    def test_painter_cluster(self) -> None:
-#        ws = Workspace()
-#        ws.define('CLUSTER', PainterCluster(
-#            Define('RR', Repeat('SS', 'DD', 'FF'))
-#        ))
-#        ws.define('S1', Canvas.make_unknown(length=3))
-#        ws.define('D1', Seed('L1', 'I1'))
-#        ws.define('L1', 'a')
-#        ws.define('I1', 1)
-#
-##        self.assertEqual(
-##            ws.get_painter_cluster('CLUSTER').params(),
-##            ['SS', 'DD', 'FF']
-##        )
-#
-#        ws.run_painter_cluster('CLUSTER', dict(SS='S1', DD='D1', FF=Succ))
-#        self.assertEqual(str(ws['S1']), 'abc')
+    def test_painter_cluster_repeat(self) -> None:
+        ws = Workspace()
+        ws.define('CLUSTER', PainterCluster(
+            Define('RR', Repeat('SS', 'DD', 'FF'))
+        ))
+        ws.define('S1', Canvas.make_unknown(length=3))
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+
+        self.assertCountEqual(
+            ws.get_painter_cluster('CLUSTER').params(),
+            ['RR', 'SS', 'DD', 'FF']
+        )
+
+        ws.run_painter_cluster('CLUSTER', dict(SS='S1', DD='D1', FF=Succ))
+        #lo('UT', ws.subst)
+        # TODO Assert that F1=Succ  (no duplicate, i.e. F2)
+        # TODO Assert that R1=Repeat(S1, D1, F1)
+        ws.run_repeater('R1')
+        self.assertEqual(str(ws['S1']), 'abc')
 
     def test_seed_params(self) -> None:
         self.assertCountEqual(Seed('L1', 'I1').params(), ['L1', 'I1'])
@@ -301,6 +305,8 @@ class TestWorkspace(unittest.TestCase):
         ))
         ws.run_painter_cluster('CLUSTER', dict(LL='L1', II='I1'))
         self.assertEqual(ws.all_seed_defs(), {'D1': Seed('L1', 'I1')})
+
+    #TODO Seed(LL, I1): the I1 is already level-0
 
     #TODO A failed PainterCluster: ws should be unmodified--no half-done
     #entering of newly created objects.
