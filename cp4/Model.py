@@ -738,7 +738,7 @@ class PainterCluster(CompoundWorkspaceObj):
         return self # TODO Is this right? Or should we make a new PainterCluster
                     # with new elems?
 
-    def run(self, ws_in: Workspace, subst_in: Subst) -> None:
+    def run(self, ws_in: Workspace, subst_in: Subst) -> Subst:
         subst_in: Subst = dict(
             (Var.at_level(k, 1), v) for k, v in subst_in.items()
         )
@@ -869,7 +869,7 @@ class PainterCluster(CompoundWorkspaceObj):
         # Now we simply throw away local_ws and subst_in. All new contents have been
         # copied to ws and given new names, whose members refer to each other
         # isomorphically to the names in subst_in and local_ws.
-        pass
+        return subst_out
 
         # Hypothesis: If a level-1 name is not defined as a level-0 name, does that
         # mean that the level-1 name refers to a new object? If so, then we know
@@ -1062,10 +1062,10 @@ class Workspace:
 
     def run_painter_cluster(
         self, painter_cluster: Parameter[PainterCluster], subst_in: Subst
-    ) -> None:
+    ) -> Subst:
         match (pc := self[painter_cluster]):
             case PainterCluster():
-                pc.run(self, subst_in)
+                return pc.run(self, subst_in)
             case _:
                 raise NotImplementedError  # TODO handle missing PainterCluster
 #        #painter_cluster = self.get_painter_cluster(pc)

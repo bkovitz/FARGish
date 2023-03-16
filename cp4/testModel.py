@@ -2,12 +2,17 @@
 
 import unittest
 import inspect
+from pprint import pp
 
 from dataclasses import dataclass, field, fields, replace, InitVar, Field
+from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
+    Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
+    Protocol, Sequence, Sequence, Set, Tuple, Type, TypeGuard, TypeVar, Union, \
+    runtime_checkable, TYPE_CHECKING, no_type_check, get_type_hints, get_args
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
-    OldWorld, NewWorld, Tag
+    OldWorld, NewWorld, Tag, Var, Variable, Argument
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -315,24 +320,46 @@ class TestWorkspace(unittest.TestCase):
 
     #TODO Fill a cluster's variables "bottom-up"
 
-#    def test_simple_cluster(self) -> None:
-#        ws = Workspace()
-#        ws.define('CLUSTER', PainterCluster(
-#            Define('DD1', Seed('LL1', 'II')),
-#            Define('LL1', 'a'),
-#            Define('DD2', Seed('LL2', 'II')),
-#            Define('LL2', 'i')
-#            # II is not defined: it will be filled in to be the same in both seeds
-#        ))
-#        ws.define('D1', Seed('L1', 'I1'))
-#        ws.define('L1', 'a')
-#        ws.define('I1', 1)
-#        subst = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
+    def test_simple_cluster(self) -> None:
+        ws = Workspace()
+        ws.define('CLUSTER', PainterCluster(
+            Define('DD1', Seed('LL1', 'II')),
+            Define('LL1', 'a'),
+            Define('DD2', Seed('LL2', 'II')),
+            Define('LL2', 'i')
+            # II is not defined: it will be filled in to be the same in both seeds
+        ))
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+        subst = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
+
+        self.assertCountEqual(
+            ws['CLUSTER'].params(),
+            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
+        )
+
+        pp(ws.subst)
+        self.assertEqual(ws['D2'], Seed('L2', 'I1'))
+        self.assertEqual(ws['L2'], 'i')
+
+#        lo('UT', subst)
 #
-#        self.assertCountEqual(
-#            ws['CLUSTER'].params(),
-#            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
-#        )
+#        expect: List[Tuple[Variable, Argument]] = [
+#            ('DD1', 'D1'),   #Seed('LL1', 'II')),
+#            ('LL1', 'a'),
+#            ('DD2', Var.at_level(Seed('LL2', 'II'), 1)),
+#            ('LL2', 'i'),
+#            ('II',  1)
+#        ]
+#
+#        for name, value in expect:
+#            name1 = Var.at_level(name, 1)
+#            self.assertEqual(
+#                subst[name1],
+#                value,
+#                f'subst[{name1!r}] was {subst[name1]}, not {value}'
+#            )
 
 #        self.assertEqual(
 #            subst,
@@ -354,6 +381,14 @@ class TestWorkspace(unittest.TestCase):
 #        other_seeds: List[Variable] = ws.get_by_type(Seed)
 #        seed2 = ws.??
 #        self.assertEqual(ws.get_determinate(seed2), Seed('i', 1))
+
+#class TestArrow(unittest.TestCase):
+#
+#    def setUp(self) -> None:
+#        self.ws = Workspace()
+#        self.ws.define('ARROW', PainterCluster(
+#            
+#        ))
 
 class TestParseInputString(unittest.TestCase):
 
