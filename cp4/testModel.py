@@ -320,28 +320,29 @@ class TestWorkspace(unittest.TestCase):
 
     #TODO Fill a cluster's variables "bottom-up"
 
-    def test_simple_cluster(self) -> None:
-        ws = Workspace()
-        ws.define('CLUSTER', PainterCluster(
-            Define('DD1', Seed('LL1', 'II')),
-            Define('LL1', 'a'),
-            Define('DD2', Seed('LL2', 'II')),
-            Define('LL2', 'i')
-            # II is not defined: it will be filled in to be the same in both seeds
-        ))
-        ws.define('D1', Seed('L1', 'I1'))
-        ws.define('L1', 'a')
-        ws.define('I1', 1)
-        subst = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
-
-        self.assertCountEqual(
-            ws['CLUSTER'].params(),
-            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
-        )
-
-        pp(ws.subst)
-        self.assertEqual(ws['D2'], Seed('L2', 'I1'))
-        self.assertEqual(ws['L2'], 'i')
+#    def test_simple_cluster(self) -> None:
+#        ws = Workspace()
+#        ws.define('CLUSTER', PainterCluster(
+#            Define('DD1', Seed('LL1', 'II')),
+#            Define('LL1', 'a'),
+#            Define('DD2', Seed('LL2', 'II')),
+#            Define('LL2', 'i')
+#            # II is not defined: it will be filled in to be the same in both seeds
+#        ))
+#        ws.define('D1', Seed('L1', 'I1'))
+#        ws.define('L1', 'a')
+#        ws.define('I1', 1)
+#        subst_out = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
+#        pp(subst_out)
+#
+#        self.assertCountEqual(
+#            ws['CLUSTER'].params(),
+#            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
+#        )
+#
+#        pp(ws.subst)
+#        self.assertEqual(ws['D2'], Seed('L2', 'I1'))
+#        self.assertEqual(ws['L2'], 'i')
 
 #        lo('UT', subst)
 #
@@ -435,3 +436,72 @@ class TestParseInputString(unittest.TestCase):
 #                Define('II', 3)
 #            )
 #        )
+
+class TestSubst(unittest.TestCase):
+
+    def test_unify_with_letter(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        self.assertEqual(su.eval('L1'), 'a')
+
+    def test_unify_with_index(self) -> None:
+        su = Subst()
+        su = su.unify('I1', 1)
+        self.assertEqual(su.eval('I1'), 1)
+
+    def test_unify_with_seed(self) -> None:
+        su = Subst()
+        su = su.unify(Seed('LL1', 'II'), Seed('L1', 'I1'))
+        self.assertTrue(su.are_equal('LL1', 'L1'))
+        self.assertTrue(su.are_equal('II', 'I1'))
+
+    def test_unify_two_different_constants(self) -> None:
+        su = Subst()
+        su = su.unify('a', 'b')
+        self.assertTrue(su.is_bottom())
+
+    def test_unify_variables_with_two_different_constants(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        su = su.unify('L2', 'b')
+        su = su.unify('L1', 'L2')
+        self.assertTrue(su.is_bottom())
+
+    def test_unify_DD1_D1(self) -> None:
+        su = Subst()
+        su = su.unify('DD1', Seed('LL1', 'II'))
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.unify('DD1', 'D1')
+        self.assertTrue(su.are_equal('LL1', 'L1'))
+        self.assertTrue(su.are_equal(II, 'I1'))
+
+    def test_unify_II_with_three_variables(self) -> None:
+        su = Subst()
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.unify('D2', Seed('L2', 'I2'))
+        su = su.unify('D3', Seed('L3', 'I3'))
+        su = su.unify('II', 'I1')
+        su = su.unify('II', 'I2')
+        su = su.unify('II', 'I3')
+        self.assertTrue(su.are_equal('II', 'I1'))
+        self.assertTrue(su.are_equal('II', 'I2'))
+        self.assertTrue(su.are_equal('II', 'I3'))
+        
+    def test_unify_DD1_DD2(self) -> None:
+        su = Subst()
+        su = su.unify('DD1', Seed('LL1', 'II'))
+        su = su.unify('LL1', 'a')
+        su = su.unify('DD2', Seed('LL2', 'II'))
+        su = su.unify('LL2', 'i')
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.unify('L1', 'a')
+        su = su.unify('I1', 1)
+        su = su.unify('DD1', 'D1')
+        self.assertEqual(su.eval('DD2'), Seed('i', 1))
+
+    def test_unify_occurs_check(self) -> None:
+        su = Subst()
+        su = su.unify('D1', Seed('D1', 1))
+        self.assertTrue(su.is_bottom())
+
+    # TODO Creating a new object -- keep this separate from unification

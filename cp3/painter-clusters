@@ -1,0 +1,88 @@
+Inside a painter cluster:
+
+   When we define a variable to match an existing object, we should define
+   variables in the object's arguments to equal those in the existing object.
+
+      Inside the painter cluster:
+
+         DD1=Seed(LL1, II)
+
+      Given to the painter cluster:
+
+         D1=Seed('a', 1)
+         DD1=D1
+
+      Therefore, while running the painter cluster:
+
+         LL1='a'
+         II=1
+
+   Matching an existing object occurs:
+
+      on input to the painter cluster, i.e. when some of the arguments are
+      specified by the caller;
+
+      when a painter inside the cluster finds an existing object.
+
+   Unification must be recursive: members of an object get unified when the
+   object is unified.
+
+   When do we create a new object inside a painter cluster?
+
+      Define(XX, object)  where XX is not provided on input
+
+      Painter(X, Y)       (given X) where no object Y exists that bears
+                          the Painter relation to X. (Or vice versa.)
+         Example:
+         OtherSide(S, T)   If S exists, tagged lhs, but there no snippet
+                           tagged rhs, then this would create T=new snippet,
+                           tagged rhs.
+         Example:
+         Another painter cluster is itself a painter, and should work just
+         like any other painter.
+
+         pc: {DD1, DD2, LL1, LL2}
+         pc(DD1=D1)
+         D1=Seed(L1, I1)
+
+         D1 = Seed(L1, I1)
+
+         DD1 = {ll1, II}
+         LL1 = {'a'}
+         DD2 = {ll2, II}
+         LL2 = {'i'}
+         II = {DD1, DD2}
+
+
+   All we ever do inside a painter cluster is fill variables with existing
+   objects and fill variables with objects that we create.
+
+
+On exit from a painter cluster:
+
+   All new objects created inside the painter cluster should be created in
+   the original workspace.
+
+   All relations between objects inside the painter cluster, i.e. two or
+   more objects having the same variable name, should be preserved in the
+   new objects added to the original workspace.
+
+
+
+What more do we need beyond unification?
+
+   Building new objects.
+
+   Finding existing objects, as in OtherSide.
+
+   Putting the new objects back into the main workspace, that maintain the
+   same unification relationships between arguments.
+
+      Could we create D1 when creating DD1, because DD1 is a parameter of the
+      painter cluster, and therefore must be thrown away when the painter
+      cluster exits?
+
+      Could we merge a painter cluster's local workspace into the main
+      workspace by simply replacing the main workspace and removing the local
+      variables?
+
