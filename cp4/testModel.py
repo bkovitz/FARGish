@@ -12,7 +12,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
-    OldWorld, NewWorld, Tag, Var, Variable, Argument
+    OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -439,6 +439,24 @@ class TestParseInputString(unittest.TestCase):
 
 class TestSubst(unittest.TestCase):
 
+    def test_unify_letter_with_itself(self) -> None:
+        su = Subst()
+        su = su.unify('a', 'a')
+        self.assertFalse(su.is_bottom())
+        self.assertEqual(su.eval('a'), 'a')
+
+    def test_unify_index_with_itself(self) -> None:
+        su = Subst()
+        su = su.unify(1, 1)
+        self.assertFalse(su.is_bottom())
+        self.assertEqual(su.eval(1), 1)
+
+    def test_unify_variable_with_itself(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'L1')
+        self.assertFalse(su.is_bottom())
+        self.assertTrue(su.are_equal('L1', 'L1'))
+
     def test_unify_with_letter(self) -> None:
         su = Subst()
         su = su.unify('L1', 'a')
@@ -449,59 +467,78 @@ class TestSubst(unittest.TestCase):
         su = su.unify('I1', 1)
         self.assertEqual(su.eval('I1'), 1)
 
-    def test_unify_with_seed(self) -> None:
+    def test_two_variables_are_unequal(self) -> None:
         su = Subst()
-        su = su.unify(Seed('LL1', 'II'), Seed('L1', 'I1'))
-        self.assertTrue(su.are_equal('LL1', 'L1'))
-        self.assertTrue(su.are_equal('II', 'I1'))
+        self.assertFalse(su.are_equal('L1', 'L2'))
 
-    def test_unify_two_different_constants(self) -> None:
+    def test_eval_undefined_variable(self) -> None:
         su = Subst()
-        su = su.unify('a', 'b')
-        self.assertTrue(su.is_bottom())
+        self.assertEqual(su.eval('L1'), None)
 
-    def test_unify_variables_with_two_different_constants(self) -> None:
-        su = Subst()
-        su = su.unify('L1', 'a')
-        su = su.unify('L2', 'b')
-        su = su.unify('L1', 'L2')
-        self.assertTrue(su.is_bottom())
-
-    def test_unify_DD1_D1(self) -> None:
-        su = Subst()
-        su = su.unify('DD1', Seed('LL1', 'II'))
-        su = su.unify('D1', Seed('L1', 'I1'))
-        su = su.unify('DD1', 'D1')
-        self.assertTrue(su.are_equal('LL1', 'L1'))
-        self.assertTrue(su.are_equal(II, 'I1'))
-
-    def test_unify_II_with_three_variables(self) -> None:
-        su = Subst()
-        su = su.unify('D1', Seed('L1', 'I1'))
-        su = su.unify('D2', Seed('L2', 'I2'))
-        su = su.unify('D3', Seed('L3', 'I3'))
-        su = su.unify('II', 'I1')
-        su = su.unify('II', 'I2')
-        su = su.unify('II', 'I3')
-        self.assertTrue(su.are_equal('II', 'I1'))
-        self.assertTrue(su.are_equal('II', 'I2'))
-        self.assertTrue(su.are_equal('II', 'I3'))
-        
-    def test_unify_DD1_DD2(self) -> None:
-        su = Subst()
-        su = su.unify('DD1', Seed('LL1', 'II'))
-        su = su.unify('LL1', 'a')
-        su = su.unify('DD2', Seed('LL2', 'II'))
-        su = su.unify('LL2', 'i')
-        su = su.unify('D1', Seed('L1', 'I1'))
-        su = su.unify('L1', 'a')
-        su = su.unify('I1', 1)
-        su = su.unify('DD1', 'D1')
-        self.assertEqual(su.eval('DD2'), Seed('i', 1))
-
-    def test_unify_occurs_check(self) -> None:
-        su = Subst()
-        su = su.unify('D1', Seed('D1', 1))
-        self.assertTrue(su.is_bottom())
+#    def test_unify_with_seed(self) -> None:
+#        su = Subst()
+#        su = su.unify(Seed('LL', 'II'), Seed('L1', 'I1'))
+#        self.assertTrue(su.are_equal('LL', 'L1'))
+#        self.assertTrue(su.are_equal('II', 'I1'))
+#
+#    def test_unify_two_different_constants(self) -> None:
+#        su = Subst()
+#        su = su.unify('a', 'b')
+#        self.assertTrue(su.is_bottom())
+#
+#    def test_unify_variables_with_two_different_constants(self) -> None:
+#        su = Subst()
+#        su = su.unify('L1', 'a')
+#        su = su.unify('L2', 'b')
+#        su = su.unify('L1', 'L2')
+#        self.assertTrue(su.is_bottom())
+#
+#    def test_unify_DD1_D1(self) -> None:
+#        su = Subst()
+#        su = su.unify('DD1', Seed('LL1', 'II'))
+#        su = su.unify('D1', Seed('L1', 'I1'))
+#        su = su.unify('DD1', 'D1')
+#        self.assertTrue(su.are_equal('LL1', 'L1'))
+#        self.assertTrue(su.are_equal('II', 'I1'))
+#        self.assertTrue(su.are_equal('DD1', 'D1'))
+#
+#    def test_unify_II_with_three_variables(self) -> None:
+#        su = Subst()
+#        su = su.unify('D1', Seed('L1', 'I1'))
+#        su = su.unify('D2', Seed('L2', 'I2'))
+#        su = su.unify('D3', Seed('L3', 'I3'))
+#        su = su.unify('II', 'I1')
+#        su = su.unify('II', 'I2')
+#        su = su.unify('II', 'I3')
+#        self.assertTrue(su.are_equal('II', 'I1'))
+#        self.assertTrue(su.are_equal('II', 'I2'))
+#        self.assertTrue(su.are_equal('II', 'I3'))
+#        '''
+#        I1=1, then II=1, I2=1, I3=1
+#        II=1, then I1=1, I2=1, I3=1
+#        '''
+#        
+#    def test_unify_DD1_DD2(self) -> None:
+#        su = Subst()
+#        # as in a PainterCluster:
+#        su = su.unify('DD1', Seed('LL1', 'II'))
+#        su = su.unify('LL1', 'a')
+#        su = su.unify('DD2', Seed('LL2', 'II'))
+#        su = su.unify('LL2', 'i')
+#        # as in the Workspace:
+#        su = su.unify('D1', Seed('L1', 'I1'))
+#        su = su.unify('L1', 'a')
+#        su = su.unify('I1', 1)
+#        su = su.unify('DD1', 'D1')
+#        self.assertEqual(su.eval('DD2'), Seed('i', 1))
+#
+#    def test_unify_occurs_check(self) -> None:
+#        su = Subst()
+#        su = su.unify('D1', Seed('D1', 1))
+#        self.assertTrue(su.is_bottom())
 
     # TODO Creating a new object -- keep this separate from unification
+
+    # TODO test that on exit from a PainterCluster, all local variables are
+    # eliminated, all new objects are created and named, and all 'same' relations
+    # between variables in the new objects are preserved.

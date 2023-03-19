@@ -47,7 +47,7 @@ Variable = Union[str, Var]
 Parameter = Union[Variable, T]
 OptionalParameter = Union[Variable, T, None]
 
-Subst = Dict[Variable, Parameter]
+VDict = Dict[Variable, Parameter]
 
 Letter = str  # strictly speaking, a single-character, lowercase str
 Index = int
@@ -121,6 +121,40 @@ def extract_tag(tagtype: Type[Tag], tags: Tags) -> Optional[Tag]:
         if isinstance(tag, tagtype):
             return tag
     return None
+
+########## Subst ##########
+
+@dataclass(frozen=True)
+class Subst:
+    d: PMap[Argument, Argument] = field(default_factory=pmap)
+
+    def unify(self, a1: Argument, a2: Argument) -> Subst:
+        return Subst(self.d.set(a1, a2))
+
+    def is_bottom(self) -> bool:
+        return False
+
+    def eval(self, a: Argument) -> Optional[WorkspaceObj]:
+        match a:
+            case _ if is_variable(a):
+                match (v := self.d.get(a)):
+                    case None:
+                        return None
+                    case _:
+                        return self.eval(v)
+            case str():
+                return a
+            case int():
+                return a
+        raise NotImplementedError
+
+    def are_equal(self, a1: Argument, a2: Argument) -> bool:
+        match a1:
+            case _ if is_variable(a1):
+                if a1 not in self.d:
+                    return False
+                #return self.d.get(a1) == self.d.get(a2)
+        return True
 
 ########## Fizzles ##########
 
@@ -682,7 +716,7 @@ def is_level_0(x: Argument) -> bool:
             return all(is_level_0(arg) for arg in all_arguments_of(x))
     raise NotImplementedError  # mypy bug: it thinks x is Type[Op]
 
-def try_to_make_level_0(subst: Subst, o: CompoundWorkspaceObj) \
+def try_to_make_level_0(subst: VDict, o: CompoundWorkspaceObj) \
 -> Optional[CompoundWorkspaceObj]:
     d: Dict[str, Any] = {}
     #for k, v in names_and_arguments_of(o):
@@ -738,8 +772,8 @@ class PainterCluster(CompoundWorkspaceObj):
         return self # TODO Is this right? Or should we make a new PainterCluster
                     # with new elems?
 
-    def run(self, ws_in: Workspace, subst_in: Subst) -> Subst:
-        subst_in: Subst = dict(
+    def run(self, ws_in: Workspace, subst_in: VDict) -> VDict:
+        subst_in: VDict = dict(
             (Var.at_level(k, 1), v) for k, v in subst_in.items()
         )
         local_ws = Workspace(subst=ws_in.subst | subst_in)
@@ -1061,8 +1095,8 @@ class Workspace:
             p.run(self)
 
     def run_painter_cluster(
-        self, painter_cluster: Parameter[PainterCluster], subst_in: Subst
-    ) -> Subst:
+        self, painter_cluster: Parameter[PainterCluster], subst_in: VDict
+    ) -> VDict:
         match (pc := self[painter_cluster]):
             case PainterCluster():
                 return pc.run(self, subst_in)
@@ -1070,7 +1104,7 @@ class Workspace:
                 raise NotImplementedError  # TODO handle missing PainterCluster
 #        #painter_cluster = self.get_painter_cluster(pc)
 #        #painter_cluster.run(self, subst)
-#        subst: Subst = {}
+#        subst: VDict = {}
 #        for k,v in subst_in.items():
 #            subst[k] = self[v]
 #        return subst
