@@ -475,24 +475,40 @@ class TestSubst(unittest.TestCase):
         su = Subst()
         self.assertEqual(su.eval('L1'), None)
 
+    def test_unify_variable_with_defined_variable(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        su = su.unify('L2', 'L1')
+        self.assertEqual(su.eval('L1'), su.eval('a'))
+        self.assertEqual(su.eval('L2'), su.eval('a'))
+        self.assertEqual(su.eval('L1'), su.eval('L2'))
+
+    def test_unify_variables_and_then_define_one_of_them(self) -> None:
+        su = Subst()
+        su = su.unify('L2', 'L1')
+        su = su.unify('L1', 'a')
+        self.assertEqual(su.eval('L1'), su.eval('a'))
+        self.assertEqual(su.eval('L2'), su.eval('a'))
+        self.assertEqual(su.eval('L1'), su.eval('L2'))
+
 #    def test_unify_with_seed(self) -> None:
 #        su = Subst()
 #        su = su.unify(Seed('LL', 'II'), Seed('L1', 'I1'))
 #        self.assertTrue(su.are_equal('LL', 'L1'))
 #        self.assertTrue(su.are_equal('II', 'I1'))
 #
-#    def test_unify_two_different_constants(self) -> None:
-#        su = Subst()
-#        su = su.unify('a', 'b')
-#        self.assertTrue(su.is_bottom())
-#
-#    def test_unify_variables_with_two_different_constants(self) -> None:
-#        su = Subst()
-#        su = su.unify('L1', 'a')
-#        su = su.unify('L2', 'b')
-#        su = su.unify('L1', 'L2')
-#        self.assertTrue(su.is_bottom())
-#
+    def test_unify_two_different_constants(self) -> None:
+        su = Subst()
+        su = su.unify('a', 'b')
+        self.assertTrue(su.is_bottom())
+
+    def test_unify_variables_with_two_different_constants(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        su = su.unify('L2', 'b')
+        su = su.unify('L1', 'L2')
+        self.assertTrue(su.is_bottom())
+
 #    def test_unify_DD1_D1(self) -> None:
 #        su = Subst()
 #        su = su.unify('DD1', Seed('LL1', 'II'))

@@ -128,7 +128,33 @@ def extract_tag(tagtype: Type[Tag], tags: Tags) -> Optional[Tag]:
 class Subst:
     d: PMap[Argument, Argument] = field(default_factory=pmap)
 
+    @trace
     def unify(self, a1: Argument, a2: Argument) -> Subst:
+        if not is_variable(a1) and not is_variable(a2):
+            if a1 == a2:
+                return self
+            else:
+                return BottomSubst()
+        elif is_variable(a1) and not is_variable(a2):
+            if a1 in self.d:
+                if self.d[a1] == a2:
+                    return self
+                else:
+                    return BottomSubst()
+            else:
+                return Subst(self.d.set(a1, a2))
+        elif is_variable(a1) and is_variable(a2):
+            if a1 in self.d:
+                if a2 in self.d:
+                    if self.eval(a1) == self.eval(a2):
+                        #TODO handle None differently?
+                        return self
+                    else:
+                        return BottomSubst()
+                else:
+                    raise NotImplementedError
+            else:
+                return Subst(self.d.set(a1, a2))
         return Subst(self.d.set(a1, a2))
 
     def is_bottom(self) -> bool:
@@ -154,6 +180,17 @@ class Subst:
                 if a1 not in self.d:
                     return False
                 #return self.d.get(a1) == self.d.get(a2)
+        return True
+
+class BottomSubst(Subst):
+
+    def unify(self, a1: Argument, a2: Argument) -> Subst:
+        return self
+
+    def eval(self, a: Argument) -> Optional[WorkspaceObj]:
+        return None
+
+    def is_bottom(self) -> bool:
         return True
 
 ########## Fizzles ##########
