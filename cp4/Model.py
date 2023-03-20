@@ -124,38 +124,91 @@ def extract_tag(tagtype: Type[Tag], tags: Tags) -> Optional[Tag]:
 
 ########## Subst ##########
 
+def argtype(a: Argument) -> Literal['BaseObj', 'CompoundWorkspaceObj', 'Variable']:
+    if is_variable(a):
+        return 'Variable'
+    elif isinstance(a, CompoundWorkspaceObj):
+        return 'CompoundWorkspaceObj'
+    else:
+        return 'BaseObj'
+
 @dataclass(frozen=True)
 class Subst:
     d: PMap[Argument, Argument] = field(default_factory=pmap)
 
-    @trace
     def unify(self, a1: Argument, a2: Argument) -> Subst:
-        if not is_variable(a1) and not is_variable(a2):
-            if a1 == a2:
-                return self
-            else:
-                return BottomSubst()
-        elif is_variable(a1) and not is_variable(a2):
-            if a1 in self.d:
-                if self.d[a1] == a2:
-                    return self
-                else:
-                    return BottomSubst()
-            else:
-                return Subst(self.d.set(a1, a2))
-        elif is_variable(a1) and is_variable(a2):
-            if a1 in self.d:
-                if a2 in self.d:
-                    if self.eval(a1) == self.eval(a2):
-                        #TODO handle None differently?
-                        return self
+        if a1 == a2:
+            return self
+        match (argtype(a1), argtype(a2)):
+            case ('BaseObj', 'BaseObj'):
+                return BottomSubst()  # we know that a1 != a2
+            case ('BaseObj', 'Variable'):
+                return self.unify(a2, a1)
+            case ('Variable', 'BaseObj'):
+#                # NEXT case where a1 is defined
+#                if a1 in self.d:
+#                    x = self.d[a1]
+#                    self.d.set(x, a1)
+#                    v1 = self.eval(a1)
+#                    if v1 is None:
+#                        return Subst(self.d.set(a1, a2))
+#                    elif v1 == a2:
+#                        return self
+#                    else:
+#                        return BottomSubst()
+#                else:
+#                    return Subst(self.d.set(a1, a2))
+#
+                new_d = self.replace_all(a1, a2)
+                return Subst(new_d.d.set(a1, a2))
+            case ('Variable', 'Variable' | 'CompoundWorkspaceObj'):
+                if a1 in self.d:
+                    if a2 in self.d:
+                        if self.eval(a1) == self.eval(a2):
+                            #TODO handle None differently?
+                            return self
+                        else:
+                            return BottomSubst()
                     else:
-                        return BottomSubst()
+                        raise NotImplementedError
                 else:
-                    raise NotImplementedError
-            else:
-                return Subst(self.d.set(a1, a2))
-        return Subst(self.d.set(a1, a2))
+                    return Subst(self.d.set(a1, a2))
+            case ('CompoundWorkspaceObj', 'CompoundWorkspaceObj'):
+                #if a1.__class__ != a2.__class__:
+                    #return BottomSubst()
+                result = self
+                for v1, v2 in zip(all_arguments_of(a1), all_arguments_of(a2)): #type: ignore[assignment, arg-type]
+                    result = result.unify(v1, v2)
+                return result
+            case _:
+                raise NotImplementedError(a1, a2)
+
+#        if not is_variable(a1) and not is_variable(a2):
+#            if a1 == a2:
+#                return self
+#            else:
+#                return BottomSubst()
+#        elif is_variable(a1) and not is_variable(a2):
+#            if a1 in self.d:
+#                if self.d[a1] == a2:
+#                    return self
+#                else:
+#                    return BottomSubst()
+#            else:
+#                return Subst(self.d.set(a1, a2))
+#        elif is_variable(a1) and is_variable(a2):
+#            if a1 in self.d:
+#                if a2 in self.d:
+#                    if self.eval(a1) == self.eval(a2):
+#                        #TODO handle None differently?
+#                        return self
+#                    else:
+#                        return BottomSubst()
+#                else:
+#                    raise NotImplementedError
+#            else:
+#                return Subst(self.d.set(a1, a2))
+#        return Subst(self.d.set(a1, a2))
 
     def is_bottom(self) -> bool:
         return False
@@ -172,6 +225,10 @@ class Subst:
                 return a
             case int():
                 return a
+            case CompoundWorkspaceObj():
+                return a.__class__(
+                    *(self.eval(arg) for arg in all_arguments_of(a))
+                )
         raise NotImplementedError
 
     def are_equal(self, a1: Argument, a2: Argument) -> bool:
@@ -181,6 +238,39 @@ class Subst:
                     return False
                 #return self.d.get(a1) == self.d.get(a2)
         return True
+
+    def replace_all(self, lhs: Argument, rhs: Argument) -> Subst:
+        '''Returns a Subst in which every occurence of 'lhs' has been replaced
+        by 'rhs'.'''
+        result = empty_subst
+        for l, r in self.d.items():
+            result = result.unify(
+                self.substitute_in(l, lhs, rhs),
+                self.substitute_in(r, lhs, rhs)
+            )
+            if not result:
+                return bottom_subst
+        return result
+
+    @classmethod
+    def substitute_in(cls, a: Argument, lhs: Argument, rhs: Argument) -> Argument:
+        '''Returns a new Argument consisting of a where every occurrence of lhs has
+        been replaced by rhs.'''
+        match a:
+            case x if x == lhs:
+                return rhs
+            case CompoundWorkspaceObj():
+                return a.__class__(
+                    *(cls.substitute_in(arg, lhs, rhs) for arg in all_arguments_of(a))
+                )
+            case _:  # no match; nothing to substitute
+                return a
+        raise NotImplementedError  # Should never get here: mypy bug
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        dstr = ', '.join(f'{k}={v!r}' for k, v in self.d.items())
+        return f'{cl}({dstr})'
 
 class BottomSubst(Subst):
 
@@ -192,6 +282,9 @@ class BottomSubst(Subst):
 
     def is_bottom(self) -> bool:
         return True
+
+empty_subst = Subst()
+bottom_subst = BottomSubst()
 
 ########## Fizzles ##########
 
