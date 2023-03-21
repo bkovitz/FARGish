@@ -79,7 +79,8 @@ ut:
 # Convenience target for single unit test current being worked on
 u:
 	#$(PY) -m unittest -v testModel.TestWorkspace.test_painter_cluster_local_same_name_as_existing_variable
-	$(PY) -m unittest -v testModel.TestSubst.test_unify_seed_seed
+	#$(PY) -m unittest -v testModel.TestSubst.test_unify_DD1_D1
+	$(PY) -m unittest -v testModel.TestSubst.test_unify_variables_with_two_different_constants
 	#$(PY) -m unittest -v testPainter
 
 # Acceptance tests

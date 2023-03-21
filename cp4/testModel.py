@@ -521,7 +521,7 @@ class TestSubst(unittest.TestCase):
         su = su.unify('L1', 'L2')
         self.assertTrue(su.is_bottom())
 
-    def xtest_unify_DD1_D1(self) -> None:
+    def test_unify_DD1_D1(self) -> None:
         su = Subst()
         su = su.unify('DD1', Seed('LL1', 'II'))
         su = su.unify('D1', Seed('L1', 'I1'))
@@ -531,9 +531,15 @@ class TestSubst(unittest.TestCase):
         #self.assertTrue(su.are_equal('II', 'I1'))
         #self.assertTrue(su.are_equal('DD1', 'D1'))
         su1 = su.unify('LL1', 'a').unify('I1', 1)
-        lo('SU1', su1)
         self.assertEqual(su1.eval('D1'), Seed('a', 1))
         self.assertEqual(su1.eval('DD1'), Seed('a', 1))
+
+    def test_unify_defined_variable_with_undefined_variable(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        su = su.unify('L1', 'L2')
+        self.assertEqual(su.eval('L1'), 'a')
+        self.assertEqual(su.eval('L2'), 'a')
 
 #    def test_unify_II_with_three_variables(self) -> None:
 #        su = Subst()

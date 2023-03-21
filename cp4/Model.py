@@ -136,6 +136,7 @@ def argtype(a: Argument) -> Literal['BaseObj', 'CompoundWorkspaceObj', 'Variable
 class Subst:
     d: PMap[Argument, Argument] = field(default_factory=pmap)
 
+    #@trace
     def unify(self, a1: Argument, a2: Argument) -> Subst:
         if a1 == a2:
             return self
@@ -145,32 +146,21 @@ class Subst:
             case ('BaseObj', 'Variable'):
                 return self.unify(a2, a1)
             case ('Variable', 'BaseObj'):
-#                # NEXT case where a1 is defined
-#                if a1 in self.d:
-#                    x = self.d[a1]
-#                    self.d.set(x, a1)
-#                    v1 = self.eval(a1)
-#                    if v1 is None:
-#                        return Subst(self.d.set(a1, a2))
-#                    elif v1 == a2:
-#                        return self
-#                    else:
-#                        return BottomSubst()
-#                else:
-#                    return Subst(self.d.set(a1, a2))
-#
-                new_d = self.replace_all(a1, a2)
-                return Subst(new_d.d.set(a1, a2))
-            case ('Variable', 'Variable' | 'CompoundWorkspaceObj'):
+                if a1 in self.d:
+                    return self.unify(self.d[a1], a2)
+                else:
+                    return Subst(self.d.set(a1, a2))
+            case ('Variable', 'Variable'):
                 if a1 in self.d:
                     if a2 in self.d:
-                        if self.eval(a1) == self.eval(a2):
-                            #TODO handle None differently?
-                            return self
-                        else:
-                            return BottomSubst()
+                        return self.unify(self.d[a1], self.d[a2])
                     else:
-                        raise NotImplementedError
+                        return self.unify(a2, a1)
+                else:
+                    return Subst(self.d.set(a1, a2))
+            case ('Variable', 'CompoundWorkspaceObj'):
+                if a1 in self.d:
+                    return self.unify(self.d[a1], a2)
                 else:
                     return Subst(self.d.set(a1, a2))
             case ('CompoundWorkspaceObj', 'CompoundWorkspaceObj'):
@@ -245,7 +235,8 @@ class Subst:
         result = empty_subst
         for l, r in self.d.items():
             result = result.unify(
-                self.substitute_in(l, lhs, rhs),
+                #self.substitute_in(l, lhs, rhs),
+                l,
                 self.substitute_in(r, lhs, rhs)
             )
             if not result:
@@ -253,6 +244,7 @@ class Subst:
         return result
 
     @classmethod
+    #@trace
     def substitute_in(cls, a: Argument, lhs: Argument, rhs: Argument) -> Argument:
         '''Returns a new Argument consisting of a where every occurrence of lhs has
         been replaced by rhs.'''
