@@ -136,7 +136,6 @@ def argtype(a: Argument) -> Literal['BaseObj', 'CompoundWorkspaceObj', 'Variable
 class Subst:
     d: PMap[Argument, Argument] = field(default_factory=pmap)
 
-    #@trace
     def unify(self, a1: Argument, a2: Argument) -> Subst:
         if a1 == a2:
             return self
@@ -145,6 +144,8 @@ class Subst:
                 return BottomSubst()  # we know that a1 != a2
             case ('BaseObj', 'Variable'):
                 return self.unify(a2, a1)
+            case ('BaseObj', 'CompoundWorkspaceObj'):
+                return bottom_subst
             case ('Variable', 'BaseObj'):
                 if a1 in self.d:
                     return self.unify(self.d[a1], a2)
@@ -163,6 +164,10 @@ class Subst:
                     return self.unify(self.d[a1], a2)
                 else:
                     return Subst(self.d.set(a1, a2))
+            case ('CompoundWorkspaceObj', 'BaseObj'):
+                return bottom_subst
+            case ('CompoundWorkspaceObj', 'Variable'):
+                return self.unify(a2, a1)
             case ('CompoundWorkspaceObj', 'CompoundWorkspaceObj'):
                 #if a1.__class__ != a2.__class__:
                     #return BottomSubst()
@@ -244,7 +249,6 @@ class Subst:
         return result
 
     @classmethod
-    #@trace
     def substitute_in(cls, a: Argument, lhs: Argument, rhs: Argument) -> Argument:
         '''Returns a new Argument consisting of a where every occurrence of lhs has
         been replaced by rhs.'''

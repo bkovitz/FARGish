@@ -541,36 +541,66 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.eval('L1'), 'a')
         self.assertEqual(su.eval('L2'), 'a')
 
-#    def test_unify_II_with_three_variables(self) -> None:
-#        su = Subst()
-#        su = su.unify('D1', Seed('L1', 'I1'))
-#        su = su.unify('D2', Seed('L2', 'I2'))
-#        su = su.unify('D3', Seed('L3', 'I3'))
-#        su = su.unify('II', 'I1')
-#        su = su.unify('II', 'I2')
-#        su = su.unify('II', 'I3')
+    def test_unify_II_with_three_variables(self) -> None:
+        su = Subst()
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.unify('D2', Seed('L2', 'I2'))
+        su = su.unify('D3', Seed('L3', 'I3'))
+        su = su.unify('II', 'I1')
+        su = su.unify('II', 'I2')
+        su = su.unify('II', 'I3')
 #        self.assertTrue(su.are_equal('II', 'I1'))
 #        self.assertTrue(su.are_equal('II', 'I2'))
 #        self.assertTrue(su.are_equal('II', 'I3'))
-#        '''
-#        I1=1, then II=1, I2=1, I3=1
-#        II=1, then I1=1, I2=1, I3=1
-#        '''
-#        
-#    def test_unify_DD1_DD2(self) -> None:
-#        su = Subst()
-#        # as in a PainterCluster:
-#        su = su.unify('DD1', Seed('LL1', 'II'))
-#        su = su.unify('LL1', 'a')
-#        su = su.unify('DD2', Seed('LL2', 'II'))
-#        su = su.unify('LL2', 'i')
-#        # as in the Workspace:
-#        su = su.unify('D1', Seed('L1', 'I1'))
-#        su = su.unify('L1', 'a')
-#        su = su.unify('I1', 1)
-#        su = su.unify('DD1', 'D1')
-#        self.assertEqual(su.eval('DD2'), Seed('i', 1))
-#
+
+        su1 = su.unify('I1', 1)
+        self.assertEqual(su1.eval('I1'), 1)
+        self.assertEqual(su1.eval('I2'), 1)
+        self.assertEqual(su1.eval('I3'), 1)
+        self.assertEqual(su1.eval('II'), 1)
+
+        su2 = su.unify('I2', 1)
+        self.assertEqual(su2.eval('I1'), 1)
+        self.assertEqual(su2.eval('I2'), 1)
+        self.assertEqual(su2.eval('I3'), 1)
+        self.assertEqual(su2.eval('II'), 1)
+
+        su3 = su.unify('I3', 1)
+        self.assertEqual(su3.eval('I1'), 1)
+        self.assertEqual(su3.eval('I2'), 1)
+        self.assertEqual(su3.eval('I3'), 1)
+        self.assertEqual(su3.eval('II'), 1)
+
+    def test_unify_constant_with_compound_object(self) -> None:
+        su = Subst()
+        su = su.unify('a', Seed('a', 1))
+        self.assertTrue(su.is_bottom())
+
+    def test_unify_compound_object_with_constant(self) -> None:
+        su = Subst()
+        su = su.unify(Seed('a', 1), 'a')
+        self.assertTrue(su.is_bottom())
+
+    def test_unify_compound_object_with_variable(self) -> None:
+        su = Subst()
+        su = su.unify(Seed('a', 1), 'D1')
+        self.assertEqual(su.eval('D1'), Seed('a', 1))
+
+    def test_unify_DD1_DD2(self) -> None:
+        su = Subst()
+        # as in a PainterCluster:
+        su = su.unify('DD1', Seed('LL1', 'II'))
+        su = su.unify('LL1', 'a')
+        su = su.unify('DD2', Seed('LL2', 'II'))
+        su = su.unify('LL2', 'i')
+        # as in the Workspace:
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.unify('L1', 'a')
+        su = su.unify('I1', 1)
+        # now "call" the PainterCluster:
+        su = su.unify('DD1', 'D1')
+        self.assertEqual(su.eval('DD2'), Seed('i', 1))
+
 #    def test_unify_occurs_check(self) -> None:
 #        su = Subst()
 #        su = su.unify('D1', Seed('D1', 1))
