@@ -526,7 +526,6 @@ class TestSubst(unittest.TestCase):
         su = su.unify('DD1', Seed('LL1', 'II'))
         su = su.unify('D1', Seed('L1', 'I1'))
         su = su.unify('DD1', 'D1')
-        # BUG: We don't yet unify what DD1 and D1 stand for.
         #self.assertTrue(su.are_equal('LL1', 'L1'))
         #self.assertTrue(su.are_equal('II', 'I1'))
         #self.assertTrue(su.are_equal('DD1', 'D1'))
@@ -601,10 +600,12 @@ class TestSubst(unittest.TestCase):
         su = su.unify('DD1', 'D1')
         self.assertEqual(su.eval('DD2'), Seed('i', 1))
 
-#    def test_unify_occurs_check(self) -> None:
-#        su = Subst()
-#        su = su.unify('D1', Seed('D1', 1))
-#        self.assertTrue(su.is_bottom())
+    def test_occurs_check_compound_object(self) -> None:
+        su = Subst()
+        su = su.unify('D1', Seed('D1', 1))  # circular reference
+        self.assertTrue(su.is_bottom())
+
+    # TODO? occurs-check for indirect circular reference, like D1=Seed(E1, 1), E1=D1
 
     # TODO Creating a new object -- keep this separate from unification
 

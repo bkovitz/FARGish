@@ -163,50 +163,47 @@ class Subst:
                 if a1 in self.d:
                     return self.unify(self.d[a1], a2)
                 else:
-                    return Subst(self.d.set(a1, a2))
+                    if self.occurs_in(a1, a2):  # type: ignore[arg-type]
+                        return bottom_subst
+                    else:
+                        return Subst(self.d.set(a1, a2))
             case ('CompoundWorkspaceObj', 'BaseObj'):
                 return bottom_subst
             case ('CompoundWorkspaceObj', 'Variable'):
                 return self.unify(a2, a1)
             case ('CompoundWorkspaceObj', 'CompoundWorkspaceObj'):
-                #if a1.__class__ != a2.__class__:
-                    #return BottomSubst()
                 result = self
-                for v1, v2 in zip(all_arguments_of(a1), all_arguments_of(a2)): #type: ignore[assignment, arg-type]
+                for v1, v2 in zip(
+                        all_arguments_of(a1),  #type: ignore[assignment, arg-type]
+                        all_arguments_of(a2)   #type: ignore[assignment, arg-type]
+                    ):
                     result = result.unify(v1, v2)
                 return result
             case _:
                 raise NotImplementedError(a1, a2)
 
-#        if not is_variable(a1) and not is_variable(a2):
-#            if a1 == a2:
-#                return self
-#            else:
-#                return BottomSubst()
-#        elif is_variable(a1) and not is_variable(a2):
-#            if a1 in self.d:
-#                if self.d[a1] == a2:
-#                    return self
-#                else:
-#                    return BottomSubst()
-#            else:
-#                return Subst(self.d.set(a1, a2))
-#        elif is_variable(a1) and is_variable(a2):
-#            if a1 in self.d:
-#                if a2 in self.d:
-#                    if self.eval(a1) == self.eval(a2):
-#                        #TODO handle None differently?
-#                        return self
-#                    else:
-#                        return BottomSubst()
-#                else:
-#                    raise NotImplementedError
-#            else:
-#                return Subst(self.d.set(a1, a2))
-#        return Subst(self.d.set(a1, a2))
-
     def is_bottom(self) -> bool:
         return False
+
+    @classmethod
+    def occurs_in(cls, var: Variable, a: Argument) -> bool:
+        for v in cls.vars(a):
+            if var == v:
+                return True
+        return False
+
+    @classmethod
+    def vars(cls, a: Argument) -> Iterable[Variable]:
+        match argtype(a):
+            case 'BaseObj':
+                return
+            case 'Variable':
+                yield a  # type: ignore[misc]
+            case 'CompoundWorkspaceObj':
+                yield from chain.from_iterable(
+                    cls.vars(arg)
+                        for arg in all_arguments_of(a)  # type: ignore[arg-type]
+                )
 
     def eval(self, a: Argument) -> Optional[WorkspaceObj]:
         match a:
