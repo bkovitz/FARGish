@@ -78,8 +78,8 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestPainterCluster.test_cluster_with_one_common_undefined_variable
-	#$(PY) -m unittest -v testModel.TestSubst
+	#$(PY) -m unittest -v testModel.TestPainterCluster.test_cluster_with_one_common_undefined_variable
+	$(PY) -m unittest -v testModel.TestArrow
 
 # Acceptance tests
 at:

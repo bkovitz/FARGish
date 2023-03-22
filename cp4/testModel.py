@@ -349,13 +349,26 @@ class TestPainterCluster(unittest.TestCase):
         self.assertEqual(ws.eval('D2'), Seed('i', 1))
         self.assertEqual(ws['L2'], 'i')
 
-#class TestArrow(unittest.TestCase):
-#
-#    def setUp(self) -> None:
-#        self.ws = Workspace()
-#        self.ws.define('ARROW', PainterCluster(
-#            
-#        ))
+class TestArrow(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.ws = Workspace()
+        self.ws.define('ARROW', PainterCluster(
+            Define('RR1', Repeat('SS1', 'DD', 'FF')),
+            Define('RR2', Repeat('SS2', 'DD', 'FF', 'EE')),
+            OtherSide('SS1', 'SS2'),
+            Define('EE', Skip('II')),
+            Define('II', 3)
+        ))
+
+    def test_arrow(self) -> None:
+        #self.ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        #self.ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        self.ws.define('S3', Canvas.make_from('ijk'), tag=[Lhs(), NewWorld()])
+        self.ws.define('S4', Canvas.make_unknown(), tag=[Rhs(), NewWorld()])
+        self.ws.define('R1', Repeat('S3', Seed('i', 1), Succ))
+        self.ws.run_painter_cluster('ARROW', Subst.from_kwargs(RR1='R1'))
+        self.assertEqual(str(self.ws['S4']), 'abc')
 
 class TestParseInputString(unittest.TestCase):
 

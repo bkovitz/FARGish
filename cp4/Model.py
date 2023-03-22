@@ -342,7 +342,6 @@ bottom_subst = BottomSubst()
 
 ########## Fizzles ##########
 
-@dataclass(frozen=True)
 class Fizzle(Exception):
     pass
 
@@ -789,13 +788,29 @@ class OtherSide(CompoundWorkspaceObj):
 #                    ws.find_object_with_tag([Rhs(), world])
 #                )
 
+        lo('OTHER', self.left, ws[self.left], self.right, ws[self.right])
+        lo('OOOOO', ws.subst.d[self.left])
+        lo('OTAGS', ws.tags_of(self.left), self.other_side_tags(ws, self.left))
+        # NEXT tags_of needs to include the tags on the underlying object,
+        # not 'SS1'.
+        lo('OOTAGS', ws.tags_of('S3'))
+        lo('OOOOOO', ws._tags_of)
         match (ws[self.left], ws[self.right]):
             case (Canvas(), None):
-                mate = ws.find_object_with_tag(self.other_side_tags(ws, self.left))
+                mate = ws.find_object_with_tag(
+                    self.other_side_tags(ws, self.left)
+                )
+                # NEXT Problem: we only want to unify self.right with mate,
+                # not create a new mate. Does Workspace need to keep track
+                # of 'objects' in the Workspace so it can tell if you're
+                # creating a new one or assigning a variable to an old one?
+                import pdb; pdb.set_trace()
                 ws.define(self.right, mate)
                 # TODO what if mate does not exist?
             case (None, Canvas()):
-                mate = ws.find_object_with_tag(self.other_side_tags(ws, self.right))
+                mate = ws.find_object_with_tag(
+                    self.other_side_tags(ws, self.right)
+                )
                 ws.define(self.left, mate)
                 # TODO what if mate does not exist?
             # TODO the failure cases
@@ -963,7 +978,7 @@ class PainterCluster(CompoundWorkspaceObj):
         '''Returns new Subst, to put into ws_in.'''
 
         # Set up local variables
-        local_ws = Workspace(subst=ws_in.subst)
+        local_ws = replace(ws_in, subst=ws_in.subst)
         for k, v in subst_in.items():
             local_ws.define(Var.at_level(k, 1), v)  # type: ignore[arg-type]
                             # TODO Subst.d should be PMap[Variable, Argument]
@@ -973,6 +988,8 @@ class PainterCluster(CompoundWorkspaceObj):
         for elem in elems:
             if isinstance(elem, Define):
                 elem.run_local(local_ws)
+            elif isinstance(elem, OtherSide):
+                elem.run(local_ws)
 
         #local_ws.subst.pr() #DEBUG
         # Exit the PainterCluster: remove all local variables
@@ -1081,6 +1098,9 @@ class Workspace:
                 name_letter = 'F'
             case Repeat():
                 name_letter = 'R'
+            case Skip():
+                name_letter = 'K'
+            # TODO Canvas ("Snippet"): 'S'
             case _:
                 raise NotImplementedError(obj)
         while True:
@@ -1125,7 +1145,7 @@ class Workspace:
         # Fizzles if there is not exactly one object with the tags
         result = self.find_objects_with_tag(tags)
         if len(result) == 0:
-            raise Fizzle()  # TODO indicate reason for fizzle
+            raise Fizzle(f'no object tagged {tags}')
         return first(result)
 
     def run_repeater(self, p: Parameter[Repeat]) -> None:
