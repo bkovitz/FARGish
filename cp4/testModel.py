@@ -12,7 +12,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
-    OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst
+    OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -218,7 +218,10 @@ class TestWorkspace(unittest.TestCase):
             ['RR', 'SS', 'DD', 'FF']
         )
 
-        ws.run_painter_cluster('CLUSTER', dict(SS='S1', DD='D1', FF=Succ))
+        ws.run_painter_cluster(
+            'CLUSTER',
+            Subst.from_kwargs(SS='S1', DD='D1', FF=Succ)
+        )
         # TODO Assert that F1=Succ  (no duplicate, i.e. F2)
         self.assertEqual(ws['R1'], Repeat('S1', 'D1', 'F1'))
         self.assertIsNone(ws['F2'])  # regression test: no duplicate Succ
@@ -258,7 +261,7 @@ class TestWorkspace(unittest.TestCase):
             Define('LL', 'a')
         ))
 
-        ws.run_painter_cluster('CLUSTER', dict())
+        ws.run_painter_cluster('CLUSTER', empty_subst)
         self.assertEqual(ws['L1'], 'a')
 
     def test_painter_cluster_just_define_after_existing_letter(self) -> None:
@@ -268,7 +271,7 @@ class TestWorkspace(unittest.TestCase):
             Define('LL', 'a')
         ))
 
-        ws.run_painter_cluster('CLUSTER', dict())
+        ws.run_painter_cluster('CLUSTER', empty_subst)
         self.assertEqual(ws.all_letter_defs(), {'L1': 'b', 'L2': 'a'})
 
     def test_painter_cluster_assign_to_existing_letter(self) -> None:
@@ -277,7 +280,7 @@ class TestWorkspace(unittest.TestCase):
         ws.define('CLUSTER', PainterCluster(
             Define('LL', 'a')
         ))
-        ws.run_painter_cluster('CLUSTER', dict(LL='L1'))
+        ws.run_painter_cluster('CLUSTER', Subst.from_kwargs(LL='L1'))
         # Running the PainterCluster should do nothing, since L1 already exists and
         # is 'a'.
         self.assertEqual(ws.all_letter_defs(), {'L1': 'a'})
@@ -288,7 +291,7 @@ class TestWorkspace(unittest.TestCase):
         ws.define('CLUSTER', PainterCluster(
             Define('LL', 'b')
         ))
-        ws.run_painter_cluster('CLUSTER', dict())
+        ws.run_painter_cluster('CLUSTER', empty_subst)
         self.assertEqual(ws.all_letter_defs(), {'LL': 'a', 'L1': 'b'})
 
 #    def test_painter_cluster_create_seed(self) -> None:
@@ -308,7 +311,7 @@ class TestWorkspace(unittest.TestCase):
         ws.define('CLUSTER', PainterCluster(
             Define('DD', Seed('LL', 'II'))
         ))
-        ws.run_painter_cluster('CLUSTER', dict(LL='L1', II='I1'))
+        ws.run_painter_cluster('CLUSTER', Subst.from_kwargs(LL='L1', II='I1'))
         self.assertEqual(ws.all_seed_defs(), {'D1': Seed('L1', 'I1')})
 
     #TODO Seed(LL, I1): the I1 is already level-0
