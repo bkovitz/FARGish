@@ -1182,6 +1182,13 @@ class Workspace:
                     if isinstance(v, Seed)
         )
 
+    def all_index_defs(self) -> Dict[Variable, Index]:
+        return dict(
+            (k, v)  # type: ignore[misc]
+                for k, v in self.subst.items()
+                    if isinstance(v, int)
+        )
+
     def short(self) -> str:
         return self.__class__.__name__
 
