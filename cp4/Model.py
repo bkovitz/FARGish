@@ -43,6 +43,13 @@ class Var:
                 return v  # type: ignore[return-value]
         return v  # type: ignore[return-value]   # mypy bug
 
+    @classmethod
+    def is_at_least_level_1(cls, v: Argument) -> bool:
+        match v:
+            case Var(level=level):
+                return level >= 1
+            case _:
+                return False
 
 Variable = Union[str, Var]
 Parameter = Union[Variable, T]
@@ -143,7 +150,6 @@ class Subst:
         result = empty_subst
         for k, v in kwargs.items():
             result = result.unify(k, v)
-            lo('FKW', k, v, result)
         return result
 
     def __contains__(self, a: Variable) -> bool:
@@ -168,7 +174,6 @@ class Subst:
                 Var.at_level(lhs, level),
                 rhs
             )
-            lo('ATL', lhs, rhs, result)
         return result
         
     def unify(self, a1: Argument, a2: Argument) -> Subst:
@@ -292,10 +297,12 @@ class Subst:
     @classmethod
     def substitute_in(cls, a: Argument, lhs: Argument, rhs: Argument) -> Argument:
         '''Returns a new Argument consisting of a where every occurrence of lhs has
-        been replaced by rhs.'''
+        been replaced by rhs. Does not affect PainterClusters.'''
         match a:
             case x if x == lhs:
                 return rhs
+            case PainterCluster():
+                return a
             case CompoundWorkspaceObj():
                 return a.__class__(
                     *(cls.substitute_in(arg, lhs, rhs) for arg in all_arguments_of(a))
@@ -851,7 +858,7 @@ class Define(CompoundWorkspaceObj):
     def run_local(self, local_ws: Workspace) -> None:
         #lo('RLO', self.name in local_ws.subst, local_ws.subst)
         if self.name not in local_ws.subst:
-            lo('DEFINE', self.name, self.value)
+            #lo('DEFINE', self.name, self.value)
             #local_ws.define(self.name, self.value)
             #lo('LOCAL WS', local_ws.subst)
             #local_ws.define(self.name, local_ws.eval(self.value))
@@ -939,14 +946,21 @@ class PainterCluster(CompoundWorkspaceObj):
         return self # TODO Is this right? Or should we make a new PainterCluster
                     # with new elems?
 
-    def run(self, ws_in: Workspace, subst_in: Subst) -> None:  #VDict:
-#        subst_in: VDict = dict(
-#            (Var.at_level(k, 1), v) for k, v in subst_in.items()
-#        )
-        lo('HERE1', subst_in)
+    def run(self, ws_in: Workspace, subst_in: Subst) -> Subst:  #VDict:
+        '''Returns new Subst, to put into ws_in.'''
         subst_in = subst_in.at_level(1)
-        lo('HERE2', subst_in)
-        local_ws = Workspace(subst=ws_in.subst | subst_in)
+
+        #local_ws = Workspace(subst=ws_in.subst | subst_in)
+        local_ws = Workspace(subst=ws_in.subst)
+        for k, v in subst_in.items():
+            if is_workspace_obj(v):
+                level_0_name = local_ws.define_and_name(v)
+                local_ws.define(k, level_0_name)  # type: ignore[arg-type]
+                            # TODO Subst.d should be PMap[Variable, Argument]
+            else:
+                assert is_variable(k)
+                local_ws.define(k, v)
+
         elems = self.elems_at_level(1)
         for elem in elems:
             if isinstance(elem, Define):
@@ -954,17 +968,12 @@ class PainterCluster(CompoundWorkspaceObj):
 
         # Exit the PainterCluster: remove all local variables
 
-        for k, v in local_ws.subst.items():
-            print(f'{k}: {short(v)}')
-
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
-        #NEXT For each param that is defined directly as an object,
-        # define a new, level-0 var for that object.
-        # Similarly for references to that variable?
-        # Maybe just *rename* the level-1 var.
-        # Maybe simpler: Make the l0 name & obj when creating the l1 name. Then
-        # exiting can just remove the l1 names.
+        result = local_ws.subst
+        for level_1_name in level_1_names:
+            result = result.remove(level_1_name)
 
+        return result
 
 #        lo('LOCAL_WS')
 #        for k, v in local_ws.subst.items():
@@ -1134,6 +1143,8 @@ def is_letter(x: Any) -> TypeGuard[Letter]:
 def is_base_literal(x: Any) -> TypeGuard[BaseLiteral]:
     return is_letter(x) or isinstance(x, int)
 
+def is_workspace_obj(x: Any) -> TypeGuard[WorkspaceObj]:
+    return is_base_obj(x) or isinstance(x, CompoundWorkspaceObj)
 
 @dataclass
 class Workspace:
@@ -1152,12 +1163,17 @@ class Workspace:
     ) -> None:
         if isinstance(value, CompoundWorkspaceObj):
             value = value.replace_constants_with_variables(self)
-        self.subst = self.subst.unify(name, value)
+        if Var.is_at_least_level_1(name) and is_workspace_obj(value):
+            level_0_name = self.define_and_name(value)
+            self.define(name, level_0_name)
+        else:
+            self.subst = self.subst.unify(name, value)
         for t in as_iter(tag):
             self._tags[t].add(value)  # type: ignore[arg-type]
             self._tags_of[value].add(t)  # type: ignore[index]
 
     def define_and_name(self, obj: WorkspaceObj) -> Variable:
+        # Always returns a level-0 Variable
         name_letter: str
         match obj:
             case str():   # Letter
@@ -1228,10 +1244,9 @@ class Workspace:
     def run_painter_cluster(
         self, painter_cluster: Parameter[PainterCluster], subst_in: Subst
     ) -> None:
-        lo('RPC', subst_in)
         match (pc := self[painter_cluster]):
             case PainterCluster():
-                pc.run(self, subst_in)
+                self.subst = pc.run(self, subst_in)
             case _:
                 raise NotImplementedError  # TODO handle missing PainterCluster
 

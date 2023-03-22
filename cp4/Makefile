@@ -78,8 +78,8 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	#$(PY) -m unittest -v testModel.TestWorkspace.test_painter_cluster_repeat
-	$(PY) -m unittest -v testModel.TestSubst
+	$(PY) -m unittest -v testModel.TestWorkspace.test_painter_cluster_repeat
+	#$(PY) -m unittest -v testModel.TestSubst
 
 # Acceptance tests
 at:
