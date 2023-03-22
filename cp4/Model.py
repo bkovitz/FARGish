@@ -272,6 +272,7 @@ class Subst:
                 )
         raise NotImplementedError
 
+    # TODO rm?
     def are_equal(self, a1: Argument, a2: Argument) -> bool:
         match a1:
             case _ if is_variable(a1):
@@ -296,8 +297,8 @@ class Subst:
 
     @classmethod
     def substitute_in(cls, a: Argument, lhs: Argument, rhs: Argument) -> Argument:
-        '''Returns a new Argument consisting of a where every occurrence of lhs has
-        been replaced by rhs. Does not affect PainterClusters.'''
+        '''Returns a new Argument consisting of a where every occurrence of lhs
+        has been replaced by rhs. Does not affect PainterClusters.'''
         match a:
             case x if x == lhs:
                 return rhs
@@ -305,7 +306,9 @@ class Subst:
                 return a
             case CompoundWorkspaceObj():
                 return a.__class__(
-                    *(cls.substitute_in(arg, lhs, rhs) for arg in all_arguments_of(a))
+                    *(cls.substitute_in(arg, lhs, rhs)
+                        for arg in all_arguments_of(a)
+                    )
                 )
             case _:  # no match; nothing to substitute
                 return a
@@ -633,7 +636,7 @@ def op_to_repeater(
 
 @dataclass(frozen=True)
 class Seed(CompoundWorkspaceObj):
-    letter: Parameter[str]
+    letter: Parameter[Letter]
     i: Parameter[Index]
 
     def get_i(self, ws: Workspace) -> Index:
@@ -662,7 +665,8 @@ class Seed(CompoundWorkspaceObj):
             ws.eval(self.i)
         )
 
-    def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
+    def replace_constants_with_variables(self, ws: Workspace) \
+    -> CompoundWorkspaceObj:
         if is_variable(self.letter) and is_variable(self.i):
             return self
         else:
@@ -727,7 +731,8 @@ class Repeat(CompoundWorkspaceObj):
                     if is_variable(x)
         ]
 
-    def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
+    def replace_constants_with_variables(self, ws: Workspace) \
+    -> CompoundWorkspaceObj:
         if (
             is_variable(self.canvas)
             and
@@ -832,8 +837,9 @@ Painter = Union[Repeat, OtherSide]
 
 @dataclass(frozen=True)
 class Define(CompoundWorkspaceObj):
-    '''Contrary to the name of what Define inherits from, a Define may not exist as
-    a full citizen of the Workspace. It may only be an element of a PainterCluster.'''
+    '''Contrary to the name of what Define inherits from, a Define may not
+    exist as a full citizen of the Workspace. It may only be an element of a
+    PainterCluster.'''
     name: Variable
     value: Any
 
@@ -868,12 +874,13 @@ class Define(CompoundWorkspaceObj):
         raise NotImplementedError  # TODO
 
     def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
-        return self  # DOUBT Is this right? Do we need to replace constants inside
-                     # self.value?
+        return self  # DOUBT Is this right? Do we need to replace constants
+                     # inside self.value?
 
 def is_type_op(x: Any) -> TypeGuard[Type[Op]]:
     return safe_issubclass(x, Op)
 
+# TODO rm?
 def is_level_0(x: Argument) -> bool:
     match x:
         case Var(level=level):
@@ -890,10 +897,10 @@ def is_level_0(x: Argument) -> bool:
             return all(is_level_0(arg) for arg in all_arguments_of(x))
     raise NotImplementedError  # mypy bug: it thinks x is Type[Op]
 
+# TODO rm?
 def try_to_make_level_0(subst: VDict, o: CompoundWorkspaceObj) \
 -> Optional[CompoundWorkspaceObj]:
     d: Dict[str, Any] = {}
-    #for k, v in names_and_arguments_of(o):
     for name, v in parameters_and_arguments_of(o):
         if is_base_obj(v):
             continue
@@ -948,26 +955,20 @@ class PainterCluster(CompoundWorkspaceObj):
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> Subst:  #VDict:
         '''Returns new Subst, to put into ws_in.'''
-        subst_in = subst_in.at_level(1)
 
-        #local_ws = Workspace(subst=ws_in.subst | subst_in)
+        # Set up local variables
         local_ws = Workspace(subst=ws_in.subst)
         for k, v in subst_in.items():
-            if is_workspace_obj(v):
-                level_0_name = local_ws.define_and_name(v)
-                local_ws.define(k, level_0_name)  # type: ignore[arg-type]
+            local_ws.define(Var.at_level(k, 1), v)  # type: ignore[arg-type]
                             # TODO Subst.d should be PMap[Variable, Argument]
-            else:
-                assert is_variable(k)
-                local_ws.define(k, v)
 
+        # Run the elements
         elems = self.elems_at_level(1)
         for elem in elems:
             if isinstance(elem, Define):
                 elem.run_local(local_ws)
 
         # Exit the PainterCluster: remove all local variables
-
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
         result = local_ws.subst
         for level_1_name in level_1_names:
@@ -975,156 +976,14 @@ class PainterCluster(CompoundWorkspaceObj):
 
         return result
 
-#        lo('LOCAL_WS')
-#        for k, v in local_ws.subst.items():
-#            print(f'{k!r}: {v!r}')
-#        # Copy local variables back to ws_in
-#        for name_in in [Var.at_level(name, 1) for name in self.params()]:
-#            if name_in not in subst_in:  # if name was not given as an argument
-#                ws_in.define_and_name(local_ws[name_in])
-
-
-
-        # Make a map of level-1 names to level-0 names
-        # While making the map, if the level-1 name doesn't correspond to any
-        # level-0 object, we create a level-0 object for it, with a level-0 name.
-
-        # fix level-1 names in arguments of CompoundWorkspaceObjs
-        # e.g. replace Seed(LL, II) with Seed(L1, I1)
-        #           DD=Seed(LL, II)   D1=Seed(L1, I1)
-
-        # clear level-1 names
-#        for name_level_1, v1 in subst_in.items():
-#            self.remove_level_1_name(name_level_1, v1)
-
-
-        # Approach #2:
-        # Walk through subst_in and make a modification to ws for each k,v.
-
-        # Approach #3:  THE WINNER
-        #
-        # 1. Make a map of level-1 names to level-0 names
-        #    DD -> D1    This is hard because D1 does not exist yet, so we don't
-        #                even know what .define_and_name() will name it.
-        #    LL -> L1
-        #    II -> I1
-        # While making the map, if the level-1 name doesn't correspond to any
-        # level-0 object, we create a level-0 object for it, with a level-0 name.
-        # If we can't create the level-0 object yet, because it includes a level-1
-        # object that we don't have a level-0 equivalent for yet, then we defer it
-        # for later and try mapping another level-1 variable.
-        #
-        # 2. Throw away local_ws.
-
-        # Approach #4:
-        # Only create level-0 objects, and give them level-0 names when creating them.
-        # During the running of the PainterCluster, maintain a map of level-1 names
-        # to level-0 names.
-        # Inside the PainterCluster, we need common level-1 names in different
-        # objects to refer to the same things.
-
-#        subst_out = local_ws.subst.copy()
-#        level_1_names = [Var.at_level(name, 1) for name in self.params()]
-#        while level_1_names:
-#            name1 = level_1_names.pop(0)  # the level-1 name we're trying to eliminate
-#            #value1 = subst_in[name1] # its value inside the PainterCluster
-#            value1 = subst_out.get(name1, None) # its value inside the PainterCluster
-#            #lo('LOOP', name1, value1)
-#            #import pdb; pdb.set_trace()
-#            match value1:
-#                case None:      # name1 never got defined
-#                    break       # so give up  (TODO maybe Fizzle)
-#                case str() if is_variable(value1):
-#                                      # name1 is defined as a level-0 name
-#                    continue          # so, we're done with name1
-#                case Var(level=1):    # name1 is defined as a level-1 name
-#                    value2 = subst_in[name1]
-#                    if is_level_0(value2):
-#                        subst_out[name1] = value2  # redefine name1 to bypass level-1
-#                    # we'll need a second pass for name1
-#                case str():     # name1 is defined as a letter
-#                    level_0_name = ws_in.define_and_name(value1)
-#                    subst_out[name1] = level_0_name
-#                    continue
-#                case int():     # name1 is defined as an index
-#                    level_0_name = ws_in.define_and_name(value1)
-#                    subst_out[name1] = level_0_name
-#                    continue
-#                case Canvas():  # name1 is defined as a canvas
-#                    level_0_name = ws_in.define_and_name(value1)
-#                    subst_out[name1] = level_0_name
-#                    continue
-#                case _ if is_type_op(value1):
-#                    level_0_name = ws_in.define_and_name(value1)
-#                    subst_out[name1] = level_0_name
-#                    continue
-#                case CompoundWorkspaceObj():  # name1 is defined as a compound object
-#                    value0 = try_to_make_level_0(subst_out, value1)
-#                    if value0 is None:
-#                        pass  # wait for another iteration
-#                    else:
-#                        level_0_name = ws_in.define_and_name(value0)
-#                        subst_out[name1] = level_0_name
-#                        continue
-#                            
-#                    # else name1 must wait for another iteration of the loop, after
-#                    # the members of value1 have received level-0 definitions.
-#
-#            level_1_names.append(name1)
-
-
-        '''
-        if name1 is defined entirely in terms of level-0 names, we're done with it.
-        if name1 is defined as a level-1 name, 
-            if that name has a level-0 definition:
-                define name1 as that level-0 definition
-            else
-                level_1_names.append(name1)
-        if name1 is defined as an object:
-            if the object is entirely level-0:
-                create that object in ws and give it a level-0 name
-                define name1 in subst_in as that level-0 name
-            elif the object depends only on level-1 names:
-                if all those names are defined
-                    create a new object in ws with names mapped to level-0
-                    define name1 in subst_in as that object's level-0 name
-            ...else:
-                level_1_names.append(name1)
-                
-        '''
-
-        # Now we simply throw away local_ws and subst_in. All new contents have been
-        # copied to ws and given new names, whose members refer to each other
-        # isomorphically to the names in subst_in and local_ws.
-        #return subst_out
-
-        # Hypothesis: If a level-1 name is not defined as a level-0 name, does that
-        # mean that the level-1 name refers to a new object? If so, then we know
-        # that we must create a level-0 object for it.
-
-
-        # WANT on exit:
-        #   Any new object created in the PainterCluster should exist in ws and
-        #   have a level-0 name.
-        #
-        #   All level-1 variables should be gone.
-
-        # On return:
-        #   Replace all level-1 variables with their values (which could be
-        #   level-0 variables). This occurs inside CompoundWorkspaceObjs.
-        #
-        #   Create new objects, with level-0 variable names, for objects created
-        #   inside the PainterCluster. Or maybe just give these new objects new
-        #   names, at level-0.
-
-        # Replace replace_constants_with_variables with a single, generic function that
-        # examines the fields in the dataclass definition.
-
     def elems_at_level(self, level: int) -> List[CompoundWorkspaceObj]:
         return [elem.with_var_level(level) for elem in self.elems]
 
     def eval(self, ws: Workspace) -> PainterCluster:
         raise NotImplementedError  # TODO
+
+    # TODO Replace replace_constants_with_variables with a single, generic function that
+    # examines the fields in the dataclass definition.
 
     def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
         return PainterCluster(

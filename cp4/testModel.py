@@ -661,12 +661,9 @@ class TestSubst(unittest.TestCase):
         ))
 
 
-    # TODO UT for L1 in rhs of something
-    # TODO UT for removing an undefined variable that is referenced on the rhs of
-    # some definitions.
 
-
-    # TODO? occurs-check for indirect circular reference, like D1=Seed(E1, 1), E1=D1
+    # TODO? occurs-check for indirect circular reference, like D1=Seed(E1, 1),
+    # E1=D1
 
     # TODO Creating a new object -- keep this separate from unification
 
