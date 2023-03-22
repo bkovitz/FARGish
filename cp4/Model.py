@@ -166,7 +166,7 @@ class Subst:
         for lhs, rhs in self.items():
             result = result.unify(
                 Var.at_level(lhs, level),
-                Var.at_level(rhs, level)
+                rhs
             )
             lo('ATL', lhs, rhs, result)
         return result
@@ -219,6 +219,15 @@ class Subst:
 
     def is_bottom(self) -> bool:
         return False
+
+    def remove(self, var: Variable) -> Subst:
+        # return Subst(self.d.discard(var))
+        val = self.d.get(var)
+        if val is None:
+            return self
+        else:
+            d = self.d.discard(var)
+            return Subst(d).replace_all(var, val)
 
     @classmethod
     def occurs_in(cls, var: Variable, a: Argument) -> bool:
@@ -935,7 +944,7 @@ class PainterCluster(CompoundWorkspaceObj):
 #            (Var.at_level(k, 1), v) for k, v in subst_in.items()
 #        )
         lo('HERE1', subst_in)
-        subst_in = subst_in.at_level(1)  # NEXT only at_level the lhs's?
+        subst_in = subst_in.at_level(1)
         lo('HERE2', subst_in)
         local_ws = Workspace(subst=ws_in.subst | subst_in)
         elems = self.elems_at_level(1)
@@ -949,6 +958,12 @@ class PainterCluster(CompoundWorkspaceObj):
             print(f'{k}: {short(v)}')
 
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
+        #NEXT For each param that is defined directly as an object,
+        # define a new, level-0 var for that object.
+        # Similarly for references to that variable?
+        # Maybe just *rename* the level-1 var.
+        # Maybe simpler: Make the l0 name & obj when creating the l1 name. Then
+        # exiting can just remove the l1 names.
 
 
 #        lo('LOCAL_WS')

@@ -608,6 +608,60 @@ class TestSubst(unittest.TestCase):
         su = su.unify('D1', Seed('D1', 1))  # circular reference
         self.assertTrue(su.is_bottom())
 
+    def test_remove_variable(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        su = su.unify('L2', 'L1')
+        su = su.remove('L2')
+        self.assertEqual(su, Subst.from_kwargs(L1='a'))
+
+    def test_remove_intervening_variable(self) -> None:
+        su = Subst()
+        su = su.unify('L1', 'a')
+        su = su.unify('L2', 'L1')
+        su = su.remove('L1')
+        self.assertEqual(su, Subst.from_kwargs(L2='a'))
+
+    def test_remove_nonexistent_variable(self) -> None:
+        su = Subst()
+        su = su.remove('L1')
+        self.assertEqual(su, empty_subst)
+
+    def test_remove_undefined_variable_that_is_referenced(self) -> None:
+        # The references to an undefined variable should continue to exist after
+        # the variable is removed. In other words, removing an undefined variable
+        # has no effect.
+        su = Subst()
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.remove('L1')
+        self.assertEqual(su, Subst.from_kwargs(D1=Seed('L1', 'I1')))
+
+    def test_remove_variable_defined_as_object_inside_compound_object(self) -> None:
+        su = Subst()
+        su = su.unify('D1', Seed('L1', 'I1'))
+        su = su.unify('L1', 'a')  # "direct" definition of L1
+        su = su.remove('L1')
+        self.assertEqual(su, Subst.from_kwargs(D1=Seed('a', 'I1')))
+        # Is this a bad idea--leaving 'a' (a constant) inside the Seed?
+        # Shouldn't we create a new variable to hold the 'a'?
+
+    def test_remove_indirectly_defined_variable_inside_compound_object(self) -> None:
+        su = Subst()
+        su = su.unify('D1', Seed('LL', 'I1'))
+        su = su.unify('LL', 'L1')  # "indirect" definition of LL
+        su = su.unify('L1', 'a')
+        su = su.remove('LL')
+        self.assertEqual(su, Subst.from_kwargs(
+            D1=Seed('L1', 'I1'),
+            L1='a'
+        ))
+
+
+    # TODO UT for L1 in rhs of something
+    # TODO UT for removing an undefined variable that is referenced on the rhs of
+    # some definitions.
+
+
     # TODO? occurs-check for indirect circular reference, like D1=Seed(E1, 1), E1=D1
 
     # TODO Creating a new object -- keep this separate from unification
