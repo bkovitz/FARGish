@@ -1039,20 +1039,30 @@ class Workspace:
     ) -> None:
         if isinstance(value, CompoundWorkspaceObj):
             value = value.replace_constants_with_variables(self)
-        if Var.is_at_least_level_1(name):
-            if name in self.subst:
-                self.subst = self.subst.unify(name, value)
-            else:
-                if is_workspace_obj(value):
-                    level_0_name = self.define_and_name(value)
-                    self.define(name, level_0_name)
-                else:
-                    self.subst = self.subst.unify(name, value)
+        if self._creating_a_new_object_within_a_painter_cluster(name, value):
+            level_0_name = self.define_and_name(value) # type: ignore[arg-type]
+            self.define(name, level_0_name)
         else:
             self.subst = self.subst.unify(name, value)
         for t in as_iter(tag):
             self._tags[t].add(value)  # type: ignore[arg-type]
             self._tags_of[value].add(t)  # type: ignore[index]
+            #TODO How to ensure that the WorkspaceObj gets tagged, not just
+            # variable that refers to it?--and the variable might not be set
+            # to the WorkspaceObj until later.
+
+    def _creating_a_new_object_within_a_painter_cluster(
+        self,
+        name: Variable,
+        value: Argument
+    ) -> bool:
+        return (
+            Var.is_at_least_level_1(name)
+            and
+            name not in self.subst
+            and
+            is_workspace_obj(value)
+        )
 
     def unify(self, name: Variable, value: Argument) -> None:
         self.subst = self.subst.unify(name, value)
