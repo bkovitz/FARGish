@@ -17,7 +17,7 @@ from pyrsistent.typing import PMap
 
 from Log import lo, trace
 from util import as_iter, field_names_and_values, first, force_setattr, \
-    intersection, safe_issubclass, short, union
+    intersection, pr, safe_issubclass, short, union
 
 
 T = TypeVar('T')
@@ -314,10 +314,17 @@ class Subst:
                 return a
         raise NotImplementedError  # Should never get here: mypy bug
 
+    def pr(self) -> None:
+        for k, v in self.items():
+            print(f'{k}: {short(v)}')
+        print()
+
     def __str__(self) -> str:
         cl = self.__class__.__name__
         dstr = ', '.join(f'{k}={v!r}' for k, v in self.d.items())
         return f'{cl}({dstr})'
+
+    short = __str__
 
 class BottomSubst(Subst):
 
@@ -660,6 +667,7 @@ class Seed(CompoundWorkspaceObj):
         )
 
     def eval(self, ws: Workspace) -> Seed:
+        #import pdb; pdb.set_trace()
         return Seed(
             ws.eval(self.letter),
             ws.eval(self.i)
@@ -862,13 +870,19 @@ class Define(CompoundWorkspaceObj):
         )
 
     def run_local(self, local_ws: Workspace) -> None:
-        #lo('RLO', self.name in local_ws.subst, local_ws.subst)
-        if self.name not in local_ws.subst:
-            #lo('DEFINE', self.name, self.value)
-            #local_ws.define(self.name, self.value)
-            #lo('LOCAL WS', local_ws.subst)
-            #local_ws.define(self.name, local_ws.eval(self.value))
-            local_ws.define(self.name, self.value)
+        #lo('RLO', self.name, self.name in local_ws.subst, local_ws.subst)
+#        if self.name not in local_ws.subst:
+#            #lo('DEFINE', self.name, self.value)
+#            #local_ws.define(self.name, self.value)
+#            #lo('LOCAL WS', local_ws.subst)
+#            #local_ws.define(self.name, local_ws.eval(self.value))
+#            local_ws.define(self.name, self.value)
+        #import pdb; pdb.set_trace()
+        #local_ws.unify(self.name, self.value)
+        local_ws.define(self.name, self.value)
+        if self.name == Var('DD1', 1):   # DEBUG
+            lo('HEY!', self)
+            local_ws.subst.pr()
         
     def eval(self, ws: Workspace) -> Define:
         raise NotImplementedError  # TODO
@@ -876,6 +890,9 @@ class Define(CompoundWorkspaceObj):
     def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
         return self  # DOUBT Is this right? Do we need to replace constants
                      # inside self.value?
+    def short(self) -> str:
+        return f'{self.name}={short(self.value)}'
+
 
 def is_type_op(x: Any) -> TypeGuard[Type[Op]]:
     return safe_issubclass(x, Op)
@@ -968,6 +985,7 @@ class PainterCluster(CompoundWorkspaceObj):
             if isinstance(elem, Define):
                 elem.run_local(local_ws)
 
+        local_ws.subst.pr() #DEBUG
         # Exit the PainterCluster: remove all local variables
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
         result = local_ws.subst
@@ -989,6 +1007,13 @@ class PainterCluster(CompoundWorkspaceObj):
         return PainterCluster(
             *(elem.replace_constants_with_variables(ws) for elem in self.elems)
         )
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        elem_strs = ', '.join(short(elem, inside=True) for elem in self.elems)
+        return f'{cl}({elem_strs})'
+
+    __repr__ = __str__
 
 def is_variable(x: Any) -> TypeGuard[Variable]:
     return (isinstance(x, str) and len(x) > 1) or isinstance(x, Var)
@@ -1018,7 +1043,10 @@ class Workspace:
         # maps each elem to its tags
 
     def define(
-        self, name: Variable, value: Argument, tag: Union[Tag, List[Tag], None]=None
+        self,
+        name: Variable,
+        value: Argument,
+        tag: Union[Tag, List[Tag], None]=None
     ) -> None:
         if isinstance(value, CompoundWorkspaceObj):
             value = value.replace_constants_with_variables(self)
@@ -1030,6 +1058,9 @@ class Workspace:
         for t in as_iter(tag):
             self._tags[t].add(value)  # type: ignore[arg-type]
             self._tags_of[value].add(t)  # type: ignore[index]
+
+    def unify(self, name: Variable, value: Argument) -> None:
+        self.subst = self.subst.unify(name, value)
 
     def define_and_name(self, obj: WorkspaceObj) -> Variable:
         # Always returns a level-0 Variable
@@ -1070,7 +1101,7 @@ class Workspace:
     def eval(self, x: Parameter[T]) -> Parameter[T]:
         match x:
             case _ if is_variable(x):
-                return self[x]
+                return self.eval(self[x])
             case CompoundWorkspaceObj():
                 return x.eval(self)  # type: ignore[return-value]
             case _:

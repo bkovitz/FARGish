@@ -329,29 +329,37 @@ class TestPainterCluster(unittest.TestCase):
 
     #TODO Fill a cluster's variables "bottom-up"
 
-#    def test_simple_cluster(self) -> None:
-#        ws = Workspace()
-#        ws.define('CLUSTER', PainterCluster(
-#            Define('DD1', Seed('LL1', 'II')),
-#            Define('LL1', 'a'),
-#            Define('DD2', Seed('LL2', 'II')),
-#            Define('LL2', 'i')
-#            # II is not defined: it will be filled in to be the same in both seeds
-#        ))
-#        ws.define('D1', Seed('L1', 'I1'))
-#        ws.define('L1', 'a')
-#        ws.define('I1', 1)
-#        subst_out = ws.run_painter_cluster('CLUSTER', dict(DD1='D1'))
-#        pp(subst_out)
-#
-#        self.assertCountEqual(
-#            ws['CLUSTER'].params(),
-#            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
-#        )
-#
-#        pp(ws.subst)
-#        self.assertEqual(ws['D2'], Seed('L2', 'I1'))
-#        self.assertEqual(ws['L2'], 'i')
+    def test_simple_cluster(self) -> None:
+        ws = Workspace()
+        ws.define('CLUSTER', PainterCluster(
+            Define('DD1', Seed('LL1', 'II')),
+            Define('LL1', 'a'),
+            Define('DD2', Seed('LL2', 'II')),
+            Define('LL2', 'i')
+            # II is not defined: it will be filled in to be the same in both
+            # seeds.
+        ))
+
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('L1', 'a')
+        ws.define('I1', 1)
+        ws.run_painter_cluster('CLUSTER', Subst.from_kwargs(DD1='D1'))
+        subst_out = ws.subst
+
+        subst_out.pr() #DEBUG
+
+        self.assertCountEqual(
+            ws['CLUSTER'].params(),
+            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
+        )
+
+        # NEXT The problem is that, inside the PainterCluster, unifying DD1 (I
+        # think) with Seed(...) is creating a new Seed.
+        #self.assertEqual(ws['D2'], Seed('L2', 'I1'))
+        lo('UT D2', ws['D2'])
+        self.assertEqual(ws.eval('D3'), Seed('i', 1))
+        # The problem is that unifying LL1 with L1 created a new letter
+        self.assertEqual(ws['L2'], 'i')
 
 #        lo('UT', subst)
 #
@@ -370,6 +378,17 @@ class TestPainterCluster(unittest.TestCase):
 #                value,
 #                f'subst[{name1!r}] was {subst[name1]}, not {value}'
 #            )
+
+        self.assertEqual(
+            subst_out,
+            Subst.from_kwargs(
+                D1=Seed('L1', 'I1'),
+                L1='a',
+                I1=1,
+                D2=Seed('L2', 'I1'),
+                L2='i'
+            )
+        )
 
 #        self.assertEqual(
 #            subst,
