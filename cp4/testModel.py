@@ -329,7 +329,7 @@ class TestPainterCluster(unittest.TestCase):
 
     #TODO Fill a cluster's variables "bottom-up"
 
-    def test_simple_cluster(self) -> None:
+    def test_cluster_with_one_common_undefined_variable(self) -> None:
         ws = Workspace()
         ws.define('CLUSTER', PainterCluster(
             Define('DD1', Seed('LL1', 'II')),
@@ -344,72 +344,10 @@ class TestPainterCluster(unittest.TestCase):
         ws.define('L1', 'a')
         ws.define('I1', 1)
         ws.run_painter_cluster('CLUSTER', Subst.from_kwargs(DD1='D1'))
-        subst_out = ws.subst
 
-        subst_out.pr() #DEBUG
-
-        self.assertCountEqual(
-            ws['CLUSTER'].params(),
-            ['DD1', 'LL1', 'DD2', 'LL2', 'II']
-        )
-
-        # NEXT The problem is that, inside the PainterCluster, unifying DD1 (I
-        # think) with Seed(...) is creating a new Seed.
-        #self.assertEqual(ws['D2'], Seed('L2', 'I1'))
-        lo('UT D2', ws['D2'])
-        self.assertEqual(ws.eval('D3'), Seed('i', 1))
-        # The problem is that unifying LL1 with L1 created a new letter
+        self.assertEqual(ws['D2'], Seed('L2', 'I1'))
+        self.assertEqual(ws.eval('D2'), Seed('i', 1))
         self.assertEqual(ws['L2'], 'i')
-
-#        lo('UT', subst)
-#
-#        expect: List[Tuple[Variable, Argument]] = [
-#            ('DD1', 'D1'),   #Seed('LL1', 'II')),
-#            ('LL1', 'a'),
-#            ('DD2', Var.at_level(Seed('LL2', 'II'), 1)),
-#            ('LL2', 'i'),
-#            ('II',  1)
-#        ]
-#
-#        for name, value in expect:
-#            name1 = Var.at_level(name, 1)
-#            self.assertEqual(
-#                subst[name1],
-#                value,
-#                f'subst[{name1!r}] was {subst[name1]}, not {value}'
-#            )
-
-        self.assertEqual(
-            subst_out,
-            Subst.from_kwargs(
-                D1=Seed('L1', 'I1'),
-                L1='a',
-                I1=1,
-                D2=Seed('L2', 'I1'),
-                L2='i'
-            )
-        )
-
-#        self.assertEqual(
-#            subst,
-#            {
-#                'DD1': Seed('LL1', 'II'),
-#                'LL1': 'a',
-#                'DD2': Seed('LL2', 'II'),
-#                'LL2': 'i',
-#                'II':  1
-#            }
-#        )
-
-#        self.assertEqual(subst['DD1'], Seed('LL1', 'II'))
-#        self.assertEqual(subst['LL1'], 'a')
-#        self.assertEqual(subst['DD2'], Seed('LL2', 'II'))
-#        self.assertEqual(subst['LL2'], 'i')
-#        self.assertEqual(subst['II'], 1)
-
-#        other_seeds: List[Variable] = ws.get_by_type(Seed)
-#        seed2 = ws.??
-#        self.assertEqual(ws.get_determinate(seed2), Seed('i', 1))
 
 #class TestArrow(unittest.TestCase):
 #

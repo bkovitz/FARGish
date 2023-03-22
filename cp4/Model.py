@@ -316,7 +316,7 @@ class Subst:
 
     def pr(self) -> None:
         for k, v in self.items():
-            print(f'{k}: {short(v)}')
+            print(f'{k}: {short(v, inside=True)}')
         print()
 
     def __str__(self) -> str:
@@ -871,18 +871,7 @@ class Define(CompoundWorkspaceObj):
 
     def run_local(self, local_ws: Workspace) -> None:
         #lo('RLO', self.name, self.name in local_ws.subst, local_ws.subst)
-#        if self.name not in local_ws.subst:
-#            #lo('DEFINE', self.name, self.value)
-#            #local_ws.define(self.name, self.value)
-#            #lo('LOCAL WS', local_ws.subst)
-#            #local_ws.define(self.name, local_ws.eval(self.value))
-#            local_ws.define(self.name, self.value)
-        #import pdb; pdb.set_trace()
-        #local_ws.unify(self.name, self.value)
         local_ws.define(self.name, self.value)
-        if self.name == Var('DD1', 1):   # DEBUG
-            lo('HEY!', self)
-            local_ws.subst.pr()
         
     def eval(self, ws: Workspace) -> Define:
         raise NotImplementedError  # TODO
@@ -985,7 +974,7 @@ class PainterCluster(CompoundWorkspaceObj):
             if isinstance(elem, Define):
                 elem.run_local(local_ws)
 
-        local_ws.subst.pr() #DEBUG
+        #local_ws.subst.pr() #DEBUG
         # Exit the PainterCluster: remove all local variables
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
         result = local_ws.subst
@@ -1050,9 +1039,15 @@ class Workspace:
     ) -> None:
         if isinstance(value, CompoundWorkspaceObj):
             value = value.replace_constants_with_variables(self)
-        if Var.is_at_least_level_1(name) and is_workspace_obj(value):
-            level_0_name = self.define_and_name(value)
-            self.define(name, level_0_name)
+        if Var.is_at_least_level_1(name):
+            if name in self.subst:
+                self.subst = self.subst.unify(name, value)
+            else:
+                if is_workspace_obj(value):
+                    level_0_name = self.define_and_name(value)
+                    self.define(name, level_0_name)
+                else:
+                    self.subst = self.subst.unify(name, value)
         else:
             self.subst = self.subst.unify(name, value)
         for t in as_iter(tag):
