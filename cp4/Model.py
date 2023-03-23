@@ -415,6 +415,7 @@ class Op(ABC):
         start_index: int=1,
         exception: Optional[Exception_]=None
     ) -> str:
+        #import pdb; pdb.set_trace()
         return (
             cls.reverse_sequence(start_letter, 1, start_index, exception)
             +
@@ -478,7 +479,7 @@ class Op(ABC):
                     seed_letter = cls.next_letter(seed_letter)
                     return seed_letter, seed_letter
                 else:
-                    return cls.generate_next(seed_letter, i)
+                    return cls.generate_next(seed_letter, i, exception=None)
             case _:
                 raise NotImplementedError
 
@@ -587,7 +588,11 @@ class Skip(Exception_):
         return Skip(Var.at_level(self.i, level))
 
     def eval(self, ws: Workspace) -> Skip:
-        raise NotImplementedError  # TODO
+        i = ws.eval(self.i)
+        if isinstance(i, int):
+            return Skip(i)
+        else:
+            raise NotImplementedError  # TODO
 
     def replace_constants_with_variables(self, ws: Workspace) \
     -> CompoundWorkspaceObj:
@@ -788,15 +793,12 @@ class OtherSide(CompoundWorkspaceObj):
 #                    ws.find_object_with_tag([Rhs(), world])
 #                )
 
-        lo('OTHER', self.left, ws[self.left], self.right, ws[self.right])
-        lo('OOOOO', ws.subst.d[self.left])
-        lo('OTAGS', ws.tags_of(self.left), self.other_side_tags(ws, self.left))
         # NEXT tags_of needs to include the tags on the underlying object,
         # not 'SS1'.
-        lo('OOTAGS', ws.tags_of('S3'))
-        lo('OOOOOO', ws._tags_of)
         match (ws[self.left], ws[self.right]):
             case (Canvas(), None):
+                #TODO Let mate be the variable holding the object, not the
+                # object itself.
                 mate = ws.find_object_with_tag(
                     self.other_side_tags(ws, self.left)
                 )
@@ -804,8 +806,9 @@ class OtherSide(CompoundWorkspaceObj):
                 # not create a new mate. Does Workspace need to keep track
                 # of 'objects' in the Workspace so it can tell if you're
                 # creating a new one or assigning a variable to an old one?
-                import pdb; pdb.set_trace()
-                ws.define(self.right, mate)
+                #import pdb; pdb.set_trace()
+                #ws.define(self.right, mate)
+                ws.unify(self.right, mate)
                 # TODO what if mate does not exist?
             case (None, Canvas()):
                 mate = ws.find_object_with_tag(
@@ -1099,7 +1102,7 @@ class Workspace:
             case Repeat():
                 name_letter = 'R'
             case Skip():
-                name_letter = 'K'
+                name_letter = 'E'
             # TODO Canvas ("Snippet"): 'S'
             case _:
                 raise NotImplementedError(obj)
@@ -1201,7 +1204,9 @@ class Workspace:
             case None:
                 return None
             case _:
-                return self[x]
+                #return self[x]
+                return self.eval(x)  # type: ignore[return-value]
+                         # TODO check that it evaluates to an Exception_
 
     def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
         match x:

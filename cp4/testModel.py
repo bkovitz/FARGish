@@ -365,10 +365,17 @@ class TestArrow(unittest.TestCase):
         #self.ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         #self.ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         self.ws.define('S3', Canvas.make_from('ijk'), tag=[Lhs(), NewWorld()])
-        self.ws.define('S4', Canvas.make_unknown(), tag=[Rhs(), NewWorld()])
+        self.ws.define('S4', Canvas.make_unknown(length=3), tag=[Rhs(), NewWorld()])
         self.ws.define('R1', Repeat('S3', Seed('i', 1), Succ))
         self.ws.run_painter_cluster('ARROW', Subst.from_kwargs(RR1='R1'))
-        self.assertEqual(str(self.ws['S4']), 'abc')
+        #self.assertEqual(self.ws['R2'], Repeat('S4', 'D1', 'F1', 'K1'))
+        #lo('R2', self.ws['R2'])
+        #lo('R2EVAL', self.ws.eval('R2'))
+
+        self.ws.run_repeater('R2')
+        self.assertEqual(str(self.ws['S4']), 'ijl')
+
+    # TODO Test with Canvas.make_unknown(), i.e. no length
 
 class TestParseInputString(unittest.TestCase):
 
