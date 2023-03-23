@@ -407,30 +407,167 @@ class TestParseInputString(unittest.TestCase):
         # There also need to be relations between these canvases: OtherSide
         # and OtherWorld.
 
-#class TestDiffer(unittest.TestCase):
-#
-#    def test_diff_abc_abd(self) -> None:
+class TestDiffer(unittest.TestCase):
+
+    def test_diff_abc_abd(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
+        ws.define('S2', Canvas.make_from('abd'))
+        ws.define('R2', Repeat('S2', Seed('a', 1), Succ, exception=Skip(3)))
+        ws.subst.pr()
+
+        arrow = ws.construct_diff('R1', 'R2', name='ARROW')
+        self.assertEqual(
+            arrow,
+            PainterCluster(
+                Define('RR1', Repeat('SS1', 'DD', 'FF')),
+                Define('RR2', Repeat('SS2', 'DD', 'FF', 'EE1')),
+                OtherSide('SS1', 'SS2'),
+                Define('EE1', Skip('II1')),
+                Define('II1', 3)
+            )
+        )
+
+    def test_diff_abc_ijk(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
+        ws.define('S2', Canvas.make_from('ijk'))
+        ws.define('R2', Repeat('S2', Seed('i', 1), Succ))
+
+        arrow = ws.construct_diff('R1', 'R2', name='ARROW')
+        self.assertEqual(
+            arrow,
+            PainterCluster(
+                Define('RR1', Repeat('SS1', 'DD1', 'FF')),
+                Define('RR2', Repeat('SS2', 'DD2', 'FF')),
+                OtherSide('SS1', 'SS2'),
+                Define('DD1', Seed('LL1', 'II')),
+                Define('DD2', Seed('LL2', 'II')),
+                Define('LL1', 'a'),
+                Define('LL2', 'i'),
+            )
+        )
+        # NOTE for dissertation: it's a shame that the difference between
+        # 'abc' and 'ijk' isn't simply "they start on a different letter"
+        # rather than a PainterCluster with seven elements. It would be better
+        # if the simple difference was stored somehow, from which the
+        # PainterCluster could be reconstructed as needed. Then the model
+        # could compare simple differences.
+
+    '''
+    To diff repeaters, we will need a function that given an argument from
+    one repeater and the corresponding argument from the other repeater,
+    returns what needs to go into the PainterCluster.
+
+    If the arguments are the same:
+        a single name and no Define.
+    If the arguments are (arbitrarily) different:
+        two names, and two Defines -- plus any further names and Defines
+        for parameters of the arguments (if they're CompoundWorkspaceObjs)
+    If the arguments have some other relation between them:
+        two names, and a Painter relating them
+    '''
+
+    def test_pcdiff_identical_letters(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a')
+        ws.define('L2', 'a')
+        self.assertEqual(
+            ws.pcdiff('L1', 'L2'),
+            (('LL', None), ('LL', None))
+        )
+
+#    def test_diff_identical_letters(self) -> None:
 #        ws = Workspace()
-#        ws.make('S1', Canvas.make_from('abc'))
-#        ws.make('R1', Repeat('S1', Seed('a', 1), Succ))
-#        ws.make('S2', Canvas.make_from('abd'))
-#        ws.make('R2', Repeat('S2', Seed('a', 1), Succ, exception=Skip(3)))
-#
-#        arrow = ws.construct_diff('R1', 'R2', name='Arrow')
+#        ws.define('L1', 'a')
+#        ws.define('L2', 'a')
+#        diff = ws.construct_diff('L1', 'L2', name='DIFF')
 #        self.assertEqual(
-#            arrow.params, ['RR1', 'RR2', 'SS1', 'SS2', 'DD', 'FF', 'GG']
+#            diff,
+#            Same('L1', 'L2')
+##            PainterCluster(
+##                Define('LL1', 'LL'),
+##                Define('LL2', 'LL')
+##            )
 #        )
+
+    def test_diff_different_letters(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a')
+        ws.define('L2', 'i')
+        diff = ws.construct_diff('L1', 'L2', name='DIFF')
+        self.assertEqual(
+            diff,
+            PainterCluster(
+                Define('LL1', 'a'),
+                Define('LL2', 'i')
+            )
+        )
+
+#    def test_diff_succ_letter(self) -> None:
+#        ws = Workspace()
+#        ws.define('L1', 'a')
+#        ws.define('L2', 'b')
+#        diff = ws.construct_diff('L1', 'L2', name='DIFF')
 #        self.assertEqual(
-#            arrow,
-#            PainterCluster(
-#                Define('RR1', Repeat('SS1', 'DD', 'FF')),
-#                Define('RR2', Repeat('SS1', 'DD', 'FF', 'EE'),
-#                OtherSide('SS1', 'SS2'),
-#                Exception_('GG', 'II'),
-#                Define('GG', Skip)
-#                Define('II', 3)
-#            )
+#            diff,
+#            Succ('L1', 'L2')
 #        )
+
+    def test_diff_identical_indices(self) -> None:
+        ws = Workspace()
+        ws.define('I1', 1)
+        ws.define('I2', 1)
+        diff = ws.construct_diff('I1', 'I2', name='DIFF')
+        self.assertEqual(
+            diff,
+            PainterCluster(
+                Define('II1', 'II'),
+                Define('II2', 'II')
+            )
+        )
+
+    def test_diff_different_indices(self) -> None:
+        ws = Workspace()
+        ws.define('I1', 1)
+        ws.define('I2', 3)
+        diff = ws.construct_diff('I1', 'I2', name='DIFF')
+        self.assertEqual(
+            diff,
+            PainterCluster(
+                Define('II1', 1),
+                Define('II2', 3)
+            )
+        )
+
+
+    # TODO diff Succ, Prev letters
+    # TODO diff Succ, Prev indices
+    # TODO diff Succ, Prev canvas lengths
+
+    def test_diff_different_seeds(self) -> None:
+        ws = Workspace()
+        ws.define('D1', Seed('L1', 'I1'))
+        ws.define('D2', Seed('L2', 'I2'))
+        ws.define('L1', 'a')
+        ws.define('L2', 'i')
+        ws.define('I1', 1)
+        ws.define('I2', 1)
+        diff = ws.construct_diff('D1', 'D2', name='DIFF')
+        self.assertEqual(
+            diff,
+            PainterCluster(
+                Define('DD1', Seed('LL1', 'II')),
+                Define('DD2', Seed('LL2', 'II')),
+                Define('LL1', 'a'),
+                Define('LL2', 'i')
+            )
+        )
+
+    def test_diff_opposite_side_canvases(self) -> None:
+        pass #TODO
 
 class TestSubst(unittest.TestCase):
 
@@ -485,14 +622,6 @@ class TestSubst(unittest.TestCase):
         self.assertEqual(su.eval('L1'), su.eval('a'))
         self.assertEqual(su.eval('L2'), su.eval('a'))
         self.assertEqual(su.eval('L1'), su.eval('L2'))
-
-    '''
-    LL=L1
-    LL='a'
-
-    L1='a'
-    LL='a'
-    '''
 
     def test_unify_seed_seed(self) -> None:
         su = Subst()

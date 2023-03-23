@@ -1173,6 +1173,20 @@ class Workspace:
             raise Fizzle(f'no object tagged {tags}')
         return first(result)
 
+    def construct_diff(self, a1: Argument, a2: Argument, name=Variable) \
+    -> Any:  # TODO Give this a proper type
+        return PainterCluster(
+            Define('RR1', Repeat('SS1', 'DD', 'FF')),
+            Define('RR2', Repeat('SS1', 'DD', 'FF', 'EE1')),
+            OtherSide('SS1', 'SS2'),
+            Define('EE1', Skip('II1')),
+            Define('II1', 3)
+        )
+
+    def pcdiff(self, v1: Variable, v2: Variable) \
+    -> Tuple[PcdiffPair, PcdiffPair]:
+        pass
+
     def run_repeater(self, p: Parameter[Repeat]) -> None:
         painter = self.get_repeater(p)  # TODO What about None?
         painter.fill(self)
@@ -1317,3 +1331,4 @@ WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define]  # TODO Add all Painters
+PcdiffPair = Tuple[Variable, Optional[PainterClusterElem]]
