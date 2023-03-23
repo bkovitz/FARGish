@@ -155,6 +155,44 @@ class TestWorkspace(unittest.TestCase):
 #        ws.run_painter(Succ(Addr('C0', 1), Addr('C0', 3)))
 #        self.assertEqual(str(ws['C0']), 'axb')
 
+    def test_seed_params(self) -> None:
+        self.assertCountEqual(Seed('L1', 'I1').params(), ['L1', 'I1'])
+
+    #TODO Seed(LL, I1): the I1 is already level-0
+
+    def test_define_letter(self) -> None:
+        ws = Workspace()
+        name1 = ws.define_and_name('a')
+        name2 = ws.define_and_name('b')
+        self.assertEqual(name1, 'L1')
+        self.assertEqual(ws[name1], 'a')
+        self.assertEqual(name2, 'L2')
+        self.assertEqual(ws[name2], 'b')
+
+    def test_define_letter_that_clashes_with_existing_lettername(self) -> None:
+        ws = Workspace()
+        ws.define('L1', 'a')
+        name = ws.define_and_name('b')
+        self.assertEqual(ws['L1'], 'a')
+        self.assertEqual(name, 'L2')
+        self.assertEqual(ws[name], 'b')
+
+#    def test_define_seed(self) -> None:
+#        ws = Workspace()
+#        ws.define('D1', Seed('a', 1))
+#        self.assertEqual(ws['D1'], Seed('L1', 'I1'))
+#        self.assertEqual(ws['L1'], 'a')
+#        self.assertEqual(ws['I1'], 1)
+
+    def test_variable_of(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        canvas = ws.eval('S1')
+        assert isinstance(canvas, Canvas)
+        self.assertEqual(ws.variable_of(canvas), 'S1')
+
+class TestOtherSide(unittest.TestCase):
+
     def test_other_side_lhs_blank(self) -> None:
         ws = Workspace()
         ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
@@ -202,42 +240,6 @@ class TestWorkspace(unittest.TestCase):
         self.assertEqual(ws.eval('SS'), ws['S4'])
         ws.run_painter(OtherSide('S1', 'ST'))
         self.assertEqual(ws.eval('ST'), ws['S2'])
-
-    def test_seed_params(self) -> None:
-        self.assertCountEqual(Seed('L1', 'I1').params(), ['L1', 'I1'])
-
-    #TODO Seed(LL, I1): the I1 is already level-0
-
-    def test_define_letter(self) -> None:
-        ws = Workspace()
-        name1 = ws.define_and_name('a')
-        name2 = ws.define_and_name('b')
-        self.assertEqual(name1, 'L1')
-        self.assertEqual(ws[name1], 'a')
-        self.assertEqual(name2, 'L2')
-        self.assertEqual(ws[name2], 'b')
-
-    def test_define_letter_that_clashes_with_existing_lettername(self) -> None:
-        ws = Workspace()
-        ws.define('L1', 'a')
-        name = ws.define_and_name('b')
-        self.assertEqual(ws['L1'], 'a')
-        self.assertEqual(name, 'L2')
-        self.assertEqual(ws[name], 'b')
-
-#    def test_define_seed(self) -> None:
-#        ws = Workspace()
-#        ws.define('D1', Seed('a', 1))
-#        self.assertEqual(ws['D1'], Seed('L1', 'I1'))
-#        self.assertEqual(ws['L1'], 'a')
-#        self.assertEqual(ws['I1'], 1)
-
-    def test_variable_of(self) -> None:
-        ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'))
-        canvas = ws.eval('S1')
-        assert isinstance(canvas, Canvas)
-        self.assertEqual(ws.variable_of(canvas), 'S1')
 
 class TestPainterCluster(unittest.TestCase):
 

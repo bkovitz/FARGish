@@ -347,9 +347,9 @@ class Fizzle(Exception):
 
 @dataclass(frozen=True)
 class WrongType(Fizzle):
-    typ: Any
-    ref: Any
-    obj: Any = None
+    typ: Any  # What the type was supposed to be
+    ref: Any  # The reference to the object of the wrong type
+    obj: Any  # The object with the wrong type
 
 ########## The canvas ##########
 
@@ -797,17 +797,6 @@ class OtherSide(CompoundWorkspaceObj):
     right: Variable    # TODO allow a constant?
 
     def run(self, ws: Workspace) -> None:
-#        if isinstance(self.right, str):
-#            #ws.define(self.right, 'S2')
-#            #ws.define(self.right, ws.find_object_with_tag(Rhs()))
-#            if (world := ws.world_of(self.left)) is not None:
-#                ws.define(
-#                    self.right,
-#                    ws.find_object_with_tag([Rhs(), world])
-#                )
-
-        # NEXT tags_of needs to include the tags on the underlying object,
-        # not 'SS1'.
         match (ws.eval(self.left), ws.eval(self.right)):
             case (Canvas(), None):
                 #TODO Let mate be the variable holding the object, not the
@@ -815,12 +804,6 @@ class OtherSide(CompoundWorkspaceObj):
                 mate = ws.variable_of(ws.find_object_with_tag(
                     self.other_side_tags(ws, self.left)
                 ))
-                # NEXT Problem: we only want to unify self.right with mate,
-                # not create a new mate. Does Workspace need to keep track
-                # of 'objects' in the Workspace so it can tell if you're
-                # creating a new one or assigning a variable to an old one?
-                #import pdb; pdb.set_trace()
-                #ws.define(self.right, mate)
                 if mate is not None:
                     ws.unify(self.right, mate)
                 else:
@@ -835,9 +818,10 @@ class OtherSide(CompoundWorkspaceObj):
                 else:
                     raise NotImplementedError
                     # TODO what if mate does not exist?
-            # TODO the failure cases
+            case _:
+                raise NotImplementedError
+                # TODO the failure cases
                 
-    #def other_side_tags(self, tags: Tags) -> Tags:
     def other_side_tags(self, ws: Workspace, obj: Variable) -> Tags:
         '''Returns tags to specify an object on the other "side" (Lhs/Rhs) and
         the same "world".'''
@@ -1216,7 +1200,7 @@ class Workspace:
                 if isinstance(result, int):
                     return result
                 else:
-                    raise WrongType(Index, x)
+                    raise WrongType(Index, x, result)
 
     def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
         match x:
@@ -1240,7 +1224,7 @@ class Workspace:
                 if isinstance(result, Seed):
                     return result
                 else:
-                    raise WrongType(Seed, x)
+                    raise WrongType(Seed, x, result)
 
     def get_op(self, x: Parameter[Type[Op]]) -> Type[Op]:
         match x:
@@ -1251,7 +1235,7 @@ class Workspace:
                 if safe_issubclass(result, Op):
                     return result  # type: ignore[return-value]
                 else:
-                    raise WrongType(Op, x)
+                    raise WrongType(Op, x, result)
 
     def get_exception(self, x: OptionalParameter[Exception_]) \
     -> Optional[Exception_]:
@@ -1265,7 +1249,7 @@ class Workspace:
                 if result is None or isinstance(result, Exception_):
                     return result
                 else:
-                    raise WrongType(Exception_, x)
+                    raise WrongType(Exception_, x, result)
 
     def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
         match x:
@@ -1277,7 +1261,7 @@ class Workspace:
                 if isinstance(result, Repeat):
                     return result
                 else:
-                    raise WrongType(Repeat, x)
+                    raise WrongType(Repeat, x, result)
 
     def get_painter_cluster(self, x: Parameter[PainterCluster]) \
     -> PainterCluster:
@@ -1290,7 +1274,7 @@ class Workspace:
                 if isinstance(result, PainterCluster):
                     return result
                 else:
-                    raise WrongType(PainterCluster, x)
+                    raise WrongType(PainterCluster, x, result)
 
     def get_letter(self, x: Parameter[str]) -> str:
 #        if is_variable(x):
@@ -1301,7 +1285,7 @@ class Workspace:
         if is_letter(result):
             return result
         else:
-            raise WrongType(Letter, x)
+            raise WrongType(Letter, x, result)
 
     def all_letter_defs(self) -> Dict[Variable, Letter]:
         return dict(
