@@ -160,28 +160,28 @@ class TestWorkspace(unittest.TestCase):
         ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S1', 'SS'))
-        self.assertEqual(ws['SS'], ws['S2'])
+        self.assertEqual(ws.eval('SS'), ws['S2'])
 
     def test_other_side_blank_lhs(self) -> None:
         ws = Workspace()
         ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('SS', 'S1'))
-        self.assertEqual(ws['SS'], ws['S2'])
+        self.assertEqual(ws.eval('SS'), ws['S2'])
 
     def test_other_side_rhs_blank(self) -> None:
         ws = Workspace()
         ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S2', 'SS'))
-        self.assertEqual(ws['SS'], ws['S1'])
+        self.assertEqual(ws.eval('SS'), ws['S1'])
 
     def test_other_side_blank_rhs(self) -> None:
         ws = Workspace()
         ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('SS', 'S2'))
-        self.assertEqual(ws['SS'], ws['S1'])
+        self.assertEqual(ws.eval('SS'), ws['S1'])
 
     def test_other_side2(self) -> None:
         ws = Workspace()
@@ -190,7 +190,7 @@ class TestWorkspace(unittest.TestCase):
         ws.define('S3', Canvas.make_from('wrong'), tag=OldWorld())
         ws.define('SR', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S1', 'SS'))
-        self.assertEqual(ws['SS'], ws['SR'])
+        self.assertEqual(ws.eval('SS'), ws['SR'])
 
     def test_other_side_two_worlds(self) -> None:
         ws = Workspace()
@@ -199,9 +199,9 @@ class TestWorkspace(unittest.TestCase):
         ws.define('S3', Canvas.make_from('ijk'), tag=[Lhs(), NewWorld()])
         ws.define('S4', Canvas.make_from('ijl'), tag=[Rhs(), NewWorld()])
         ws.run_painter(OtherSide('S3', 'SS'))
-        self.assertEqual(ws['SS'], ws['S4'])
+        self.assertEqual(ws.eval('SS'), ws['S4'])
         ws.run_painter(OtherSide('S1', 'ST'))
-        self.assertEqual(ws['ST'], ws['S2'])
+        self.assertEqual(ws.eval('ST'), ws['S2'])
 
     def test_seed_params(self) -> None:
         self.assertCountEqual(Seed('L1', 'I1').params(), ['L1', 'I1'])
@@ -231,6 +231,13 @@ class TestWorkspace(unittest.TestCase):
 #        self.assertEqual(ws['D1'], Seed('L1', 'I1'))
 #        self.assertEqual(ws['L1'], 'a')
 #        self.assertEqual(ws['I1'], 1)
+
+    def test_variable_of(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        canvas = ws.eval('S1')
+        assert isinstance(canvas, Canvas)
+        self.assertEqual(ws.variable_of(canvas), 'S1')
 
 class TestPainterCluster(unittest.TestCase):
 

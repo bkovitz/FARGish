@@ -348,7 +348,8 @@ class Fizzle(Exception):
 @dataclass(frozen=True)
 class WrongType(Fizzle):
     typ: Any
-    obj: Any
+    ref: Any
+    obj: Any = None
 
 ########## The canvas ##########
 
@@ -807,27 +808,33 @@ class OtherSide(CompoundWorkspaceObj):
 
         # NEXT tags_of needs to include the tags on the underlying object,
         # not 'SS1'.
-        match (ws[self.left], ws[self.right]):
+        match (ws.eval(self.left), ws.eval(self.right)):
             case (Canvas(), None):
                 #TODO Let mate be the variable holding the object, not the
                 # object itself.
-                mate = ws.find_object_with_tag(
+                mate = ws.variable_of(ws.find_object_with_tag(
                     self.other_side_tags(ws, self.left)
-                )
+                ))
                 # NEXT Problem: we only want to unify self.right with mate,
                 # not create a new mate. Does Workspace need to keep track
                 # of 'objects' in the Workspace so it can tell if you're
                 # creating a new one or assigning a variable to an old one?
                 #import pdb; pdb.set_trace()
                 #ws.define(self.right, mate)
-                ws.unify(self.right, mate)
-                # TODO what if mate does not exist?
+                if mate is not None:
+                    ws.unify(self.right, mate)
+                else:
+                    raise NotImplementedError
+                    # TODO what if mate does not exist?
             case (None, Canvas()):
-                mate = ws.find_object_with_tag(
+                mate = ws.variable_of(ws.find_object_with_tag(
                     self.other_side_tags(ws, self.right)
-                )
-                ws.define(self.left, mate)
-                # TODO what if mate does not exist?
+                ))
+                if mate is not None:
+                    ws.define(self.left, mate)
+                else:
+                    raise NotImplementedError
+                    # TODO what if mate does not exist?
             # TODO the failure cases
                 
     #def other_side_tags(self, tags: Tags) -> Tags:
@@ -1133,10 +1140,27 @@ class Workspace:
             value = self.subst.get(obj, None)
         else:
             value = obj
-        if is_variable(value):
-            return self[value]
-        else:
-            return value
+#        if is_variable(value):
+#            return self[value]
+#        else:
+#            return value
+        return value
+
+    def variable_of(self, a: Argument) -> Optional[Variable]:
+        for k, v in self.subst.items():
+            if self.this_is_that(a, v):
+                return k  # type: ignore[return-value]
+        return None
+
+    @classmethod
+    def this_is_that(cls, a: Argument, v: Argument) -> bool:
+        match a:
+            case CompoundWorkspaceObj():
+                return a is v
+            case Canvas():
+                return a is v
+            case _:
+                return a == v
 
     #def eval(self, x: Parameter[T]) -> Parameter[T]:
     def eval(self, x: Optional[Argument]) -> Optional[WorkspaceObj]:
@@ -1150,7 +1174,8 @@ class Workspace:
         raise NotImplementedError  # Should never reach this line; mypy bug
 
     def tags_of(self, obj: Parameter[CompoundWorkspaceObj]) -> Tags:
-        return self._tags_of.get(self[obj], None)  # type: ignore[arg-type]
+        #return self._tags_of.get(self[obj], None)  # type: ignore[arg-type]
+        return self._tags_of.get(self.eval(obj), None)  # type: ignore[arg-type]
 
     def find_objects_with_tag(self, tags: Tags) -> Set[WorkspaceObj]:
         return intersection(
@@ -1203,7 +1228,7 @@ class Workspace:
                 if isinstance(result, Canvas):
                     return result
                 else:
-                    raise WrongType(Canvas, x)
+                    raise WrongType(Canvas, x, result)
 
     def get_seed(self, x: Parameter[Seed]) -> Seed:
         match x:
