@@ -375,7 +375,7 @@ class TestArrow(unittest.TestCase):
         self.ws.define('S4', Canvas.make_unknown(length=3), tag=[Rhs(), NewWorld()])
         self.ws.define('R1', Repeat('S3', Seed('i', 1), Succ))
         self.ws.run_painter_cluster('ARROW', Subst.from_kwargs(RR1='R1'))
-        #self.assertEqual(self.ws['R2'], Repeat('S4', 'D1', 'F1', 'K1'))
+        self.assertEqual(self.ws['R2'], Repeat('S4', 'D1', 'F1', 'E1'))
         #lo('R2', self.ws['R2'])
         #lo('R2EVAL', self.ws.eval('R2'))
 
