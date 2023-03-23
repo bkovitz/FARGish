@@ -345,6 +345,11 @@ bottom_subst = BottomSubst()
 class Fizzle(Exception):
     pass
 
+@dataclass(frozen=True)
+class WrongType(Fizzle):
+    typ: Any
+    obj: Any
+
 ########## The canvas ##########
 
 @dataclass
@@ -673,8 +678,10 @@ class Seed(CompoundWorkspaceObj):
     def eval(self, ws: Workspace) -> Seed:
         #import pdb; pdb.set_trace()
         return Seed(
-            ws.eval(self.letter),
-            ws.eval(self.i)
+            #ws.eval(self.letter),
+            #ws.eval(self.i)
+            ws.get_letter(self.letter),
+            ws.get_index(self.i)
         )
 
     def replace_constants_with_variables(self, ws: Workspace) \
@@ -707,7 +714,7 @@ class Repeat(CompoundWorkspaceObj):
     canvas: Parameter[Canvas]
     seed: Parameter[Seed]
     op: Parameter[Type[Op]]
-    exception: OptionalParameter[Skip] = None
+    exception: OptionalParameter[Exception_] = None
 
     def fill(self, ws: Workspace) -> None:
         canvas = ws.get_canvas(self.canvas)
@@ -726,7 +733,12 @@ class Repeat(CompoundWorkspaceObj):
             )
 
     def eval(self, ws: Workspace) -> Repeat:
-        raise NotImplementedError  # TODO
+        return Repeat(
+            ws.get_canvas(self.canvas),
+            ws.get_seed(self.seed),
+            ws.get_op(self.op),
+            ws.get_exception(self.exception)
+        )
 
     def with_var_level(self, level: int) -> Repeat:
         return Repeat(
@@ -1007,7 +1019,7 @@ class PainterCluster(CompoundWorkspaceObj):
         return [elem.with_var_level(level) for elem in self.elems]
 
     def eval(self, ws: Workspace) -> PainterCluster:
-        raise NotImplementedError  # TODO
+        return self
 
     # TODO Replace replace_constants_with_variables with a single, generic function that
     # examines the fields in the dataclass definition.
@@ -1114,7 +1126,7 @@ class Workspace:
         self.define(name, obj)
         return name
 
-    def __getitem__(self, obj: Argument) -> Any:
+    def __getitem__(self, obj: Argument) -> Optional[Argument]:
         '''Returns None if 'obj' is not defined. If 'obj' is defined as
         a variable name, returns the value of that other name.'''
         if is_variable(obj):
@@ -1126,18 +1138,19 @@ class Workspace:
         else:
             return value
 
-    def eval(self, x: Parameter[T]) -> Parameter[T]:
+    #def eval(self, x: Parameter[T]) -> Parameter[T]:
+    def eval(self, x: Optional[Argument]) -> Optional[WorkspaceObj]:
         match x:
             case _ if is_variable(x):
-                return self.eval(self[x])
+                return self.eval(self[x])  # type: ignore[arg-type]
             case CompoundWorkspaceObj():
-                return x.eval(self)  # type: ignore[return-value]
+                return x.eval(self)
             case _:
-                return x
+                return x  # type: ignore[return-value]
         raise NotImplementedError  # Should never reach this line; mypy bug
 
     def tags_of(self, obj: Parameter[CompoundWorkspaceObj]) -> Tags:
-        return self._tags_of.get(self[obj], None)
+        return self._tags_of.get(self[obj], None)  # type: ignore[arg-type]
 
     def find_objects_with_tag(self, tags: Tags) -> Set[WorkspaceObj]:
         return intersection(
@@ -1173,28 +1186,47 @@ class Workspace:
             case int():
                 return x
             case _:
-                return self[x]
+                #return self[x]
+                result = self.eval(x)
+                if isinstance(result, int):
+                    return result
+                else:
+                    raise WrongType(Index, x)
 
     def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
         match x:
             case Canvas():
                 return x
             case _:
-                return self[x]
+                #return self[x]
+                result = self.eval(x)
+                if isinstance(result, Canvas):
+                    return result
+                else:
+                    raise WrongType(Canvas, x)
 
     def get_seed(self, x: Parameter[Seed]) -> Seed:
         match x:
             case Seed():
                 return x
             case _:
-                return self[x]
+                #return self[x]
+                result = self.eval(x)
+                if isinstance(result, Seed):
+                    return result
+                else:
+                    raise WrongType(Seed, x)
 
     def get_op(self, x: Parameter[Type[Op]]) -> Type[Op]:
         match x:
             case type():
                 return x
             case _:
-                return self[x]
+                result = self.eval(x)
+                if safe_issubclass(result, Op):
+                    return result  # type: ignore[return-value]
+                else:
+                    raise WrongType(Op, x)
 
     def get_exception(self, x: OptionalParameter[Exception_]) \
     -> Optional[Exception_]:
@@ -1204,16 +1236,23 @@ class Workspace:
             case None:
                 return None
             case _:
-                #return self[x]
-                return self.eval(x)  # type: ignore[return-value]
-                         # TODO check that it evaluates to an Exception_
+                result = self.eval(x)
+                if result is None or isinstance(result, Exception_):
+                    return result
+                else:
+                    raise WrongType(Exception_, x)
 
     def get_repeater(self, x: Parameter[Repeat]) -> Repeat:
         match x:
             case Repeat():
                 return x
             case _:
-                return self[x]
+                #return self[x]
+                result = self.eval(x)
+                if isinstance(result, Repeat):
+                    return result
+                else:
+                    raise WrongType(Repeat, x)
 
     def get_painter_cluster(self, x: Parameter[PainterCluster]) \
     -> PainterCluster:
@@ -1221,13 +1260,23 @@ class Workspace:
             case PainterCluster():
                 return x
             case _:
-                return self[x]
+                #return self[x]
+                result = self.eval(x)
+                if isinstance(result, PainterCluster):
+                    return result
+                else:
+                    raise WrongType(PainterCluster, x)
 
     def get_letter(self, x: Parameter[str]) -> str:
-        if is_variable(x):
-            return self[x]
+#        if is_variable(x):
+#            return self[x]
+#        else:
+#            return x    # type: ignore[return-value]
+        result = self.eval(x)
+        if is_letter(result):
+            return result
         else:
-            return x    # type: ignore[return-value]
+            raise WrongType(Letter, x)
 
     def all_letter_defs(self) -> Dict[Variable, Letter]:
         return dict(
