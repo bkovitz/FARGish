@@ -124,6 +124,16 @@ class SideTag(Tag, ABC):
     def opposite(self) -> SideTag:
         pass
 
+    @classmethod
+    def is_opposite_side(cls, tag1: Optional[Tag], tag2: Optional[Tag]) -> bool:
+        match (tag1, tag2):
+            case (Lhs(), Rhs()):
+                return True
+            case (Rhs(), Lhs()):
+                return True
+            case _:
+                return False
+
 @dataclass(frozen=True)
 class Lhs(SideTag):
     def opposite(self) -> SideTag:
@@ -1096,6 +1106,20 @@ class DiffContext:
                 result_var2 = self.new_variable_for(var2)
                 self.d[result_var2] = Seed(lettervar2, indexvar2)
                 return result_var1, result_var2
+            elif isinstance(value1, Canvas):
+                assert isinstance(value2, Canvas)
+                sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
+                sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
+                if SideTag.is_opposite_side(sidetag1, sidetag2):
+                    result_var1 = self.new_variable_for(var1)
+                    self.d[result_var1] = value1
+                    result_var2 = self.new_variable_for(var2)
+                    self.d[result_var2] = value2
+                    otherside_var = self.new_variable_for('PP')
+                    self.d[otherside_var] = OtherSide(result_var1, result_var2)
+                    return result_var1, result_var2
+                else:
+                    raise NotImplementedError
             else:
                 result_var1 = self.new_variable_for(var1)
                 self.d[result_var1] = value1
@@ -1263,7 +1287,7 @@ class Workspace:
                 return x  # type: ignore[return-value]
         raise NotImplementedError  # Should never reach this line; mypy bug
 
-    def tags_of(self, obj: Parameter[CompoundWorkspaceObj]) -> Tags:
+    def tags_of(self, obj: Optional[Argument]) -> Tags:
         #return self._tags_of.get(self[obj], None)  # type: ignore[arg-type]
         return self._tags_of.get(self.eval(obj), None)  # type: ignore[arg-type]
 
@@ -1295,21 +1319,6 @@ class Workspace:
             var2name = context.define_var_for(var2)
             context.add_diff(var1, var2)
             return PainterCluster(*context.elems())
-
-    def pcdiff(self, v1: Variable, v2: Variable) \
-    -> Tuple[PcdiffPair, PcdiffPair]:
-        '''For building a PainterCluster: returns variables and possibly objects
-        that, given either one of the inputs, can construct the other.
-        TODO: Explain more.'''
-        value1 = self.eval(v1)
-        value2 = self.eval(v2)
-        if value1 == value2:
-            result_var = Var.doubled_first_letter(v1)
-            return ((result_var, None), (result_var, None))
-        else:
-            var1 = Var.doubled_first_letter(v1, 1)
-            var2 = Var.doubled_first_letter(v2, 2)
-            return ((var1, value1), (var2, value2))
 
     def run_repeater(self, p: Parameter[Repeat]) -> None:
         painter = self.get_repeater(p)  # TODO What about None?
@@ -1455,4 +1464,3 @@ WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define]  # TODO Add all Painters
-PcdiffPair = Tuple[Variable, Optional[WorkspaceObj]]

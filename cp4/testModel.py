@@ -474,39 +474,6 @@ class TestDiffer(unittest.TestCase):
         two names, and a Painter relating them
     '''
 
-    def test_pcdiff_identical_letters(self) -> None:
-        ws = Workspace()
-        ws.define('L1', 'a')
-        ws.define('L2', 'a')
-        self.assertEqual(
-            ws.pcdiff('L1', 'L2'),
-            (('LL', None), ('LL', None))
-        )
-
-    def test_pcdiff_different_letters(self) -> None:
-        ws = Workspace()
-        ws.define('L1', 'a')
-        ws.define('L2', 'b')
-        self.assertEqual(
-            ws.pcdiff('L1', 'L2'),
-            (('LL1', 'a'), ('LL2', 'b'))
-        )
-
-#    def test_pcdiff_different_seeds_with_same_index(self) -> None:
-#        ws = Workspace()
-#        ws.define('D1', Seed('L1', 'I1'))
-#        ws.define('D2', Seed('L2', 'I2'))
-#        ws.define('L1', 'a')
-#        ws.define('L2', 'b')
-#        ws.define('I1', 1)  # I1 and I2 are the same
-#        ws.define('I2', 1)
-#        self.assertEqual(
-#            ws.pcdiff('D1', 'D2'),
-#            (
-#                ('DD1', Seed
-#            )
-#        )
-
 #    # TODO test case with multiple LLn's
 #    def test_multiple_LLns(self) -> None:
 #        ws = Workspace()
@@ -660,6 +627,34 @@ class TestDiffer(unittest.TestCase):
             'LL2': 'i',
             'II': None
         })
+
+    def test_diffcontext_otherside(self) -> None:
+        ws = Workspace()
+        canvas1 = Canvas.make_from('abc')
+        ws.define('S1', canvas1, tag=[Lhs(), OldWorld()])
+        canvas2 = Canvas.make_from('ijk')
+        ws.define('S2', canvas2, tag=[Rhs(), OldWorld()])
+        context = DiffContext(ws)
+        var1, var2 = context.add_diff('S1', 'S2')
+        self.assertEqual(var1, 'SS1')
+        self.assertEqual(var2, 'SS2')
+        self.assertEqual(context.d, {
+            'SS1': canvas1,
+            'SS2': canvas2,
+            'PP1': OtherSide('SS1', 'SS2')
+        })
+
+    def test_diffcontext_repeater(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
+        ws.define('S2', Canvas.make_from('ijk'))
+        ws.define('R2', Repeat('S2', Seed('i', 1), Succ))
+        # TODO
+
+
+    # TODO test DiffContext where one Repeat has an exception and the
+    # other doesn't.
 
 
 #    def test_diff_opposite_side_canvases(self) -> None:
