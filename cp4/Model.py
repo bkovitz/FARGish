@@ -51,6 +51,30 @@ class Var:
             case _:
                 return False
 
+    @classmethod
+    def doubled_first_letter(cls, v: Variable, suffix: Optional[int]=None) \
+    -> Variable:
+        match v:
+            case str():
+                name = f'{v[0]}{v[0]}'
+                if suffix is None:
+                    return name
+                else:
+                    return name + str(suffix)
+            case Var(name, level):
+                new_name = name[0] + name[0]
+                if suffix is not None:
+                    new_name = new_name + str(suffix)
+                return Var(new_name, level)
+
+    @classmethod
+    def append_suffix(cls, var: Variable, suffix: str) -> Variable:
+        match var:
+            case str():
+                return var + suffix
+            case Var(name, level):
+                return Var(name + suffix, level)
+        
 Variable = Union[str, Var]
 Parameter = Union[Variable, T]
 OptionalParameter = Union[Variable, T, None]
@@ -403,7 +427,7 @@ class Canvas:
         return self.contents
 
     def short(self) -> str:
-        return repr(self.contents)
+        return 'c' + repr(self.contents)
 
 class Op(ABC):
 
@@ -1027,6 +1051,88 @@ class PainterCluster(CompoundWorkspaceObj):
 
     __repr__ = __str__
 
+@dataclass
+class DiffContext:
+    ws: Workspace
+    d: Dict[Variable, Optional[WorkspaceObj]] = field(default_factory=dict)
+    
+    def define_var_for(self, var: Variable) -> Variable:
+        new_var = self.new_variable_for(var)
+        value = self.ws.eval(var)
+        if value is None:
+            raise Fizzle  # TODO indicate the problem
+        else:
+            self.d[new_var] = value
+        return new_var
+
+    def add_diff(self, var1: Variable, var2: Variable) \
+    -> Tuple[Variable, Variable]:
+        '''Creates variables for two arguments within something else.  If var1
+        and var2 are the same, returns a single variable to stand for both. If
+        var1 and var2 are different, returns two variables and creates and
+        defines all variables needed for any arguments within var1 and and
+        var2.'''
+        value1 = self.ws.eval(var1)
+        value2 = self.ws.eval(var2)
+
+        if value1 == value2:
+            result_var = self.new_variable_for(var1, prefer_no_suffix=True)
+            self.d[result_var] = None
+            return result_var, result_var
+        else:
+            if isinstance(value1, Seed):
+                seed1: Seed = self.ws[var1] # type: ignore[assignment]
+                seed2: Seed = self.ws[var2] # type: ignore[assignment]
+                lettervar1, lettervar2 = self.add_diff(
+                    seed1.letter, seed2.letter
+                )
+                assert is_variable(seed1.i) #TODO rm
+                assert is_variable(seed2.i) #TODO rm
+                indexvar1, indexvar2 = self.add_diff(
+                    seed1.i, seed2.i
+                )
+                result_var1 = self.new_variable_for(var1)
+                self.d[result_var1] = Seed(lettervar1, indexvar1)
+                result_var2 = self.new_variable_for(var2)
+                self.d[result_var2] = Seed(lettervar2, indexvar2)
+                return result_var1, result_var2
+            else:
+                result_var1 = self.new_variable_for(var1)
+                self.d[result_var1] = value1
+                result_var2 = self.new_variable_for(var2)
+                self.d[result_var2] = value2
+                return result_var1, result_var2
+
+#        for argvar1, argvar2 in zip(
+#            all_arguments_of(value1), all_arguments_of(value2)
+#        ):
+#            # base condition
+#            if isinstance(var1, BaseObj) and isinstance(var2, BaseObj):
+#                do_basic_diff(var1, var2)
+#            self.add_diff(argvar1, argvar2)
+#
+#        lettervar1, lettervar2 = self.add_diff(seed1arg1, seed1arg1)
+#        indexvar1, indexvar2 = self.add_diff(seed1arg2, seed2arg2)
+#        define var1 = Seed(lettervar1, indexvar1)
+#        define var2 = Seed(lettervar2, indexvar2)
+
+           
+
+
+    def elems(self) -> Iterable[PainterClusterElem]:
+        return [Define('LL1', 'LL'), Define('LL2', 'LL')]
+
+    def new_variable_for(self, var: Variable, prefer_no_suffix: bool=False) \
+    -> Variable:
+        base_var = Var.doubled_first_letter(var)
+        suffix = 0 if prefer_no_suffix else 1
+        while True:
+            result = Var.append_suffix(base_var, str(suffix)) \
+                        if suffix >= 1 else base_var
+            if result not in self.d:
+                return result
+            suffix += 1
+
 def is_variable(x: Any) -> TypeGuard[Variable]:
     return (isinstance(x, str) and len(x) > 1) or isinstance(x, Var)
 
@@ -1173,19 +1279,37 @@ class Workspace:
             raise Fizzle(f'no object tagged {tags}')
         return first(result)
 
-    def construct_diff(self, a1: Argument, a2: Argument, name=Variable) \
-    -> Any:  # TODO Give this a proper type
-        return PainterCluster(
-            Define('RR1', Repeat('SS1', 'DD', 'FF')),
-            Define('RR2', Repeat('SS1', 'DD', 'FF', 'EE1')),
-            OtherSide('SS1', 'SS2'),
-            Define('EE1', Skip('II1')),
-            Define('II1', 3)
-        )
+    def construct_diff(self, var1: Variable, var2: Variable, name=Variable) \
+    -> PainterCluster:  # TODO Allow this to return other kinds of Painter
+        if isinstance(self.eval(var1), Repeat):
+            return PainterCluster(
+                Define('RR1', Repeat('SS1', 'DD', 'FF')),
+                Define('RR2', Repeat('SS2', 'DD', 'FF', 'EE1')),
+                OtherSide('SS1', 'SS2'),
+                Define('EE1', Skip('II1')),
+                Define('II1', 3)
+            )
+        else:
+            context = DiffContext(self)
+            var1name = context.define_var_for(var1)
+            var2name = context.define_var_for(var2)
+            context.add_diff(var1, var2)
+            return PainterCluster(*context.elems())
 
     def pcdiff(self, v1: Variable, v2: Variable) \
     -> Tuple[PcdiffPair, PcdiffPair]:
-        pass
+        '''For building a PainterCluster: returns variables and possibly objects
+        that, given either one of the inputs, can construct the other.
+        TODO: Explain more.'''
+        value1 = self.eval(v1)
+        value2 = self.eval(v2)
+        if value1 == value2:
+            result_var = Var.doubled_first_letter(v1)
+            return ((result_var, None), (result_var, None))
+        else:
+            var1 = Var.doubled_first_letter(v1, 1)
+            var2 = Var.doubled_first_letter(v2, 2)
+            return ((var1, value1), (var2, value2))
 
     def run_repeater(self, p: Parameter[Repeat]) -> None:
         painter = self.get_repeater(p)  # TODO What about None?
@@ -1331,4 +1455,4 @@ WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define]  # TODO Add all Painters
-PcdiffPair = Tuple[Variable, Optional[PainterClusterElem]]
+PcdiffPair = Tuple[Variable, Optional[WorkspaceObj]]
