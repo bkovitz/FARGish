@@ -1101,30 +1101,29 @@ class DiffContext:
                 indexvar1, indexvar2 = self.add_diff(
                     seed1.i, seed2.i
                 )
-                result_var1 = self.new_variable_for(var1)
-                self.d[result_var1] = Seed(lettervar1, indexvar1)
-                result_var2 = self.new_variable_for(var2)
-                self.d[result_var2] = Seed(lettervar2, indexvar2)
+                result_var1 = self.define_new_variable_for(
+                    var1, Seed(lettervar1, indexvar1)
+                )
+                result_var2 = self.define_new_variable_for(
+                    var2, Seed(lettervar2, indexvar2)
+                )
                 return result_var1, result_var2
             elif isinstance(value1, Canvas):
                 assert isinstance(value2, Canvas)
                 sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
                 sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
                 if SideTag.is_opposite_side(sidetag1, sidetag2):
-                    result_var1 = self.new_variable_for(var1)
-                    self.d[result_var1] = value1
-                    result_var2 = self.new_variable_for(var2)
-                    self.d[result_var2] = value2
-                    otherside_var = self.new_variable_for('PP')
-                    self.d[otherside_var] = OtherSide(result_var1, result_var2)
+                    result_var1 = self.define_new_variable_for(var1, value1)
+                    result_var2 = self.define_new_variable_for(var2, value2)
+                    otherside_var = self.define_new_variable_for(
+                        'PP', OtherSide(result_var1, result_var2)
+                    )
                     return result_var1, result_var2
                 else:
                     raise NotImplementedError
             else:
-                result_var1 = self.new_variable_for(var1)
-                self.d[result_var1] = value1
-                result_var2 = self.new_variable_for(var2)
-                self.d[result_var2] = value2
+                result_var1 = self.define_new_variable_for(var1, value1)
+                result_var2 = self.define_new_variable_for(var2, value2)
                 return result_var1, result_var2
 
 #        for argvar1, argvar2 in zip(
@@ -1145,6 +1144,15 @@ class DiffContext:
 
     def elems(self) -> Iterable[PainterClusterElem]:
         return [Define('LL1', 'LL'), Define('LL2', 'LL')]
+
+    def define_new_variable_for(
+        self,
+        existing_variable: Variable,
+        value: Optional[WorkspaceObj]
+    ) -> Variable:
+        new_variable = self.new_variable_for(existing_variable)
+        self.d[new_variable] = value
+        return new_variable
 
     def new_variable_for(self, var: Variable, prefer_no_suffix: bool=False) \
     -> Variable:

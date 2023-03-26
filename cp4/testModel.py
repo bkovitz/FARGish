@@ -652,6 +652,8 @@ class TestDiffer(unittest.TestCase):
         ws.define('R2', Repeat('S2', Seed('i', 1), Succ))
         # TODO
 
+    # TODO OtherSide should ensure that both canvases are in the same world
+
 
     # TODO test DiffContext where one Repeat has an exception and the
     # other doesn't.
