@@ -639,24 +639,52 @@ class TestDiffer(unittest.TestCase):
         self.assertEqual(var1, 'SS1')
         self.assertEqual(var2, 'SS2')
         self.assertEqual(context.d, {
-            'SS1': canvas1,
-            'SS2': canvas2,
+            'SS1': None,
+            'SS2': None,
             'PP1': OtherSide('SS1', 'SS2')
         })
 
+#    def test_diffcontext_otherside_different_worlds(self) -> None:
+#        ws = Workspace()
+#        canvas1 = Canvas.make_from('abc')
+#        ws.define('S1', canvas1, tag=[Lhs(), OldWorld()])
+#        canvas2 = Canvas.make_from('ijk')
+#        ws.define('S2', canvas2, tag=[Rhs(), NewWorld()])
+#        context = DiffContext(ws)
+#        var1, var2 = context.add_diff('S1', 'S2')
+#        #TODO Perhaps the Differ should fail or just treat these canvases
+#        # as arbitrary. Not needed to get to 'ijl'.
+
     def test_diffcontext_repeater(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
-        ws.define('S2', Canvas.make_from('ijk'))
+        ws.define('S2', Canvas.make_from('ijk'), tag=[Rhs(), OldWorld()])
         ws.define('R2', Repeat('S2', Seed('i', 1), Succ))
-        # TODO
-
-    # TODO OtherSide should ensure that both canvases are in the same world
+        context = DiffContext(ws)
+        var1, var2 = context.add_diff('R1', 'R2')
+        self.assertEqual(var1, 'RR1')
+        self.assertEqual(var2, 'RR2')
+        self.assertEqual(context.d, {
+            'RR1': Repeat('SS1', 'DD1', 'FF'),
+            'RR2': Repeat('SS2', 'DD2', 'FF'),
+            'SS1': None,
+            'SS2': None,
+            'PP1': OtherSide('SS1', 'SS2'),
+            'DD1': Seed('LL1', 'II'),
+            'DD2': Seed('LL2', 'II'),
+            'LL1': 'a',
+            'LL2': 'i',
+            'II': None,
+            'FF': None
+        })
 
 
     # TODO test DiffContext where one Repeat has an exception and the
     # other doesn't.
+
+    # TODO test two references to same snippet: we should create only one
+    # variable for both, not two variables
 
 
 #    def test_diff_opposite_side_canvases(self) -> None:

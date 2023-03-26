@@ -1085,7 +1085,7 @@ class DiffContext:
         value1 = self.ws.eval(var1)
         value2 = self.ws.eval(var2)
 
-        if value1 == value2:
+        if value1 == value2:  # If equal, make a single var for both
             result_var = self.new_variable_for(var1, prefer_no_suffix=True)
             self.d[result_var] = None
             return result_var, result_var
@@ -1113,14 +1113,38 @@ class DiffContext:
                 sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
                 sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
                 if SideTag.is_opposite_side(sidetag1, sidetag2):
-                    result_var1 = self.define_new_variable_for(var1, value1)
-                    result_var2 = self.define_new_variable_for(var2, value2)
+                    result_var1 = self.define_new_variable_for(var1, None)
+                    result_var2 = self.define_new_variable_for(var2, None)
                     otherside_var = self.define_new_variable_for(
                         'PP', OtherSide(result_var1, result_var2)
                     )
                     return result_var1, result_var2
                 else:
                     raise NotImplementedError
+            elif isinstance(value1, Repeat):
+                repeat1 = self.ws[var1]  # type: ignore[assignment]
+                repeat2 = self.ws[var2]  # type: ignore[assignment]
+                match (repeat1, repeat2):
+                    case (Repeat(s1, d1, f1), Repeat(s2, d2, f2)):
+                        lo('REP', s1)
+                        assert is_variable(s1) #TODO rm
+                        assert is_variable(d1) #TODO rm
+                        assert is_variable(f1) #TODO rm
+                        assert is_variable(s2) #TODO rm
+                        assert is_variable(d2) #TODO rm
+                        assert is_variable(f2) #TODO rm
+                        ss1, ss2 = self.add_diff(s1, s2)
+                        dd1, dd2 = self.add_diff(d1, d2)
+                        ff1, ff2 = self.add_diff(f1, f2)
+                        result_var1 = self.define_new_variable_for(
+                            var1, Repeat(ss1, dd1, ff1)
+                        )
+                        result_var2 = self.define_new_variable_for(
+                            var2, Repeat(ss2, dd2, ff2)
+                        )
+                        return result_var1, result_var2
+                    case _:
+                        raise NotImplementedError
             else:
                 result_var1 = self.define_new_variable_for(var1, value1)
                 result_var2 = self.define_new_variable_for(var2, value2)
