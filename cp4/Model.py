@@ -1089,66 +1089,98 @@ class DiffContext:
             result_var = self.new_variable_for(var1, prefer_no_suffix=True)
             self.d[result_var] = None
             return result_var, result_var
-        else:
-            if isinstance(value1, Seed):
-                seed1: Seed = self.ws[var1] # type: ignore[assignment]
-                seed2: Seed = self.ws[var2] # type: ignore[assignment]
-                lettervar1, lettervar2 = self.add_diff(
-                    seed1.letter, seed2.letter
-                )
-                assert is_variable(seed1.i) #TODO rm
-                assert is_variable(seed2.i) #TODO rm
-                indexvar1, indexvar2 = self.add_diff(
-                    seed1.i, seed2.i
-                )
-                result_var1 = self.define_new_variable_for(
-                    var1, Seed(lettervar1, indexvar1)
-                )
-                result_var2 = self.define_new_variable_for(
-                    var2, Seed(lettervar2, indexvar2)
-                )
-                return result_var1, result_var2
-            elif isinstance(value1, Canvas):
-                assert isinstance(value2, Canvas)
-                sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
-                sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
-                if SideTag.is_opposite_side(sidetag1, sidetag2):
-                    result_var1 = self.define_new_variable_for(var1, None)
-                    result_var2 = self.define_new_variable_for(var2, None)
-                    otherside_var = self.define_new_variable_for(
-                        'PP', OtherSide(result_var1, result_var2)
+        else:  # else define two variables and link their values via som
+               # representation of their difference
+            match (value1, value2):
+                case (CompoundWorkspaceObj() as v1,
+                      CompoundWorkspaceObj() as v2):
+                    assert value1.__class__ == value2.__class__
+                    argvars1, argvars2 = zip(
+                        *(self.make_argument_variables(var1, var2))
+                    )
+                    result_var1 = self.define_new_variable_for(
+                        var1, v1.__class__(*argvars1)
+                    )
+                    result_var2 = self.define_new_variable_for(
+                        var2, v2.__class__(*argvars2)
                     )
                     return result_var1, result_var2
-                else:
-                    raise NotImplementedError
-            elif isinstance(value1, Repeat):
-                repeat1 = self.ws[var1]  # type: ignore[assignment]
-                repeat2 = self.ws[var2]  # type: ignore[assignment]
-                match (repeat1, repeat2):
-                    case (Repeat(s1, d1, f1), Repeat(s2, d2, f2)):
-                        lo('REP', s1)
-                        assert is_variable(s1) #TODO rm
-                        assert is_variable(d1) #TODO rm
-                        assert is_variable(f1) #TODO rm
-                        assert is_variable(s2) #TODO rm
-                        assert is_variable(d2) #TODO rm
-                        assert is_variable(f2) #TODO rm
-                        ss1, ss2 = self.add_diff(s1, s2)
-                        dd1, dd2 = self.add_diff(d1, d2)
-                        ff1, ff2 = self.add_diff(f1, f2)
-                        result_var1 = self.define_new_variable_for(
-                            var1, Repeat(ss1, dd1, ff1)
-                        )
-                        result_var2 = self.define_new_variable_for(
-                            var2, Repeat(ss2, dd2, ff2)
+                case (Canvas(), Canvas()):
+                    sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
+                    sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
+                    if SideTag.is_opposite_side(sidetag1, sidetag2):
+                        result_var1 = self.define_new_variable_for(var1, None)
+                        result_var2 = self.define_new_variable_for(var2, None)
+                        otherside_var = self.define_new_variable_for(
+                            'PP', OtherSide(result_var1, result_var2)
                         )
                         return result_var1, result_var2
-                    case _:
+                    else:
                         raise NotImplementedError
-            else:
-                result_var1 = self.define_new_variable_for(var1, value1)
-                result_var2 = self.define_new_variable_for(var2, value2)
-                return result_var1, result_var2
+                case _:   # (_, _):
+                    result_var1 = self.define_new_variable_for(var1, value1)
+                    result_var2 = self.define_new_variable_for(var2, value2)
+                    return result_var1, result_var2
+                    
+#            if isinstance(value1, Seed):
+#                seed1: Seed = self.ws[var1] # type: ignore[assignment]
+#                seed2: Seed = self.ws[var2] # type: ignore[assignment]
+#                lettervar1, lettervar2 = self.add_diff(
+#                    seed1.letter, seed2.letter
+#                )
+#                assert is_variable(seed1.i) #TODO rm
+#                assert is_variable(seed2.i) #TODO rm
+#                indexvar1, indexvar2 = self.add_diff(
+#                    seed1.i, seed2.i
+#                )
+#                result_var1 = self.define_new_variable_for(
+#                    var1, Seed(lettervar1, indexvar1)
+#                )
+#                result_var2 = self.define_new_variable_for(
+#                    var2, Seed(lettervar2, indexvar2)
+#                )
+#                return result_var1, result_var2
+#            elif isinstance(value1, Canvas):
+#                assert isinstance(value2, Canvas)
+#                sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
+#                sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
+#                if SideTag.is_opposite_side(sidetag1, sidetag2):
+#                    result_var1 = self.define_new_variable_for(var1, None)
+#                    result_var2 = self.define_new_variable_for(var2, None)
+#                    otherside_var = self.define_new_variable_for(
+#                        'PP', OtherSide(result_var1, result_var2)
+#                    )
+#                    return result_var1, result_var2
+#                else:
+#                    raise NotImplementedError
+#            elif isinstance(value1, Repeat):
+#                repeat1 = self.ws[var1]  # type: ignore[assignment]
+#                repeat2 = self.ws[var2]  # type: ignore[assignment]
+#                match (repeat1, repeat2):
+#                    case (Repeat(s1, d1, f1), Repeat(s2, d2, f2)):
+#                        lo('REP', s1)
+#                        assert is_variable(s1) #TODO rm
+#                        assert is_variable(d1) #TODO rm
+#                        assert is_variable(f1) #TODO rm
+#                        assert is_variable(s2) #TODO rm
+#                        assert is_variable(d2) #TODO rm
+#                        assert is_variable(f2) #TODO rm
+#                        ss1, ss2 = self.add_diff(s1, s2)
+#                        dd1, dd2 = self.add_diff(d1, d2)
+#                        ff1, ff2 = self.add_diff(f1, f2)
+#                        result_var1 = self.define_new_variable_for(
+#                            var1, Repeat(ss1, dd1, ff1)
+#                        )
+#                        result_var2 = self.define_new_variable_for(
+#                            var2, Repeat(ss2, dd2, ff2)
+#                        )
+#                        return result_var1, result_var2
+#                    case _:
+#                        raise NotImplementedError
+#            else:
+#                result_var1 = self.define_new_variable_for(var1, value1)
+#                result_var2 = self.define_new_variable_for(var2, value2)
+#                return result_var1, result_var2
 
 #        for argvar1, argvar2 in zip(
 #            all_arguments_of(value1), all_arguments_of(value2)
@@ -1164,6 +1196,22 @@ class DiffContext:
 #        define var2 = Seed(lettervar2, indexvar2)
 
            
+    def make_argument_variables(
+        self,
+        var1: Variable,
+        var2: Variable
+    ) -> Iterable[Tuple[Variable, Variable]]:
+        '''Diffs all the arguments of value1 and value2 and returns an
+        iterable of the pairs of variable names defined for them.'''
+        value1: CompoundWorkspaceObj = self.ws[var1] # type: ignore[assignment]
+        value2: CompoundWorkspaceObj = self.ws[var2] # type: ignore[assignment]
+        for argvalue1, argvalue2 in zip(
+            all_arguments_of(value1),
+            all_arguments_of(value2)
+        ):
+            assert is_variable(argvalue1)
+            assert is_variable(argvalue2)
+            yield self.add_diff(argvalue1, argvalue2) 
 
 
     def elems(self) -> Iterable[PainterClusterElem]:
