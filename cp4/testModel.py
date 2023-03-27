@@ -16,7 +16,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
-    DiffContext
+    DiffContext, NoValue
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -415,9 +415,9 @@ class TestDiffer(unittest.TestCase):
 
     def test_diff_abc_abd(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
         ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
-        ws.define('S2', Canvas.make_from('abd'))
+        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
         ws.define('R2', Repeat('S2', Seed('a', 1), Succ, exception=Skip(3)))
         ws.subst.pr()
 
@@ -581,7 +581,7 @@ class TestDiffer(unittest.TestCase):
         var1, var2 = context.add_diff('L1', 'L2')
         self.assertEqual(var1, 'LL')
         self.assertEqual(var2, 'LL')
-        self.assertEqual(context.d['LL'], None)
+        self.assertEqual(context.d['LL'], NoValue())
 
     def test_diffcontext_diff_different_letter(self) -> None:
         ws = Workspace()
@@ -606,7 +606,7 @@ class TestDiffer(unittest.TestCase):
         var1, var2 = context.add_diff('D1', 'D2')
         self.assertEqual(var1, 'DD')
         self.assertEqual(var2, 'DD')
-        self.assertEqual(context.d, {'DD': None})
+        self.assertEqual(context.d, {'DD': NoValue()})
 
     def test_diffcontext_diff_different_seeds(self) -> None:
         ws = Workspace()
@@ -625,7 +625,7 @@ class TestDiffer(unittest.TestCase):
             'DD2': Seed('LL2', 'II'),
             'LL1': 'a',
             'LL2': 'i',
-            'II': None
+            'II': NoValue()
         })
 
     def test_diffcontext_otherside(self) -> None:
@@ -639,8 +639,8 @@ class TestDiffer(unittest.TestCase):
         self.assertEqual(var1, 'SS1')
         self.assertEqual(var2, 'SS2')
         self.assertEqual(context.d, {
-            'SS1': None,
-            'SS2': None,
+            'SS1': NoValue(),
+            'SS2': NoValue(),
             'PP1': OtherSide('SS1', 'SS2')
         })
 
@@ -668,15 +668,37 @@ class TestDiffer(unittest.TestCase):
         self.assertEqual(context.d, {
             'RR1': Repeat('SS1', 'DD1', 'FF'),
             'RR2': Repeat('SS2', 'DD2', 'FF'),
-            'SS1': None,
-            'SS2': None,
+            'SS1': NoValue(),
+            'SS2': NoValue(),
             'PP1': OtherSide('SS1', 'SS2'),
             'DD1': Seed('LL1', 'II'),
             'DD2': Seed('LL2', 'II'),
             'LL1': 'a',
             'LL2': 'i',
-            'II': None,
-            'FF': None
+            'II': NoValue(),
+            'FF': NoValue()
+        })
+
+    def test_diffcontext_repeater_with_exception(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
+        ws.define('S2', Canvas.make_from('abc'), tag=[Rhs(), OldWorld()])
+        ws.define('R2', Repeat('S2', Seed('a', 1), Succ, Skip(3)))
+        context = DiffContext(ws)
+        var1, var2 = context.add_diff('R1', 'R2')
+        self.assertEqual(var1, 'RR1')
+        self.assertEqual(var2, 'RR2')
+        self.assertEqual(context.d, {
+            'RR1': Repeat('SS1', 'DD', 'FF'),
+            'RR2': Repeat('SS2', 'DD', 'FF', 'EE1'),
+            'SS1': NoValue(),
+            'SS2': NoValue(),
+            'PP1': OtherSide('SS1', 'SS2'),
+            'DD': NoValue(),
+            'II1': 3,
+            'FF': NoValue(),
+            'EE1': Skip('II1')
         })
 
 

@@ -73,7 +73,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestDiffer.test_diff_abc_abd
+	$(PY) -m unittest -v testModel.TestDiffer.test_diffcontext_repeater_with_exception
 	#$(PY) -m unittest -v testModel.TestArrow
 
 # Acceptance tests

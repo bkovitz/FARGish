@@ -990,15 +990,36 @@ def parameters_and_arguments_of(o: CompoundWorkspaceObj) \
     for name, typ in get_type_hints(o.__class__).items():
         if is_parameter(typ):
             value = getattr(o, name)
-            if value is not None:
-                yield (name, value)
+            #if value is not None:
+            yield (name, value)
     
 def all_arguments_of(o: CompoundWorkspaceObj) -> Iterable[Argument]:
     for name, typ in get_type_hints(o.__class__).items():
         if is_parameter(typ):
             value = getattr(o, name)
-            if value is not None:
-                yield value
+            if value is not None:  # TODO skip this if, so we truly return
+                yield value        # *all* arguments of o?
+
+# NEXT Make Workspace.define_and_name() call this
+def single_letter_name_for(o: WorkspaceObj) -> str:
+    match o:
+        case str():  # Letter
+            return 'L'
+        case Seed():
+            return 'D'
+        case int():
+            return 'I'
+        case _ if is_type_op(o):
+            return 'F'
+        case Repeat():
+            return 'R'
+        case Exception_():
+            return 'E'
+        case Canvas():
+            return 'S'  # "snippet"
+        case _:
+            raise NotImplementedError(o)
+    raise NotImplementedError
 
 @dataclass(frozen=True)
 class PainterCluster(CompoundWorkspaceObj):
@@ -1061,10 +1082,15 @@ class PainterCluster(CompoundWorkspaceObj):
 
     __repr__ = __str__
 
+@dataclass(frozen=True)
+class NoValue:
+    pass
+
 @dataclass
 class DiffContext:
     ws: Workspace
-    d: Dict[Variable, Optional[WorkspaceObj]] = field(default_factory=dict)
+    d: Dict[Variable, Union[WorkspaceObj, NoValue]] = \
+        field(default_factory=dict)
     
     def define_var_for(self, var: Variable) -> Variable:
         new_var = self.new_variable_for(var)
@@ -1085,9 +1111,11 @@ class DiffContext:
         value1 = self.ws.eval(var1)
         value2 = self.ws.eval(var2)
 
+        assert value1 is not None
+        assert value2 is not None
         if value1 == value2:  # If equal, make a single var for both
             result_var = self.new_variable_for(var1, prefer_no_suffix=True)
-            self.d[result_var] = None
+            self.d[result_var] = NoValue()
             return result_var, result_var
         else:  # else define two variables and link their values via som
                # representation of their difference
@@ -1095,22 +1123,32 @@ class DiffContext:
                 case (CompoundWorkspaceObj() as v1,
                       CompoundWorkspaceObj() as v2):
                     assert value1.__class__ == value2.__class__
-                    argvars1, argvars2 = zip(
-                        *(self.make_argument_variables(var1, var2))
-                    )
+#                    argvars1, argvars2 = zip(
+#                        *(self.make_argument_variables_for(var1, var2))
+#                    )
+#                    result_var1 = self.define_new_variable_for(
+#                        var1, v1.__class__(*argvars1)
+#                    )
+#                    result_var2 = self.define_new_variable_for(
+#                        var2, v2.__class__(*argvars2)
+#                    )
+                    # NEXT argvars1&2 should be dicts
+                    d1, d2 = self.make_argument_dicts_for(var1, var2)
                     result_var1 = self.define_new_variable_for(
-                        var1, v1.__class__(*argvars1)
+                        var1, v1.__class__(**d1)
                     )
                     result_var2 = self.define_new_variable_for(
-                        var2, v2.__class__(*argvars2)
+                        var2, v2.__class__(**d2)
                     )
                     return result_var1, result_var2
                 case (Canvas(), Canvas()):
                     sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
                     sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
                     if SideTag.is_opposite_side(sidetag1, sidetag2):
-                        result_var1 = self.define_new_variable_for(var1, None)
-                        result_var2 = self.define_new_variable_for(var2, None)
+                        result_var1 = \
+                            self.define_new_variable_for(var1, NoValue())
+                        result_var2 = \
+                            self.define_new_variable_for(var2, NoValue())
                         otherside_var = self.define_new_variable_for(
                             'PP', OtherSide(result_var1, result_var2)
                         )
@@ -1196,7 +1234,7 @@ class DiffContext:
 #        define var2 = Seed(lettervar2, indexvar2)
 
            
-    def make_argument_variables(
+    def make_argument_variables_for(
         self,
         var1: Variable,
         var2: Variable
@@ -1213,18 +1251,100 @@ class DiffContext:
             assert is_variable(argvalue2)
             yield self.add_diff(argvalue1, argvalue2) 
 
+    # var*        argvalue*
+    # R1 = Repeat(S1, D1, F1)
+    # R2 = Repeat(S2, D2, F2, E1)
+    # NEXT Refactor to make the variables easier to understand
+    def make_argument_dicts_for(
+        self,
+        var1: Variable,
+        var2: Variable
+    ) -> Tuple[Dict[Variable, Optional[Variable]], Dict[Variable, Optional[Variable]]]:
+        d1: Dict[Variable, Optional[Variable]] = {}
+        d2: Dict[Variable, Optional[Variable]] = {}
+        value1: CompoundWorkspaceObj = self.ws[var1] # type: ignore[assignment]
+        value2: CompoundWorkspaceObj = self.ws[var2] # type: ignore[assignment]
+        assert value1.__class__ == value2.__class__
+        #NEXT need parameters_and_arguments_of to include None
+        for (param_name1, argvalue1), (param_name2, argvalue2) in zip(
+            parameters_and_arguments_of(value1),
+            parameters_and_arguments_of(value2)
+        ):
+            assert argvalue1 is None or is_variable(argvalue1)
+            assert argvalue2 is None or is_variable(argvalue2)
+            match (argvalue1, argvalue2):
+                case (None, None):
+                    continue
+                case (v1, None):
+                    d1[param_name1] = self.define_new_variable_for_recursive(
+                        argvalue1, self.ws.eval(argvalue1)
+                    )
+                case (None, v2):
+                    #import pdb; pdb.set_trace()
+                    d2[param_name2] = self.define_new_variable_for_recursive(
+                        argvalue2, self.ws.eval(argvalue2)
+                    )
+                case (v1, v2):
+                    d1[param_name1], d2[param_name2] = self.add_diff(v1, v2)
+        return d1, d2
 
     def elems(self) -> Iterable[PainterClusterElem]:
-        return [Define('LL1', 'LL'), Define('LL2', 'LL')]
+        for var, value in self.d.items():
+            match value:
+                case NoValue():
+                    continue
+                case OtherSide():
+                    yield value
+                case _:
+                    yield Define(var, value)
 
     def define_new_variable_for(
         self,
         existing_variable: Variable,
-        value: Optional[WorkspaceObj]
+        value: Union[WorkspaceObj, NoValue]
     ) -> Variable:
         new_variable = self.new_variable_for(existing_variable)
         self.d[new_variable] = value
         return new_variable
+
+    def define_new_variable_for_recursive(
+        self,
+        existing_variable: Variable,
+        value: Union[WorkspaceObj, NoValue]
+    ) -> Variable:
+        '''Defines a new variable for 'existing_variable' *and* defines new
+        variables for all the arguments of 'value'.'''
+        new_variable = self.new_variable_for(existing_variable)
+        new_value: Union[WorkspaceObj, NoValue]
+        match value:
+            case CompoundWorkspaceObj():
+                # the recursive part
+                new_value = value.__class__(*(
+                    self.define_new_variable_for_recursive(
+                        argument_name, argument_value
+                    ) for argument_name, argument_value in
+                        self.object_argument_values_and_single_letter_names(
+                            self.ws.eval(value)  # type: ignore[arg-type]
+                        )
+                ))
+            case _:
+                new_value = value
+        self.d[new_variable] = new_value
+        return new_variable
+
+    def object_argument_values_and_single_letter_names(
+        self,
+        value: CompoundWorkspaceObj
+    ) -> Iterable[Tuple[Variable, WorkspaceObj]]:
+        for argument_name, argument_value in parameters_and_arguments_of(value):
+            # TODO Call all_arguments_of() when we rewrite all_arguments_of()
+            # to truly return all the arguments (i.e. not just the non-None
+            # arguments).
+            assert is_workspace_obj(argument_value)
+            yield (
+                single_letter_name_for(argument_value),
+                argument_value
+            )
 
     def new_variable_for(self, var: Variable, prefer_no_suffix: bool=False) \
     -> Variable:
@@ -1543,4 +1663,4 @@ BaseObj = Union[BaseLiteral, Canvas, Type[Op]]
 WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
-PainterClusterElem = Union[Define]  # TODO Add all Painters
+PainterClusterElem = Union[Define, OtherSide]  # TODO Add all Painters
