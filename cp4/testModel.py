@@ -135,7 +135,7 @@ class TestWorkspace(unittest.TestCase):
 
     def test_tags(self) -> None:
         ws = Workspace()
-        ws.define('L1', 'a', tag=ArbitraryTag1())
+        ws.define('L1', 'a', tags=ArbitraryTag1())
         self.assertEqual(ws.find_objects_with_tag(ArbitraryTag1()), set(['a']))
         self.assertEqual(ws.find_object_with_tag(ArbitraryTag1()), 'a')
         self.assertEqual(ws.tags_of('a'), set([ArbitraryTag1()]))
@@ -195,51 +195,65 @@ class TestWorkspace(unittest.TestCase):
         assert isinstance(canvas, Canvas)
         self.assertEqual(ws.variable_of(canvas), 'S1')
 
+    def test_parse_abc_abd_ijk(self) -> None:
+        ws = Workspace()
+        ws.parse_analogy_string('abc->abd; ijk->?')
+        self.assertEqual(str(ws['S1']), 'abc')
+        self.assertEqual(str(ws['S2']), 'abd')
+        self.assertEqual(str(ws['S3']), 'ijk')
+        self.assertEqual(str(ws['S4']), '')
+        self.assertEqual(ws.tags_of('S1'), set([Lhs(), OldWorld()]))
+        self.assertEqual(ws.tags_of('S2'), set([Rhs(), OldWorld()]))
+        self.assertEqual(ws.tags_of('S3'), set([Lhs(), NewWorld()]))
+        self.assertEqual(ws.tags_of('S4'), set([Rhs(), NewWorld()]))
+
+        # TODO Do these canvases need "addresses"? C.1, C.2, C.3, C.4
+
 class TestOtherSide(unittest.TestCase):
 
     def test_other_side_lhs_blank(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
-        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S1', 'SS'))
         self.assertEqual(ws.eval('SS'), ws['S2'])
 
     def test_other_side_blank_lhs(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
-        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('SS', 'S1'))
         self.assertEqual(ws.eval('SS'), ws['S2'])
 
     def test_other_side_rhs_blank(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
-        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S2', 'SS'))
         self.assertEqual(ws.eval('SS'), ws['S1'])
 
     def test_other_side_blank_rhs(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
-        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('SS', 'S2'))
         self.assertEqual(ws.eval('SS'), ws['S1'])
 
     def test_other_side2(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
         ws.define('S2', Canvas.make_from('wrong'))
-        ws.define('S3', Canvas.make_from('wrong'), tag=OldWorld())
-        ws.define('SR', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S3', Canvas.make_from('wrong'), tags=OldWorld())
+        ws.define('SR', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
         ws.run_painter(OtherSide('S1', 'SS'))
         self.assertEqual(ws.eval('SS'), ws['SR'])
 
     def test_other_side_two_worlds(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
-        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
-        ws.define('S3', Canvas.make_from('ijk'), tag=[Lhs(), NewWorld()])
-        ws.define('S4', Canvas.make_from('ijl'), tag=[Rhs(), NewWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
+        ws.define('S3', Canvas.make_from('ijk'), tags=[Lhs(), NewWorld()])
+        ws.define('S4', Canvas.make_from('ijl'), tags=[Rhs(), NewWorld()])
         ws.run_painter(OtherSide('S3', 'SS'))
         self.assertEqual(ws.eval('SS'), ws['S4'])
         ws.run_painter(OtherSide('S1', 'ST'))
@@ -375,10 +389,10 @@ class TestArrow(unittest.TestCase):
         ))
 
     def test_arrow(self) -> None:
-        #self.ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
-        #self.ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
-        self.ws.define('S3', Canvas.make_from('ijk'), tag=[Lhs(), NewWorld()])
-        self.ws.define('S4', Canvas.make_unknown(length=3), tag=[Rhs(), NewWorld()])
+        #self.ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        #self.ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
+        self.ws.define('S3', Canvas.make_from('ijk'), tags=[Lhs(), NewWorld()])
+        self.ws.define('S4', Canvas.make_unknown(length=3), tags=[Rhs(), NewWorld()])
         self.ws.define('R1', Repeat('S3', Seed('i', 1), Succ))
         self.ws.run_painter_cluster('ARROW', Subst.from_kwargs(RR1='R1'))
         self.assertEqual(self.ws['R2'], Repeat('S4', 'D1', 'F1', 'E1'))
@@ -390,36 +404,14 @@ class TestArrow(unittest.TestCase):
 
     # TODO Test with Canvas.make_unknown(), i.e. no length
 
-class TestParseInputString(unittest.TestCase):
-
-    def test_abc_abd_ijk(self) -> None:
-        parsed = Canvas.parse_analogy_string('abc->abd; ijk->?');
-
-        expect_snippet1 = Canvas.make_from('abc')
-        expect_snippet2 = Canvas.make_from('abd')
-        expect_snippet3 = Canvas.make_from('ijk')
-        expect_snippet4 = Canvas.make_unknown()
-
-        got1, got2, got3, got4 = parsed
-        self.assertEqual(str(got1), str(expect_snippet1))
-        self.assertEqual(str(got2), str(expect_snippet2))
-        self.assertEqual(str(got3), str(expect_snippet3))
-        self.assertEqual(str(got4), str(expect_snippet4))
-
-        # These canvases need "addresses": C.1, C.2, C.3, C.4
-        # These canvases also need variables: S1, S2, S3, S4
-        # There also need to be relations between these canvases: OtherSide
-        # and OtherWorld.
-
 class TestDiffer(unittest.TestCase):
 
     def test_diff_abc_abd(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
         ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
-        ws.define('S2', Canvas.make_from('abd'), tag=[Rhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
         ws.define('R2', Repeat('S2', Seed('a', 1), Succ, exception=Skip(3)))
-        ws.subst.pr()
 
         arrow = ws.construct_diff('R1', 'R2', name='ARROW')
         self.assertEqual(
@@ -631,9 +623,9 @@ class TestDiffer(unittest.TestCase):
     def test_diffcontext_otherside(self) -> None:
         ws = Workspace()
         canvas1 = Canvas.make_from('abc')
-        ws.define('S1', canvas1, tag=[Lhs(), OldWorld()])
+        ws.define('S1', canvas1, tags=[Lhs(), OldWorld()])
         canvas2 = Canvas.make_from('ijk')
-        ws.define('S2', canvas2, tag=[Rhs(), OldWorld()])
+        ws.define('S2', canvas2, tags=[Rhs(), OldWorld()])
         context = DiffContext(ws)
         var1, var2 = context.add_diff('S1', 'S2')
         self.assertEqual(var1, 'SS1')
@@ -647,9 +639,9 @@ class TestDiffer(unittest.TestCase):
 #    def test_diffcontext_otherside_different_worlds(self) -> None:
 #        ws = Workspace()
 #        canvas1 = Canvas.make_from('abc')
-#        ws.define('S1', canvas1, tag=[Lhs(), OldWorld()])
+#        ws.define('S1', canvas1, tags=[Lhs(), OldWorld()])
 #        canvas2 = Canvas.make_from('ijk')
-#        ws.define('S2', canvas2, tag=[Rhs(), NewWorld()])
+#        ws.define('S2', canvas2, tags=[Rhs(), NewWorld()])
 #        context = DiffContext(ws)
 #        var1, var2 = context.add_diff('S1', 'S2')
 #        #TODO Perhaps the Differ should fail or just treat these canvases
@@ -657,9 +649,9 @@ class TestDiffer(unittest.TestCase):
 
     def test_diffcontext_repeater(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
         ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
-        ws.define('S2', Canvas.make_from('ijk'), tag=[Rhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('ijk'), tags=[Rhs(), OldWorld()])
         ws.define('R2', Repeat('S2', Seed('i', 1), Succ))
         context = DiffContext(ws)
         var1, var2 = context.add_diff('R1', 'R2')
@@ -681,9 +673,9 @@ class TestDiffer(unittest.TestCase):
 
     def test_diffcontext_repeater_with_exception(self) -> None:
         ws = Workspace()
-        ws.define('S1', Canvas.make_from('abc'), tag=[Lhs(), OldWorld()])
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
         ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
-        ws.define('S2', Canvas.make_from('abc'), tag=[Rhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abc'), tags=[Rhs(), OldWorld()])
         ws.define('R2', Repeat('S2', Seed('a', 1), Succ, Skip(3)))
         context = DiffContext(ws)
         var1, var2 = context.add_diff('R1', 'R2')

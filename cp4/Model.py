@@ -1311,11 +1311,19 @@ class Workspace:
         field(default_factory=lambda: defaultdict(set))
         # maps each elem to its tags
 
+    def parse_analogy_string(self, s: str) -> None:
+        c1, c2, c3, c4 = Canvas.parse_analogy_string(s)
+        self.define_and_name(c1, tags=[Lhs(), OldWorld()])
+        self.define_and_name(c2, tags=[Rhs(), OldWorld()])
+        self.define_and_name(c3, tags=[Lhs(), NewWorld()])
+        self.define_and_name(c4, tags=[Rhs(), NewWorld()])
+
     def define(
         self,
         name: Variable,
         value: Argument,
-        tag: Union[Tag, List[Tag], None]=None
+        #tags: Union[Tag, List[Tag], None]=None
+        tags: Tags=None
     ) -> None:
         if isinstance(value, CompoundWorkspaceObj):
             value = value.replace_constants_with_variables(self)
@@ -1324,7 +1332,7 @@ class Workspace:
             self.define(name, level_0_name)
         else:
             self.subst = self.subst.unify(name, value)
-        for t in as_iter(tag):
+        for t in as_iter(tags):
             self._tags[t].add(value)  # type: ignore[arg-type]
             self._tags_of[value].add(t)  # type: ignore[index]
             #TODO How to ensure that the WorkspaceObj gets tagged, not just
@@ -1347,7 +1355,7 @@ class Workspace:
     def unify(self, name: Variable, value: Argument) -> None:
         self.subst = self.subst.unify(name, value)
 
-    def define_and_name(self, obj: WorkspaceObj) -> Variable:
+    def define_and_name(self, obj: WorkspaceObj, tags: Tags=None) -> Variable:
         # Always returns a level-0 Variable
         name_letter = single_letter_name_for(obj)
         while True:
@@ -1355,7 +1363,7 @@ class Workspace:
             name = f'{name_letter}{self.var_counters[name_letter]}'
             if not name in self.subst:
                 break
-        self.define(name, obj)
+        self.define(name, obj, tags=tags)
         return name
 
     def __getitem__(self, obj: Argument) -> Optional[Argument]:
@@ -1555,3 +1563,8 @@ WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define, OtherSide]  # TODO Add all Painters
+
+
+if __name__ == '__main__':
+    ws = Workspace()
+    ws.parse_analogy_string('abc->abd; ijk->?')
