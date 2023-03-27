@@ -997,10 +997,8 @@ def all_arguments_of(o: CompoundWorkspaceObj) -> Iterable[Argument]:
     for name, typ in get_type_hints(o.__class__).items():
         if is_parameter(typ):
             value = getattr(o, name)
-            if value is not None:  # TODO skip this if, so we truly return
-                yield value        # *all* arguments of o?
+            yield value        # *all* arguments of o?
 
-# NEXT Make Workspace.define_and_name() call this
 def single_letter_name_for(o: WorkspaceObj) -> str:
     match o:
         case str():  # Letter
@@ -1027,6 +1025,13 @@ class PainterCluster(CompoundWorkspaceObj):
 
     def __init__(self, *elems: CompoundWorkspaceObj):
         force_setattr(self, 'elems', elems)
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, PainterCluster)
+            and
+            set(self.elems) == set(other.elems)
+        )
 
     def params(self) -> Set[Variable]:
         return union(*(elem.params() for elem in self.elems))
@@ -1070,7 +1075,8 @@ class PainterCluster(CompoundWorkspaceObj):
     # TODO Replace replace_constants_with_variables with a single, generic function that
     # examines the fields in the dataclass definition.
 
-    def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
+    def replace_constants_with_variables(self, ws: Workspace) \
+    -> CompoundWorkspaceObj:
         return PainterCluster(
             *(elem.replace_constants_with_variables(ws) for elem in self.elems)
         )
@@ -1132,7 +1138,6 @@ class DiffContext:
 #                    result_var2 = self.define_new_variable_for(
 #                        var2, v2.__class__(*argvars2)
 #                    )
-                    # NEXT argvars1&2 should be dicts
                     d1, d2 = self.make_argument_dicts_for(var1, var2)
                     result_var1 = self.define_new_variable_for(
                         var1, v1.__class__(**d1)
@@ -1265,7 +1270,6 @@ class DiffContext:
         value1: CompoundWorkspaceObj = self.ws[var1] # type: ignore[assignment]
         value2: CompoundWorkspaceObj = self.ws[var2] # type: ignore[assignment]
         assert value1.__class__ == value2.__class__
-        #NEXT need parameters_and_arguments_of to include None
         for (param_name1, argvalue1), (param_name2, argvalue2) in zip(
             parameters_and_arguments_of(value1),
             parameters_and_arguments_of(value2)
@@ -1321,8 +1325,8 @@ class DiffContext:
                 # the recursive part
                 new_value = value.__class__(*(
                     self.define_new_variable_for_recursive(
-                        argument_name, argument_value
-                    ) for argument_name, argument_value in
+                        argument_variable, argument_value
+                    ) for argument_variable, argument_value in
                         self.object_argument_values_and_single_letter_names(
                             self.ws.eval(value)  # type: ignore[arg-type]
                         )
@@ -1336,10 +1340,7 @@ class DiffContext:
         self,
         value: CompoundWorkspaceObj
     ) -> Iterable[Tuple[Variable, WorkspaceObj]]:
-        for argument_name, argument_value in parameters_and_arguments_of(value):
-            # TODO Call all_arguments_of() when we rewrite all_arguments_of()
-            # to truly return all the arguments (i.e. not just the non-None
-            # arguments).
+        for argument_value in all_arguments_of(value):
             assert is_workspace_obj(argument_value)
             yield (
                 single_letter_name_for(argument_value),
@@ -1422,23 +1423,7 @@ class Workspace:
 
     def define_and_name(self, obj: WorkspaceObj) -> Variable:
         # Always returns a level-0 Variable
-        name_letter: str
-        match obj:
-            case str():   # Letter
-                name_letter = 'L'
-            case Seed():
-                name_letter = 'D'
-            case int():
-                name_letter = 'I'
-            case _ if is_type_op(obj):
-                name_letter = 'F'
-            case Repeat():
-                name_letter = 'R'
-            case Skip():
-                name_letter = 'E'
-            # TODO Canvas ("Snippet"): 'S'
-            case _:
-                raise NotImplementedError(obj)
+        name_letter = single_letter_name_for(obj)
         while True:
             self.var_counters[name_letter] += 1
             name = f'{name_letter}{self.var_counters[name_letter]}'
@@ -1505,18 +1490,19 @@ class Workspace:
 
     def construct_diff(self, var1: Variable, var2: Variable, name=Variable) \
     -> PainterCluster:  # TODO Allow this to return other kinds of Painter
-        if isinstance(self.eval(var1), Repeat):
-            return PainterCluster(
-                Define('RR1', Repeat('SS1', 'DD', 'FF')),
-                Define('RR2', Repeat('SS2', 'DD', 'FF', 'EE1')),
-                OtherSide('SS1', 'SS2'),
-                Define('EE1', Skip('II1')),
-                Define('II1', 3)
-            )
-        else:
+#        if isinstance(self.eval(var1), Repeat):
+#            return PainterCluster(
+#                Define('RR1', Repeat('SS1', 'DD', 'FF')),
+#                Define('RR2', Repeat('SS2', 'DD', 'FF', 'EE1')),
+#                OtherSide('SS1', 'SS2'),
+#                Define('EE1', Skip('II1')),
+#                Define('II1', 3)
+#            )
+#        else:
             context = DiffContext(self)
-            var1name = context.define_var_for(var1)
-            var2name = context.define_var_for(var2)
+            #var1name = context.define_var_for(var1)
+            #var2name = context.define_var_for(var2)
+            #import pdb; pdb.set_trace()
             context.add_diff(var1, var2)
             return PainterCluster(*context.elems())
 
