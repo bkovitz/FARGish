@@ -937,10 +937,6 @@ class Define(CompoundWorkspaceObj):
     def short(self) -> str:
         return f'{self.name}={short(self.value)}'
 
-
-def is_type_op(x: Any) -> TypeGuard[Type[Op]]:
-    return safe_issubclass(x, Op)
-
 # TODO rm?
 def is_level_0(x: Argument) -> bool:
     match x:
@@ -1094,6 +1090,9 @@ class NoValue:
 
 @dataclass
 class DiffContext:
+    '''A helper for Workspace.construct_diff(). Maintains a context that
+    accumulates local variables and their definitions while constructing a
+    PainterCluster that represents the difference between two WorkspaceObjs.'''
     ws: Workspace
     d: Dict[Variable, Union[WorkspaceObj, NoValue]] = \
         field(default_factory=dict)
@@ -1129,15 +1128,6 @@ class DiffContext:
                 case (CompoundWorkspaceObj() as v1,
                       CompoundWorkspaceObj() as v2):
                     assert value1.__class__ == value2.__class__
-#                    argvars1, argvars2 = zip(
-#                        *(self.make_argument_variables_for(var1, var2))
-#                    )
-#                    result_var1 = self.define_new_variable_for(
-#                        var1, v1.__class__(*argvars1)
-#                    )
-#                    result_var2 = self.define_new_variable_for(
-#                        var2, v2.__class__(*argvars2)
-#                    )
                     d1, d2 = self.make_argument_dicts_for(var1, var2)
                     result_var1 = self.define_new_variable_for(
                         var1, v1.__class__(**d1)
@@ -1165,80 +1155,6 @@ class DiffContext:
                     result_var2 = self.define_new_variable_for(var2, value2)
                     return result_var1, result_var2
                     
-#            if isinstance(value1, Seed):
-#                seed1: Seed = self.ws[var1] # type: ignore[assignment]
-#                seed2: Seed = self.ws[var2] # type: ignore[assignment]
-#                lettervar1, lettervar2 = self.add_diff(
-#                    seed1.letter, seed2.letter
-#                )
-#                assert is_variable(seed1.i) #TODO rm
-#                assert is_variable(seed2.i) #TODO rm
-#                indexvar1, indexvar2 = self.add_diff(
-#                    seed1.i, seed2.i
-#                )
-#                result_var1 = self.define_new_variable_for(
-#                    var1, Seed(lettervar1, indexvar1)
-#                )
-#                result_var2 = self.define_new_variable_for(
-#                    var2, Seed(lettervar2, indexvar2)
-#                )
-#                return result_var1, result_var2
-#            elif isinstance(value1, Canvas):
-#                assert isinstance(value2, Canvas)
-#                sidetag1 = extract_tag(SideTag, self.ws.tags_of(value1))
-#                sidetag2 = extract_tag(SideTag, self.ws.tags_of(value2))
-#                if SideTag.is_opposite_side(sidetag1, sidetag2):
-#                    result_var1 = self.define_new_variable_for(var1, None)
-#                    result_var2 = self.define_new_variable_for(var2, None)
-#                    otherside_var = self.define_new_variable_for(
-#                        'PP', OtherSide(result_var1, result_var2)
-#                    )
-#                    return result_var1, result_var2
-#                else:
-#                    raise NotImplementedError
-#            elif isinstance(value1, Repeat):
-#                repeat1 = self.ws[var1]  # type: ignore[assignment]
-#                repeat2 = self.ws[var2]  # type: ignore[assignment]
-#                match (repeat1, repeat2):
-#                    case (Repeat(s1, d1, f1), Repeat(s2, d2, f2)):
-#                        lo('REP', s1)
-#                        assert is_variable(s1) #TODO rm
-#                        assert is_variable(d1) #TODO rm
-#                        assert is_variable(f1) #TODO rm
-#                        assert is_variable(s2) #TODO rm
-#                        assert is_variable(d2) #TODO rm
-#                        assert is_variable(f2) #TODO rm
-#                        ss1, ss2 = self.add_diff(s1, s2)
-#                        dd1, dd2 = self.add_diff(d1, d2)
-#                        ff1, ff2 = self.add_diff(f1, f2)
-#                        result_var1 = self.define_new_variable_for(
-#                            var1, Repeat(ss1, dd1, ff1)
-#                        )
-#                        result_var2 = self.define_new_variable_for(
-#                            var2, Repeat(ss2, dd2, ff2)
-#                        )
-#                        return result_var1, result_var2
-#                    case _:
-#                        raise NotImplementedError
-#            else:
-#                result_var1 = self.define_new_variable_for(var1, value1)
-#                result_var2 = self.define_new_variable_for(var2, value2)
-#                return result_var1, result_var2
-
-#        for argvar1, argvar2 in zip(
-#            all_arguments_of(value1), all_arguments_of(value2)
-#        ):
-#            # base condition
-#            if isinstance(var1, BaseObj) and isinstance(var2, BaseObj):
-#                do_basic_diff(var1, var2)
-#            self.add_diff(argvar1, argvar2)
-#
-#        lettervar1, lettervar2 = self.add_diff(seed1arg1, seed1arg1)
-#        indexvar1, indexvar2 = self.add_diff(seed1arg2, seed2arg2)
-#        define var1 = Seed(lettervar1, indexvar1)
-#        define var2 = Seed(lettervar2, indexvar2)
-
-           
     def make_argument_variables_for(
         self,
         var1: Variable,
@@ -1264,7 +1180,8 @@ class DiffContext:
         self,
         var1: Variable,
         var2: Variable
-    ) -> Tuple[Dict[Variable, Optional[Variable]], Dict[Variable, Optional[Variable]]]:
+    ) -> Tuple[Dict[Variable, Optional[Variable]],
+               Dict[Variable, Optional[Variable]]]:
         d1: Dict[Variable, Optional[Variable]] = {}
         d2: Dict[Variable, Optional[Variable]] = {}
         value1: CompoundWorkspaceObj = self.ws[var1] # type: ignore[assignment]
@@ -1280,12 +1197,12 @@ class DiffContext:
                 case (None, None):
                     continue
                 case (v1, None):
-                    d1[param_name1] = self.define_new_variable_for_recursive(
+                    d1[param_name1] = self.define_local_variable_and_value(
                         argvalue1, self.ws.eval(argvalue1)
                     )
                 case (None, v2):
                     #import pdb; pdb.set_trace()
-                    d2[param_name2] = self.define_new_variable_for_recursive(
+                    d2[param_name2] = self.define_local_variable_and_value(
                         argvalue2, self.ws.eval(argvalue2)
                     )
                 case (v1, v2):
@@ -1311,20 +1228,28 @@ class DiffContext:
         self.d[new_variable] = value
         return new_variable
 
-    def define_new_variable_for_recursive(
+    def define_local_variable_and_value(
         self,
         existing_variable: Variable,
         value: Union[WorkspaceObj, NoValue]
     ) -> Variable:
-        '''Defines a new variable for 'existing_variable' *and* defines new
-        variables for all the arguments of 'value'.'''
-        new_variable = self.new_variable_for(existing_variable)
-        new_value: Union[WorkspaceObj, NoValue]
+        '''Defines a new, local variable for 'existing_variable' *and* defines
+        new variables for all the arguments of 'value'.'''
+        return self.define_new_variable_for(
+            existing_variable,
+            self.make_local_value(value)
+        )
+
+    def make_local_value(self, value: Union[WorkspaceObj, NoValue]) \
+    -> Union[WorkspaceObj, NoValue]:
+        '''Returns 'value', with, if appropriate, its arguments replaced by
+        local variables, and defines those local variables to be the actual
+        values of 'value's arguments.'''
         match value:
             case CompoundWorkspaceObj():
                 # the recursive part
-                new_value = value.__class__(*(
-                    self.define_new_variable_for_recursive(
+                return value.__class__(*(
+                    self.define_local_variable_and_value(
                         argument_variable, argument_value
                     ) for argument_variable, argument_value in
                         self.object_argument_values_and_single_letter_names(
@@ -1332,9 +1257,7 @@ class DiffContext:
                         )
                 ))
             case _:
-                new_value = value
-        self.d[new_variable] = new_value
-        return new_variable
+                return value
 
     def object_argument_values_and_single_letter_names(
         self,
@@ -1369,6 +1292,9 @@ def is_letter(x: Any) -> TypeGuard[Letter]:
 
 def is_base_literal(x: Any) -> TypeGuard[BaseLiteral]:
     return is_letter(x) or isinstance(x, int)
+
+def is_type_op(x: Any) -> TypeGuard[Type[Op]]:
+    return safe_issubclass(x, Op)
 
 def is_workspace_obj(x: Any) -> TypeGuard[WorkspaceObj]:
     return is_base_obj(x) or isinstance(x, CompoundWorkspaceObj)
@@ -1490,21 +1416,9 @@ class Workspace:
 
     def construct_diff(self, var1: Variable, var2: Variable, name=Variable) \
     -> PainterCluster:  # TODO Allow this to return other kinds of Painter
-#        if isinstance(self.eval(var1), Repeat):
-#            return PainterCluster(
-#                Define('RR1', Repeat('SS1', 'DD', 'FF')),
-#                Define('RR2', Repeat('SS2', 'DD', 'FF', 'EE1')),
-#                OtherSide('SS1', 'SS2'),
-#                Define('EE1', Skip('II1')),
-#                Define('II1', 3)
-#            )
-#        else:
-            context = DiffContext(self)
-            #var1name = context.define_var_for(var1)
-            #var2name = context.define_var_for(var2)
-            #import pdb; pdb.set_trace()
-            context.add_diff(var1, var2)
-            return PainterCluster(*context.elems())
+        context = DiffContext(self)
+        context.add_diff(var1, var2)
+        return PainterCluster(*context.elems())
 
     def run_repeater(self, p: Parameter[Repeat]) -> None:
         painter = self.get_repeater(p)  # TODO What about None?
@@ -1517,8 +1431,8 @@ class Workspace:
     def run_painter_cluster(
         self, painter_cluster: Parameter[PainterCluster], subst_in: Subst
     ) -> None:
-        match (pc := self[painter_cluster]):
-            case PainterCluster():
+        match self[painter_cluster]:
+            case PainterCluster() as pc:
                 self.subst = pc.run(self, subst_in)
             case _:
                 raise NotImplementedError  # TODO handle missing PainterCluster
@@ -1528,7 +1442,6 @@ class Workspace:
             case int():
                 return x
             case _:
-                #return self[x]
                 result = self.eval(x)
                 if isinstance(result, int):
                     return result
@@ -1540,7 +1453,6 @@ class Workspace:
             case Canvas():
                 return x
             case _:
-                #return self[x]
                 result = self.eval(x)
                 if isinstance(result, Canvas):
                     return result
@@ -1552,7 +1464,6 @@ class Workspace:
             case Seed():
                 return x
             case _:
-                #return self[x]
                 result = self.eval(x)
                 if isinstance(result, Seed):
                     return result
@@ -1589,7 +1500,6 @@ class Workspace:
             case Repeat():
                 return x
             case _:
-                #return self[x]
                 result = self.eval(x)
                 if isinstance(result, Repeat):
                     return result
@@ -1602,7 +1512,6 @@ class Workspace:
             case PainterCluster():
                 return x
             case _:
-                #return self[x]
                 result = self.eval(x)
                 if isinstance(result, PainterCluster):
                     return result
@@ -1610,10 +1519,6 @@ class Workspace:
                     raise WrongType(PainterCluster, x, result)
 
     def get_letter(self, x: Parameter[str]) -> str:
-#        if is_variable(x):
-#            return self[x]
-#        else:
-#            return x    # type: ignore[return-value]
         result = self.eval(x)
         if is_letter(result):
             return result
