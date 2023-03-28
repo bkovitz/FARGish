@@ -385,6 +385,11 @@ class WrongType(Fizzle):
     ref: Any  # The reference to the object of the wrong type
     obj: Any  # The object with the wrong type
 
+@dataclass(frozen=True)
+class CantRun(Fizzle):
+    '''Indicates that a Painter couldn't run.'''
+    pass
+
 ########## The canvas ##########
 
 @dataclass
@@ -851,7 +856,10 @@ class OtherSide(CompoundWorkspaceObj):
                     raise NotImplementedError
                     # TODO what if mate does not exist?
             case _:
-                raise NotImplementedError
+                raise NotImplementedError(
+                    (self.left, self.right),
+                    (ws.eval(self.left), ws.eval(self.right))
+                )
                 # TODO the failure cases
                 
     def other_side_tags(self, ws: Workspace, obj: Variable) -> Tags:
@@ -1009,6 +1017,8 @@ def single_letter_name_for(o: WorkspaceObj) -> str:
             return 'E'
         case Canvas():
             return 'S'  # "snippet"
+        case PainterCluster():
+            return 'U'
         case _:
             raise NotImplementedError(o)
     raise NotImplementedError
@@ -1036,7 +1046,6 @@ class PainterCluster(CompoundWorkspaceObj):
 
     def run(self, ws_in: Workspace, subst_in: Subst) -> Subst:  #VDict:
         '''Returns new Subst, to put into ws_in.'''
-
         # Set up local variables
         local_ws = replace(ws_in, subst=ws_in.subst)
         for k, v in subst_in.items():
@@ -1044,14 +1053,21 @@ class PainterCluster(CompoundWorkspaceObj):
                             # TODO Subst.d should be PMap[Variable, Argument]
 
         # Run the elements
-        elems = self.elems_at_level(1)
-        for elem in elems:
-            if isinstance(elem, Define):
-                elem.run_local(local_ws)
-            elif isinstance(elem, OtherSide):
-                elem.run(local_ws)
+        elems = set(self.elems_at_level(1))
+        while elems:
+            # TODO Need to catch infinite loop if at least one elem was not
+            # removed on previous iteration.
+            for elem in list(elems):
+                try:
+                    if isinstance(elem, Define):
+                        elem.run_local(local_ws)
+                    elif isinstance(elem, OtherSide):
+                        elem.run(local_ws)
+                    elems.remove(elem)
+                    break
+                except CantRun:
+                    continue
 
-        #local_ws.subst.pr() #DEBUG
         # Exit the PainterCluster: remove all local variables
         level_1_names = [Var.at_level(name, 1) for name in self.params()]
         result = local_ws.subst
@@ -1571,6 +1587,19 @@ Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define, OtherSide]  # TODO Add all Painters
 
 
+'''
 if __name__ == '__main__':
     ws = Workspace()
     ws.parse_analogy_string('abc->abd; ijk->?')
+    r1 = ws.define_and_name(detect_repetition(ws['S1']))
+    r2 = ws.define_and_name(detect_repetition(ws['S2']))
+    r3 = ws.define_and_name(detect_repetition(ws['S3']))
+    arrow = ws.define_and_name(ws.construct_diff(r1, r2))
+    ws.run_painter_cluster(arrow, Subst.from_kwargs(RR1=r3))
+    # This fails because OtherSide(SS1, SS2) occurs in the PainterCluster
+    # before SS1 or SS2 are defined. What's needed is to choose the next
+    # elem according to what can be unified right then. The order of the
+    # elems in the PainterCluster should not matter.
+
+    ws.subst.pr()
+'''

@@ -391,6 +391,22 @@ class TestPainterCluster(unittest.TestCase):
         self.assertEqual(ws.eval('D2'), Seed('i', 1))
         self.assertEqual(ws['L2'], 'i')
 
+    def test_elems_out_of_order(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'), tags=[Lhs(), OldWorld()])
+        ws.define('S2', Canvas.make_from('abd'), tags=[Rhs(), OldWorld()])
+        ws.define('R1', Repeat('S1', Seed('a', 1), Succ))
+        #ws.define('R2', Repeat('S2', Seed('a', 1), Succ))
+        ws.define('CLUSTER', PainterCluster(
+            OtherSide('SS1', 'SS2'), # SS1, SS2 occurs before either has a value
+            Define('RR1', Repeat('SS1', 'DD', 'FF')),
+            Define('RR2', Repeat('SS2', 'DD', 'FF')),
+        ))
+        ws.run_painter_cluster('CLUSTER', Subst.from_kwargs(RR1='R1'))
+        lo('UT')
+        ws.subst.pr() #DEBUG
+
+
 class TestArrow(unittest.TestCase):
 
     def setUp(self) -> None:
