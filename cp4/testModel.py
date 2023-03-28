@@ -209,6 +209,21 @@ class TestWorkspace(unittest.TestCase):
 
         # TODO Do these canvases need "addresses"? C.1, C.2, C.3, C.4
 
+    def test_repeater_for_canvas(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        r = detect_repetition(ws.get_canvas('S1'))
+        assert r is not None
+        repeater_variable = ws.define_and_name(r)
+        stored_repeater = ws[repeater_variable]
+        assert isinstance(stored_repeater, Repeat)
+        self.assertEqual(stored_repeater.canvas, 'S1')
+        self.assertIs(ws.get_repeater(repeater_variable).canvas, ws.eval('S1'))
+        # This ensures that the generated repeater refers to the existing
+        # canvas, i.e. no duplicate canvas gets created when the repeater
+        # is put into the workspace.
+
+
 class TestOtherSide(unittest.TestCase):
 
     def test_other_side_lhs_blank(self) -> None:

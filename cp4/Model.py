@@ -349,7 +349,7 @@ class Subst:
         raise NotImplementedError  # Should never get here: mypy bug
 
     def pr(self) -> None:
-        for k, v in self.items():
+        for k, v in sorted(self.items(), key=str):
             print(f'{k}: {short(v, inside=True)}')
         print()
 
@@ -455,7 +455,6 @@ class Op(ABC):
         start_index: int=1,
         exception: Optional[Exception_]=None
     ) -> str:
-        #import pdb; pdb.set_trace()
         return (
             cls.reverse_sequence(start_letter, 1, start_index, exception)
             +
@@ -711,7 +710,6 @@ class Seed(CompoundWorkspaceObj):
         )
 
     def eval(self, ws: Workspace) -> Seed:
-        #import pdb; pdb.set_trace()
         return Seed(
             #ws.eval(self.letter),
             #ws.eval(self.i)
@@ -1201,7 +1199,6 @@ class DiffContext:
                         argvalue1, self.ws.eval(argvalue1)
                     )
                 case (None, v2):
-                    #import pdb; pdb.set_trace()
                     d2[param_name2] = self.define_local_variable_and_value(
                         argvalue2, self.ws.eval(argvalue2)
                     )
@@ -1356,6 +1353,12 @@ class Workspace:
         self.subst = self.subst.unify(name, value)
 
     def define_and_name(self, obj: WorkspaceObj, tags: Tags=None) -> Variable:
+        if (
+            isinstance(obj, Canvas)
+            and
+            (existing_name := self.variable_of(obj)) is not None
+        ):
+            return existing_name # don't make a new name for an existing camnvas
         # Always returns a level-0 Variable
         name_letter = single_letter_name_for(obj)
         while True:
@@ -1556,6 +1559,9 @@ class Workspace:
 
     def short(self) -> str:
         return self.__class__.__name__
+
+    __repr__ = short
+    __str__ = short
 
 BaseLiteral = Union[Letter, Index]
 BaseObj = Union[BaseLiteral, Canvas, Type[Op]]
