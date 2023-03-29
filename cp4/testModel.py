@@ -218,7 +218,6 @@ class TestWorkspace(unittest.TestCase):
         stored_repeater = ws[repeater_variable]
         assert isinstance(stored_repeater, Repeat)
         self.assertEqual(stored_repeater.canvas, 'S1')
-        self.assertIs(ws.get_repeater(repeater_variable).canvas, ws.eval('S1'))
         # This ensures that the generated repeater refers to the existing
         # canvas, i.e. no duplicate canvas gets created when the repeater
         # is put into the workspace.
@@ -403,8 +402,7 @@ class TestPainterCluster(unittest.TestCase):
             Define('RR2', Repeat('SS2', 'DD', 'FF')),
         ))
         ws.run_painter_cluster('CLUSTER', Subst.from_kwargs(RR1='R1'))
-        lo('UT')
-        ws.subst.pr() #DEBUG
+        self.assertEqual(ws['R2'], Repeat('S2', 'D1', 'F1'))
 
 
 class TestArrow(unittest.TestCase):

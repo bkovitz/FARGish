@@ -855,6 +855,8 @@ class OtherSide(CompoundWorkspaceObj):
                 else:
                     raise NotImplementedError
                     # TODO what if mate does not exist?
+            case (None, None):
+                raise CantRun
             case _:
                 raise NotImplementedError(
                     (self.left, self.right),
@@ -1053,7 +1055,7 @@ class PainterCluster(CompoundWorkspaceObj):
                             # TODO Subst.d should be PMap[Variable, Argument]
 
         # Run the elements
-        elems = set(self.elems_at_level(1))
+        elems = list(self.elems_at_level(1))  # TODO convert to a set?
         while elems:
             # TODO Need to catch infinite loop if at least one elem was not
             # removed on previous iteration.
