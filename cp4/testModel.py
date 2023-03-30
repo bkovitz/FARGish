@@ -16,7 +16,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
-    DiffContext, NoValue
+    DiffContext, NoValue, LengthPainter, ArgumentsFailRelation
 
 from Log import lo, set_log_level
 from util import pts, reseed, short
@@ -951,3 +951,41 @@ class TestSubst(unittest.TestCase):
     # TODO test that on exit from a PainterCluster, all local variables are
     # eliminated, all new objects are created and named, and all 'same' relations
     # between variables in the new objects are preserved.
+
+
+class TestLengthPainter(unittest.TestCase):
+    
+    def test_run_length_painter_right(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('S2', Canvas.make_unknown())
+        ws.define('P1', LengthPainter('S1', 'S2', Same))
+        assert ws.get_canvas('S2').length is None
+        ws.run_painter('P1')
+        self.assertEqual(ws.get_canvas('S2').length, 3)
+
+    def test_run_length_painter_left(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_unknown())
+        ws.define('S2', Canvas.make_from('abc'))
+        ws.define('P1', LengthPainter('S1', 'S2', Same))
+        assert ws.get_canvas('S1').length is None
+        ws.run_painter('P1')
+        self.assertEqual(ws.get_canvas('S1').length, 3)
+
+    # TODO Test case with one canvas missing
+    # TODO Test case with both canvases missing
+
+    def test_run_length_painter_conflicting_lengths(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('S2', Canvas.make_from('abcd'))
+        ws.define('P1', LengthPainter('S1', 'S2', Same))
+        with self.assertRaises(ArgumentsFailRelation):
+            ws.run_painter('P1')
+
+    # TODO Test case where both canvases have the same length
+
+    # TODO Test case for canvases where length increases by 1
+    # TODO Test case for canvases where length decreases by 1
+    # TODO Test case for canvases where length changes by more than 1

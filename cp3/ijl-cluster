@@ -31,6 +31,7 @@ ABSORPTION
    RR1=Repeat(SS1, DD, FF)
    RR2=Repeat(SS2, DD, FF, EE)
    OtherSide(SS1, SS2)
+   LengthRelation(SS1, SS2, Same)
    EE=Exception(GG, II)
    GG=Skip     <-- GG and II are constants, not relations.
    II=3        <-- what if SS2 has more than 3 cells?
@@ -58,6 +59,7 @@ REGENERATION
    RR1=R3       SS1=S3 DD=D3 FF=F3
    RR2=Repeat(S4, D3, F3, E2)
    OtherSide(S3, S4)   <--- Arrow filled in S4 SOMEHOW
+   LengthRelation(S3, S4, Same) <--- Store 3 into length of S4
    E2=Exception(G2, I4)   <--- Arrow constructed E2
    G2=Skip                <--- copied from Arrow
    I5=3                   <--- copied from Arrow

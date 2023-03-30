@@ -390,6 +390,12 @@ class CantRun(Fizzle):
     '''Indicates that a Painter couldn't run.'''
     pass
 
+class ArgumentsFailRelation(Fizzle):
+    '''Indicates that both of a Painter's arguments exist but are in a relation
+    that conflicts with that stored in the Painter, e.g. LengthPainter(Same)
+    where the Canvases have different lengths.'''
+    pass
+
 ########## The canvas ##########
 
 @dataclass
@@ -769,6 +775,7 @@ class Repeat(CompoundWorkspaceObj):
                     exception
                 )
             )
+        # TODO supply canvas length if .length is None
 
     def eval(self, ws: Workspace) -> Repeat:
         return Repeat(
@@ -903,7 +910,78 @@ class OtherSide(CompoundWorkspaceObj):
 #            case (Canvas(), Canvas()):
 #                pass # TODO
 
-Painter = Union[Repeat, OtherSide]
+@dataclass(frozen=True)
+class LengthPainter(CompoundWorkspaceObj):
+    left: Parameter[Canvas]
+    right: Parameter[Canvas]
+    relation: Parameter[Painter]  # TODO More-specific type?
+
+    def run(self, ws: Workspace) -> None:
+        right = ws.get_canvas(self.right)
+        left = ws.get_canvas(self.left)
+        #right.length = 3
+        if self.relation != Same:
+            raise NotImplementedError
+        # TODO fix HACK: this code implements the Same relation; self.relation
+        # should specify the relation.
+        match (left.length, right.length):
+            case (int(), None):
+                right.length = left.length
+            case (None, int()):
+                left.length = right.length
+            case (int(), int()):
+                if left.length != right.length:
+                    raise ArgumentsFailRelation
+
+    def params(self) -> List[Variable]:
+        return [
+            x
+                for x in [self.left, self.right, self.relation]
+                    if is_variable(x)
+        ]
+
+    def with_var_level(self, level: int) -> LengthPainter:
+        return LengthPainter(
+            Var.at_level(self.left, level),
+            Var.at_level(self.right, level),
+            Var.at_level(self.relation, level),
+        )
+
+    def replace_constants_with_variables(self, ws: Workspace) \
+    -> LengthPainter:
+        if (
+            is_variable(self.left)
+            and
+            is_variable(self.right)
+            and
+            is_variable(self.relation)
+        ):
+            return self
+        else:
+            left_variable = (
+                ws.define_and_name(self.left) # type: ignore[arg-type]
+                    if not is_variable(self.left) else self.left
+            )
+            right_variable = (
+                ws.define_and_name(self.right) # type: ignore[arg-type]
+                    if not is_variable(self.right) else self.right
+            )
+            relation_variable = (
+                ws.define_and_name(self.relation) # type: ignore[arg-type]
+                    if not is_variable(self.relation) else self.relation
+            )
+            return LengthPainter(
+                left_variable, right_variable, relation_variable
+            )
+
+    def eval(self, ws: Workspace) -> LengthPainter:
+        return LengthPainter(
+            ws.get_canvas(self.left),
+            ws.get_canvas(self.right),
+            ws.get_painter(self.relation),
+        )
+
+Painter = Union[LengthPainter, Repeat, OtherSide, Type[Same]]
                 
 
 @dataclass(frozen=True)
@@ -1314,6 +1392,13 @@ def is_type_op(x: Any) -> TypeGuard[Type[Op]]:
 def is_workspace_obj(x: Any) -> TypeGuard[WorkspaceObj]:
     return is_base_obj(x) or isinstance(x, CompoundWorkspaceObj)
 
+def is_painter(x: Any) -> TypeGuard[Painter]:
+    return (
+        is_type_op(x)
+        or
+        isinstance(x, (LengthPainter, Repeat, OtherSide))
+    )
+
 @dataclass
 class Workspace:
     subst: Subst = empty_subst
@@ -1454,8 +1539,11 @@ class Workspace:
         painter.fill(self)
 
     def run_painter(self, p: Parameter[Painter]) -> None:
-        if isinstance(p, OtherSide):
-            p.run(self)
+        painter = self.get_painter(p)
+        if isinstance(painter, (OtherSide, LengthPainter)):
+            painter.run(self)
+        else:
+            raise NotImplementedError(painter)
 
     def run_painter_cluster(
         self, painter_cluster: Parameter[PainterCluster], subst_in: Subst
@@ -1535,6 +1623,14 @@ class Workspace:
                 else:
                     raise WrongType(Repeat, x, result)
 
+    def get_painter(self, x: Parameter[Painter]) -> Painter:
+        if is_painter(x):
+            return x
+        result = self.eval(x)
+        if is_painter(result):
+            return result
+        raise WrongType(Painter, x, result)
+
     def get_painter_cluster(self, x: Parameter[PainterCluster]) \
     -> PainterCluster:
         match x:
@@ -1589,8 +1685,8 @@ Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define, OtherSide]  # TODO Add all Painters
 
 
-'''
 if __name__ == '__main__':
+    '''
     ws = Workspace()
     ws.parse_analogy_string('abc->abd; ijk->?')
     r1 = ws.define_and_name(detect_repetition(ws['S1']))
@@ -1598,10 +1694,8 @@ if __name__ == '__main__':
     r3 = ws.define_and_name(detect_repetition(ws['S3']))
     arrow = ws.define_and_name(ws.construct_diff(r1, r2))
     ws.run_painter_cluster(arrow, Subst.from_kwargs(RR1=r3))
-    # This fails because OtherSide(SS1, SS2) occurs in the PainterCluster
-    # before SS1 or SS2 are defined. What's needed is to choose the next
-    # elem according to what can be unified right then. The order of the
-    # elems in the PainterCluster should not matter.
 
+    ws.run_repeater(ws['R4'])
+    print(ws['S4'])
     ws.subst.pr()
-'''
+    '''
