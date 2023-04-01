@@ -1180,6 +1180,12 @@ class PainterCluster(CompoundWorkspaceObj):
 
 @dataclass(frozen=True)
 class NoValue:
+    '''When a variable is given NoValue() during construction of a
+    PainterCluster, it does not become an element of the PainterCluster. It
+    only serves as a common variable among different elements of the
+    PainterCluster. The variable serves only to propagate values throughout
+    workspace objects consistently, not to create a new workspace object of
+    its own.'''
     pass
 
 @dataclass
@@ -1249,6 +1255,7 @@ class DiffContext:
                     result_var2 = self.define_new_variable_for(var2, value2)
                     return result_var1, result_var2
                     
+    #TODO rm (obsolete)
     def make_argument_variables_for(
         self,
         var1: Variable,

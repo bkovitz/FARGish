@@ -209,3 +209,14 @@ arguments) given another.
 
 Problem: When a repeater tries to fill a snippet with unspecified length, how
 does it determine the length?
+
+
+Problem: How do we bind local variables to workspace objects when running a
+painter cluster?
+
+Solution: Unification. This ensures that objects' members are recursively
+unified with their counterparts. When Subst.unify(lhs, rhs) is given a
+variable for lhs, and that variable is already defined, it unifies the value
+of the variable with rhs. This enables matching and filling parameters at
+multiple levels. Subst.unify() is responsible for propagating changes to
+variables consistently.

@@ -984,7 +984,14 @@ class TestLengthPainter(unittest.TestCase):
         with self.assertRaises(ArgumentsFailRelation):
             ws.run_painter('P1')
 
-    # TODO Test case where both canvases have the same length
+    def test_run_length_painter_same_lengths(self) -> None:
+        ws = Workspace()
+        ws.define('S1', Canvas.make_from('abc'))
+        ws.define('S2', Canvas.make_from('abc'))
+        ws.define('P1', LengthPainter('S1', 'S2', Same))
+        ws.run_painter('P1')
+        # If no exception, then we succeeded. Since both canvases have the
+        # same length, the LengthPainter has nothing to do.
 
     # TODO Test case for canvases where length increases by 1
     # TODO Test case for canvases where length decreases by 1

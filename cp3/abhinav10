@@ -1,0 +1,283 @@
+31-Mar-2023
+
+Problem: How to put the length=3 into S4 in the ijl analogy problem?
+
+Ideas:
+
+1. LengthPainter
+
+   Put the LengthPainter into the PainterCluster.
+
+2. Make .length a Parameter of Canvas.
+
+3. Hack for now: let OtherSide copy the length.
+
+
+
+Problem: How to make the DiffContext code simpler, and maybe work more
+generically.
+
+Ideas:
+
+Let's list all the operations performed during add_diff.
+
+1. Assign a single, unnumbered local variable (e.g. FF) to both objects.
+
+2. Assign a local variable to an existing variable--because its object already
+exists. Store this, so that if we assign the same existing variable twice,
+we only get one local variable.
+
+3. Assign a local variable to a constant--because the PainterCluster will
+create this constant or match against it.
+
+
+Maybe allow every Parameter to take the value None. Then have a function to
+'deref' the Parameter, ensuring that the type is correct amd throwing a
+Fizzle if it holds a None. The reason this might be helpful is that it can
+delay filling in a None until something needs it.
+
+
+Maybe combine OtherSide and LengthPainter, since they both deal with canvases.
+
+
+1-Apr-2023
+
+Let's write the top-level code first.
+
+At the top level, how do we get "process A, process B"? THAT'S the main idea,
+so let's stray from it as little as possible.
+
+process A: from values to painters
+   run detectors
+      maybe the detectors create some new workspace objects
+process B: from painters to values
+   choose a painter that hasn't run, and run it
+adjusting activation levels and weeding out
+   favor competing canvases (and maybe painters) that existing in mutually
+   supporting cycles
+
+      process A: from canvases/painters to painters
+      process B: from painters to canvases/painters
+
+Values include competing canvases. We are mainly looking for stability in
+the set of "winning" canvases and the painters that paint them.
+
+What is the simplest whole system that could do something to illustrate that
+concept--that "process A, process B" should stabilize among competing canvases?
+
+   abc->abd; ijk->?
+      No wrong canvases.
+
+   ajaqb:  a____
+      Has wrong canvases due to the conflict between Succ(I, I+2) and
+      Same(I, I+2).
+
+   We could create a wrong canvas ourselves and set up an example "mid-stream".
+   The "Fake It" approach.
+
+
+We need to mark each canvas in such a way that we can tell which other canvases
+it competes with. If each canvas has an "address", then canvases with the same
+addresses compete.
+
+Detectors only create painters?
+
+Painters only create canvases and other painters?
+
+
+When, exactly, do we need unification? To fill parameters in a PainterCluster.
+
+
+IDEA #1 for tiny first example:
+
+   Initial canvas:  ab_
+
+   Process A: Detect Succ(1, 2). This creates a Succ(1, 2).
+
+   Process B: Run Succ(1, 2) but starting at 2.
+
+Is that example even useful? We actually expect that a repetition-detector
+would look at 'ab_' and see it as an incomplete repetition.
+
+IDEA #2 for tiny first example:
+
+   Initial canvas:  ab_
+
+   Process A: Detect Succ(1, 2). This creates P1=Succ(1, 2).
+
+   Process B: Run P1=Succ(1, 2). It simply confirms what is already in cells
+   1 and 2 in the canvas.
+
+   Process A: Detect Succ(P1.left, P1.right). This creates P2=Succ(P1.left,
+   P1.right).
+
+   Process B: Run P2.
+
+   Process A: 
+
+   Somewhere in here, we need to create P3=Succ(2, 3).
+
+   Process B: Run P3. This fills cell 3 with 'c'.
+
+
+SuccNext(I1, I2)=
+Succ(@I1, @I2)
+Succ(I1, I2)
+
+SuccNext(I1, I2, L1, L2)=
+L1=@I1  
+L2=@I2  
+Succ(L1, L2)
+Succ(I1, I2)
+
+
+Do we need *two* painters (Succ(1, 2) and Succ(2, 3)), or do we need *one*
+painter (Succ(I, I+1)) that runs in two places? The essence of the question:
+how can the model re-run a painter in a new place?
+
+Possible answer: There are two forms of a painter: one with variables that
+need to be unified, and one with values specified for some of those variables.
+Call the latter a "determinate painter".
+
+SuccNext/I1=1
+SuccNext/I2=2
+SuccNext/I1=3  <-- This will fill the blank
+
+
+Two possibilities for getting from a detection (of something determinate) to
+a new determinate painter, which paints the same relation somewhere else:
+
+1. The detector creates a painter cluster, which has the variables, like
+SuccNext above.
+
+
+2. The detector creates a determinate painter, like Succ(1, 2), and another
+process inspects the determinate painter and creates SuccNext. Then yet
+another process sees that SuccNext can run somewhere else, and creates a
+determinate painter. Alternatively, pressure from a blank can trigger the
+search to "generalize" SuccNext.
+
+How do we go from a determinate painter to a painter with variables?
+Two possibilities:
+
+2a. Replace constants with variables.
+
+   Succ(1, 2)
+
+   SuccNext(I1, I2, L1, L2)
+
+   SuccNext/I1=3
+
+2b. We detect a relation within the arguments of a painter. The Diff process
+compares things of the same type. In this case, the things are the two indices
+in Succ(1, 2).
+
+SuccNext2(P1, I1, I2)    
+P1 = Succ(I1, I2)
+I2 = I1 + 1
+
+SuccNext2(Q1 = Succ(2,3))
+
+Approach 2b (hopefully) allows greater flexibility in the types of
+relationships among the arguments of a painter that can be detected. A painter
+cluster could detect a complex or subtle relationship and be called upon within
+the generated painter cluster.
+
+When the model creates a painter with variables from a determinate painter,
+that painter with variables should recreate the original determinate painter
+as well as create determinate painters for elsewhere in the canvas.
+
+If that happens, then every time SuccNext2 creates a new Succ painter, it will
+keep recreating it. Also, every new Succ painter that it creates will tend to
+recreate SuccNext2. Will this throw off our favoring of mutual support, because
+so much mutual support happens between SuccNext2 and all the Succs that it
+creates?
+
+   Succ detector creates Succ(1, 2)
+   internal-relation detector sees Succ(1, 2) and creates SuccNext2.
+   SuccNext2 creates Succ(2, 3)
+   internal-relation detector sees Succ(2, 3) and creates SuccNext2.
+
+   The model won't create duplicates. It will just recreate the same things
+   over and over. That's OK, that's even the intention of "stability" in
+   process A and process B, but will the resulting support loops distort
+   the model's choices of the best answers?
+
+
+In strings like 'abcde', will detection of adjacent Succ relations cause too
+many Succ and SuccNext2 painters to be created, overwhelming the repeater
+that describes the whole string in one painter? Maybe this could be stopped
+by making the existence of repeaters tend to inhibit detectors from looking
+inside the string.
+
+   Succ(1, 2)
+   Succ(2, 3)
+   Succ(3, 4)
+   Succ(4, 5)
+   SuccNext2/I1=1
+   SuccNext2/I1=2
+   SuccNext2/I1=3
+   SuccNext2/I1=4
+   Repeat(Seed('a', 1), Succ)/SS=S1
+
+
+Giving determinate "where to draw it" arguments to painters:
+
+Succ(1, 2)      <--- internal arguments describing the painter
+Succ/I1=1,I2=2  <--- painter with "where to paint" arguments
+
+If we do the second one, then the argument-relation detector must look at
+"where to paint" arguments.
+
+If there any difference between "where to paint" arguments and the other
+arguments, e.g. L1, L2?
+
+We could allow multiple "layers" of determinate arguments, in order to
+allow Repeat(('a', 1),Succ) to be "re-run" on multiple canvases:
+
+   Repeat/DD=('a', 1),FF=Succ)/SS=S1
+
+
+Succ(SS1, II1, SS2, II2)  <--- Specify snippets and indices as separate args.
+                               Then notices relations between the snippets
+                               as well as the indices, e.g. "Same snippet"
+                               and "next index".
+Succ(AA1, AA2)            <--- Specify full address in a single argument:
+                               both snippet and index.
+
+We could make painters into Matryoshka dolls, where each "outer doll" adds
+one or more overrides to any arguments that came before, and possibly fills
+in missing arguments (like "which snippet"):
+
+   Repeat/DD=('a', 1),FF=Succ)/SS=S1/FF=Same
+
+
+--------------------
+
+Other possible solutions in the 'ijl' analogy:
+
+   abc->abd; ijk->ijd   "Just make 'd' the last letter."
+   abc->abd; ijk->ijk   "Can't do anything, because it's not 'abc'."
+   abc->abd; ijk->abd   "Just end in 'abd'."
+
+--------------------
+
+process A:
+
+process B:
+   
+--------------------
+
+WHAT TO WORK ON TODAY  1-Apr-2023
+
+The 'ab_' problem. The true simplest analogy problem!
+
+process A: Detector creates Succ(1, 2).
+
+process A: Argument-relation detector creates the painter cluster SuccNext.
+
+process A: Detector sees that SuccNext could run at I2=2, and creates
+SuccNext/I1=2,I2=3.
+
+process B: Run SuccNext/I1=2,I2=3. This writes to the canvas, i.e. creates a
+new canvas.

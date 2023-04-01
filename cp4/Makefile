@@ -74,7 +74,7 @@ ut:
 # Convenience target for single unit test current being worked on
 u:
 	#$(PY) -m unittest -v testModel.TestPainterCluster.test_elems_out_of_order
-	$(PY) -m unittest -v testModel.TestLengthPainter
+	$(PY) -m unittest -v testModel.TestPainterCluster
 
 # Acceptance tests
 at:

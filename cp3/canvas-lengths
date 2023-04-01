@@ -1,0 +1,208 @@
+Problem: When a repeater tries to fill a snippet with unspecified length, how
+does it determine the length?
+
+How do we propagate length from one canvas to another?
+
+
+Possible solutions:
+
+   1. A length-to-length painter.
+
+      Make the differ that creates the ARROW cluster also create the length-
+      to-length painter (inside the cluster).
+
+
+   2. Just-in-time decision-making. Try to run the repeater. It fails due to
+   the missing length. This creates a tag for "missing length" on the snippet.
+   That tag triggers a detector to create a length-to-length painter.
+
+
+   3. When creating the repeater, tag it with 'Source=<source>'. Build into
+   the repeater code that if the canvas is missing a length, to try to copy
+   the length from the source.
+
+   If the source is a repeater, get the length from source-repeater.canvas.
+
+   This is a bit of a hack, but it's a step toward good use of tags in the
+   model.
+
+
+   Example: The repeater RR2 from the end of ijl-cluster:
+
+      How does ARROW know that RR2 comes from RR1? There is no explicit
+      indication in the painters inside ARROW. There are, howeverm chains
+      of connections that run between the arguments of RR1 and RR2.
+      OtherSide(SS1, SS2) implies that if SS2 was blank and got filled in,
+      its source was SS1.
+
+      Every time a painter paints a thing B based on a thing A, it should
+      tag thing B as Source=A.
+
+      Can we do this with the DD and FF arguments, too? What's the source
+      of D3? Since DD makes D3 just get restated as the seed argument of
+      RR2, we should be able to tell that D3 is related to S3, because it's
+      an argument in S3.
+
+
+   Should sources only apply to repeaters? Let's start that way.
+
+   This problem should not take more than a day.
+
+   Ideally, source : source :: source : source
+
+
+Problem: When we add a length to a canvas that lacks one, or change the length
+of a canvas, we must create a new canvas, since we never modify anything. But
+then how do we get 'S4' to denote this new canvas in all the painters within
+ARROW that refer to it?
+
+For now (30-Mar-2023), let's just store the length into the canvas that lacks
+one, and throw a Fizzle if the canvas already has one. In the future, even
+adding a length to a canvas that lacks one should cause a new canvas to be
+created, since other canvases with different lengths may derive from that
+initial canvas. Also, the problem of how to unify all the SS_ variables to the
+same canvas will occur when we try to change a letter in a canvas.
+
+
+
+31-Mar-2023
+
+   1. A special LengthPainter.
+
+   Arrow(RR1, RR2, SS1, SS2, DD, FF, EE, GG, II)
+   RR1=Repeat(SS1, DD, FF)
+   RR2=Repeat(SS2, DD, FF, EE)
+   OtherSide(SS1, SS2)
+   LengthRelation(SS1, SS2, Same)
+   EE=Exception(GG, II)
+   GG=Skip     <-- GG and II are constants, not relations.
+   II=3        <-- what if SS2 has more than 3 cells?
+                   The best way to find II is to get it from context.
+                   Maybe have II refer to a tag, which then has to be placed
+                   in SS2?
+
+   Con: It's a peculiar hack, duplicating generic painters (Same, Succ, Pred)
+   elsewhere in the model.
+
+
+   2. The Same painter's arguments refer to the canvas lengths.
+
+   Arrow(RR1, RR2, SS1, SS2, DD, FF, EE, GG, II)
+   RR1=Repeat(SS1, DD, FF)
+   RR2=Repeat(SS2, DD, FF, EE)
+   OtherSide(SS1, SS2)
+   Same(SS1.length, SS2.length)
+   EE=Exception(GG, II)
+   GG=Skip     <-- GG and II are constants, not relations.
+   II=3        <-- what if SS2 has more than 3 cells?
+                   The best way to find II is to get it from context.
+                   Maybe have II refer to a tag, which then has to be placed
+                   in SS2?
+
+   Con: The expression SS1.length requires expanding the language to be
+   flexible in a new way, complicating the language and opening up more ways
+   for things to go wrong.
+
+
+   3. The canvas length gets set later, not in the PainterCluster, by looking
+   for relations among sources.
+
+   Arrow(RR1, RR2, SS1, SS2, DD, FF, EE, GG, II)
+   RR1=Repeat(SS1, DD, FF)
+   RR2=Repeat(SS2, DD, FF, EE)
+   OtherSide(SS1, SS2)
+   EE=Exception(GG, II)
+   GG=Skip     <-- GG and II are constants, not relations.
+   II=3        <-- what if SS2 has more than 3 cells?
+                   The best way to find II is to get it from context.
+                   Maybe have II refer to a tag, which then has to be placed
+                   in SS2?
+   Don't address the length in the PainterCluster. Let that happen via some
+   other painter, which follows the sources of the repeaters or canvas contents.
+   When the repeater runs, it throws an exception, triggering the search for
+   something to provide the length.
+
+   Con: Tracking the sources and tracing through those records looks
+   complicated.
+
+
+   4. The canvas length is stored as a variable just like everything else.
+
+   Arrow(RR1, RR2, SS1, SS2, NN, DD, FF, EE, GG, II)
+   RR1=Repeat(SS1, DD, FF)
+   RR2=Repeat(SS2, DD, FF, EE)
+   OtherSide(SS1, SS2)
+   SS1=Canvas(_, NN)
+   SS2=Canvas(_, NN)
+   EE=Exception(GG, II)
+   GG=Skip     <-- GG and II are constants, not relations.
+   II=3        <-- what if SS2 has more than 3 cells?
+                   The best way to find II is to get it from context.
+                   Maybe have II refer to a tag, which then has to be placed
+                   in SS2?
+
+   The _ means "ignore it, and don't modify it". It enables us to easily
+   specify that NN is the canvas length without much complicating the
+   language.
+
+   Should we just say that the repeaters cover the canvas contents, instead
+   of _?
+
+   Could we have a PainterCluster consisting of two PainterClusters, the first
+   of which supplies the repeaters, and the second of which is this:
+
+   SS1=Canvas(_, NN)
+   SS2=Canvas(_, NN)
+
+   The lesson learned about the problem so far is that sometimes we need to
+   make a painter that refers to a part of an object but not all of it.
+   Up until now, we were able make each line in a PainterCluster define a
+   whole object, including all of its attributes.
+
+
+   5. Maybe store the length as a tag.
+
+   Then we can simply define OtherSide in terms of a relation between tags,
+   and we can define LengthRelation as a relation between tags. Accessing
+   tags for arguments might provide generality without much added complexity.
+
+   QUESTION: Is it enough to simply specify every kind of workspace object
+   as a name for its class, and a dictionary of tags and their types? Like this:
+
+      Seed = WObjType('letter'=Letter, 'i'=Index) 
+
+   No. Painters also need the ability to run. But it's easy to add a special
+   run() function for painter objects.
+   
+   Pro: For world tags, we could say world=OldWorld rather than finding the
+   world tag by looking through a set for something that subclasses WorldTag.
+
+   Every painter argument would specify a tag type.
+   Repeat(contents, seed, function, exception)
+      A repeater provides a seed, function, and exception. To run, though,
+      it needs a canvas and a length.
+
+   A repeater might link canvas contents to canvas contents rather than
+   canvas to canvas. But wait: how do we create a new canvas in that case?
+
+
+   Let's think of a critical workspace state to see how this would work.
+
+   At the end of step 2 in ijl-cluster, just before the Diff process.
+   The workspace contains S1, S2, S3, S4, R1, R2, and all the arguments of
+   those things (L1, I1, etc.). Let's look at R1:
+
+      R1 = Repeat, tagged canvas=S1, seed=D1, func=F1
+      D1 = Seed, tagged Letter = L1, Index = I1
+      D1 = WObj(Seed, {letter: L1, index: I1})
+
+
+
+Idea: Distinguish between the idea of a painter and what it's been set up
+to run on, like this:
+
+   R1=Repeat[D1, F1, E1]
+   R1(S1)
+
+That is, R1 knows a seed, a function, and an exception. And the model has
+logged that S1 can be filled by running R1.
