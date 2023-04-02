@@ -272,7 +272,7 @@ WHAT TO WORK ON TODAY  1-Apr-2023
 
 The 'ab_' problem. The true simplest analogy problem!
 
-process A: Detector creates Succ(1, 2).
+process A: Detector creates Succ/I1=1,I2=2
 
 process A: Argument-relation detector creates the painter cluster SuccNext.
 

@@ -1,0 +1,93 @@
+THE TOP-LEVEL FUNCTION SIGNATURES
+
+
+At the very top level, we do only:
+
+   Process A: choose a detector, choose something to look at, and run the
+   detector. The detector generates one or more painters that reproduce
+   what was detected. These painters include both intrinsic arguments and
+   "where to paint".
+
+   Process B: choose a painter, maybe choose "where to paint" arguments
+   to favor filling blanks or uncertain items, based on cells that have
+   high consensus, and run it.
+
+   Adjust activation or support levels for painters, canvases, and other
+   workspace objects.
+
+Every 2-argument detector needs:
+
+   Generate pairs to examine.
+
+   For a given pair, does it fulfill the relation? If so, output a painter.
+
+Each painter needs:
+
+   A way to access its arguments.
+
+   A way to get addresses for its arguments. (?)
+
+      By declaring an appropriate type, it should be possible to write the
+      top-level code so it's indifferent to how painter arguments are
+      stored: as data members of objects, as key-value pairs in dictionaries,
+      or whatever.
+
+   A way to run it, i.e. paint a value to some address. Running a painter
+   may involve supplementing or overriding its arguments.
+
+   A painter cluster needs:
+
+      A way to unify the objects inside it with the objects given in its
+      arguments.
+
+      A way to run painter clusters inside it, without name-clashes.
+
+   Need to track that one painter derives from another, e.g. Succ(C1, 1, C1, 2)
+   for 'ab_' and Succ(C2, 1, C2, 2) for 'abc'.
+
+Workspace:
+
+Canvases:
+
+   When painting to a canvas, create a new canvas if any cell is modified.
+
+   Need tags for relations like OtherSide and OtherWorld.
+
+   Need to track that one canvas is a variant of another (i.e. they're in
+   competition).
+
+   Need to track that one canvas fills a span within another.
+
+   Need to be able to "overlay" canvases to get a final result.
+
+   Need to track activation/support of canvas cells and whole canvases.
+
+There needs to be an easy way to whip up workspace objects, like just writing
+Succ(C1, 1, 2) to make a Succ painter that has its AA1 and AA2 set, including
+the CC and II arguments within those addresses.
+
+All the painter types:
+
+   Same, Succ, Pred:
+
+   Repeat:
+
+      Seed
+
+      Skip
+
+      Insert
+
+      Replace
+
+   PainterCluster:
+      
+      Needs Defines, to create new painters or other objects on output, as
+      well as unnamed painters to specify relationships among those objects.
+
+   OtherSide:
+
+
+Later:
+
+   A way to mutate painters.
