@@ -24,11 +24,58 @@ from util import as_iter, field_names_and_values, first, force_setattr, \
     intersection, pr, safe_issubclass, short, union
 
 
+Address = Any
+AttrType = Any
+AttrValue = Any
+
 @dataclass(frozen=True)
 class WObj:
     name: Var
-    d: Dict[
+    attrd: Dict[AttrType, AttrValue]  # intrinsic attributes
+    argd: Dict[Var, Value]            # arguments, like where to paint
 
+
+class Detector:
+
+    @classmethod
+    @abstractmethod
+    def examine_model(cls, m: Model) -> Iterable[Painter]:
+        pass
+
+    @classmethod
+    def run(cls, m: Model):
+        for painter in cls.examine_model(m):
+            m.add(painter)
+
+    @classmethod
+    @abstractmethod
+    def generate_pairs(self, m: Model, addr: Address) \
+    -> Iterable[Tuple[Address, Address]]:
+        pass
+
+class Succ(Detector):
+
+    @classmethod
+    def examine_pair(cls, m: Model, la: Address, ra: Address) \
+    -> Iterable[Painter]:
+        '''Convention: la is always to the left of ra.'''
+        match m.at(left), m.at(right):
+            case (Letter(left), Letter(right)):
+                if r.is_succ_of(l):
+                    yield WObj.make(Succ, la, ra)
+
+    @classmethod
+    def run(cls, m: Model, me: WObj) -> None:
+        la = me.get_argument('AA1')  # parameter name -> argument
+        ra = me.get_argument('AA2')
+        match (m.at(la), m.at(ra)):
+            case (Letter(l), Blank()):
+                m.paint(ra, l.succ())
+            case (Blank(), Letter(r)):
+                m.paint(la, r.pred())
+            case (Letter(l), Letter(r)):
+                if not r.is_succ_of(l):
+                    raise FailedMatch
 
 @dataclass
 class Model:
