@@ -108,9 +108,23 @@ class CompoundWorkspaceObj(ABC):
     def eval(self: T, ws: Workspace) -> T:
         pass
 
-    @abstractmethod
-    def replace_constants_with_variables(self, ws: Workspace) -> CompoundWorkspaceObj:
-        pass
+    def replace_constants_with_variables(self, ws: Workspace) \
+    -> CompoundWorkspaceObj:
+        return self.__class__(*(
+            self.replace_constant_with_variable(ws, arg) #type: ignore[arg-type]
+                for arg in all_arguments_of(self)
+        ))
+        # TODO: optimization? If all the args are variables or None alrady,
+        # then return self instead of creating a new object
+
+    def replace_constant_with_variable(self, ws: Workspace, arg: Argument) \
+    -> Union[Variable, None]:
+        if is_variable(arg):
+            return arg
+        elif arg is None:
+            return None
+        else:
+            return ws.define_and_name(arg) # type: ignore[arg-type] #mypy bug
 
 ########## Tags ##########
 
@@ -675,13 +689,13 @@ class Skip(Exception_):
         else:
             raise NotImplementedError  # TODO
 
-    def replace_constants_with_variables(self, ws: Workspace) \
-    -> CompoundWorkspaceObj:
-        if is_variable(self.i):
-            return self
-        else:
-            return Skip(ws.define_and_name(self.i))  # type: ignore[arg-type]
-
+#    def replace_constants_with_variables(self, ws: Workspace) \
+#    -> CompoundWorkspaceObj:
+#        if is_variable(self.i):
+#            return self
+#        else:
+#            return Skip(ws.define_and_name(self.i))  # type: ignore[arg-type]
+    
 @dataclass(frozen=True)
 class Succeeded:
     info: Any
@@ -745,22 +759,6 @@ class Seed(CompoundWorkspaceObj):
             ws.get_index(self.i)
         )
 
-    def replace_constants_with_variables(self, ws: Workspace) \
-    -> CompoundWorkspaceObj:
-        if is_variable(self.letter) and is_variable(self.i):
-            return self
-        else:
-            letter_variable = (
-                ws.define_and_name(self.letter) # type: ignore[arg-type]
-                    if not is_variable(self.letter) else self.letter
-                )
-            i_variable = (
-                ws.define_and_name(self.i) # type: ignore[arg-type]
-                    if not is_variable(self.i) else self.i
-                )
-            #lo('REPL', letter_variable, i_variable)
-            return Seed(letter_variable, i_variable)
-
     def __repr__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({self.letter!r}, {self.i})'
@@ -801,41 +799,6 @@ class Repeat(CompoundWorkspaceObj):
             ws.get_op(self.op),
             ws.get_exception(self.exception)
         )
-
-    def replace_constants_with_variables(self, ws: Workspace) \
-    -> CompoundWorkspaceObj:
-        if (
-            is_variable(self.canvas)
-            and
-            is_variable(self.seed)
-            and
-            is_variable(self.op)
-            and
-            (self.exception is None or is_variable(self.exception))
-        ):
-            return self
-        else:
-            canvas_variable = (
-                ws.define_and_name(self.canvas) # type: ignore[arg-type]
-                    if not is_variable(self.canvas) else self.canvas
-            )
-            seed_variable = (
-                ws.define_and_name(self.seed) # type: ignore[arg-type]
-                    if not is_variable(self.seed) else self.seed
-            )
-            op_variable = (
-                ws.define_and_name(self.op) # type: ignore[arg-type]
-                    if not is_variable(self.op) else self.op
-            )
-            if self.exception is None:
-                exception_variable = None
-            elif is_variable(self.exception):
-                exception_variable = self.exception
-            else:
-                exception_variable = ws.define_and_name(self.exception) # type: ignore[arg-type]
-            return Repeat(
-                canvas_variable, seed_variable, op_variable, exception_variable
-            )
 
 @dataclass(frozen=True)
 class OtherSide(CompoundWorkspaceObj):
@@ -925,33 +888,6 @@ class LengthPainter(CompoundWorkspaceObj):
             case (int(), int()):
                 if left.length != right.length:
                     raise ArgumentsFailRelation
-
-    def replace_constants_with_variables(self, ws: Workspace) \
-    -> LengthPainter:
-        if (
-            is_variable(self.left)
-            and
-            is_variable(self.right)
-            and
-            is_variable(self.relation)
-        ):
-            return self
-        else:
-            left_variable = (
-                ws.define_and_name(self.left) # type: ignore[arg-type]
-                    if not is_variable(self.left) else self.left
-            )
-            right_variable = (
-                ws.define_and_name(self.right) # type: ignore[arg-type]
-                    if not is_variable(self.right) else self.right
-            )
-            relation_variable = (
-                ws.define_and_name(self.relation) # type: ignore[arg-type]
-                    if not is_variable(self.relation) else self.relation
-            )
-            return LengthPainter(
-                left_variable, right_variable, relation_variable
-            )
 
     def eval(self, ws: Workspace) -> LengthPainter:
         return LengthPainter(
