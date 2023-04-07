@@ -231,17 +231,19 @@ class TestWorkspace(unittest.TestCase):
             Canvas.make_from('ab_'))
         )
 
-    def xtest_make_succ(self) -> None:
+    def test_make_succ(self) -> None:
         ws = Workspace()
         c1 = ws.add_canvas('ab_')
         left_address = Address(c1, 1)
         right_address = Address(c1, 2)
         ws.run_detector(Succ.examine_pair, left_address, right_address)
-        lo('UT', list(ws.get_all(Succ)))
         got: Succ = first(ws.get_all(Succ))
         self.assertTrue(is_variable(got.left))
         self.assertTrue(is_variable(got.right))
-        #self.assertEqual(ws.eval(got), Succ(left_address, right_address))
+        self.assertEqual(
+            ws.eval(got),
+            ws.eval(Succ(left_address, right_address))
+        )
 
 class TestSucc(unittest.TestCase):
 

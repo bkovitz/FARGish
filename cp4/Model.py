@@ -483,9 +483,15 @@ class Canvas:
         return 'c' + repr(self.contents)
 
 @dataclass(frozen=True)
-class Address:
+class Address(CompoundWorkspaceObj):
     canvas: Parameter[Canvas]
     i: Parameter[Index]
+
+    def eval(self, ws: Workspace) -> Address:
+        return Address(
+            ws.get_canvas(self.canvas),
+            ws.get_index(self.i)
+        )
 
 class Op(ABC):
 
@@ -602,7 +608,7 @@ class Op(ABC):
         pass
 
 @dataclass(frozen=True)
-class Succ(Op):
+class Succ(Op, CompoundWorkspaceObj):
     left: Parameter[Address]
     right: Parameter[Address]
 
@@ -615,6 +621,12 @@ class Succ(Op):
             case (str(l), str(r)):
                 if cls.is_succ(l, r):
                     yield Succ(a1, a2)
+
+    def eval(self, ws: Workspace) -> Succ:
+        return Succ(
+            ws.get_address(self.left), 
+            ws.get_address(self.right)
+        )
 
     @classmethod
     def is_succ(cls, l1: str, l2: str) -> bool:
@@ -1016,6 +1028,8 @@ def single_letter_name_for(o: WorkspaceObj) -> str:
             return 'U'
         case Succ():
             return 'P'  # "painter"
+        case Address():
+            return 'A'
         case _:
             raise NotImplementedError(o)
     raise NotImplementedError
@@ -1586,6 +1600,13 @@ class Workspace:
             return result
         else:
             raise WrongType(Letter, x, result)
+
+    def get_address(self, x: Parameter[Address]) -> Address:
+        result = self.eval(x)
+        if isinstance(result, Address):
+            return result
+        else:
+            raise WrongType(Address, x, result)
 
     def all_letter_defs(self) -> Dict[Variable, Letter]:
         return dict(
