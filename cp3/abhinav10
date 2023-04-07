@@ -281,12 +281,16 @@ The 'ab_' problem. The true simplest analogy problem!
 
 process A: Detector creates Succ/I1=1,I2=2
 
-process A: Argument-relation detector creates the painter cluster SuccNext.
+process A: Argument-relation detector creates the (indeterminate) painter
+cluster SuccNext.
 
 process A: Detector sees that SuccNext could run at I2=2, and creates
-SuccNext/I1=2,I2=3.
+SuccNext/I1=2.
 
-process B: Run SuccNext/I1=2,I2=3. This writes to the canvas, i.e. creates a
+process B: Run SuccNext/I1=2. This creates the determinate painter
+Succ(2, 3).
+
+process B: Run Succ(2, 3). This writes to the canvas, i.e. creates a
 new canvas.
 
 

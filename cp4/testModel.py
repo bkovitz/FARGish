@@ -17,7 +17,7 @@ from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
     DiffContext, NoValue, LengthPainter, ArgumentsFailRelation, Address, \
-    is_variable
+    is_variable, ArgumentRelationDetector, CanvasAddress
 
 from Log import lo, set_log_level
 from util import first, pts, reseed, short
@@ -234,8 +234,8 @@ class TestWorkspace(unittest.TestCase):
     def test_make_succ(self) -> None:
         ws = Workspace()
         c1 = ws.add_canvas('ab_')
-        left_address = Address(c1, 1)
-        right_address = Address(c1, 2)
+        left_address = CanvasAddress(c1, 1)
+        right_address = CanvasAddress(c1, 2)
         ws.run_detector(Succ.examine_pair, left_address, right_address)
         got: Succ = first(ws.get_all(Succ))
         self.assertTrue(is_variable(got.left))
@@ -249,11 +249,30 @@ class TestSucc(unittest.TestCase):
 
     def test_succ_detector(self) -> None:
         ws = Workspace()
-        c1 = ws.add_canvas('ab_')
+        c1 = ws.add_canvas('ab_'); a1 = c1.addr(1); a2 = c1.addr(2)
         self.assertCountEqual(
-            Succ.examine_pair(ws, Address(c1, 1), Address(c1, 2)),
-            [Succ(Address(c1, 1), Address(c1, 2))]
+            Succ.examine_pair(ws, a1, a2),
+            [Succ(a1, a2)]
         )
+
+class TestArgumentRelationDetector(unittest.TestCase):
+
+    def test_detect_arg_relation_in_succ(self) -> None:
+        ws = Workspace()
+#        c1 = ws.add_canvas('ab_'); a1 = c1.addr(1); a2 = c1.addr(2)
+#        ws.define('P1', Succ(a1, a2))
+#        self.assertCountEqual(
+#            ArgumentRelationDetector.examine_pair(
+#                Address('P1', 'left'), Address('P1', 'right')
+#            ),
+#            #ArgumentRelationDetector.examine_painter('P1'),
+#            [PainterCluster(
+#                Succ('AA1', 'AA2'),
+#                Define('AA1', Address('SS', 'II1')),
+#                Define('AA2', Address('SS', 'II2')),
+#                Succ('II1', 'II2')
+#            )]
+#        )
 
 class TestOtherSide(unittest.TestCase):
 

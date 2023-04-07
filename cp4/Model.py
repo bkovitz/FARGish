@@ -476,6 +476,9 @@ class Canvas:
     def replace_contents(self, s: str) -> None:
         self.contents = s
 
+    def addr(self, i: Index) -> CanvasAddress:
+        return CanvasAddress(self, i)
+
     def __str__(self) -> str:
         return self.contents
 
@@ -484,14 +487,26 @@ class Canvas:
 
 @dataclass(frozen=True)
 class Address(CompoundWorkspaceObj):
+    pass
+
+@dataclass(frozen=True)
+class CanvasAddress(Address):
     canvas: Parameter[Canvas]
     i: Parameter[Index]
 
-    def eval(self, ws: Workspace) -> Address:
-        return Address(
+    def eval(self, ws: Workspace) -> CanvasAddress:
+        return CanvasAddress(
             ws.get_canvas(self.canvas),
             ws.get_index(self.i)
         )
+
+    def __str__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.canvas)}, {self.i})'
+
+    __repr__ = __str__
+
+#class ParameterAddress(Address):
 
 class Op(ABC):
 
@@ -621,6 +636,9 @@ class Succ(Op, CompoundWorkspaceObj):
             case (str(l), str(r)):
                 if cls.is_succ(l, r):
                     yield Succ(a1, a2)
+#            case (Address(Canvas(c1), i1), Address(Canvas(c1), i2)):
+#                if c1 is c2 and i2 == i1 + 1:
+#                    yield Succ(a1, a2)
 
     def eval(self, ws: Workspace) -> Succ:
         return Succ(
@@ -908,8 +926,15 @@ class LengthPainter(CompoundWorkspaceObj):
             ws.get_painter(self.relation),
         )
 
-Painter = Union[LengthPainter, Repeat, OtherSide, Type[Same]]
+Painter = Union[LengthPainter, Succ, Repeat, OtherSide, Type[Same]]
                 
+class ArgumentRelationDetector:
+
+#    def examine_painter(self, ws: Workspace, p: Painter) \
+#    -> Iterable[Painter]:
+    def examine_pair(self, ws: Workspace, a1: Address, a2: Address) \
+    -> Iterable[Painter]:
+        return Succ.examine_pair(ws, a1, a2)
 
 @dataclass(frozen=True)
 class Define(CompoundWorkspaceObj):
@@ -1350,9 +1375,13 @@ class Workspace:
         # maps each elem to its tags
 
     def at(self, a: Address) -> Optional[WorkspaceObj]:
-        canvas = self.get_canvas(a.canvas)
-        i = self.get_index(a.i)
-        return canvas[i]
+        match a:
+            case CanvasAddress(canvas, i):
+                canvas = self.get_canvas(canvas)
+                i = self.get_index(i)
+                return canvas[i]
+            case _:
+                raise NotImplementedError
 
     def parse_analogy_string(self, s: str) -> None:
         c1, c2, c3, c4 = Canvas.parse_analogy_string(s)
@@ -1398,8 +1427,10 @@ class Workspace:
     def unify(self, name: Variable, value: Argument) -> None:
         self.subst = self.subst.unify(name, value)
 
-    def add_canvas(self, s: str) -> Variable:
-        return self.define_and_name(Canvas.make_from(s))
+    def add_canvas(self, s: str) -> Canvas:
+        canvas = Canvas.make_from(s)
+        self.define_and_name(canvas)
+        return canvas
 
     def define_and_name(self, obj: WorkspaceObj, tags: Tags=None) -> Variable:
         if (
@@ -1629,10 +1660,14 @@ class Workspace:
                     if isinstance(v, int)
         )
 
-    def get_all(self, typ: Type) -> Iterable[WorkspaceObj]:
-        for item in self.subst.values():
-            if isinstance(item, typ):
-                yield item
+    def get_all(self, typ: Optional[Type]=None) -> Iterable[WorkspaceObj]:
+        match typ:
+            case None:
+                yield from self.subst.values()  # type: ignore[misc]
+            case _:
+                for item in self.subst.values():
+                    if isinstance(item, typ):
+                        yield item
 
     def short(self) -> str:
         return self.__class__.__name__
