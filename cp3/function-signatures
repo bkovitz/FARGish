@@ -91,3 +91,28 @@ All the painter types:
 Later:
 
    A way to mutate painters.
+
+
+
+Model.run_detector(detector, *args) -> update Model with new painter(s)
+
+
+unify(subst, obj/var1, obj/var2) -> subst
+diff(obj1, obj2) -> painter cluster
+argument relation detection(obj) -> painter cluster
+
+
+Inside add_diff(var1, var2), what functions do we pass var1 & var2 to?
+
+   self.new_variable_for
+   self.make_argument_dicts_for
+   ws.eval
+   ws.__getitem__
+   self.define_new_variable_for
+
+
+What functions do we pass the values to?
+
+   parameters_and_arguments_of
+   ws.tags_of
+

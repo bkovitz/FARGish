@@ -34,6 +34,8 @@ class WObj:
     attrd: Dict[AttrType, AttrValue]  # intrinsic attributes
     argd: Dict[Var, Value]            # arguments, like where to paint
 
+# {Length: 3, Content: 'abc'}
+# {Length: 'L1', Content: 'abc'}
 
 class Detector:
 
@@ -66,8 +68,8 @@ class Succ(Detector):
 
     @classmethod
     def run(cls, m: Model, me: WObj) -> None:
-        la = me.get_argument('AA1')  # parameter name -> argument
-        ra = me.get_argument('AA2')
+        la = me.get_address('AA1')  # parameter name -> argument
+        ra = me.get_address('AA2')
         match (m.at(la), m.at(ra)):
             case (Letter(l), Blank()):
                 m.paint(ra, l.succ())
@@ -85,7 +87,8 @@ class Model:
         '''Run detectors, which generate painters that reconstruct what the
         detectors detected.'''
         detector = self.choose_detector()
-        detector.run(self)
+        for painter in detector.run(self):
+            self.define_and_name(painter)
 
     def process_B(self) -> None:
         '''Run painters, which generate new canvases and new painters.'''

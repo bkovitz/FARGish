@@ -13,6 +13,13 @@ Ideas:
 3. Hack for now: let OtherSide copy the length.
 
 
+1-Apr-2023
+
+1. Get test_make_succ to pass.
+
+2. Plan out what's left to get to 'ab_'.
+
+
 
 Problem: How to make the DiffContext code simpler, and maybe work more
 generically.
@@ -281,3 +288,19 @@ SuccNext/I1=2,I2=3.
 
 process B: Run SuccNext/I1=2,I2=3. This writes to the canvas, i.e. creates a
 new canvas.
+
+
+
+Make a proper language?
+
+PP1=Succ(AA1, AA2)
+AA1=Succ(SS, II1)
+AA2=Succ(SS, II2)
+Succ(II1, II2)
+
+PP1=Succ((SS, II1), (SS, II2))
+Succ(II1, II2)
+
+P1=Succ((S, I1), (S, I2))
+Succ(I1, I2)
+

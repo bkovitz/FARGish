@@ -87,9 +87,14 @@ Index = int
 @dataclass(frozen=True)
 class CompoundWorkspaceObj(ABC):
 
-    @abstractmethod
     def params(self) -> Collection[Variable]:
-        pass
+        result: List[Variable] = []
+        for name, typ in get_type_hints(self.__class__).items():
+            if is_parameter(typ):
+                value = getattr(self, name)
+                if is_variable(value):
+                    result.append(value)
+        return result
 
     @abstractmethod
     def with_var_level(self, level: int) -> CompoundWorkspaceObj:
@@ -194,6 +199,9 @@ class Subst:
         
     def items(self) -> Iterable[Tuple[Argument, Argument]]:
         return self.d.items()
+
+    def values(self) -> Iterable[Argument]:
+        return self.d.values()
 
     def get(self, k: Argument, default: Any=None) -> Any:
         try:
@@ -423,6 +431,14 @@ class Canvas:
             ] + [cls.make_unknown()]
         else:
             return []
+    
+    @classmethod
+    def are_identical(cls, c1: Canvas, c2: Canvas) -> bool:
+        return (
+            c1.contents == c2.contents
+            and
+            c1.length == c2.length
+        )
 
     @classmethod
     def make_unknown(cls, length: Optional[int]=None) -> Canvas:
@@ -449,6 +465,11 @@ class Canvas:
 
     def short(self) -> str:
         return 'c' + repr(self.contents)
+
+@dataclass(frozen=True)
+class Address:
+    canvas: Parameter[Canvas]
+    i: Parameter[Index]
 
 class Op(ABC):
 
@@ -564,7 +585,24 @@ class Op(ABC):
     def prev_letter(cls, letter: str) -> str:
         pass
 
+@dataclass(frozen=True)
 class Succ(Op):
+    left: Parameter[Address]
+    right: Parameter[Address]
+
+    @classmethod
+    def examine_pair(cls, ws: Workspace, a1: Address, a2: Address) \
+    -> Iterable[Succ]:
+        '''If the element at a2 is the successor of a1, yields Succ(a1, a2).
+        Otherwise yields nothing.'''
+        match (ws.at(a1), ws.at(a2)):
+            case (str(l), str(r)):
+                if cls.is_succ(l, r):
+                    yield Succ(a1, a2)
+
+    @classmethod
+    def is_succ(cls, l1: str, l2: str) -> bool:
+        return ord(l2) == ord(l1) + 1
 
     @classmethod
     def has_relation(cls, x1: Any, x2: Any) -> bool:
@@ -627,12 +665,6 @@ class Exception_(CompoundWorkspaceObj):
 @dataclass(frozen=True)
 class Skip(Exception_):
     i: Parameter[Index]
-
-    def params(self) -> List[Variable]:
-        result: List[Variable] = []
-        if is_variable(self.i):
-            result.append(self.i)
-        return result
 
     def with_var_level(self, level: int) -> Skip:
         return Skip(Var.at_level(self.i, level))
@@ -705,14 +737,6 @@ class Seed(CompoundWorkspaceObj):
 
     def get_letter(self, ws: Workspace) -> str:
         return ws.get_letter(self.letter)
-
-    def params(self) -> List[Variable]:
-        result: List[Variable] = []
-        if is_variable(self.letter):
-            result.append(self.letter)
-        if is_variable(self.i):
-            result.append(self.i)
-        return result
 
     def with_var_level(self, level: int) -> Seed:
         return Seed(
@@ -792,13 +816,6 @@ class Repeat(CompoundWorkspaceObj):
             Var.at_level(self.op, level),
             Var.at_level(self.exception, level)
         )
-
-    def params(self) -> List[Variable]:
-        return [
-            x
-                for x in [self.canvas, self.seed, self.op, self.exception]
-                    if is_variable(x)
-        ]
 
     def replace_constants_with_variables(self, ws: Workspace) \
     -> CompoundWorkspaceObj:
@@ -883,9 +900,6 @@ class OtherSide(CompoundWorkspaceObj):
                 return side_tag.opposite()
         return None  # TODO other cases
 
-    def params(self) -> List[Variable]:
-        return [self.left, self.right]
-
     def with_var_level(self, level: int) -> OtherSide:
         return OtherSide(
             Var.at_level(self.left, level),
@@ -932,13 +946,6 @@ class LengthPainter(CompoundWorkspaceObj):
             case (int(), int()):
                 if left.length != right.length:
                     raise ArgumentsFailRelation
-
-    def params(self) -> List[Variable]:
-        return [
-            x
-                for x in [self.left, self.right, self.relation]
-                    if is_variable(x)
-        ]
 
     def with_var_level(self, level: int) -> LengthPainter:
         return LengthPainter(
@@ -1099,6 +1106,8 @@ def single_letter_name_for(o: WorkspaceObj) -> str:
             return 'S'  # "snippet"
         case PainterCluster():
             return 'U'
+        case Succ():
+            return 'P'  # "painter"
         case _:
             raise NotImplementedError(o)
     raise NotImplementedError
@@ -1418,6 +1427,11 @@ class Workspace:
         field(default_factory=lambda: defaultdict(set))
         # maps each elem to its tags
 
+    def at(self, a: Address) -> Optional[WorkspaceObj]:
+        canvas = self.get_canvas(a.canvas)
+        i = self.get_index(a.i)
+        return canvas[i]
+
     def parse_analogy_string(self, s: str) -> None:
         c1, c2, c3, c4 = Canvas.parse_analogy_string(s)
         self.define_and_name(c1, tags=[Lhs(), OldWorld()])
@@ -1462,6 +1476,9 @@ class Workspace:
     def unify(self, name: Variable, value: Argument) -> None:
         self.subst = self.subst.unify(name, value)
 
+    def add_canvas(self, s: str) -> Variable:
+        return self.define_and_name(Canvas.make_from(s))
+
     def define_and_name(self, obj: WorkspaceObj, tags: Tags=None) -> Variable:
         if (
             isinstance(obj, Canvas)
@@ -1481,7 +1498,8 @@ class Workspace:
 
     def __getitem__(self, obj: Argument) -> Optional[Argument]:
         '''Returns None if 'obj' is not defined. If 'obj' is defined as
-        a variable name, returns the value of that other name.'''
+        a variable name, returns the value of that other name. If 'obj'
+        is just a WorkspaceObj and not a variable name, returns 'obj'.'''
         if is_variable(obj):
             value = self.subst.get(obj, None)
         else:
@@ -1560,6 +1578,10 @@ class Workspace:
                 self.subst = pc.run(self, subst_in)
             case _:
                 raise NotImplementedError  # TODO handle missing PainterCluster
+
+    def run_detector(self, detector: Callable, *args) -> None:
+        for obj in detector(self, *args):
+            self.define_and_name(obj)
 
     def get_index(self, x: Parameter[Index]) -> Index:
         match x:
@@ -1677,6 +1699,11 @@ class Workspace:
                 for k, v in self.subst.items()
                     if isinstance(v, int)
         )
+
+    def get_all(self, typ: Type) -> Iterable[WorkspaceObj]:
+        for item in self.subst.values():
+            if isinstance(item, typ):
+                yield item
 
     def short(self) -> str:
         return self.__class__.__name__

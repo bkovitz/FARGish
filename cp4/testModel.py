@@ -16,10 +16,11 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
-    DiffContext, NoValue, LengthPainter, ArgumentsFailRelation
+    DiffContext, NoValue, LengthPainter, ArgumentsFailRelation, Address, \
+    is_variable
 
 from Log import lo, set_log_level
-from util import pts, reseed, short
+from util import first, pts, reseed, short
 
 
 class TestCanvas(unittest.TestCase):
@@ -222,6 +223,35 @@ class TestWorkspace(unittest.TestCase):
         # canvas, i.e. no duplicate canvas gets created when the repeater
         # is put into the workspace.
 
+    def test_add_canvas(self) -> None:
+        ws = Workspace()
+        var = ws.add_canvas('ab_')
+        self.assertTrue(
+            Canvas.are_identical(ws.get_canvas(var),
+            Canvas.make_from('ab_'))
+        )
+
+    def xtest_make_succ(self) -> None:
+        ws = Workspace()
+        c1 = ws.add_canvas('ab_')
+        left_address = Address(c1, 1)
+        right_address = Address(c1, 2)
+        ws.run_detector(Succ.examine_pair, left_address, right_address)
+        lo('UT', list(ws.get_all(Succ)))
+        got: Succ = first(ws.get_all(Succ))
+        self.assertTrue(is_variable(got.left))
+        self.assertTrue(is_variable(got.right))
+        #self.assertEqual(ws.eval(got), Succ(left_address, right_address))
+
+class TestSucc(unittest.TestCase):
+
+    def test_succ_detector(self) -> None:
+        ws = Workspace()
+        c1 = ws.add_canvas('ab_')
+        self.assertCountEqual(
+            Succ.examine_pair(ws, Address(c1, 1), Address(c1, 2)),
+            [Succ(Address(c1, 1), Address(c1, 2))]
+        )
 
 class TestOtherSide(unittest.TestCase):
 
