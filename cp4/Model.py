@@ -96,11 +96,13 @@ class CompoundWorkspaceObj(ABC):
                     result.append(value)
         return result
 
-    @abstractmethod
     def with_var_level(self, level: int) -> CompoundWorkspaceObj:
-        '''Return a new CompoundWorkspaceObj, in which all the Parameter variables have been
-        replaced with Var objects at 'level'.'''
-        pass
+        '''Return a new CompoundWorkspaceObj, in which all the Parameter
+        variables have been replaced with Var objects at 'level'.'''
+        return self.__class__(*(  # type: ignore[arg-type]
+            Var.at_level(arg, level)
+                for arg in all_arguments_of(self)
+        ))
 
     @abstractmethod
     def eval(self: T, ws: Workspace) -> T:
@@ -666,9 +668,6 @@ class Exception_(CompoundWorkspaceObj):
 class Skip(Exception_):
     i: Parameter[Index]
 
-    def with_var_level(self, level: int) -> Skip:
-        return Skip(Var.at_level(self.i, level))
-
     def eval(self, ws: Workspace) -> Skip:
         i = ws.eval(self.i)
         if isinstance(i, int):
@@ -738,12 +737,6 @@ class Seed(CompoundWorkspaceObj):
     def get_letter(self, ws: Workspace) -> str:
         return ws.get_letter(self.letter)
 
-    def with_var_level(self, level: int) -> Seed:
-        return Seed(
-            Var.at_level(self.letter, level),
-            Var.at_level(self.i, level)
-        )
-
     def eval(self, ws: Workspace) -> Seed:
         return Seed(
             #ws.eval(self.letter),
@@ -807,14 +800,6 @@ class Repeat(CompoundWorkspaceObj):
             ws.get_seed(self.seed),
             ws.get_op(self.op),
             ws.get_exception(self.exception)
-        )
-
-    def with_var_level(self, level: int) -> Repeat:
-        return Repeat(
-            Var.at_level(self.canvas, level),
-            Var.at_level(self.seed, level),
-            Var.at_level(self.op, level),
-            Var.at_level(self.exception, level)
         )
 
     def replace_constants_with_variables(self, ws: Workspace) \
@@ -900,12 +885,6 @@ class OtherSide(CompoundWorkspaceObj):
                 return side_tag.opposite()
         return None  # TODO other cases
 
-    def with_var_level(self, level: int) -> OtherSide:
-        return OtherSide(
-            Var.at_level(self.left, level),
-            Var.at_level(self.right, level),
-        )
-
     def eval(self, ws: Workspace) -> OtherSide:
         raise NotImplementedError  # TODO
 
@@ -946,13 +925,6 @@ class LengthPainter(CompoundWorkspaceObj):
             case (int(), int()):
                 if left.length != right.length:
                     raise ArgumentsFailRelation
-
-    def with_var_level(self, level: int) -> LengthPainter:
-        return LengthPainter(
-            Var.at_level(self.left, level),
-            Var.at_level(self.right, level),
-            Var.at_level(self.relation, level),
-        )
 
     def replace_constants_with_variables(self, ws: Workspace) \
     -> LengthPainter:
