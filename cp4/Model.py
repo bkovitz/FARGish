@@ -21,6 +21,7 @@ from util import as_iter, field_names_and_values, first, force_setattr, \
 
 
 T = TypeVar('T')
+ARG = TypeVar('ARG', bound='Argument')
 
 @dataclass(frozen=True)
 class Var:
@@ -78,6 +79,8 @@ class Var:
 Variable = Union[str, Var]
 Parameter = Union[Variable, T]
 OptionalParameter = Union[Variable, T, None]
+
+ParameterName = Literal['left', 'right']
 
 VDict = Dict[Variable, Parameter]
 
@@ -506,7 +509,10 @@ class CanvasAddress(Address):
 
     __repr__ = __str__
 
-#class ParameterAddress(Address):
+@dataclass(frozen=True)
+class ParameterAddress:
+    painter: Parameter[Painter]
+    parameter_name: Parameter[ParameterName]
 
 class Op(ABC):
 
@@ -1393,12 +1399,11 @@ class Workspace:
     def define(
         self,
         name: Variable,
-        value: Argument,
-        #tags: Union[Tag, List[Tag], None]=None
+        value: ARG, #Argument,
         tags: Tags=None
-    ) -> None:
+    ) -> ARG: #None:
         if isinstance(value, CompoundWorkspaceObj):
-            value = value.replace_constants_with_variables(self)
+            value = value.replace_constants_with_variables(self) # type: ignore[assignment]
         if self._creating_a_new_object_within_a_painter_cluster(name, value):
             level_0_name = self.define_and_name(value) # type: ignore[arg-type]
             self.define(name, level_0_name)
@@ -1410,6 +1415,7 @@ class Workspace:
             #TODO How to ensure that the WorkspaceObj gets tagged, not just
             # variable that refers to it?--and the variable might not be set
             # to the WorkspaceObj until later.
+        return value
 
     def _creating_a_new_object_within_a_painter_cluster(
         self,
