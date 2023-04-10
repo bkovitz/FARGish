@@ -17,7 +17,7 @@ from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
     DiffContext, NoValue, LengthPainter, ArgumentsFailRelation, Address, \
-    is_variable, ArgumentRelationDetector, CanvasAddress
+    is_variable, ArgumentRelationDetector, CanvasAddress, ParameterAddress
 
 from Log import lo, set_log_level
 from util import first, pts, reseed, short
@@ -247,32 +247,106 @@ class TestWorkspace(unittest.TestCase):
 
 class TestSucc(unittest.TestCase):
 
-    def test_succ_detector(self) -> None:
+    def test_succ_examine_pair(self) -> None:
         ws = Workspace()
         c1 = ws.add_canvas('ab_'); a1 = c1.addr(1); a2 = c1.addr(2)
         self.assertCountEqual(
             Succ.examine_pair(ws, a1, a2),
             [Succ(a1, a2)]
         )
-
-class TestArgumentRelationDetector(unittest.TestCase):
-
+    
     def test_detect_arg_relation_in_succ(self) -> None:
         ws = Workspace()
         c1 = ws.add_canvas('ab_'); a1 = c1.addr(1); a2 = c1.addr(2)
         p1 = ws.define('P1', Succ(a1, a2))
-#        self.assertCountEqual(
-#            ArgumentRelationDetector.examine_pair(
-#                Address('P1', 'left'), Address('P1', 'right')
-#            ),
-#            #ArgumentRelationDetector.examine_painter('P1'),
-#            [PainterCluster(
-#                Succ('AA1', 'AA2'),
-#                Define('AA1', Address('SS', 'II1')),
-#                Define('AA2', Address('SS', 'II2')),
-#                Succ('II1', 'II2')
-#            )]
-#        )
+        self.assertCountEqual(
+            Succ.examine_pair(
+                ws,
+                ParameterAddress('P1', 'left'),
+                ParameterAddress('P1', 'right')
+            ),
+            [Succ(
+                ParameterAddress('P1', 'left'),
+                ParameterAddress('P1', 'right')
+            )]
+        )
+
+    # Should we have a function that, when passed two anythings, returns a
+    # relation detected between them? E.g. (lhs, 1), (rhs, 2) ->
+    # OtherSide(lhs, rhs), Succ(1, 2).
+    # Then pass just the arguments within a painter (or two painters) and
+    # this will find all the relations.
+
+    # It should be possible to call PCMaker() with a pile of relations
+    # and desired objects to rebuild, and PCMaker() assigns all needed
+    # variables and creates the PainterCluster.
+
+    # PCMaker replaces *all* constants with variables.
+    # Maybe the caller can specify some constants to preserve, e.g. 'a'.
+    # Therefore the caller can just pass in constants, and PCMaker will
+    # figure out how to name them, giving the same name to constants
+    # that are identical (except when the caller has provided an explicit
+    # Same relation for them).
+
+    # If an object has arguments, PCMaker assigns variables to those arguments.
+    # If any two objects of an argument are the same, PCMaker assigns them
+    # the same name (unless the caller requested an explicit Same). This
+    # applies recursively to the arguments, which can themselves be objects.
+
+    # If caller specifies "rebuild X", then PCMaker makes a Define for X.
+
+    # Succ((c1, 1), (c1, 2))  'ab'   PP1=Succ(AA1, AA2)
+    # (c1, 1)  (c1, 2)
+    # Same(c1, c1)      SS=c1
+    # Succ(1, 2)        II1=1, II2=2
+    # PainterCluster(
+    #   PP1=Succ(AA1, AA2)
+    #   AA1=CanvasAddress(SS, II1)
+    #   AA2=CanvasAddress(SS, II2)
+    #   Succ(II1, II2)
+    #)
+
+class TestArgumentRelationDetector(unittest.TestCase):
+
+    def xtest_detect_arg_relation_in_succ(self) -> None:
+        ws = Workspace()
+        c1 = ws.add_canvas('ab_'); a1 = c1.addr(1); a2 = c1.addr(2)
+        p1 = ws.define('P1', Succ(a1, a2))
+        self.assertCountEqual(
+            ArgumentRelationDetector.examine_pair(
+                ws,
+                ParameterAddress('P1', 'left'),
+                ParameterAddress('P1', 'right')
+            ),
+            #ArgumentRelationDetector.examine_painter('P1'),
+            [PainterCluster(
+                Define('PP1', Succ('AA1', 'AA2')),
+                Define('AA1', CanvasAddress('SS', 'II1')),
+                Define('AA2', CanvasAddress('SS', 'II2')),
+                Succ('II1', 'II2')
+            )]
+            # "Given 1, 2, since they are successors, make Succ(1, 2)"
+        )
+
+    # TODO Succ relation across two painters
+
+    def test_no_arg_relation(self) -> None:
+        ws = Workspace()
+        c1 = ws.add_canvas('abc'); a1 = c1.addr(1); a3 = c1.addr(3)
+        p1 = ws.define('P1', Succ(a1, a3))
+        self.assertCountEqual(
+            ArgumentRelationDetector.examine_pair(
+                ws,
+                ParameterAddress('P1', 'left'),
+                ParameterAddress('P1', 'right')
+            ),
+            []
+        )
+
+class TestPainterCluster(unittest.TestCase):
+
+    def test_painter_cluster(self) -> None:
+        pass
 
 class TestOtherSide(unittest.TestCase):
 

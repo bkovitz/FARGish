@@ -510,9 +510,17 @@ class CanvasAddress(Address):
     __repr__ = __str__
 
 @dataclass(frozen=True)
-class ParameterAddress:
+class ParameterAddress(Address):
     painter: Parameter[Painter]
-    parameter_name: Parameter[ParameterName]
+    parameter_name: Parameter[ParameterName]  # Can't be indirect, i.e.
+                                        # must be a variable, not a constant
+
+    def eval(self, ws: Workspace) -> ParameterAddress:
+        return ParameterAddress(
+            ws.get_painter(self.painter),
+            self.parameter_name
+        )
+
 
 class Op(ABC):
 
@@ -642,9 +650,30 @@ class Succ(Op, CompoundWorkspaceObj):
             case (str(l), str(r)):
                 if cls.is_succ(l, r):
                     yield Succ(a1, a2)
-#            case (Address(Canvas(c1), i1), Address(Canvas(c1), i2)):
-#                if c1 is c2 and i2 == i1 + 1:
-#                    yield Succ(a1, a2)
+            case (CanvasAddress(c1_, i1_),
+                  CanvasAddress(c2_, i2_)):
+                c1 = ws.get_canvas(c1_)
+                c2 = ws.get_canvas(c2_)
+                i1 = ws.get_index(i1_)
+                i2 = ws.get_index(i2_)
+                if c1 is c2 and i2 == i1 + 1:
+                    yield Succ(a1, a2)
+
+#                    pcm = PCMaker()
+#                    #aa1 = pcm.define_address(a1)
+#                    #aa2 = pcm.define_address(a2)
+#                    pp1 = pcm.define_painter(Succ(aa1, aa2))
+#                    pcm.add_relationship(Succ, aa1, aa2)
+#
+#                    # Pass constants & relationships to pcm.
+#                    # pcm doesn't detect relationships except 'same'.
+#                    # pcm invents all variables.
+#                    # Pass 'what to build' to pcm.
+#
+#                    pcm.rebuild_objects_with_args(a1, a2)
+#                    pcm.add_relationship(Succ, i1, i2)
+#                    yield pcm.painter_cluster()
+
 
     def eval(self, ws: Workspace) -> Succ:
         return Succ(
@@ -932,15 +961,26 @@ class LengthPainter(CompoundWorkspaceObj):
             ws.get_painter(self.relation),
         )
 
-Painter = Union[LengthPainter, Succ, Repeat, OtherSide, Type[Same]]
-                
 class ArgumentRelationDetector:
 
 #    def examine_painter(self, ws: Workspace, p: Painter) \
 #    -> Iterable[Painter]:
-    def examine_pair(self, ws: Workspace, a1: Address, a2: Address) \
-    -> Iterable[Painter]:
+    @classmethod
+    def examine_pair(
+        cls, ws: Workspace, a1: ParameterAddress, a2: ParameterAddress
+    ) -> Iterable[Painter]:
         return Succ.examine_pair(ws, a1, a2)
+#        match (a1, a2):
+#            case (ParameterAddress(p1, i1), ParameterAddress(p2, i2)):
+#                re
+#                relation_painter = list(Succ.examine_pair(a1, a2))[0]
+#
+#        return [PainterCluster(
+#                Define('PP1', Succ('AA1', 'AA2')),
+#                Define('AA1', CanvasAddress('SS', 'II1')),
+#                Define('AA2', CanvasAddress('SS', 'II2')),
+#                Succ('II1', 'II2')
+#            )]
 
 @dataclass(frozen=True)
 class Define(CompoundWorkspaceObj):
@@ -1140,6 +1180,8 @@ class PainterCluster(CompoundWorkspaceObj):
 
     __repr__ = __str__
 
+Painter = Union[LengthPainter, Succ, Repeat, OtherSide, Type[Same], PainterCluster]
+                
 @dataclass(frozen=True)
 class NoValue:
     '''When a variable is given NoValue() during construction of a
@@ -1184,7 +1226,7 @@ class DiffContext:
             result_var = self.new_variable_for(var1, prefer_no_suffix=True)
             self.d[result_var] = NoValue()
             return result_var, result_var
-        else:  # else define two variables and link their values via som
+        else:  # else define two variables and link their values via some
                # representation of their difference
             match (value1, value2):
                 case (CompoundWorkspaceObj() as v1,
@@ -1365,7 +1407,7 @@ def is_painter(x: Any) -> TypeGuard[Painter]:
     return (
         is_type_op(x)
         or
-        isinstance(x, (LengthPainter, Repeat, OtherSide))
+        isinstance(x, (Op, LengthPainter, Repeat, OtherSide))
     )
 
 @dataclass
@@ -1386,6 +1428,10 @@ class Workspace:
                 canvas = self.get_canvas(canvas)
                 i = self.get_index(i)
                 return canvas[i]
+            case ParameterAddress(painter, parameter_name):
+                p = self.get_painter(painter)
+                assert isinstance(parameter_name, str)  # TODO Allow a variable?
+                return getattr(p, parameter_name)
             case _:
                 raise NotImplementedError
 
