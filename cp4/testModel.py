@@ -17,7 +17,8 @@ from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     Skip, Workspace, PainterCluster, Define, OtherSide, Lhs, Rhs, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
     DiffContext, NoValue, LengthPainter, ArgumentsFailRelation, Address, \
-    is_variable, ArgumentRelationDetector, CanvasAddress, ParameterAddress
+    is_variable, ArgumentRelationDetector, CanvasAddress, ParameterAddress, \
+    PCMaker
 
 from Log import lo, set_log_level
 from util import first, pts, reseed, short
@@ -306,6 +307,21 @@ class TestSucc(unittest.TestCase):
     #   Succ(II1, II2)
     #)
 
+class TestPCMaker(unittest.TestCase):
+
+    def test_pcmaker(self) -> None:
+        ws = Workspace()
+        pcm = PCMaker(ws)
+        pcm.rebuild_object(Seed('a', 1))
+        pcm.rebuild_object(Seed('b', 1))
+        self.assertEqual(
+            pcm.painter_cluster(),
+            PainterCluster(
+                Define('DD1', Seed('LL1', 'II')),
+                Define('DD2', Seed('LL2', 'II')),
+            )
+        )
+
 class TestArgumentRelationDetector(unittest.TestCase):
 
     def xtest_detect_arg_relation_in_succ(self) -> None:
@@ -342,11 +358,6 @@ class TestArgumentRelationDetector(unittest.TestCase):
             ),
             []
         )
-
-class TestPainterCluster(unittest.TestCase):
-
-    def test_painter_cluster(self) -> None:
-        pass
 
 class TestOtherSide(unittest.TestCase):
 
@@ -405,7 +416,6 @@ class TestPainterCluster(unittest.TestCase):
         ws.define('CLUSTER', PainterCluster(
             Define('LL', 'a')
         ))
-
         ws.run_painter_cluster('CLUSTER', empty_subst)
         self.assertEqual(ws['L1'], 'a')
 
@@ -415,7 +425,6 @@ class TestPainterCluster(unittest.TestCase):
         ws.define('CLUSTER', PainterCluster(
             Define('LL', 'a')
         ))
-
         ws.run_painter_cluster('CLUSTER', empty_subst)
         self.assertEqual(ws.all_letter_defs(), {'L1': 'b', 'L2': 'a'})
 

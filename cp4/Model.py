@@ -1411,6 +1411,44 @@ def is_painter(x: Any) -> TypeGuard[Painter]:
     )
 
 @dataclass
+class PCMaker:
+    '''Makes PainterClusters, reflecting constraints entered via a series of
+    method calls.'''
+    ws: Workspace
+    to_rebuild: Set[WorkspaceObj] = field(default_factory=set)
+    all_objects: Dict[WorkspaceObj, int] = \
+        field(default_factory=defaultdict(int))
+    d: Dict[WorkspaceObj, str] = field(default_factory=dict)
+
+    def rebuild_object(self, obj_: WorkspaceObj) -> None:
+        obj = ws.eval(obj_)
+        self.to_rebuild.add(obj)
+        self.all_objects[obj] += 1
+        for o in self.all_objects_in(obj):
+            self.all_objects[o] += 1
+
+    def painter_cluster(self) -> PainterCluster:
+        for obj in self.to_rebuild:
+            self.assign_name(obj)
+
+        return PainterCluster(*(
+            Define(self.d[obj], self.with_variables(obj))
+                for obj in self.to_rebuild
+        ))
+
+    def assign_name(self, obj: WorkspaceObj) -> None:
+        if obj in self.d:
+            return
+        if self.all_objects[obj] == 1:
+            
+        else:
+            # favor a name with no number
+
+    def with_variables(self, obj: WorkspaceObj) -> WorkspaceObj:
+        match obj:
+            case Seed(letter, i):
+                
+@dataclass
 class Workspace:
     subst: Subst = empty_subst
     var_counters: Dict[str, int] = \
