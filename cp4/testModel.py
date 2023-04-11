@@ -313,7 +313,7 @@ class TestPCMaker(unittest.TestCase):
         ws = Workspace()
         pcm = PCMaker(ws)
         pcm.rebuild_object(Seed('a', 1))
-        pcm.rebuild_object(Seed('b', 1))
+        pcm.rebuild_object(Seed('j', 1))
         self.assertEqual(
             pcm.painter_cluster(),
             PainterCluster(

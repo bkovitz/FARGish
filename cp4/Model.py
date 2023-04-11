@@ -1417,36 +1417,75 @@ class PCMaker:
     ws: Workspace
     to_rebuild: Set[WorkspaceObj] = field(default_factory=set)
     all_objects: Dict[WorkspaceObj, int] = \
-        field(default_factory=defaultdict(int))
-    d: Dict[WorkspaceObj, str] = field(default_factory=dict)
+        field(default_factory=lambda: defaultdict(int))
+    name_of: Dict[WorkspaceObj, Variable] = field(default_factory=dict)
 
-    def rebuild_object(self, obj_: WorkspaceObj) -> None:
-        obj = ws.eval(obj_)
+    def rebuild_object(self, obj_: Argument) -> None:
+        obj = self.ws.eval(obj_)
+        assert obj is not None
         self.to_rebuild.add(obj)
         self.all_objects[obj] += 1
         for o in self.all_objects_in(obj):
             self.all_objects[o] += 1
 
+    def all_objects_in(self, obj: WorkspaceObj) -> Iterable[WorkspaceObj]:
+        '''obj must be eval'ed, i.e. contain no variables.'''
+        match obj:
+            case str():  # we assume length 1, i.e. not a Variable
+                return
+            case int():
+                return
+            case CompoundWorkspaceObj():
+                yield from all_arguments_of(obj) # type: ignore[misc]
+            case _:
+                raise NotImplementedError
+
     def painter_cluster(self) -> PainterCluster:
-        for obj in self.to_rebuild:
+        for obj in self.all_objects:
             self.assign_name(obj)
 
         return PainterCluster(*(
-            Define(self.d[obj], self.with_variables(obj))
+            Define(self.name_of[obj], self.with_variables(obj))
                 for obj in self.to_rebuild
         ))
 
     def assign_name(self, obj: WorkspaceObj) -> None:
-        if obj in self.d:
+        '''Give obj a name consisting of a doubled letter indicating its type
+        and a number uniquely distinguishing it. If there are at least two
+        instances of the same obj, then give it a name with no number unless
+        another obj already has that name.'''
+        if obj in self.name_of:
             return
-        if self.all_objects[obj] == 1:
-            
-        else:
-            # favor a name with no number
+        self.name_of[obj] = self.new_variable_for(
+            single_letter_name_for(obj),
+            self.all_objects[obj] >= 2
+        )
 
-    def with_variables(self, obj: WorkspaceObj) -> WorkspaceObj:
+    # TODO OAOO
+    def new_variable_for(self, var: Variable, prefer_no_suffix: bool=False) \
+    -> Variable:
+        base_var = Var.doubled_first_letter(var)
+        suffix = 0 if prefer_no_suffix else 1
+        while True:
+            result = Var.append_suffix(base_var, str(suffix)) \
+                        if suffix >= 1 else base_var
+            if result not in self.name_of.values():
+                return result
+            suffix += 1
+
+    def with_variables(self, obj: WorkspaceObj) -> Argument:
         match obj:
             case Seed(letter, i):
+                return Seed(
+                    self.with_variables(letter), # type: ignore[arg-type]
+                    self.with_variables(i) # type: ignore[arg-type]
+                )
+            case str():
+                return self.name_of[obj]
+            case int():
+                return self.name_of[obj]
+            case _:
+                raise NotImplementedError
                 
 @dataclass
 class Workspace:
