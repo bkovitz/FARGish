@@ -309,16 +309,31 @@ class TestSucc(unittest.TestCase):
 
 class TestPCMaker(unittest.TestCase):
 
-    def test_pcmaker(self) -> None:
+    def test_pcmaker_rebuild_seeds(self) -> None:
         ws = Workspace()
         pcm = PCMaker(ws)
-        pcm.rebuild_object(Seed('a', 1))
-        pcm.rebuild_object(Seed('j', 1))
+        pcm.will_rebuild_object(Seed('a', 1))
+        pcm.will_rebuild_object(Seed('j', 1))
         self.assertEqual(
             pcm.painter_cluster(),
             PainterCluster(
                 Define('DD1', Seed('LL1', 'II')),
                 Define('DD2', Seed('LL2', 'II')),
+            )
+        )
+
+    def test_pcmaker_rebuild_seeds_with_succ(self) -> None:
+        ws = Workspace()
+        pcm = PCMaker(ws)
+        pcm.will_rebuild_object(Seed('a', 1))
+        pcm.will_rebuild_object(Seed('b', 1))
+        pcm.will_rebuild_relation(Succ('a', 'b'))
+        self.assertEqual(
+            pcm.painter_cluster(),
+            PainterCluster(
+                Define('DD1', Seed('LL1', 'II')),
+                Define('DD2', Seed('LL2', 'II')),
+                Succ('LL1', 'LL2')
             )
         )
 

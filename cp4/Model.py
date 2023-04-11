@@ -638,9 +638,10 @@ class Op(ABC):
 
 @dataclass(frozen=True)
 class Succ(Op, CompoundWorkspaceObj):
-    left: Parameter[Address]
-    right: Parameter[Address]
+    left: Parameter[Union[Address, Letter]]
+    right: Parameter[Union[Address, Letter]]
 
+    # TODO Allow a1 & a2 to be constants, not just Addresses
     @classmethod
     def examine_pair(cls, ws: Workspace, a1: Address, a2: Address) \
     -> Iterable[Succ]:
@@ -677,8 +678,10 @@ class Succ(Op, CompoundWorkspaceObj):
 
     def eval(self, ws: Workspace) -> Succ:
         return Succ(
-            ws.get_address(self.left), 
-            ws.get_address(self.right)
+            #ws.get_address(self.left), 
+            #ws.get_address(self.right)
+            ws.eval(self.left),  # type: ignore[arg-type]
+            ws.eval(self.right),  # type: ignore[arg-type]
         )
 
     @classmethod
@@ -1109,7 +1112,7 @@ def single_letter_name_for(o: WorkspaceObj) -> str:
 class PainterCluster(CompoundWorkspaceObj):
     elems: Tuple[PainterClusterElem, ...]
 
-    def __init__(self, *elems: CompoundWorkspaceObj):
+    def __init__(self, *elems: PainterClusterElem):
         force_setattr(self, 'elems', elems)
 
     def __eq__(self, other: Any) -> bool:
@@ -1170,9 +1173,9 @@ class PainterCluster(CompoundWorkspaceObj):
     def replace_constants_with_variables(self, ws: Workspace) \
     -> CompoundWorkspaceObj:
         return PainterCluster(
-            *(elem.replace_constants_with_variables(ws) for elem in self.elems)
+            *(elem.replace_constants_with_variables(ws) # type: ignore[arg-type]
+                for elem in self.elems)
         )
-
     def __str__(self) -> str:
         cl = self.__class__.__name__
         elem_strs = ', '.join(short(elem, inside=True) for elem in self.elems)
@@ -1180,7 +1183,9 @@ class PainterCluster(CompoundWorkspaceObj):
 
     __repr__ = __str__
 
-Painter = Union[LengthPainter, Succ, Repeat, OtherSide, Type[Same], PainterCluster]
+Painter = Union[
+    LengthPainter, Succ, Repeat, OtherSide, Type[Same], PainterCluster
+]
                 
 @dataclass(frozen=True)
 class NoValue:
@@ -1413,20 +1418,38 @@ def is_painter(x: Any) -> TypeGuard[Painter]:
 @dataclass
 class PCMaker:
     '''Makes PainterClusters, reflecting constraints entered via a series of
-    method calls.'''
+    method calls. PCMaker assigns a variable name to each object and
+    subobject, PCMaker only detects one type of relationship among the
+    objects that it's given: the fact that the same object occurs more than
+    once; PCMaker gives the same object the same variable name in each place
+    that it occurs.'''
     ws: Workspace
+    # TODO objects_to_rebuild
     to_rebuild: Set[WorkspaceObj] = field(default_factory=set)
+    relations_to_rebuild: Set[Painter] = field(default_factory=set)
     all_objects: Dict[WorkspaceObj, int] = \
         field(default_factory=lambda: defaultdict(int))
     name_of: Dict[WorkspaceObj, Variable] = field(default_factory=dict)
 
-    def rebuild_object(self, obj_: Argument) -> None:
+    def will_rebuild_object(self, obj_: Argument) -> None:
+        '''Indicates that the generated PainterCluster should rebuild obj_.'''
         obj = self.ws.eval(obj_)
         assert obj is not None
         self.to_rebuild.add(obj)
         self.all_objects[obj] += 1
         for o in self.all_objects_in(obj):
             self.all_objects[o] += 1
+
+    def will_rebuild_relation(self, painter_: Painter) -> None:
+        painter = self.ws.eval(painter_)
+        assert is_painter(painter)
+        self.relations_to_rebuild.add(painter)
+#        self.all_objects[painter] += 1
+#        for o in self.all_objects_in(painter):
+#            self.all_objects[o] += 1
+        # TODO Don't we need to look inside the painter to give names to all of
+        # the objects that it contains? What if there's an object in there that
+        # isn't referred to elsewhere? That object needs a variable name, too.
 
     def all_objects_in(self, obj: WorkspaceObj) -> Iterable[WorkspaceObj]:
         '''obj must be eval'ed, i.e. contain no variables.'''
@@ -1444,10 +1467,14 @@ class PCMaker:
         for obj in self.all_objects:
             self.assign_name(obj)
 
-        return PainterCluster(*(
+        elems = list(
             Define(self.name_of[obj], self.with_variables(obj))
                 for obj in self.to_rebuild
-        ))
+        ) + list(
+            self.with_variables(obj)
+                for obj in self.relations_to_rebuild
+        )
+        return PainterCluster(*elems)  # type: ignore[arg-type]
 
     def assign_name(self, obj: WorkspaceObj) -> None:
         '''Give obj a name consisting of a doubled letter indicating its type
@@ -1461,7 +1488,8 @@ class PCMaker:
             self.all_objects[obj] >= 2
         )
 
-    # TODO OAOO
+    # TODO OAOO?
+    @trace
     def new_variable_for(self, var: Variable, prefer_no_suffix: bool=False) \
     -> Variable:
         base_var = Var.doubled_first_letter(var)
@@ -1475,17 +1503,23 @@ class PCMaker:
 
     def with_variables(self, obj: WorkspaceObj) -> Argument:
         match obj:
+            # TODO write generic code in place of class-specific code
             case Seed(letter, i):
                 return Seed(
                     self.with_variables(letter), # type: ignore[arg-type]
                     self.with_variables(i) # type: ignore[arg-type]
+                )
+            case Succ(left, right):
+                return Succ(
+                    self.with_variables(left), # type: ignore[arg-type]
+                    self.with_variables(right) # type: ignore[arg-type]
                 )
             case str():
                 return self.name_of[obj]
             case int():
                 return self.name_of[obj]
             case _:
-                raise NotImplementedError
+                raise NotImplementedError(obj)
                 
 @dataclass
 class Workspace:
@@ -1809,7 +1843,7 @@ BaseObj = Union[BaseLiteral, Canvas, Type[Op]]
 WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 Argument = Union[Variable, WorkspaceObj]
-PainterClusterElem = Union[Define, OtherSide]  # TODO Add all Painters
+PainterClusterElem = Union[Define, OtherSide, Succ]  # TODO Add all Painters
 
 
 if __name__ == '__main__':
