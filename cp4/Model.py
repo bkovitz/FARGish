@@ -521,6 +521,10 @@ class ParameterAddress(Address):
             self.parameter_name
         )
 
+    def __repr__(self) -> str:
+        return f'PA({short(self.painter)}.{short(self.parameter_name)})'
+
+    __str__ = __repr__
 
 class Op(ABC):
 
@@ -706,6 +710,10 @@ class Succ(Op, CompoundWorkspaceObj):
     @classmethod
     def prev_letter(cls, letter: str) -> str:
         return chr(ord(letter) - 1)
+
+    def __repr__(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.left)}, {short(self.right)})'
 
 class Pred(Op):
 
@@ -972,7 +980,22 @@ class ArgumentRelationDetector:
     def examine_pair(
         cls, ws: Workspace, a1: ParameterAddress, a2: ParameterAddress
     ) -> Iterable[Painter]:
-        return Succ.examine_pair(ws, a1, a2)
+        lo('ARDE', a1, a2)
+        lo('ARDE2', ws.at(a1), ws.at(a2))
+        got = list(Succ.examine_pair(ws, a1, a2))
+        match got:
+            case [Succ(left, right) as painter]:
+                lo('ARDE3', painter)
+                pcm = PCMaker(ws)
+                pcm.will_rebuild_object(a1.painter)
+                pcm.will_rebuild_object(a2.painter)
+                pcm.will_rebuild_relation(painter)
+                yield pcm.painter_cluster()
+            case []:
+                return
+            case _:
+                raise NotImplementedError
+            
 #        match (a1, a2):
 #            case (ParameterAddress(p1, i1), ParameterAddress(p2, i2)):
 #                re
@@ -1427,9 +1450,9 @@ class PCMaker:
     # TODO objects_to_rebuild
     to_rebuild: Set[WorkspaceObj] = field(default_factory=set)
     relations_to_rebuild: Set[Painter] = field(default_factory=set)
-    all_objects: Dict[WorkspaceObj, int] = \
+    all_objects: Dict[AnyObj, int] = \
         field(default_factory=lambda: defaultdict(int))
-    name_of: Dict[WorkspaceObj, Variable] = field(default_factory=dict)
+    name_of: Dict[AnyObj, Variable] = field(default_factory=dict)
 
     def will_rebuild_object(self, obj_: Argument) -> None:
         '''Indicates that the generated PainterCluster should rebuild obj_.'''
@@ -1451,19 +1474,27 @@ class PCMaker:
         # the objects that it contains? What if there's an object in there that
         # isn't referred to elsewhere? That object needs a variable name, too.
 
+    @trace
     def all_objects_in(self, obj: WorkspaceObj) -> Iterable[WorkspaceObj]:
         '''obj must be eval'ed, i.e. contain no variables.'''
         match obj:
             case str():  # we assume length 1, i.e. not a Variable
-                return
+                yield obj
             case int():
-                return
+                yield obj
             case CompoundWorkspaceObj():
-                yield from all_arguments_of(obj) # type: ignore[misc]
+                #yield from all_arguments_of(obj) # type: ignore[misc]
+                for o in all_arguments_of(obj):
+                    yield from self.all_objects_in(o)
+            case Canvas():
+                yield obj  # TODO yield the length as an object?
             case _:
                 raise NotImplementedError
 
     def painter_cluster(self) -> PainterCluster:
+        '''Constructs and returns the PainterCluster that rebuilds objects
+        and relations as specified by previous calls to .will_rebuild_object()
+        and .will_rebuild_relation().'''
         for obj in self.all_objects:
             self.assign_name(obj)
 
@@ -1501,6 +1532,7 @@ class PCMaker:
                 return result
             suffix += 1
 
+    @trace
     def with_variables(self, obj: WorkspaceObj) -> Argument:
         match obj:
             # TODO write generic code in place of class-specific code
@@ -1510,17 +1542,36 @@ class PCMaker:
                     self.with_variables(i) # type: ignore[arg-type]
                 )
             case Succ(left, right):
+#                return Succ(
+#                    self.with_variables(left), # type: ignore[arg-type]
+#                    self.with_variables(right) # type: ignore[arg-type]
+#                )
                 return Succ(
-                    self.with_variables(left), # type: ignore[arg-type]
-                    self.with_variables(right) # type: ignore[arg-type]
+                    self.name_of[left], # type: ignore[index]
+                    self.name_of[right] # type: ignore[index]
                 )
             case str():
                 return self.name_of[obj]
             case int():
                 return self.name_of[obj]
+            case CanvasAddress(canvas, i):
+                return CanvasAddress(
+                    self.with_variables(canvas), # type: ignore[arg-type]
+                    self.with_variables(i) # type: ignore[arg-type]
+                )
+            case Canvas():
+                return self.name_of[obj]
+            case ParameterAddress(painter, parameter_name):
+                return ParameterAddress(
+                    self.with_variables(painter),
+                    parameter_name
+                )
             case _:
                 raise NotImplementedError(obj)
                 
+    def __repr__(self) -> str:
+        return self.__class__.__name__
+
 @dataclass
 class Workspace:
     subst: Subst = empty_subst
@@ -1842,6 +1893,7 @@ BaseLiteral = Union[Letter, Index]
 BaseObj = Union[BaseLiteral, Canvas, Type[Op]]
 WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
+AnyObj = Union[WorkspaceObj, Address]
 Argument = Union[Variable, WorkspaceObj]
 PainterClusterElem = Union[Define, OtherSide, Succ]  # TODO Add all Painters
 
