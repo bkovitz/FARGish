@@ -1285,7 +1285,7 @@ class DiffContext:
     # var*        argvalue*
     # R1 = Repeat(S1, D1, F1)
     # R2 = Repeat(S2, D2, F2, E1)
-    # NEXT Refactor to make the variables easier to understand
+    # TODO Refactor to make the variables easier to understand
     def make_argument_dicts_for(
         self,
         var1: Variable,

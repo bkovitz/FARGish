@@ -337,6 +337,9 @@ class TestPCMaker(unittest.TestCase):
             )
         )
 
+        # NEXT need to write tests for the code that calls PCMaker, specifying
+        # the objects and relevant relations
+
 class TestArgumentRelationDetector(unittest.TestCase):
 
     def xtest_detect_arg_relation_in_succ(self) -> None:
