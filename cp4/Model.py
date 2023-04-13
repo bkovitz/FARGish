@@ -642,8 +642,9 @@ class Op(ABC):
 
 @dataclass(frozen=True)
 class Succ(Op, CompoundWorkspaceObj):
-    left: Parameter[Union[Address, Letter]]
-    right: Parameter[Union[Address, Letter]]
+    left: Parameter[Union[Address, Letter, Index]]
+    right: Parameter[Union[Address, Letter, Index]]
+    # TODO Should Address be allowed?
 
     # TODO Allow a1 & a2 to be constants, not just Addresses
     @classmethod
@@ -663,6 +664,7 @@ class Succ(Op, CompoundWorkspaceObj):
                 i2 = ws.get_index(i2_)
                 if c1 is c2 and i2 == i1 + 1:
                     yield Succ(a1, a2)
+                    #yield Succ(i1, i2)
 
 #                    pcm = PCMaker()
 #                    #aa1 = pcm.define_address(a1)
@@ -1534,6 +1536,9 @@ class PCMaker:
 
     @trace
     def with_variables(self, obj: WorkspaceObj) -> Argument:
+        '''Returns obj with its arguments (if any) replaced with variables
+        defined in self.name_of.'''
+        lo('WITHV', self.name_of)
         match obj:
             # TODO write generic code in place of class-specific code
             case Seed(letter, i):

@@ -284,7 +284,7 @@ process A: Detector creates Succ/I1=1,I2=2
 process A: Argument-relation detector creates the (indeterminate) painter
 cluster SuccNext.
 
-process A: Detector sees that SuccNext could run at I2=2, and creates
+process A: Detector sees that SuccNext could run at I1=2, and creates
 SuccNext/I1=2.
 
 process B: Run SuccNext/I1=2. This creates the determinate painter

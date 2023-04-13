@@ -1,0 +1,152 @@
+P1=Succ(c1.1, c1.2)
+
+PCMaker(
+    rebuild-object(P1)
+    rebuild-relationship(Succ(P1.left, P1.right))
+)
+
+P1.left.i
+
+
+dicts & sets
+
+all-objects:
+   Succ(c1.1, c1.2)  <-- object
+   c1.1
+   c1.2
+   c1
+   1
+   2
+   #Succ(c1.1, c1.2)  <-- relationship
+   Succ(1, 2)
+
+
+final output
+
+PainterCluster(                PP1, AA1, AA2, SS, II1, II2
+    PP1=Succ(AA1, AA2)
+    AA1=SS.II1
+    AA2=SS.II2
+    Succ(II1, II2)
+)
+
+given: AA1=c1.2
+therefore:
+SS=c1
+II1=2
+II2=3
+AA2=c1.3
+PP1=Succ(c1.2, c1.3)
+
+
+
+-------------------------
+
+P1=Succ(c1.1, c1.2)
+
+Succ.examine_pair(P1.left, P1.right) == Succ(P1.left, P1.right)
+    
+--------------------
+New idea: Arguments to painters are not dereferenced. To deference an address,
+it must be enclosed in At().
+
+c1='abc'
+Succ(At(c1.1), At(c1.2)) true
+Succ(c1.1, c1.2)         false   true?
+Succ(1, 2)               true
+Succ('a', 'b')           true
+Succ(At(1), At(2))       can't dereference an int  (or maybe you can, if
+                         context provides a way to supply a canvas for the int
+                         to refer within)
+
+At() can only take an Address as argument. At cannot take an At as argument.
+
+
+What detectors would we have?
+
+
+
+Try restating everything in terms of term-rewriting rules.
+
+See ____, add ____ to the workspace.
+
+
+How would Skip and Except work?
+
+    Skip(3)
+    Skip(At(3))
+
+Idea: Replace painters that have incomplete arguments with painters that have
+them completed.
+
+    Succ(2, 3) needs a canvas. Get the canvas from context and replace this
+    painter with Succ(c1.2, c1.3).
+
+
+Let's do 'ab_' this new way.
+
+C1 = 'ab_'
+
+Detect:  Succ(At(C1.1), At(C1.2))   Save as P1.
+         Succ('a', 'b')
+Detect:  Succ(At(P1.left), At(P1.right))   
+
+Succ.examine_pair(At(C1.1), At(C1.2)) -> Succ(At(C1.1), At(C1.2))
+#ArgumentRelationDetector.examine_pair(P1) -> Succ(1, 2), Same(C1, C1)
+ArgumentRelationDetector.examine_pair(P1.left, P1.right) -> PainterCluster(
+)
+
+Two kinds of detection: look at one or two things and check if they match some
+condition; look at two or more things and make a painter for a relation
+between them.
+
+Detect, detect, detect, make painter clusters, make painters, run painters,
+get into cycles and detect an attractor. Running painters that paint on
+canvases produces new canvases.
+
+Generate pairs:
+
+    Canvas: At(C1.1), At(C1.2) 
+    Succ: At(P1.left), At(P2.right) 
+    PainterCluster: ?  some subset of things that could be arguments
+        SuccNext:  SS=C1 II1=2
+
+Detect, for each pair, whether it matches each detector:
+
+    Succ('a', 'b')
+    Succ(1, 2)
+    Succ(At(), At())    true iff the dereferenced Ats are successive
+    
+For successful detections, generate a painter.
+
+    PCMaker(
+        rebuild_object Succ(At(c1.1), At(c1.2))
+        rebuild_relationship  Succ(1, 2)
+    )
+    GAP  How do we go from looking at P1 to choosing Succ(1, 2) as the
+    relationship to preserve?
+
+Run painters.
+
+
+___ -> ___   See something, add something.
+
+Is each painter like a rule that tells what to see and what to add?
+If so, could each detector be the same kind of rule?
+
+
+A happy path:
+
+    P1=Succ(At(c1.1), At(c1.2))
+    P2=PainterCluster(
+        #PP1=Succ(At(AA1), At(AA2))
+        #AA1=SS.II1
+        #AA2=SS.II2
+        PP1=Succ(AA1, AA2)     Every argument to every object is a
+        AA1=At(SS.II1)         variable, no exceptions
+        AA2=At(SS.II2)
+        Succ(II1, II2)
+    )
+    P3=P2/SS=c1,II1=2
+    run P3, get P4=Succ(At(c1.2), At(c1.3))
+    run P4, get 'abc'

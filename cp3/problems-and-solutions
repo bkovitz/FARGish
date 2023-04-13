@@ -220,3 +220,15 @@ variable for lhs, and that variable is already defined, it unifies the value
 of the variable with rhs. This enables matching and filling parameters at
 multiple levels. Subst.unify() is responsible for propagating changes to
 variables consistently.
+
+
+Solution: ArgumentRelationDetector
+
+Problem: In 'ab_', we first detect Succ(1, 2). Call that painter P1. Then we
+run P1 "at" 2. For that, we need to detect the relationship between the
+indices, so we can create a new painter, P2=Succ(2, 3), with the same
+relationship between the arguments. IOW, we need to detect a relation
+between arguments in order to convert from a determinate painter to an
+indeterminate painter. The resulting indeterminate painter might be a
+PainterCluster.
+
