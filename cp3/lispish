@@ -88,7 +88,7 @@ Let's do 'ab_' this new way.
 C1 = 'ab_'
 
 Detect:  Succ(At(C1.1), At(C1.2))   Save as P1.
-         Succ('a', 'b')
+         Succ('a', 'b')             Check this to verify previous.
 Detect:  Succ(At(P1.left), At(P1.right))   
 
 Succ.examine_pair(At(C1.1), At(C1.2)) -> Succ(At(C1.1), At(C1.2))
@@ -103,6 +103,26 @@ between them.
 Detect, detect, detect, make painter clusters, make painters, run painters,
 get into cycles and detect an attractor. Running painters that paint on
 canvases produces new canvases.
+
+Two kinds of evaluation? (1) Replace all variables with constants. (2) Replace
+all At's with what they refer to (dereferencing).
+
+   Succ(LL1, LL2) -> Succ('a', 'b') -> True
+   AA1=C1.1
+   AA2=C1.2
+   Succ(AA1, AA2) -> Succ(C1.1, C1.2) -> ?
+   Succ(At(AA1), At(AA2)) -> Succ('a', 'b') -> True
+
+Sometimes we *want* to look at addresses. This is something interesting about
+the model.
+
+Since dereferencing is most often what the model does with an argument, might
+it be more convenient to have an operator for "don't dereference" instead of
+At()?
+
+   A possibility: the meaning of At(X) might change with context. For example,
+   At('a') might mean "the first cell in a certain canvas". This is well
+   beyond Mustang Sally, though.
 
 Generate pairs:
 
@@ -147,6 +167,18 @@ A happy path:
         AA2=At(SS.II2)
         Succ(II1, II2)
     )
-    P3=P2/SS=c1,II1=2
+    P3=P2/SS=c1,II1=2          Just from being given AA1=c1.2, P2 can create P3.
+                               AA1=At(c1.2)
+                               SS=c1   because AA1=At(SS.II1)
+                               II1=2   because AA1=At(SS.II1)
+                               II2=3   because Succ(II1, II2)
+                               AA2=At(c1.3)   because AA2=At(SS.II2)
+                               PP1=Succ(At(c1.2), At(c1.3))  bec PP1=Succ(...)
     run P3, get P4=Succ(At(c1.2), At(c1.3))
     run P4, get 'abc'
+
+Wouldn't it be nice if we could do this:
+
+    P4=P1/left=At(c1.2),right=At(c1.3)
+
+

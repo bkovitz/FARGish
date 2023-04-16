@@ -308,3 +308,46 @@ Succ(II1, II2)
 P1=Succ((S, I1), (S, I2))
 Succ(I1, I2)
 
+
+--------------------
+16-Apr-2023
+
+Problem: make At relations explicit everywhere
+
+Problem: how to incorporate At as an argument to various functions.
+
+all_objects_in(): What should it return for At(...)?
+
+   Maybe take care of At() before calling all_arguments_of().
+
+ParameterAddress: allow an At() in the first argument?
+
+with_variables(): allow an At() as the argument?
+
+
+
+PCMaker is really a function mapping any number of these:
+   WillRebuildObject(WorkspaceObj wo)   determinate WorkspaceObj
+   WillRebuildRelation(Painter p)      determinate Painter
+to the elements of a PainterCluster, where:
+   Every wo gets a Define in which every object in the wo gets a variable;
+   Every p gets a Painter in which every object in the p gets a variable;
+   Objects that occur twice or more get only one variable, with no number;
+   All other objects get a unique variable with a number suffix.
+
+f() -> g() -> h() ... -> answer
+
+assign_name: WillArgs -> map of objects to variables
+
+painter_cluster: (WillArgs, map) -> elems
+
+
+
+Let's look at the overall model to see how, or if, At() fits in.
+
+Could we FakeIt at the top level? Start with very rigid code that solves
+ab_ and ijl, and then gradually add flexibility? Break things into a rigid
+process_A and a rigid process_B.
+
+Could we decouple the elements of Model.py a great deal, so modification is
+easy?

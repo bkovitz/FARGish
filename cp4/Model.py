@@ -88,6 +88,12 @@ Letter = str  # strictly speaking, a single-character, lowercase str
 Index = int
 
 @dataclass(frozen=True)
+class At:
+    '''Indicates that .address should be dereferenced.'''
+    address: Address
+
+
+@dataclass(frozen=True)
 class CompoundWorkspaceObj(ABC):
 
     def params(self) -> Collection[Variable]:
@@ -488,6 +494,7 @@ class Canvas:
     def short(self) -> str:
         return 'c' + repr(self.contents)
 
+# TODO Make Address a Union
 @dataclass(frozen=True)
 class Address(CompoundWorkspaceObj):
     pass
@@ -642,29 +649,38 @@ class Op(ABC):
 
 @dataclass(frozen=True)
 class Succ(Op, CompoundWorkspaceObj):
-    left: Parameter[Union[Address, Letter, Index]]
-    right: Parameter[Union[Address, Letter, Index]]
+    left: Parameter[Union[Address, Letter, Index, At]]
+    right: Parameter[Union[Address, Letter, Index, At]]
     # TODO Should Address be allowed?
 
     # TODO Allow a1 & a2 to be constants, not just Addresses
     @classmethod
-    def examine_pair(cls, ws: Workspace, a1: Address, a2: Address) \
+    #def examine_pair(cls, ws: Workspace, a1: Address, a2: Address) \
+    def examine_pair(cls, ws: Workspace, x: Argument, y: Argument) \
     -> Iterable[Succ]:
         '''If the element at a2 is the successor of a1, yields Succ(a1, a2).
         Otherwise yields nothing.'''
-        match (ws.at(a1), ws.at(a2)):
-            case (str(l), str(r)):
-                if cls.is_succ(l, r):
-                    yield Succ(a1, a2)
-            case (CanvasAddress(c1_, i1_),
-                  CanvasAddress(c2_, i2_)):
-                c1 = ws.get_canvas(c1_)
-                c2 = ws.get_canvas(c2_)
-                i1 = ws.get_index(i1_)
-                i2 = ws.get_index(i2_)
-                if c1 is c2 and i2 == i1 + 1:
-                    yield Succ(a1, a2)
-                    #yield Succ(i1, i2)
+        #match (ws.at(a1), ws.at(a2)):
+        match (x, y):
+#            case (str(l), str(r)):
+#                if cls.is_succ(ws, l, r): 
+#                    yield Succ(l, r)
+#            case (CanvasAddress(c1_, i1_),
+#                  CanvasAddress(c2_, i2_)):
+#                c1 = ws.get_canvas(c1_)
+#                c2 = ws.get_canvas(c2_)
+#                i1 = ws.get_index(i1_)
+#                i2 = ws.get_index(i2_)
+#                if c1 is c2 and i2 == i1 + 1:
+#                    yield Succ(x, y)  # type: ignore[arg-type]
+            case (At(a1), At(a2)):
+                if cls.is_succ(ws, ws.at(a1), ws.at(a2)):
+                    yield Succ(x, y) # type: ignore[arg-type]
+            case _:
+                if cls.is_succ(ws, x, y):  # type: ignore[arg-type]
+                    yield Succ(x, y) # type: ignore[arg-type]
+                
+
 
 #                    pcm = PCMaker()
 #                    #aa1 = pcm.define_address(a1)
@@ -691,8 +707,24 @@ class Succ(Op, CompoundWorkspaceObj):
         )
 
     @classmethod
-    def is_succ(cls, l1: str, l2: str) -> bool:
-        return ord(l2) == ord(l1) + 1
+    def is_succ(
+        cls,
+        ws: Workspace,
+        left: Optional[WorkspaceObj],
+        right: Optional[WorkspaceObj]
+    ) -> bool:
+        match (left, right):
+            case (str(l), str(r)):
+                return ord(r) == ord(l) + 1
+            case (CanvasAddress(c1_, i1_),
+                  CanvasAddress(c2_, i2_)):
+                c1 = ws.get_canvas(c1_)
+                c2 = ws.get_canvas(c2_)
+                i1 = ws.get_index(i1_)
+                i2 = ws.get_index(i2_)
+                return c1 is c2 and i2 == i1 + 1
+            case _:
+                raise NotImplementedError(left, right)
 
     @classmethod
     def has_relation(cls, x1: Any, x2: Any) -> bool:
@@ -1129,6 +1161,8 @@ def single_letter_name_for(o: WorkspaceObj) -> str:
             return 'P'  # "painter"
         case Address():
             return 'A'
+        case At():
+            return 'T'
         case _:
             raise NotImplementedError(o)
     raise NotImplementedError
@@ -1444,7 +1478,7 @@ def is_painter(x: Any) -> TypeGuard[Painter]:
 class PCMaker:
     '''Makes PainterClusters, reflecting constraints entered via a series of
     method calls. PCMaker assigns a variable name to each object and
-    subobject, PCMaker only detects one type of relationship among the
+    subobject. PCMaker only detects one type of relationship among the
     objects that it's given: the fact that the same object occurs more than
     once; PCMaker gives the same object the same variable name in each place
     that it occurs.'''
@@ -1476,7 +1510,6 @@ class PCMaker:
         # the objects that it contains? What if there's an object in there that
         # isn't referred to elsewhere? That object needs a variable name, too.
 
-    @trace
     def all_objects_in(self, obj: WorkspaceObj) -> Iterable[WorkspaceObj]:
         '''obj must be eval'ed, i.e. contain no variables.'''
         match obj:
@@ -1522,7 +1555,6 @@ class PCMaker:
         )
 
     # TODO OAOO?
-    @trace
     def new_variable_for(self, var: Variable, prefer_no_suffix: bool=False) \
     -> Variable:
         base_var = Var.doubled_first_letter(var)
@@ -1534,7 +1566,6 @@ class PCMaker:
                 return result
             suffix += 1
 
-    @trace
     def with_variables(self, obj: WorkspaceObj) -> Argument:
         '''Returns obj with its arguments (if any) replaced with variables
         defined in self.name_of.'''
@@ -1899,7 +1930,7 @@ BaseObj = Union[BaseLiteral, Canvas, Type[Op]]
 WorkspaceObj = Union[BaseObj, CompoundWorkspaceObj]
     # TODO in WorkspaceObj, change Type[Op] to Painter when Op inherits from Painter
 AnyObj = Union[WorkspaceObj, Address]
-Argument = Union[Variable, WorkspaceObj]
+Argument = Union[Variable, WorkspaceObj, At]
 PainterClusterElem = Union[Define, OtherSide, Succ]  # TODO Add all Painters
 
 

@@ -18,7 +18,7 @@ from Model import Canvas, detect_repetition, Seed, Succ, Same, Pred, Repeat, \
     OldWorld, NewWorld, Tag, Var, Variable, Argument, Subst, empty_subst, \
     DiffContext, NoValue, LengthPainter, ArgumentsFailRelation, Address, \
     is_variable, ArgumentRelationDetector, CanvasAddress, ParameterAddress, \
-    PCMaker
+    PCMaker, At
 
 from Log import lo, set_log_level
 from util import first, pts, reseed, short
@@ -237,20 +237,28 @@ class TestWorkspace(unittest.TestCase):
         c1 = ws.add_canvas('ab_')
         left_address = CanvasAddress(c1, 1)
         right_address = CanvasAddress(c1, 2)
-        ws.run_detector(Succ.examine_pair, left_address, right_address)
+        ws.run_detector(Succ.examine_pair, At(left_address), At(right_address))
         got: Succ = first(ws.get_all(Succ))
         self.assertTrue(is_variable(got.left))
         self.assertTrue(is_variable(got.right))
         self.assertEqual(
             ws.eval(got),
-            ws.eval(Succ(left_address, right_address))
+            ws.eval(Succ(At(left_address), At(right_address)))
         )
 
 class TestSucc(unittest.TestCase):
 
-    def test_succ_examine_pair(self) -> None:
+    def test_succ_examine_a_b(self) -> None:
         ws = Workspace()
-        c1 = ws.add_canvas('ab_'); a1 = c1.addr(1); a2 = c1.addr(2)
+        self.assertCountEqual(
+            Succ.examine_pair(ws, 'a', 'b'),
+            [Succ('a', 'b')]
+        )
+        
+    def test_succ_examine_addrs(self) -> None:
+        ws = Workspace()
+        c1 = ws.add_canvas('xqv'); a1 = c1.addr(1); a2 = c1.addr(2)
+        # the Succ relation here is between addresses, not letters
         self.assertCountEqual(
             Succ.examine_pair(ws, a1, a2),
             [Succ(a1, a2)]
@@ -263,12 +271,12 @@ class TestSucc(unittest.TestCase):
         self.assertCountEqual(
             Succ.examine_pair(
                 ws,
-                ParameterAddress('P1', 'left'),
-                ParameterAddress('P1', 'right')
+                At(ParameterAddress('P1', 'left')),
+                At(ParameterAddress('P1', 'right'))
             ),
             [Succ(
-                ParameterAddress('P1', 'left'),
-                ParameterAddress('P1', 'right')
+                At(ParameterAddress('P1', 'left')),
+                At(ParameterAddress('P1', 'right'))
             )]
         )
 
@@ -371,8 +379,8 @@ class TestArgumentRelationDetector(unittest.TestCase):
         self.assertCountEqual(
             ArgumentRelationDetector.examine_pair(
                 ws,
-                ParameterAddress('P1', 'left'),
-                ParameterAddress('P1', 'right')
+                At(ParameterAddress('P1', 'left')),
+                At(ParameterAddress('P1', 'right'))
             ),
             []
         )
