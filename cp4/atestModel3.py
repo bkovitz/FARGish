@@ -13,6 +13,7 @@ from Model3 import at, run, At, Detected, Succ, MadePainter, PainterCluster, \
 
 
 class TestModel3(unittest.TestCase):
+    maxDiff = None
 
     def test_ab_(self) -> None:
         m = run('ab_')

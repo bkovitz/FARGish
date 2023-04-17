@@ -8,14 +8,17 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     runtime_checkable, TYPE_CHECKING, no_type_check, get_type_hints, get_args
 from abc import ABC, abstractmethod
 
+from pyrsistent import s as pset
+from pyrsistent.typing import PSet
+
 from util import force_setattr, short
 
 
 def run(problem) -> Model:
     m = Model()
     m.run(problem)
-    m.events = [  #FAKE
-        Detected(Succ(at('C1', 1), at('C1', 2))),
+    m.events += [  #FAKE
+        #Detected(Succ(at('C1', 1), at('C1', 2))),
         MadePainter('P1', Succ(at('C1', 1), at('C1', 2))),
         Detected(Succ(at('P1', 'left'), at('P1', 'right'))),
         MadePainter('P2',
@@ -38,41 +41,61 @@ def run(problem) -> Model:
 class Model:
     ws: Workspace = field(default_factory=lambda: Workspace())
     events: List[Event] = field(default_factory=lambda: [])
+    recently_detected: Set[Detected] = field(default_factory=set)
+    t: int = 0  # current timestep
 
     def run(self, problem) -> str:
-        self.ws = problem_to_ws(problem)
+        self.ws = self.problem_to_ws(problem).add_detector(Succ)
         
         while True:
-            self.ws = process_A(self.ws)
-            self.ws = process_B(self.ws)
+            self.do_timestep()
             if self.time_to_stop():
                 break
         return self.ws.solution()
 
+    def do_timestep(self) -> None:
+        self.t += 1
+        self.process_A()
+        self.process_B()
+
+    def process_A(self) -> None:
+        #detections = list(self.run_detectors())
+        #self.events += detections
+        #self.ws = self.ws.add_objs(new_ws_objs)
+
+        detection = self.choose_detection(list(self.run_detectors()))
+        if detection is not None:
+            self.events.append(detection)
+            self.recently_detected.add(detection)
+
+    def process_B(self) -> None:
+        p = self.choose_painter()
+        self.ws = p.run(self.ws)
+
+    def problem_to_ws(self, s: str) -> Workspace:
+        return Workspace().define_and_name(Canvas.from_str(s))
+
+    def choose_painter(self) -> Painter:
+        return NullPainter()
+
+    def choose_detection(self, detections: Collection[Detected]) \
+    -> Optional[Detected]:
+        for d in detections:
+            if d not in self.recently_detected:
+                return d
+        return None
+
     def time_to_stop(self) -> bool:
-        return self.ws.t >= 5
+        return self.t >= 5  #FAKE
+
+    def run_detectors(self) -> Iterable[Detected]:
+        for detector in self.ws.detectors:
+            for pair in self.ws.all_pairs():
+                for painter in detector.examine_pair(self.ws, pair):
+                    yield Detected(painter)
 
     def solution(self) -> str:
         return self.ws.solution()
-
-
-def process_A(ws: Workspace) -> Workspace:
-    new_ws_objs = ws.run_detectors()
-    return ws.add_objs(new_ws_objs)
-
-def process_B(ws: Workspace) -> Workspace:
-    p = choose_painter(ws)
-    return p.run(ws)
-
-# NEXT FakeIt to get ab_ working
-# THEN incorporate other elements: unify, PainterCluster, PCMaker
-
-
-def problem_to_ws(s: str) -> Workspace:
-    return Workspace().define_and_name(Canvas.from_str(s))
-
-def choose_painter(ws: Workspace) -> Painter:
-    return NullPainter()
 
 ##### Variables and Parameters #####
 
@@ -206,6 +229,18 @@ class RanPainter(Event):
         force_setattr(self, 'name', name)
         force_setattr(self, 'args', kwargs)
 
+##### Detector #####
+
+class DetectorClass(ABC):
+
+    @classmethod
+    @abstractmethod
+    def examine_pair(cls, ws: Workspace, pair: Tuple[Address, Address]) \
+    -> Iterable[Painter]:
+        pass
+
+Detector = Type[DetectorClass]
+
 ##### Painters #####
 
 class Painter(ABC):
@@ -217,15 +252,26 @@ class Painter(ABC):
 class NullPainter(Painter):
 
     def run(self, ws: Workspace) -> Workspace:
-        return ws.bump_t()
+        return ws
 
 @dataclass(frozen=True)
-class Succ(Painter):
+class Succ(DetectorClass, Painter):
     left: Any
     right: Any
 
     def run(self, ws: Workspace) -> Workspace:
         raise NotImplementedError
+
+    @classmethod
+    def detect(self, ws: Workspace) -> Iterable[Detected]:
+        yield Detected(Succ(at('C1', 1), at('C1', 2)))  #FAKE
+
+    @classmethod
+    def examine_pair(cls, ws: Workspace, pair: Tuple[Address, Address]) \
+    -> Iterable[Painter]:
+        a1, a2 = pair
+        yield cls(At(a1), At(a2)) #FAKE
+        
 
 @dataclass(frozen=True)
 class PainterCluster(Painter):
@@ -299,22 +345,22 @@ Argument = Any
 
 @dataclass(frozen=True)
 class Workspace:
-    t: int = 0   # timestep
+    detectors: PSet[Detector] = field(default_factory=pset)
 
     def solution(self) -> str:
         return 'abc'  #FAKE
 
-    def bump_t(self) -> Workspace:
-        return replace(self, t=self.t + 1)
-
     def define_and_name(self, obj) -> Workspace:
         return self #FAKE
 
-    def run_detectors(self) -> Workspace:
-        return self.bump_t()  #FAKE
+    def add_detector(self, detector: Detector) -> Workspace:
+        return replace(self, detectors=self.detectors.add(detector))
 
     def add_objs(self, *objs) -> Workspace:
         return self  #FAKE
+
+    def all_pairs(self) -> Iterable[Tuple[Address, Address]]:
+        yield (CanvasAddress('C1', 1), CanvasAddress('C1', 2)) #FAKE
 
 
 if __name__ == '__main__':
