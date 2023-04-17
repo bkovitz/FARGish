@@ -84,6 +84,14 @@ at:
 a:
 	$(PY) -m unittest -v atestExperiments.ATestExperiments.test_sequential_salt
 
+mypy3:
+	$(MYPY) $(MYPY_FLAGS) atestModel3.py Model3.py
+	
+at3:
+	$(PY) -m unittest -v atestModel3
+
+mat3: mypy3 at3
+
 mut: mypy ut
 mu: mypy u
 mat: mypy at
