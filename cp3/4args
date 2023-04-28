@@ -1,0 +1,12 @@
+NEW IDEA: Give every painter four arguments: two values and two addresses.
+Every canvas-painter is a painter-cluster. Painters like Succ deal with
+just two arguments at a time. Variables exist only within painter-clusters.
+They are the "plugs" that connect them to other things in the workspace.
+Internally, the plugs are connected through cables and functions, just like
+an analog computer.
+
+For example:
+
+    P1=CPainter(L1, L2, I1, I2)
+        Succ(L1, L2)
+        Succ(I1, I2)

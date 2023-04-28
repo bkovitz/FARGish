@@ -351,3 +351,12 @@ process_A and a rigid process_B.
 
 Could we decouple the elements of Model.py a great deal, so modification is
 easy?
+
+
+--------------------
+19-Apr-2023
+
+Inside a PainterCluster:
+    VAR=expr              means "unify VAR with expr".
+    painter(VAR1, VAR2)   means "ensure that this relation exists between VAR1
+                                 and VAR2"

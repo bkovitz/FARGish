@@ -1,0 +1,74 @@
+
+Arrow(RR1, RR2, SS1, SS2, DD, FF, EE, II)=
+    RR1=Repeat(SS1, DD, FF)
+    RR2=Repeat(SS2, DD, FF, EE)
+    OtherSide(SS1, SS2)
+    EE=Skip(II)
+    II=3
+
+
+PROBLEMATIC SOLUTION:
+
+S1=Canvas('ab_'), i.e. Canvas(L1, L2, L3)
+L1='a'
+L2='b'
+L3=blank
+
+1. Detect Succ relation from 'a' to 'b':
+
+P1=Succ(L1, L2)
+
+2. Detect Succ relation from 1 to 2; make painter cluster to construct P1:
+
+P2=Cluster(
+    PP1=Succ(AA1, AA2)
+    AA1=Address(SS, II1)
+    AA2=Address(SS, II2)
+    Succ(II1, II2))
+
+3. Detect that P2 could run at II2=3, filling the blank. Produce this painter:
+
+P3=Succ(L2, L3)
+
+4. Run P3, filling the blank. Produce this canvas:
+
+S1'=Canvas('abc'), i.e. Canvas(L1, L2, L3')
+L3'='c'
+
+
+
+
+
+IDEA: A 'key' argument to Succ.
+
+ab_
+L1 = snippet = S1, index = 1, value = 'a'
+L2 = S1, 2, 'b'
+L3 = S1, 3, 'c'
+
+Succ('a', 'b', key = None)
+Succ(L1, L2, key = index)
+Succ(L1, L2, key = letter)
+Succ(L1, L2, key=canvas)   The "next" canvas, e.g. in ii,jj,kk,
+                           Succ('i', key=Canvas) is the canvas holding 'jj'.
+
+
+Idea: Store along with each variable the primary address of where it came from.
+Then other detectors can inspect that primary address and notice spatial
+relationships.
+
+
+PP1=Succ(LL1, LL2, key=letter)
+Succ(LL1, LL2, key=index)
+
+PP1=SuccLetter(LL1, LL2)
+SuccIndex(LL1, LL2)
+
+
+
+Maybe this means that we never simply have a Letter. A Letter always includes
+both the letter and where it is stored--though the latter could be blank. Or
+maybe we have two types, BasedLetter and Letter, and Succ works on both of them
+but requires a key to work with BasedLetter.
+
+

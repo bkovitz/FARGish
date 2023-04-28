@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from pyrsistent import s as pset
 from pyrsistent.typing import PSet
 
+from Log import lo, trace
 from util import force_setattr, short
 
 
@@ -19,7 +20,7 @@ def run(problem) -> Model:
     m.run(problem)
     m.events += [  #FAKE
         #Detected(Succ(at('C1', 1), at('C1', 2))),
-        MadePainter('P1', Succ(at('C1', 1), at('C1', 2))),
+        #MadePainter('P1', Succ(at('C1', 1), at('C1', 2))),
         Detected(Succ(at('P1', 'left'), at('P1', 'right'))),
         MadePainter('P2',
             PainterCluster(
@@ -46,7 +47,7 @@ class Model:
 
     def run(self, problem) -> str:
         self.ws = self.problem_to_ws(problem).add_detector(Succ)
-        
+
         while True:
             self.do_timestep()
             if self.time_to_stop():
@@ -64,22 +65,31 @@ class Model:
         #self.ws = self.ws.add_objs(new_ws_objs)
 
         detection = self.choose_detection(list(self.run_detectors()))
+        lo('PR_A', detection)
         if detection is not None:
             self.events.append(detection)
             self.recently_detected.add(detection)
+            self.ws, name = self.ws.define_and_name(detection.what)
+            self.events.append(MadePainter(name, detection.what))
 
     def process_B(self) -> None:
         p = self.choose_painter()
         self.ws = p.run(self.ws)
 
     def problem_to_ws(self, s: str) -> Workspace:
-        return Workspace().define_and_name(Canvas.from_str(s))
+        ws, _ = Workspace().define_and_name(Canvas.from_str(s))
+        return ws
 
     def choose_painter(self) -> Painter:
+        #STUB
         return NullPainter()
 
     def choose_detection(self, detections: Collection[Detected]) \
     -> Optional[Detected]:
+        # STUB This currently chooses the first Detected. A proper version
+        # should choose randomly, based on weights. Also, recently_detected
+        # should decay.
+        lo('CHOO', detections)
         for d in detections:
             if d not in self.recently_detected:
                 return d
@@ -89,6 +99,7 @@ class Model:
         return self.t >= 5  #FAKE
 
     def run_detectors(self) -> Iterable[Detected]:
+        lo('RUND', self.ws.detectors)
         for detector in self.ws.detectors:
             for pair in self.ws.all_pairs():
                 for painter in detector.examine_pair(self.ws, pair):
@@ -181,6 +192,20 @@ class Letter:
             return Blank()
         else:
             return cls(c)
+
+    @classmethod
+    def is_succ(cls, l1: Letter, l2: Letter) -> bool:
+        try:
+            return l1.succ() == l2
+        except FizzleNoSucc:
+            return False
+
+    def succ(self) -> Letter:
+        '''Raises FizzleNoSucc if this Letter has no successor.'''
+        if self.c >= 'z':
+            raise FizzleNoSucc
+        else:
+            return Letter(chr(ord(self.c) + 1))
  
 @dataclass(frozen=True)
 class Blank:
@@ -204,6 +229,12 @@ class Canvas:
     @classmethod
     def from_str(cls, s: str):
         return Canvas(tuple(Letter.from_str(c) for c in s))
+
+    def __getitem__(self, i: Index) -> Optional[CanvasValue]:
+        try:
+            return self.contents[i - 1]
+        except IndexError:
+            return None
 
 ##### Events #####
 
@@ -235,7 +266,7 @@ class DetectorClass(ABC):
 
     @classmethod
     @abstractmethod
-    def examine_pair(cls, ws: Workspace, pair: Tuple[Address, Address]) \
+    def examine_pair(cls, ws: Workspace, pair: Tuple[AtOrObj, AtOrObj]) \
     -> Iterable[Painter]:
         pass
 
@@ -267,11 +298,23 @@ class Succ(DetectorClass, Painter):
         yield Detected(Succ(at('C1', 1), at('C1', 2)))  #FAKE
 
     @classmethod
-    def examine_pair(cls, ws: Workspace, pair: Tuple[Address, Address]) \
+    def examine_pair(cls, ws: Workspace, pair: Tuple[AtOrObj, AtOrObj]) \
     -> Iterable[Painter]:
-        a1, a2 = pair
-        yield cls(At(a1), At(a2)) #FAKE
-        
+        #a1, a2 = pair
+        #yield cls(At(a1), At(a2)) #FAKE
+        #import pdb; pdb.set_trace()
+        match pair:
+            case (At(a1), At(a2)):
+                if list(cls.examine_pair(ws, ws.deref_pair(pair))):
+                #yield from cls.examine_pair(ws, ws.deref_pair(pair))
+                    yield cls(*pair)
+                #yield cls(*pair)
+            case (Letter() as l1, Letter() as l2):
+                lo('LETT', l1, l2)
+                if Letter.is_succ(l1, l2):
+                    yield cls(*pair)
+            case _:
+                raise NotImplementedError(pair)
 
 @dataclass(frozen=True)
 class PainterCluster(Painter):
@@ -339,7 +382,24 @@ Address = Union[CanvasAddress, ParameterAddress]
 def is_variable(x: Any) -> TypeGuard[Variable]:
     return (isinstance(x, str) and len(x) > 1) or isinstance(x, Var)
 
-Argument = Any
+##### Fizzles #####
+
+class Fizzle(Exception):
+    pass
+
+@dataclass(frozen=True)
+class WrongType(Fizzle):
+    typ: Any  # What the type was supposed to be
+    ref: Any  # The reference to the object of the wrong type
+    obj: Any  # The object with the wrong type
+
+@dataclass(frozen=True)
+class CantDeref(Fizzle):
+    addr: Any
+
+@dataclass(frozen=True)
+class FizzleNoSucc(Fizzle):
+    pass
 
 ##### The Workspace #####
 
@@ -350,8 +410,8 @@ class Workspace:
     def solution(self) -> str:
         return 'abc'  #FAKE
 
-    def define_and_name(self, obj) -> Workspace:
-        return self #FAKE
+    def define_and_name(self, obj) -> Tuple[Workspace, Variable]:
+        return (self, 'P1') #FAKE
 
     def add_detector(self, detector: Detector) -> Workspace:
         return replace(self, detectors=self.detectors.add(detector))
@@ -359,9 +419,71 @@ class Workspace:
     def add_objs(self, *objs) -> Workspace:
         return self  #FAKE
 
-    def all_pairs(self) -> Iterable[Tuple[Address, Address]]:
-        yield (CanvasAddress('C1', 1), CanvasAddress('C1', 2)) #FAKE
+    def all_pairs(self) -> Iterable[Tuple[At, At]]:
+        '''For all pairs to examine for relationships, returns the addresses
+        of each element wrapped in Ats.'''
+        yield (At(CanvasAddress('C1', 1)), At(CanvasAddress('C1', 2))) #FAKE
 
+    def add_canvas(self, canvas: Canvas) -> Workspace:
+        ws, _ = self.define_and_name(canvas)
+        return ws
+
+    def deref_pair(self, pair: Tuple[At, At]) -> Tuple[Obj, Obj]:
+        match pair:
+            case (At(addr1), At(addr2)):
+                return (self.deref_addr(addr1), self.deref_addr(addr2))
+            case _:
+                raise NotImplementedError(pair)
+
+    def deref_addr(self, addr: Parameter[Address]) -> Obj:
+        match addr:
+            case CanvasAddress(canvas, index):
+                c = self.get_canvas(canvas)
+                i = self.get_index(index)
+                result = c[i]
+                if result is None:
+                    raise CantDeref(addr)
+                return result
+            case _:
+                raise NotImplementedError(addr)
+
+    def __getitem__(self, x: Argument) -> Optional[Argument]:
+        if is_variable(x):
+            return self.subst.get(x, None)
+        else:
+            return x
+
+    def eval(self, expr: Optional[Argument]) -> Optional[AtOrObj]:
+        match expr:
+            case _ if is_variable(x):
+                return self.eval(self[x])  # type: ignore[arg-type]
+            case _:
+                raise NotImplementedError(expr)
+
+    def get_canvas(self, x: Parameter[Canvas]) -> Canvas:
+        #return Canvas.from_str('axb') #FAKE
+        match x:
+            case Canvas():
+                return x
+            case _:
+                result = self.eval(x)
+                if isinstance(result, Canvas):
+                    return result
+                else:
+                    raise WrongType(Canvas, x, result)
+                raise NotImplementedError(x)
+
+    def get_index(self, i: Parameter[Index]) -> Index:
+        match i:
+            case int():
+                return i
+            case _:
+                raise NotImplementedError(i)
+
+Obj = Union[Canvas, Painter, Address, CanvasValue, Index]
+    # An Obj is a workspace object: anything that can be a value
+AtOrObj = Union[At, Obj]
+Argument = Union[AtOrObj, Variable]
 
 if __name__ == '__main__':
     solution = run('ab_')

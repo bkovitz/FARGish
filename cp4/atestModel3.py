@@ -38,6 +38,27 @@ class TestModel3(unittest.TestCase):
                 RanPainter('P3')
             ]
         )
+        '''
+        detect Succ(1, 2)
+        detect that 1,2 is also a Succ
+        make a painter Succ(i, i+1)
+            ^ value relationship: Succ
+              spatial relationship: i, i+1
+        run that painter with I+1=3
+
+        NEXT: See about creating painters that have both a value-relation
+        and a spatial relation. Try all three "methods" of indirection
+        (see the email).
+
+        WANT: "Re-run a painter somewhere else." Re-run = maintain both value
+        and spatial relationships.
+
+        NEW IDEA: Always give a painter both values and spatial coordinates,
+        i.e. four arguments.
+        Succ('a', 'b', 1, 2)
+
+        '''
+
         """
             [
                 #Detected(Succ(At(CanvasAddress('C1', 1)), At(CanvasAddress('C1', 2))))),

@@ -1,0 +1,119 @@
+EXAMPLE: The 'ijl' analogy, solved by painter clusters, without storing a
+variable to hold every object argument. Trying to work out the details of the
+idea.
+
+abc -> abd; ijk -> ?
+s1     s2   s3     s4
+                  (s4 has no length attribute)
+
+
+ABSORPTION
+
+1. Repetition detector:
+   r1=Repeat(s1, Seed('a', 1), Succ)
+
+2. Repetition detector:
+   r2=Repeat(s2, Seed('a', 1), Succ, Skip(3))
+
+3. The Diff process compares R1 and R2, yielding this painter-cluster, which
+   can construct R2 from R1 and vice versa:
+
+   Arrow(RR1, RR2, SS1, SS2, DD, FF, EE, II)
+   RR1=Repeat(SS1, DD, FF)
+   RR2=Repeat(SS2, DD, FF, EE)
+   OtherSide(SS1, SS2)
+   LengthRelation(SS1, SS2, Same)
+   EE=Skip(II)
+   II=3
+   
+   In Arrow, the 'Same' elements are replaced by common variables, i.e. DD
+   and FF.
+
+REGENERATION
+
+4. Repetition-detector:
+   r3=Repeat(s3, Seed('i', 1), Succ)
+
+5. Now that s3 is filled by a repeater (R3), try to run Arrow on R3:
+   Arrow(RR1=R3) returns:
+   RR1=R3 RR2=Repeat(S4, Seed('i', 1), Succ+Exception(Skip, 3))
+   + all the other variables needed for RR2 to refer to
+
+   RR1=r3       SS1=s3 DD=Seed('i', 1) FF=Succ
+   RR2= can't make RR2 yet, because SS2 is unknown
+   OtherSide(SS1, SS2) =>  SS2=[DeriveFrom(s4)]
+   LengthRelation(SS1, SS2, Same) =>
+      ss2=[DeriveFrom(s4), MakeVariant(s4, 'length', 3)]
+   RR2=Repeat(ss2, Seed('i', 1), Succ, Skip(3))
+
+   What if we run LengthRelation before OtherSide?
+   RR2= can't make RR2 yet, because SS2 is unknown
+   LengthRelation(SS1, SS2, Same) => SS2=[MakeVariant(s3, 'length', 3)]
+   OtherSide(SS1, SS2) => SS2=[MakeVariant(s3, 'length', 3), DeriveFrom(s4)]
+   RR2=Repeat(ss2, Seed('i', 1), Succ, Skip(3))
+
+
+   Each painter inside the PainterCluster that provides some new attribute of
+   a canvas appends to a list of specifications of the new canvas. This list
+   of specifications gets run after all the variables are defined. A single
+   specification is enough to count as a full definition of the variable for
+   the canvas, because even one specification is enough to create the canvas
+   (or find an existing one). Multiple specifications, however, only create a
+   single canvas.
+
+
+   How do we choose 3 as the index? It really should be chosen by being the
+   last index reached in the snippet by repetition.
+
+   Now how do we create new things in the workspace to reflect the subst that
+   Arrow returned?
+
+      Maybe just note which variables in the local subst got filled, and
+      add those to the workspace, maybe assigning them new variables.
+
+      What about S4? It looks like OtherSide simply refers to the variable
+      S4's definition in the workspace, i.e. in the global subst. So,
+      OtherSide just completes as OtherSide(S3, S4).
+
+   IMPLEMENTATION IDEA: The PainterCluster returns a set of actions along with
+   a Subst:
+      MakeVariant(s4', s4, 'length', 3)  <--- Make s4' by altering s4
+      MakePainter(r4, Repeat(s4', Seed('i', 1), Succ, Skip(3)))
+
+      Why create these action objects and not create the new painter directly?
+      Because actually the PainterCluster must create two new objects, one
+      of which must refer to the other; i.e. Repeat(s4'...) refers to s4'.
+      Returning Make* objects instead of creating the objects directly makes
+      PainterCluster easier to test (because the test doesn't need to
+      inspect the workspace, only the Make* objects), and simplifies
+      PainterCluster a little bit (because PainterCluster doesn't need to
+      figure out how/whether to create the new objects).
+
+      Really, the PainterCluster can still make the new objects, just like
+      any other painter. The Make* objects can be created and consumed
+      within PainterCluster.
+
+      OtherSide creates MakeVariant(SS2, s3, OtherSide)
+         Because s4 already exists, this variant only binds SS2 to s4.
+      LengthRelation creates MakeVariant(SS2, 'length', ...)
+         At the same time, LengthRelation notes that SS2 is the resulting
+         new canvas.
+      RR2=Repeat(...) creates MakePainter(RR2, s4', ...)
+
+      The main idea: a PainterCluster outputs a Make* command for each object
+      or painter that it generates.
+
+   Now set r4=RR2, replacing variables with constants (eval)
+   r4=Repeat(s4, Seed('i', 1), Succ, Skip(3))
+
+6. Run r4.
+   That fills S4 with 'ijl', and we're done.
+
+If you pass a painter cluster a subst that makes some of the variables
+conflict with each other, the cluster should fail. "Unification failure"
+
+Should we look for relations between all possible snippets? Should we run the
+Diff process on the repeaters for 'abd' and 'ijk'? Maybe. At minimum, we look
+for relations between snippets separated by ->. Maybe the solution is that the
+model *could* look for a relation between any two snippets, but it prioritizes
+which snippet pairs it looks at (SOMEHOW).

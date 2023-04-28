@@ -90,6 +90,10 @@ mypy3:
 at3:
 	$(PY) -m unittest -v atestModel3
 
+ut3:
+	$(PY) -m unittest -v testModel3
+
+mut3: mypy3 ut3
 mat3: mypy3 at3
 
 mut: mypy ut

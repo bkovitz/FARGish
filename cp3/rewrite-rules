@@ -1,0 +1,156 @@
+THE NEW WAY, as of 27-Apr-2023
+
+- No variables in workspace
+
+- Ordinary painters get 4 args: letter, letter, addr, addr
+
+- Succ takes 2 args
+
+- Ordinary painters must combine 2-arg painters; ordinary painters must be
+  painter clusters
+
+
+Still unknown: how does one painter refer to arguments within another painter,
+so the model can see "Succ(1, 2)"? ParameterAddress?
+
+
+TASK NOW
+
+Given workspace situation, identify what new things get created and by what
+rule.
+
+
+C1='ab_'
+
+1.
+Detect Succ('a', 'b'), make painter of all constants:
+P0=  Cluster(L1, L2, A1, A2)/L1='a',L2='b',A1=C1.1,A2=C1.2
+     Succ(L1, L2)
+
+To run, P0 needs A1 and A2 supplied by a caller (i.e. in arguments). It knows
+of no relation between A1 and A2. This means that a Cluster only paints when
+all four arguments are supplied or inferred.
+
+A painter cluster as a whole has two parts: the little painters inside it,
+and its arguments (i.e. a substitution).
+
+2.
+Detect Succ(1, 2) in A1,A2 arguments of P0.
+ParameterAddress is P0/A1,A2.
+If we generate_pairs and examine_pairs, what pairs do the detectors look at?
+Since we have a value relation and no spatial relation, we prioritize looking
+for a spatial relation. Therefore look at pairs of addresses.
+
+How do we get to the indices? How do we get to the last three lines of P1?
+
+P1=  Cluster(L1, L2, A1, A2)/L1='a',L2='b',A1=C1.1,A2=C1.2
+     Succ(L1, L2)
+     A1=Address(C, I1)
+     A2=Address(C, I2)
+     Succ(I1, I2)
+
+
+
+How do we fill C1?
+
+   Detect Succ('a', 'b')
+   Detect Succ(1, 2)
+1. Make P1/args for 'ab'.
+   Detect SOMEHOW that P1 could run at 'b_'.
+2. Make P1/args for 'b_'.
+3. Run the latter. This creates C1a. Might require revising P1/b_'s args.
+
+
+--------------------
+
+28-Apr-2023
+
+New idea: Make the initial painter include both a value relation and a
+spatial relation.
+
+generate_pairs:  Generate all n-choose-2 pairs of canvas cells.
+examine_pair:  Pass it both letters and indices.
+
+Let's see how to reach completion starting from 'ab_'.
+
+   See pair 'ab'.
+
+   P1=  Cluster(L1, L2, A1, A2)/L1='a',L2='b',A1=C1.1,A2=C1.2
+        Succ(L1, L2)
+        A1=Address(C, I1)
+        A2=Address(C, I2)
+        Succ(I1, I2)
+
+   The blank in 'ab_', coming at the end, suggests trying to run P1
+   with args A2=C1.3. L2 can't be supplied, because the cell is blank.
+   So how does P1 figure out L1? We need some mechanism so that when
+   the cluster figures out A1, L1 gets a value automatically. The
+   cluster interpreter needs something more than unify: it needs to know
+   that when A1 gets a value, it should set L1 to the letter addressed by A1.
+   Our notation has no way to express indirection explicitly; it is only
+   done implicitly via special connections between arguments L1 and A1, and
+   between L2 and A2.
+
+   P2=  P1/A2=C1.3
+
+   Run P2. Create C2='abc'.   Do we change P2 so P2=P1/A2=C2.3?
+   Could we link C1.3->C2.3? Make them aliases?
+   C1.1 should be notated as the same cell as C2.1.
+
+
+   Suppose P3 paints a 'd' at C1.3. This creates a competing canvas C3='abd'.
+   We create link "C1.3->C3.3 via P3". An alias has three arguments: from,
+   to, and via; i.e. the alias tells which painter created the second canvas.
+
+   How do we decide when to run P2? The decision should be based on 'clarity':
+   if C1.3 is blank, that weighs in favor of running a painter that can fill
+   it; if C2.3 contains a letter, each time the letter has been painted
+   weighs against repainting it.
+
+
+   a__h___k
+   a__h_i_k
+   a__h__ik
+   a_ih___k
+   a__h___k
+
+   New idea:  P2 paints in C1.3/P2. We don't make a new canvas, we make a
+   new canvas cell in C1, with a special address saying who painted there.
+   C1.3 and C1.3/P2 coexist. There is also a process that coalesces competing
+   cells into one canvas, which detectors can view.
+
+
+Let's try 'ajaqb':
+
+   Start from 'a____' with painters that construct 'ajaqb'.
+
+   P1 paints 'a_a'. C1.3/P1 = 'a'
+   P2/span(1, 3) paints 'a_b'. C1.3/P2 = 'b'
+   P3 paints ' j '. C1.2/P3 = 'j', sourced by C1.1,C1.3/P1.
+   P2/span(3, 5) paints '  a_b'. C1.5/P2 = 'b', sourced by C1.3/P1.
+
+   Now, if we view the whole canvas, starting from C1.3/P1, we see 'aja_b'.
+   If we view starting from C1.3/P2, we see 'a_b__'.
+
+   What does P5 look like? P5=Cluster(...)
+      PP1=Painter(span=SPAN1)
+      PP2=Painter(span=SPAN2)
+      SPAN1=Span(I1, I3)
+      SPAN2=Span(I3, I5)
+
+   Starting from P1/span(1, 3), P5 paints P2/span(3, 5). This increases the
+   clarity of what P2/span(3, 5) painted.
+
+   P4/span(2) paints 'q'. C1.2/P4 = 'q', sourced by C1.1,C1.3/P2/span(1, 3)
+
+   NEXT Look up our "out-of-bounds" solution to favoring putting 'a_a'
+   and ' j ' in the right places.
+
+TODO Try this with repeaters.
+
+
+C1='ab_'
+C1.1='a'
+C1.2='b'
+C1.3='_'
+C1.3/P2/A2=C1.3 ='c'
