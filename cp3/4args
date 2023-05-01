@@ -10,3 +10,49 @@ For example:
     P1=CPainter(L1, L2, I1, I2)
         Succ(L1, L2)
         Succ(I1, I2)
+
+
+ab_
+
+P1=Succ(C1.1, C1.2)
+Succ('a', 'b')
+Succ(At(C1.1), At(C1.2))
+Succ(P1.left, P1.right)
+
+
+Succ('a', __)
+Succ(__, 'b')
+
+Succ(__, C3)     C3='bb'
+
+----------------------------------------
+
+abc->abd; ijk->?
+c1='abc'
+c2='abd'
+c3='ijk'
+c4='', no length
+
+
+p1=Cluster(L1, L2, A1, A2, C, I1, I2)/L1='a',L2='b',A1=c1.1,A2=c1.2
+  Succ(L1, L2)
+  A1=Address(C, I1)
+  A2=Address(C, I2)
+  Succ(I1, I2)
+r1=Repeat(c1, Seed('a', 1), p1)
+
+r1=Cluster()/C=c1,L='a',I=1,P=p1)
+   Repeat(C, L, I, P)
+r2=Cluster()/r1
+   Repeat(C, L, I, P, E)
+   E=Skip(I2)
+   I2=Last
+r3=r1/C=c1,L='x'   # 'same as r1 except...'
+x1=Cluster()/RR1=r3
+   R1=RR1/C=C1  # implicit: C, L, I, P, E?
+   R2=RR1/C=C2,E  # implicit: C, L, I, P, E?
+   E=Skip(I2)
+   I2=Last
+   OtherSide(C1, C2)
+x1 runs on r3, producing R2=r4:
+r4=

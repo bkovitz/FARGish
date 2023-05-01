@@ -297,9 +297,10 @@ new canvas.
 
 Make a proper language?
 
+Cluster(PP1, AA1, AA2, SS, II1, II2)
 PP1=Succ(AA1, AA2)
-AA1=Succ(SS, II1)
-AA2=Succ(SS, II2)
+AA1=Address(SS, II1)
+AA2=Address(SS, II2)
 Succ(II1, II2)
 
 PP1=Succ((SS, II1), (SS, II2))
