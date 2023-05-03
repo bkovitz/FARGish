@@ -1,0 +1,16 @@
+3-May-2023
+
+NEW IDEAS
+
+1. Replace Snippets with Spans.
+
+2. Maybe limit the model to Copycat problems.
+
+
+PROBLEMS THAT REMAIN TO BE SOLVED       *-optional
+
+1. How to set the length of an empty/unknown canvas/snippet.
+
+2*. How to detect and rebuild a mirror-image relationship.
+
+*. How to make the model be hackable for gradual improvements.

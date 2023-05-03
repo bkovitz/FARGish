@@ -347,3 +347,36 @@ painter.
 Painters try to fill blanks. A painter should always try to fill up whatever
 space it's given.  So, Succ is automatically a repeater if you give it a span
 of blanks to fill.
+
+
+Back to early idea: metapainters should create structural relationships.
+Otherwise what is the value of painting painters?
+
+If we limit all painters to taking 4 arguments (or something restricted like
+that), then there are only 4 variables inside each painter cluster. All other
+arguments inside a cluster are constants.
+
+m1=Cluster(P1, P2, S1, S2)    P=painter, S=span
+  Overlap(S1, S2, 1)
+  P1.ValueRelation=Same
+  P2.ValueRelation=Succ
+
+p1=Cluster(L1, L2, A1, A2)
+  Apart(A1, A2, 2)
+  Same(L1, L2)
+
+p2=Cluster(L1, A1, P1, S1)
+  Inside(A1, S1)
+  L1='j'
+  #DerivedFrom(P1, p1)
+  Has(P1, Same)
+  
+p3=Cluster(L1, L2, A1, A2)
+  Apart(A1, A2, 2)
+  Succ(L1, L2)
+
+p4=Cluster(L1, A1, P1, S1)
+  Inside(A1, S1)
+  L1='q'
+  #DerivedFrom(P1, p3)
+  Has(P1, Succ)
