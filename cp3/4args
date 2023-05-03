@@ -33,6 +33,11 @@ c2='abd'
 c3='ijk'
 c4='', no length
 
+c1='ab_'
+C=c1
+I2=3
+A2=Address(c1, 3)
+I1=2
 
 p1=Cluster(L1, L2, A1, A2, C, I1, I2)/L1='a',L2='b',A1=c1.1,A2=c1.2
   Succ(L1, L2)
@@ -41,18 +46,304 @@ p1=Cluster(L1, L2, A1, A2, C, I1, I2)/L1='a',L2='b',A1=c1.1,A2=c1.2
   Succ(I1, I2)
 r1=Repeat(c1, Seed('a', 1), p1)
 
-r1=Cluster()/C=c1,L='a',I=1,P=p1)
+r1=Cluster(C, L, I, P)/C=c1,L='a',I=1,P=p1)
    Repeat(C, L, I, P)
-r2=Cluster()/r1
-   Repeat(C, L, I, P, E)
+r2=Cluster(C, L, I, P, E, I2)/r1
+   Repeat(C, L, I, P, E, I2)
    E=Skip(I2)
    I2=Last
-r3=r1/C=c1,L='x'   # 'same as r1 except...'
-x1=Cluster()/RR1=r3
+r3=r1/C=c3,L='i'   # 'same as r1 except...'
+          (R1, R2, C1, C2)
+x1=Cluster(R1, R2, RR1, C1, C2, E, I2)/RR1=r3
    R1=RR1/C=C1  # implicit: C, L, I, P, E?
    R2=RR1/C=C2,E  # implicit: C, L, I, P, E?
    E=Skip(I2)
    I2=Last
    OtherSide(C1, C2)
-x1 runs on r3, producing R2=r4:
+x1/R1=r3 runs on r3, producing R2=r4:
 r4=
+
+
+iijvvvkrrrrl
+iij vvvk rrrrl
+
+
+BEST as of 3-May-2023
+
+p1=Cluster(L1, L2, A1, A2)/L1='a',L2='b',A1=c1.1,A2=c1.2
+  Succ(L1, L2)
+  Succ(A1, A2)
+r1=Repeat/C=c1,L='a',I=1,P=p1
+r2=Repeat/C=c2,L='a',I=1,P=p1,E=Skip(3)
+x1=Cluster(R1, R2, C1, C2)/R1=r1,R2=r2,C1=c1,C2=c2
+  AddException(R1, R2, Skip(Last))
+  OtherSide(C1, C2)
+r3=Repeat/C=c3,L='i',I=1,P=p1
+Run x1/R1=r3  or  x1/C1=c3, get:
+r4=Repeat/C=c4,L='i',I=1,P=p1,E=Skip(Last) with c4.len=3
+Run r4, get c4'. That solves the analogy. How does the model detect that it's
+done? Something to do with cycles?
+
+
+ab_
+
+p1=Cluster(L1, L2, A1, A2)/L1='a',L2='b',A1=c1.1,A2=c1.2
+  Succ(L1, L2)
+  Succ(A1, A2)
+p2=p1/A2=C1.3 produces:
+  c1'='abc'
+
+
+c1='ajaqb'
+
+p1=Cluster(L1, L2, A1, A2)
+  Same(L1, L2)
+  Apart(A1, A2, 2)
+p2=Cluster(L1, L2, ?)
+
+c1a='aja'
+c1b='aqb'
+r1=Repeat(c1a, 'a', 1, Same, Insert('j', 2))
+r2=Repeat(c2a, 'a', 1, Succ, Insert('q', 2))
+x1=Cluster(R1, R2, C1, C2)
+  R1=Repeat(C1, L, I, F1, E1)
+  R2=Repeat(C2, L, I, F2, E2)
+  Overlap(C1, C2, 1)
+  F1=Same
+  F2=Succ
+  E1=Insert(LE1, IE)
+  E2=Insert(LE2, IE)
+  LE1='j'
+  LE2='q'
+  IE=1
+
+1. Repetition-detection: c1 -> c1a, r1
+2. Repetition-detection: c2 -> c2a, r2
+3. Differ: r1, r2 -> x1
+
+r1=Cluster(S, L, I, P, E, C, S, SP, LB, UB)/
+  Repeat(S, L, I, P, E)
+  S=Snippet(C, SP)
+  SP=Span(LB, UB)
+
+  LB=1
+  UB=3
+  P=Same
+  L='a'
+
+
+Run these three painters on 'a____':
+
+c2='a____'
+
+Both r1 and r2 should respond to the 'a'. But how does the model detect that
+the repeater should run and that a subcanvas should be created for the first
+three cells?
+
+
+Idea: Starting from a canvas that is mostly blank, we should start by painting
+one letter at a time, and let those letters eventually trigger the bigger
+sorts of painters in the LTM, like the repeaters.
+
+
+
+
+
+
+
+How to place the 'j': Repeat(Same, Insert('j', 2))
+How to place the 'q': Repeat(Succ, Insert('q', 2))
+  
+
+
+Are repeaters value & spatial relations?
+Yes: a-b-c is successive values at successive addresses.
+
+Do we want all repeaters to have Succ(A1, A2) as their relation between
+addresses in each pair?
+
+Cluster(value, address, _, _)
+
+Repeaters don't need to be in clusters.
+
+Idea: If we see a Cluster wuth Succ(A1, A2) inside it, we try to make a
+repeater out of it.
+
+
+TO DO
+*  How does Repeat go from one pair of cells to the next?
+
+
+----------------------------------------
+lhs -> rhs
+
+Context[F[A B]] -> Context[F[A B], F[B A]]
+
+pred[z] -> y
+pred[y] -> x
+. . .
+
+succ[a] -> b
+succ[b] -> c
+. . .
+
+Succ[a, _] -> Succ[a, b]
+
+
+Rewrite rules: We haven't had a light-bulb moment yet. So, we're giving up.
+
+
+----------------------------------------
+Absorbed 'ajaqb'.
+Regenerate from 'mjmq_'.
+
+Could we unify 'a' -> 'm'?
+
+Could we have something that means "You need to fit a 'j' in here somewhere"?
+"Find a place for it." Where there's a blank left over, maybe.
+
+Could we have a spatial relation "in between" represented in A1, A2 in some
+4-arg painter?
+
+Could all painters have 4 args?
+
+Match addrs by finding something in context?
+
+
+PROBLEMS
+
+1. How do we divide the canvas into snippets?
+
+  A. Try all possible divisions?
+
+2. How do we modify painters from the LTM to operate on the present canvases?
+
+
+----------------------------------------
+
+Trying to make an 'inside' relation for a 4-arg painter:
+
+'ajaqb'
+
+r1=Repeat(s1, 'a', 1, Same, LeaveBlank(2))
+p1=Cluster(L1, A1, A2)/A2=r1
+  Inside(A1, A2)
+  L1='j'
+
+Putting a repeater as an address means the span of the repeater.
+
+p1=Cluster(L1, A1, A2, F)/A2=r1
+  Inside(A1, A2)
+  L1='j'
+  F=Same
+
+
+p1=Cluster(L1, A1, A2)/A2="something with a Same, to the left of something
+                           with a 'q'"
+p1=Cluster(L1, A1, A2, A3)
+  Inside(A1, A2)
+  Has(A2, Same)
+  Has(A3, 'q')
+  LeftRight(A2, A3)
+  L1='j'
+
+p1=Cluster(L1, A1, SPAN, OBJ)
+  Inside(A1, SPAN)
+  Has(SPAN, Same)
+  Has(OBJ, 'q')
+  LeftRight(SPAN, OBJ)
+  L1='j'
+
+There is a difference between "given either one, I can create the other" and
+"given an object with these attrs, I can create the other object". The second
+is one-way.
+
+But could Has(SPAN, Same) create a "needs Same" tag that floats around waiting
+for something to build an object with that attr?
+
+"to the left of something based on p3"
+
+
+LeftRight(somethingWith('j'), somethingWith('q'))
+
+Could some painter-constructor fill a blank with 'j' or 'q' based on the above
+tag?
+
+So, every painter has a 'location': some place on the canvas that it applies
+to. Painters might be constructed gradually, filling in one element at a time.
+
+a_a
+  a_b
+ j q
+
+How do we detect these relationships?
+
+Detectors:
+
+  repetition detection (with an allowed imperfection)
+
+  odd letter inside a repetition
+
+  odd letter left/right of odd letter
+
+  feature left/right of feature
+
+  tag and what to build from it
+
+----------------------------------------
+
+The core ideas:
+
+  Like a Hopfield net:
+
+    "painters" specify letter–letter relations
+
+    painting process converges on an attractor state of the canvas
+
+  Unlike a Hopfield net:
+
+    "painters" also specify spatial relations
+
+    "painters" can paint painters
+
+
+    repeaters and exceptions
+
+    snippets
+
+----------------------------------------
+
+Could we make repeaters into 4-arg painters?
+
+'abc'
+
+r1=Cluster(L1, L2, A1, A2)
+
+r1=Cluster(L1, L2, L3, A1, A2, A3)
+  Repeat(L1–L3, A1–A3, Succ)
+r1=Cluster(L1, L2, L3, A1, A2, A3)
+  Succ(L1, L2)
+  Succ(A1, A2)
+  Succ(L2, L3)
+  Succ(A2, A3)
+
+Repeat(span, seed letter, seed location, operation, [exception])
+
+----------------------------------------
+
+'ajaqb'
+
+p1=a_a
+p2=Cluster(L1, A1, A2)/A2=p1
+  Inside(A1, A2)
+  L1='j'
+  
+What are all the stages in building painters now?
+
+
+Instead of having the odd thing as a single letter, the odd thing is a
+painter.
+
+Painters try to fill blanks. A painter should always try to fill up whatever
+space it's given.  So, Succ is automatically a repeater if you give it a span
+of blanks to fill.
