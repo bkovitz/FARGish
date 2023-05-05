@@ -274,3 +274,56 @@ Bits of software needed:
       "What's your repeater?"
 
    You can't run a repeater until the canvas has a length.
+
+
+THE RULE ENGINE
+
+A Rule:
+
+   lhs must match against an Item
+
+   lhs must unify variables with elements of the Item, producing a
+   substitution
+
+   rhs must fill in variables from the substitution
+
+   An expression with parentheses, like (I+1) and Succ(L), must unify against
+   a constant; e.g. if I=2, (I+1) can only unify with 3. The order in which I
+   and (I+1) are seen must not matter. So, if (I+1) unifies with 3, then I
+   must be unified with 2.
+
+   Every variable has a type: I is an index, C is a canvas, etc.
+
+   A lhs may be composed of multiple items (separated by commas).
+
+An Item:
+
+   has a "head": the keyword before the parentheses
+
+   has a "body": the items inside the parentheses
+
+   DETPAINTER matches on only some of its arguments; similarly, DETPAINTER
+   constructs using only some arguments.
+
+   Some items specify a painter cluster, e.g. AddExceptionPainter.
+
+We'll need to match every Rule against Item, every pair of Items,
+every triple of Items, etc., as dictated by the Rule's lhs. We may
+need to optimize so we don't look at every Item. Perhaps exploit
+types; perhaps add activation levels to reduce the number of Items
+and Rules examined.
+
+Rule(
+   lhs=[Item(AtCell, C, I, L), Item(AtCell, C, Expr(Plus(I, 1)), Expr(Succ(L)))],
+   rhs=[Item(Seq, C, Succ, I, Expr(Plus(I, 1)), L, Expr(Succ(L)))]
+)
+Rule(  # This will not work because it doesn't allow the head to be a variable
+   lhs=[AtCell(C, I, L), AtCell(C, Plus(I, 1), Succ(L))],
+   rhs=[Seq(C, Succ, I, Plus(I, 1), L, Succ(L))]
+)
+
+rule.unify_lhs([item1, item2]) -> Subst
+rule.unify_lhs([AtCell(c1, 1, 'a'), AtCell(c1, 2, 'b')]) -> Subst
+rule.eval_rhs(subst) -> Item  (Seq(c1, Succ, 1, 2, 'a', 'b') in this case)
+
+Subst.unify(lhs, rhs) -> Subst

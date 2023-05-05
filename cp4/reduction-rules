@@ -97,7 +97,9 @@ DETPAINTER[C1, C2], CANVAS_RELATION[C1, C2], CANVAS_RELATION[C3, C4] -> DETPAINT
 C1.1='a'
 C1.1='b'
 
-Seq[c1 Succ 1 c1.last 'a' 'c']  <-- nothing to evaluate
+Seq[C Succ I1 I2 L1 L2]  <-- lhs of a rule
+Seq[c1 Succ 1 c1.last 'a' 'c']  <-- an Item; nothing to evaluate
+C=c1 I1=1 I2=c1.last L1='a' L2='c'  <-- substitution returned by unifying lhs with Item
 
 
 FUTURE:
