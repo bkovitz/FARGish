@@ -28,3 +28,16 @@ HOW TO SET THE LENGTH OF A CANVAS
 p1=Cluster(...)  updates letters
 p2=Cluster(...)  updates length
 p12=Cluster(...)  combines p1 and p2
+
+
+5-May-2023
+
+Choices for today:
+
+-  Read about Knuth-Bendix.  DONE
+-  Work out the reduction rules fully.
+-  Work out the cycle/attractor.
+-  Plan out how to implement the reduction rules.
+
+
+a2 - b2 = (a + b)(a - b)

@@ -1,0 +1,64 @@
+The official, complete set of rewrite rules as of 5-May-2023
+
+Variable types:
+
+C : a canvas
+I : an index
+(I+1) : an index equal to I+1; (expr) matches rather than reduces
+L : a letter
+Succ(L) : a letter equal to Succ(L)
+
+Terms:
+
+C.I=L  AtCell[canvas index letter]
+Seq[canvas operation start-index end-index start-letter end-letter]
+SeqSkip[canvas operation start-index, end-index start-letter end-letter skip-index]
+Repeat[canvas start-letter operation]
+Repeat[canvas start-letter operation exception]
+Skip[relative-index]
+
+Rules:
+
+C.I=L, C.(I+1)=Succ(L) -> Seq[C Succ I I+1 L Succ(L)]
+   ; From two consecutive letters, build a Seq
+C.I1=L1, Seq[C Succ (I1+1) I2 Succ(L1) L2] -> Seq[C Succ I1 I2 L1 L2]
+   ; Prepend a letter to a Seq
+Seq[C Succ I1 I2 L1 L2], C.I2+1=Succ(L2) -> Seq[C Succ I1 I2+1 L1 Succ(L2)]
+   ; Append a letter to a Seq
+Seq[C Succ I1 I2 L1 L2], Seq[C Succ (I2+1) I3 Succ(L2) L3] -> Seq[C Succ I1 I3 L1 L3]
+   ; Append one Seq to another (no overlap)
+Seq[C Succ I1 I2 L1 L2], Seq[C Succ I2 I3 L2 L3] -> Seq[C Succ I1 I3 L1 L3]
+   ; Append one Seq to another (overlap on one letter)
+Seq[C Succ 1 C.last L L2] -> Repeat[C L Succ]
+   ; A Seq that fills a whole canvas becomes a Repeat
+
+Seq[C Succ I1 I2 L1 L2], C.(I2+1)=Succ(Succ(L2)) -> SeqSkip[C Succ I1 (I2+1) L1 Succ(Succ(L2)) (I2+1)]
+   ; Next letter after Seq skips one in the sequence
+C.I=L, C.(I+1)=Succ(Succ(L)) -> SeqSkip[C Succ I (I+1) L Succ(Succ(L)) (I+1)]
+   ; Double Succ in consecutive cells makes a SeqSkip
+C.I=L, SeqSkip[C Succ (I+1) I2 Succ(L) L2 ISKIP] -> SeqSkip[C Succ I I2 L L2 ISKIP]
+   ; Prepend letter to SeqSkip
+SeqSkip[C Succ I1 I2 L1 L2 ISKIP], C.(I2+1)=Succ(L2) -> SeqSkip[C Succ I1 (I2+1) L1 Succ(L2) ISKIP]
+   ; Append letter to SeqSkip
+Seq[C Succ I1 I2 L1 L2], SeqSkip[C Succ (I2+1) I3 Succ(L2) L3 ISKIP] -> SeqSkip[C Succ I1 I3 L1 L3 ISKIP]
+   ; Prepend Seq to SeqSkip
+SeqSkip[C Succ I1 I2 L1 L2 ISKIP], Seq[C Succ (I+1) I3 Succ(L2) L3] -> SeqSkip[C Succ I1 I3 L1 L3 ISKIP]
+   ; Append Seq to SeqSkip
+SeqSkip[C Succ 1 C.last L L2 ISKIP] -> Repeat[C L Succ Skip[ISKIP]]
+   ; A SeqSkip that fills a whole canvas becomes a Repeat
+
+Repeat[C1 L Succ], Repeat[C2 L Succ E], CANVAS_RELATION[C1, C2] ->
+      ClusterAddException[CANVAS_RELATION, E, Repeat[C1 I L Succ], Repeat[C2 I L Succ E], C1, C2)]
+
+
+
+
+Seq[c1 Succ 1 c1.last 'a' 'c']  <-- nothing to evaluate
+
+
+FUTURE:
+
+OP : Succ, Pred, or Same ?
+
+Some way to "jump to a conclusion" about a sequence, assuming regularity wher
+it's not present, e.g. abcdefgijklmno  

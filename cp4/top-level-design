@@ -221,6 +221,16 @@ What are the reduction rules?
    that match a skip of Same actually match a non-skip. In 'aaaa', these rules will say that a skip
    occurred at any of these indices: 2, 3, 4.
 
+   Perhaps we could detect adjacencies and overlaps between sequences and mark
+   these with new terms. Then the reduction rules for joining sequences could
+   work by recognizing noticed overlaps and adjacencies. (In effect, terms are
+   like features.)
+
+   Have a term Favor[TERM], which means that TERM should get higher priority
+   for purposes of follow-ups. A reduction rule might recognize that a
+   Repeat or Seq spans an entire canvas, and create a Favor[] for that Repeat
+   or Seq.
+
 
    F[A B] -> F[B A]
    Con[F[A B], rest] -> Con[F[A B], F[B A], rest]
