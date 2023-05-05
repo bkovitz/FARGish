@@ -299,12 +299,19 @@ The core ideas:
     "painters" specify letter–letter relations
 
     painting process converges on an attractor state of the canvas
+    (as painters take the output of other painters as input)
 
   Unlike a Hopfield net:
 
     "painters" also specify spatial relations
 
     "painters" can paint painters
+    (so that a "metapainter" can represent deep structure present in multiple
+    contexts but taking a different form in each context)
+
+    re-use painters
+    (for commonality in different places on the canvas; the essence of
+    analogy)
 
 
     repeaters and exceptions
@@ -380,3 +387,7 @@ p4=Cluster(L1, A1, P1, S1)
   L1='q'
   #DerivedFrom(P1, p3)
   Has(P1, Succ)
+
+----------------------------------------
+
+

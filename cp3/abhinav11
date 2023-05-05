@@ -6,6 +6,9 @@ NEW IDEAS
 
 2. Maybe limit the model to Copycat problems.
 
+2a. Maybe implement some memory stuff and in the dissertation tell why it
+doesn't work.
+
 
 PROBLEMS THAT REMAIN TO BE SOLVED       *-optional
 
@@ -14,3 +17,14 @@ PROBLEMS THAT REMAIN TO BE SOLVED       *-optional
 2*. How to detect and rebuild a mirror-image relationship.
 
 *. How to make the model be hackable for gradual improvements.
+
+
+HOW TO SET THE LENGTH OF A CANVAS
+
+- Succ applied to canvas length
+- Parameter address to refer to canvas length
+- Clusters can be clustered into larger clusters
+
+p1=Cluster(...)  updates letters
+p2=Cluster(...)  updates length
+p12=Cluster(...)  combines p1 and p2

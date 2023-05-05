@@ -1,0 +1,266 @@
+
+
+
+
+process A:
+
+    Run Detectors on Workspace, creating painters that match what exists.
+
+
+process B:
+
+    Detect opportunities to run painters with new arguments, i.e. create
+    painters that are the same as old painters but have new arguments.
+
+    Run painters that haven't run yet (that fill/create new things).
+
+
+Modules that we will need:
+
+    Workspace = nothing but canvases and x-painters?
+
+    Detectors
+
+        repetition detector
+
+        two painters operate on same canvas -> cluster the painters
+
+        painter could run on canvas (or pair of canvases)
+
+    run painter cluster
+
+        On exit, create new repeater
+
+    run Repeat
+
+    Same
+
+    Succ
+
+    Run 4arg cluster:
+
+        R1, R2; C1, C2
+
+        LEN1, LEN2; C1, C2
+
+        L1, L2; A1, A2    not needed?
+
+        Do indirection while setting up args.
+
+        When a value gets set inside the cluster and its address is known,
+        save it at its address.
+
+        When an address gets set inside the cluster and its value is known,
+        save the value at that address.
+
+    OtherSide
+
+        detect
+
+        fill
+
+    Painting a value to a canvas cell: make a new address/value combination.
+
+        'ab_'   C1.1='a' C1.2='b' C1.3='_'
+        Painter p1 paints c1.3='c'.
+        'ab_'   C1.1='a' C1.2='b' C1.3='_' C1.3='c'(p1)
+
+    The Differ
+
+    Combine two painters that operate on the same two canvases.
+
+
+
+----------------------------------------
+Could we put every matchable thing into the workspace as an independent item?
+
+Start workspace:
+   c1 src=given
+   c1.1='a' src=given
+   c1.2='b' src=given
+   c1.3='c' src=given
+   c1.len=3 src=given
+   c2 src=given
+   c2.1='a' src=given
+   c2.2='b' src=given
+   c2.3='d' src=given
+   c2.len=3 src=given
+   c3 src=given
+   c3.1='i' src=given
+   c3.2='j' src=given
+   c3.3='k' src=given
+   c3.len=3 src=given
+   c4 src=given
+
+Result after running:
+   c1 src=given
+   c1.1='a' src=given
+   c1.2='b' src=given
+   c1.3='c' src=given
+   c1.len=3 src=given
+   c2 src=given
+   c2.1='a' src=given
+   c2.2='b' src=given
+   c2.3='d' src=given
+   c2.len=3 src=given
+   c3 src=given
+   c3.1='i' src=given
+   c3.2='j' src=given
+   c3.3='k' src=given
+   c3.len=3 src=given
+   c4 src=given
+t=1
+   Repeat(c1, 'a', 1, Succ) name=r1 src=repetition_detector(c1)
+t=2
+   Repeat(c2, 'a', 1, Succ, Skip(last)) name=r2 src=repetition_detector(c2)
+t=3
+   Cluster(R1, R2; C1, C2)/R1=r1,R2=r2,C1=c1,C2=c2    name=x1 src=differ(repeater, c1, c2)
+      AddException(R1, R2, Skip(last))
+      OtherSide(C1, C2)
+t=4
+   Cluster(LEN1, LEN2; C1, C2)/C1=c1,C2=c2   name=x2 src=differ(len, c1, c2)
+      Same(LEN1, LEN2)
+      OtherSide(C1, C2)
+t=5
+   Cluster(C1, C2)/C1=c1,C2=c2  name=x3 src=combiner(same_canvas, x1, x2)
+      x1/C1=C1,C2=C2
+      x2/C1=C1,C2=C2
+t=6
+   Repeat(c3, 'i', 1, Succ)  name=r3 src=repetition_detector(c3)
+t=7
+   x3/C2=c4  name=x4 src=detect_could_run(c4, x3)
+t=8
+   Repeat(c4, 'i', 1, Succ, Skip(last))  name=r4 src=x4,x1
+   c4.len=3 src=x4,x2
+t=9
+   c4.1='i' src=r4
+   c4.2='j' src=r4
+   c4.3='l' src=r4
+   
+Every timestep, we make a change to the workspace. That change is the result of applying a
+reduction rule.
+
+   The new thing added to the workspace might just be a record of something noticed.
+
+What are the reduction rules?
+   lhs -> rhs
+   Every detector is actually a reduction rule.
+
+   [C . I = L][C . I+1 = Succ(L)] -> Cluster(Succ(L1, L2), Succ(A1, A2))
+
+   t=1
+   [C.I=L][C.I+1=Succ(L)]...[C.N=Succ(Succ(...L))] -> Repeat(C, I, L, Succ)
+
+   seq(OP) -> Repeat(..., F)
+
+   seq(OP) + [C.I=OP(OP(?))] -> Repeat(C, I, L, OP, Skip(last))
+
+   C.I=L, C.I+1=OP(L) -> Seq[C OP I I+1 L OP(L)]
+      ; Seq[canvas operation start-index end-index start-letter end-letter]
+   Seq[C OP I1 I2 L1 L2], C.I2+1=OP(L2) -> Seq[C OP I1 I2+1 L1 OP(L2)]
+   Seq[C OP I1 I2 L1 L2], C.1=L1, C.last=L2 -> Repeat[C I L OP]
+   Seq[C OP 1 C.last L L2] -> Repeat[C I L OP]
+
+   Seq[C OP 1 n L], C.n=OP(OP..n-1 times(L)) -> Repeat[C I L OP]
+
+   Seq[C OP I1 I2 L1 L2], C.I2+1=OP(OP(L2)) -> SeqSkip[C OP I1 I2+1 L1 OP(OP(L2)) I2+1]
+      ; SeqSkip[canvas operation start-index, end-index start-letter end-letter skip-index]
+
+   SeqSkip[C OP I1 I2 L1 L2 I3], C.I3+1=OP(L2) -> SeqSkip[C OP I1 I3+1 L1 OP(L2) I3]
+      ; abcef  Seq[C Succ 1 5 a f 4]
+
+   SeqSkip[C OP I1 I2 L1 L2 ISKIP], Seq[C OP I2 I3 OP(L2) L3] -> SeqSkip[C OP I1 I3 L1 L3 ISKIP]
+      ; concatenate SeqSkip + Seq
+
+   Seq[C OP I1 I2 L1 L2], SeqSkip[C OP I2+1 I3 OP(L2) L3 ISKIP] -> SeqSkip[C OP I1 I3 L1 L3 ISKIP]
+      ; concatenate Seq + SeqSkip
+
+   Repeat[C1 I L OP], Repeat[C2 I L OP E], CANVAS_RELATION[C1, C2] ->
+         ClusterAddException[CANVAS_RELATION, E, Repeat[C1 I L OP], Repeat[C2 I L OP E], C1, C2)]
+
+   ClusterAddException[CANVAS_RELATION, E, name(Repeat[C1 I L OP]), name(Repeat[C2 I L OP E], C1, C2), CANVAS_LEN_RELATION ->
+         ClusterAddExceptionAndLength[CANVAS_RELATION, E, name(Repeat[C1 I L OP]), name(Repeat[C2 I L OP E], C1, C2), CANVAS_LEN_RELATION]
+
+   OP[C1.LEN, C2.LEN], CANVAS_RELATION[C1, C2] -> ClusterCanvasLength[C1, C2, OP, CANVAS_RELATION]
+
+   ClusterAddException[CANVAS_RELATION1, E, R1, R2, C1, C2], ClusterCanvasLength[C1, C2, CANVAS_RELATION2]
+      -> ClusterCluster[
+            ClusterAddException[CANVAS_RELATION1, E, R1, R2, C1, C2],
+            ClusterCanvasLength[C1, C2, CANVAS_RELATION2]
+         ]
+
+   DetPainter[P, C1, C2], CANVAS_RELATION[C1, C2], CANVAS_RELATION[C3, C4] -> CouldRunNewArgs[P, C3, C4]
+   // DetPainter[P, C1, C2], Repeat(C1, XX) -> 
+      ; DetPainter[P, C1, C2] means P has arguments C1 and C2
+
+   CouldRunNewArgs[P, C3, C4] -> DetPainter[P, C3, C4]
+
+   P[C1, C2], CANVAS_RELATION[C1, C2], CANVAS_RELATION[C3, c4] -> P[C3, C4]
+
+      ; P means "painter"; P[A, B] means "painter with args A and B"
+
+
+
+
+   Each ws item means "We noticed this." It functions like an 'if' statement, but it matches variables
+   and means that some noticing process occurred rather than just that the condition is true.
+
+   Can scouts, testers, and builders be easily comprehended under a term-rewriting system?
+
+   Could we give each reduction rule an activation level? Could the reduction rules be linked in a
+   spreading-activation network?
+
+
+   Something missing from the term-rewriting approach is that we don't have a way to go top-down, jumping to
+   a conclusion about repetition without having built up the Seq or SeqSkip bottom-up.
+
+      abcdefgijklmno  We quickly perceive this as a Succ group; only by slowing down do we notice the
+                      missing 'h'.
+
+   The rules above for making SeqSkip are wrong for the 'Same' OP. Same(Same('a')) = 'a'. So, the rules
+   that match a skip of Same actually match a non-skip. In 'aaaa', these rules will say that a skip
+   occurred at any of these indices: 2, 3, 4.
+
+
+   F[A B] -> F[B A]
+   Con[F[A B], rest] -> Con[F[A B], F[B A], rest]
+
+
+   
+   match a block
+
+   F=Same
+   G=Succ
+   H=Concatenate
+
+   F(x) = x
+   G(x) = x+1
+   G(26) = Error
+   H(x y) = x y
+   [x, G(x)] -> Cluster(L1, L2; A1, A2)/L1=x,L2=G(x),A1=addr(x),A2=addr(G(x))\Succ(L1, L2)\Succ(A2, A2)
+   abc
+   a G(a) G(G(a))
+
+   S(0) + S(S(0))
+
+   A + S(B)    A=S(0) B=S(0)
+   S(S(0) + S(0))
+
+   S(0) + S(0)  A=S(0) B=0
+   S(S(0) + 0)
+
+   S(S(0))
+
+   
+
+Bits of software needed:
+   "Address of Repeat(c1,...) is c1"
+   "Content of c1, to fill an R variable, is r1"
+   There needs to be a common set of queries that can be asked of all ws objects.
+      "What's your body?"
+      "What's your length?"
+      "What's your value?"
+      "What's your address?"
+      "What's your repeater?"
+
+   You can't run a repeater until the canvas has a length.

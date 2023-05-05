@@ -1,0 +1,90 @@
+abc -> abd; ijk -> ?
+c1     c2   c3     c4
+
+1. Detect repetition in c1:
+   r1=Repeat(c1, 'a', 1, Succ)
+
+2. Detect repetition in c2:
+   r2=Repeat(c2, 'a', 1, Succ, Skip(last))
+
+3. Diff r1 and r2:
+   x1=Cluster(R1, R2; C1, C2)/R1=r1,R2=r2,C1=c1,C2=c2
+      AddException(R1, R2, Skip(last))
+      OtherSide(C1, C2)
+
+4. Diff c1 and c2 lengths:
+   x2=Cluster(LEN1, LEN2; C1, C2)/C1=c1,C2=c2
+      Same(LEN1, LEN2)
+      OtherSide(C1, C2)
+
+5. Since x1 and x2 relate the same two canvases, combine them into another
+   cluster:
+   x3=Cluster(C1, C2)/C1=c1,C2=c2  only 2 args?
+      x1/C1=C1,C2=C2
+      x2/C1=C1,C2=C2
+
+6. Detect repetition in c3:
+   r3=Repeat(c3, 'i', 1, Succ)
+
+7. Detect that x3 could do something to c4, based on c3--since OtherSide(c3,
+   c4):
+   x4=x3/C2=c4
+
+8. Run x4. This creates r4:
+   r4=Repeat(c4, 'i', 1, Succ, Skip(last))
+
+9. Run r4:
+   c4='ijl'
+
+
+Could this model ever hit on 'ijd' as a solution? I think no. For that, you
+need the individual-cell activity of the "memory" version of the model.
+Actually, yes: Replace(last, 'd') instead of Skip(last). Maybe we could
+think up more exceptions to create more flexibility.
+
+
+There are two modes of every painter:
+1) If given all arguments, then the painter only checks that the arguments
+   have a certain relation.
+2) If given some but not all arguments, then the painter tries to construct
+   the missing arguments in accordance with a certain relation.
+
+The 4arg concept is:
+1) When you pass addresses, the values get filled in automatically.
+2) When a value is set by a painter inside the cluster, it gets stored in
+   its corresponding address automatically.
+
+A canvas is the "address" of a repeater that fills it.
+A canvas is the "address" of its length attribute.
+
+Or...
+
+4. Diff c1 and c2 lengths:
+   x2=Cluster(N1, N2, C1.len, C2.len)/C1=c1,C2=c2
+      Same(N1, N2)
+      OtherSide(C1, C2)
+
+
+Maybe reject some relations by combining clusters: if two painters relate
+the same two objects, they should be compatible with each other.
+
+
+Maybe have global dictionary to store src & dst of painters.
+   {
+      c1: [{c2: [x1,x2] ...]
+         # c1 is the source of c2, via x1
+         # c1 is the source of c2, via x2
+         # ...
+      r1: [(r2, x1),...]
+   }
+     
+Don't make a whole new canvas every time a painter paints a cell. Instead,
+just make a new cell-variant for that value. Painters that agree on that
+value for that cell are compatible and can form coalitions.
+
+Maybe maintain a "path string": each step in the path is an act of painting.
+px - cx
+(c1->c1'->cx->c2->c1'->cx)
+
+If everything that exists in the workspace has an address, what is the address
+of x-painters? Maybe a tuple, consisting of their arguments.
