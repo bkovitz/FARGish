@@ -36,8 +36,10 @@ Choices for today:
 
 -  Read about Knuth-Bendix.  DONE
 -  Work out the reduction rules fully.
--  Work out the cycle/attractor.
+   - CANVAS_RELATION  DONE
+   - DETPAINTER: do determinate painters get into the ws and terms? Yes. DONE
 -  Plan out how to implement the reduction rules.
+-  Work out the cycle/attractor.
 
 
 a2 - b2 = (a + b)(a - b)

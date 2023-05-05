@@ -7,15 +7,29 @@ I : an index
 (I+1) : an index equal to I+1; (expr) matches rather than reduces
 L : a letter
 Succ(L) : a letter equal to Succ(L)
+R : a repeater
+E : an exception, i.e. Skip(I)
+CANVAS_RELATION : OtherSide
+DETPAINTER[A B] : a painter with A and B among its arguments:
+   AddExceptionPainter, CanvasLengthPainter, CombinedPainter, Same
+N : an integer, such as a canvas length
+C.x : x is a label for anything inside a canvas: a cell (labeled by an index), a length, a side, a tag.
 
 Terms:
 
 C.I=L  AtCell[canvas index letter]
+C.len=N  CanvasLength[canvas length]  AtCell[canvas 'len' length]
 Seq[canvas operation start-index end-index start-letter end-letter]
 SeqSkip[canvas operation start-index, end-index start-letter end-letter skip-index]
 Repeat[canvas start-letter operation]
 Repeat[canvas start-letter operation exception]
 Skip[relative-index]
+OtherSide[left-canvas right-canvas]
+AddExceptionPainter[canvas-relation exception; repeater1 repeater2 canvas1 canvas2]
+Same[cell1 cell2]
+CanvasLengthPainter[canvas1 canvas2 operation canvas-relation]
+CombinedPainter[painter1 painter2]  Do we need determinate arguments, too?
+
 
 Rules:
 
@@ -47,11 +61,41 @@ SeqSkip[C Succ I1 I2 L1 L2 ISKIP], Seq[C Succ (I+1) I3 Succ(L2) L3] -> SeqSkip[C
 SeqSkip[C Succ 1 C.last L L2 ISKIP] -> Repeat[C L Succ Skip[ISKIP]]
    ; A SeqSkip that fills a whole canvas becomes a Repeat
 
+C1.side=lhs, C2.side=rhs -> OtherSide[C1, C2]
+
 Repeat[C1 L Succ], Repeat[C2 L Succ E], CANVAS_RELATION[C1, C2] ->
-      ClusterAddException[CANVAS_RELATION, E, Repeat[C1 I L Succ], Repeat[C2 I L Succ E], C1, C2)]
+      AddExceptionPainter[CANVAS_RELATION, E; Repeat[C1 I L Succ], Repeat[C2 I L Succ E], C1, C2)]
+   ; A painter that is the functional equivalent of this cluster:
+   ;  Cluster(R1, R2; C1, C2)/R1=r1,R2=r2,C1=c1,C2=c2
+   ;     AddException(R1, R2, E)
+   ;     CANVAS_RELATION(C1, C2)
+
+Same[C1.len=N1, C2.len=N2], CANVAS_RELATION[C1, C2] -> CanvasLengthPainter[C1, C2, Same, CANVAS_RELATION]
+   ; A painter to fill in the length of one canvas given a relation with another:
+   ;  Cluster(N1, N2; C1.len, C2.len)/C1=c1,C2=c2
+   ;  Cluster(LEN1, LEN2; C1, C2)/C1=c1,C2=c2
+   ;     Same(LEN1, LEN2)
+   ;     CANVAS_RELATION(C1, C2)
+
+AddExceptionPainter[CANVAS_RELATION1, E, R1, R2, C1, C2], CanvasLengthPainter[C1, C2, CANVAS_RELATION2] ->
+      CombinedPainter[
+         AddExceptionPainter[CANVAS_RELATION1, E, R1, R2, C1, C2],
+         CanvasLengthPainter[C1, C2, CANVAS_RELATION2]
+      ]
+   ; A painter that combines two painters, like this:
+   ;  ClusterCluster[
+   ;     ClusterAddException[CANVAS_RELATION1, E, R1, R2, C1, C2],
+   ;     ClusterCanvasLength[C1, C2, CANVAS_RELATION2]
+   ;  ]
+
+DETPAINTER[C1, C2], CANVAS_RELATION[C1, C2], CANVAS_RELATION[C3, C4] -> DETPAINTER[C3, C4]
+   ; When a new determinate painter could paint at a new location, create a variant of that painter with
+   ; the new location for its args.
 
 
 
+C1.1='a'
+C1.1='b'
 
 Seq[c1 Succ 1 c1.last 'a' 'c']  <-- nothing to evaluate
 
