@@ -1,0 +1,5 @@
+# These packages need to be installed to run and test the canvas-and-painters
+# model.
+
+conda install pyrsistent
+conda install mypy
