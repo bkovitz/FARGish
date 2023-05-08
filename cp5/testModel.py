@@ -1,11 +1,21 @@
 import unittest
 
-from Model import C, I, L, Item, AtCell, empty_subst, Subst, Fizzle
+from Model import AtCell, C, Fizzle, I, Item, L, Plus, Subst, bottom_subst, \
+    empty_subst, UndefinedVariable, Succ
 
 class TestPmatch(unittest.TestCase):
 
-    def xtest_pmatch_int_int(self) -> None:
-        pass
+    def test_pmatch_int_int(self) -> None:
+        self.assertEqual(
+            empty_subst.pmatch(1, 1),
+            empty_subst
+        )
+
+    def test_pmatch_int_int_bad(self) -> None:
+        self.assertEqual(
+            empty_subst.pmatch(1, 2),
+            bottom_subst
+        )
 
     def test_pmatch_one_item(self) -> None:
         c1 = 'canvas'
@@ -16,17 +26,23 @@ class TestPmatch(unittest.TestCase):
             Subst.from_tups((C, c1), (I, 2), (L, 'b'))
         )
 
-    def xtest_pmatch_try_to_reassign_variable(self) -> None:
+    def test_pmatch_try_to_reassign_variable(self) -> None:
         su = Subst.from_tups((I, 1))
         self.assertTrue(su.pmatch(I, 2).is_bottom())
 
-    def xtest_pmatch_plus_one(self) -> None:
-        pass
+    def test_pmatch_plus_one(self) -> None:
+        su = empty_subst.pmatch(Plus(I, 1), 3)
+        self.assertEqual(su.eval(I), 2)
 
-    def xtest_pmatch_succ_of(self) -> None:
-        '''
-        C.I=L, C.(I+1)=Succ(L) -> Seq[C Succ I I+1 L Succ(L)]
-        '''
+    #TODO revise type taxonomy:  RuleElem, WorkspaceItem?
+    
+    def test_eval_undefined_variable(self) -> None:
+        with self.assertRaises(UndefinedVariable):
+            empty_subst.eval(I)
+
+    def test_pmatch_succ_of(self) -> None:
+        su = empty_subst.pmatch(Succ(L), 'b')
+        self.assertEqual(su.eval(L), 'a')
 
     def xtest_pmatch_multiple_items(self) -> None:
         pass
