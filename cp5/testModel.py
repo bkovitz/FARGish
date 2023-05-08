@@ -1,6 +1,6 @@
 import unittest
 
-from Model import C, I, L, Item, AtCell, empty_subst, Subst
+from Model import C, I, L, Item, AtCell, empty_subst, Subst, Fizzle
 
 class TestPmatch(unittest.TestCase):
 
@@ -15,6 +15,10 @@ class TestPmatch(unittest.TestCase):
             empty_subst.pmatch(lhs, rhs),
             Subst.from_tups((C, c1), (I, 2), (L, 'b'))
         )
+
+    def xtest_pmatch_try_to_reassign_variable(self) -> None:
+        su = Subst.from_tups((I, 1))
+        self.assertTrue(su.pmatch(I, 2).is_bottom())
 
     def xtest_pmatch_plus_one(self) -> None:
         pass
