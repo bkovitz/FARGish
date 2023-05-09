@@ -34,12 +34,6 @@ class TestPmatch(unittest.TestCase):
         su = empty_subst.pmatch(Plus(I, 1), 3)
         self.assertEqual(su.eval(I), 2)
 
-    #TODO revise type taxonomy:  RuleElem, WorkspaceItem?
-    
-    def test_eval_undefined_variable(self) -> None:
-        with self.assertRaises(UndefinedVariable):
-            empty_subst.eval(I)
-
     def test_pmatch_succ_of(self) -> None:
         su = empty_subst.pmatch(Succ(L), 'b')
         self.assertEqual(su.eval(L), 'a')
@@ -61,11 +55,36 @@ class TestPmatch(unittest.TestCase):
             Subst.from_tups((C, c1), (I1, 1), (L1, 'a'), (I2, 3), (L2, 'c'))
         )
 
-    def xtest_pmatch_type_clash(self) -> None:
-        '''try matching a letter to an index: should raise exception'''
+    def test_pmatch_cant_match_letter_var_to_index(self) -> None:
+        self.assertTrue(empty_subst.pmatch(L, 1).is_bottom())
+
+    def test_pmatch_cant_match_index_var_to_letter(self) -> None:
+        self.assertTrue(empty_subst.pmatch(I, 'a').is_bottom())
+
+    def test_pmatch_plus_type_clash(self) -> None:
+        self.assertTrue(empty_subst.pmatch(Plus(I, 1), 'a').is_bottom())
 
     def xtest_pmatch_head(self) -> None:
         '''DETPAINTER'''
+
+class TestEval(unittest.TestCase):
+
+    def test_eval_undefined_variable(self) -> None:
+        with self.assertRaises(UndefinedVariable):
+            empty_subst.eval(I)
+
+    def test_eval_letter(self) -> None:
+        self.assertEqual(empty_subst.eval('a'), 'a')
+
+    def test_eval_index(self) -> None:
+        self.assertEqual(empty_subst.eval(1), 1)
+
+    # TODO test_eval_canvas
+
+    def test_eval_item(self) -> None:
+        c1 = 'canvas'
+        su = Subst.from_tups((C, c1), (I, 1), (L, 'a'))
+        self.assertEqual(su.eval(Item(AtCell, C, I, L)), AtCell(c1, 1, 'a'))
 
 class TestMakingPainters(unittest.TestCase):
 

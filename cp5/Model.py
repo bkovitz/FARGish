@@ -68,6 +68,16 @@ def pred_of(x: Letter) -> Letter:
 
 DataType = Union[Canvas, Index, Letter]
 
+def datatype_of(x: Any):
+    match x:
+        case int():
+            return Index
+        case str() if len(x) == 1: #HACK
+            return Letter
+        case str(): #HACK
+            return Canvas
+    raise NotImplementedError
+
 Elem = Union[Item, CompoundItem, DataType, Type[DataType]]
 
 def elems_of(elem) -> Iterable[Elem]:
@@ -121,6 +131,24 @@ class Plus:
     v: Variable
     n: int
 
+ClassObject = Union[Type[Succ], Type[AtCell]]
+    # A class object that can create a workspace item
+
+LhsType = Union[
+    CompoundItem, Item, Variable, DataType, Succ, ClassObject
+]
+    # Items appropriate for lhs of Subst.pmatch(): things that *could* contain
+    # or be Variables.
+
+RhsType = Union[
+    CompoundItem, DataType, Succ, ClassObject
+]
+    # A thing that can be in the workspace. An RhsType must be completely
+    # determinate: it must contain no variables.
+
+def is_class_object(x: Any) -> TypeGuard[ClassObject]:
+    return isclass(x)  # HACK
+
 @dataclass(frozen=True)
 class Subst:
     d: PMap[Variable, Any] = field(default_factory=pmap)
@@ -131,16 +159,33 @@ class Subst:
             d=pmap(tups)
         )
 
-    def eval(self, v: Variable) -> Item:
-        try:
-            return self.d[v]
-        except KeyError:
-            raise UndefinedVariable
+    def eval(self, expr: LhsType) -> RhsType:
+        match expr:
+            case Variable():
+                try:
+                    return self.d[expr]
+                except KeyError:
+                    raise UndefinedVariable
+            case str() | int():
+                return expr
+            case Item(head, args):
+                cls = self.eval_get_class_object(head)
+                return cls(*(self.eval(arg) for arg in args)) # type: ignore[arg-type]
+            case _ if isclass(expr):
+                return expr
+
+        raise NotImplementedError(expr)
+
+    def eval_get_class_object(self, expr: LhsType) -> ClassObject:
+        result = self.eval(expr)
+        if is_class_object(result):
+            return result
+        raise NotImplementedError(expr, result)
 
     def is_bottom(self) -> bool:
         return False
 
-    def pmatch(self, lhs: Any, rhs: Any) -> Subst:
+    def pmatch(self, lhs: LhsType, rhs: RhsType) -> Subst:
 #        import pdb; pdb.set_trace()
 #        match (lhs, rhs):
 #            case (Variable(), str()):
@@ -196,11 +241,13 @@ class Subst:
                 return bottom_subst
             case (_, _) if isclass(lhs) and isclass(rhs):
                 return bottom_subst
-            case (Variable(), _):
+            case (Variable(_, typ) as var, _):
+                if typ != datatype_of(rhs):
+                    return bottom_subst
                 if lhs in self.d:
-                    return self.pmatch(self.d[lhs], rhs)
+                    return self.pmatch(self.d[var], rhs)
                 else:
-                    return Subst(self.d.set(lhs, rhs))
+                    return Subst(self.d.set(var, rhs))
             case (CompoundItem(), CompoundItem()):
                 result = self
                 # TODO check number of elems
@@ -209,15 +256,17 @@ class Subst:
                 return result
             case (Plus(v, n), int(m)):
                 return self.pmatch(v, m - n)
-            case (Succ(Variable() as v), str()):
-                return self.pmatch(v, pred_of(rhs))
+            case (Plus(), _):
+                return bottom_subst  # type clash on rhs
+            case (Succ(Variable() as v), str() as s):
+                return self.pmatch(v, pred_of(s))
             case ([*lhs_items], [*rhs_items]):
                 result = self
                 for l, r in zip(lhs_items, rhs_items):
                     result = result.pmatch(l, r)
                 return result
                         
-        raise NotImplementedError
+        raise NotImplementedError(lhs, rhs)
 
 class BottomSubst(Subst):
     
