@@ -55,7 +55,7 @@ class Succ:
     arg: Union[Letter, Variable]
 
 @dataclass(frozen=True)
-class Seq:
+class Seq(CompoundItem):
     canvas: Canvas
     op: Type[Succ]  # TODO allow any operation
     start_index: Index
@@ -211,6 +211,11 @@ class Subst:
                 return self.pmatch(v, m - n)
             case (Succ(Variable() as v), str()):
                 return self.pmatch(v, pred_of(rhs))
+            case ([*lhs_items], [*rhs_items]):
+                result = self
+                for l, r in zip(lhs_items, rhs_items):
+                    result = result.pmatch(l, r)
+                return result
                         
         raise NotImplementedError
 

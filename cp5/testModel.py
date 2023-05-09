@@ -49,7 +49,7 @@ class TestPmatch(unittest.TestCase):
         su = empty_subst.pmatch(
             [
                 Item(AtCell, C, I1, L1),
-                Item(Seq, C, Succ, Plus(I, 1), I2, Succ(L1), L2)
+                Item(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
             ],
             [
                 AtCell(c1, 1, 'a'),
