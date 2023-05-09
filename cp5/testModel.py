@@ -1,7 +1,7 @@
 import unittest
 
-from Model import AtCell, C, Fizzle, I, Item, L, Plus, Subst, bottom_subst, \
-    empty_subst, UndefinedVariable, Succ
+from Model import AtCell, C, Fizzle, I, I1, I2, Item, L, L1, L2, Plus, Subst, \
+    bottom_subst, empty_subst, UndefinedVariable, Succ, Seq
 
 class TestPmatch(unittest.TestCase):
 
@@ -44,8 +44,22 @@ class TestPmatch(unittest.TestCase):
         su = empty_subst.pmatch(Succ(L), 'b')
         self.assertEqual(su.eval(L), 'a')
 
-    def xtest_pmatch_multiple_items(self) -> None:
-        pass
+    def test_pmatch_multiple_items(self) -> None:
+        c1 = 'canvas'
+        su = empty_subst.pmatch(
+            [
+                Item(AtCell, C, I1, L1),
+                Item(Seq, C, Succ, Plus(I, 1), I2, Succ(L1), L2)
+            ],
+            [
+                AtCell(c1, 1, 'a'),
+                Seq(c1, Succ, 2, 3, 'b', 'c')
+            ]
+        )
+        self.assertEqual(
+            su,
+            Subst.from_tups((C, c1), (I1, 1), (L1, 'a'), (I2, 3), (L2, 'c'))
+        )
 
     def xtest_pmatch_type_clash(self) -> None:
         '''try matching a letter to an index: should raise exception'''

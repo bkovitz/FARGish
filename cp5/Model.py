@@ -54,6 +54,15 @@ class AtCell(CompoundItem):
 class Succ:
     arg: Union[Letter, Variable]
 
+@dataclass(frozen=True)
+class Seq:
+    canvas: Canvas
+    op: Type[Succ]  # TODO allow any operation
+    start_index: Index
+    end_index: Index
+    start_letter: Letter
+    end_letter: Letter
+
 def pred_of(x: Letter) -> Letter:
     return chr(ord(x) - 1)
 
@@ -101,7 +110,11 @@ class Variable:
 
 C = Variable('C', Canvas)
 I = Variable('I', Index)
+I1 = Variable('I1', Index)
+I2 = Variable('I2', Index)
 L = Variable('L', Letter)
+L1 = Variable('L1', Letter)
+L2 = Variable('L2', Letter)
 
 @dataclass(frozen=True)
 class Plus:
