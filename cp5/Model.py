@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field, \
     astuple, is_dataclass
 from abc import ABC, abstractmethod
-from itertools import chain
+from itertools import chain, combinations
 from collections import defaultdict
 import re
 from pprint import pp
@@ -44,6 +44,12 @@ class Item(CompoundItem):
         force_setattr(self, 'head', head)
         force_setattr(self, 'args', args)
 
+    def short(self) -> str:
+        args = ', '.join(short(a) for a in self.args)
+        return f'{short(self.head)}({args})'
+
+    __repr__ = short
+
 @dataclass(frozen=True)
 class AtCell(CompoundItem):
     canvas: Canvas
@@ -56,6 +62,12 @@ class AtCell(CompoundItem):
 @dataclass(frozen=True)
 class Succ:
     arg: Union[Letter, Variable]
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.arg)})'
+
+    __repr__ = short
 
 @dataclass(frozen=True)
 class Seq(CompoundItem):
@@ -123,8 +135,10 @@ class Variable:
     name: str
     type: DataType
 
-    def __repr__(self) -> str:
+    def short(self) -> str:
         return self.name
+
+    __repr__ = short
 
 C = Variable('C', Canvas)
 I = Variable('I', Index)
@@ -138,6 +152,11 @@ L2 = Variable('L2', Letter)
 class Plus:
     v: Variable
     n: int
+
+    def short(self) -> str:
+        return f'{short(self.v)}+{self.n}'
+
+    __repr__ = short
 
 ClassObject = Union[Type[Succ], Type[AtCell]]
     # A class object that can create a workspace item
@@ -201,52 +220,6 @@ class Subst:
         return False
 
     def pmatch(self, lhs: LhsType, rhs: RhsType) -> Subst:
-#        import pdb; pdb.set_trace()
-#        match (lhs, rhs):
-#            case (Variable(), str()):
-#                # TODO check of lhs is already defined
-#                return Subst(self.d.set(lhs, rhs))
-#            case (Variable(), int()):
-#                # TODO check of lhs is already defined
-#                return Subst(self.d.set(lhs, rhs))
-#            case (Item(head, args), AtCell(c, i, ll)):
-#                # STUB
-#                # TODO Check that head == AtCell
-##                return \
-##                    self.pmatch(args[0], c) \
-##                    .pmatch(args[1], i) \
-##                    .pmatch(args[2], l)
-#                
-#                result = self
-#                # TODO check number of elems
-#                for l, r in zip(elems_of(lhs), elems_of(rhs)):
-#                    result = result.pmatch(l, r)
-#                return result
-#            case (int(), int()):
-#                return self
-
-#        match (elemtype(lhs), elemtype(rhs)):
-#            case ('Primitive', 'Primitive'):
-#                if lhs == rhs:
-#                    return self
-#                else:
-#                    return bottom_subst
-#            case ('Variable', x):
-#                if lhs in self.d:
-#                    return self.pmatch(self.d[lhs], rhs)
-#                else:
-#                    return Subst(self.d.set(lhs, rhs))
-#            case ('Compound', 'Compound'):
-#                result = self
-#                # TODO check number of elems
-#                for l, r in zip(elems_of(lhs), elems_of(rhs)):
-#                    result = result.pmatch(l, r)
-#                return result
-#            case ('Plus', 'Primitive'):
-#                match (lhs, rhs):
-#                    case (Plus(v, n), int(m)):
-#                        return self.pmatch(v, m - n)
-
         if lhs == rhs:
             return self
         match (lhs, rhs):
@@ -269,6 +242,8 @@ class Subst:
                 for l, r in zip(elems_of(lhs), elems_of(rhs)):
                     result = result.pmatch(l, r)
                 return result
+            case (CompoundItem(), _):
+                return bottom_subst
             case (Plus(v, n), int(m)):
                 return self.pmatch(v, m - n)
             case (Plus(), _):
@@ -291,11 +266,17 @@ class BottomSubst(Subst):
     def pmatch(self, lhs: Any, rhs: Any) -> Subst:
         return self
 
+    def short(self) -> str:
+        return self.__class__.__name__
+
+    __repr__ = short
+
 empty_subst = Subst.from_tups()
 bottom_subst = BottomSubst()
 
 @dataclass
 class Model:
+    rules: Collection[Rule] = ()
     ws: Set[RhsType] = field(default_factory=set)
     
     def add_canvas(self, name: str, contents: str) -> Canvas:
@@ -304,6 +285,30 @@ class Model:
         for i, letter in enumerate(contents):
             self.ws.add(AtCell(c, i + 1, letter))
         return c
+
+    def try_all_rules(self) -> Iterable[RhsType]:
+        for rule in self.rules:
+            for target in self.ws_targets(len(rule)):
+                if (produced := rule.run(target)) is not None:
+                    yield produced
+
+    def ws_targets(self, num: int) -> Iterable[Tuple[RhsType, ...]]:
+        yield from combinations(sorted(self.ws, key=self.target_sort_key), num)
+
+    @classmethod
+    def target_sort_key(cls, item: RhsType) -> Tuple[str, int]:
+        match item:
+            case AtCell(c, i, l):
+                return c, i
+            case int():
+                return '', item
+            case Succ(arg):
+                return str(arg), 0
+            case str():
+                return item, 0
+            case CompoundItem():
+                return item.__class__.__name__, 0
+        raise NotImplementedError(item)
 
     def __repr__(self) -> str:
         return str(self.ws)
@@ -321,10 +326,20 @@ class Rule:
     def run(self, target: Collection[RhsType]) -> Optional[RhsType]:
         su = empty_subst
         for lhs_item, target_item in zip(self.lhs, target):
+            #lo('RULE', lhs_item, target_item)
             su = su.pmatch(lhs_item, target_item)
+        #lo('GOT', su)
         if su.is_bottom():
             return None  # TODO UT
         return su.eval(self.rhs)
+
+    def __len__(self) -> int:
+        '''Length of .lhs'''
+        return len(self.lhs)
+
+    def __repr__(self) -> str:
+        l = ', '.join(short(item) for item in self.lhs)
+        return f'{l} -> {short(self.rhs)}'
 
 if __name__ == '__main__':
     c1 = 'canvas'

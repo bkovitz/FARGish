@@ -114,6 +114,23 @@ class TestRule(unittest.TestCase):
             Seq(c1, Succ, 1, 2, 'a', 'b')
         )
 
+    def test_try_all_rules(self) -> None:
+        rules = [
+            Rule(
+                (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
+                Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+            )
+        ]
+        m = Model(rules)
+        c1 = m.add_canvas('canvas1', 'abc')
+        self.assertCountEqual(
+            m.try_all_rules(),
+            [
+                Seq(c1, Succ, 1, 2, 'a', 'b'),
+                Seq(c1, Succ, 2, 3, 'b', 'c')
+            ]
+        )
+
 class TestMakingPainters(unittest.TestCase):
 
     def xtest_detect_otherside(self) -> None:
