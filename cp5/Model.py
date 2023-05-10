@@ -50,6 +50,9 @@ class AtCell(CompoundItem):
     index: Index
     letter: Letter
 
+    def short(self) -> str:
+        return f"{self.canvas}.{self.index}='{self.letter}'"
+
 @dataclass(frozen=True)
 class Succ:
     arg: Union[Letter, Variable]
@@ -64,7 +67,12 @@ class Seq(CompoundItem):
     end_letter: Letter
 
 def pred_of(x: Letter) -> Letter:
+    # TODO can't pred 'a'
     return chr(ord(x) - 1)
+
+def succ_of(x: Letter) -> Letter:
+    # TODO can't succ 'z'
+    return chr(ord(x) + 1)
 
 DataType = Union[Canvas, Index, Letter]
 
@@ -171,6 +179,13 @@ class Subst:
             case Item(head, args):
                 cls = self.eval_get_class_object(head)
                 return cls(*(self.eval(arg) for arg in args)) # type: ignore[arg-type]
+            case Plus(v, n):
+                i: int = self.eval(v)  # type: ignore[assignment]
+                #TODO call eval_get_int() instead
+                return i + n
+            case Succ(arg):
+                l: Letter = self.eval(arg)  # type: ignore[assignment]
+                return succ_of(l)  # TODO what if l has no successor?
             case _ if isclass(expr):
                 return expr
 
@@ -279,7 +294,51 @@ class BottomSubst(Subst):
 empty_subst = Subst.from_tups()
 bottom_subst = BottomSubst()
 
+@dataclass
+class Model:
+    ws: Set[RhsType] = field(default_factory=set)
+    
+    def add_canvas(self, name: str, contents: str) -> Canvas:
+        self.ws.add(name) #HACK
+        c = name
+        for i, letter in enumerate(contents):
+            self.ws.add(AtCell(c, i + 1, letter))
+        return c
+
+    def __repr__(self) -> str:
+        return str(self.ws)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.ws)})'
+
+
+@dataclass(frozen=True)
+class Rule:
+    lhs: Tuple[Item, ...]
+    rhs: Item
+
+    def run(self, target: Collection[RhsType]) -> Optional[RhsType]:
+        su = empty_subst
+        for lhs_item, target_item in zip(self.lhs, target):
+            su = su.pmatch(lhs_item, target_item)
+        if su.is_bottom():
+            return None  # TODO UT
+        return su.eval(self.rhs)
+
 if __name__ == '__main__':
     c1 = 'canvas'
     lhs = Item(AtCell, C, I, L)
     rhs = AtCell(c1, 2, 'b')
+
+    rules = [
+        Rule(
+            (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
+            Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+        )
+    ]
+
+    #m = Model(rules)
+    m = Model()
+    c1 = m.add_canvas('canvas1', 'abc')
+    print(short(m))

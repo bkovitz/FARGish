@@ -1,7 +1,7 @@
 import unittest
 
 from Model import AtCell, C, Fizzle, I, I1, I2, Item, L, L1, L2, Plus, Subst, \
-    bottom_subst, empty_subst, UndefinedVariable, Succ, Seq
+    bottom_subst, empty_subst, UndefinedVariable, Succ, Seq, Model, Rule
 
 class TestPmatch(unittest.TestCase):
 
@@ -85,6 +85,34 @@ class TestEval(unittest.TestCase):
         c1 = 'canvas'
         su = Subst.from_tups((C, c1), (I, 1), (L, 'a'))
         self.assertEqual(su.eval(Item(AtCell, C, I, L)), AtCell(c1, 1, 'a'))
+
+class TestCanvas(unittest.TestCase):
+
+    def test_abc(self) -> None:
+        m = Model()
+        c1 = m.add_canvas('canvas1', 'abc')
+        self.assertCountEqual(
+            m.ws,
+            [
+                AtCell(c1, 1, 'a'),
+                AtCell(c1, 2, 'b'),
+                AtCell(c1, 3, 'c'),
+                c1
+            ]
+        )
+
+class TestRule(unittest.TestCase):
+
+    def test_make_seq_from_2_consecutive_letters(self) -> None:
+        c1 = 'canvas1'
+        rule = Rule(
+            (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
+            Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+        )
+        self.assertEqual(
+            rule.run([AtCell(c1, 1, 'a'), AtCell(c1, 2, 'b')]),
+            Seq(c1, Succ, 1, 2, 'a', 'b')
+        )
 
 class TestMakingPainters(unittest.TestCase):
 
