@@ -102,6 +102,8 @@ class TestCanvas(unittest.TestCase):
             ]
         )
 
+    # TODO something with canvas length
+
 class TestRule(unittest.TestCase):
 
     rules5 = [
@@ -199,6 +201,9 @@ class TestRunningPainters(unittest.TestCase):
     def xtest_detect_that_arrow_can_run(self) -> None:
         '''Have abc->abd painter, have ijk repeater, see that we could run
         the painter on c3 to make a repeater for c4.'''
+
+    def xtest_run_arrow(self) -> None:
+        '''Run the arrow pointer from 'abc->xyz' on 'ijk->?' '''
 
     def xtest_detect_that_repeater_could_fill_c4(self) -> None:
         '''Continues previous test.'''

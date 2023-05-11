@@ -23,7 +23,7 @@ from util import as_iter, field_names_and_values, first, force_setattr, \
     intersection, pr, safe_issubclass, short, union
 
 
-Canvas = Any
+Canvas = str  # Must have length of at least 2, e.g. 'c1'
 Index = int
 Letter = str  # of length 1, only 'a'..'z'
 
@@ -34,6 +34,7 @@ class UndefinedVariable(Fizzle):
     pass
 
 class CompoundItem:
+    '''A workspace item that contains multiple items within it.'''
     pass
 
 @dataclass(frozen=True)
@@ -59,6 +60,12 @@ class AtCell(CompoundItem):
 
     def short(self) -> str:
         return f"{self.canvas}.{self.index}='{self.letter}'"
+
+Side = Literal['lhs', 'rhs']
+@dataclass(frozen=True)
+class SideTag(CompoundItem):
+    canvas: Canvas
+    side: Side
 
 @dataclass(frozen=True)
 class Succ:
@@ -103,7 +110,7 @@ def datatype_of(x: Any):
             return Canvas
     raise NotImplementedError
 
-Elem = Union[Item, CompoundItem, DataType, Type[DataType]]
+Elem = Union[Item, CompoundItem, DataType] #, Type[DataType]]
 
 def elems_of(elem) -> Iterable[Elem]:
     match elem:
@@ -138,7 +145,7 @@ def elemtype(x: Elem) -> ElemType:
 @dataclass(frozen=True)
 class Variable:
     name: str
-    type: DataType
+    type: Type[DataType]
 
     def short(self) -> str:
         return self.name
@@ -169,7 +176,7 @@ ClassObject = Union[Type[Succ], Type[AtCell]]
     # A class object that can create a workspace item
 
 LhsType = Union[
-    CompoundItem, Item, Variable, DataType, Succ, ClassObject
+    CompoundItem, Item, Variable, Plus, DataType, Succ, ClassObject
 ]
     # Items appropriate for lhs of Subst.pmatch(): things that *could* contain
     # or be Variables.
@@ -226,7 +233,11 @@ class Subst:
     def is_bottom(self) -> bool:
         return False
 
-    def pmatch(self, lhs: LhsType, rhs: RhsType) -> Subst:
+    def pmatch(
+        self,
+        lhs: LhsType | List[LhsType],
+        rhs: RhsType | List[RhsType]
+    ) -> Subst:
         if lhs == rhs:
             return self
         match (lhs, rhs):
@@ -259,8 +270,8 @@ class Subst:
                 return self.pmatch(v, pred_of(s))
             case ([*lhs_items], [*rhs_items]):
                 result = self
-                for l, r in zip(lhs_items, rhs_items):
-                    result = result.pmatch(l, r)
+                for ll, rr in zip(lhs_items, rhs_items):
+                    result = result.pmatch(ll, rr)
                 return result
                         
         raise NotImplementedError(lhs, rhs)
