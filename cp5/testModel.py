@@ -1,7 +1,8 @@
 import unittest
 
-from Model import AtCell, C, Fizzle, I, I1, I2, Item, L, L1, L2, Plus, Subst, \
-    bottom_subst, empty_subst, UndefinedVariable, Succ, Seq, Model, Rule
+from Model import AtCell, C, Fizzle, I, I1, I2, I3, Item, L, L1, L2, L3, \
+    Plus, Subst, bottom_subst, empty_subst, UndefinedVariable, Succ, Seq, \
+    Model, Rule
 
 class TestPmatch(unittest.TestCase):
 
@@ -103,6 +104,34 @@ class TestCanvas(unittest.TestCase):
 
 class TestRule(unittest.TestCase):
 
+    rules5 = [
+        Rule(
+            (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
+            Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+        ),
+        Rule(
+            (Item(AtCell, C, I, L),
+             Item(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
+            ),
+            Item(Seq, C, Succ, I1, I2, L1, L2)
+        ),
+        Rule(
+            (Item(Seq, C, Succ, I1, I2, L1, L2),
+             Item(AtCell, C, Plus(I2, 1), Succ(L2))),
+            Item(Seq, C, Succ, I1, I2, L1, L2)
+        ),
+        Rule(  # Seq + Seq (no overlap)
+            (Item(Seq, C, Succ, I1, I2, L1, L2),
+             Item(Seq, C, Succ, Plus(I2, 1), I3, Succ(L2), L3)),
+            (Item(Seq, C, Succ, I1, I3, L1, L3))
+        ),
+        Rule(  # Seq + Seq (overlap at one letter)
+            (Item(Seq, C, Succ, I1, I2, L1, L2),
+             Item(Seq, C, Succ, I2, I3, L2, L3)),
+            (Item(Seq, C, Succ, I1, I3, L1, L3))
+        )
+    ]
+
     def test_make_seq_from_2_consecutive_letters(self) -> None:
         c1 = 'canvas1'
         rule = Rule(
@@ -130,6 +159,12 @@ class TestRule(unittest.TestCase):
                 Seq(c1, Succ, 2, 3, 'b', 'c')
             ]
         )
+
+    def test_abc_to_seq(self) -> None:
+        m = Model(self.rules5)
+        c1 = m.add_canvas('c1', 'abc')
+        m.do_timestep(3)
+        self.assertTrue(Seq(c1, Succ, 1, 3, 'a', 'c') in m.ws)
 
 class TestMakingPainters(unittest.TestCase):
 

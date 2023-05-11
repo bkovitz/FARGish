@@ -45,7 +45,7 @@ mypya:
 	$(MYPY) $(MYPY_FLAGS) a.py
 
 # For type-checking just one file (specified here).
-CURRENT = spike3.py #Model.py #run.py
+CURRENT = Model.py #spike3.py #run.py
 CURRENT_ARGS = --asteps=100 --lla=6 --llr=6 --au=0 --rngseed=6360465893744549081 #--rngseed=3572413201058895229  #1118343772539054194
 #CURRENT_ARGS = ' m    ' --llr=4 --rngseed=2376745550637150490
 #CURRENT_ARGS = 'm    ' --llr=4 --au=0 --rngseed=5801632031525413091 #--rngseed=2376745550637150490

@@ -13,6 +13,7 @@ from collections import defaultdict
 import re
 from pprint import pp
 from inspect import isclass
+from random import choice
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -77,6 +78,10 @@ class Seq(CompoundItem):
     end_index: Index
     start_letter: Letter
     end_letter: Letter
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}[{short(self.canvas)} {short(self.op)} {self.start_index} {self.end_index} {self.start_letter!r} {self.end_letter!r}]'
 
 def pred_of(x: Letter) -> Letter:
     # TODO can't pred 'a'
@@ -144,9 +149,11 @@ C = Variable('C', Canvas)
 I = Variable('I', Index)
 I1 = Variable('I1', Index)
 I2 = Variable('I2', Index)
+I3 = Variable('I3', Index)
 L = Variable('L', Letter)
 L1 = Variable('L1', Letter)
 L2 = Variable('L2', Letter)
+L3 = Variable('L3', Letter)
 
 @dataclass(frozen=True)
 class Plus:
@@ -274,50 +281,6 @@ class BottomSubst(Subst):
 empty_subst = Subst.from_tups()
 bottom_subst = BottomSubst()
 
-@dataclass
-class Model:
-    rules: Collection[Rule] = ()
-    ws: Set[RhsType] = field(default_factory=set)
-    
-    def add_canvas(self, name: str, contents: str) -> Canvas:
-        self.ws.add(name) #HACK
-        c = name
-        for i, letter in enumerate(contents):
-            self.ws.add(AtCell(c, i + 1, letter))
-        return c
-
-    def try_all_rules(self) -> Iterable[RhsType]:
-        for rule in self.rules:
-            for target in self.ws_targets(len(rule)):
-                if (produced := rule.run(target)) is not None:
-                    yield produced
-
-    def ws_targets(self, num: int) -> Iterable[Tuple[RhsType, ...]]:
-        yield from combinations(sorted(self.ws, key=self.target_sort_key), num)
-
-    @classmethod
-    def target_sort_key(cls, item: RhsType) -> Tuple[str, int]:
-        match item:
-            case AtCell(c, i, l):
-                return c, i
-            case int():
-                return '', item
-            case Succ(arg):
-                return str(arg), 0
-            case str():
-                return item, 0
-            case CompoundItem():
-                return item.__class__.__name__, 0
-        raise NotImplementedError(item)
-
-    def __repr__(self) -> str:
-        return str(self.ws)
-
-    def short(self) -> str:
-        cl = self.__class__.__name__
-        return f'{cl}({short(self.ws)})'
-
-
 @dataclass(frozen=True)
 class Rule:
     lhs: Tuple[Item, ...]
@@ -341,6 +304,63 @@ class Rule:
         l = ', '.join(short(item) for item in self.lhs)
         return f'{l} -> {short(self.rhs)}'
 
+@dataclass
+class Model:
+    rules: Collection[Rule] = ()
+    ws: Set[RhsType] = field(default_factory=set)
+    
+    def add_canvas(self, name: str, contents: str) -> Canvas:
+        self.ws.add(name) #HACK
+        c = name
+        for i, letter in enumerate(contents):
+            self.ws.add(AtCell(c, i + 1, letter))
+        return c
+
+    def add(self, x: RhsType) -> RhsType:
+        self.ws.add(x)
+        return x
+
+    def do_timestep(self, num: int=1) -> None:
+        for _ in range(num):
+            results = [r for r in self.try_all_rules() if r not in self.ws]
+            if results:
+                self.ws.add(choice(results))
+            #lo('DOT', len(results), self.ws)
+
+    def try_all_rules(self) -> Iterable[RhsType]:
+        for rule in self.rules:
+            for target in self.ws_targets(len(rule)):
+                if (produced := rule.run(target)) is not None:
+                    yield produced
+
+    def ws_targets(self, num: int) -> Iterable[Tuple[RhsType, ...]]:
+        yield from combinations(sorted(self.ws, key=self.target_sort_key), num)
+
+    @classmethod
+    def target_sort_key(cls, item: RhsType) -> Tuple[str, int]:
+        match item:
+            case AtCell(c, i, l):
+                return c, i
+            case int():
+                return '', item
+            case Succ(arg):
+                return str(arg), 0
+            case str():
+                return item, 0
+            case Seq(c, op, i1, i2, l1, l2):
+                return 'Seq', i2  # HACK, probably wrong
+            case CompoundItem():
+                return item.__class__.__name__, 0
+        raise NotImplementedError(item)
+
+    def __repr__(self) -> str:
+        return str(self.ws)
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}({short(self.ws)})'
+
+
 if __name__ == '__main__':
     c1 = 'canvas'
     lhs = Item(AtCell, C, I, L)
@@ -350,10 +370,38 @@ if __name__ == '__main__':
         Rule(
             (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
             Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+        ),
+        Rule(
+            (Item(AtCell, C, I, L),
+             Item(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
+            ),
+            Item(Seq, C, Succ, I1, I2, L1, L2)
+        ),
+        Rule(
+            (Item(Seq, C, Succ, I1, I2, L1, L2),
+             Item(AtCell, C, Plus(I2, 1), Succ(L2))),
+            Item(Seq, C, Succ, I1, I2, L1, L2)
+        ),
+        Rule(  # Seq + Seq (no overlap)
+            (Item(Seq, C, Succ, I1, I2, L1, L2),
+             Item(Seq, C, Succ, Plus(I2, 1), I3, Succ(L2), L3)),
+            (Item(Seq, C, Succ, I1, I3, L1, L3))
+        ),
+        Rule(  # Seq + Seq (overlap at one letter)
+            (Item(Seq, C, Succ, I1, I2, L1, L2),
+             Item(Seq, C, Succ, I2, I3, L2, L3)),
+            (Item(Seq, C, Succ, I1, I3, L1, L3))
         )
     ]
 
-    #m = Model(rules)
-    m = Model()
-    c1 = m.add_canvas('canvas1', 'abc')
+    m = Model(rules)
+    c1 = m.add_canvas('c1', 'abc')
     print(short(m))
+
+    for _ in range(5):
+        xs = [x for x in m.try_all_rules() if x not in m.ws]
+        x = choice(xs)
+        m.add(x)
+        pr(m.ws)
+        print()
+
