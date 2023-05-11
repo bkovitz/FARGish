@@ -2,7 +2,11 @@ import unittest
 
 from Model import AtCell, C, Fizzle, I, I1, I2, I3, Item, L, L1, L2, L3, \
     Plus, Subst, bottom_subst, empty_subst, UndefinedVariable, Succ, Seq, \
-    Model, Rule
+    Model, Rule, SideTag, WorldTag, W, C1, C2, OtherSide, OldWorld, NewWorld
+
+from Log import lo, trace
+from util import pr
+
 
 class TestPmatch(unittest.TestCase):
 
@@ -64,6 +68,10 @@ class TestPmatch(unittest.TestCase):
 
     def test_pmatch_plus_type_clash(self) -> None:
         self.assertTrue(empty_subst.pmatch(Plus(I, 1), 'a').is_bottom())
+
+    def test_pmatch_w(self) -> None:
+        su = empty_subst.pmatch(W, OldWorld())
+        self.assertTrue(su.eval(W), OldWorld())
 
     def xtest_pmatch_head(self) -> None:
         '''DETPAINTER'''
@@ -170,8 +178,18 @@ class TestRule(unittest.TestCase):
 
 class TestMakingPainters(unittest.TestCase):
 
-    def xtest_detect_otherside(self) -> None:
-        '''See that 'abc' is on the other side from 'abd'.'''
+    def test_detect_otherside(self) -> None:
+        # See that 'abc' is on the other side from 'abd'.
+        rule = Rule(
+            (Item(SideTag, C1, 'lhs'), Item(SideTag, C2, 'rhs'),
+             Item(WorldTag, C1, W), Item(WorldTag, C2, W)),
+            Item(OtherSide, C1, C2)
+        )
+        m = Model([rule])
+        c1 = m.add_canvas('c1', 'abc', side='lhs', world=OldWorld())
+        c2 = m.add_canvas('c2', 'abd', side='rhs', world=OldWorld())
+        m.do_timestep()
+        self.assertIn(OtherSide(c1, c2), m.ws)
 
     def xtest_convert_painter_item_to_cluster(self) -> None:
         '''AddExceptionPainter'''

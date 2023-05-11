@@ -62,6 +62,7 @@ SeqSkip[C Succ 1 C.last L L2 ISKIP] -> Repeat[C L Succ Skip[ISKIP]]
    ; A SeqSkip that fills a whole canvas becomes a Repeat
 
 C1.side=lhs, C2.side=rhs -> OtherSide[C1, C2]
+C1.side=lhs, C2.side=rhs, C1.world=W, C2.world=W -> OtherSide[C1, C2]
 
 Repeat[C1 L Succ], Repeat[C2 L Succ E], CANVAS_RELATION[C1, C2] ->
       AddExceptionPainter[CANVAS_RELATION, E; Repeat[C1 I L Succ], Repeat[C2 I L Succ E], C1, C2)]

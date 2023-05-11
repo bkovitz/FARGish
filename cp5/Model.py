@@ -48,7 +48,7 @@ class Item(CompoundItem):
 
     def short(self) -> str:
         args = ', '.join(short(a) for a in self.args)
-        return f'{short(self.head)}({args})'
+        return f'{short(self.head)}[{args}]'
 
     __repr__ = short
 
@@ -61,11 +61,48 @@ class AtCell(CompoundItem):
     def short(self) -> str:
         return f"{self.canvas}.{self.index}='{self.letter}'"
 
+class Tag(CompoundItem):
+    pass
+
 Side = Literal['lhs', 'rhs']
 @dataclass(frozen=True)
-class SideTag(CompoundItem):
+class SideTag(Tag):
     canvas: Canvas
     side: Side
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}[{short(self.canvas)} {short(self.side)}]'
+
+    __repr__ = short
+
+class World: pass
+@dataclass(frozen=True)
+class OldWorld(World): pass
+@dataclass(frozen=True)
+class NewWorld(World): pass
+
+@dataclass(frozen=True)
+class WorldTag(Tag):
+    canvas: Canvas
+    world: World
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}[{short(self.canvas)} {short(self.world)}]'
+
+    __repr__ = short
+
+@dataclass(frozen=True)
+class OtherSide(CompoundItem):
+    left: Canvas
+    right: Canvas
+
+    def short(self) -> str:
+        cl = self.__class__.__name__
+        return f'{cl}[{short(self.left)} {short(self.right)}]'
+
+    __repr__ = short
 
 @dataclass(frozen=True)
 class Succ:
@@ -108,15 +145,23 @@ def datatype_of(x: Any):
             return Letter
         case str(): #HACK
             return Canvas
-    raise NotImplementedError
+        case World():
+            return World
+    lo('DT', x, type(x))
+    raise NotImplementedError(x)
 
-Elem = Union[Item, CompoundItem, DataType] #, Type[DataType]]
+Elem = Any  #Union[Item, CompoundItem, DataType, World] #, Type[DataType]]
 
-def elems_of(elem) -> Iterable[Elem]:
+def elems_of(elem: Elem) -> Iterable[Elem]:
+    #lo('ELEM', elem)
     match elem:
         case Item(head, args):
             yield head
             yield from args
+        case WorldTag(c, w):  # TODO as_tuple?
+            yield WorldTag
+            yield c
+            yield w
         case _ if is_dataclass(elem):
             yield elem.__class__
             yield from astuple(elem)
@@ -145,7 +190,7 @@ def elemtype(x: Elem) -> ElemType:
 @dataclass(frozen=True)
 class Variable:
     name: str
-    type: Type[DataType]
+    type: Type[DataType] | Type[World]
 
     def short(self) -> str:
         return self.name
@@ -153,6 +198,8 @@ class Variable:
     __repr__ = short
 
 C = Variable('C', Canvas)
+C1 = Variable('C1', Canvas)
+C2 = Variable('C2', Canvas)
 I = Variable('I', Index)
 I1 = Variable('I1', Index)
 I2 = Variable('I2', Index)
@@ -161,6 +208,7 @@ L = Variable('L', Letter)
 L1 = Variable('L1', Letter)
 L2 = Variable('L2', Letter)
 L3 = Variable('L3', Letter)
+W = Variable('W', World)
 
 @dataclass(frozen=True)
 class Plus:
@@ -236,7 +284,7 @@ class Subst:
     def pmatch(
         self,
         lhs: LhsType | List[LhsType],
-        rhs: RhsType | List[RhsType]
+        rhs: RhsType | World | List[RhsType]
     ) -> Subst:
         if lhs == rhs:
             return self
@@ -244,6 +292,8 @@ class Subst:
             case (int(), int()):
                 return bottom_subst  # we know that lhs != rhs
             case (str(), str()):
+                return bottom_subst
+            case (World(), World()):
                 return bottom_subst
             case (_, _) if isclass(lhs) and isclass(rhs):
                 return bottom_subst
@@ -255,9 +305,11 @@ class Subst:
                 else:
                     return Subst(self.d.set(var, rhs))
             case (CompoundItem(), CompoundItem()):
+                #lo('CC', lhs, list(elems_of(lhs)), rhs, list(elems_of(rhs)))
                 result = self
                 # TODO check number of elems
                 for l, r in zip(elems_of(lhs), elems_of(rhs)):
+                    #lo('  LR', l, r)
                     result = result.pmatch(l, r)
                 return result
             case (CompoundItem(), _):
@@ -303,6 +355,10 @@ class Rule:
             #lo('RULE', lhs_item, target_item)
             su = su.pmatch(lhs_item, target_item)
         #lo('GOT', su)
+#        match target:
+#            case [Tag(), Tag(), Tag(), Tag()]:
+#                print('TARGET', target)
+#                print('SU', su)
         if su.is_bottom():
             return None  # TODO UT
         return su.eval(self.rhs)
@@ -320,11 +376,21 @@ class Model:
     rules: Collection[Rule] = ()
     ws: Set[RhsType] = field(default_factory=set)
     
-    def add_canvas(self, name: str, contents: str) -> Canvas:
+    def add_canvas(
+        self,
+        name: str,
+        contents: str,
+        side: Optional[Side]=None,
+        world: Optional[World]=None
+    ) -> Canvas:
         self.ws.add(name) #HACK
         c = name
         for i, letter in enumerate(contents):
             self.ws.add(AtCell(c, i + 1, letter))
+        if side is not None:
+            self.ws.add(SideTag(c, side))
+        if world is not None:
+            self.ws.add(WorldTag(c, world))
         return c
 
     def add(self, x: RhsType) -> RhsType:
@@ -340,6 +406,7 @@ class Model:
 
     def try_all_rules(self) -> Iterable[RhsType]:
         for rule in self.rules:
+            #lo('TAL', len(list(self.ws_targets(len(rule)))))
             for target in self.ws_targets(len(rule)):
                 if (produced := rule.run(target)) is not None:
                     yield produced
@@ -360,6 +427,14 @@ class Model:
                 return item, 0
             case Seq(c, op, i1, i2, l1, l2):
                 return 'Seq', i2  # HACK, probably wrong
+            case SideTag(c, 'lhs'):
+                return 'SideTag' + c, 0
+            case SideTag(c, 'rhs'):
+                return 'SideTag' + c, 1
+            case WorldTag(c, OldWorld()):
+                return 'WorldTag' + c, 0
+            case WorldTag(c, NewWorld()):
+                return 'WorldTag' + c, 1
             case CompoundItem():
                 return item.__class__.__name__, 0
         raise NotImplementedError(item)
