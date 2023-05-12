@@ -1,8 +1,9 @@
 import unittest
 
-from Model import AtCell, C, Fizzle, I, I1, I2, I3, Item, L, L1, L2, L3, \
+from Model import AtCell, C, Fizzle, I, I1, I2, I3, Lt, L, L1, L2, L3, \
     Plus, Subst, bottom_subst, empty_subst, UndefinedVariable, Succ, Seq, \
-    Model, Rule, SideTag, WorldTag, W, C1, C2, OtherSide, OldWorld, NewWorld
+    Model, Rule, SideTag, WorldTag, W, C1, C2, OtherSide, OldWorld, NewWorld, \
+    Canvas
 
 from Log import lo, trace
 from util import pr
@@ -23,8 +24,8 @@ class TestPmatch(unittest.TestCase):
         )
 
     def test_pmatch_one_item(self) -> None:
-        c1 = 'canvas'
-        lhs = Item(AtCell, C, I, L)
+        c1 = Canvas('c1')
+        lhs = Lt(AtCell, C, I, L)
         rhs = AtCell(c1, 2, 'b')
         self.assertEqual(
             empty_subst.pmatch(lhs, rhs),
@@ -44,11 +45,11 @@ class TestPmatch(unittest.TestCase):
         self.assertEqual(su.eval(L), 'a')
 
     def test_pmatch_multiple_items(self) -> None:
-        c1 = 'canvas'
+        c1 = Canvas('c1')
         su = empty_subst.pmatch(
             [
-                Item(AtCell, C, I1, L1),
-                Item(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
+                Lt(AtCell, C, I1, L1),
+                Lt(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
             ],
             [
                 AtCell(c1, 1, 'a'),
@@ -91,9 +92,9 @@ class TestEval(unittest.TestCase):
     # TODO test_eval_canvas
 
     def test_eval_item(self) -> None:
-        c1 = 'canvas'
+        c1 = Canvas('c1')
         su = Subst.from_tups((C, c1), (I, 1), (L, 'a'))
-        self.assertEqual(su.eval(Item(AtCell, C, I, L)), AtCell(c1, 1, 'a'))
+        self.assertEqual(su.eval(Lt(AtCell, C, I, L)), AtCell(c1, 1, 'a'))
 
 class TestCanvas(unittest.TestCase):
 
@@ -116,37 +117,37 @@ class TestRule(unittest.TestCase):
 
     rules5 = [
         Rule(
-            (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
-            Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+            (Lt(AtCell, C, I, L), Lt(AtCell, C, Plus(I, 1), Succ(L))),
+            Lt(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
         ),
         Rule(
-            (Item(AtCell, C, I, L),
-             Item(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
+            (Lt(AtCell, C, I, L),
+             Lt(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
             ),
-            Item(Seq, C, Succ, I1, I2, L1, L2)
+            Lt(Seq, C, Succ, I1, I2, L1, L2)
         ),
         Rule(
-            (Item(Seq, C, Succ, I1, I2, L1, L2),
-             Item(AtCell, C, Plus(I2, 1), Succ(L2))),
-            Item(Seq, C, Succ, I1, I2, L1, L2)
+            (Lt(Seq, C, Succ, I1, I2, L1, L2),
+             Lt(AtCell, C, Plus(I2, 1), Succ(L2))),
+            Lt(Seq, C, Succ, I1, I2, L1, L2)
         ),
         Rule(  # Seq + Seq (no overlap)
-            (Item(Seq, C, Succ, I1, I2, L1, L2),
-             Item(Seq, C, Succ, Plus(I2, 1), I3, Succ(L2), L3)),
-            (Item(Seq, C, Succ, I1, I3, L1, L3))
+            (Lt(Seq, C, Succ, I1, I2, L1, L2),
+             Lt(Seq, C, Succ, Plus(I2, 1), I3, Succ(L2), L3)),
+            (Lt(Seq, C, Succ, I1, I3, L1, L3))
         ),
         Rule(  # Seq + Seq (overlap at one letter)
-            (Item(Seq, C, Succ, I1, I2, L1, L2),
-             Item(Seq, C, Succ, I2, I3, L2, L3)),
-            (Item(Seq, C, Succ, I1, I3, L1, L3))
+            (Lt(Seq, C, Succ, I1, I2, L1, L2),
+             Lt(Seq, C, Succ, I2, I3, L2, L3)),
+            (Lt(Seq, C, Succ, I1, I3, L1, L3))
         )
     ]
 
     def test_make_seq_from_2_consecutive_letters(self) -> None:
-        c1 = 'canvas1'
+        c1 = Canvas('c1')
         rule = Rule(
-            (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
-            Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+            (Lt(AtCell, C, I, L), Lt(AtCell, C, Plus(I, 1), Succ(L))),
+            Lt(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
         )
         self.assertEqual(
             rule.run([AtCell(c1, 1, 'a'), AtCell(c1, 2, 'b')]),
@@ -156,8 +157,8 @@ class TestRule(unittest.TestCase):
     def test_try_all_rules(self) -> None:
         rules = [
             Rule(
-                (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
-                Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+                (Lt(AtCell, C, I, L), Lt(AtCell, C, Plus(I, 1), Succ(L))),
+                Lt(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
             )
         ]
         m = Model(rules)
@@ -171,19 +172,20 @@ class TestRule(unittest.TestCase):
         )
 
     def test_abc_to_seq(self) -> None:
+        #NEXT add logging of which Rule matched
         m = Model(self.rules5)
         c1 = m.add_canvas('c1', 'abc')
         m.do_timestep(3)
-        self.assertTrue(Seq(c1, Succ, 1, 3, 'a', 'c') in m.ws)
+        self.assertIn(Seq(c1, Succ, 1, 3, 'a', 'c'), m.ws)
 
 class TestMakingPainters(unittest.TestCase):
 
     def test_detect_otherside(self) -> None:
         # See that 'abc' is on the other side from 'abd'.
         rule = Rule(
-            (Item(SideTag, C1, 'lhs'), Item(SideTag, C2, 'rhs'),
-             Item(WorldTag, C1, W), Item(WorldTag, C2, W)),
-            Item(OtherSide, C1, C2)
+            (Lt(SideTag, C1, 'lhs'), Lt(SideTag, C2, 'rhs'),
+             Lt(WorldTag, C1, W), Lt(WorldTag, C2, W)),
+            Lt(OtherSide, C1, C2)
         )
         m = Model([rule])
         c1 = m.add_canvas('c1', 'abc', side='lhs', world=OldWorld())

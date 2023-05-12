@@ -73,8 +73,7 @@ ut:
 
 # Convenience target for single unit test current being worked on
 u:
-	$(PY) -m unittest -v testModel.TestMakingPainters.test_detect_otherside
-	#$(PY) -m unittest -v testModel.TestPmatch.test_pmatch_w
+	$(PY) -m unittest -v testModel.TestRule.test_abc_to_seq
 	#$(PY) -m unittest -v testModel.TestPainterCluster
 
 # Acceptance tests

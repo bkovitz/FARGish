@@ -8,7 +8,7 @@ from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
 from dataclasses import dataclass, field, fields, replace, InitVar, Field, \
     astuple, is_dataclass
 from abc import ABC, abstractmethod
-from itertools import chain, combinations
+from itertools import chain, combinations, permutations
 from collections import defaultdict
 import re
 from pprint import pp
@@ -20,10 +20,14 @@ from pyrsistent.typing import PMap
 
 from Log import lo, trace
 from util import as_iter, field_names_and_values, first, force_setattr, \
-    intersection, pr, safe_issubclass, short, union
+    intersection, pr, safe_issubclass, short, union, field_values
 
 
-Canvas = str  # Must have length of at least 2, e.g. 'c1'
+#Canvas = str  # Must have length of at least 2, e.g. 'c1'
+@dataclass(frozen=True)
+class Canvas:
+    name: str
+
 Index = int
 Letter = str  # of length 1, only 'a'..'z'
 
@@ -38,7 +42,11 @@ class CompoundItem:
     pass
 
 @dataclass(frozen=True)
-class Item(CompoundItem):
+class Lt(CompoundItem):
+    '''An "lhs tuple": a tuple suitable for the lhs of a Rule, capable of
+    matching a workspace Item. An Lt is just like an Item except that it
+    can contain Variables as well as other matchers, such as Plus and Succ,
+    and even its head (the 'class' of the Item) can be a Variable.'''
     head: Any
     args: Tuple[Any, ...]
 
@@ -127,6 +135,8 @@ class Seq(CompoundItem):
         cl = self.__class__.__name__
         return f'{cl}[{short(self.canvas)} {short(self.op)} {self.start_index} {self.end_index} {self.start_letter!r} {self.end_letter!r}]'
 
+    __repr__ = short
+
 def pred_of(x: Letter) -> Letter:
     # TODO can't pred 'a'
     return chr(ord(x) - 1)
@@ -143,31 +153,36 @@ def datatype_of(x: Any):
             return Index
         case str() if len(x) == 1: #HACK
             return Letter
-        case str(): #HACK
+        case Canvas():
             return Canvas
         case World():
             return World
     lo('DT', x, type(x))
     raise NotImplementedError(x)
 
-Elem = Any  #Union[Item, CompoundItem, DataType, World] #, Type[DataType]]
+Elem = Any  #Union[Lt, CompoundItem, DataType, World] #, Type[DataType]]
 
+# TODO rename flatten()?
 def elems_of(elem: Elem) -> Iterable[Elem]:
     #lo('ELEM', elem)
     match elem:
-        case Item(head, args):
+        case Lt(head, args):
             yield head
             yield from args
         case WorldTag(c, w):  # TODO as_tuple?
             yield WorldTag
             yield c
             yield w
+        case Canvas():
+            yield elem
         case _ if is_dataclass(elem):
             yield elem.__class__
-            yield from astuple(elem)
+            #yield from astuple(elem)
+            yield from field_values(elem)
         case _:
             yield elem
 
+'''
 ElemType = Literal['Primitive', 'Variable', 'Compound', 'Plus']
 def elemtype(x: Elem) -> ElemType:
     match x:
@@ -186,6 +201,7 @@ def elemtype(x: Elem) -> ElemType:
         case _ if isclass(x):
             return 'Primitive'
     raise NotImplementedError
+'''
 
 @dataclass(frozen=True)
 class Variable:
@@ -220,11 +236,26 @@ class Plus:
 
     __repr__ = short
 
+##### The new types #####
+
+"""
+Arg = Union[Canvas, Index, Letter, Op, TagValue]
+TagValue = Side, World  # inherit
+Item = CompoundItem, Canvas  # No variables allowed
+Lt  # a tuple suitable for the lhs of a Rule; should match an Item
+Op = Type[Succ]
+LtArg = Union[Arg, Variable, Plus, Op, Succ]
+Lvalue = Union[Lt, Head, LtArg]
+Rvalue = Union[Item, Head, Arg]
+"""
+
+##### Some of the old types (as of 11-May-2023) #####
+
 ClassObject = Union[Type[Succ], Type[AtCell]]
     # A class object that can create a workspace item
 
 LhsType = Union[
-    CompoundItem, Item, Variable, Plus, DataType, Succ, ClassObject
+    CompoundItem, Lt, Variable, Plus, DataType, Succ, ClassObject
 ]
     # Items appropriate for lhs of Subst.pmatch(): things that *could* contain
     # or be Variables.
@@ -257,7 +288,7 @@ class Subst:
                     raise UndefinedVariable
             case str() | int():
                 return expr
-            case Item(head, args):
+            case Lt(head, args):
                 cls = self.eval_get_class_object(head)
                 return cls(*(self.eval(arg) for arg in args)) # type: ignore[arg-type]
             case Plus(v, n):
@@ -295,6 +326,8 @@ class Subst:
                 return bottom_subst
             case (World(), World()):
                 return bottom_subst
+            case (Canvas(), Canvas()):
+                return bottom_subst
             case (_, _) if isclass(lhs) and isclass(rhs):
                 return bottom_subst
             case (Variable(_, typ) as var, _):
@@ -315,6 +348,8 @@ class Subst:
             case (CompoundItem(), _):
                 return bottom_subst
             case (Plus(v, n), int(m)):
+                if m <= 1:
+                    return bottom_subst
                 return self.pmatch(v, m - n)
             case (Plus(), _):
                 return bottom_subst  # type clash on rhs
@@ -346,8 +381,8 @@ bottom_subst = BottomSubst()
 
 @dataclass(frozen=True)
 class Rule:
-    lhs: Tuple[Item, ...]
-    rhs: Item
+    lhs: Tuple[Lt, ...]
+    rhs: Lt
 
     def run(self, target: Collection[RhsType]) -> Optional[RhsType]:
         su = empty_subst
@@ -383,8 +418,8 @@ class Model:
         side: Optional[Side]=None,
         world: Optional[World]=None
     ) -> Canvas:
-        self.ws.add(name) #HACK
-        c = name
+        c = Canvas(name)
+        self.ws.add(c) #HACK
         for i, letter in enumerate(contents):
             self.ws.add(AtCell(c, i + 1, letter))
         if side is not None:
@@ -412,8 +447,10 @@ class Model:
                     yield produced
 
     def ws_targets(self, num: int) -> Iterable[Tuple[RhsType, ...]]:
-        yield from combinations(sorted(self.ws, key=self.target_sort_key), num)
+        #yield from combinations(sorted(self.ws, key=self.target_sort_key), num)
+        yield from permutations(self.ws, num)
 
+    """
     @classmethod
     def target_sort_key(cls, item: RhsType) -> Tuple[str, int]:
         match item:
@@ -438,6 +475,7 @@ class Model:
             case CompoundItem():
                 return item.__class__.__name__, 0
         raise NotImplementedError(item)
+    """
 
     def __repr__(self) -> str:
         return str(self.ws)
@@ -448,35 +486,35 @@ class Model:
 
 
 if __name__ == '__main__':
-    c1 = 'canvas'
-    lhs = Item(AtCell, C, I, L)
+    c1 = Canvas('c1')
+    lhs = Lt(AtCell, C, I, L)
     rhs = AtCell(c1, 2, 'b')
 
     rules = [
         Rule(
-            (Item(AtCell, C, I, L), Item(AtCell, C, Plus(I, 1), Succ(L))),
-            Item(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+            (Lt(AtCell, C, I, L), Lt(AtCell, C, Plus(I, 1), Succ(L))),
+            Lt(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
         ),
         Rule(
-            (Item(AtCell, C, I, L),
-             Item(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
+            (Lt(AtCell, C, I, L),
+             Lt(Seq, C, Succ, Plus(I1, 1), I2, Succ(L1), L2)
             ),
-            Item(Seq, C, Succ, I1, I2, L1, L2)
+            Lt(Seq, C, Succ, I1, I2, L1, L2)
         ),
         Rule(
-            (Item(Seq, C, Succ, I1, I2, L1, L2),
-             Item(AtCell, C, Plus(I2, 1), Succ(L2))),
-            Item(Seq, C, Succ, I1, I2, L1, L2)
+            (Lt(Seq, C, Succ, I1, I2, L1, L2),
+             Lt(AtCell, C, Plus(I2, 1), Succ(L2))),
+            Lt(Seq, C, Succ, I1, I2, L1, L2)
         ),
         Rule(  # Seq + Seq (no overlap)
-            (Item(Seq, C, Succ, I1, I2, L1, L2),
-             Item(Seq, C, Succ, Plus(I2, 1), I3, Succ(L2), L3)),
-            (Item(Seq, C, Succ, I1, I3, L1, L3))
+            (Lt(Seq, C, Succ, I1, I2, L1, L2),
+             Lt(Seq, C, Succ, Plus(I2, 1), I3, Succ(L2), L3)),
+            (Lt(Seq, C, Succ, I1, I3, L1, L3))
         ),
         Rule(  # Seq + Seq (overlap at one letter)
-            (Item(Seq, C, Succ, I1, I2, L1, L2),
-             Item(Seq, C, Succ, I2, I3, L2, L3)),
-            (Item(Seq, C, Succ, I1, I3, L1, L3))
+            (Lt(Seq, C, Succ, I1, I2, L1, L2),
+             Lt(Seq, C, Succ, I2, I3, L2, L3)),
+            (Lt(Seq, C, Succ, I1, I3, L1, L3))
         )
     ]
 

@@ -294,6 +294,10 @@ def field_names_and_values(dclass) -> Iterable[Tuple[str, Any]]:
         except AttributeError:
             continue
 
+def field_values(dataclass_object) -> Iterable[Any]:
+    for name in field_names(dataclass_object):
+        yield getattr(dataclass_object, name)
+
 # TODO UT
 def instantiate_dataclass_from_kwargs(dclass: Type[T], kwargs: Dict[str, Any]) \
 -> T:
