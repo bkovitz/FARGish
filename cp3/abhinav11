@@ -43,3 +43,14 @@ Choices for today:
 
 
 a2 - b2 = (a + b)(a - b)
+
+
+12-May-2023
+
+Refactoring to change main types
+
+get rid of RhsType
+
+define Rvalue
+
+retype elems_of()

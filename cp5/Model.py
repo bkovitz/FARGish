@@ -42,12 +42,12 @@ class CompoundItem:
     pass
 
 @dataclass(frozen=True)
-class Lt(CompoundItem):
+class Lt:
     '''An "lhs tuple": a tuple suitable for the lhs of a Rule, capable of
     matching a workspace Item. An Lt is just like an Item except that it
     can contain Variables as well as other matchers, such as Plus and Succ,
     and even its head (the 'class' of the Item) can be a Variable.'''
-    head: Any
+    head: Head
     args: Tuple[Any, ...]
 
     def __init__(self, head: Any, *args: Any):
@@ -72,7 +72,16 @@ class AtCell(CompoundItem):
 class Tag(CompoundItem):
     pass
 
-Side = Literal['lhs', 'rhs']
+class TagValue:
+    pass
+
+#Side = Literal['lhs', 'rhs']
+class Side(TagValue): pass
+@dataclass(frozen=True)
+class Lhs(Side): pass
+@dataclass(frozen=True)
+class Rhs(Side): pass
+
 @dataclass(frozen=True)
 class SideTag(Tag):
     canvas: Canvas
@@ -84,7 +93,8 @@ class SideTag(Tag):
 
     __repr__ = short
 
-class World: pass
+class World(TagValue): pass
+# TODO rm dataclass
 @dataclass(frozen=True)
 class OldWorld(World): pass
 @dataclass(frozen=True)
@@ -160,27 +170,31 @@ def datatype_of(x: Any):
     lo('DT', x, type(x))
     raise NotImplementedError(x)
 
-Elem = Any  #Union[Lt, CompoundItem, DataType, World] #, Type[DataType]]
+#Elem = Any  #Union[Lt, CompoundItem, DataType, World] #, Type[DataType]]
 
-# TODO rename flatten()?
-def elems_of(elem: Elem) -> Iterable[Elem]:
-    #lo('ELEM', elem)
-    match elem:
-        case Lt(head, args):
-            yield head
-            yield from args
-        case WorldTag(c, w):  # TODO as_tuple?
-            yield WorldTag
-            yield c
-            yield w
-        case Canvas():
-            yield elem
-        case _ if is_dataclass(elem):
-            yield elem.__class__
-            #yield from astuple(elem)
-            yield from field_values(elem)
-        case _:
-            yield elem
+## TODO rename flatten()?
+#def elems_of(elem: Elem) -> Iterable[Elem]:
+#    #lo('ELEM', elem)
+#    match elem:
+#        case Lt(head, args):
+#            yield head
+#            yield from args
+#        case WorldTag(c, w):  # TODO as_tuple?
+#            yield WorldTag
+#            yield c
+#            yield w
+#        case Canvas():
+#            yield elem
+#        case _ if is_dataclass(elem):
+#            yield elem.__class__
+#            #yield from astuple(elem)
+#            yield from field_values(elem)
+#        case _:
+#            yield elem
+
+def args_of(item: CompoundItem) -> Iterable[Arg]:
+    yield from field_values(item)
+        
 
 '''
 ElemType = Literal['Primitive', 'Variable', 'Compound', 'Plus']
@@ -239,35 +253,38 @@ class Plus:
 ##### The new types #####
 
 """
-Arg = Union[Canvas, Index, Letter, Op, TagValue]
 TagValue = Side, World  # inherit
-Item = CompoundItem, Canvas  # No variables allowed
-Lt  # a tuple suitable for the lhs of a Rule; should match an Item
+Lt  # a tuple suitable for the lhs argument to pmatch; should match an Item
+"""
+#TODO Document all these
 Op = Type[Succ]
+Head = Type[CompoundItem]
+Arg = Union[Canvas, Index, Letter, Op, TagValue]
+WSItem = Union[CompoundItem, Canvas]  # No variables allowed
+LtHead = Union[Head, Type[Plus], Type[Succ]]
 LtArg = Union[Arg, Variable, Plus, Op, Succ]
 Lvalue = Union[Lt, Head, LtArg]
-Rvalue = Union[Item, Head, Arg]
-"""
+Rvalue = Union[WSItem, Head, Arg]
 
 ##### Some of the old types (as of 11-May-2023) #####
 
-ClassObject = Union[Type[Succ], Type[AtCell]]
+#ClassObject = Union[Type[Succ], Type[AtCell]]
     # A class object that can create a workspace item
 
-LhsType = Union[
-    CompoundItem, Lt, Variable, Plus, DataType, Succ, ClassObject
-]
+#LhsType = Union[
+#    CompoundItem, Lt, Variable, Plus, DataType, Succ, ClassObject
+#]
     # Items appropriate for lhs of Subst.pmatch(): things that *could* contain
     # or be Variables.
 
-RhsType = Union[
-    CompoundItem, DataType, Succ, ClassObject
-]
+#RhsType = Union[
+#    CompoundItem, DataType, Succ, ClassObject
+#]
     # A thing that can be in the workspace. An RhsType must be completely
     # determinate: it must contain no variables.
 
-def is_class_object(x: Any) -> TypeGuard[ClassObject]:
-    return isclass(x)  # HACK
+#def is_class_object(x: Any) -> TypeGuard[ClassObject]:
+#    return isclass(x)  # HACK
 
 @dataclass(frozen=True)
 class Subst:
@@ -279,18 +296,17 @@ class Subst:
             d=pmap(tups)
         )
 
-    def eval(self, expr: LhsType) -> RhsType:
+    def eval(self, expr: Lvalue) -> Rvalue:
         match expr:
             case Variable():
                 try:
                     return self.d[expr]
                 except KeyError:
-                    raise UndefinedVariable
+                    raise UndefinedVariable(expr)
             case str() | int():
                 return expr
             case Lt(head, args):
-                cls = self.eval_get_class_object(head)
-                return cls(*(self.eval(arg) for arg in args)) # type: ignore[arg-type]
+                return head(*(self.eval(arg) for arg in args))
             case Plus(v, n):
                 i: int = self.eval(v)  # type: ignore[assignment]
                 #TODO call eval_get_int() instead
@@ -303,19 +319,13 @@ class Subst:
 
         raise NotImplementedError(expr)
 
-    def eval_get_class_object(self, expr: LhsType) -> ClassObject:
-        result = self.eval(expr)
-        if is_class_object(result):
-            return result
-        raise NotImplementedError(expr, result)
-
     def is_bottom(self) -> bool:
         return False
 
     def pmatch(
         self,
-        lhs: LhsType | List[LhsType],
-        rhs: RhsType | World | List[RhsType]
+        lhs: Lvalue | List[Lvalue],
+        rhs: Rvalue | List[Rvalue]
     ) -> Subst:
         if lhs == rhs:
             return self
@@ -324,7 +334,7 @@ class Subst:
                 return bottom_subst  # we know that lhs != rhs
             case (str(), str()):
                 return bottom_subst
-            case (World(), World()):
+            case (TagValue(), TagValue()):
                 return bottom_subst
             case (Canvas(), Canvas()):
                 return bottom_subst
@@ -337,12 +347,19 @@ class Subst:
                     return self.pmatch(self.d[var], rhs)
                 else:
                     return Subst(self.d.set(var, rhs))
+            case (Lt(head, args), CompoundItem()):
+                assert isinstance(rhs, CompoundItem) #mypy bug
+                result = self.pmatch(head, rhs.__class__)
+                for l, r in zip(args, args_of(rhs)):
+                    result = result.pmatch(l, r)
+                return result
+            case (Lt(), Canvas()):
+                return bottom_subst
             case (CompoundItem(), CompoundItem()):
-                #lo('CC', lhs, list(elems_of(lhs)), rhs, list(elems_of(rhs)))
-                result = self
-                # TODO check number of elems
-                for l, r in zip(elems_of(lhs), elems_of(rhs)):
-                    #lo('  LR', l, r)
+                assert isinstance(lhs, CompoundItem) #mypy bug
+                assert isinstance(rhs, CompoundItem) #mypy bug
+                result = self.pmatch(lhs.__class__, rhs.__class__)
+                for l, r in zip(args_of(lhs), args_of(rhs)):
                     result = result.pmatch(l, r)
                 return result
             case (CompoundItem(), _):
@@ -384,7 +401,7 @@ class Rule:
     lhs: Tuple[Lt, ...]
     rhs: Lt
 
-    def run(self, target: Collection[RhsType]) -> Optional[RhsType]:
+    def run(self, target: Collection[Rvalue]) -> Optional[Rvalue]:
         su = empty_subst
         for lhs_item, target_item in zip(self.lhs, target):
             #lo('RULE', lhs_item, target_item)
@@ -409,7 +426,7 @@ class Rule:
 @dataclass
 class Model:
     rules: Collection[Rule] = ()
-    ws: Set[RhsType] = field(default_factory=set)
+    ws: Set[Rvalue] = field(default_factory=set)
     
     def add_canvas(
         self,
@@ -428,7 +445,7 @@ class Model:
             self.ws.add(WorldTag(c, world))
         return c
 
-    def add(self, x: RhsType) -> RhsType:
+    def add(self, x: Rvalue) -> Rvalue:
         self.ws.add(x)
         return x
 
@@ -439,14 +456,14 @@ class Model:
                 self.ws.add(choice(results))
             #lo('DOT', len(results), self.ws)
 
-    def try_all_rules(self) -> Iterable[RhsType]:
+    def try_all_rules(self) -> Iterable[Rvalue]:
         for rule in self.rules:
             #lo('TAL', len(list(self.ws_targets(len(rule)))))
             for target in self.ws_targets(len(rule)):
                 if (produced := rule.run(target)) is not None:
                     yield produced
 
-    def ws_targets(self, num: int) -> Iterable[Tuple[RhsType, ...]]:
+    def ws_targets(self, num: int) -> Iterable[Tuple[Rvalue, ...]]:
         #yield from combinations(sorted(self.ws, key=self.target_sort_key), num)
         yield from permutations(self.ws, num)
 
