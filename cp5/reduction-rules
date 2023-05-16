@@ -60,6 +60,7 @@ SeqSkip[C Succ I1 I2 L1 L2 ISKIP], Seq[C Succ (I+1) I3 Succ(L2) L3] -> SeqSkip[C
    ; Append Seq to SeqSkip
 SeqSkip[C Succ 1 C.last L L2 ISKIP] -> Repeat[C L Succ Skip[ISKIP]]
    ; A SeqSkip that fills a whole canvas becomes a Repeat
+                                    -> FillsCanvas[SeqSkip[...]]
 
 C1.side=lhs, C2.side=rhs -> OtherSide[C1, C2]
 C1.side=lhs, C2.side=rhs, C1.world=W, C2.world=W -> OtherSide[C1, C2]
@@ -78,22 +79,146 @@ Same[C1.len=N1, C2.len=N2], CANVAS_RELATION[C1, C2] -> CanvasLengthPainter[C1, C
    ;     Same(LEN1, LEN2)
    ;     CANVAS_RELATION(C1, C2)
 
-AddExceptionPainter[CANVAS_RELATION1, E, R1, R2, C1, C2], CanvasLengthPainter[C1, C2, CANVAS_RELATION2] ->
+AddExceptionPainter[CANVAS_RELATION1, E, R1, R2, C1, C2], CanvasLengthPainter[C1, C2, OP, CANVAS_RELATION2] ->
       CombinedPainter[
          AddExceptionPainter[CANVAS_RELATION1, E, R1, R2, C1, C2],
-         CanvasLengthPainter[C1, C2, CANVAS_RELATION2]
+         CanvasLengthPainter[C1, C2, OP, CANVAS_RELATION2]
       ]
    ; A painter that combines two painters, like this:
    ;  ClusterCluster[
    ;     ClusterAddException[CANVAS_RELATION1, E, R1, R2, C1, C2],
-   ;     ClusterCanvasLength[C1, C2, CANVAS_RELATION2]
+   ;     ClusterCanvasLength[C1, C2, OP, CANVAS_RELATION2]
    ;  ]
 
-DETPAINTER[C1, C2], CANVAS_RELATION[C1, C2], CANVAS_RELATION[C3, C4] -> DETPAINTER[C3, C4]
+semicolon = DETPAINTER[C1, C2], CANVAS_RELATION[C1, C2], CANVAS_RELATION[C3, C4] -> DETPAINTER[C3, C4]
    ; When a new determinate painter could paint at a new location, create a variant of that painter with
    ; the new location for its args.
 
 
+r1 = Repeat[c1, 'a', Succ]
+r2 = Repeat[c2, 'a', Succ, Skip[3]]
+r3 = Repeat[c3, 'i', Succ]
+
+
+AddExceptionPainter[CANVAS_RELATION1, E, R1, R2, C1, C2],
+d1 = AddExceptionPainter[OtherSide, Skip[3], r1, r2, c1, c2],
+d1 says there is a difference between r1 and r2
+
+NEED:
+d2 = AddExceptionPainter[OtherSide, Skip[3], r3, Repeat[c4, 'i', Succ, Skip[3]], c3, c4],
+   d2 says there *could be* this difference between r3 and r4; r4 does not exist yet
+   semicolon creates p1 from d.
+      d1[c1, c2], OtherSide[c1, c2], OtherSide[c3, c4] -> d1'[c3, c4]  but what is d1' (i.e. d2)?
+      semicolon lacks sufficient information to incorporate r3 or create r4.
+      We need a way to "finish" d1', starting from c3 and c4 as the only arguments. Something
+      needs to supply r3 as the "filler" of c3. Could AddExceptionPainter create a rule to
+      supply r3, Succ, and Skip[3]?
+      AddExceptionPainter[OtherSide, Skip[3], Repeat[c3, 'a', Succ], Repeat[c4, 'a', Succ, Skip[3]], c3, c4]
+         
+p2 = CanvasLengthPainter[c3, c4, Same, OtherSide]
+p3 = CombinedPainter[p1, p2]
+r4 = Repeat[c4, 'i', Succ, Skip[3]]
+
+
+WHEN WE RESTART: Run through the whole process step by step, and invoke wishful thinking at each step.
+
+IDEA: The Differ (a Rule) could create a new painter (a Rule), which in turn creates an Item that can set off
+a cascade that results in filling c4. The Differ creates a Difference. Perhaps the Differ creates two Items:
+an abstract Difference (a rule/painter) and a concrete Difference (a noticing that the abstract Difference
+applies to c1/c2). Or perhaps the abstract/concrete idea is already realized in the keeping of a "genealogy"
+of Items: stored with each Item is the Rule that created it.
+
+IDEA: A general rule-matching meta-rule: any rule can match a blank. So, the Difference can match c4, resulting
+in filling c4. This introduces some flexibility: the lhs is not limited to matching constants (if we understand a
+blank as a sort of variable). Variant: any rule that is instantiated in one place can match a blank somewhere else.
+
+QUESTION: What conclusion do we want?
+
+QUESTION: What question are we trying to answer with painters? Or, what problem are we trying to solve?
+
+   Each painter represents a relation that could be embodied in multiple places (domains, contexts).
+
+   One main thing we're doing so far with Rules is aggregating things noticed into larger things, like Seq and SeqSkip.
+   Every rhs produces an Item in which every variable is filled by a constant. Painters have parameters; painters take
+   arguments. They map variables to variables. Rules have variables but Items don't.
+
+   Seq[c1 Succ 1 3 'a' 'c']
+   Seq[c3 Succ 1 3 'i' 'l']
+      Something should "notice" that the difference between these is only that they start on a different letter.
+      A painter that represents having noticed that should be able to reconstruct one of them given the other.
+
+   To make analogies, we want to find *small* differences between different structures, so that altering just one
+   or two variables is enough to map one relatum to another. We want to look for things that are *mostly* alike
+   but differ in small ways. However, the "mostly alike" part may involve difference at every surface-level particular,
+   i.e. every letter. For example, 'abc' and 'ijk' differ in every letter, but they are "mostly" the same.
+   **** The relata are all different; the relation is the same. ****
+
+IDEA: Match blanks. abc->abd 'matches' ijk->___. If we abstract out all the letters, they look the same, and the 'abd'
+part could fill the ___.
+
+Similarly, look for clusters that have C1,C2 parameters, with OtherSide[C1, C2].
+
+
+IDEA: A way to match two items based on similarity, if you can diff any item with any other item: total up the
+similarity scores of each argument of two painters.
+i1 = [seq, a1, a2, a3]
+i2 = [seqskip, a1, a2, a3, a4]
+i3 = [succpair, a1, a2]
+
+sim(i1, i2) 100+0+0+1000
+sim(i2, i2) 150
+sim(i1, i3) 200
+
+VARIANT: Let the differ be able to write a little program (a painter) that can convert any item to any other item.  Call
+this painter "the difference".  Then look at how complicated the difference is. The simpler the difference, the more
+similar the two items. This similarity measure is relative to the painters available to construct the difference. So, as
+the model builds up larger "chunks" from which to construct differences, some "complex" differences might become simple.
+
+A difference should have the ability to look for distinguished (e.g. tagged) items in a new context, not just literally
+the same item in a new context. For example, "look for the last letter", not "look for a 'c'".
+
+Only a difference has variables. The things noticed, like "'abc' is a Seq[Succ]", contain only constants.
+
+
+Let a difference painter for (A, B) paint B by filling in blanks from A except where these are already overridden within
+B. So, in 'abc' to 'xx_', the difference painter absorbs the Same from 'xx_', but in 'abc' to 'i__', the difference
+painter retains the Succ from 'abc'.
+
+A differ principle: anything that is not specified to be different is the same. E.g. "They start from different
+letters."
+   StartsFrom[c1, 'a', c3, 'i']  
+   StartsFrom[c1, 'a', c3, ContentsOf[c3.1]]  
+
+A difference always involves two things. Hence it takes two variables--or four, if we double the variables to allow for
+indirection.
+
+Do we run the diff process on the two canvases or on the items that describe them or on the painters?
+  Seq[
+
+
+
+
+
+
+Empty[C], CouldFill[P, C, CHANGE] -> P'
+LacksPainter[C]
+
+Rules are painters?? Create a painter with variables, let it run in multiple places?
+
+A rule: requires a determinate value for every variable.
+An item: completely determinate.
+A painter: given incomplete set of arguments, fills in what's missing.
+
+The lhs of a rule need not specify an entire item; it can specify just a couple arguments. The rhs can build a
+variant of the lhs item, again specifying only a couple arguments. Some other mechanisms are needed to complete
+the rhs item, perhaps via unification in a painter cluster.
+
+Could we have a WSItem that notes that some new painter or WSItem needs something filled in? Then other rules
+could work with that one.
+
+A similarity function: allow inexact matches, e.g. aaabaaba should be seen as "the same" as abaaababaaa in some context.
+
+----------------------------------------
 
 C1.1='a'
 C1.1='b'

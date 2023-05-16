@@ -1,0 +1,40 @@
+abc -> abd; ijk -> ?
+c1     c2   c3     c4
+
+Not needed:
+    Notice that 'abc' is a Seq[Succ].
+    Notice that 'ijk' is a Seq[Succ].
+    Notice that 'abc' and 'ijk' are both Seq[Succ], just starting from different letters.
+
+Start here:
+Notice that 'abd' is a Seq[Succ, Skip[3]].
+Notice that 'abc' and 'abd' are both Seq[Succ], just with 'abd' having Skip[3].
+Make a painter capable of creating 'abd' from 'abc' and (maybe) vice versa.
+    Where there is an arrow, we look for a difference.
+    abcabc->abcgabc; ttee->?
+
+    seq1(), seqskip1() old
+    seq2(), seqskip2()      The fact that 'abc' is Seq and 'ijk' is Seq should be enough information to match and fill.
+    do seqskip()
+
+    seq() seq() -> seqseqinsert()
+    seq() seq() -> seqseqinsert()
+
+    Seq Seq -> Seq 'g' Seq
+    S S -> S 'g' S     Hey, look, it's a Rule.
+
+    S -> S/SKIP        Hey, look, it's another Rule.
+
+
+    Noticing sameness should be easy. And it's the main thing needed to create a Rule where the same variable
+    occurs more than once.
+
+    The -> in the analogy problem wants to become an -> in a Rule! "Where you see 'abc', change it to 'abd'."
+    The detection of 'abc' has to match 'ijk', and the rule has to change 'ijk' to 'ijl'.
+
+
+    aaaabaabaaa    aabaabaaaaba   Same by "loose match"; high similarity score.
+
+Notice that that painter can run on 'ijk->___'
+Since c4 is blank, we need a painter that can run on 'ijk' and fill c4.
+Run the painter, fill c4, examine cycles, see that the problem is solved.

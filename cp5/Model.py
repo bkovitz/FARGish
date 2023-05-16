@@ -147,6 +147,15 @@ class Seq(CompoundItem):
 
     __repr__ = short
 
+@dataclass(frozen=True)
+class SuccPair(CompoundItem):
+    canvas1: Canvas
+    i1: Index
+    canvas2: Canvas
+    i2: Index
+    letter1: Letter
+    letter2: Letter
+
 def pred_of(x: Letter) -> Letter:
     # TODO can't pred 'a'
     return chr(ord(x) - 1)
@@ -234,6 +243,7 @@ I = Variable('I', Index)
 I1 = Variable('I1', Index)
 I2 = Variable('I2', Index)
 I3 = Variable('I3', Index)
+J = Variable('J', Index)
 L = Variable('L', Letter)
 L1 = Variable('L1', Letter)
 L2 = Variable('L2', Letter)

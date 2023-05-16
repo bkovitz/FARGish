@@ -3,7 +3,7 @@ import unittest
 from Model import AtCell, C, Fizzle, I, I1, I2, I3, Lt, L, L1, L2, L3, \
     Plus, Subst, bottom_subst, empty_subst, UndefinedVariable, Succ, Seq, \
     Model, Rule, SideTag, WorldTag, W, C1, C2, OtherSide, OldWorld, NewWorld, \
-    Canvas, Lhs, Rhs
+    Canvas, Lhs, Rhs, SuccPair, J
 
 from Log import lo, trace
 from util import pr
@@ -118,6 +118,13 @@ class TestCanvas(unittest.TestCase):
 
 class TestRule(unittest.TestCase):
 
+    rule_succ = [
+        Rule(
+            (Lt(AtCell, C, I, L), Lt(AtCell, C, Plus(I, 1), Succ(L))),
+            Lt(Seq, C, Succ, I, Plus(I, 1), L, Succ(L))
+        )
+    ]
+
     rules5 = [
         Rule(
             (Lt(AtCell, C, I, L), Lt(AtCell, C, Plus(I, 1), Succ(L))),
@@ -180,6 +187,27 @@ class TestRule(unittest.TestCase):
         c1 = m.add_canvas('c1', 'abc')
         m.do_timestep(3)
         self.assertIn(Seq(c1, Succ, 1, 3, 'a', 'c'), m.ws)
+
+    def xtest_succ_always_left_to_right(self) -> None:
+        # TODO After ijl is working
+        rules = [
+            # C.I=L, C.J=Succ(L) -> SuccPair[C, I, C, J, L, Succ(L)]
+            Rule(
+                (Lt(AtCell, C, I, L), Lt(AtCell, C, J, Succ(L))),
+                Lt(SuccPair, C, I, C, J, L, Succ(L))
+            )
+        ]
+        m = Model(rules)
+        c1 = m.add_canvas('c1', 'aba')
+        m.do_timestep(2)
+        self.assertIn(
+            SuccPair(c1, 1, c1, 2, 'a', 'b'),
+            m.ws
+        )
+        self.assertNotIn(
+            SuccPair(c1, 3, c1, 2, 'a', 'b'),
+            m.ws
+        )
 
 class TestMakingPainters(unittest.TestCase):
 

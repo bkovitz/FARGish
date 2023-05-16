@@ -47,10 +47,31 @@ a2 - b2 = (a + b)(a - b)
 
 12-May-2023
 
-Refactoring to change main types
+Refactoring to change main types  DONE
 
-get rid of RhsType
+get rid of RhsType  DONE
 
-define Rvalue
+define Rvalue  DONE
 
-retype elems_of()
+retype elems_of()  DONE
+
+
+14-May-2023
+
+WHAT REMAINS TO GET TO IJL
+
+Enter all the remaining rules, including for SeqSkip
+
+Diff two repeaters: make a painter that, given one repeater, can make the
+other, specifically by adding or removing Skip.
+
+   Seq, SeqSkip, CANVAS_RELATION -> AddException
+   Seq, SeqSkip, CANVAS_RELATION -> Difference
+
+Notice that Difference could fill c4.
+
+Run the Difference to create the repeater for c4.
+
+Run the repeater, filling c4.
+
+Notice cycle, indicating that the run is done.
