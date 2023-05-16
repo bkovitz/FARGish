@@ -29,12 +29,155 @@ Make a painter capable of creating 'abd' from 'abc' and (maybe) vice versa.
     Noticing sameness should be easy. And it's the main thing needed to create a Rule where the same variable
     occurs more than once.
 
+    abc -> abd; ijk -> ?
+    abc -> abd; abc -> ?
+
+    SHOW ABHINAV
     The -> in the analogy problem wants to become an -> in a Rule! "Where you see 'abc', change it to 'abd'."
     The detection of 'abc' has to match 'ijk', and the rule has to change 'ijk' to 'ijl'.
+
+    For memory problems, we need a bidirectional arrow, or rather a painter cluster that can fill whatever is blank.
+
+
+    abc -> abd
+    LiteralSeq['a', 'b', 'c'] -> LiteralSeq['a', 'b', 'd']
+
+    LiteralSeq[LiteralSeq[...], '->', LiteralSeq[...]]  ; If model sees partial version of this, complete it.
+
+R1  LS[LS1, '->', LS1[addExc]], ';', LS[LS2, '->', __] ->  LS[LS1, '->', LS1[addExc]], ';', LS[LS2, '->', LS2[addExc]]
+
+    hole -> blank
+    whole
+
+    Our two main transformation ideas:
+    1. Rule: lhs -> rhs
+    2. Whole/Completion: see part of a whole, complete it
 
 
     aaaabaabaaa    aabaabaaaaba   Same by "loose match"; high similarity score.
 
+
+SMALL IDEAS
+
+    Tag every cell as OldWorld or NewWorld, and tag every cell as Lhs or Rhs. Then you don't need a separate canvas
+    for each part of a Copycat problem. Cells know what part of the problem they're in, and cells can be grouped with
+    cells in another part of the problem; e.g. 'abc->abd' can match the lhs of a Rule. This means that there is only
+    one canvas. We will still probably need patterns to match "all in the same side" and "all in the same world"
+    (which was what we were doing with patterns like C.I=L, C.(I+1)=Succ(L) -> Seq[C Succ I I+1 L Succ(L)], in which
+    the letter C occurs in multiple items).
+
+    Maybe a small set of Rules should run the system, but the Rules mostly concern creating and applying
+    Whole/Completions. The set of Rules would be immutable. The set of Wholes/Completions would change as the
+    model runs.
+
+    Maybe assign different variables to constants in the Old World and the New World.
+
+    Usually we want to create a rhs from a lhs, but we don't need a way to create the New World lhs from the Old
+    World lhs.
+
 Notice that that painter can run on 'ijk->___'
 Since c4 is blank, we need a painter that can run on 'ijk' and fill c4.
 Run the painter, fill c4, examine cycles, see that the problem is solved.
+
+
+
+Seq -> Run
+Seq means "these things in this order"
+Run means "this operation performed one or more times on consecutive cells/spans"
+    Do we lose the idea that a repeater fills its canvas?
+span means a range of cells, i.e. what we used to imagine would go into a snippet
+Rule is a special case of Whole/Completion
+
+Seq[a b c -> a b d ; i j k -> ?]
+Seq[Seq[a b c] -> Seq[a b d]]...
+Seq[Chunk[3 Run[a Succ]] -> Chunk[3 Run[a Succ Skip[3]]]]...
+
+            Run[L OP]    ->         Run[L OP Skip[3]]
+    Chunk[N Run[L OP]    -> Chunk[N Run[L OP Skip[3]]
+
+
+When the model sees that two things are the same, it can make a variable out of them.
+
+
+1. bbbb -> bbbbb; bbb -> ?
+
+Seq[b b b b -> b b b b b ; b b b -> ?]
+Seq[Seq[b b b b] -> Seq[b b b b b] ; Seq[b b b] -> ?]
+Seq[Chunk[4 Run[b Same]] -> Chunk[5 Run[b Same]] ; Chunk[3 Run[b Same]] -> ?]
+    replace constants with variables: 'same' and +1
+Seq[Chunk[N Run[L OP]] -> Chunk[N+1 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> ?]
+    now we can run the Chunk->Chunk rule inside the New World, fillin the ?
+Seq[Chunk[N Run[L OP]] -> Chunk[N+1 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> Chunk[M+1 Run[L2 OP2]]]
+    Now how do we get the constants back? We still know what each Chunk corresponds to.
+    If we save the original constant whenever we make a variable, we can always regenerate a plain literal Seq.
+Seq[b b b b -> b b b b b ; b b b -> b b b b]
+
+2. bbbb -> bbbbb; eee -> ?
+
+Seq[b b b b -> b b b b b ; b b b -> ?]
+Seq[Seq[b b b b] -> Seq[b b b b b] ; Seq[e e e] -> ?]
+Seq[Chunk[4 Run[b Same]] -> Chunk[5 Run[b Same]] ; Chunk[3 Run[e Same]] -> ?]
+    All the steps with variables are the same as in the previous problem.
+Seq[Chunk[N Run[L OP]] -> Chunk[N+1 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> ?]
+Seq[Chunk[N Run[L OP]] -> Chunk[N+1 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> Chunk[M+1 Run[L2 OP2]]]
+Seq[b b b b -> b b b b b ; b b b -> e e e e]
+
+How do we address competing Seqs?
+
+Seq[Chunk[N Run[L OP]] -> Chunk[5 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> Chunk[5 Run[L2 OP2]]]
+
+
+TODO Email Etienne: ask about spatial relations vs. term-rewriting.
+
+TODO More examples step-by-step with term rewriting.
+
+
+BIG IDEAS
+
+    Terms can be run as Rules. A Term with a -> in it is a Rule.
+
+    Terms can be created by Rules, replacing constants with variables or noticing relations among constants.
+
+    Primitive relations: 'same', succ, pred, +1
+
+    Compound relations: defined by Terms or Rules.
+
+    Maybe spatial relations are implicit in the Term structure.
+
+
+
+How does Hopfield net relate to all this?
+
+    In Hopfield net, between any two canvas cells, there is a relation enabling one cell's value to be computed
+    from the other.
+
+    In C&P, we include a spatial relation that can be reconstructed, in addition to the value relation.
+
+    'Run' has both spatial and value relations inside it.
+
+    The -> is a relationship between two Runs. The -> actually indicates a spatial relation: A -> B matches something
+    to the left of an arrow and something to the right.
+
+    We're combining a spatial and value relation, and making a rule out of it that can be applied somewhere else.
+
+    pix pix w
+    1 x 1 = 1
+    -1  1   -1
+    1  -1   -1
+    -1 -1   1
+
+    2(f)(x) = f(f(x))
+    W(p1) = p2
+    W(p2) = p1
+
+    Should we have an update rule?
+
+    In HN, the original images are attractors in the update function. In C&P, good analogies are the attractors.
+
+    Attractors in HN have become 'cycles' in C&P. The genealogy of what created what defines the attractors.
+
+Seq[Chunk[4 TERM[b Same]] -> Chunk[5 TERM[b Same]] ; Chunk[3 Run[e Same]] -> ?]
+
+    The original idea for c&p was to combine the Hopfield net with the lambda calculus: to exploit the fact that
+    in the lambda calculus, all data is functions. In the Hopfield net, there is a weight associated with every
+    pair of canvas cells. In the lambda calculus, we view the weight as a function. In c&p, 
