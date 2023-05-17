@@ -32,7 +32,6 @@ Make a painter capable of creating 'abd' from 'abc' and (maybe) vice versa.
     abc -> abd; ijk -> ?
     abc -> abd; abc -> ?
 
-    SHOW ABHINAV
     The -> in the analogy problem wants to become an -> in a Rule! "Where you see 'abc', change it to 'abd'."
     The detection of 'abc' has to match 'ijk', and the rule has to change 'ijk' to 'ijl'.
 
@@ -126,6 +125,9 @@ How do we address competing Seqs?
 
 Seq[Chunk[N Run[L OP]] -> Chunk[5 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> Chunk[5 Run[L2 OP2]]]
 
+SHOW ABHINAV
+Each step above is a representation of the whole board.
+
 
 TODO Email Etienne: ask about spatial relations vs. term-rewriting.
 
@@ -172,6 +174,7 @@ How does Hopfield net relate to all this?
 
     Should we have an update rule?
 
+    ONE MAIN IDEA
     In HN, the original images are attractors in the update function. In C&P, good analogies are the attractors.
 
     Attractors in HN have become 'cycles' in C&P. The genealogy of what created what defines the attractors.
@@ -180,4 +183,73 @@ Seq[Chunk[4 TERM[b Same]] -> Chunk[5 TERM[b Same]] ; Chunk[3 Run[e Same]] -> ?]
 
     The original idea for c&p was to combine the Hopfield net with the lambda calculus: to exploit the fact that
     in the lambda calculus, all data is functions. In the Hopfield net, there is a weight associated with every
-    pair of canvas cells. In the lambda calculus, we view the weight as a function. In c&p, 
+    pair of canvas cells. In the lambda calculus, we view the weight as a function. In c&p, the edges become
+    painters. A painter specifies a spatial relation and a value relation (at least); given some subset of its
+    arguments, it can produce the rest.
+
+SHOW ABHINAV
+Perhaps spatial relations are represented by the structure of terms in rules, and perhaps value relations are
+represented by functions within rules, like Succ[L]. Or perhaps spatial relations are represented by expressions
+containing indices, like I+1. And of course Runs represent both spatial and value relations.
+
+IDEA There could be rule elements like + and * in regexes. Seq[L Succ[L]]* or Seq[L Succ[L]...].
+
+IDEA Rule patterns that match elements that are spaced apart in a larger context, like Seq[A ... B ... A] -> Seq[A B A].
+
+IDEA Store "where in the canvas this covers" (span) with every term. Allow matching on "where". Storing the span might
+be the TRS equivalent of "4 args" (implicit indirection).
+
+IDEA Store genealogy with every term. This enables cycle detection, hence attractor detection.
+
+IDEA Could we detect attractors the old-fashioned way, by having rules/painters repaint terms, with some fading
+out, leaving only the mutually reinforcing cycles? We need to try doing this step by step in a few concrete examples.
+
+IDEA Process A: terms match rules, giving rise to rewrites that represent them. Process B: rules generate terms,
+including filling of blanks. An attractor occurs when terms generate rewrites and the rewrites fill blanks that result
+in terms that generate the same rewrites. (Perhaps such a collection of terms is a "normal form".)
+
+IDEA Could we have unenclosed terms that span only a small part of the problem string? Such a term means "I noticed
+this feature here." Or should we only have lots of complete representations of the whole problem string? Then
+every term comes in its context, so its context can be exploited for spatial and value relations.
+
+OBSERVATION We have rewriting as rerepresenting as well as filling a blank. LHS -> RHS means LHS could be rerepresented
+by RHS and it means that the blank in 'LHS -> ___' could be filled by RHS. These are the two things we need to do:
+rerepresent things (changing constants to variables, highlighting a relationship between the constants) and fill blanks.
+
+IDEA Could any "chunk" serve as a whole that can be completed (like a painter cluster), while a chunk containing ->
+is a formula for rerepresenting? Hence a chunk containing -> can *also* fill a blank. Need to flesh this out on several
+examples. In each step of each example, we need to note the invoked rule and anything else--the genealogy.
+
+IDEA Could we let this system evolve its own rules and parameters (numbers, weights) by running it on a variety of
+examples, say from dougs84, where we provide the desired answer? Keep whichever rules actually prove useful in getting
+correct answers.
+
+IDEA Could some rules create new blanks, which rerepresent letters? These blanks would then need to be filled in by
+other rules/wholes, which are tested by their ability to match the original letters.
+
+IDEA Could rules themselves (i.e. with variables) be matched by rules, leading to rewrites and completions?
+
+QUESTIONS How do we choose which redex to examine next, and how do we choose which rule/whole to try next on a given
+redex?
+
+OBSERVATION In ordinary TRS, constants in terms map to variables in rules and the rules generate new terms, which
+contain only constants. In C&P, (some) rules map constants to variables. This enables new rules to be formed
+dynamically.
+
+OBSERVATION If we regard a string as a *program*, then C&P transforms the program into an "equivalent" program--not
+exactly equivalent, but looser, with variables replacing some constants. If the original program is incomplete (i.e.
+contains blanks), the transformed program completes itself.
+
+IDEA Let's look for a mapping between painter clusters and terms with variables. Painter clusters have no arrow; they
+have relations between variables. The primitives in clusters are relations in which one value can be computed from the
+other. If a term uses a variable more than once, is that enough to reconstruct a whole from a part?
+
+    Seq[a A b A]   Given Seq[a c c], this can set A=Seq[c c] and yield Seq[a c c b c c].
+
+Do we have a use for that?
+
+IDEA Start with some rules and devise some Copycat problems to exploit them and demonstrate their flexibility.
+
+IDEA Context[] can hold descriptions of the same span. Or maybe Span[]. Span[Length[3] StartsWith[a] Run[_ Succ]].
+The arguments to Span are unordered; matching goes by type. So, Span[Run[L Succ] Length[N]] is like Span[length=N run=[L
+Succ]].
