@@ -1,0 +1,34 @@
+What are the main ideas of the canvas-and-painters model?
+
+
+
+
+What is the main conclusion?
+
+   Cascading design: Small changes to the genotype can result in large,
+   coordinated changes to the phenotype, enabling progressively increasing
+   evolvability. 
+
+   A new item added to the workspace can match with many rules, creating new
+   workspace items, which can match with more rules--a cascade.
+
+   A way to frame the main conclusion: analogies work by _____.
+
+   Analogies work by re-running a generator for something known, on something
+   partly known. A generator is something that can reproduce the whole given
+   some of the parts. The generator fills "blanks" in the partly known thing.
+
+   abc->abd; ijk -> ?
+
+   From abc->abd, we make a generator (painters) that can reconstruct abc->abd
+   from ab_->abd, a__->a_d, and many other partial versions. We also make a
+   generator for the difference, i.e. the "arrow" function. We can reconstruct
+   that difference (?) or at least re-run it on 'ijk'.
+
+   Analogy give you a head start on a new domain, by exploiting your knowledge
+   of similar relations in a familiar domain. Similar relations exist across
+   many domains; this is why analogy-making is important and valuable.
+
+   Locking on to familiar relations in a new domain *orients* you. Orientation
+   enables you to navigate the new domain. Disorientation means you can only
+   stumble around.
