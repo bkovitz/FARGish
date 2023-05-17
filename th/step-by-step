@@ -253,3 +253,6 @@ IDEA Start with some rules and devise some Copycat problems to exploit them and 
 IDEA Context[] can hold descriptions of the same span. Or maybe Span[]. Span[Length[3] StartsWith[a] Run[_ Succ]].
 The arguments to Span are unordered; matching goes by type. So, Span[Run[L Succ] Length[N]] is like Span[length=N run=[L
 Succ]].
+
+IDEA A relative spatial relation: "to the right of an 'a'". Another: "to the right of something that matches that
+(abstract) term". Another: "the lhs corresponding to that rhs, i.e. the part before ->".
