@@ -216,6 +216,10 @@ OBSERVATION We have rewriting as rerepresenting as well as filling a blank. LHS 
 by RHS and it means that the blank in 'LHS -> ___' could be filled by RHS. These are the two things we need to do:
 rerepresent things (changing constants to variables, highlighting a relationship between the constants) and fill blanks.
 
+   We rerepresent things and we complete partial wholes.
+
+   OBSERVATION The arrow doesn't always mean rerepresent, e.g. in abc->abd. Maybe we need two kinds of arrow.
+
 IDEA Could any "chunk" serve as a whole that can be completed (like a painter cluster), while a chunk containing ->
 is a formula for rerepresenting? Hence a chunk containing -> can *also* fill a blank. Need to flesh this out on several
 examples. In each step of each example, we need to note the invoked rule and anything else--the genealogy.
@@ -231,6 +235,9 @@ IDEA Could rules themselves (i.e. with variables) be matched by rules, leading t
 
 QUESTIONS How do we choose which redex to examine next, and how do we choose which rule/whole to try next on a given
 redex?
+
+   OK answers for now: Try them all. Later, simulate salience and attention moving around. Spreading activation among
+   rules would work like a slipnet.
 
 OBSERVATION In ordinary TRS, constants in terms map to variables in rules and the rules generate new terms, which
 contain only constants. In C&P, (some) rules map constants to variables. This enables new rules to be formed
@@ -248,6 +255,19 @@ other. If a term uses a variable more than once, is that enough to reconstruct a
 
 Do we have a use for that?
 
+   Seq[L Succ[L]]  Now that's a concise way to indicate the painter cluster that we described in abhinav10 as:
+
+   Cluster(PP1, AA1, AA2, SS, II1, II2)
+   PP1=Succ(AA1, AA2)
+   AA1=Address(SS, II1)
+   AA2=Address(SS, II2)
+   Succ(II1, II2)
+
+   It can fill Seq[_ m] or Seq[m _]. It can't fill Seq[_ a] but perhaps an attempt to fill a term like that should get
+   tagged with something that can match something else.
+
+IDEA A blank is essentially a variable. In a Copycat problem, we "solve for" the ?.
+
 IDEA Start with some rules and devise some Copycat problems to exploit them and demonstrate their flexibility.
 
 IDEA Context[] can hold descriptions of the same span. Or maybe Span[]. Span[Length[3] StartsWith[a] Run[_ Succ]].
@@ -256,3 +276,37 @@ Succ]].
 
 IDEA A relative spatial relation: "to the right of an 'a'". Another: "to the right of something that matches that
 (abstract) term". Another: "the lhs corresponding to that rhs, i.e. the part before ->".
+
+
+   Seq[a j a q b]
+
+p1=Overlap[Seq[L j L] Seq[L q Succ[L]]]
+
+
+   Seq[m _ _ _ _]    Set L=m and the above rule fills this with 'mjmqn'.
+
+If L can stand for a chunk, this could be more flexible.
+
+   Context[Overlap[A B], j -> q, In[A, j], In[B, q]]    Hazy idea
+
+   Overlap[A Succ[A], Succ[Seq[L j L]] -> Seq[L q Succ[L]]]   Redefining Succ in a context.
+
+   Succ[a] -> b
+
+
+   Seq[a j j j a q q q b]
+
+   How can p1 match this Seq? Somehow the j in Seq[L j L] must be altered to match Seq[j j j].
+
+
+
+A rewrite rule *extracts* information.
+
+
+
+5. aaaxa -> aaaaa; qmmmmm -> ?
+
+could be solved with a loose match.
+SeqReplace[] -> Seq[] ; SeqReplace[] -> Seq[]
+
+5a. aaxxa -> aaaaa; qmmmmm -> ?
