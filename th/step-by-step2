@@ -1,0 +1,283 @@
+
+1. bbbb -> bbbbb; bbb -> ?
+
+Seq[b b b b -> b b b b b ; b b b -> ?]
+   Rule: Seq[L... OTHER] -> Seq[Seq[L...] OTHER]
+
+   Rule: Seq[L/Same... OTHER] -> Seq[Run[L Same]
+
+   Rule: Seq[*Same.L OTHER] -> Seq[Run[L Same]]
+   Rule: Seq[*OP.L OTHER] -> Seq[Run[L OP]]
+
+
+
+Seq[Seq[b b b b] -> b b b b b ; b b b -> ?]
+
+
+             a b c
+   Rule: Seq[L+++ OTHER] -> Seq[Seq[L+++] OTHER]   match Succ
+             z y x
+   Rule: Seq[L--- OTHER] -> Seq[Seq[L---] OTHER]   match Pred
+
+
+
+Seq[Seq[b b b b] -> Seq[b b b b b] ; Seq[b b b] -> ?]
+   Rule: Seq[ANY] -> Span[Seq[ANY] Length[len(ANY)]]                     Hence there is a len() primitive.
+
+Seq[Span[Seq[b b b b] Length[N]] -> Seq[b b b b b] ; Seq[b b b] -> ?]
+   Rule: Span[Seq[L...] Length[N]] -> Chunk[N Run[L Same]]
+
+Seq[Chunk[4 Run[b Same]] -> Chunk[5 Run[b Same]] ; Seq[b b b] -> ?]
+
+   Is Chunk just another Span?
+
+
+
+Seq[Chunk[4 Run[b Same]] -> Chunk[5 Run[b Same]] ; Seq[b b b] -> ?]
+   Rule: context[head[ARG other-args] head[ARG other-args2] other-terms] -> context[head[NEWVAR other-args] head[NEWVAR other-args2] other-terms]
+   Another approach: notice that the same term occurs in multiple places in an expr and make a term that simply means just
+   that, including the addresses where the term occurs. SameTerm[place1 place2]
+Seq[Chunk[4 Run[L Same]] -> Chunk[5 Run[L Same]] ; Seq[b b b] -> ?]
+
+
+Could a Diff process do this better?
+
+
+Seq[Chunk[N Run[L OP]] -> Chunk[N+1 Run[L OP]] ; Chunk[M Run[L2 OP2]] -> ?]
+
+
+1. bbbb -> bbbbb; bbb -> ?
+
+Seq[b b b b -> b b b b b ; b b b -> ?]
+
+
+Seq[b b b b -> b b b b b] ; Seq[b b b -> ?]
+
+Seq[Span[4 Seq[b b b b]] -> Span[5, Seq[b b b b b]] ; Span[3, Seq[b b b]] -> Span[]]
+   Rule: Run
+   Rule: Span[N ANY1] -> Span[N+1 ANY2] => Span['N ANY1] -> Span['(N+1) ANY2]
+      We want to match via a variable on the lhs, and create a rhs with variables, not with the constants matched.
+      This is the crucial step: changing constants to variables. The lhs matches a noticed relationship; the rhs embodies
+      the relationship in a way that can be re-run elsewhere, on different relata.
+
+Seq[Span[N Seq[b b b b]] -> Span[N+1, Seq[b b b b b]] ; Span[3, Seq[b b b]] -> Span[]]
+   Rule:
+
+Seq[Span[N, Run[b Succ]] -> Span[N+1, Run[b Succ]] ; Span[3, Run[b Succ]] -> Span[]]
+   Rule:
+
+Seq[Span[N, Run[L Succ]] -> Span[N+1, Run[L Succ]] ; Span[3, Run[b Succ]] -> Span[]]
+   Rule: Notice that Succ and Succ are the same; replace with OP
+
+Seq[Span[N, Run[L OP]] -> Span[N+1, Run[L OP]] ; Span[3, Run[b Succ]] -> Span[]]
+
+   Now the Old World should partially match the New World and fill in the blank in the New World.
+
+   Seq[Span[N, Run[b Succ]] -> Span[N+1, Run[b Succ]]]
+   Seq[Span[3, Run[b Succ]] -> Span[]]]
+
+
+
+   Span[N, Run[L OP]] -> Span[N+1, Run[L OP]] ; Span[M Run[L2 OP2]] -> Span[]
+      => Span[N, Run[L OP]] -> Span[N+1, Run[L OP]] ; Span[M Run[L2 OP2]] -> Span[M+1 Run[L2 OP2]]
+   "Fill in the blank, going from Old World to New World."
+
+
+   Rule: ... TERM[N ...] ... TERM[N+1 ...] ... => ... TERM['N ...] ... TERM['(N+1) ...] ...
+   "Change constants to variables if related by +1."
+
+   Seq[A], Seq[Succ[A]] => jkdhfjh
+
+Seq[Span[N, Run[b Succ]] -> Span[N+1, Run[b Succ]]]
+Seq[Span[3, Run[b Succ]] -> Span[]]]
+
+   Part-whole matching; the part that matches the blank fills the blank, with the variables replaced by constants.
+   So, N=3, N+1=4.
+
+Seq[Span[3, Run[b Succ]] -> Span[4, Run[b Succ]]]
+
+
+There are two main match-and-write actions performed by the model:
+
+   Rerepresentation, done by rules.  Match lhs, create rhs.
+      Constants to variables
+      Items to chunks
+   Part-whole completion.          Match some subset, create the missing part.
+      Variables to constants
+      Blanks to letters, terms.
+
+The model seeks a part-whole completion in which the Old World maps to the New World, enabling completion. This requires
+defining appropriate variables and relationships. For some problems, like 'bbbb -> bbbbb; bbb -> ?', this is easy. For
+others, it's difficult.
+
+
+
+Seq[Seq[b b b b] -> b b b b b; b b b -> ?]
+
+OldWorld[Lhs[Seq[b b b b]] Rhs[Seq[b b b b b]]]
+NewWorld[Lhs[Seq[b b b]] Rhs[]]
+
+
+ajaqb ajaq_
+ajaqb _jmq_
+
+SamePlace[A B], Overlapping[A B]
+
+
+DECISIONS
+
+Should each "whole result" be a representation of the whole Copycat problem, or can we have lots of little, separate terms
+representing "noticings"?
+
+What term includes a length, possibly without specifying contents? Or contents without a length? Chunk, Span, Seq
+
+What things are easy to notice? Each of those things should have a rule, which generates a record that the thing was
+noticed and where it was noticed.
+
+   Things that are exactly the same.
+
+   Things that are off by one, i.e. Succ and Pred.
+
+Do we need some notion of a relative address? Directions to walk along a graph?
+
+   "The value relation of 4 to 5 (i.e. Succ) should correlate with the spatial relation of where they're placed in their
+   context." We need a vocabulary of spatial relations: a way to *specify* a spatial relation, i.e. where one term is
+   relative to another, e.g. "in consecutive nodes in the AST graph".
+
+n1--n2 n3--n4    Maybe limit search to neighbors in the AST graph 
+
+n1--n2--n3  n4--n5--__
+
+
+
+1. bbbb -> bbbbb; bbb -> ?
+
+Canvas[b b b b -> b b b b b ; b b b -> Span[]]
+
+Canvas[Span[Length[4] Run[Same b]] -> b b b b b ; b b b -> Span[]]
+
+Canvas[Span[Length[4] Run[Same b]] -> Span[Length[5] Run[Same b]] ; b b b -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[Same b]] -> Span[Length[N+1] Run[Same b]]] ; b b b -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP b]] -> Span[Length[N+1] Run[OP b]]] ; b b b -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; b b b -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; Span[Length[3] Run[Same b]] -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; Span[Length[3] Run[Same b]] -> Span[Length[4] Run[Same b]]]
+
+
+The main reason to introduce a Chunk is to change constants to variables. A variable should occur more than once in a Chunk,
+in order to make the Chunk represent a relationship.
+
+Do the variables in a Chunk have scope limited to the Chunk?
+   I think so. The variables in a rule have scope limited to the rule.
+
+Should we pull the Chunk out and refer to it from inside the Canvas? Should the model try to name the Chunk in a way that
+makes it easy to find when it's relevant?
+
+   Canvas[chunk1[N OP L] ; b b b -> Span[]]
+   chunk1[N OP L] = Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]]
+
+Is pretty much every term a tag? "This thing has these attributes." "These cells have this representation."
+
+We're rerepresenting over and over until it becomes easy to see one thing "as" another.
+
+bbbb: Span[Length[4] Run[Same b]]
+bbbb->bbbbb: Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]]
+
+In the genealogy graph, what are the nodes here?
+
+For generating Runs from sequences of letters (or anything else), this could be done in a coarse-grained way and a
+fine-grained way. The fine-grained way is to do many small steps, perhaps joining little spans or little runs together,
+perhaps starting with "rough-approximation" runs and examining them more closely. The coarse-grained way is to just have
+some Python code, like repetition_detector(), which leaps from some letters to a Run term in one step. The quick way to the
+Mustang Sally is the coarse-grained way. It can be replaced with the fine-grained way in later experiments.
+
+
+It should be possible for the model to return ?=bbbbb. How could that happen?
+
+Canvas[b b b b -> b b b b b ; b b b -> Span[]]
+
+Canvas[Span[Length[4] Run[Same b]] -> b b b b b ; b b b -> Span[]]
+
+Canvas[Span[Length[4] Run[Same b]] -> Span[Length[5] Run[Same b]] ; b b b -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[Same b]]] -> Span[Length[5] Run[Same b]] ; b b b -> Span[]]
+XXX
+Canvas[Chunk[Span[Length[N] Run[Same b]]] -> Span[Length[5] Run[Same b]] ; Span[Length[3] Run[Same b]] -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[Same b]] -> Span[Length[5] Run[Same b]]] ; Span[Length[3] Run[Same b]] -> Span[]]
+   extended the Chunk
+Canvas[Chunk[Span[Length[N] Run[Same b]] -> Span[Length[5] Run[Same b]]] ; Span[Length[3] Run[Same b]] -> Span[Length[5] Run[Same b]]]
+   match the chunk, fill the blank
+
+Instead of introducing variable N for Length[4], when N only occurs once in the Chunk, it might be better to just
+loose-match Span[Length[4] Run[Same b]] with Span[Length[3] Run[Same b]].
+
+
+
+2. bbbb -> bbbbb; eee -> ?
+
+Canvas[b b b b -> b b b b b ; e e e -> Span[]]
+
+Canvas[Span[Length[4] Run[Same b]] -> Span[Length[5] Run[Same b]] ; e e e -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[Same b]] -> Span[Length[N+1] Run[Same b]]] ; e e e -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP b]] -> Span[Length[N+1] Run[OP b]]] ; e e e -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; e e e -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; Span[Length[3] Run[Same e]] -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; Span[Length[3] Run[Same e]] -> Span[Length[4] Run[Same e]]]
+
+There's really no difference from problem 1.
+
+
+3. abcd -> abcde; pqr -> ?
+
+Canvas[a b c d -> a b c d e ; p q r -> Span[]]
+
+Canvas[Span[Length[4] Run[Succ a]] -> Span[Length[5] Run[Succ a]] ; p q r -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[Succ a]] -> Span[Length[N+1] Run[Succ a]]] ; p q r -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP a]] -> Span[Length[N+1] Run[OP a]]] ; p q r -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; p q r -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; Span[Length[3] Run[Succ p]] -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]] ; Span[Length[3] Run[Succ p]] -> Span[Length[4] Run[Succ p]]]
+   N=3 L=p OP=Succ
+
+Perhaps a Chunk means "I'm looking at this now. It can figure into part-whole completions." Chunks might fade out soon if
+they aren't used. It might be necessary to Chunk the Span[...]->Span[] at the end before completing the latter.
+
+A Span means "Here are two or more simultaneous descriptions of the same sequence of letters."
+
+The model basically searches for an impedance match among spans/chunks.
+
+
+5. aaaxa -> aaaaa; qmmmmm -> ?
+
+Canvas[a a a x a -> a a a a a ; q m m m m m -> Span[]]
+
+Canvas[Span[Length[5] Run[Same a] Replace[4 x]] -> a a a a a ; q m m m m m -> Span[]]
+
+Canvas[Span[Length[5] Run[Same a] Replace[4 x]] -> Span[Length[5] Run[Same a]] ; q m m m m m -> Span[]]
+
+Canvas[Span[Length[5] Run[Same a] Replace[4 x]] -> Span[Length[5] Run[Same a]] ; Span[Length[6] Run[Same m] Replace[1 q]] -> Span[]]
+
+Canvas[Chunk[Span[Length[N] Run[Same a] Replace[4 x]] -> Span[Length[N] Run[Same a]]] ; Span[Length[6] Run[Same m] Replace[1 q]] -> Span[Length[5] Run[Same[m]]]]
+   The trick here is to see that lacking a Replace[] member means to remove it on the rhs of the ->.
+
+
+A bad line of exploration that the model should be able to make:
+
+Canvas[. . . ; q Span[Length[5] Run[Same m]] -> Span[]]
+
