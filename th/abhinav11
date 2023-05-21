@@ -85,6 +85,7 @@ Seq vs. Span. Does one of these lock on to specific indices in the canvas?
 
 Seq/Span vs. Run.
 
+
 19-May-2023
 
 1. Finish one or two more examples.
@@ -94,3 +95,12 @@ stage to stage in the current set of examples.
 
 3. What could I write about when I'm too groggy to program or think through
 examples?
+
+
+22-May-2023
+
+1. Do another example with stages only, if needed.
+
+2. Settle Span vs. Chunk vs. Seq.
+
+3. Work out the Rules that go from one stage to the next.

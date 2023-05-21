@@ -206,7 +206,7 @@ Canvas[Span[Length[4] Run[Same b]] -> b b b b b ; b b b -> Span[]]
 Canvas[Span[Length[4] Run[Same b]] -> Span[Length[5] Run[Same b]] ; b b b -> Span[]]
 
 Canvas[Chunk[Span[Length[N] Run[Same b]]] -> Span[Length[5] Run[Same b]] ; b b b -> Span[]]
-XXX
+
 Canvas[Chunk[Span[Length[N] Run[Same b]]] -> Span[Length[5] Run[Same b]] ; Span[Length[3] Run[Same b]] -> Span[]]
 
 Canvas[Chunk[Span[Length[N] Run[Same b]] -> Span[Length[5] Run[Same b]]] ; Span[Length[3] Run[Same b]] -> Span[]]
@@ -280,4 +280,59 @@ Canvas[Chunk[Span[Length[N] Run[Same a] Replace[4 x]] -> Span[Length[N] Run[Same
 A bad line of exploration that the model should be able to make:
 
 Canvas[. . . ; q Span[Length[5] Run[Same m]] -> Span[]]
+   resulting eventually in:
+Canvas[. . . ; q Span[Length[5] Run[Same m]] -> q m m m m m]
 
+Is it possible that cycle-detection might reject this for poor corresponding structure?
+
+
+16. mpt -> mmpptt; urik -> ?
+
+Canvas[m p t -> m m p p t t ; u r i k -> Span[]]
+
+Canvas[m p t -> Span[Length[2] Run[Same m]] p p t t ; u r i k -> Span[]]
+   saw 'mm'
+Canvas[m p t -> Span[Length[2] Run[Same m]] Span[Length[2] Run[Same p] t t ; u r i k -> Span[]]
+   saw 'pp'
+Canvas[m p t -> Span[Length[2] Run[Same m]] Span[Length[2] Run[Same p]] Span[Length[2] Run[Same t]] ; u r i k -> Span[]]
+   saw 'tt'
+Canvas[m p t -> Span[L=Seq[m p t] Chunk[Span[Length[2] Run[Same L]]]] ; u r i k -> Span[]]
+   saw that mm, pp, tt have the same structure
+Canvas[Seq[m p t] -> Span[L=Seq[m p t] Chunk[Span[Length[2] Run[Same L]]]] ; u r i k -> Span[]]
+   The model has begun actively looking for things that could be seen as Seq[m p t].
+Canvas[Chunk[SEQ=Seq[m p t] SEQ -> Span[L=SEQ Chunk[Span[Length[2] Run[Same L]]]]] ; u r i k -> Span[]]
+   saw that Seq[m p t] occurs twice; Chunked the Old World
+Canvas[Chunk[SEQ=Seq[m p t] SEQ -> Span[L=SEQ Chunk[Span[Length[2] Run[Same L]]]]] ; Seq[u r i k] -> Span[]]
+   put 'urik' into a Seq; seeking analogy
+Canvas[Chunk[SEQ=Seq[m p t] SEQ -> Span[L=SEQ Chunk[Span[Length[2] Run[Same L]]]]] ; Seq[u r i k] -> Span[Length[2] Run[Same u]]  Span[Length[2] Run[Same r]]  Span[Length[2] Run[Same i]]  Span[Length[2] Run[Same k]]
+   applied the Chunk to the New World
+Canvas[Chunk[SEQ=Seq[m p t] SEQ -> Span[L=SEQ Chunk[Span[Length[2] Run[Same L]]]]] ; Seq[u r i k] -> u u r r i i k k]
+
+
+Whenever the model finds one thing, it should go looking for "more like that".
+
+When the Old World has been Chunked, it's time to see if the New World can be Chunked the same way.
+
+
+We have variables for what's the same, and we need variables for what's different.
+Whenever we see the same thing in multiple places, we chunk them all, either by making a Chunk for each one or by making one
+chunk for the whole and putting in a variable for the recurring thing.
+
+ Span[Length[2] Run[Same m]]   Span[Length[2] Run[Same p]]   Span[Length[2] Run[Same t]]  
+ what's the same: Span[Length[2] Run[Same L]]
+ what's different: L
+ Span[L=Seq[m p t] Chunk[Span[Length[2] Run[Same L]]]]   Span containing a repeated Chunk
+
+
+
+Span = A description of a span of cells. Span[L=Seq[a b c] Chunk[...]] means "repeat the Chunk for each value of L".
+Seq = a sequence of items that could each consecutively fill a variable
+Chunk = a scope for variables; contains something that could occur more than once (with different values for the variables)
+   Chunk[SEQ=Seq[a b c] SEQ SEQ]] means 'abcabc', i.e. no loop, only generate one Chunk.
+
+Only a Chunk can have variables that get substituted. A Span may have them only when it's inside a Chunk.
+
+
+17. llleoogggggg -> leog; rrxxfhhw -> ?
+
+NEXT
