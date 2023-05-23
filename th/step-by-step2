@@ -286,6 +286,9 @@ Canvas[. . . ; q Span[Length[5] Run[Same m]] -> q m m m m m]
 Is it possible that cycle-detection might reject this for poor corresponding structure?
 
 
+Could we represent this as "regularize the odd letter"?
+
+
 16. mpt -> mmpptt; urik -> ?
 
 Canvas[m p t -> m m p p t t ; u r i k -> Span[]]
@@ -336,3 +339,79 @@ Only a Chunk can have variables that get substituted. A Span may have them only 
 17. llleoogggggg -> leog; rrxxfhhw -> ?
 
 NEXT
+
+
+IDEA: Treat the Spans (and all terms within) as text, itself capable of being repainted.
+
+
+32. eeeeqee -> eeeeree; sosss -> ?      spsss  srsss
+
+Canvas[e e e e q e e -> e e e e r e e ; s o s s s -> Span[]]
+
+Canvas[Span[Length[4] Run[Same e]] q e e -> e e e e r e e ; s o s s s -> Span[]]
+
+Canvas[Span[Length[4] Run[Same e]] q Span[Length[2] Run[Same e]] -> e e e e r e e ; s o s s s -> Span[]]
+
+Canvas[Span[Length[4] Run[Same e]] q Span[Length[2] Run[Same e]] -> Span[Length[4] Run[Same e]] r e e ; s o s s s -> Span[]]
+
+Canvas[Span[Length[4] Run[Same e]] q Span[Length[2] Run[Same e]] -> Span[Length[4] Run[Same e]] r Span[Length[2] Run[Same e]] ;
+      s o s s s -> Span[]]
+p1 = Old-lhs = Chunk[Span[Length[4] Run[Same L]] q Span[Length[2] Run[Same L]]]
+
+p2 = Old-rhs = Chunk[Span[Length[4] Run[Same L]] r Span[Length[2] Run[Same L]]]
+
+OldWorld = Chunk[L2=q Old-lhs[L2] -> Old-rhs[Succ[L2]]]
+
+OldWorld = Chunk[L=e L2=q span L2 span -> span Succ[L2] span]
+
+. . .  skipping steps to represent the New World
+
+NewWorld = Span[Length[1] Run[Same s]] o Span[Length[3] Same[s]] -> Span[]
+   The Span/Run of length 1 must be pressured into existence; otherwise we'd just call it an 's'.
+NewWorld = Chunk[L=s lspan o rspan ; Span[]]
+
+
+"There's another OldWorld over there." "There's another left-side-of-this-chunk over there." Ignore variables; "squint".
+There's something there that answers to this description. Don't worry about what's inside, just check the type. Or check
+just a feature or two (the type and one or two things, like the presence or predominance of a certain letter).
+
+The fewer variables we can bind, the better. Then matches don't have to be so precise.
+
+
+Simpler to represent this with Run/Replace?
+
+
+Can we have an ability in the model to look at something and answer the question "How do I find this element?"
+E.g. in the context 'eeeeqee', you can find the 'q' by looking for "the odd letter"; you can find 'e' by looking for
+"the predominant letter" or "the letter in Run[Same _]".
+
+OldWorld = predominant-letter odd-letter predominant-letter -> predominant-letter Succ[odd-letter] predominant-letter
+
+Instead of variables, should we have "how to find things"? "Indexical variables"?
+For every "there" (a pointer), can we make a "how to find there" from some other location?
+"The Span with the Skip". "The Span with the 'a'".
+
+
+Old-lhs = Chunk[chunk[4, L] q chunk[2, L]]    <--- IDEA let's look at this later
+
+
+Should it become easier to notice the Span-letter-Span structure in the rhs after noticing it in the lhs?
+
+How can we refer to "the odd letter"? Whatever stands out as a "letter" in some context.
+Hypothesis: Maybe you can only speak of an "odd letter" in relation to a Run, i.e. a regularity.
+
+
+Mustang Sally 5. abc -> abd; mrrjjj -> ?     mrrjjjj
+
+Canvas[a b c -> a b d ; m r r j j j -> Span[]]
+
+Canvas[Span[Length[3] Run[Succ a]] -> Span[Length[3] Run[Succ a] Skip[3]] ;
+       Span[Length[1] Run[Same m]] Span[Length[2] Run[Same e]] Span[Length[3] Run[Same j]] -> Span[]]
+
+       Span[Length[N] Run[Same m]] Span[Length[Succ[N]] Run[Same e]] Span[Length[Succ[Succ[N]]] Run[Same j]] -> Span[]]
+
+Run[Succ 1] where the Run variable is the lengths of the Spans.
+
+Need indexical approach to "find" m, then r, then j.
+
+Want a *process* to walk left-to-right through abc and through mrrjjj.

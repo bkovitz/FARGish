@@ -1,0 +1,129 @@
+Can we replace variables with indexicals?
+
+
+"the next one"
+
+"the odd one"
+
+"the odd letter"
+
+"the predominant letter"
+
+"the 'c'" (a specific letter, to refer to where something is)
+
+"the current one"
+
+
+Store "how to make the next one".
+Basically a Run.
+
+
+1. bbbb -> bbbbb; bbb -> ?
+
+? = Same Run, but Length is Succ
+  = Same Run as OtherSide but Length is Succ
+  = Same as OtherSide but Length is Succ
+
+The -> function is a sort of delta. It says to copy the lhs but make a change.
+
+Canvas[Span[Predominantly[b]] -> Predominantly[b]] ; Predominantly[b] -> Blank]
+
+Canvas[Span[Length[N]] -> Span[Length[N+1]] ; Span[Length[3]] -> Blank]
+
+
+OldWorld: Predominantly[b] -> Predominantly[b]
+OldWorld: Length[4] -> Length[5]
+                 N  ...       N+1
+
+These mean:
+
+   There's something predominantly 'b'; to its right there is '->'; to its
+   right there is something predominantly 'b'.
+
+   There's something with Length[4]; to its right is '->'; to its right there
+   is Length[5].
+
+   There is something with N; the next numerical thing to its right, not
+   necessarily adjacent, is something with N+1.
+   This one needs a context that is already pared down.
+
+Each of these refers to a context, can serve as a context, and can be run to
+fill or flesh out a new context.
+
+These are painters.
+
+How do we get from:
+
+   Length[3] -> Blank
+
+to this?
+
+   Length[3] -> Length[4]
+
+
+Perhaps "abstracted" painters still depend on adjacency among elements, but
+this adjacency skips over letters, like this:
+
+p1: Length[4] -> Length[5]
+p2:        4            5
+p3:        N            N+1
+
+
+We should spell out "the same" as little as possible, and focus on the delta.
+The delta tells where to find something and how to change it; other than that,
+just copy.
+
+If an extremely minimal delta isn't enough to run in the New World, then add
+more detail about what's the same.
+
+How, then, do we get the ability to favor solutions that reflect more of the
+common structure between Old World and New World?
+
+To specify where something is, we have to walk the graph (tree) of
+rerepresentation. We can walk it by saying what to look for at each step, e.g.
+"a Length". 
+
+The mapping from "walk" to "mapping of graph to graph" is ambiguous: there
+might be many ways too do it. Therefore we will need to make these mappings
+explicitly and compare them.
+
+Perhaps the walk and mapping could themselves be incorporated into the terms
+that steps in the walk that use to refer to things.
+
+Having very few "things" helps with the search.
+
+Could we start representing strings with out-of-focus descriptions, like
+"there's a span there", "there's a run there", and fill them in when
+pressured to look by other things in the search?  Span[] could be "there's
+something Span-worthy there". Span[Blank] could mean "you need to fill this by
+creating some letters".
+
+Then doubt/rationalize.
+
+Needing a "thing" on the next step and finding it is evidence that the walk is
+good (similar to guesses becoming easier in a cryptogram).
+
+IDEA FOR A PAPER: Measure how easy the next guess becomes in a cryptogram.
+
+Could we score painters high if they all paint the same things even when
+transplanted to new contexts?
+
+Each term needs the ability to paint something in a context. So each term is a
+painter?
+
+These new painters appear to use relative addressing for everything: "to the
+right". This is good.
+
+Blank[Span], Blank[Length], Span[Blank], Span[Length]: somehow indicate the
+"type" of the blank. Blank[int] Blank[can Succ]
+
+We say "this is the reverse of that". The model needs a way to say that "this"
+and "that" have a relationship. Perhaps like this:
+
+   abccba
+   Span[a b c] Span[c b a]
+   SPAN Reverse[SPAN]
+
+i.e. the first variable matches the first Span. This might work much better
+than supplying variables via parameters. The only parameter to a painter is
+a context, i.e. where to paint itself. Variables are therefore the indexicals.
