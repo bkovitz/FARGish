@@ -104,3 +104,18 @@ examples?
 2. Settle Span vs. Chunk vs. Seq.
 
 3. Work out the Rules that go from one stage to the next.
+
+
+24-May-2023
+
+See if the new system can do Doug's problem 32.
+
+See if the new system can do abc->abd; iijjkk->?
+
+See if the new system can do abc->abd; mrrjjj->?
+
+Work out details of solution to bbbbqbbbbttttftthhhbhhh -> bbbbbbbbbttttftthhhbhhh; gggygggbbbubbbbbwwswwww -> ?
+I.e. enough to program it.
+
+Can we still paint a whole string from a partial string?
+Do we still have painters that can reconstruct either of two things given the other?

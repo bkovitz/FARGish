@@ -34,6 +34,7 @@ Canvas[Span[Length[N]] -> Span[Length[N+1]] ; Span[Length[3]] -> Blank]
 OldWorld: Predominantly[b] -> Predominantly[b]
 OldWorld: Length[4] -> Length[5]
                  N  ...       N+1
+          ATTR[N]   ...     ATTR[N+1]
 
 These mean:
 
@@ -46,6 +47,9 @@ These mean:
    There is something with N; the next numerical thing to its right, not
    necessarily adjacent, is something with N+1.
    This one needs a context that is already pared down.
+
+   There is some attribute ATTR with a value N; somewhere to its right,
+   the same ATTR occurs, and its value is N+1.
 
 Each of these refers to a context, can serve as a context, and can be run to
 fill or flesh out a new context.
@@ -69,6 +73,14 @@ p2:        4            5
 p3:        N            N+1
 
 
+aaaaaaqxqaaaaaaa   aaaaaaqxqxqaaaaaaa
+We have to make the matcher blind to irrelevant Ns in this case. The matcher
+should skip over the numbers of a's and x's. We do this by omitting them from
+the context with the N and the N+1 for the q's.
+
+A context needs to tell how to plug things into the context that it was
+abstracted from.
+
 We should spell out "the same" as little as possible, and focus on the delta.
 The delta tells where to find something and how to change it; other than that,
 just copy.
@@ -84,13 +96,23 @@ rerepresentation. We can walk it by saying what to look for at each step, e.g.
 "a Length". 
 
 The mapping from "walk" to "mapping of graph to graph" is ambiguous: there
-might be many ways too do it. Therefore we will need to make these mappings
+might be many ways to do it. Therefore we will need to make these mappings
 explicitly and compare them.
 
 Perhaps the walk and mapping could themselves be incorporated into the terms
 that steps in the walk that use to refer to things.
 
-Having very few "things" helps with the search.
+Having very few "things" helps with the search. Heuristic: keep a small search
+space.
+
+DISS: Human intelligence has vast flexibility in what it can describe and
+search for, and simultaneously it's very good at keeping its search space
+small at each step. This is a major element of what makes people smart.  We
+write database queries or grep commands to search millions of possibilities,
+but human intelligence finds much subtler things with almost no searching.
+We're good at making things easy to find.
+
+THESIS: Everything is a pronoun.
 
 Could we start representing strings with out-of-focus descriptions, like
 "there's a span there", "there's a run there", and fill them in when
@@ -98,18 +120,26 @@ pressured to look by other things in the search?  Span[] could be "there's
 something Span-worthy there". Span[Blank] could mean "you need to fill this by
 creating some letters".
 
+   Canvas[Span -> Span; stuff...]
+   Canvas[Span -> Span[Predominantly[b]]; ...]
+      now look for more Predominantly[b]
+   Canvas[Span[Predominantly[b]] -> Span[Predominantly[b]]; ...]
+
 Then doubt/rationalize.
 
 Needing a "thing" on the next step and finding it is evidence that the walk is
 good (similar to guesses becoming easier in a cryptogram).
 
 IDEA FOR A PAPER: Measure how easy the next guess becomes in a cryptogram.
+Correlate that with whether the previous guesses were correct.
 
 Could we score painters high if they all paint the same things even when
-transplanted to new contexts?
+transplanted to new contexts, i.e. the intersection of what the different
+painters paint is consistent?
 
 Each term needs the ability to paint something in a context. So each term is a
-painter?
+painter? Strictly, a term paints something in a "hole" in a context, i.e.
+an exact place in a context.
 
 These new painters appear to use relative addressing for everything: "to the
 right". This is good.
@@ -127,3 +157,201 @@ and "that" have a relationship. Perhaps like this:
 i.e. the first variable matches the first Span. This might work much better
 than supplying variables via parameters. The only parameter to a painter is
 a context, i.e. where to paint itself. Variables are therefore the indexicals.
+
+No one painter should ever be complicated. Each should be something that a
+person could easily say in a sentence, like "this is the Succ of that".
+Complexity, at least of the kind needed for dougs84 problems, should come
+only from coalitions of painters.
+
+The model needs to be good at both coming up with little descriptors, like
+Predominantly[b], *and* at giving up on them when they don't lead anywhere.
+
+The elements that we're keying off of and painting are really "chunks". As
+with real chunks in human cognition, we throw away most of the information for
+purposes of quick/loose matching, but we still have access to that information
+for purposes of filling blanks or checking carefully.
+
+
+Summary of today's main idea (23-May-2023): 
+
+   Painters contain terms that they can find in a context to use as reference
+   points.  "Orient to reference points. The manner of orientation is taken
+   from one context and brought to another."
+
+
+   Make rerepresentations that describe just features of things in their
+   spatial configuration (left to right), i.e. relative addressing. This
+   allows a rerepresentation to refer to "the previous one", "the next
+   letter", "the next Length", etc. Terms like Predominantly[b] enable the
+   model to match the next "thing" that is predominantly 'b' without
+   specifying much about it--loose matching.
+
+   A rerepresentation can match part of a sequence and fill a blank with
+   the rest.
+
+   Variables are filled by taking them from the matching place in the target
+   context.
+
+   The only argument to a painter (i.e. a rerepresentation) is what context in
+   which to match or paint.
+
+   A painter can be a context for another painter.
+
+
+
+bbbbqbbbbttttftthhhbhhh -> bbbbbbbbbttttftthhhbhhh; gggygggbbbubbbbbwwswwww -> ?
+   "Fix the section that is predominantly 'b'."
+
+   predominantly(b) predominantly(t) predominantly(h) -> 
+      same(b) predominantly(t) predominantly(h)
+
+   predominantly(g) predominantly(b) predominantly(w) ->
+      Blank
+
+   Rule: predominantly(b) -> same(b)
+
+Need:  (postulated abilities)
+
+   Easily perceive the OW as predominantly(b) predominantly(t) predominantly(h).
+   Easily perceive Runs with one flaw.
+
+   Easily perceive the change from OW.lhs to OW.rhs, and represent it as
+   predominantly(b) -> same(b).
+
+   Walk the tree according to "predominantly(b) -> same(b)" in the NW: find
+   'bbbubbbbb' and rewrite it as 'bbbbbbbbb'. That means finding the
+   predominantly(b) and using it as a reference point when painting the ?.
+
+   Represent the NW.lhs as three predominantlies.
+
+
+Terms:
+   
+   Predominantly[b]
+     Mostly[b]
+     All[b]
+
+   Icon[b]
+
+
+bbbqbbbbttttrtthhhshhh -> bbbqbbbbttttrtthhhthhh ; abc -> ?
+Icon[q] Icon[r] Icon[s] -> Icon[q] Icon[r] Icon[t] ;
+
+
+
+
+Modules (or UTs) to code up:
+
+   Represent 'bbbbqbbbb' as Predominantly[b].
+
+   Represent OW.lhs as three Predominantlies in sequence.
+
+   Represent the "delta" across the -> as a Rule.
+
+      To calculate a delta: walk in parallel through each context and note
+      where a difference occurs. Note the difference by where to find it.
+      For "where to find it", we need a way to distinguish it within its
+      context.
+
+   A function that can distinguish the Predominantly[b] within OW.lhs and
+   OW.rhs. "The Predominantly[b]" rather than "the 1st chunk".
+
+
+Because we now have just one argument per term, the job of calculating a delta
+becomes easy.
+
+
+5. aaaxa -> aaaaa; qmmmmm -> ?
+
+Span[a a a x a] -> Span[a a a a a] ; Span[q m m m m m] -> Span[Blank]
+
+
+... ; Span[Length[6] Run[Same] Seed[m] Replace[1 q]] -> Span[Length[5] Run[Same] Seed[m]]
+
+
+32. eeeeqee -> eeeeree; sosss -> ?
+
+Chunk[Run[Same] Seed[e] Exception[q] ExceptionAt[5]] -> Chunk[Run[Same] Seed[e] Exception[r] ExceptionAt[5]] ;
+      Chunk[Run[Same] Seed[s] Exception[o] ExceptionAt[2]] -> Chunk[]
+   annotated everything
+Exception[L] -> Exception[Succ[L]]
+   the output of the Differ (input was the Old World)
+Chunk[Run[Same] Seed[s] Exception[p] ExceptionAt[2]]
+   result of running the Differ's output on NW.lhs
+
+
+
+THE PROCESS
+Annotate everything. The Differ produces a very small output of the form "Term -> Term". Run that output on NW to fill the blank.
+Running the output requires finding addresses in the NW to match those in the output. The Differ output specifies a little piece
+to change within a larger structure that is duplicated between lhs and rhs.
+
+
+Exception[q] -> Exception[r]
+:eeeeqee        :eeeeree               The colons mean "address of the thing being described"
+          
+L               Succ[L]
+:q:Exception[q] :r:Exception[r]
+
+
+When you go to the New World, you need to "run" the same terms but at different addresses. So, to run/match L, you need to find
+an Exception that it is part of. Some other process might build Exceptions, perhaps bottom-up.
+
+
+
+Icon[L] -> Icon[Succ[L]]
+
+If you pull out the Icon a certain way, you have to be able to put the rest back by reversing the certainb way.
+
+
+Abhinav: "I first see Predominantly[e], not Icon[q]." The Succ relationship between 'q' and 'r' leads you to view these letters
+as icons.
+
+*** Do we need to annotate the whole string, or can we just notice the few pieces of interest first?
+annotate = rewrite
+
+   Possibilities:
+
+      Annotate the whole string and keep a whole Canvas[...] at every step.
+      The Rules should be able to match parts of the whole.
+
+      Record terms for pieces along with their "contextual address".
+      Try to match those terms with other terms to fill blanks.
+
+      Annotate only as much as you need to find something.
+
+*** What are all the transformations (Rules, etc.) that we need?
+
+   Rules: match something (lhs, with variables) -> add a term that describes it (constants only)
+
+   part-whole completion: match A (with variables) against B (with a blank) -> rewrite B (filling the blank, constants only)
+
+   The Differ: given two terms, tell how to turn one into the other
+
+      In the indexical approach, we want the output of the Differ to be very simple, e.g. "replace the odd letter with its Succ"
+
+   Running the output of the Differ: difference term (a compound term) is given a new context; in that context, it duplicates the
+   lhs except for some change specified in the difference.
+
+When we notice something, we want to note where we noticed it. "Where we noticed it" is some index into the context, i.e. a way
+to find it again.
+
+   Every span term needs to be associated with a place in its context. That place could be an index into the canvasm, or something
+   at a higher level.
+
+How do we track that the Predominantly[] goes with its Icon[]?
+
+   Two possibilities:
+
+      rewrite: Chunk[Predominantly[] Icon[]]
+
+      track spans:     eeeeqee: Predominantly[e]
+                       eeeeqee: Icon[q]
+
+reduction rules & relative addresses
+
+32a. eeeeqee -> eeeeree; abcdoefghi -> ?
+
+[seq] [L] [seq]
+
+[seq, predominantly, icon,..] [...] [...]  Rule

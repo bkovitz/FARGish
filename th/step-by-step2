@@ -97,6 +97,7 @@ Seq[Span[3, Run[b Succ]] -> Span[]]]
 Seq[Span[3, Run[b Succ]] -> Span[4, Run[b Succ]]]
 
 
+A MAIN IDEA
 There are two main match-and-write actions performed by the model:
 
    Rerepresentation, done by rules.  Match lhs, create rhs.
