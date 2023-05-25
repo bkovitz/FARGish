@@ -119,3 +119,23 @@ I.e. enough to program it.
 
 Can we still paint a whole string from a partial string?
 Do we still have painters that can reconstruct either of two things given the other?
+
+
+25-May-2023
+
+Following the notes in the 'recipes' file:
+
+   See if the new system can do Doug's problem 32.
+
+   See if the new system can do abc->abd; iijjkk->?
+
+   See if the new system can do abc->abd; mrrjjj->?  This is the example that
+   might force indexicals: the argument to Succ/Skip has to change from a
+   letter to a length. The object of Succ must vary according to context.
+   "Find the thing that is recurring in a Run[Succ]."
+
+   Work out details of solution to bbbbqbbbbttttftthhhbhhh -> bbbbbbbbbttttftthhhbhhh; gggygggbbbubbbbbwwswwww -> ?
+   I.e. enough to program it. The indexicals should tell how to find the
+   letter to replace with the surrounding letter.
+
+   Maybe: can the new system do memory problems like 'ajaqb'?

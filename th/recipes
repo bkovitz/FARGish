@@ -1,0 +1,119 @@
+24-May-2023
+
+
+"Recipes"
+
+   "Solution" recipes:
+
+      These tell what to do, in a very simple way, to map the lhs to the rhs in
+      both Worlds:
+
+         Change the odd letter in the big string to its successor.
+
+         Advance the last letter in "the" sequence.
+
+   "Annotation" recipes:
+
+      These tell how to create another thing, possibly from scratch.
+
+   Do we need a recipe to create a recipe?
+
+      That is, if we have a recipe R1 that paints a letterstring, do we need
+      a recipe R2 to paint R1? Or could we use an R2?
+
+      A recipe is a sort of compressed form of whatever it produces. So, could
+      we compress more than once?
+
+      Recipes to create recipes might relate only to "memory" problems like
+      "If you erase any two letters in 'ajaqb', can you get them back?" and
+      "If you erase any two painters in the painters for 'ajaqb', can you get
+      them back?"
+
+   Each recipe therefore adds redundancy. "Recipe" might just be a new word for
+   "painter".
+
+Arguments to recipes
+
+   If a recipe is something that applies to a context, it takes the context as
+   an argument. So, do recipes *alter* contexts, i.e. make
+   additions/deletions/changes to some sort of canvas?
+
+   Or, does a recipe take a lhs and produce a rhs? Or take a string with a blank
+   and fill the blank?
+
+"Difference" in the recipe world:
+
+   The Differ's output, a "difference", is a recipe to alter the NW.lhs recipe
+   so it produces the NW.rhs. The "difference" should also alter the OW.lhs
+   recipe so that it produces the OW.rhs.
+
+   A good recipe for an lhs or rhs is one that "find its way" in the other side
+   and/or other World and produce some output.
+
+   A recipe should be able to operate on a small context, not just the global
+   context.
+
+THE PROCESS
+
+   Annotate everything, i.e. create a recipe that can paint each string from
+   scratch. 
+
+   Differ makes a little 
+
+What we will ultimately need
+
+   A set of primitives
+
+      Rules that annotate strings or terms.
+
+      Compound terms suitable for part-whole completion.
+
+         abc->abd   when run on   abc->?  yields   abc->abd
+
+         Chunk[Span[Length[N] Run[OP L]] -> Span[Length[N+1] Run[OP L]]]
+            when run on:
+         Chunk[Span[Length[3] Run[Same b]] -> Span[Blank]
+            yields:
+         Chunk[Span[Length[3] Run[Same b]] -> Span[Length[4] Run[Same b]]]
+
+What is the recipe for 'abc->abd; ijk->?'?
+
+   The final recipe:
+      Chunk[Run[Succ] Seed[a] Length[3]] -> Chunk[Run[Succ] Seed[a] Length[3] Skip[3]] ;
+      Chunk[Run[Succ] Seed[i] Length[3]] -> Chunk[Run[Succ] Seed[i] Length[3] Skip[3]]
+
+   Steps to construct it:
+
+      see that 'abc' is a Succ group:
+      abc: Chunk[Run[Succ] Seed[a] Length[3]]
+         by Rule: detect Succ group
+
+      see that 'abd' is a Succ group with a Skip:
+      abd: Chunk[Run[Succ] Seed[a] Length[3] Skip[Last]]
+         by Rule: detect Succ group
+
+      see difference between OW.lhs and OW.rhs:
+      Chunk[...] -> Chunk[... Skip[Last]]
+         The ... means "match everything else there". It's like a variable that holds many terms.
+         By Differ Rule: replace everything that's the same with ... .
+
+      see that 'ijk' is a Succ group:
+      ijk: Chunk[Run[Succ] Seed[i] Length[3]]
+         by Rule: detect Succ group:
+
+      the difference now matches 'Chunk[Run[Succ] Seed[i] Length[3]] -> Chunk[Blank]' and fills the blank by simply expanding
+      the ... variable within the last term:
+      Chunk[Blank]: Chunk[Run[Succ] Seed[i] Length[3] Skip[Last]]
+         by Rule: apply partial match with the difference from step 3.
+         That's the solution.
+      
+I expect that we'll need more complicated difference terms, possibly with more than one variable.
+
+A remaining question: do we want the 'difference' to specify more precisely what to match in a given context?
+
+A difference might provide more features to match in order to match more precisely. That's what Predominantly[b] and
+Icon[b] can do. They mean "pick the Chunk that is predominantly or distinctively 'b'." These features, like '->',
+provide reference points to orient the match. What counts as Icon[b] can vary greatly depending on context.
+
+Maybe we only need indexicals when there are many Chunks to choose from, or many ways to find the argument of a function
+(like Succ in 'mrrjjj').
