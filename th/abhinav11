@@ -121,13 +121,19 @@ Can we still paint a whole string from a partial string?
 Do we still have painters that can reconstruct either of two things given the other?
 
 
-25-May-2023
+25,26-May-2023
 
 Following the notes in the 'recipes' file:
 
-   See if the new system can do Doug's problem 32.
+   See if the new system can do Doug's problem 32.  DONE: YES
+
+      See how to solve problem 32 with indexicals, e.g. "replace the odd
+      letter with its successor"
 
    See if the new system can do abc->abd; iijjkk->?
+
+   Look at VERTICAL-ARROW in 'arrow' file. What limitation of what so far does
+   that rule overcome?
 
    See if the new system can do abc->abd; mrrjjj->?  This is the example that
    might force indexicals: the argument to Succ/Skip has to change from a

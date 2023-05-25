@@ -76,6 +76,8 @@ What we will ultimately need
             yields:
          Chunk[Span[Length[3] Run[Same b]] -> Span[Length[4] Run[Same b]]]
 
+----------------------------------------
+
 What is the recipe for 'abc->abd; ijk->?'?
 
    The final recipe:
@@ -117,3 +119,113 @@ provide reference points to orient the match. What counts as Icon[b] can vary gr
 
 Maybe we only need indexicals when there are many Chunks to choose from, or many ways to find the argument of a function
 (like Succ in 'mrrjjj').
+
+----------------------------------------
+
+MAIN IDEA
+Some requirements for terms:
+
+   A Rule that can rewrite something as the term.
+
+   A way to create the original text from the term. Is this a "recipe"?
+
+   A way for the term to match some new text.
+
+----------------------------------------
+
+Can the 'recipes' approach do Doug's problem 32?
+
+32. eeeeqee -> eeeeree; sosss -> ?
+
+   The final recipe containing only constants, i.e. the terms that can paint the solution (OW + NW):
+      
+      Chunk[Run[Same] Seed[e] Length[7] ReplaceWith[q] ReplaceAt[5]] ->
+      Chunk[Run[Same] Seed[e] Length[7] ReplaceWith[r] ReplaceAt[5]] ;
+      Chunk[Run[Same] Seed[s] Length[5] ReplaceWith[o] ReplaceAt[2]] ->
+      Chunk[Run[Same] Seed[s] Length[5] ReplaceWith[p] ReplaceAt[2]]
+
+   Steps to construct it:
+
+      see that 'eeeeqee' is almost a Same group:
+      eeeeqee: Chunk[Run[Same] Seed[e] Length[7] ReplaceWith[q] ReplaceAt[5]]
+         by Rule: detect Same group
+
+      see that 'eeeeree' is almost a Same group:
+      eeeeree: Chunk[Run[Same] Seed[e] Length[7] ReplaceWith[r] ReplaceAt[5]]
+         by Rule: detect Same group
+
+      see difference between OW.lhs and OW.rhs:
+      Chunk[... ReplaceWith[L]] -> Chunk[... ReplaceWith[Succ[L]]]
+         By Differ Rule: replace everything that's the same with ... .
+
+      see that 'sosss' is almost a Same group:
+      sosss: Chunk[Run[Same] Seed[s] Length[5] ReplaceWith[o] ReplaceAt[2]]
+         by Rule: detect Same group
+
+      the difference now matches 'Chunk[Run[Same] Seed[s] Length[5] ReplaceWith[o] ReplaceAt[2]] -> Chunk[Blank]' and
+      fills the blank by expanding the ... variable within the last term:
+      Chunk[Blank]: Chunk[Run[Same] Seed[s] Length[5] ReplaceWith[p] ReplaceAt[2]]
+         by Rule: apply partial match with the difference from step 3.
+         That's the solution.
+
+   indicate "the odd letter"?
+   Chunk[... ReplaceWith[L]
+   "replace the odd letter with its successor"
+
+ReplaceWith can be seen as "the odd letter".
+Seed in a Chunk with Run[Same] can be seen as "the predominant letter".
+
+----------------------------------------
+
+What is the recipe for 'abc->abd; iijjkk->?'?
+
+   The final recipe:
+      Chunk[Run[Succ] Seed[a] Length[3]] -> Chunk[Run[Succ] Seed[a] Length[3] Skip[Last]] ;
+      Chunk[Run[Succ] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3]] ->
+      Chunk[Run[Succ] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3] Skip[Last]]
+   PROBLEM: How does Succ operate on the repeating Chunk?
+
+   Variant using 'arrow' approach:
+      Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3]] ->
+      Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3] Skip[Last]]
+
+   Steps to construct it:
+
+      see that 'abc' is a Succ group:
+      abc: Chunk[Run[Succ] Seed[a] Length[3]]
+         by Rule: detect Succ group
+
+      see that 'abd' is a Succ group with a Skip:
+      abd: Chunk[Run[Succ] Seed[a] Length[3] Skip[Last]]
+         by Rule: detect Succ group
+
+      see difference between OW.lhs and OW.rhs:
+      Chunk[...] -> Chunk[... Skip[Last]]
+         The ... means "match everything else there". It's like a variable that holds many terms.
+         By Differ Rule: replace everything that's the same with ... .
+
+      see that 'ii' is a Same group:
+      ii: Chunk[Run[Same] Seed[i] Length[2]]
+         by Rule: detect Same group
+
+      see that 'jj' is a Same group:
+      jj: Chunk[Run[Same] Seed[k] Length[2]]
+         by Rule: detect Same group
+
+      see that 'kk' is a Same group:
+      kk: Chunk[Run[Same] Seed[k] Length[2]]
+         by Rule: detect Same group
+
+      The difference is going to match too much--more than one target. Therefore it must be made more specific:
+      Chunk[... Run[Succ]] -> Chunk[... Run[Succ] Skip[Last]]
+         by SOMEHOW finding a way to add an attribute to rule out the ii,jj,kk Chunks
+
+      see that 'ii,jj,kk' is a Succ group:
+      ii,jj,kk: Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3]]
+         by Rule: detect Succ group
+
+      the difference now matches--sort of--'Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]]
+      Length[3]] -> Chunk[Blank]' and fills the blank by expanding the ... variable in the last term:
+      Chunk[Blank]: Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3] Skip[Last]]
+         by Rule: apply partial match with the difference from step 7.
+         That's the solution.

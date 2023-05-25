@@ -1,0 +1,86 @@
+
+T  Rs U2 R-1s F2  T-1
+
+PQP-1
+
+       f
+abc   --->   abd
+ 
+g|            |g
+ v            v
+
+ijk   --->   ijl
+       f
+
+
+
+DISS Explain commutativity diagrams vs. analogy
+
+tomato  -->   how to water a tomato
+
+  |                |
+  v                v
+
+cactus  -->   how to water a cactus
+
+f needs to act differently on a tomato than a cactus: it must water the tomato more.
+
+We don't need g, because we don't need a function that takes 'tomato' as input and returns 'cactus'.
+
+But we do need to transform f so that it puts a different amount of water on a cactus than on a tomato.
+
+Does this prove that we need a system that can take functions as input and return functions? Does analogy require
+operating on functions to transplant them from one domain to another?
+
+
+         f
+tomato  -->   how to water a tomato
+
+        h|
+         v
+
+cactus  -->   how to water a cactus
+         f'
+
+Does h take two arguments--f and (tomato, cactus)?
+
+
+Indexicals make it so you can use the same f in both worlds. An indexical function needs to be able to find elements in
+the New World that can serve as functions for it to call there. These functions correspond to the functions called by
+the indexical in the Old World?
+
+
+g(f)   
+
+cactus -> blind search to find the closest thing to cactus (g-1)
+
+f1: tomato->w.tomato
+f2: baobab->w.baobab
+f3: car->clean.car
+
+fx: cactus->w.cactus
+
+ti find fx - we do a blind search -> fx = g1(f1), fx = g2(f2), fx = g3(f3)
+   fx = g1(f1)
+
+
+
+f = a composed with b
+
+
+We need to cook up an f' to suit the New World. There can be no a priori way of doing this. This is the difference
+between analogy and logic. Analogy's job is to start your guesses in fruitful territory.
+
+When applying your knowledge of how to water a tomato to figure out how to water a cactus, you start by expecting that
+you should pour water into the ground near the cactus. You never think that you should light a match and set the cactus
+on fire.
+
+
+
+To find f', you exploit your knowledge of the difference between a tomato and a cactus. Specifically, you reason that
+since a cactus's native environment gets much less water than the tomato's environment, the cactus probably needs less
+water than the tomato.
+
+
+Next:  It would be nice to specify a Length as "the same length as that" when the length is long, like > 3. Or even
+"about the same length as that".

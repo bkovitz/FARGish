@@ -1,0 +1,89 @@
+25-May-2023
+
+Treat this as a replacement rule the same as in an ordinary term-rewriting system:
+
+   Chunk[... A] -> Chunk[... B]
+
+Example:
+
+   Chunk[... Run[OP]] -> Chunk[... Run[OP] Skip[Last]]
+      encodes 'abc->abd'; can run on 'ijk->?'
+
+Instead of filling a blank, just treat the arrow in the Copycat problem as a place to run a rewrite rule. The NW.rhs is
+simply the result of running replacement rules on subexpressions in the NW.lhs.
+
+   abc -> abd
+
+      gets annotated as:
+
+   Chunk[Run[Succ] Seed[a] Length[3]] -> Chunk[Run[Succ] Seed[a] Length[3] Skip[Last]]
+
+      That gets turned into this replacement rule:
+
+   Chunk[...] -> Chunk[... Skip[Last]]
+
+   ijk
+
+      gets annotated as:
+
+   Chunk[Run[Succ] Seed[i] Length[3]]
+
+      When we run the replacement rule on it, it changes to:
+
+   Chunk[Run[Succ] Seed[i] Length[3] Skip[Last]]
+
+      and that's the solution, i.e. NW.rhs.
+
+----------------------------------------
+
+How do we do 'abc->abd; mrrjjj->?' in this system?
+
+   abc->abd
+      
+      gets annotated as:
+
+   Chunk[Run[L -> Succ[L]] Seed[a] Length[3]] -> Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Skip[Last]]
+
+      which gets abstracted to:
+
+   Chunk[Run[L -> Succ[L]] ...] -> Chunk[Run[L -> Succ[L]] ... Skip[Last]]   RULE1
+
+   mrrjjj
+
+      gets annotated as:
+
+   Chunk[       THISCHUNK
+      Chunk[Run[L -> L] Seed[m] Length[1]]
+      Chunk[Run[L -> L] Seed[r] Length[2]]
+      Chunk[Run[L -> L] Seed[j] Length[3]]
+   ]
+
+   How do we rewrite these three Chunks as a Run?
+
+      Chunk[
+         Seed[Chunk[Run[L -> L] Seed[m] Length[1]]]
+         Run[Length[N] -> Length[N+1]]
+         Run[Seed[L] -> Seed[NextFrom[THISCHUNK]]]
+         Length[3]
+      ]
+
+   The semicolon in the Copycat problem must be annotated so that:
+
+      Run[L -> Succ[L]] -> Run[Chunk[... Length[N]] -> Chunk[... Length[N+1]]]      VERTICAL-ARROW
+
+   happens as we cross from OW to NW.
+
+   Therefore RULE1 becomes:
+
+      Chunk[Run[Chunk[... Length[N]] -> Chunk[... Length[N+1]]] ...] -> Chunk[Run[Chunk[... Length[N]] -> Chunk[... Length[N+1]]] ... Skip[Last]]   RULE1'
+   
+   To apply RULE1' to the annotation of 'mrrjjj', we will need to represent 'mrrjjj' as a Run.
+
+   ..... to be completed  (25-May-2023)
+
+
+DISS
+MAIN HYPOTHESIS: Problems like 'mrrjjj' are hard or impossible if you keep levels rigidly separate, as in a typical
+term-rewriting system. They become easy when painters (or rewrite rules) can rewrite low-level text and expressions with
+variables in exactly the same way, and when the results can be new rules that the system then applies.
+
