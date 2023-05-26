@@ -357,12 +357,193 @@ reduction rules & relative addresses
 [seq, predominantly, icon,..] [...] [...]  Rule
 
 
+DEFINING/THEORETICAL IDEAS
+
 An indexical is something that has a different meaning in different contexts, like a pronoun. "I" means something different when you
 say it than when I say it. "This" means something different depending on what you are pointing at.
 
 Indexicals in the c&p model should be terms that can match or generate different things in different contexts.
 
+Hazy concepts are indexicals. E.g. "the big one", "the odd one", "the confusing
+one", "mostly". A hazy concept becomes sufficiently clear when you can find
+*one* thing in a given context that answers to it in a way that stands out
+relative to everything else.
+
+'Predominantly' is a hazy indexical pointer into many different contexts.
+
+Loose and approximate is god enough for nearly everything in real life. So loose and approximate should work in the model, too.
+
 
 Another kind of indexical: "find the big one", "find the small one".
 
    gggggggggee -> hhhhhhhhhee ; vvvooooooo -> ?
+
+
+----------------------------------------
+
+FULLY WORKED EXAMPLES
+
+32. eeeeqee -> eeeeree; sosss -> ?
+
+   The final recipe:
+      difference: ODD -> Succ[ODD]
+
+      Chunk[Run[Same] Seed[e] ReplaceWith[q] ReplaceAt[5] Length[7]] -> Chunk[Run[Same] Seed[e] ReplaceWith[r] ReplaceAt[5] Length[7]] ;
+      Chunk[Run[Same] Seed[s] ReplaceWith[o] ReplaceAt[2] Length[5]] -> Chunk[Run[Same] Seed[s] ReplaceWith[p] ReplaceAt[2] Length[5]]
+
+      Since we're now relying on indexicals as much as possible, do we need the first line to spell everything out so much? Could
+      we have a simpler first line? Or better yet, no first line? We could drop the first line because all we need to remember from
+      'eeeeqee -> eeeeree' is 'ODD -> Succ[ODD]'. We still need the NW.lhs, though, because we need to edit it at a high level.
+
+
+      Chunk[Predominantly[e]] -> Chunk[Predominantly[e]]       ans: sssss
+      Chunk[Odd[q]] -> Chunk[Odd[r]]      ans: sosss
+
+
+   Method #1: Avoid recipes for OW.
+
+      see that there are a lot of e's in OW.lhs:
+      eeeeqee: Predominantly[e]
+
+      see that there is just one lonely q among the e's:
+      eeeeqee: Odd[q]
+         We tagged the 'q' as Odd.
+
+      see that there are a lot of e's in OW.rhs:
+      eeeeree: Predominantly[e]
+
+      see that there is just one lonely r among the e's:
+      eeeeree: Odd[r]
+
+      see delta between OW.lhs and OW.rhs:
+      Odd[L] -> Odd[Succ[L]]
+
+      we also see this delta, but we aren't going to use it in this problem:
+      Predominantly[L] -> Predominantly[L]
+
+      see that there are a lot of s's in NW.lhs:
+      sosss: Predominantly[s]
+
+      see that there is just one lonely o among the s's:
+      sosss: Odd[o]
+
+      the delta now matches 'Chunk[sosss] -> Chunk[Blank]' and fills the blank:
+                             sosss: Odd[o] -> Blank
+      Blank: Odd[p]
+
+      But Odd[p] is not a recipe! It needs a context in which to fit in.
+      Now we need to create a recipe.
+
+            Actually, Odd[o] was Odd[o RelativeTo[Predominantly[s]] At[2]]
+            and       Predominantly[s] was Predominantly[s RelativeTo[Chunk[sosss]]].
+            An Odd[] can match another Odd[] even if their RelativeTo's, etc. are different.
+
+            Odd[] needs the ability to regenerate context and apply itself.
+            The delta changes:
+               Odd[o RelativeTo[Predominantly[s]] At[2]]
+            to:
+               Odd[p RelativeTo[Predominantly[s]] At[2]]
+            The Predominantly[s] still remembers where it came from.
+
+            If Predominantly can generate its string, then Odd[RelativeTo[Predominantly]] can
+            generate its string, too, by overwriting the Predominantly string.
+
+      So, when we ask Odd[p] to paint, it produces 'sosss'. That's the solution.
+
+One moral of this example: you must end with a recipe to which to apply the delta, and a literal string is the simplest recipe.
+
+
+Can only Run paint something onto the canvas?
+
+"Flesh out" the indexical: convert 
+
+Indexicals might come in two types: "the" and "all" (or anything corresponding to a grammatical determiner).
+
+Trickiness is OK as long as it's sound.
+
+----------------------------------------
+
+abc->abd; ijk->?
+
+   Method #1: Skip
+
+      The final recipe:
+
+         Chunk[Run ...] -> Chunk[Run ... Skip[Last]]
+
+         Chunk[...] -> Chunk[... Skip[Last]]
+
+         NW.rhs: Chunk[Run[Succ] Seed[i] Length[3] Skip[Last]]
+
+            We only need a recipe for NW.rhs.
+
+      Steps to construct it:
+
+         see that 'abc' is a Succ group:
+         abc: Chunk[Run[Succ]]          Since this is the indexical approach, we omit Seed[a] anfd Length[3].
+
+         see that 'abd' is a Succ group with a Skip:
+         abd: Chunk[Run[Succ] Skip[Last]]
+
+         see delta between OW.lhs and OW.rhs:
+         Chunk[...] -> Chunk[... Skip[Last]]
+            or perhaps don't even bother with ...:
+         Chunk[Run[Succ]] -> Chunk[Run[Succ] Skip[Last]]
+
+         see that 'ijk' is a Succ group:
+         ijk: Chunk[Run[Succ]]
+
+         see that the delta matches 'ijk: Chunk[Run[Succ]] -> Blank' and fills the blank:
+         Blank: Chunk[Run[Succ] Skip[Last]]
+
+         But Chunk[Run[Succ] Skip[Last]] is not a recipe! It doesn't know Length or Seed.
+         But if we tracked that Run[Succ] came from 'ijk', we have all the information we need.
+         We must now take ijk: Chunk[Run[Succ]] and flesh it out into a full recipe:
+         ijk: Chunk[Run[Succ] Seed[i] Length[3]]
+         Now we can apply the delta:
+         Blank: Chunk[Run[Succ] Seed[i] Length[3] Skip[Last]]
+         That is a recipe, and paints the solution.
+
+A principle: no annotation that can't paint (e.g. Odd[]) can refer to something (that it needs in order to paint) on a rhs.
+This is because we need the ability to construct a rhs using nothing the lhs as a start point. The "antecedent" of an indexical
+must exist, and a rhs is not guaranteed to exist.
+
+A BIG DOUBT: Our extremely terse indexical deltas depend on noticing that everything not stated is the same. It's not a good
+analogy unless the structures match. Most of the lhs and rhs should be identical when viewed in terms of structure. The extreme
+indexical approach ignores this.
+
+
+NEXT Work out rules for what counts as a recipe and how to "flesh out" a recipe from an indexical.
+
+
+   Method #2: Indexical for Last
+
+
+----------------------------------------
+
+A MAIN IDEA
+
+The "delta" tells how to edit an lhs at a high level, i.e. how to edit a recipe for the lhs. Editing at a high level means editing
+the structure.
+
+
+In analogies, we mostly want *priming* for seeing a relation in the NW. We don't really need much or sometimes anything from the OW.
+
+Analogies enables us to infer, but not by formal logic. It's a rigged up, ad hoc logic--just enough to find something in the NW
+to exploit.
+
+----------------------------------------
+
+MORE COPYCAT PROBLEMS
+
+32b. eeeeqee -> eeeeree; ghghghghghvvvghghghgh -> ?       ghghghghghwwwghghghgh
+
+32c. eeeeqee -> ffffrff; sosss -> ?                       tpttt
+
+eeeeqee -> ffffqff; sosss -> ?
+   Predominantly[L] -> Predominantly[Succ[L]]
+   PredominantlySucc[L]:
+
+Observation: Humans can take pretty much anything, no matter how meaningless,
+and find a meaning for it. The model should be able to do something like that,
+too.

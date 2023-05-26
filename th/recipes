@@ -122,12 +122,15 @@ Maybe we only need indexicals when there are many Chunks to choose from, or many
 
 ----------------------------------------
 
-MAIN IDEA
+MAIN IDEA     THE THREE TERM-ACTIONS
+
 Some requirements for terms:
 
    A Rule that can rewrite something as the term.
 
-   A way to create the original text from the term. Is this a "recipe"?
+   A way to create the original text from the term.
+      "Painting letters"
+      A term from which a string can be painted is called a RECIPE for that string.
 
    A way for the term to match some new text.
 
@@ -223,6 +226,55 @@ What is the recipe for 'abc->abd; iijjkk->?'?
       see that 'ii,jj,kk' is a Succ group:
       ii,jj,kk: Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3]]
          by Rule: detect Succ group
+
+      PROBLEM: Run[Succ] doesn't match Run[Seed[L] -> Seed[Succ[L]]].
+
+      IDEA: Include in the ii,jj,kk Chunk a redefinition of Succ, viz. Run[Seed[L] -> Seed[Succ[L]]].
+      It would be nice to represent ii,jj,kk as 'ijk' in some way.
+
+         Chunk[ijk ExpandedVia[Chunk[Run[Same] Seed[L] Length[2]]]]
+         Chunk[Chunk[Run[Succ] Seed[i] Length[3]] ExpandedVia[Chunk[Run[Same] Seed[L] Length[2]]]]
+
+      IDEA: Make Succ work on Predominantly[L]
+
+         Chunk[Predominantly[i] Predominantly[j] Predominantly[k],
+               where Predominantly[L] is taken from
+               Chunk[ii] Chunk[jj] Chunk[kk]]
+
+         The interesting idea here is to not bother noting that Chunk[ii] is a Run[Same] group. Just chunk it
+         and extract only what's needed from it as it's needed. In this case, the length doesn't matter for matching--
+         though it does matter for constructing the NW.rhs.
+
+         A fundamental problem: a hazy way to find something in a context, e.g. Predominantly[b], doesn't easily
+         translate into a way to construct a new element of that context. Maybe solve this by looking back to the
+         original context and constructing a constructor on the fly.
+
+         WANT: Succ to take on a new meaning in the new context.
+
+         Chunk[Run[L -> Succ[L]] Seed[i] SeedFunc[Predominantly[L]] Where[Predominantly comes from Chunk[ii]]]
+
+         The model could look at Chunk[ii] and see how it has been rewritten or could be rewritten, viz. Chunk[Run[Same]
+         Seed[i] Length[2]], then use that as a "model" for generating something like 'll'.
+
+         If an annotation (a "rewriting") lacks the information needed to reconstruct the original, that's OK, as long
+         as the annotation is linked to the original. We only need the ability to reconstruct the original when
+         constructing a new string (i.e. not the original).
+
+         Maybe even when replacing 'kk' with 'll', the model could skip representing 'kk' as a Same group of length 2,
+         by simply globally replacing the Predominant letter.
+
+
+         Chunk[Predominantly[i] Predominantly[j] Predominantly[k], Skip[last]
+               where Predominantly[L] is taken from
+               Chunk[ii] Chunk[jj] Chunk[kk]]
+
+         Could Skip[Last] be OK to include in a Chunk without a Run, and simply trigger a search to find or create a Run
+         when and if needed?
+
+         We need to represent NW.lhs such that Skip[Last] can work on it.
+
+         26-May-2023: We still haven't figured out a fully satisfactory, fully thought-through solution to the above
+         problem.
 
       the difference now matches--sort of--'Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]]
       Length[3]] -> Chunk[Blank]' and fills the blank by expanding the ... variable in the last term:

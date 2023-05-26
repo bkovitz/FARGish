@@ -130,7 +130,7 @@ Following the notes in the 'recipes' file:
       See how to solve problem 32 with indexicals, e.g. "replace the odd
       letter with its successor"
 
-   See if the new system can do abc->abd; iijjkk->?
+   See if the new system can do abc->abd; iijjkk->?  MOSTLY DONE
 
    Look at VERTICAL-ARROW in 'arrow' file. What limitation of what so far does
    that rule overcome?
