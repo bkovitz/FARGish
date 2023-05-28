@@ -1,3 +1,5 @@
+23,26-May-2023
+
 Can we replace variables with indexicals?
 
 
@@ -450,7 +452,7 @@ FULLY WORKED EXAMPLES
 
       So, when we ask Odd[p] to paint, it produces 'sosss'. That's the solution.
 
-One moral of this example: you must end with a recipe to which to apply the delta, and a literal string is the simplest recipe.
+One moral of this example: you must end with a recipe, and a literal string is the simplest recipe.
 
 
 Can only Run paint something onto the canvas?
@@ -480,7 +482,7 @@ abc->abd; ijk->?
       Steps to construct it:
 
          see that 'abc' is a Succ group:
-         abc: Chunk[Run[Succ]]          Since this is the indexical approach, we omit Seed[a] anfd Length[3].
+         abc: Chunk[Run[Succ]]          Since this is the indexical approach, we omit Seed[a] and Length[3].
 
          see that 'abd' is a Succ group with a Skip:
          abd: Chunk[Run[Succ] Skip[Last]]
@@ -518,6 +520,74 @@ NEXT Work out rules for what counts as a recipe and how to "flesh out" a recipe 
 
    Method #2: Indexical for Last
 
+----------------------------------------
+
+abc->abd; iijjkk->?
+
+   The final recipe (for NW.rhs):
+
+      Chunk[
+         Chunk[Run[L -> Succ[L]] Seed[i] Length[3] Skip[Last]]
+         ExpandedVia[Chunk[Run[Same] Seed[L] Length[2]]]
+      ]
+
+   Steps to construct it:
+
+      see that 'abc' is a Succ group:
+      abc: Chunk[Run[L -> Succ[L]]]          Since this is the indexical approach, we omit Seed[a] and Length[3].
+
+      see that 'abd' is a Succ group with a Skip:
+      abd: Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+      see delta between OW.lhs and OW.rhs:
+      delta= Chunk[Run[L -> Succ[L]]] -> Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+      see that 'ii' is a Same group:
+      ii: Chunk[Run[Same] Seed[i] Length[2]]
+
+      see that 'jj' is a Same group:
+      jj: Chunk[Run[Same] Seed[k] Length[2]]
+
+      see that 'kk' is a Same group:
+      kk: Chunk[Run[Same] Seed[k] Length[2]]
+
+      see that 'ii,jj,kk' is a Succ group:
+      ii,jj,kk: Chunk[
+                   Run[Seed[L] -> Seed[Succ[L]]]
+                   Seed[Chunk[Run[Same] Seed[i] Length[2]]]
+                   Length[3]
+                ]
+      
+      The delta.lhs needs to match the rewritten NW.lhs but it doesn't.
+      So, create a mapping:
+      delta-helper= Run[L -> Succ[L]] -> Run[Seed[L] -> Seed[Succ[L]]]
+
+      delta'= Chunk[Run[Seed[L] -> Seed[Succ[L]]]] -> Chunk[Run[Seed[L] -> Seed[Succ[L]]] Skip[Last]]
+         
+         OBSERVATION delta is really OW.delta and delta' is really NW.delta.
+         The delta-helper is what crosses from OW to NW. The 'ijk' problem has
+         a "null" delta-helper. Could other "helpers" be necessary to go from
+         OW to NW?
+
+      Now delta'.lhs matches NW.lhs, and fills the blank:
+      Blank: Chunk[Run[Seed[L] -> Seed[Succ[L]]] Skip[Last]]
+
+      This is not enough to paint a letterstring, because it lacks Seed and Length, so we look back at NW.lhs and get those:
+      Blank: Chunk[
+                Run[Seed[L] -> Seed[Succ[L]]]
+                Seed[Chunk[Run[Same] Seed[i] Length[2]]]
+                Length[3]
+                Skip[Last]
+             ]
+
+      That paints the solution.
+
+This problem introduced one new element: the delta-helper, which makes NW.delta.
+
+PROBLEM In plain English, the solution is: "skip (advance) the last chunk". The deltas above don't exactly say this. Really,
+no delta-helper should be needed for this problem. A better delta would be:
+
+   Chunk[RUN] -> Chunk[RUN Skip[Last]]
 
 ----------------------------------------
 
@@ -532,13 +602,20 @@ In analogies, we mostly want *priming* for seeing a relation in the NW. We don't
 Analogies enables us to infer, but not by formal logic. It's a rigged up, ad hoc logic--just enough to find something in the NW
 to exploit.
 
+In analogies, we depend heavily on precedent: not just in the OW, but in the
+NW.lhs. To construct the NW.rhs, we look at the NW.lhs and copy as much as we
+can. We use the OW to figure out how to find, or how to look at, things in the
+NW.lhs.
+
+To construct a delta, we mostly look at what is the same. A delta is a small difference in a large matrix of sameness.
+
 ----------------------------------------
 
 MORE COPYCAT PROBLEMS
 
 32b. eeeeqee -> eeeeree; ghghghghghvvvghghghgh -> ?       ghghghghghwwwghghghgh
 
-32c. eeeeqee -> ffffrff; sosss -> ?                       tpttt
+32c. eeeeqee -> ddddrdd; sosss -> ?                       rprrr
 
 eeeeqee -> ffffqff; sosss -> ?
    Predominantly[L] -> Predominantly[Succ[L]]

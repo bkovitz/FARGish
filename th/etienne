@@ -375,3 +375,53 @@ You need to orient to "the 'a' of that context".
 
 
 Question #1:  (Or perhaps fill another parameter, like D.)
+
+
+----------------------------------------
+Email, 27-May-2023
+
+abc->abd; ijk->?
+
+   See that 'abc' is a Succ group:
+   abc: Chunk[Run[L -> Succ[L]]]          Notice that Seed[a] and Length[3] are missing.
+
+   See that 'abd' is a Succ group with a Skip:
+   abd: Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+   See delta between OW.lhs and OW.rhs:
+   Chunk[Run[L -> Succ[L]]] -> Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+   See that 'ijk' is a Succ group:
+   ijk: Chunk[Run[L -> Succ[L]]]
+
+   See that the delta matches 'ijk: Chunk[Run[Succ]] -> Blank' and fills the blank:
+   Blank: Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+   See that Chunk[Run[L -> Succ[L]] Skip[Last]] does not contain enough information
+   to paint a letterstring. The model must now look again at 'ijk' and flesh out its
+   representation into a full recipe:
+   ijk: Chunk[Run[L -> Succ[L]] Seed[i] Length[3]]
+
+   Now the model can apply the delta, yielding:
+   Blank: Chunk[Run[L -> Succ[L]] Seed[i] Length[3] Skip[Last]]
+
+   This representation for Blank paints 'ijl', which is the solution.
+
+-----
+
+   ii,jj,kk: Chunk[Run[Seed[L] -> Seed[Succ[L]]] Seed[Chunk[Run[Same] Seed[i] Length[2]]] Length[3]]
+
+   Chunk[
+      Chunk[Run[L -> L] Seed[m] Length[1]]
+      Chunk[Run[L -> L] Seed[r] Length[2]]
+      Chunk[Run[L -> L] Seed[j] Length[3]]
+   ]
+
+   Chunk[
+      Seed[Chunk[Run[L -> L] Seed[m] Length[1]]]
+      Run[Length[N] -> Length[N+1]]
+      Run[Seed[L] -> Seed[NextFrom[chunk1]]]
+      Length[3]
+   ]
+
+   Run[L -> Succ[L]] => Run[Chunk[... Length[N]] -> Chunk[... Length[N+1]]]
