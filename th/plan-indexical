@@ -23,6 +23,10 @@ LIST OF ALL TERM KEYWORDS
 
     ExpandedVia ?
 
+OTHER ELEMENTS
+
+    A set of Rules for creating terms; a set of Rules is the condition for an experiment.
+
 
 SOME PRINCIPLES
 
@@ -155,6 +159,22 @@ FUNDAMENTAL OPERATIONS
     Flesh-out(term, context) -> fleshed-out term
         E.g. find missing Length and Seed
 
+SHORT PATH TO MEANINGFUL OUTPUT
+
+    Span to Chunk
+        abc, abd, ijk, ?
+
+    Chunk to Span
+        abc, abd, ijk
+
+    Make Delta from two terms
+        abc->abd
+
+    Run Delta
+        ijk->?
+
+
+TESTS FOR STAGES IN COPYCAT PROBLEMS
 
 Problem 32  eeeeqee -> eeeeree; sosss -> ?
 
