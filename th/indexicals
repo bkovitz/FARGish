@@ -572,7 +572,7 @@ abc->abd; iijjkk->?
       Now delta'.lhs matches NW.lhs, and fills the blank:
       Blank: Chunk[Run[Seed[L] -> Seed[Succ[L]]] Skip[Last]]
 
-      This is not enough to paint a letterstring, because it lacks Seed and Length, so we look back at NW.lhs and get those:
+      That is not enough to paint a letterstring, because it lacks Seed and Length, so we look back at NW.lhs and get those:
       Blank: Chunk[
                 Run[Seed[L] -> Seed[Succ[L]]]
                 Seed[Chunk[Run[Same] Seed[i] Length[2]]]
@@ -588,6 +588,150 @@ PROBLEM In plain English, the solution is: "skip (advance) the last chunk". The 
 no delta-helper should be needed for this problem. A better delta would be:
 
    Chunk[RUN] -> Chunk[RUN Skip[Last]]
+
+----------------------------------------
+
+pons regum
+
+"chunk-language"
+
+abc->abd; mrrjjj->?
+
+   The final recipe:
+
+      In plain English: Advance the last chunk; but in the OW, each chunk is a letter, and in the NW, each chunk is a sequence
+      of the same letter, and what advances is the length.
+
+      delta= Chunk[RUN] -> Chunk[RUN Skip[Last]]
+
+      PROBLEM How do we get mrj?
+      NW.rhs: Chunk[
+                 Run[Length[N] -> Length[N+1]]
+                 Seed[
+                    Chunk[
+                       Run[L -> L] Seed[m] Length[1]
+                    ]
+                 ]
+                 Length[3]    could we take the length from 'm,rr,jjj'?
+                 Skip[Last]
+              ]
+
+              Chunk[
+                  Run[
+                     Length[N] -> Length[N+1]
+                     Seed[L] -> Seed[NextFrom[THISCHUNK]]
+                     ]
+                  Seed[m]
+                  Length[3]
+                  Skip[Last]
+              ]
+
+   Steps to construct it:
+
+      see that 'abc' is a Succ group:
+      abc: Chunk[Run[L -> Succ[L]]]          Since this is the indexical approach, we omit Seed[a] and Length[3].
+
+      see that 'abd' is a Succ group with a Skip:
+      abd: Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+      see delta between OW.lhs and OW.rhs:
+      delta= Chunk[Run[L -> Succ[L]]] -> Chunk[Run[L -> Succ[L]] Skip[Last]]
+
+      see 'm' as a chunk:
+      Chunk[Run[L -> L] Seed[m] Length[1]]
+
+      see 'rr' as a chunk:
+      Chunk[Run[L -> L] Seed[r] Length[2]]
+
+      see 'jjj' as a chunk:
+      Chunk[Run[L -> L] Seed[j] Length[3]]
+
+      see 'mrrjjj' as three chunks:
+      chunk1= Chunk[
+         Chunk[Run[L -> L] Seed[m] Length[1]]
+         Chunk[Run[L -> L] Seed[r] Length[2]]
+         Chunk[Run[L -> L] Seed[j] Length[3]]
+      ]
+      
+      QUESTION Could we have a term that "reaches inside" chunk1 and advances the last Length?
+
+      IDEA Match "all that stuff" except for Length; specify advancing just the Length in the Run.
+      Regenerate by matching the chunks in NW.lhs and altering them, not by regenerating from scratch.
+
+      IDEAS for how to specify a 'source' sequence that iterates through some existing chunk:
+
+         seq1= Run[Seed[L] -> Seed[NEXT-CHUNK]]   NO
+
+         Need the ability to refer to something inside a Chunk without taking the whole Chunk.
+
+         What could the 'calling code' look like?
+
+            Chunk[                             want 'mrrjjj'
+               seq1=mrj
+               Run[Chunk[...Seed[L] Length[N]] -> Chunk[...Seed[NextFrom[seq1 L]] Length[N+1]]]
+               Seed[Chunk[Run[L -> L] Seed[m] Length[1]]]
+               Length[3]
+            ]
+
+      Chunk[mrj]
+            
+      OBSERVATION Do we really need a Run to represent a sequence in the NW? Maybe not.
+         mrrjjj 
+         abcuvwpqrst 
+         rmkepdzney 
+         
+         Run -> Run
+
+         chunk1, chunk2... chunkN -> chunk1', chunk2' ... chunkN'
+
+                        Run[CHUNK -> Delta[CHUNK]]
+
+         Looking at 'aaaaabccdddde -> aabbccddee', the delta is:
+
+           CHUNK[... Length[N]] -> CHUNK[... Length[2]]
+
+      Need a way to refer to anything from anywhere else: "go find it" (i.e. an indexical).
+      Apparently an easy way to do this is to match a big chunk and destructure it, as in
+      *** below.
+
+      Is there a way that we could have one of these rewrite rules rewrite a rewrite rule?
+      Yes, we have that all over the place already: rewriting three Chunks as a Chunk[Run];
+      making a delta to go from lhs to rhs.
+
+         
+
+    a Run is a kind of source for the parent Chunk
+
+      NW.rhs: Chunk[
+         Run[Chunk[... Length[N]] -> Chunk[... Length[N+1]]]
+         Seed[chunk1.firstchunk]
+         Skip[Last]
+      ]
+
+      NW.rhs: Chunk[
+         Run[CHUNK[... Length[N]] -> CHUNK[... Length[N+1]]]   CHUNK must iterate through the Chunks in chunk1
+
+
+THE MAIN QUESTION How do we make Skip advance the Length but not the letter?
+
+OBSERVATION I mentally "slipped" Succ to advance only the Length and not the letter, and didn't notice for a long time.
+
+IDEA Come up with a new alphabet: 'mrj'.
+
+ArbitrarySeq[mrj]
+
+Once you perceive 'mrrjjj' in the right way, only the lengths are salient. The letter *doesn't matter*.
+
+
+Another approach: Don't perceive the solution as a Skip, perceive as taking the successor of 'jjj'. 
+
+Another approach: Rerepresent 'mrrjjj' as *nothing but* a succession of lengths. Then, to paint the lengths as
+letters, i.e. to fill the three chunks, the model looks at 'mrrjjj' as a source.
+
+MUST HAVE The model must have the ability to respond to "can't Succ" by simply repeating the item.
+
+'mrrjjj' suggests that there is a fourth letter in the sequence, which would fill a length-four Same-group. But no fourth letter
+is provided, so we have to "slip" taking Succ[j].
 
 ----------------------------------------
 
@@ -624,3 +768,85 @@ eeeeqee -> ffffqff; sosss -> ?
 Observation: Humans can take pretty much anything, no matter how meaningless,
 and find a meaning for it. The model should be able to do something like that,
 too.
+
+
+QUESTION If you put in the solution and then switch OW and NW, should the model be able to fill in the original OW.rhs?
+Analog of 32:
+   sosss -> spsss; eeeeqee -> ?
+   will we always get eeeeree as the output?
+
+
+The model should find this problem very ambiguous:
+abc -> abd; pqqrrr -> ?     pqqsss  or  pqqssss?
+There is no one clear winner here.
+  pqqrrrr  is reasonable but it ignores the Succ relation among the letters.
+PRINCIPLE: A good analogy exploits all the structure that's available.
+
+----------------------------------------
+
+28a. mmmmmrjjvvvvb -> mmrrjjvvbb; hcccrrmmmmj -> ?
+
+   Chunk[
+      Chunk[Run[L -> L] Seed[m] Length[5]]
+      Chunk[Run[L -> L] Seed[r] Length[1]]
+      Chunk[Run[L -> L] Seed[j] Length[2]]
+      Chunk[Run[L -> L] Seed[v] Length[4]]
+      Chunk[Run[L -> L] Seed[b] Length[1]]
+   ]
+      
+   All we want to do is copy this but change each Length.
+
+      Chunk[
+         CHUNK[... Length[N]] -> CHUNK[... Length[2]]
+      ]
+
+      Chunk[CHUNK[... Length[N]]...] -> Chunk[CHUNK[... Length[2]]...]           ***
+
+----------------------------------------
+
+43. rmkepdzney -> e; lvwlqua -> ?
+   
+   We need general syntax to designate any part of any term, e.g. "the letter that occurs twice".
+
+   Chunk[... OccursTwice[L]] -> Chunk[L]
+
+   WANT: Ability for the model to "invent" OccursTwice from smaller, more-general elements.
+
+      A term basically means "the model noticed something".
+
+      Some things to notice:
+
+         Contains[r]
+         Contains[k]
+         Contains[e]    <-- occurs twice
+         Contains[r]
+         Contains[p]
+         Contains[d]
+         Contains[z]
+         Contains[n]
+         Contains[e]    <-- occurs twice
+         Contains[y]
+
+      If we give each term an activation, Contains[e] should get double the
+      activation of the rest. That makes it stand out as the Oddball. Standing
+      out is the key concept. Standing out provides a general way to specify
+      any element in any set.  If you provide a different formula for
+      activation, a different element will stand out. If the model has multiple
+      ways of constructing formulae for activation, then it should get a lot of
+      flexibility in how it can select an item from a set.
+
+      Could we define Oddball as "whatever stands out in the set of activations"?
+
+      We could also have Evenball, i.e. each element that is not the Oddball.
+
+
+   Chunk[... Oddball[L]] -> Chunk[L]
+
+      If the model has a general way to distinguish an Oddball, it can cobble up OccursTwice implicitly.
+
+   Focal range (e.g. a certain Chunk, all Runs, all Contains with a Chunk) +
+   activation criterion + selection criterion (most active, stands out, blends
+   in).
+
+43a. bbbbbbkbbb -> b; lvwlqua -> ?     vwqua lvwqua     "Remove the oddball"
+     

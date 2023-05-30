@@ -1,0 +1,185 @@
+30-May-2023
+
+PLAN for INDEXICAL MODEL
+
+
+LIST OF ALL TERM KEYWORDS
+
+    Chunk
+    ...
+    Predominantly
+    Oddball
+    Succ
+    Same
+    Pred
+    Run
+    Seed
+    ReplaceWith
+    ReplaceAt
+    Length
+    RelativeTo
+    First
+    Last
+
+    ExpandedVia ?
+
+
+SOME PRINCIPLES
+
+    "Context is container"
+    If a term needs a context in order to paint, that context will be its container. E.g. Run[L -> L] needs Seed
+    and Length to paint; these are to be found in the Chunk that contains the Run.
+
+        So, Oddball and Predominantly each paint into their parent Chunk.
+
+    Oddball paints after Run and Predominantly, i.e. Oddball overwrites whatever they write.
+
+
+SEQUENCE OF ACCEPTANCE TESTS TO WRITE
+
+Basic term-rewriting tests
+
+    (matching/filling variables)
+
+
+Chunk tests
+
+    Chunk[abc]   paint 'abc'
+
+    Chunk[Run[L -> L] Seed[m] Length[3]]   paint 'mmm'
+
+    Chunk[Run[L -> Succ[L]] Seed[a] Length[3]]   paint 'abc'
+
+    Chunk[Run[L -> Pred[L]] Seed[c] Length[3]]   paint 'cba'
+
+    A Rule that can rewrite 'mmm' as Chunk[Run[L -> L] Seed[m] Length[3]]
+
+    A Rule that can rewrite 'abc' as Chunk[Run[L -> Succ[L]] Seed[a] Length[3]]
+
+    A Rule that can rewrite 'cba' as Chunk[Run[L -> Pred[L]] Seed[c] Length[3]]
+
+    Match Chunk[Run[L -> L] Seed[m] Length[3]] against 'mmm': yes (it's a match)
+        (Impl.: Just generate the output and compare against 'mmm'?)
+
+    Match Chunk[Run[L -> L] Seed[m] Length[3]] against 'aaa': no
+
+    Match Chunk[Run[L -> L] Seed[m] Length[3]] against 'mm_': yes, and fill the blank
+
+    In 'iijjkk', make Chunk[Run[Same] Seed[i] Length[2]]
+
+    Given three Chunks for ii,jj,kk, make:
+        Chunk[
+           Run[Seed[L] -> Seed[Succ[L]]]
+           Seed[Chunk[Run[Same] Seed[i] Length[2]]]
+           Length[3]
+        ]
+
+    Given that nested Chunk, make the ii,jj,kk Chunks, and make 'iijjkk'.
+
+    Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Advance[Last]]   paint 'abd'
+
+    A Rule that can rewrite 'abd' as Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Advance[Last]]
+
+    Match Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Advance[Last]] against 'abd': yes
+
+    Match Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Advance[Last]] against 'ggg': no
+
+    Match Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Advance[Last]] against '_bd': yes, and fill the blank
+
+Delta tests
+
+    Making deltas:
+
+        Given a, b make L -> Succ[L]
+
+        Given a, a make L -> L
+
+        Given b, a make L -> Pred[L]
+
+        Given Chunk[rb], Chunk[rbn], make Delta[Chunk[rb] -> Chunk[rbn]]
+                                          Delta[Chunk[SEQ] -> Chunk[SEQ n]]
+
+        Given Chunk[Predominantly[e] Length[4] Oddball[q] OddballAt[2]],
+              Chunk[Predominantly[e] Length[4] Oddball[r] OddballAt[2]]
+        make Odd[L] -> Odd[Succ[L]]
+         or? Chunk[... Odd[L]] -> Chunk[... Odd[Succ[L]]]
+       
+
+
+    Applying deltas:
+
+        Apply Delta[Chunk[SEQ] -> Chunk[SEQ n]] to 'rb', get 'rbn'
+
+
+
+
+
+Oddball and Predominantly
+
+    Chunk[Predominantly[e] Length[4]]   paints 'eeee'
+
+    Chunk[Predominantly[e] Length[4] Oddball[q At[2]]]   paints 'eqee'
+
+    Chunk[Predominantly[e]]             squeals: needs Length
+
+
+
+
+    
+FUNDAMENTAL OPERATIONS
+
+    Span to Chunk
+        Recognize a Run
+        Recognize Predominantly
+
+    Recognize Oddball
+
+    Chunk to Span (i.e. paint letters)
+        Carry out a Run
+        Fill from Predominantly
+
+    Oddball paints over Span after other terms are done
+
+    Multiple Chunks to Compound Chunk, e.g. ii, jj, kk to ii,jj,kk
+
+    Make Delta from two terms
+        Constants to variables, for the parts that are the same
+        Swallow up ...
+
+    Apply Delta to term(s), filling blank
+
+    Match variables in a term to another term
+
+    Spot opportunity to apply a term or rule
+
+    Flesh-out(term, context) -> fleshed-out term
+        E.g. find missing Length and Seed
+
+
+Problem 32  eeeeqee -> eeeeree; sosss -> ?
+
+    See that there are a lot of e's in 'eeeeqee'. Make:
+      eeeeqee: Predominantly[e]
+        Span[1 7 Predominantly[e]]
+
+    See that there is just one 'q' in 'eeeeqee'. Make:
+      eeeeqee: Oddball[q]
+
+    Make delta between OW.lhs and OW.rhs:
+      Chunk[... Oddball[L]] -> Chunk[... Oddball[Succ[L]]]
+
+    
+
+
+IMPLEMENTATION IDEAS
+
+    (0 means OW.lhs, 1 means OW.rhs, etc.)
+    global_subst = {0:{predominantly[], oddball[], Chunk}, 1: {}, 2: {}, 3: {}}
+                   {0:{__, __, 0:{}, 1:{}
+                   {eeeeqee:{__, __, eeee:{}, q:{}, ee:{}}
+
+        aaaabbtbccc
+
+        abcdiekltuvw   'k' is the Oddball in the 2nd Chunk
+
+    Maybe better: let each key be a Span; each value is a descriptor.

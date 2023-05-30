@@ -126,13 +126,13 @@ MAIN IDEA     THE THREE TERM-ACTIONS
 
 Some requirements for terms:
 
-   A Rule that can rewrite something as the term.
+   1. A Rule that can rewrite something as the term.
 
-   A way to create the original text from the term.
-      "Painting letters"
-      A term from which a string can be painted is called a RECIPE for that string.
+   2. A way to create the original text from the term.
+         "Painting letters"
+         A term from which a string can be painted is called a RECIPE for that string.
 
-   A way for the term to match some new text.
+   3. A way for the term to match some new text.
 
 ----------------------------------------
 
