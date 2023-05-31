@@ -1,5 +1,7 @@
 # Model.py -- Canvas-and-painters model with rewrite rules
 
+# ABANDONED 31-May-2023
+
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \

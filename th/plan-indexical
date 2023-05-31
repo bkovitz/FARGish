@@ -90,6 +90,9 @@ Chunk tests
 
     Match Chunk[Run[L -> Succ[L]] Seed[a] Length[3] Advance[Last]] against '_bd': yes, and fill the blank
 
+    Chunk[gc Run[L -> L] Seed[a] Length[3]]   paint 'gcabc'
+    Or maybe not: 'gc' is ordered; Run, etc. is not.
+
 Delta tests
 
     Making deltas:
@@ -161,10 +164,10 @@ FUNDAMENTAL OPERATIONS
 
 SHORT PATH TO MEANINGFUL OUTPUT
 
-    Span to Chunk
+    Span to Chunk (Run)
         abc, abd, ijk, ?
 
-    Chunk to Span
+    Chunk (Run) to Span
         abc, abd, ijk
 
     Make Delta from two terms
@@ -189,6 +192,13 @@ Problem 32  eeeeqee -> eeeeree; sosss -> ?
       Chunk[... Oddball[L]] -> Chunk[... Oddball[Succ[L]]]
 
     
+
+IDEAS FOR MORE TERMS/FEATURES
+
+Something to mark off the limits of a span; the resulting span is part of another term (like a Chunk).
+
+MirrorImage[...]  applies recursively to its body.
+    Run[CHUNK -> MirrorImage[CHUNK]]
 
 
 IMPLEMENTATION IDEAS
