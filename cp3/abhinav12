@@ -1,0 +1,88 @@
+8-Jun-2023
+
+ttttta_a__tttttt
+
+spike3.py actually holds the model, not Model.py.
+
+
+
+agenda
+------
+Painters
+look at absorption
+look at regeneration
+
+
+cp3: p1,p2,p3,p4,p5: every painter has value relation & spatial relation
+cp4: PainterCluster, allows arbitrary combination of relations
+
+
+----------------------------------------
+Each painter is made from two predicates: a spatial relation and a value
+relation; and a set of anchor attributes.
+
+
+
+SPATIAL RELATIONS
+
+Apart[D]
+Inside[K]
+
+VALUE RELATIONS
+
+Same[I, J]
+Succ[I, J]
+Pred[I, J]
+FilledWith[L]
+
+
+Variables have types; the name of each variable is just defined to have a
+certain type.
+
+D  distance between cells
+I, J  cell indices; I always < J
+K  cell index
+L  letter
+P  painter
+
+PAINTER RELATIONS
+
+SameSpatialRelation
+ConsecutiveLocations
+
+
+ANCHOR ATTRIBUTES
+
+Holds
+LeftmostIndex
+RightmostIndex
+InextremeIndex
+
+
+COMPLETIONS
+
+Every painter has the ability to complete itself, starting from some subset
+of its arguments. There is a whole completion "language" in terms of which
+a painter writes a completion:
+
+    AlreadyComplete (i.e. success)
+    CantComplete
+    PaintAt
+    PaintValue
+    PaintValueAt
+    LoopVariable
+    LessThan
+
+
+DETECTION
+
+If we detect a spatial relation and value relation together, then we can
+create a painter.  Model.can_be_painter()
+
+
+PROCESS
+
+Detect relations, combine them into painters
+    make_painters
+Choose a painter, generate completions, perform them
+    su_to_completions, completions_to_actions

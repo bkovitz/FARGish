@@ -1,4 +1,4 @@
-30-May-2023
+30,31-May-2023, 1-Jun-2023
 
 PLAN for INDEXICAL MODEL
 
@@ -14,6 +14,7 @@ LIST OF ALL TERM KEYWORDS
     Pred
     Run
     Seed
+    Advance
     ReplaceWith
     ReplaceAt
     Length
@@ -26,6 +27,137 @@ LIST OF ALL TERM KEYWORDS
 OTHER ELEMENTS
 
     A set of Rules for creating terms; a set of Rules is the condition for an experiment.
+
+
+DETAILED DESCRIPTIONS OF TERMS
+
+    Chunk
+
+        Contains either sequential or unordered elements.
+
+            Sequential:
+
+                letters                 Chunk[mrgu]
+
+                Chunks                  Chunk[Chunk[Run[Same] Seed[m] Length[1]], Chunk[Run[Same] Seed[r] Length[2]]]
+
+            Unordered:
+
+                Run[]                   A Chunk[Run[]...] is what used to be Repeat[Op[]...]
+
+                Seed[]
+
+                Length[]
+
+                ReplaceWith[]
+
+                ReplaceAt[]
+
+                AdvanceAt[]
+
+
+                Predominantly[]         If the Chunk is an annotation, we can find out the original Chunk or Span that is Predominantly something.
+
+                Odd[]
+
+                OddAt[]
+        
+        mrrjjj - Chunk[mrrjjj] - Chunk[Chunk[m], Chunk[rr], Chunk[jjj]]
+                                 Chunk[Chunk[m], Chunk[rr Run[Same] Seed[r] Length[2] Predominantly[r]]
+
+                                 m: Chunk[m]
+                                 rr: Chunk[rr]
+                                 rr: Chunk[Run[Same] Seed[r] Length[2]]
+                                 rr: Chunk[Predominantly[r]]
+
+                                 mrrjjj: Chunk[
+                                     Chunk[Run[L -> L] Seed[m] Length[1]],
+                                     Chunk[Run[L -> L] Seed[r] Length[2]],
+                                     Chunk[Run[L -> L] Seed[j] Length[3]]
+                                  ]
+
+WORKSPACE CONTENTS
+
+    canvas:    The whole Copycat problem.
+
+    span: Term    One of these for combination of span and annotation.
+
+
+REWRITE RULES: see something, make an annotation for it
+
+    run of consecutive A->B  =>  Chunk[Run[] Seed[] Length[]]
+        That is, the input to the rewrite rule is a sequence of items that have the same delta for each pair of consecutive items; the output
+        is a Chunk that includes the delta explicitly inside a Run term.
+
+    aa  =>  Same[]
+
+    ab  =>  Succ[]
+
+    ba  =>  Pred[]
+
+    run of consecutive A->B, with advanced item  =>  Chunk[Run[] Seed[] Length[] AdvanceAt[]
+
+    run of consecutive A->B, with altered item  =>  Chunk[Run[] Seed[] Length[] ReplaceWith[] ReplaceAt[]
+
+    collection of mostly X  =>  Predominantly[]
+
+    Y in a collection of mostly X  =>  Oddball[Y]
+
+
+    TODO other ways to get Oddball[]
+
+    NEXT PROGRAMMING
+        Write top-level code:  (Maybe then comment it out and write lower-level code.)
+            Call RewriteRules to generate new terms.
+
+            Call Deltas to fill in blanks.
+
+        Make a RewriteRule class, which has a method to look at something and (optionally) create an annotation for it.
+
+        Make a Delta class, which has a method to match something on a lhs and construct a rhs.
+
+        Rewrite Run[] so its argument is a Delta.
+
+        Make a small collection or RewriteRules (from the above descriptions)
+
+        Make a Workspace. It contains Terms, i.e. annotations and deltas.
+
+         
+
+
+MAKING DELTAS
+
+    Given two items (letters, terms, deltas), the make-delta function determines if they're similar enough to have a rule
+    saying "where you see the left term, map it to the right term". If so, make-delta might replace some of the constants
+    in the terms with variables. The output of make-delta, i.e. a delta, has a -> in it.
+
+    Examples:
+
+        a, b  =>  L -> Succ[L]
+
+        a, a  =>  L -> L
+
+        b, a  =>  L -> Pred[L]
+
+        abc, xyz  =>  abc -> xyz
+
+        Chunk[Run[Succ]], Chunk[Run[Succ] AdvanceAt[Last]]  =>  Chunk[...] -> Chunk[... AdvanceAt[Last]]
+
+        3, 3  =>  N -> N
+        3, 4  =>  N -> N+1
+
+
+
+        
+    make-delta rules:
+
+
+    What are deltas used for?
+
+        1. To construct consecutive elements in a Run.
+
+        2. To fill out partial matches, especially to fill the blank in the NW.rhs by partial match with NW.lhs.
+
 
 
 SOME PRINCIPLES

@@ -1,5 +1,7 @@
 # Model.py -- The canvas-and-painters model
 
+# ABANDONED 17-Apr-2023
+
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
     Hashable, IO, Iterable, Iterator, List, Literal, NewType, Optional, \
@@ -1935,7 +1937,6 @@ PainterClusterElem = Union[Define, OtherSide, Succ]  # TODO Add all Painters
 
 
 if __name__ == '__main__':
-    '''
     ws = Workspace()
     ws.parse_analogy_string('abc->abd; ijk->?')
     r1 = ws.define_and_name(detect_repetition(ws['S1']))
@@ -1947,4 +1948,3 @@ if __name__ == '__main__':
     ws.run_repeater(ws['R4'])
     print(ws['S4'])
     ws.subst.pr()
-    '''

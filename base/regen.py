@@ -76,6 +76,8 @@ def make_generators(eqn: Tuple) -> Set[Generator]:
     return result
 
 def make_gset(gs: Iterable[Generator]) -> GSet:
+    '''A GSet is analogous to thet set of all edge weights for a single image
+    in the Hopfield net.'''
     result: GSet = defaultdict(set)  # type: ignore[arg-type]
     for g in gs:
         a1, a2, f = g
