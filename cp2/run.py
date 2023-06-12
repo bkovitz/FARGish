@@ -18,13 +18,14 @@ rngseed: int
 
 def run(
     seed: str='a    ',
-    lts: List[str]=['ajaqb'],
+    ltm: List[str]=['ajaqb'],
     asteps: int=40,
     rsteps: int=60,
     fresh: bool=True,  # Create a new Model in global variable 'm'?
     lla: int=0,  # logging level during absorption
     llr: int=2,   # logging level during regeneration
-    auto_annotate: Iterable[Annotation]=default_auto_annotations
+    auto_annotate: Iterable[Annotation]=default_auto_annotations,
+    ab: List[Painter]=default_initial_painters
 ) -> None:
     global m, last_args
     last_args = dict(
@@ -33,18 +34,19 @@ def run(
         rsteps=rsteps,
         lla=lla,
         llr=llr,
-        auto_annotate=auto_annotate
+        auto_annotate=auto_annotate,
+        ab=ab
     )
     if fresh:
         set_log_level(lla)
-        m = Model(auto_annotate=auto_annotate)
+        m = Model(lts=Soup.make_from(ab), auto_annotate=auto_annotate)
         lo(1, 'INITS', '\n' + m.lts.state_str())
         if asteps:
-            for s in lts:
+            for s in ltm:
                 m.absorb(s, timesteps=asteps)
     set_log_level(llr)
-    #lo(1, 'LTS\n' + m.lts.state_str())
-    lo(1, 'LTS\n' + m.lts.state_str_with_authors())
+    lo(1, 'LTS\n' + m.lts.state_str())
+    #lo(1, 'LTS\n' + m.lts.state_str_with_authors())
     if rsteps:
         m.regen_from(seed, nsteps=rsteps)
     print(m.canvas)
@@ -54,6 +56,12 @@ def run(
 def again(**kwargs):
     global last_args
     run(fresh=False, **(last_args | kwargs))
+
+def run1(**kwargs):
+    '''1st example in dissertation.'''
+    set_latex_mode()
+    run(ab=[ab1, ab3], **kwargs)
+
 
 def run_bad(**kwargs) -> None:
     d = dict(
@@ -79,11 +87,11 @@ def run_pons(**kwargs) -> None:
     '''Runs the pons asinorum.'''
     lo(0, "pons asinorum")
     d = dict(
-        lts=[],
+        ltm=[],
         asteps=0,
         seed='abcabdijk   ',
         rsteps=200,  #500,
-        llr=4,
+        #llr=4,
         auto_annotate=[]
     )
     run(**(d | kwargs))
@@ -117,7 +125,7 @@ def parse_and_run() -> None:
         help="random-number seed",
         type=int
     )
-    parser.add_argument("--lts", help="the long-term soup", default='ajaqb')
+    parser.add_argument("--ltm", help="the long-term soup", default='ajaqb')
     parser.add_argument(
         "seed",
         help="the seed string",
@@ -161,7 +169,7 @@ def parse_and_run() -> None:
     global_params.auto_annotations = args.au
     run(
         seed=args.seed, 
-        lts=as_lts(args.lts),
+        ltm=as_lts(args.ltm),
         asteps=args.asteps,
         rsteps=args.rsteps,
         lla=args.lla,
@@ -184,4 +192,4 @@ if __name__ == '__main__':
     #run_bad()
     #run_test()
     #run_pons()
-    #run(lts=['ajaqb'], asteps=100, lla=6, rsteps=0)
+    #run(ltm=['ajaqb'], asteps=100, lla=6, rsteps=0)

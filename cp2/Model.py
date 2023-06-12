@@ -1,4 +1,6 @@
 # Model.py -- The canvas-and-painters model
+#
+# ABANDONED 5-Nov-2022
 
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \
@@ -37,6 +39,16 @@ from pyrsistent.typing import PMap
 from Log import lo, trace, indent_log, set_log_level, loyield, loyield_from
 from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
     filter_none, veryshort
+
+
+latex_mode: bool = False   # If True, render some strings as LaTeX
+
+def set_latex_mode(b: Bool=True) -> None:
+    global latex_mode
+    latex_mode = b
+
+def get_latex_mode() -> bool:
+    return latex_mode
 
 @dataclass
 class GlobalParams:
@@ -106,7 +118,10 @@ class Letter(CallableFunc):
         yield self
 
     def short(self) -> str:
-        return repr(self.c)
+        if latex_mode:
+            return f'\\textrm{{\\lett{{{self.c}}}}}'
+        else:
+            return repr(self.c)
 
     def __str__(self) -> str:
         return self.c
@@ -122,7 +137,11 @@ class Blank:
     def __repr__(self) -> str:
         return self.__class__.__name__
 
-    short = __repr__
+    def short(self) -> str:
+        if latex_mode:
+            return r'\bl'
+        else:
+            return repr(self)
 
     def __str__(self) -> str:
         return ' '
@@ -1887,7 +1906,8 @@ class Same(SimpleFuncClass):
         return v
 
     def __repr__(self) -> str:
-        return 'same'
+        s = 'same'
+        return latex_name(s) if latex_mode else s
 
 class Succ(SimpleFuncClass, HasMirrorFunc):
 
@@ -1904,7 +1924,8 @@ class Succ(SimpleFuncClass, HasMirrorFunc):
         return pred
 
     def __repr__(self) -> str:
-        return 'succ'
+        s = 'succ'
+        return latex_name(s) if latex_mode else s
 
 class Pred(SimpleFuncClass, HasMirrorFunc):
 
@@ -1921,11 +1942,15 @@ class Pred(SimpleFuncClass, HasMirrorFunc):
         return succ
 
     def __repr__(self) -> str:
-        return 'pred'
+        s = 'pred'
+        return latex_name(s) if latex_mode else s
 
 same = Same()
 succ = Succ()
 pred = Pred()
+
+def latex_name(s: str) -> str:
+    return f'\\textrm{{{s}}}'
 
 def mirror_of(f: Func) -> Func:
     if isinstance(f, HasMirrorFunc):
@@ -2061,6 +2086,7 @@ class MakeRelativeIndirectPainter(CallableFunc, HasSimplify):
 
     For example, in the canvas 'ajaqb', MakeRelativeIndirectPainter(1, 3, succ)
     will create MatchContent('a', Plus(I, 2), succ).
+               (MatchContent('a'), Plus(I, 2), succ)
 
     You can make MakeRelativeIndirectPainter(I, J, F), that is, with Variables
     in place of indices. .to_detfuncs() creates determinate versions of
@@ -2294,7 +2320,10 @@ class Painter(Addr, CallableFunc):
         return f'{cl}({short(self.source)}, {short(self.target)}, {short(self.func)})'
 
     def short(self) -> str:
-        return f'({short(self.source)}, {short(self.target)}, {short(self.func)})'
+        s = f'({short(self.source)}, {short(self.target)}, {short(self.func)})'
+        #lo('HERE', latex_mode, f'${s}$')
+        return f'${s}$' if latex_mode else s
+
 
 @dataclass(frozen=True)
 class Painters:
@@ -2462,31 +2491,33 @@ Value = Union[CellContent, Painter, Func, None]
 ########## The Model ##########
 
 default_primitive_funcs: FrozenSet[DetFunc] = frozenset([same, succ, pred])
-default_initial_painters: List[Painter] = [
-    Painter(
-        RelatedPair(I, J, F),
-        SR.WorkingSoup,
-        Painter(I, J, F)
-    ),
-    Painter(
-        Painter(I, J, SimpleFunc(F)),
-        SR.WorkingSoup,
-        PFuncs(
-            MakeRelativeIndirectPainter(I, J, F),
-            MakeRelativeIndirectPainter(J, I, MirrorOf(F))
-        )
-    ),
-    Painter(
-        Painter(I, Plus(I, 2), F),
-        SR.WorkingSoup,
-        MakeBetweenPainter(I, J, F)
-    ),
-    Painter(
-        TwoAdjacentLetters(),
-        SR.WorkingSoup,
-        MakeDigraphPainters()
+
+# ab initio painters
+ab1 = Painter(
+    RelatedPair(I, J, F),
+    SR.WorkingSoup,
+    Painter(I, J, F)
+)
+ab2 = Painter(
+    Painter(I, J, SimpleFunc(F)),
+    SR.WorkingSoup,
+    PFuncs(
+        MakeRelativeIndirectPainter(I, J, F),
+        MakeRelativeIndirectPainter(J, I, MirrorOf(F))
     )
-]
+)
+ab3 = Painter(
+    Painter(I, Plus(I, 2), F),
+    SR.WorkingSoup,
+    MakeBetweenPainter(I, J, F)
+)
+ab4 = Painter(
+    TwoAdjacentLetters(),
+    SR.WorkingSoup,
+    MakeDigraphPainters()
+)
+
+default_initial_painters: List[Painter] = [ab1, ab2, ab3, ab4]
 
 @dataclass
 class Model:

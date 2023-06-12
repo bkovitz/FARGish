@@ -1,0 +1,92 @@
+9-Jun-2023  NOTES ON CP2
+
+
+PARTS
+
+Long-term soup
+Working soup
+Canvas
+
+painters
+addrs
+determinate addrs
+determinate painters
+funcs
+determinate funcs
+
+"Determinate" means "all constants, no variables".
+
+
+PAINTERS
+
+(source, target, function)
+
+The source evaluates to an index, leaving also a Subst with I as this index.
+The target evaluates to an index, take the Subst as another input, and
+leaving another Subst, with J as this index.
+The function evaluates to f, taking the last Subst as input. f can then be
+run on canvas(src).
+
+(1, 2, 'j')    absolute painter with constant function
+(3, 5, succ)   absolute painter with ordinary function
+((I, I+2, same), WS, (I, I+1, 'j'))   'between' painter
+               sees a painter, paints a painter in relation to it
+(MatchContent('b'), I+1, 'c')    a relative painter
+(MatchContent(CellBundle('c'; Inextreme)), WorkingSoup, (I, I+-1, pred))
+
+ADDRS (SOURCES AND TARGETS)
+
+2   an absolute canvas address, i.e. an index
+addr+addr
+Variable
+(src, trg, func)   a painter, possibly matched with variables  (I, I+2, F)
+MatchContent(x)    sets I to the location of x
+WorkingSoup    store the result in the WorkingSoup; required if func returns a painter
+
+Addrs that appear only in the LTS:
+
+   RelatedPair(I, J, F)   funds two cells related by a known func; sets I, J, F in subst
+   TwoAdjacentLetters     records juxtaposition of arbitrary letters
+
+
+FUNCS (3rd ARGUMENT TO PAINTER)
+
+succ
+pred
+same
+'j'    constant function: ignore the source letter
+(I, I+1, succ)   evaluate I and create a new painter, e.g. (2, 3, succ)
+MakeBetweenPainter(I, J, F)     makes a painter that paints inside the span of another painter
+MakeRelativeIndirectPainter(I, J, F)  makes painter that matches content at I, recreating
+   spatial relationship with J, with func F. In effect, goes from constants (for indices)
+   to variables.
+MirrorOf
+
+Funcs that appear only in the LTS; ab initio painters:
+
+   MakeDigraphPainters
+   (I, J, F)              Makes a painter corresponding to RelatedPair.
+
+CELL ATTRIBUTES
+
+
+ABSORPTION
+
+
+REGENERATION
+
+clarity
+
+
+NOTES
+
+run_pons():  Tries to solve 'abc->abd; ijk->?'. Not a chance. Need to explain
+why it has no chance.
+
+Fixed-length canvas.
+
+
+run('a   ', ['abcd'])
+   Regenerates 'abcd'.
+run('a   ', ['abce'])
+   Regenerates only 'abc '. Why not 'e', given the End annotation?
