@@ -19,13 +19,14 @@ rngseed: int
 def run(
     seed: str='a    ',
     ltm: List[str]=['ajaqb'],
-    asteps: int=40,
-    rsteps: int=60,
+    asteps: int=100,   #40,
+    rsteps: int=60,   #60,
     fresh: bool=True,  # Create a new Model in global variable 'm'?
     lla: int=0,  # logging level during absorption
     llr: int=2,   # logging level during regeneration
     auto_annotate: Iterable[Annotation]=default_auto_annotations,
-    ab: List[Painter]=default_initial_painters
+    ab: List[Painter]=default_initial_painters,
+    exc: bool=False  # exclude absolute painters from lts?
 ) -> None:
     global m, last_args
     last_args = dict(
@@ -35,11 +36,16 @@ def run(
         lla=lla,
         llr=llr,
         auto_annotate=auto_annotate,
-        ab=ab
+        ab=ab,
+        exc=exc
     )
     if fresh:
         set_log_level(lla)
-        m = Model(lts=Soup.make_from(ab), auto_annotate=auto_annotate)
+        m = Model(
+            lts=Soup.make_from(ab),
+            auto_annotate=auto_annotate,
+            exclude_abs=exc
+        )
         lo(1, 'INITS', '\n' + m.lts.state_str())
         if asteps:
             for s in ltm:
@@ -182,8 +188,48 @@ def set_rngseed(r: Optional[int]=None) -> None:
     rngseed = reseed(r)
     lo(0, f'rngseed={rngseed}{newline}')
 
+def runabs1():
+    # abs painters only
+    run(seed='a    ', ltm=['abcde'], ab=[ab1])
+
+def runabs2():
+    # abs painters with a different seed
+    run(seed='m    ', ltm=['abcde'], ab=[ab1])
+
+def runabs_ajaqb(**kwargs):
+    run(seed='a    ', ltm=['ajaqb'], ab=[ab1])
+    # no reln with j or q
+
+def runab13_ajaqb(seed='a    '):
+    run(seed, ltm=['ajaqb'], ab=[ab1, ab3])
+
+def runabs3():
+    # abs painters with more LTM
+    run(seed='a    ', ltm=['abcde', 'ggggg'], ab=[ab1])
+    # problem: many sames => many nonadjacent 'same' painters
+    # therefore 'aaaaa' wins
+
+
+
+def runrel():
+    run(
+        seed='a    ',
+        ltm=['abcde'],
+        ab=[ab1, ab2],
+        asteps=100,
+        rsteps=40,
+        exc=True
+    )
+
+def runab123(seed='a    '):
+    run(seed, ltm=['ajaqb'], ab=[ab1, ab2, ab3], asteps=100, exc=True)
+
+
 if __name__ == '__main__':
-    parse_and_run()
+    #parse_and_run()  # Uncomment this to get normal command line
+
+    runab123()
+
     #set_rngseed(1)
     #run_ajaqb()
     #run_ajaqb('a    ', ['wxyaaaa'], 120)

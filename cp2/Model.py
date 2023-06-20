@@ -2493,12 +2493,12 @@ Value = Union[CellContent, Painter, Func, None]
 default_primitive_funcs: FrozenSet[DetFunc] = frozenset([same, succ, pred])
 
 # ab initio painters
-ab1 = Painter(
+ab1 = Painter(         # makes absolute painter
     RelatedPair(I, J, F),
     SR.WorkingSoup,
     Painter(I, J, F)
 )
-ab2 = Painter(
+ab2 = Painter(         # makes relative indirect painter
     Painter(I, J, SimpleFunc(F)),
     SR.WorkingSoup,
     PFuncs(
@@ -2506,12 +2506,12 @@ ab2 = Painter(
         MakeRelativeIndirectPainter(J, I, MirrorOf(F))
     )
 )
-ab3 = Painter(
+ab3 = Painter(         # makes between painter
     Painter(I, Plus(I, 2), F),
     SR.WorkingSoup,
     MakeBetweenPainter(I, J, F)
 )
-ab4 = Painter(
+ab4 = Painter(         # makes digraph painter
     TwoAdjacentLetters(),
     SR.WorkingSoup,
     MakeDigraphPainters()
@@ -2528,6 +2528,7 @@ class Model:
     canvas: Canvas1D = field(
         default_factory=lambda: Canvas1D.make_from('     ')
     )
+    exclude_abs: bool = False  # exclude absolute painters from lts?
 
     primitive_funcs: FrozenSet = default_primitive_funcs
     t: int = 0   # current timestep
@@ -2614,14 +2615,16 @@ class Model:
                     self.lts.copy_painter_from(self.ws, p)
 
     def is_absorbable(self, painter: Painter) -> bool:
-        return True
-        match painter:
-            case Painter(_, SoupRef(), _):
-                return True
-            case Painter(MatchContent(), _, _):
-                return True
-            case _:
-                return False
+        if self.exclude_abs:
+            match painter:
+                case Painter(_, SoupRef(), _):
+                    return True
+                case Painter(MatchContent(), _, _):
+                    return True
+                case _:
+                    return False
+        else:
+            return True
 
     def regen_from(self, s: str, nsteps: int=40) -> None:
         '''Regenerates canvas starting from 's'.'''
