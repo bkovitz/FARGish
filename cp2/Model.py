@@ -54,8 +54,12 @@ def get_latex_mode() -> bool:
 class GlobalParams:
     auto_annotations: int = 1
     rng_seed: int = 0
+    punishing: bool = False
 
 global_params = GlobalParams()
+
+def set_global_param(attr: str, value: Any) -> None:
+    setattr(global_params, attr, value)
 
 
 class CallableFunc(ABC):
@@ -91,7 +95,7 @@ class Letter(CallableFunc):
     @classmethod
     def from_str(self, c: str) -> Union[Letter, Blank]:
         if len(c) != 1:
-            raise ValueError('Letter.from_str(): {c!r} must have len==1')
+            raise ValueError(f'Letter.from_str(): {c!r} must have len==1')
         if c == ' ':
             return Blank()
         else:
@@ -1373,9 +1377,11 @@ class Soup:
 #                self.punish(author, 1.0 - (1.0 - factor) * 0.8)
 
     def punish(self, p: Optional[Painter], target: Addr) -> None:
-        lo(4, 'PUNISH', p, target)
-        self.make_averse_to(p, target)
+        if global_params.punishing:
+            lo(4, 'PUNISH', p, target)
+            self.make_averse_to(p, target)
 
+    #@trace
     def make_averse_to(self, p: Optional[Painter], target: Addr) -> None:
         if p is None:
             return

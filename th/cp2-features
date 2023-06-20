@@ -1,0 +1,124 @@
+Ideas/features in cp2 and why they're in there.
+
+
+abs painter   Copied from Hopfield net
+
+
+Absorption is the same as regeneration except:
+   Absorption moves WS painters to LTS when done.
+   Regeneration can overwrite given letters?
+
+
+determinate painters: needed because you can match in more than one place
+
+
+Run until clarities all >= 4.
+
+punishing:  to inhibit painters when they paint a wrong value over a given
+letter
+
+Why do we need clarity? What's an example to illustrate it?
+Digraphs in 'ajaqb' should get a conflict.
+
+
+How do we get attractors with cycles? Where are Process A and Process B?
+
+
+relative indirect painter
+
+digraph painter
+
+No abs painters in LTM
+
+Finish  'a a b'
+
+
+ITEMS    things that must be presented in chapter 6
+
+painter
+
+determinate painter
+
+absorption
+
+regeneration
+
+workspace
+
+long-term soup
+
+ab initio painter
+
+RelatedPair
+
+MakeRelativeIndirectPainter
+
+MakeBetweenPainter
+
+MakeDigraphPainters
+
+SimpleFunc
+
+canvas, letter, blank
+
+address
+
+   absolute address, i.e. index
+
+   letter-match
+
+   painter-match:  (I, J, F)   Plus is allowed
+
+   TwoAdjacentLetters
+
+punishing
+
+clarity
+
+absolute painter
+
+relative painter (digraph)
+
+match on index => cell value is a variable but index is fixed
+match on cell value => index is a variable but cell value is fixed
+
+relative indirect painter   ('a', ws, (I, I+2, succ))
+
+paint a painter rather than directly to the canvas so that other painters
+can match the painter
+
+cell annotation
+
+   Start, Inextreme, End     Immutable?
+
+
+
+CHAIN LINKS   problem => solution  or  solution => problem
+
+? unstable, won't converge => clarity    need example
+
+relative painters write 'q' in cell 2 in 'ajaqb' => punishing
+
+NEXT: Figure out more chain links. Pick an item, see what necessitated it.
+
+
+
+EXPERIMENTS TO RUN
+
+See if model converges to a few good answers with punishing on, clarity,
+certain ab initio painters, excluding abs painters from LTS, etc.
+
+   WTST attractors don't come into being without certain features, and
+   do come into being with those features.
+
+Try perturbing an attractor state by changing a letter.
+Variant: just run a seed with only one blank.
+
+
+OBSERVATIONS
+
+abcabd, ijk___  works
+aabbccaabbdd, iijjkk______  works but without grouping
+
+This model doesn't go grouping, and grouping is the greater part of what makes
+the letterstring domain interesting.

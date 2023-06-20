@@ -1,0 +1,34 @@
+MAKING DELTAS
+
+    A Delta is made from two elements. In the canvas, these elements may or may not be separated by a '->'.
+    For example, when detecting a run, we make a Delta for each consecutive pair of elements, and we make a
+    Delta for the 'lhs -> rhs' in either World. For readability, the left and right side of the input to a
+    delta are shown by '->' below.
+
+    The Delta function, explained below, takes two arguments and returns a rule telling how to map the left argument to the right argument.
+    The input to a Delta might contain only constants; the output likely contains variables that replace constants.
+
+    In the notation below, A -> B => X -> Y means "Delta[A B] is X Y". DeltaLeft[A B] is X. DeltaRight[A B] is Y.
+
+    The DeltaLeft
+
+    Chunk[... SOMETHING ...] -> Chunk[... SOMETHINGELSE ...] =>
+        Chunk[... SOMETHING ...] -> Chunk[... F[SOMETHING] ...]
+
+    x -> x  =>  X -> Y       Replace identical constant with variable.
+
+    a -> b  =>  L -> Succ[L]   Notice successor relation among constants, change to variables
+
+    b -> a  =>  L -> Pred[L]
+
+    Chunk[a b ...] -> Chunk[x y ...]  =>  Chunk[DeltaLeft[a x] DeltaLeft[b y] ...] -> Chunk[DeltaRight[a x] DeltaRight[b y] ...]
+        ('a b ...' and 'x y ...' are sequential elements.)
+
+        For example: (Do we have an example from a Copycat problem yet?)
+
+    Chunk[unordered] -> Chunk[unordered unordered-extra]  =>  Chunk[UNORDERED] -> Chunk[UNORDERED UNORDERED-EXTRA]
+        I.e. replace constants with variables.
+
+        For example:
+        Chunk[Run[Succ]] -> Chunk[Run[Succ] Skip[Last]]
+

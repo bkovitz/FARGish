@@ -16,6 +16,9 @@ m: Model
 last_args: Dict[str, Any] = {}
 rngseed: int
 
+# NEXT At the end of a run, print out all the global parameters in a 
+# concise form.
+
 def run(
     seed: str='a    ',
     ltm: List[str]=['ajaqb'],
@@ -26,7 +29,8 @@ def run(
     llr: int=2,   # logging level during regeneration
     auto_annotate: Iterable[Annotation]=default_auto_annotations,
     ab: List[Painter]=default_initial_painters,
-    exc: bool=False  # exclude absolute painters from lts?
+    exc: bool=False,  # exclude absolute painters from lts?
+    pun: bool=False # allow punishing of painters for overwriting given letters?
 ) -> None:
     global m, last_args
     last_args = dict(
@@ -50,6 +54,7 @@ def run(
         if asteps:
             for s in ltm:
                 m.absorb(s, timesteps=asteps)
+    set_global_param('punishing', pun)
     set_log_level(llr)
     lo(1, 'LTS\n' + m.lts.state_str())
     #lo(1, 'LTS\n' + m.lts.state_str_with_authors())
@@ -212,7 +217,7 @@ def runabs3():
 
 
 def runrel():
-    run(
+    kw = dict(
         seed='a    ',
         ltm=['abcde'],
         ab=[ab1, ab2],
@@ -220,15 +225,42 @@ def runrel():
         rsteps=40,
         exc=True
     )
+    run(**kw)
 
-def runab123(seed='a    '):
-    run(seed, ltm=['ajaqb'], ab=[ab1, ab2, ab3], asteps=100, exc=True)
+def runab123(**kwargs):
+    kw = dict(ltm=['ajaqb'], ab=[ab1, ab2, ab3], asteps=100, exc=True) | kwargs
+    run(**kw)
+
+# NEXT Try absolute & digraph painters with a big LTM to see if that creates
+# a need for clarity.
+
+def run_ad(**kwargs):
+    # make relative (digraph) painters: gets 'aqb  ' a lot
+    kw = dict(
+        #ltm=['ajaqb', 'pqrst', 'abcde', 'aabbc'],
+        #ltm=['ajaqb', 'abcde', 'aabbc'],
+        #ltm=['ajaqb', 'abcde'],
+        ltm=['ajaqb'],
+        ab=[ab4],
+        asteps=30,
+        rsteps=25,
+        lla=0,
+        llr=1,
+        pun=False,
+        exc=True
+    ) | kwargs
+    run(**kw)
+
+def run_ad2(**kwargs):
+    # blends some simple strings
+    kw = dict(ltm=['ajaqb', 'abcde', 'aabbc']) | kwargs
+    run(**kw)
 
 
 if __name__ == '__main__':
     #parse_and_run()  # Uncomment this to get normal command line
 
-    runab123()
+    run_ad(pun=True, llr=5, rsteps=2)
 
     #set_rngseed(1)
     #run_ajaqb()
