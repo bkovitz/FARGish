@@ -55,6 +55,9 @@ class GlobalParams:
     auto_annotations: int = 1
     rng_seed: int = 0
     punishing: bool = False
+    painter_clarity: bool = False
+    cell_clarity: bool = True
+    dp_activation: bool = True
 
 global_params = GlobalParams()
 
@@ -2755,6 +2758,15 @@ class Model:
             aff = self.affinity(dp.basis, dp.target)
             #result = sw * tw * suppression * pclarity
             result = sw * tw * activation * aff
+            result = 1.0
+            if global_params.cell_clarity:
+                result *= sw * tw
+            if global_params.dp_activation:
+                result *= activation
+            if global_params.painter_clarity:
+                result *= pclarity
+            if global_params.punishing:
+                result *= aff
             lo(5, f'sw={nf(sw)} tw={nf(tw)} a={nf(activation)} pclarity={nf(pclarity)} aff={nf(aff)}  result={nf(result)}    basis={veryshort(dp.basis)}')
             return result
 
@@ -2822,12 +2834,15 @@ class Model:
         assert False, "target_weight(): should not go past 'match' stmt"
 
     def painter_clarity(self, p: Painter) -> Numeric:
-        if p in self.ws:
-            return self.ws.clarity(p)
-        elif p in self.lts:
-            return self.lts.clarity(p)
+        if global_params.painter_clarity:
+            if p in self.ws:
+                return self.ws.clarity(p)
+            elif p in self.lts:
+                return self.lts.clarity(p)
+            else:
+                return 0
         else:
-            return 0
+            return 1
 
     def run_detpainter(
         self,

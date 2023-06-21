@@ -71,7 +71,7 @@ address
 
    TwoAdjacentLetters
 
-punishing
+punishing: creates an affinity for a certain kind of context
 
 clarity
 
@@ -91,6 +91,8 @@ cell annotation
 
    Start, Inextreme, End     Immutable?
 
+canvas-lengthening techniques (e.g. double each letterstring)
+
 
 
 CHAIN LINKS   problem => solution  or  solution => problem
@@ -98,6 +100,8 @@ CHAIN LINKS   problem => solution  or  solution => problem
 ? unstable, won't converge => clarity    need example
 
 relative painters write 'q' in cell 2 in 'ajaqb' => punishing
+
+very small capacity => double the canvas
 
 NEXT: Figure out more chain links. Pick an item, see what necessitated it.
 
@@ -115,10 +119,86 @@ Try perturbing an attractor state by changing a letter.
 Variant: just run a seed with only one blank.
 
 
+EXPERIMENTS TO INCLUDE IN CHAPTER
+
+run(ltm=['abcabd'], seed='ijk   ', pun=False)
+'ijkijl'  6, 6, 6, 6, 5, 5
+
+
+
+
 OBSERVATIONS
 
 abcabd, ijk___  works
 aabbccaabbdd, iijjkk______  works but without grouping
 
-This model doesn't go grouping, and grouping is the greater part of what makes
+This model doesn't do grouping, and grouping is the greater part of what makes
 the letterstring domain interesting.
+
+
+cp1 w/ abs painters only is much less stable than the Hopfield net, because
+there are so few painters, due to limiting them to succ/pred/same.
+
+
+NEW IDEAS
+
+Clarity, painter clarity, punishing, and annotations in MatchContent are all
+variations of a single idea: adjust the probabilities of painters to reflect
+something about the context. IMPORTANT, FUNDAMENTAL
+
+Filling a box vs. growing from seeds to whatever size they grow to (J vs. P?).
+
+
+QUESTIONS FOR ABHINAV
+
+How do we get an attractor with just abs. painters? Does clarity help with
+this? Maybe you can't get attractors when painters are limited to
+succ/pred/same. You need multiple painters painting the same thing. Or
+maybe you only get attractors when regeneration builds new painters,
+which paint what's there as well as go beyond the LTS painters.
+
+
+
+NEED TO ANSWER
+
+Does the model allow overwriting of immutable letters? Might need a flag to
+turn this on or off.
+
+Does/can consensus play any real role in the simple hoplike examples?
+There are so few painters, how do painters from the same image support each
+other?
+
+
+SEQUENCE OF PRESENTATION
+
+* absolute painters doing Hopfield-like memory
+   absorption, regeneration, long-term soup, painters as triples,
+   source addr, target addr, func, attractor/equilibrium
+
+   Do we need clarity yet?   hypothesis: yes; hoplike will not settle down
+                             without clarity
+
+problem: can't shift letterstring
+
+relative painters,  determinate painters
+
+? problem: can't do ajaqb
+
+problem with relative painters  (but what?)
+
+* 'between' painter    solves ajaqb
+
+problem with 'between' painter:  j vs. q at index 2
+
+
+indirect painters
+
+* relative indirect painters   needed bec 'between' alone can't solve without
+                               abs painters
+
+
+* cell attributes/annotations:  solves j vs. q?
+
+
+
+problems: no groups, can't change length of canvas

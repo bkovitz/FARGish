@@ -30,6 +30,8 @@ def run(
     auto_annotate: Iterable[Annotation]=default_auto_annotations,
     ab: List[Painter]=default_initial_painters,
     exc: bool=False,  # exclude absolute painters from lts?
+    ccl: bool=True,   # allow source/target cell clarity to affect probability?
+    pcl: bool=False,  # allow painter clarity to affect probability?
     pun: bool=False # allow punishing of painters for overwriting given letters?
 ) -> None:
     global m, last_args
@@ -55,6 +57,8 @@ def run(
             for s in ltm:
                 m.absorb(s, timesteps=asteps)
     set_global_param('punishing', pun)
+    set_global_param('painter_clarity', pcl)
+    set_global_param('cell_clarity', ccl)
     set_log_level(llr)
     lo(1, 'LTS\n' + m.lts.state_str())
     #lo(1, 'LTS\n' + m.lts.state_str_with_authors())
@@ -256,11 +260,86 @@ def run_ad2(**kwargs):
     kw = dict(ltm=['ajaqb', 'abcde', 'aabbc']) | kwargs
     run(**kw)
 
+def r(d: dict, **kwargs):
+    '''Convenience function for running experiments in the REPL. Optionally
+    override a dict of arguments to run().'''
+    run(**(d | kwargs))
+
+# A run just like the Hopfield net: many strings in memory, absolute painters
+# only.
+hoplike = dict(
+    ltm=['ajaqb', 'pqrst', 'abcde', 'aabbc', 'ponop'],
+    ab=[ab1],
+    asteps=40,
+    rsteps=100,
+    lla=0,
+    llr=1,
+    pun=False,
+    exc=False
+)
+
+hoplike_long = hoplike | dict(
+    ltm=['abrsecpbqf', 'efghijklmn', 'tfserfdqgc', 'abcdepomnl'],
+    seed='abr e  bqf'
+)
+
+hoplike_long_easy = hoplike | dict(
+    ltm=['aaaaabca', 'gggvvwgg', 'pqrspqrs'],
+    seed='aaaa   a'
+)
+
+# Can we solve 'ajaqb' without relative indirect painters?
+quest1 = dict(
+    ltm=['ajaqb'],
+    seed='a    ',
+    asteps=40,
+    rsteps=40,
+    ab=[ab1, ab3],
+    pun=False,
+    exc=True
+)
+# No.
+# seed='a a  ' also fails, because without absolute or relative indirect
+# painters, the LTS has no record of the a_a and a_b relationships.
+# A relative indirect painter can recreate that relationship wherever it
+# sees an 'a' or 'b'.
+
+# Does adding relative indirect solve that problem?
+quest2 = quest1 | dict(
+    ab=[ab1, ab2, ab3]
+)
+
+# Does adding relative painters get hoplike_long to regenerate the memories
+# reliably?
+quest3 = hoplike_long | dict(
+    ab=[ab1, ab4]
+)
+
+# Is clarity needed to settle down on an attractor?
+quest4 = hoplike_long | dict(
+    ccl=False
+)
+
+# hoplike_few
+
+#      pcl=False => ignore painter clarity
+#      ccl=False => ignore cell clarity
+# NEXT rsteps=None => run until all clarities >= 4
+#      ann=False => no cell annotations
+
+# NEXT Collect together some named experiments that show each point in
+# sequence. Start without cell clarity.
 
 if __name__ == '__main__':
     #parse_and_run()  # Uncomment this to get normal command line
 
-    run_ad(pun=True, llr=5, rsteps=2)
+    #run_ad(pun=True, llr=5, rsteps=2)
+    #r(hoplike, seed='a  de')   # erratic
+
+    #r(hoplike_long)
+    #'ghijk    '
+
+    r(hoplike_long_easy)
 
     #set_rngseed(1)
     #run_ajaqb()
