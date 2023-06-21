@@ -2507,6 +2507,14 @@ ab1 = Painter(         # makes absolute painter
     SR.WorkingSoup,
     Painter(I, J, F)
 )
+ab1a = Painter(     # makes two absolute painters, each the mirror of the other
+    RelatedPair(I, J, F),
+    SR.WorkingSoup,
+    PFuncs(
+        Painter(I, J, F),
+        Painter(J, I, MirrorOf(F))
+    )
+)
 ab2 = Painter(         # makes relative indirect painter
     Painter(I, J, SimpleFunc(F)),
     SR.WorkingSoup,

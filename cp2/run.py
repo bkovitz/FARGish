@@ -320,14 +320,26 @@ quest4 = hoplike_long | dict(
     ccl=False
 )
 
+cdecb = dict(
+    seed='  e  ',
+    ltm=['cdecb'],
+    ab=[ab1a],
+    ccl=False,
+    pcl=False,
+    pun=False
+)
+
+# NEXT Settle on an example with several strings in ltm, to demonstrate
+# instability without clarity
+
 # hoplike_few
 
 #      pcl=False => ignore painter clarity
 #      ccl=False => ignore cell clarity
-# NEXT rsteps=None => run until all clarities >= 4
+# TODO rsteps=None => run until all clarities >= 4
 #      ann=False => no cell annotations
 
-# NEXT Collect together some named experiments that show each point in
+# TODO Collect together some named experiments that show each point in
 # sequence. Start without cell clarity.
 
 if __name__ == '__main__':
@@ -339,7 +351,9 @@ if __name__ == '__main__':
     #r(hoplike_long)
     #'ghijk    '
 
-    r(hoplike_long_easy)
+    #r(hoplike_long_easy)
+
+    r(cdecb)
 
     #set_rngseed(1)
     #run_ajaqb()
