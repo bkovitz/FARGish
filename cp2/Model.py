@@ -22,6 +22,7 @@ from argparse import Namespace
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
+from ordered_set import OrderedSet  # needed for deterministic output
 
 #from Types import CanvasValue, CellContent, End, \
 #    Fizzle, FizzleNoDetPainters, FizzleValueNotFound, \
@@ -1385,13 +1386,15 @@ class Soup:
     )  # map Painter to clarity
     #painters: List = field(default_factory=list)
     authors: Dict[Painter, Set[Painter]] = field(
-        default_factory=lambda: defaultdict(set)
+        #default_factory=lambda: defaultdict(set)
+        default_factory=lambda: defaultdict(OrderedSet)
     )  # value is all who painted the key
     pids: Dict[Painter|int, int|Painter] = field(default_factory=dict)
     # dict of id numbers to painters and back
     nextpid: int = 1
     aversion_tags: Dict[Painter, Set[Addr]] = \
-        field(default_factory=lambda: defaultdict(set))
+        field(default_factory=lambda: defaultdict(OrderedSet))
+        #field(default_factory=lambda: defaultdict(set))
 
     @classmethod
     def make_from(cls, painters: Iterable[Painter]) -> Soup:
@@ -2409,7 +2412,6 @@ class Painter(Addr, CallableFunc):
 
     def latex(self) -> str:
         global math_mode
-        lo('PAINTER', math_mode)
         if math_mode:
             return self.latex_()
         else:
@@ -2647,6 +2649,7 @@ class Model:
         # has run, and in what timestep.
     canvas_history: Dict[int, Canvas1D] = field(default_factory=dict)
     ws_history: Dict[int, Soup] = field(default_factory=dict)
+    initial_canvas: Optional[Canvas1D] = None
     auto_annotate: Iterable[Annotation] = default_auto_annotations
     high_weight_favoritism: Numeric = 0.6 
         # For adjusting probability weights # to favor the highest weights.
@@ -2748,6 +2751,7 @@ class Model:
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
+            self.initial_canvas = canvas
             #lo(4, self.canvas.long())  #DEBUG
             self.t = 0
             self.save_into_history()
@@ -3005,7 +3009,8 @@ class Model:
             case DetPainter(_, _, _, _, basis):
                 #lo(2, 'BASIS', basis, type(basis))
                 return basis
-        lo(1, 'FELL THROUGH')
+        raise ValueError(f'FELL THROUGH: {self.ldp()}')
+
 
     def see_canvas_history(self) -> None:
         '''Prints the canvas history.'''

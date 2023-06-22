@@ -295,9 +295,9 @@ hoplike_long_easy = hoplike | dict(
 )
 
 example1 = hoplike_long_easy | dict(
-    seed='a      a',
+    seed='aa     a',
     rsteps=15,
-    rng=3764142229335347947,
+    rng=8066335492150159463,
     llr=1
 )
 
