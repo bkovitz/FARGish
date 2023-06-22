@@ -294,9 +294,12 @@ hoplike_long_easy = hoplike | dict(
     ccl=False
 )
 
+# TODO Disable ab initio painters during regeneration
+# NEXT When ccl=False, need to update cells on every write
 example1 = hoplike_long_easy | dict(
-    seed='aa     a',
-    rsteps=15,
+    #seed='aa     a',
+    seed='  aabb  ',
+    rsteps=500,
     rng=8066335492150159463,
     llr=1
 )

@@ -19,6 +19,7 @@ import sys
 from operator import itemgetter
 import operator
 from argparse import Namespace
+from copy import copy
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -53,7 +54,9 @@ def get_latex_mode() -> bool:
     return latex_mode
 
 def latex(x: Any) -> str:
-    if isinstance(x, str):
+    if x == '':
+        return ''
+    elif isinstance(x, str):
         return f'\\lett{{{x}}}'
     elif hasattr(x, 'latex'):
         return x.latex()
@@ -2751,7 +2754,7 @@ class Model:
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
-            self.initial_canvas = canvas
+            self.initial_canvas = copy(self.canvas)
             #lo(4, self.canvas.long())  #DEBUG
             self.t = 0
             self.save_into_history()
@@ -3205,13 +3208,28 @@ class Model:
     def latex_history(self) -> None:
         '''Prints all the timesteps in the last run in the form of a LaTeX
         table.'''
-        lm = get_latex_mode()
-        for t in range(1, self.t + 1):
-            #print(t, self.dps_run[t], self.canvas_history[t])
-            painter = self.dps_run[t].basis
-            canvas = self.canvas_history[t]
-            print(f'{t}. & {latex(painter)} & {latex(canvas)} \\\\')
-        set_latex_mode(lm)
+#        lm = get_latex_mode()
+#        for t in range(1, self.t + 1):
+#            #print(t, self.dps_run[t], self.canvas_history[t])
+#            painter = self.dps_run[t].basis
+#            canvas = self.canvas_history[t]
+#            print(f'{t}. & {latex(painter)} & {latex(canvas)} \\\\')
+#        set_latex_mode(lm)
+
+        for t in range(0, self.t + 1):
+            print(f'{t}. & {latex(self.canvas_at_time(t))} & {latex(self.painter_that_ran_at_time(t + 1))} \\\\')
+
+    def canvas_at_time(self, t: int) -> Canvas1D:
+        if t == 0:
+            return self.initial_canvas
+        else:
+            return self.canvas_history[t]
+
+    def painter_that_ran_at_time(self, t: int) -> Union[Painter, str]:
+        if t in self.dps_run:
+            return self.dps_run[t].basis
+        else:
+            return ''
 
     def state_str(self) -> str:
         sio = StringIO()
