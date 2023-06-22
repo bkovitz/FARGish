@@ -393,3 +393,7 @@ if __name__ == '__main__':
     #run_test()
     #run_pons()
     #run(ltm=['ajaqb'], asteps=100, lla=6, rsteps=0)
+
+# WANT Run an experiment with same params as example2, but with hundreds of
+# different randomly chosen 4-letter seeds (with 4 randomly placed blanks),
+# and see if there are only a small number of attractors.

@@ -19,7 +19,7 @@ import sys
 from operator import itemgetter
 import operator
 from argparse import Namespace
-from copy import copy
+from copy import copy, deepcopy
 
 from pyrsistent import pmap
 from pyrsistent.typing import PMap
@@ -2775,7 +2775,7 @@ class Model:
             with indent_log(3, 'LONG-TERM SOUP'):
                 lo(3, self.lts.state_str())
             self.set_canvas(s)
-            self.initial_canvas = copy(self.canvas)
+            self.initial_canvas = deepcopy(self.canvas)
             #lo(4, self.canvas.long())  #DEBUG
             self.t = 0
             self.save_into_history()
