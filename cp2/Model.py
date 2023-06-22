@@ -56,6 +56,8 @@ def get_latex_mode() -> bool:
 def latex(x: Any) -> str:
     if x == '':
         return ''
+    elif isinstance(x, tuple):
+        return ' '.join(latex(a) for a in x)
     elif isinstance(x, str):
         return f'\\lett{{{x}}}'
     elif hasattr(x, 'latex'):
@@ -71,6 +73,7 @@ class GlobalParams:
     painter_clarity: bool = False
     cell_clarity: bool = True
     dp_activation: bool = True
+    allow_ab_initio_painters: bool = True
 
 global_params = GlobalParams()
 
@@ -976,6 +979,8 @@ class ContentAndClarity:
                 self.clarity = 1
             else:
                 self.dec_clarity()
+        if not global_params.cell_clarity:
+            self.content = v  # always paint if model is ignoring clarity
 
     def inc_clarity(self) -> None:
         if self.clarity < Canvas.MAX_CLARITY:
@@ -1269,9 +1274,11 @@ class Canvas1D(Canvas):
     def all_indices_and_values(self) -> Iterable[Tuple[Index, CanvasValue]]:
         return self.contents.all_indices_and_values()
 
+    def clarities_str(self) -> str:
+        return ' '.join(str(c) for c in self.contents.all_clarities())
+
     def __str__(self) -> str:
-        clarities = ', '.join(str(c) for c in self.contents.all_clarities())
-        return f"'{self.short_str()}'  {clarities}"
+        return f"'{self.short_str()}'  {self.clarities_str()}"
 
     def short(self) -> str:
         return repr(self.short_str())
@@ -1398,10 +1405,17 @@ class Soup:
     aversion_tags: Dict[Painter, Set[Addr]] = \
         field(default_factory=lambda: defaultdict(OrderedSet))
         #field(default_factory=lambda: defaultdict(set))
+    ab_initio: OrderedSet[Painter] = field(default_factory=lambda: OrderedSet())
 
     @classmethod
     def make_from(cls, painters: Iterable[Painter]) -> Soup:
-        return Soup(defaultdict(int, ((p, 1) for p in painters)))
+        #return Soup(painters=defaultdict(int, ((p, 1) for p in painters)))
+        ps = OrderedSet(painters)
+        #return Soup( painters=defaultdict(int, ((p, 1) for p in ps)))
+        return Soup(
+            painters=defaultdict(int, ((p, 1) for p in ps)),
+            ab_initio=ps
+        )
 
     def add(self, *painters: Painter) -> None:
         for p in painters:
@@ -1469,6 +1483,12 @@ class Soup:
 
     def __iter__(self) -> Iterator[Painter]:
         return iter(self.painters)
+
+    def allowed_painters(self) -> Iterator[Painter]:
+        if global_params.allow_ab_initio_painters:
+            return iter(self)
+        else:
+            return (p for p in self.painters if p not in self.ab_initio)
 
     def clear(self) -> None:
         self.painters.clear()
@@ -1538,6 +1558,7 @@ class Soup:
 #                lo('UNION', soup.aversion_tags.get(p, empty_set))
 #                for aversion in soup.aversion_tags.get(p, empty_set):
 #                    result.make_averse_to(p, aversion)
+            result.ab_initio |= soup.ab_initio
         return result
 
     def copy_painter_from(self, other: Soup, p: Painter) -> None:
@@ -2806,7 +2827,7 @@ class Model:
     def choose_detpainter(self, soup: Soup) -> DetPainter:
         det_painters = list(chain.from_iterable(
             self.painter_to_detpainters(p)  #, soup.clarity(p))
-                for p in soup
+                for p in soup.allowed_painters()
         ))
 #        weights = self.adjusted_weights([
 #            self.detpainter_to_probability_weight(dp)
@@ -3205,9 +3226,10 @@ class Model:
             else:
                 raise NotImplementedError(f"apply_func: can't apply {f}")
 
-    def latex_history(self) -> None:
+    def latex_history(self, cl: bool=True) -> None:
         '''Prints all the timesteps in the last run in the form of a LaTeX
-        table.'''
+        table. 'cl' indicates whether to include a column containing
+        clarities.'''
 #        lm = get_latex_mode()
 #        for t in range(1, self.t + 1):
 #            #print(t, self.dps_run[t], self.canvas_history[t])
@@ -3217,7 +3239,12 @@ class Model:
 #        set_latex_mode(lm)
 
         for t in range(0, self.t + 1):
-            print(f'{t}. & {latex(self.canvas_at_time(t))} & {latex(self.painter_that_ran_at_time(t + 1))} \\\\')
+            canvas = self.canvas_at_time(t)
+            if cl:
+                clarities = tuple(canvas.all_clarities())
+                print(f'{t}. & {latex(canvas)} & {latex(clarities)} & {latex(self.painter_that_ran_at_time(t + 1))} \\\\')
+            else:
+                print(f'{t}. & {latex(canvas)} & {latex(self.painter_that_ran_at_time(t + 1))} \\\\')
 
     def canvas_at_time(self, t: int) -> Canvas1D:
         if t == 0:

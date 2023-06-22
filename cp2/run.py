@@ -29,6 +29,7 @@ def run(
     llr: int=2,   # logging level during regeneration
     auto_annotate: Iterable[Annotation]=default_auto_annotations,
     ab: List[Painter]=default_initial_painters,
+    abr: bool=True,   # allow ab initio painters during regeneration?
     rng: Optional[int]=None, # random-number seed, or None to randomize
     exc: bool=False,  # exclude absolute painters from lts?
     ccl: bool=True,   # allow source/target cell clarity to affect probability?
@@ -48,6 +49,7 @@ def run(
     )
     if fresh:
         set_rngseed(rng)
+        set_global_param('allow_ab_initio_painters', True)
         set_log_level(lla)
         m = Model(
             lts=Soup.make_from(ab),
@@ -65,7 +67,9 @@ def run(
     lo(1, 'LTS\n' + m.lts.state_str())
     #lo(1, 'LTS\n' + m.lts.state_str_with_authors())
     if rsteps:
+        set_global_param('allow_ab_initio_painters', abr)
         m.regen_from(seed, nsteps=rsteps)
+        set_global_param('allow_ab_initio_painters', True)
     print(m.canvas)
     print()
     print(m.ws.state_str_with_authors())
@@ -294,15 +298,22 @@ hoplike_long_easy = hoplike | dict(
     ccl=False
 )
 
-# TODO Disable ab initio painters during regeneration
 # NEXT When ccl=False, need to update cells on every write
 example1 = hoplike_long_easy | dict(
     #seed='aa     a',
     seed='  aabb  ',
-    rsteps=500,
-    rng=8066335492150159463,
-    llr=1
+    rsteps=20,  #50,
+    abr=False,
+    ccl=False,
+    rng=444834040015719226,  #8066335492150159463,
+    llr=2
 )
+
+example2 = example1 | dict(
+    ccl=True,
+    rsteps=40,
+)
+
 
 # Can we solve 'ajaqb' without relative indirect painters?
 quest1 = dict(
