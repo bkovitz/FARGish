@@ -14,7 +14,7 @@ from util import newline, nf, reseed, pts, short
 
 m: Model
 last_args: Dict[str, Any] = {}
-rngseed: int
+rngseed: Optional[int] = None
 
 # NEXT At the end of a run, print out all the global parameters in a 
 # concise form.
@@ -29,6 +29,7 @@ def run(
     llr: int=2,   # logging level during regeneration
     auto_annotate: Iterable[Annotation]=default_auto_annotations,
     ab: List[Painter]=default_initial_painters,
+    rng: Optional[int]=None, # random-number seed, or None to randomize
     exc: bool=False,  # exclude absolute painters from lts?
     ccl: bool=True,   # allow source/target cell clarity to affect probability?
     pcl: bool=False,  # allow painter clarity to affect probability?
@@ -46,6 +47,7 @@ def run(
         exc=exc
     )
     if fresh:
+        set_rngseed(rng)
         set_log_level(lla)
         m = Model(
             lts=Soup.make_from(ab),
@@ -180,7 +182,6 @@ def parse_and_run() -> None:
     )
     args = parser.parse_args()
 
-    set_rngseed(args.rngseed)
     global_params.auto_annotations = args.au
     run(
         seed=args.seed, 
@@ -188,7 +189,8 @@ def parse_and_run() -> None:
         asteps=args.asteps,
         rsteps=args.rsteps,
         lla=args.lla,
-        llr=args.llr
+        llr=args.llr,
+        rng=args.rngseed
     )
     lo(0, f'rngseed={rngseed}{newline}')
 
@@ -273,8 +275,9 @@ hoplike = dict(
     asteps=40,
     rsteps=100,
     lla=0,
-    llr=1,
+    llr=2,
     pun=False,
+    pcl=False,
     exc=False
 )
 
@@ -285,7 +288,17 @@ hoplike_long = hoplike | dict(
 
 hoplike_long_easy = hoplike | dict(
     ltm=['aaaaabca', 'gggvvwgg', 'pqrspqrs'],
-    seed='aaaa   a'
+    seed='aaaa   a',
+    ab=[ab1a],
+    rsteps=30,
+    ccl=False
+)
+
+example1 = hoplike_long_easy | dict(
+    seed='a      a',
+    rsteps=15,
+    rng=3764142229335347947,
+    llr=1
 )
 
 # Can we solve 'ajaqb' without relative indirect painters?
@@ -324,6 +337,7 @@ cdecb = dict(
     seed='  e  ',
     ltm=['cdecb'],
     ab=[ab1a],
+    asteps=30,
     ccl=False,
     pcl=False,
     pun=False
@@ -352,8 +366,9 @@ if __name__ == '__main__':
     #'ghijk    '
 
     #r(hoplike_long_easy)
+    r(example1)
 
-    r(cdecb)
+    #r(cdecb, llr=2, rsteps=0, lla=2)
 
     #set_rngseed(1)
     #run_ajaqb()

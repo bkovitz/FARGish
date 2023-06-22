@@ -42,6 +42,7 @@ from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
 
 
 latex_mode: bool = False   # If True, render some strings as LaTeX
+math_mode: bool = False    # If True, now in LaTeX math mode
 
 def set_latex_mode(b: Bool=True) -> None:
     global latex_mode
@@ -49,6 +50,14 @@ def set_latex_mode(b: Bool=True) -> None:
 
 def get_latex_mode() -> bool:
     return latex_mode
+
+def latex(x: Any) -> str:
+    if isinstance(x, str):
+        return f'\\lett{{{x}}}'
+    elif hasattr(x, 'latex'):
+        return x.latex()
+    else:
+        return short(x)
 
 @dataclass
 class GlobalParams:
@@ -137,6 +146,8 @@ class Letter(CallableFunc):
         cl = self.__class__.__name__
         return f'{cl}({self.c!r})'
 
+    def latex(self) -> str:
+        return self.c
 
 @dataclass(frozen=True)
 class Blank:
@@ -146,9 +157,12 @@ class Blank:
 
     def short(self) -> str:
         if latex_mode:
-            return r'\bl'
+            return self.latex()
         else:
             return repr(self)
+
+    def latex(self) -> str:
+        return r'\bl{}'
 
     def __str__(self) -> str:
         return ' '
@@ -473,6 +487,10 @@ class Addr(ABC):
     -> Iterable[DetAddrWithSubst]:
         pass
 
+    @abstractmethod
+    def latex(self) -> str:
+        pass
+
 # A convenience function for unit tests
 def make_addr(a: ToAddr) -> Addr:
     match a:
@@ -525,6 +543,9 @@ class Index(DetAddr):
     def short(self) -> str:
         return str(self.i)
 
+    def latex(self) -> str:
+        return self.short()
+
     __repr__ = short
 
 def as_int(x: Index | int) -> int:
@@ -567,6 +588,9 @@ class Indices(Addr):
 
     def __iter__(self) -> Iterable[Index2]:
         yield from self.elems
+
+    def latex(self) -> str:
+        return ', '.join(str(elem) for elem in self.elems)
         
     def __str__(self) -> str:
         cl = self.__class__.__name__
@@ -598,6 +622,9 @@ class SoupRef(Addr):
     def to_detaddrs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetAddrWithSubst]:
         yield DetAddrWithSubst(subst, self)
+
+    def latex(self) -> str:
+        return self.name
 
     def __repr__(self) -> str:
         return self.name
@@ -644,6 +671,18 @@ class Plus(Addr, HasAsIndex, HasSimplify):
 
     def __repr__(self) -> str:
         return '+'.join(str(a) for a in self.args)
+
+    def latex(self) -> str:
+        if math_mode:
+            return self.latex_()
+        else:
+            math_mode = True
+            result = self.latex_()
+            math_mode = False
+            return result
+
+    def latex_(self) -> str:
+        return '$' + '+'.join(latex(a) for a in self.args) + '$'
 
     # TODO rm? Superseded by .simplify()?
     def value_of(self, subst: Subst) -> Expr:
@@ -741,6 +780,12 @@ class Variable(Addr):
     def __repr__(self) -> str:
         return self.name
 
+    def latex(self) -> str:
+        if math_mode:
+            return short(self)
+        else:
+            return '$' + short(self) + '$'
+
 I = Variable('I')
 J = Variable('J')
 F = Variable('F')
@@ -801,6 +846,10 @@ class RelatedPair(Addr):
                 raise NotImplementedError
             # TODO Other cases? Could a Variable be in an expression?
 
+    def latex(self) -> str:
+        '''UNIMPLEMENTED'''
+        return short(self)
+
     def __str__(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
@@ -817,6 +866,10 @@ class MatchContent(Addr):
             DetAddrWithSubst(subst.unify(var, index), index)
                 for index in model.canvas.all_matching(self.content)
         )
+
+    def latex(self) -> str:
+        '''UNIMPLEMENTED'''
+        return short(self)
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
@@ -835,6 +888,10 @@ class TwoAdjacentLetters(Addr):
                         model.canvas.has_letter(index + 1)
                     )
         )
+
+    def latex(self) -> str:
+        '''UNIMPLEMENTED'''
+        return short(self)
 
     def __repr__(self) -> str:
         return self.__class__.__name__
@@ -1229,6 +1286,10 @@ class Canvas1D(Canvas):
         
     def state_str(self) -> str:
         return f"{self.short()}  {' '.join(str(c) for c in self.contents.all_clarities())}"
+
+    def latex(self) -> str:
+        cells = ''.join(latex(v) for v in self.contents.all_values())
+        return f'\\lett{{{cells}}}'
 
 ########## Exceptions ##########
 
@@ -1907,6 +1968,12 @@ class SimpleFuncClass(CallableFunc):
     def __hash__(self):
         return hash(self.__class__)
 
+    def latex(self) -> str:
+        if math_mode:
+            return f'\\textrm{{{short(self)}}}'
+        else:
+            return short(self)
+
 ### The basic relational functions
 
 class Same(SimpleFuncClass):
@@ -2081,6 +2148,10 @@ class MakeBetweenPainter(CallableFunc, HasSimplify):
 #            return False
 #        return True
 
+    def latex(self) -> str:
+        '''UNIMPLEMENTED'''
+        return short(self)
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
@@ -2196,6 +2267,10 @@ class MakeRelativeIndirectPainter(CallableFunc, HasSimplify):
         else:
             return MakeRelativeIndirectPainter(i, j, f)
 
+    def latex(self) -> str:
+        '''UNIMPLEMENTED'''
+        return short(self)
+
     def short(self) -> str:
         cl = self.__class__.__name__
         return f'{cl}({short(self.i)}, {short(self.j)}, {short(self.f)})'
@@ -2229,6 +2304,10 @@ class MakeDigraphPainters(CallableFunc):
     def to_detfuncs(self, model: Model, subst: Subst, var: Variable) \
     -> Iterable[DetFunc]:
         yield self
+
+    def latex(self) -> str:
+        '''UNIMPLEMENTED'''
+        return short(self)
 
     def __repr__(self) -> str:
         return self.__class__.__name__
@@ -2328,11 +2407,24 @@ class Painter(Addr, CallableFunc):
         cl = self.__class__.__name__
         return f'{cl}({short(self.source)}, {short(self.target)}, {short(self.func)})'
 
+    def latex(self) -> str:
+        global math_mode
+        lo('PAINTER', math_mode)
+        if math_mode:
+            return self.latex_()
+        else:
+            math_mode = True
+            result = '$' + self.latex_() + '$'
+            math_mode = False
+            return result
+
+    def latex_(self) -> str:
+        return f'({latex(self.source)}, {latex(self.target)}, {latex(self.func)})'
+
     def short(self) -> str:
         s = f'({short(self.source)}, {short(self.target)}, {short(self.func)})'
         #lo('HERE', latex_mode, f'${s}$')
         return f'${s}$' if latex_mode else s
-
 
 @dataclass(frozen=True)
 class Painters:
@@ -2620,6 +2712,7 @@ class Model:
             # Run a little while, let some painters develop
             for t in range(timesteps):
                 self.do_timestep()
+                lo(2, 'painter:', self.last_painter_run())
                 lo(2, self.state_str())
             # Save the abstract painters to the lts
             with indent_log(2, 'WS AFTER ABSORPTION'):
@@ -2660,6 +2753,8 @@ class Model:
             self.save_into_history()
             for t in range(nsteps):
                 self.do_timestep()
+                lo(2, 'painter:', self.last_painter_run())
+                #lo(2, 'ldp:', self.ldp())
                 lo(1, self.state_str())
 
     def do_timestep(self) -> None:
@@ -2898,6 +2993,20 @@ class Model:
         for t in sorted(self.dps_run.keys()):
             print(f't={t}\n{self.dps_run[t]}')
 
+    def last_painter_run(self) -> Optional[Painter]:
+        #lo(2, 'LDP?', str(self.ldp()))
+        match self.ldp():
+            case None:
+                #lo(2, 'NONE')
+                return None
+            case Painter() as p:
+                #lo(2, 'HERE')
+                return p
+            case DetPainter(_, _, _, _, basis):
+                #lo(2, 'BASIS', basis, type(basis))
+                return basis
+        lo(1, 'FELL THROUGH')
+
     def see_canvas_history(self) -> None:
         '''Prints the canvas history.'''
         for t in sorted(self.canvas_history.keys()):
@@ -3087,6 +3196,17 @@ class Model:
 #                return f
             else:
                 raise NotImplementedError(f"apply_func: can't apply {f}")
+
+    def latex_history(self) -> None:
+        '''Prints all the timesteps in the last run in the form of a LaTeX
+        table.'''
+        lm = get_latex_mode()
+        for t in range(1, self.t + 1):
+            #print(t, self.dps_run[t], self.canvas_history[t])
+            painter = self.dps_run[t].basis
+            canvas = self.canvas_history[t]
+            print(f'{t}. & {latex(painter)} & {latex(canvas)} \\\\')
+        set_latex_mode(lm)
 
     def state_str(self) -> str:
         sio = StringIO()
