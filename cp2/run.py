@@ -298,7 +298,6 @@ hoplike_long_easy = hoplike | dict(
     ccl=False
 )
 
-# NEXT When ccl=False, need to update cells on every write
 example1 = hoplike_long_easy | dict(
     #seed='aa     a',
     seed='  aabb  ',
@@ -314,6 +313,45 @@ example2 = example1 | dict(
     rsteps=40,
 )
 
+rel0 = dict(   # reconstructs with abs painters only, because seed is aligned
+               # right
+    ltm=['bbbbghij'],
+    seed='b   g   ',
+    ab=[ab1a],
+    asteps=150,
+    rsteps=50,
+    abr=False,
+    pcl=False,
+    llr=2
+)
+
+rel1 = rel0 | dict(  # shows inability of abs painters to adjust to a shift (??)
+    seed='b  gh   ',
+    rsteps=50,
+    rng=620217766481971979
+)
+# PROBLEM This actually generates the desired analogy! bbbghijk
+# We need an illustration of how absolute painters can't follow a shift.
+
+rel2 = rel1 | dict(  # relative painters: a bit nicer
+    ab=[ab4]
+)
+
+
+rel0a = rel0 | dict(
+    ltm=['bbbbghib'],
+    seed='b   g   '
+)
+
+rel1a = rel0a | dict(
+    seed='b g     ',
+)
+
+rel2a = rel1a | dict(
+    ab=[ab4],
+    rsteps=120,
+    rng=682026381905476632
+)
 
 # Can we solve 'ajaqb' without relative indirect painters?
 quest1 = dict(
@@ -380,7 +418,9 @@ if __name__ == '__main__':
     #'ghijk    '
 
     #r(hoplike_long_easy)
-    r(example1)
+    #r(example1)
+    #r(rel1)
+    r(rel2a)
 
     #r(cdecb, llr=2, rsteps=0, lla=2)
 
@@ -396,4 +436,5 @@ if __name__ == '__main__':
 
 # WANT Run an experiment with same params as example2, but with hundreds of
 # different randomly chosen 4-letter seeds (with 4 randomly placed blanks),
-# and see if there are only a small number of attractors.
+# and see if there are only a small number of attractors. Run to completion
+# rather than running a set number of timesteps.

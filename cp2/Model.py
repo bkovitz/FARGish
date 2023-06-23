@@ -45,6 +45,7 @@ from util import first, force_setattr, short, nf, Numeric, empty_set, rescale, \
 
 latex_mode: bool = False   # If True, render some strings as LaTeX
 math_mode: bool = False    # If True, now in LaTeX math mode
+in_lett: bool = False      # If True, now inside a \lett macro
 
 def set_latex_mode(b: Bool=True) -> None:
     global latex_mode
@@ -154,7 +155,11 @@ class Letter(CallableFunc):
         return f'{cl}({self.c!r})'
 
     def latex(self) -> str:
-        return self.c
+        global in_lett
+        if in_lett:
+            return self.c
+        else:
+            return f'\\lett{{{self.c}}}'
 
 @dataclass(frozen=True)
 class Blank:
@@ -680,16 +685,30 @@ class Plus(Addr, HasAsIndex, HasSimplify):
         return '+'.join(str(a) for a in self.args)
 
     def latex(self) -> str:
+        global math_mode
         if math_mode:
             return self.latex_()
         else:
             math_mode = True
-            result = self.latex_()
+            result = '$' + self.latex_() + '$'
             math_mode = False
             return result
 
     def latex_(self) -> str:
-        return '$' + '+'.join(latex(a) for a in self.args) + '$'
+        result = ''
+        for a in self.args:
+            if not result:
+                result = latex(a)
+            else:
+                match a:
+                    case int():
+                        if a >= 0:
+                            result += '+'
+                    case _:
+                        result += '+'
+                result += latex(a)
+        return result
+        #return '+'.join(latex(a) for a in self.args)
 
     # TODO rm? Superseded by .simplify()?
     def value_of(self, subst: Subst) -> Expr:
@@ -875,8 +894,13 @@ class MatchContent(Addr):
         )
 
     def latex(self) -> str:
-        '''UNIMPLEMENTED'''
-        return short(self)
+        match self.content:
+            case Letter():
+                return latex(self.content)
+            case Blank():
+                return latex(self.content)
+            case _:
+                return short(self)
 
     def __repr__(self) -> str:
         cl = self.__class__.__name__
@@ -1299,8 +1323,15 @@ class Canvas1D(Canvas):
         return f"{self.short()}  {' '.join(str(c) for c in self.contents.all_clarities())}"
 
     def latex(self) -> str:
-        cells = ''.join(latex(v) for v in self.contents.all_values())
-        return f'\\lett{{{cells}}}'
+        global in_lett
+        if in_lett:
+            return ''.join(latex(v) for v in self.contents.all_values())
+        else:
+            in_lett = True
+            cells = ''.join(latex(v) for v in self.contents.all_values())
+            result = f'\\lett{{{cells}}}'
+            in_lett = False
+            return result
 
 ########## Exceptions ##########
 
