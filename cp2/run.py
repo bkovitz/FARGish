@@ -395,9 +395,6 @@ cdecb = dict(
     pun=False
 )
 
-# NEXT Settle on an example with several strings in ltm, to demonstrate
-# instability without clarity
-
 # hoplike_few
 
 #      pcl=False => ignore painter clarity
@@ -407,6 +404,56 @@ cdecb = dict(
 
 # TODO Collect together some named experiments that show each point in
 # sequence. Start without cell clarity.
+
+ri1 = dict(
+    seed='m    ',
+    ltm=['ajaqb'],
+    ab=[ab1a, ab4],
+    abr=False,
+    ccl=True,
+    pcl=False,
+    pun=False,
+)
+
+# NEXT Who solves ajaqb with m____? What is the minimum set of ab initio
+# painters?
+#  Answer: r(ri1, seed='m    ', ab=[ab1a, ab3])
+
+# THEN Find the bug that makes the betw painter match a painter in the LTS.
+# r(ri1, ltm=['aaajaqb'], seed='mj     ', ab=[ab1a, a b3, ab4])
+
+# Could we set up a problem where the presence of absolute painters
+# interferes with a good solution?
+
+
+# Can we see any use for the relative indirect painter at all, which we cab
+# illustrate with an example?
+
+# Yes. This fails:
+# r(ri1, seed='a    ', exc=True, abr=True, ab=[ab1a, ab3])
+# This succeeds:
+# r(ri1, seed='a    ', exc=True, abr=True, ab=[ab1a, ab2, ab3])
+
+
+# To illustrate Process A and Process B:
+#    Need abr=True to be necessary to solve problem with some set of
+#    ab initio painters.
+
+#  ((I, I+2, same), ws, (I, I+4, succ))   <-- this would do it, even on m____
+
+src = Painter(I, Plus(I, 2), same)
+fun = Painter(I, Plus(I, 4), succ)
+p1 = Painter(src, SR.WorkingSoup, fun)
+
+# Fails:
+# r(ri1, seed='m m  ', exc=True, abr=False, ab=[ab1a, ab3, p1])
+# Succeeds:
+# r(ri1, seed='m m  ', exc=True, abr=True, ab=[ab1a, ab3, p1])
+
+# New ab initio painter:
+#  See two abs painters with one overlapping index, make the above painter.
+
+# DECISION: Omit relative indirect painter, include only this painter above.
 
 if __name__ == '__main__':
     #parse_and_run()  # Uncomment this to get normal command line
@@ -420,7 +467,7 @@ if __name__ == '__main__':
     #r(hoplike_long_easy)
     #r(example1)
     #r(rel1)
-    r(rel2a)
+    r(ri1)
 
     #r(cdecb, llr=2, rsteps=0, lla=2)
 
