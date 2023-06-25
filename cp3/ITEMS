@@ -1,0 +1,52 @@
+24-Jun-2023
+Items to go into the "cp2" chapter in the dissertation
+
+
+CHAPTER HIGHLIGHTS
+
+*** Main concept for chapter?  Predicates & completions ***
+
+It's called the "chunky" model because it paints more than once cell at a
+time.
+
+We thought a lot about how to do 'iijjkk' and 'wyz'.
+
+p1,p2,p3,p4,p5: a representation for ajaqb that ultimately fails for doing
+variations like 'a   b   a'
+
+No constants as arguments; only variables.
+
+Just pick a few interesting ideas, like predicates & completions, and
+leave the rest for cp6. Many are in cp6. Introduce as few of those here as
+possible.
+
+A custom Succ operation?  Maybe omit
+
+The diff operation: yields how to make this from that. A delta.
+
+Two ways to represent 'aaabac'
+                       aaa bac
+                       aa ab ac
+
+Failure tags?
+
+Something we got stuck on: referring to the Length attr of a canvas. How do
+you paint *that*?
+
+4-argument painters?
+
+
+ITEMS
+
+Predicates
+
+Completions
+
+Snippets
+
+Repeaters   leave this for cp6
+   Repetition detector
+
+Painter Clusters?   omit from dissertation
+
+Cycles

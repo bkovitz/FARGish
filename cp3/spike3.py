@@ -1,6 +1,7 @@
 # spike3.py -- A quick test of Predicates that return Completion objects
 #
 # Started on 18-Jan-2023
+# Abandoned 29-Jan-2023
 
 from __future__ import annotations
 from typing import Any, Callable, ClassVar, Collection, Dict, FrozenSet, \

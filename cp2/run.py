@@ -353,6 +353,10 @@ rel2a = rel1a | dict(
     rng=682026381905476632
 )
 
+rel3a = rel2a | dict(
+    seed='c s     '
+)
+
 # Can we solve 'ajaqb' without relative indirect painters?
 quest1 = dict(
     ltm=['ajaqb'],
@@ -450,6 +454,22 @@ p1 = Painter(src, SR.WorkingSoup, fun)
 # Succeeds:
 # r(ri1, seed='m m  ', exc=True, abr=True, ab=[ab1a, ab3, p1])
 
+pab1 = ri1 | dict(
+    seed='m m  ',
+    exc=True,
+    abr=False,
+    ab=[ab1a, ab3, p1],
+    rng=6324482767183163296
+)
+
+pab2 = pab1 | dict(
+    abr=True
+)
+
+# Succeeds:
+# r(ri1, seed='mmm m  ', exc=True, abr=True, ab=[ab1a, ab3, p1])
+# Shows changing both position and letter.
+
 # New ab initio painter:
 #  See two abs painters with one overlapping index, make the above painter.
 
@@ -467,7 +487,10 @@ if __name__ == '__main__':
     #r(hoplike_long_easy)
     #r(example1)
     #r(rel1)
-    r(ri1)
+
+    #r(ri1)
+
+    r(pab1)
 
     #r(cdecb, llr=2, rsteps=0, lla=2)
 
